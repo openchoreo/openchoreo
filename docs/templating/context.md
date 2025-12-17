@@ -296,6 +296,56 @@ envFrom: |
     [{"configMapRef": {"name": metadata.name + "-config"}}] : []}
 ```
 
+#### configurations.toConfigFileList(prefix)
+
+Helper method that flattens `configs.files` from all containers in the `configurations` object into a single list, useful for `forEach` iteration. This aggregates config files across all workload containers.
+
+**Parameters:**
+- `prefix` - String used to generate unique resource names (typically `metadata.name`)
+
+**Returns:** List of maps, each containing:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | File name |
+| `mountPath` | string | Mount path |
+| `value` | string | File content (empty string if using remoteRef) |
+| `resourceName` | string | Generated Kubernetes-compliant resource name |
+| `remoteRef` | map | Remote reference (only present if the file uses a secret reference) |
+
+**Example usage:**
+
+```yaml
+# Generate a ConfigMap for each config file across all containers
+resources:
+  - id: file-configs
+    forEach: ${configurations.toConfigFileList(metadata.name)}
+    var: config
+    template:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ${config.resourceName}
+        namespace: ${metadata.namespace}
+      data:
+        ${config.name}: |
+          ${config.value}
+```
+
+**Equivalent CEL expression:**
+
+If you need additional fields (e.g., `container` name) or different behavior, use the underlying data directly:
+
+```yaml
+forEach: |
+  ${configurations.transformList(containerName, cfg,
+    cfg.configs.files.map(f, oc_merge(f, {
+      "container": containerName,
+      "resourceName": oc_generate_name(metadata.name, containerName, "config", f.name.replace(".", "-"))
+    }))
+  ).flatten()}
+```
+
 ## TraitContext
 
 TraitContext is used when rendering Trait creates and patches. It provides access to metadata, trait-specific information, and trait parameters.

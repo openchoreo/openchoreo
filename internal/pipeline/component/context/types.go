@@ -172,7 +172,7 @@ type ComponentContext struct {
 	// Configurations are extracted configuration items from workload.
 	// Keyed by container name, contains configs and secrets.
 	// Accessed via ${configurations["containerName"].configs.envs}, etc.
-	Configurations map[string]ContainerConfigurations `json:"configurations"`
+	Configurations ContainerConfigurationsMap `json:"configurations"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -192,6 +192,9 @@ type ContainerData struct {
 	Command []string `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 }
+
+// ContainerConfigurationsMap maps container names to their configuration collections.
+type ContainerConfigurationsMap map[string]ContainerConfigurations
 
 // ContainerConfigurations contains configs and secrets for a container.
 type ContainerConfigurations struct {

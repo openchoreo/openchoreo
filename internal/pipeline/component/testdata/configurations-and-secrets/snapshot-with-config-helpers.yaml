@@ -80,14 +80,13 @@ spec:
             data: |
               ${has(configurations["main"].configs.envs) ? configurations["main"].configs.envs.transformMapEntry(index, env, {env.name: env.value}) : oc_omit()}
         - id: file-config
-          includeWhen: ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0}
-          forEach: ${configurations["main"].configs.files}
+          forEach: ${configurations.toConfigFileList(metadata.name)}
           var: config
           template:
             apiVersion: v1
             kind: ConfigMap
             metadata:
-              name: ${oc_generate_name(metadata.name, "config", config.name).replace(".", "-")}
+              name: ${config.resourceName}
               namespace: ${metadata.namespace}
             data:
               ${config.name}: |

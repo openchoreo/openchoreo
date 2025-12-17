@@ -146,9 +146,17 @@ func (r *Renderer) renderWithForEach(
 		return nil, fmt.Errorf("failed to evaluate forEach expression for resource %s: %w", tmpl.ID, err)
 	}
 
-	// Ensure result is an array
-	items, ok := result.([]any)
-	if !ok {
+	// Ensure result is an array - handle both []any and []map[string]any
+	var items []any
+	switch v := result.(type) {
+	case []any:
+		items = v
+	case []map[string]any:
+		items = make([]any, len(v))
+		for i, m := range v {
+			items[i] = m
+		}
+	default:
 		return nil, fmt.Errorf("forEach must evaluate to array for resource %s, got %T", tmpl.ID, result)
 	}
 

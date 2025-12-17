@@ -12,8 +12,8 @@ import (
 // Returns a map where each key is a container name, and the value contains configs and secrets.
 // Always initializes empty slices for envs and files to ensure they're never nil.
 // Example structure: {"app": {"configs": {"envs": [...], "files": [...]}, "secrets": {"envs": [...], "files": [...]}}}
-func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) map[string]ContainerConfigurations {
-	result := make(map[string]ContainerConfigurations)
+func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) ContainerConfigurationsMap {
+	result := make(ContainerConfigurationsMap)
 
 	// Process all containers in the workload
 	if workload == nil {

@@ -1,0 +1,158 @@
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-env-configs-3e553e36
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  data:
+    LOG_LEVEL: error
+    DEBUG_MODE: "true"
+    NEW_CONFIG: production
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-main-config-app-properties-74e21613
+    namespace: test-namespace
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  data:
+    app.properties: |
+      app.name=myapp
+      app.version=1.0.0
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: test-component-dev-12345678-main-config-config-json-5114fe83
+    namespace: test-namespace
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  data:
+    config.json: |
+      {
+        "database": {
+          "host": "prod.db.example.com",
+          "port": 5432
+        }
+      }
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-component-dev-12345678
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+          - name: main
+            image: myapp:latest
+            envFrom:
+              - configMapRef:
+                  name: test-component-dev-12345678-env-configs-3e553e36
+              - secretRef:
+                  name: test-component-dev-12345678-env-secrets-7d163eae
+            volumeMounts:
+              - name: file-mount-9b2ef275
+                mountPath: /etc/tls/tls.crt
+                subPath: tls.crt
+              - name: file-mount-6c698306
+                mountPath: /etc/config/config.json
+                subPath: config.json
+              - name: file-mount-5953ef7b
+                mountPath: /etc/config/application.yaml
+                subPath: application.yaml
+              - name: file-mount-d08babc2
+                mountPath: /etc/config/app.properties
+                subPath: app.properties
+        volumes:
+          - name: file-mount-5953ef7b
+            secret:
+              secretName: test-component-dev-12345678-secret-application-yaml-f2042975
+          - name: file-mount-9b2ef275
+            secret:
+              secretName: test-component-dev-12345678-secret-tls-crt-baf3eb48
+          - name: file-mount-6c698306
+            configMap:
+              name: test-component-dev-12345678-config-config-json-4334abe4
+          - name: file-mount-d08babc2
+            configMap:
+              name: test-component-dev-12345678-config-app-properties-7a40d758
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-env-secrets-7d163eae
+    namespace: test-namespace
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: dev-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-env-secrets-7d163eae
+      creationPolicy: Owner
+    data:
+      - secretKey: DB_PASSWORD
+        remoteRef:
+          key: prod/db
+          property: password
+      - secretKey: API_KEY
+        remoteRef:
+          key: dev/api
+          property: api_key
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-application-yaml-f2042975
+    namespace: test-namespace
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: dev-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-application-yaml-f2042975
+      creationPolicy: Owner
+    data:
+      - secretKey: application.yaml
+        remoteRef:
+          key: dev/config
+          property: application.yaml
+- apiVersion: external-secrets.io/v1
+  kind: ExternalSecret
+  metadata:
+    name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+    namespace: test-namespace
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    refreshInterval: 15s
+    secretStoreRef:
+      name: dev-vault-store
+      kind: ClusterSecretStore
+    target:
+      name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+      creationPolicy: Owner
+    data:
+      - secretKey: tls.crt
+        remoteRef:
+          key: prod/certificates
+          property: tls.crt

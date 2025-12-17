@@ -17,29 +17,46 @@ import (
 
 // Engine evaluates CEL backed templates that can contain inline expressions, map keys, and nested structures.
 type Engine struct {
-	cache *EngineCache
+	cache                *EngineCache
+	celExtensions        []cel.EnvOption
+	cacheDisabled        bool
+	programCacheDisabled bool
 }
 
 // NewEngine creates a new CEL template engine with default cache settings.
 func NewEngine() *Engine {
 	return &Engine{
-		cache: NewEngineCache(),
+		cache: newEngineCache(false, false),
 	}
 }
 
-// NewEngineWithOptions creates a new CEL template engine with custom cache options.
-// Use this for testing and benchmarking different caching strategies.
+// NewEngineWithOptions creates a new CEL template engine with custom options.
+// Use this for testing and benchmarking different caching strategies,
+// or to add custom CEL extensions.
 //
 // Example:
 //
 //	// Disable all caching for baseline benchmark
 //	engine := template.NewEngineWithOptions(template.DisableCache())
 //
-//	// Disable only program cache to measure its impact
-//	engine := template.NewEngineWithOptions(template.DisableProgramCacheOnly())
+//	// Add custom CEL extensions
+//	engine := template.NewEngineWithOptions(template.WithCELExtensions(context.CELExtensions()...))
 func NewEngineWithOptions(opts ...EngineOption) *Engine {
-	return &Engine{
-		cache: NewEngineCacheWithOptions(opts...),
+	e := &Engine{}
+	for _, opt := range opts {
+		opt(e)
+	}
+	if e.cache == nil {
+		e.cache = newEngineCache(e.cacheDisabled, e.programCacheDisabled)
+	}
+	return e
+}
+
+// WithCELExtensions adds custom CEL environment options to the engine.
+// Use this to register custom functions, macros, and types.
+func WithCELExtensions(extensions ...cel.EnvOption) EngineOption {
+	return func(e *Engine) {
+		e.celExtensions = append(e.celExtensions, extensions...)
 	}
 }
 
@@ -317,7 +334,7 @@ func (e *Engine) getOrCreateEnv(inputs map[string]any) (*cel.Env, error) {
 	}
 
 	// Build new environment
-	env, err := buildEnv(inputs)
+	env, err := buildEnv(inputs, e.celExtensions)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +346,7 @@ func (e *Engine) getOrCreateEnv(inputs map[string]any) (*cel.Env, error) {
 
 // buildEnv wires up CEL with the helper surface area expected by our templating story so authors
 // can reuse common snippets like `omit`, `merge`, and `sanitizeK8sResourceName`.
-func buildEnv(inputs map[string]any) (*cel.Env, error) {
+func buildEnv(inputs map[string]any, celExtensions []cel.EnvOption) (*cel.Env, error) {
 	envOptions := []cel.EnvOption{
 		cel.OptionalTypes(),
 	}
@@ -351,6 +368,9 @@ func buildEnv(inputs map[string]any) (*cel.Env, error) {
 
 	// Add our custom functions
 	envOptions = append(envOptions, CustomFunctions()...)
+
+	// Add custom CEL extensions (e.g., configuration helpers from context package)
+	envOptions = append(envOptions, celExtensions...)
 
 	return cel.NewEnv(envOptions...)
 }
