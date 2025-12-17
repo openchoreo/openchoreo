@@ -28,7 +28,7 @@ type OpenSearchClient interface {
 	Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error)
 	GetIndexMapping(ctx context.Context, index string) (*opensearch.MappingResponse, error)
 	SearchMonitorByName(ctx context.Context, name string) (id string, exists bool, err error)
-	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, err error)
+	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, lastUpdateTime int64, err error)
 	DeleteMonitor(ctx context.Context, monitorID string) error
 	HealthCheck(ctx context.Context) error
 }
@@ -367,6 +367,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 
 	action := "created"
 	backendID := monitorID
+	lastUpdateTime := int64(0)
 
 	if exists {
 		s.logger.Debug("Alert rule " + rule.Metadata.Name + " already exists. Alert rule ID: " + backendID + ". Updating the alert rule.")
@@ -395,20 +396,19 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		}
 
 		// create the alert rule
-		backendID, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
+		backendID, lastUpdateTime, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create alert rule: %w", err)
 		}
 	}
 
 	// Return the alert rule ID
-	now := time.Now().UTC().Format(time.RFC3339)
 	return &types.AlertingRuleSyncResponse{
 		Status:     "synced",
 		LogicalID:  rule.Metadata.Name,
 		BackendID:  backendID,
 		Action:     action,
-		LastSynced: now,
+		LastSynced: time.UnixMilli(lastUpdateTime).UTC().Format(time.RFC3339),
 	}, nil
 }
 

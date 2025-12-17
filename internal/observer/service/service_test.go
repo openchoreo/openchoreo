@@ -47,11 +47,11 @@ func (m *MockOpenSearchClient) SearchMonitorByName(ctx context.Context, name str
 	return m.monitorID, m.monitorExists, m.monitorSearch
 }
 
-func (m *MockOpenSearchClient) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, error) {
+func (m *MockOpenSearchClient) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, int64, error) {
 	if m.monitorCreate != nil {
-		return "", m.monitorCreate
+		return "", 0, m.monitorCreate
 	}
-	return m.monitorID, nil
+	return m.monitorID, 0, nil
 }
 
 func (m *MockOpenSearchClient) DeleteMonitor(ctx context.Context, monitorID string) error {

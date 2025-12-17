@@ -187,23 +187,23 @@ func (c *Client) SearchMonitorByName(ctx context.Context, name string) (string, 
 }
 
 // CreateMonitor creates a new alerting monitor using the Alerting plugin API.
-func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, error) {
+func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, int64, error) {
 	body, err := json.Marshal(monitor)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal monitor: %w", err)
+		return "", 0, fmt.Errorf("failed to marshal monitor: %w", err)
 	}
 	c.logger.Debug("Creating monitor", "body", string(body))
 
 	path := "/_plugins/_alerting/monitors"
 	req, err := http.NewRequest("POST", path, bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", 0, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Add("Content-Type", "application/json")
 
 	res, err := c.client.Perform(req)
 	if err != nil {
-		return "", fmt.Errorf("monitor create request failed: %w", err)
+		return "", 0, fmt.Errorf("monitor create request failed: %w", err)
 	}
 	defer res.Body.Close()
 
@@ -212,17 +212,22 @@ func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface
 		c.logger.Error("Monitor create failed",
 			"status", res.StatusCode,
 			"response", string(bodyBytes))
-		return "", fmt.Errorf("monitor create request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
+		return "", 0, fmt.Errorf("monitor create request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
 	}
 
+	type MonitorUpsertResponse struct {
+		LastUpdateTime int64 `json:"last_update_time"`
+	}
 	var parsed struct {
-		ID string `json:"_id"`
+		ID      string                `json:"_id"`
+		Monitor MonitorUpsertResponse `json:"monitor"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("failed to parse monitor create response: %w", err)
+		return "", 0, fmt.Errorf("failed to parse monitor create response: %w", err)
 	}
 
-	return parsed.ID, nil
+	c.logger.Debug("Monitor create response: ", slog.Int64("last_update_time", parsed.Monitor.LastUpdateTime), "id", slog.String("id", parsed.ID))
+	return parsed.ID, parsed.Monitor.LastUpdateTime, nil
 }
 
 // DeleteMonitor deletes an alerting monitor using the Alerting plugin API.
