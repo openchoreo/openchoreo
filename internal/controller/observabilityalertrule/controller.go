@@ -75,7 +75,8 @@ type AlertingRuleSyncResponse struct {
 // Reconciler reconciles a ObservabilityAlertRule object
 type Reconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme     *runtime.Scheme
+	httpClient *http.Client
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertrules,verbs=get;list;watch;create;update;patch;delete
@@ -118,10 +119,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.updateStatusWithError(ctx, alertRule, err)
 	}
 
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
 	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -132,7 +129,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := httpClient.Do(httpReq)
+	resp, err := r.httpClient.Do(httpReq)
 	if err != nil {
 		logger.Error(err, "failed to call observer alerting API")
 		return r.updateStatusWithError(ctx, alertRule, err)
@@ -285,6 +282,11 @@ func setStatusCondition(rule *openchoreov1alpha1.ObservabilityAlertRule, status 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Initialize HTTP client once during setup
+	r.httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ObservabilityAlertRule{}).
 		Named("observabilityalertrule").

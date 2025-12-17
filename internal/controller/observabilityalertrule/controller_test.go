@@ -120,6 +120,9 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			controllerReconciler := &Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
+				httpClient: &http.Client{
+					Timeout: 10 * time.Second,
+				},
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
