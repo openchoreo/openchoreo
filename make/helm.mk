@@ -54,13 +54,13 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		;; \
 	"openchoreo-observability-plane") \
 		$(call log_info, Generating CRDs for observability plane chart); \
-		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-		$(call log_info, Keeping only ObservabilityPlane related CRDs); \
+		: "TODO: Automate this in future."; \
+		: " Manually copy the CRDs from config/crd/bases to the observability plane chart for now"; \
 		for crd in $(OBSERVABILITY_PLANE_CRDS); do \
-      find $(CHART_PATH)/crds -maxdepth 1 -type f ! -name openchoreo.dev_$$crd.yaml -delete; \
+		  $(call log_info, Copying $$crd CRD from config/crd/bases to observability plane chart); \
+		  cp $(PROJECT_DIR)/config/crd/bases/openchoreo.dev_$$crd.yaml $(CHART_PATH)/crds/openchoreo.dev_$$crd.yaml; \
+		  $(call log_warning, Please add $$crd RBAC to the observability plane chart manually); \
 		done; \
-		: "TODO: Automate this in future"; \
-		$(call log_warning, Please remove RBAC for CRDs other than $(OBSERVABILITY_PLANE_CRDS) from the observability plane chart); \
 		;; \
 	esac
 	helm dependency update $(CHART_PATH)
