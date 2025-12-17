@@ -635,11 +635,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	// Validate the shared webhook secret to ensure the request originates from a trusted source.
 	secret := httputil.GetPathParam(r, "secret")
 	if secret == "" || secret != h.alertingWebhookSecret {
-		h.logger.Warn("Received alerting webhook with invalid or missing secret",
-			"remoteAddr", r.RemoteAddr,
-			"secret", secret,
-			"expectedSecret", h.alertingWebhookSecret,
-		)
+		h.logger.Warn("Received alerting webhook with invalid or missing secret")
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
@@ -655,7 +651,6 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
 		return
 	}
-	defer r.Body.Close()
 
 	// Parse and log the webhook payload
 	if len(bodyBytes) == 0 {
