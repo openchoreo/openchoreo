@@ -90,7 +90,10 @@ func seedInitialData(db *gorm.DB, authzDataFilePath string, logger *slog.Logger)
 		return fmt.Errorf("failed to prepare actions: %w", err)
 	}
 	roleRecords := prepareRoleRecords(authzData.Roles)
-	mappingRecords := prepareMappingRecords(authzData.Mappings)
+	mappingRecords, err := prepareMappingRecords(authzData.Mappings)
+	if err != nil {
+		return fmt.Errorf("failed to prepare mappings: %w", err)
+	}
 
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if err := insertActions(tx, actionRecords, logger); err != nil {
@@ -196,10 +199,13 @@ func insertRoles(db *gorm.DB, ruleRecords []CasbinRule, roleCount int, logger *s
 }
 
 // prepareMappingRecords prepares role-entitlement mapping records for insertion
-func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping) []CasbinRule {
+func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping) ([]CasbinRule, error) {
 	policyRecords := make([]CasbinRule, 0, len(mappingDefinitions))
 	for _, mappingDef := range mappingDefinitions {
-		entitlement := formatSubject(mappingDef.Entitlement.Claim, mappingDef.Entitlement.Value)
+		entitlement, err := formatSubject(mappingDef.Entitlement.Claim, mappingDef.Entitlement.Value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format entitlement: %w", err)
+		}
 		resourcePath := hierarchyToResourcePath(mappingDef.Hierarchy)
 
 		policyRecords = append(policyRecords, CasbinRule{
@@ -213,7 +219,7 @@ func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping
 			IsInternal: mappingDef.IsInternal,
 		})
 	}
-	return policyRecords
+	return policyRecords, nil
 }
 
 // insertMappings inserts mapping records into the database
