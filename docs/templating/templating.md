@@ -168,9 +168,15 @@ ports: |
 # List operations
 firstItem: ${parameters.items[0]}
 lastItem: ${parameters.items[size(parameters.items) - 1]}
-sortedItems: ${parameters.items.sort()}
-uniqueItems: ${sets.unique(parameters.items)}
 joined: ${parameters.items.join(",")}
+
+# Sorting lists
+sortedStrings: ${parameters.names.sort()}                        # sort primitive lists (strings, ints, etc.)
+sortedByName: ${parameters.items.sortBy(item, item.name)}        # sort object lists by a field
+
+# List concatenation
+combined: ${parameters.list1 + parameters.list2}
+withInlineItem: ${parameters.userPorts + [{"port": 8080, "name": "http"}]}
 
 # Flatten nested lists
 flattened: ${[[1, 2], [3, 4]].flatten()}  # returns [1, 2, 3, 4]
