@@ -764,7 +764,7 @@ func (t *Toolsets) RegisterUpdateComponentWorkflowSchema(s *mcp.Server) {
 		SystemParameters map[string]interface{} `json:"system_parameters"`
 		Parameters       map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
-		updateReq := &models.UpdateComponentWorkflowSchemaRequest{
+		updateReq := &models.UpdateComponentWorkflowRequest{
 			WorkflowName: args.WorkflowName,
 		}
 
