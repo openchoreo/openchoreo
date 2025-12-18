@@ -40,21 +40,31 @@ const (
 	SystemActionViewEnvironment   systemAction = "environment:view"
 
 	SystemActionViewDeploymentPipeline systemAction = "deploymentpipeline:view"
+
+	SystemActionViewWorkflow systemAction = "workflow:view"
+
+	SystemActionViewComponentWorkflow    systemAction = "componentworkflow:view"
+	SystemActionTriggerComponentWorkflow systemAction = "componentworkflow:trigger"
+
+	SystemActionViewSecretReference systemAction = "secretreference:view"
 )
 
 type ResourceType string
 
 const (
-	ResourceTypeProject          ResourceType = "project"
-	ResourceTypeComponent        ResourceType = "component"
-	ResourceTypeComponentRelease ResourceType = "componentRelease"
-	ResourceTypeOrganization     ResourceType = "organization"
-	ResourceTypeRole             ResourceType = "role"
-	ResourceTypeRoleMapping      ResourceType = "roleMapping"
-	ResourceTypeComponentType    ResourceType = "componentType"
-	ResourceTypeTrait            ResourceType = "trait"
-	ResourceTypeDataPlane           ResourceType = "dataPlane"
-	ResourceTypeBuildPlane          ResourceType = "buildPlane"
-	ResourceTypeEnvironment         ResourceType = "environment"
-	ResourceTypeDeploymentPipeline  ResourceType = "deploymentPipeline"
+	ResourceTypeProject            ResourceType = "project"
+	ResourceTypeComponent          ResourceType = "component"
+	ResourceTypeComponentRelease   ResourceType = "componentRelease"
+	ResourceTypeOrganization       ResourceType = "organization"
+	ResourceTypeRole               ResourceType = "role"
+	ResourceTypeRoleMapping        ResourceType = "roleMapping"
+	ResourceTypeComponentType      ResourceType = "componentType"
+	ResourceTypeTrait              ResourceType = "trait"
+	ResourceTypeDataPlane          ResourceType = "dataPlane"
+	ResourceTypeBuildPlane         ResourceType = "buildPlane"
+	ResourceTypeEnvironment        ResourceType = "environment"
+	ResourceTypeDeploymentPipeline ResourceType = "deploymentPipeline"
+	ResourceTypeWorkflow           ResourceType = "workflow"
+	ResourceTypeComponentWorkflow  ResourceType = "componentWorkflow"
+	ResourceTypeSecretReference    ResourceType = "secretReference"
 )

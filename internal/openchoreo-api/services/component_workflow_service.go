@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -30,19 +31,27 @@ import (
 type ComponentWorkflowService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewComponentWorkflowService creates a new component workflow service
-func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger) *ComponentWorkflowService {
+func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *ComponentWorkflowService {
 	return &ComponentWorkflowService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
 // TriggerWorkflow creates a new ComponentWorkflowRun from a component's workflow configuration
 func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
 	s.logger.Debug("Triggering component workflow", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionTriggerComponentWorkflow, ResourceTypeComponentWorkflow, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	// Retrieve component and use that to create the workflow run
 	var component openchoreov1alpha1.Component
@@ -148,6 +157,12 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 // ListComponentWorkflowRuns retrieves component workflow runs for a component using spec.owner fields
 func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) ([]models.ComponentWorkflowResponse, error) {
 	s.logger.Debug("Listing component workflow runs", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check - use view component action since this is viewing component workflow runs
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	var workflowRuns openchoreov1alpha1.ComponentWorkflowRunList
 	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(orgName))
@@ -306,6 +321,16 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 
 	cwfs := make([]*models.WorkflowResponse, 0, len(cwfList.Items))
 	for i := range cwfList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				// Skip unauthorized items
+				s.logger.Debug("Skipping unauthorized component workflow", "org", orgName, "componentWorkflow", cwfList.Items[i].Name)
+				continue
+			}
+			// Return other errors
+			return nil, err
+		}
 		cwfs = append(cwfs, s.toComponentWorkflowResponse(&cwfList.Items[i]))
 	}
 
@@ -316,6 +341,12 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 // GetComponentWorkflow retrieves a specific ComponentWorkflow template
 func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, orgName, cwfName string) (*models.WorkflowResponse, error) {
 	s.logger.Debug("Getting ComponentWorkflow", "org", orgName, "name", cwfName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	cwf := &openchoreov1alpha1.ComponentWorkflow{}
 	key := client.ObjectKey{
@@ -338,6 +369,12 @@ func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, org
 // GetComponentWorkflowSchema retrieves the JSON schema for a ComponentWorkflow template
 func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Context, orgName, cwfName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting ComponentWorkflow template schema", "org", orgName, "name", cwfName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	cwf := &openchoreov1alpha1.ComponentWorkflow{}
 	key := client.ObjectKey{

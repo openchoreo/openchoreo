@@ -61,16 +61,16 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	traitService := NewTraitService(k8sClient, logger.With("service", "trait"), authzPDP)
 
 	// Create Workflow service
-	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
+	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
 	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"))
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
 	// Create SecretReference service
-	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
+	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"), authzPDP)
 
 	// Create Authorization service
 	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))

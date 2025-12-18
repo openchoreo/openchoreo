@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -13,6 +14,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -23,13 +25,15 @@ import (
 type WorkflowService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewWorkflowService creates a new Workflow service
-func NewWorkflowService(k8sClient client.Client, logger *slog.Logger) *WorkflowService {
+func NewWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *WorkflowService {
 	return &WorkflowService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -49,6 +53,15 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string) ([]
 
 	wfs := make([]*models.WorkflowResponse, 0, len(wfList.Items))
 	for i := range wfList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				// Skip unauthorized items
+				s.logger.Debug("Skipping unauthorized workflow", "org", orgName, "workflow", wfList.Items[i].Name)
+				continue
+			}
+			return nil, err
+		}
 		wfs = append(wfs, s.toWorkflowResponse(&wfList.Items[i]))
 	}
 
@@ -59,6 +72,11 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string) ([]
 // GetWorkflow retrieves a specific Workflow
 func (s *WorkflowService) GetWorkflow(ctx context.Context, orgName, wfName string) (*models.WorkflowResponse, error) {
 	s.logger.Debug("Getting Workflow", "org", orgName, "name", wfName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	wf := &openchoreov1alpha1.Workflow{}
 	key := client.ObjectKey{
@@ -81,6 +99,12 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, orgName, wfName strin
 // GetWorkflowSchema retrieves the JSON schema for a Workflow
 func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, orgName, wfName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting Workflow schema", "org", orgName, "name", wfName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	wf := &openchoreov1alpha1.Workflow{}
 	key := client.ObjectKey{
