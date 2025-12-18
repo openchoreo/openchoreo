@@ -345,54 +345,37 @@ envFrom: |
     [{"configMapRef": {"name": metadata.name + "-config"}}] : []}
 ```
 
-#### configurations.toConfigFileList(prefix)
+### Configuration Helper Methods
 
-Helper method that flattens `configs.files` from all containers in the `configurations` object into a single list, useful for `forEach` iteration. This aggregates config files across all workload containers.
+The `configurations` object provides several helper methods to simplify working with container configurations, environment variables, and file mounts. These helpers reduce boilerplate and make templates more readable.
 
-**Parameters:**
-- `prefix` - String used to generate unique resource names (typically `metadata.name`)
+**Available Helper Methods:**
 
-**Returns:** List of maps, each containing:
+| Helper Method | Description |
+|---------------|-------------|
+| `configurations[containerName].envFrom(prefix)` | Generates `envFrom` array with configMapRef and secretRef for a container |
+| `configurations.toConfigEnvList(prefix)` | Returns list of containers with config envs for forEach iteration (ConfigMap creation) |
+| `configurations.toSecretEnvList(prefix)` | Returns list of containers with secret envs for forEach iteration (ExternalSecret creation) |
+| `configurations.toConfigFileList(prefix)` | Flattens all config files from all containers into a single list |
+| `configurations.toSecretFileList(prefix)` | Flattens all secret files from all containers into a single list |
+| `configurations.toContainerVolumeMounts(containerName)` | Generates volumeMounts array for a container's files |
+| `configurations.toVolumes(prefix)` | Generates volumes array for all containers' files |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | File name |
-| `mountPath` | string | Mount path |
-| `value` | string | File content (empty string if using remoteRef) |
-| `resourceName` | string | Generated Kubernetes-compliant resource name |
-| `remoteRef` | map | Remote reference (only present if the file uses a secret reference) |
+For detailed documentation, examples, and usage patterns for each helper method, see [Configuration Helpers](./configuration_helpers.md).
 
-**Example usage:**
-
-```yaml
-# Generate a ConfigMap for each config file across all containers
-resources:
-  - id: file-configs
-    forEach: ${configurations.toConfigFileList(metadata.name)}
-    var: config
-    template:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: ${config.resourceName}
-        namespace: ${metadata.namespace}
-      data:
-        ${config.name}: |
-          ${config.value}
-```
-
-**Equivalent CEL expression:**
-
-If you need additional fields (e.g., `container` name) or different behavior, use the underlying data directly:
+**Quick Example:**
 
 ```yaml
-forEach: |
-  ${configurations.transformList(containerName, cfg,
-    cfg.configs.files.map(f, oc_merge(f, {
-      "container": containerName,
-      "resourceName": oc_generate_name(metadata.name, containerName, "config", f.name.replace(".", "-"))
-    }))
-  ).flatten()}
+# Using helper methods for cleaner templates
+spec:
+  template:
+    spec:
+      containers:
+        - name: main
+          image: myapp:latest
+          envFrom: ${configurations["main"].envFrom(metadata.name)}
+          volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+      volumes: ${configurations.toVolumes(metadata.name)}
 ```
 
 ## TraitContext

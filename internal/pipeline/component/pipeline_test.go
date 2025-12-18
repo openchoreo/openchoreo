@@ -503,7 +503,18 @@ spec:
 					actualResources[i] = rr.Resource
 				}
 
-				if diff := cmp.Diff(wantResources, actualResources, sortAnySlicesByName()); diff != "" {
+				// Normalize actual resources by marshaling and unmarshaling through YAML
+				// This ensures type consistency ([]any vs []map[string]any) with expected resources
+				actualYAML, err := yaml.Marshal(actualResources)
+				if err != nil {
+					t.Fatalf("Failed to marshal actual resources: %v", err)
+				}
+				var normalizedActualResources []map[string]any
+				if err := yaml.Unmarshal(actualYAML, &normalizedActualResources); err != nil {
+					t.Fatalf("Failed to unmarshal normalized actual resources: %v", err)
+				}
+
+				if diff := cmp.Diff(wantResources, normalizedActualResources, sortAnySlicesByName()); diff != "" {
 					t.Errorf("Resources mismatch (-want +got):\n%s", diff)
 				}
 			}
