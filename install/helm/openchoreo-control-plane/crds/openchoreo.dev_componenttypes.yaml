@@ -120,7 +120,6 @@ spec:
                   envOverrides:
                     description: |-
                       EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
-                      These are also exposed to developers but can be changed per environment.
                       Same nested map structure and type definition format as Parameters.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true

@@ -80,11 +80,11 @@ spec:
                       protocol: TCP
                   resources:
                     requests:
-                      cpu: ${parameters.resources.requests.cpu}
-                      memory: ${parameters.resources.requests.memory}
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
                     limits:
-                      cpu: ${parameters.resources.limits.cpu}
-                      memory: ${parameters.resources.limits.memory}
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
               volumes: |
                 ${has(configurations[parameters.containerName].configs.files) && configurations[parameters.containerName].configs.files.size() > 0 || has(configurations[parameters.containerName].secrets.files) && configurations[parameters.containerName].secrets.files.size() > 0 ?
                   (has(configurations[parameters.containerName].configs.files) && configurations[parameters.containerName].configs.files.size() > 0 ?

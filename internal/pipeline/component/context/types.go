@@ -96,12 +96,6 @@ type ComponentContextInput struct {
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
-
-	// DiscardComponentEnvOverrides when true, discards envOverride values from Component.Spec.Parameters
-	// and only uses values from ReleaseBinding.Spec.ComponentTypeEnvOverrides for envOverride fields.
-	// Component parameters are still used for fields defined in schema.parameters.
-	// Default: false
-	DiscardComponentEnvOverrides bool
 }
 
 // TraitContextInput contains all inputs needed to build a trait rendering context.
@@ -127,12 +121,6 @@ type TraitContextInput struct {
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
 	SchemaCache map[string]*apiextschema.Structural
-
-	// DiscardComponentEnvOverrides when true, discards envOverride values from trait instance parameters
-	// and only uses values from ReleaseBinding.Spec.TraitOverrides for envOverride fields.
-	// Trait instance parameters are still used for fields defined in trait's schema.parameters.
-	// Default: false
-	DiscardComponentEnvOverrides bool
 }
 
 // SchemaInput contains schema information for applying defaults.
@@ -161,9 +149,13 @@ type ComponentContext struct {
 	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
 	DataPlane DataPlaneData `json:"dataplane"`
 
-	// Parameters are merged component parameters with defaults applied.
-	// Dynamic - depends on ComponentType schema.
+	// Parameters from Component.Spec.Parameters, pruned to ComponentType.Schema.Parameters.
+	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
+
+	// EnvOverrides from ReleaseBinding.Spec.ComponentTypeEnvOverrides, pruned to ComponentType.Schema.EnvOverrides.
+	// Accessed via ${envOverrides.*}
+	EnvOverrides map[string]any `json:"envOverrides"`
 
 	// Workload contains workload specification (containers, endpoints, connections).
 	// Accessed via ${workload.name}, ${workload.containers}, etc.
@@ -241,9 +233,13 @@ type TraitContext struct {
 	// Accessed via ${trait.name}, ${trait.instanceName}
 	Trait TraitMetadata `json:"trait"`
 
-	// Parameters are merged trait instance parameters with defaults applied.
-	// Dynamic - depends on Trait schema.
+	// Parameters from TraitInstance.Parameters, pruned to Trait.Schema.Parameters.
+	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
+
+	// EnvOverrides from ReleaseBinding.Spec.TraitOverrides[instanceName], pruned to Trait.Schema.EnvOverrides.
+	// Accessed via ${envOverrides.*}
+	EnvOverrides map[string]any `json:"envOverrides"`
 }
 
 // TraitMetadata contains trait-specific metadata.

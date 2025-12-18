@@ -50,7 +50,7 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
-          schedule: ${parameters.schedule}
+          schedule: ${envOverrides.schedule}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
@@ -75,11 +75,11 @@ spec:
                         ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
                       resources:
                         requests:
-                          cpu: ${parameters.resources.requests.cpu}
-                          memory: ${parameters.resources.requests.memory}
+                          cpu: ${envOverrides.resources.requests.cpu}
+                          memory: ${envOverrides.resources.requests.memory}
                         limits:
-                          cpu: ${parameters.resources.limits.cpu}
-                          memory: ${parameters.resources.limits.memory}
+                          cpu: ${envOverrides.resources.limits.cpu}
+                          memory: ${envOverrides.resources.limits.memory}
                       envFrom: |
                         ${(has(configurations[parameters.containerName].configs.envs) && configurations[parameters.containerName].configs.envs.size() > 0 ?
                           [{

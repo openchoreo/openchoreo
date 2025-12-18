@@ -51,11 +51,11 @@ spec:
                       protocol: TCP
                   resources:
                     requests:
-                      cpu: ${parameters.resources.requests.cpu}
-                      memory: ${parameters.resources.requests.memory}
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
                     limits:
-                      cpu: ${parameters.resources.limits.cpu}
-                      memory: ${parameters.resources.limits.memory}
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
 
     - id: service
       template:

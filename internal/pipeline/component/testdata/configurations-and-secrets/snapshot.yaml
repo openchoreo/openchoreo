@@ -3,8 +3,10 @@ spec:
   component:
     metadata:
       name: test-app
+    spec: {}
+  releaseBinding:
     spec:
-      parameters:
+      componentTypeEnvOverrides:
         replicas: 2
   componentType:
     spec:
@@ -19,7 +21,7 @@ spec:
             metadata:
               name: ${metadata.name}
             spec:
-              replicas: ${parameters.replicas}
+              replicas: ${envOverrides.replicas}
               template:
                 spec:
                   containers:

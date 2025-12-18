@@ -8,12 +8,12 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
-| **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `trait` |
+| **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
+| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `trait` |
 
 ## ComponentContext
 
-ComponentContext is used when rendering ComponentType resources. It provides access to component metadata, parameters, workload information, and configurations.
+ComponentContext is used when rendering ComponentType resources. It provides access to component metadata, parameters (from Component), environment overrides (from ReleaseBinding), workload information, and configurations.
 
 ### Available in ComponentType
 
@@ -88,36 +88,26 @@ spec:
 
 ### parameters
 
-Merged component parameters with schema defaults applied. The structure depends on the ComponentType's schema definition.
+Component parameters from `Component.Spec.Parameters`, pruned to the ComponentType's `schema.parameters` section with defaults applied. Use for static configuration that doesn't change across environments.
 
 ```yaml
 # Access pattern: ${parameters.<field>}
 
 # Given this schema in ComponentType:
 schema:
-  parameters: |
-    replicas: integer | default=1
-    resources:
-      cpu: string | default="100m"
-      memory: string | default="128Mi"
-    features:
-      logging: boolean | default=true
+  parameters:
+    replicas: "integer | default=1"
+    port: "integer | default=8080"
 
 # And this Component:
 spec:
   parameters:
     replicas: 3
-    resources:
-      memory: "256Mi"
 
-# The merged parameters context would be:
+# The parameters context would be:
 parameters:
-  replicas: 3                    # ${parameters.replicas}
-  resources:
-    cpu: "100m"                  # ${parameters.resources.cpu} (default)
-    memory: "256Mi"              # ${parameters.resources.memory} (overridden)
-  features:
-    logging: true                # ${parameters.features.logging} (default)
+  replicas: 3                    # ${parameters.replicas} (from Component)
+  port: 8080                     # ${parameters.port} (default from schema)
 ```
 
 **Example usage:**
@@ -129,11 +119,70 @@ spec:
     spec:
       containers:
         - name: app
+          ports:
+            - containerPort: ${parameters.port}
+```
+
+### envOverrides
+
+Environment-specific overrides from `ReleaseBinding.Spec.ComponentTypeEnvOverrides`, pruned to the ComponentType's `schema.envOverrides` section with defaults applied. Use for values that vary per environment (resources, replicas, etc.).
+
+```yaml
+# Access pattern: ${envOverrides.<field>}
+
+# Given this schema in ComponentType:
+schema:
+  envOverrides:
+    resources:
+      $default: {}
+      requests:
+        $default: {}
+        cpu: "string | default=100m"
+        memory: "string | default=128Mi"
+      limits:
+        $default: {}
+        cpu: "string | default=500m"
+        memory: "string | default=512Mi"
+
+# And this ReleaseBinding:
+spec:
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+
+# The envOverrides context would be:
+envOverrides:
+  resources:
+    requests:
+      cpu: "200m"                # ${envOverrides.resources.requests.cpu} (from ReleaseBinding)
+      memory: "256Mi"            # ${envOverrides.resources.requests.memory} (from ReleaseBinding)
+    limits:
+      cpu: "500m"                # ${envOverrides.resources.limits.cpu} (default)
+      memory: "512Mi"            # ${envOverrides.resources.limits.memory} (default)
+```
+
+**Example usage:**
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
           resources:
             requests:
-              cpu: ${parameters.resources.cpu}
-              memory: ${parameters.resources.memory}
+              cpu: ${envOverrides.resources.requests.cpu}
+              memory: ${envOverrides.resources.requests.memory}
+            limits:
+              cpu: ${envOverrides.resources.limits.cpu}
+              memory: ${envOverrides.resources.limits.memory}
 ```
+
+**Key difference from parameters:**
+- `parameters`: Static values from Component - same across all environments
+- `envOverrides`: Environment-specific values from ReleaseBinding - different per environment
 
 ### dataplane
 
@@ -348,7 +397,7 @@ forEach: |
 
 ## TraitContext
 
-TraitContext is used when rendering Trait creates and patches. It provides access to metadata, trait-specific information, and trait parameters.
+TraitContext is used when rendering Trait creates and patches. It provides access to metadata, trait-specific information, parameters (from trait instance), and environment overrides (from ReleaseBinding).
 
 ### Available in Traits
 
@@ -392,29 +441,70 @@ metadata:
 
 ### parameters
 
-Merged trait instance parameters with schema defaults applied. The structure depends on the Trait's schema definition.
+Trait instance parameters from `Component.Spec.Traits[].Parameters`, pruned to the Trait's `schema.parameters` section with defaults applied. Use for static configuration that doesn't change across environments.
 
 ```yaml
 # Given this schema in Trait:
 schema:
-  parameters: |
-    storageSize: string | default="1Gi"
-    storageClass: string
-    accessMode: string | default="ReadWriteOnce"
+  parameters:
+    volumeName: "string"
+    mountPath: "string"
+    containerName: "string | default=app"
 
 # And this trait instance in Component:
 traits:
-  - name: storage
-    instanceName: my-storage
+  - name: persistent-volume
+    instanceName: data-storage
     parameters:
-      storageSize: "10Gi"
+      volumeName: "app-data"
+      mountPath: "/var/data"
+
+# The parameters context would be:
+parameters:
+  volumeName: "app-data"         # ${parameters.volumeName} (from trait instance)
+  mountPath: "/var/data"         # ${parameters.mountPath} (from trait instance)
+  containerName: "app"           # ${parameters.containerName} (default)
+```
+
+### envOverrides
+
+Environment-specific overrides from `ReleaseBinding.Spec.TraitOverrides[instanceName]`, pruned to the Trait's `schema.envOverrides` section with defaults applied. Use for values that vary per environment.
+
+```yaml
+# Given this schema in Trait:
+schema:
+  envOverrides:
+    size: "string | default=10Gi"
+    storageClass: "string | default=standard"
+
+# And this ReleaseBinding:
+spec:
+  traitOverrides:
+    data-storage:              # keyed by instanceName
+      size: "50Gi"
       storageClass: "fast-ssd"
 
-# The merged parameters context would be:
-parameters:
-  storageSize: "10Gi"            # ${parameters.storageSize}
-  storageClass: "fast-ssd"       # ${parameters.storageClass}
-  accessMode: "ReadWriteOnce"    # ${parameters.accessMode} (default)
+# The envOverrides context would be:
+envOverrides:
+  size: "50Gi"                   # ${envOverrides.size} (from ReleaseBinding)
+  storageClass: "fast-ssd"       # ${envOverrides.storageClass} (from ReleaseBinding)
+```
+
+**Example usage:**
+
+```yaml
+# In Trait creates template
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${metadata.name}-${trait.instanceName}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: ${envOverrides.size}
+  storageClassName: ${envOverrides.storageClass}
 ```
 
 **Note:** TraitContext does NOT have access to `workload`, `configurations`, or `dataplane`. These are only available in ComponentContext.
@@ -492,13 +582,14 @@ The entire rendered Kubernetes resource is available, including:
 
 ## Context Comparison
 
-| Variable | ComponentContext | TraitContext            |
-|----------|------------------|-------------------------|
-| `metadata.*` | ✅ | ✅                       |
-| `parameters.*` | ✅ (from Component) | ✅ (from Trait instance) |
-| `dataplane.*` | ✅ | ❌ (will be added)       |
-| `workload.*` | ✅ | ❌                       |
-| `configurations.*` | ✅ | ❌                       |
-| `trait.*` | ❌ | ✅                       |
-| Loop variable | ✅ (in forEach) | ✅ (in forEach)          |
-| `resource` | ❌ | ✅ (in where only)       |
+| Variable | ComponentContext | TraitContext |
+|----------|------------------|--------------|
+| `metadata.*` | ✅ | ✅ |
+| `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
+| `envOverrides.*` | ✅ (from ReleaseBinding.ComponentTypeEnvOverrides) | ✅ (from ReleaseBinding.TraitOverrides) |
+| `dataplane.*` | ✅ | ❌ |
+| `workload.*` | ✅ | ❌ |
+| `configurations.*` | ✅ | ❌ |
+| `trait.*` | ❌ | ✅ |
+| Loop variable | ✅ (in forEach) | ✅ (in forEach) |
+| `resource` | ❌ | ✅ (in where only) |
