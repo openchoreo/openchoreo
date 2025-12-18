@@ -23,10 +23,6 @@ func NewCreateDataPlaneImpl(config constants.CRDConfig) *CreateDataPlaneImpl {
 }
 
 func (i *CreateDataPlaneImpl) CreateDataPlane(params api.CreateDataPlaneParams) error {
-	if params.Interactive {
-		return createDataPlaneInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDataPlane, params); err != nil {
 		return err
 	}

@@ -31,9 +31,6 @@ func NewLogsImpl() *LogsImpl {
 }
 
 func (i *LogsImpl) GetLogs(params api.LogParams) error {
-	if params.Interactive {
-		return getLogsInteractive()
-	}
 	return handleLogs(params)
 }
 

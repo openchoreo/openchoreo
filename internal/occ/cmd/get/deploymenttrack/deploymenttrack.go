@@ -24,10 +24,6 @@ func NewGetDeploymentTrackImpl(config constants.CRDConfig) *GetDeploymentTrackIm
 }
 
 func (i *GetDeploymentTrackImpl) GetDeploymentTrack(params api.GetDeploymentTrackParams) error {
-	if params.Interactive {
-		return getDeploymentTrackInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDeploymentTrack, params); err != nil {
 		return err
 	}

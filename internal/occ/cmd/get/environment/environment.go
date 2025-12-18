@@ -24,10 +24,6 @@ func NewGetEnvironmentImpl(config constants.CRDConfig) *GetEnvironmentImpl {
 }
 
 func (i *GetEnvironmentImpl) GetEnvironment(params api.GetEnvironmentParams) error {
-	if params.Interactive {
-		return getEnvironmentInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceEnvironment, params); err != nil {
 		return err
 	}

@@ -40,7 +40,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Project command
 	projectCmd := (&builder.CommandBuilder{
 		Command: constants.ListProject,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -49,7 +49,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			return impl.GetProject(api.GetProjectParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -60,7 +59,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Component command
 	componentCmd := (&builder.CommandBuilder{
 		Command: constants.ListComponent,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -70,7 +69,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Organization: fg.GetString(flags.Organization),
 				Project:      fg.GetString(flags.Project),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -81,7 +79,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Build command
 	buildCmd := (&builder.CommandBuilder{
 		Command: constants.ListBuild,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -92,7 +90,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -104,7 +101,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	deployableArtifactCmd := (&builder.CommandBuilder{
 		Command: constants.ListDeployableArtifact,
 		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.DeploymentTrack,
-			flags.Build, flags.Image, flags.Output, flags.Interactive},
+			flags.Build, flags.Image, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -118,7 +115,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Build:           fg.GetString(flags.Build),
 				DockerImage:     fg.GetString(flags.Image),
 				OutputFormat:    fg.GetString(flags.Output),
-				Interactive:     fg.GetBool(flags.Interactive),
 				Name:            name,
 			})
 		},
@@ -128,7 +124,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Environment command
 	envCmd := (&builder.CommandBuilder{
 		Command: constants.ListEnvironment,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -137,7 +133,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			return impl.GetEnvironment(api.GetEnvironmentParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -148,7 +143,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Deployment Track command
 	deploymentTrackCmd := (&builder.CommandBuilder{
 		Command: constants.ListDeploymentTrack,
-		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -159,7 +154,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Project:      fg.GetString(flags.Project),
 				Component:    fg.GetString(flags.Component),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -171,7 +165,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	deploymentCmd := (&builder.CommandBuilder{
 		Command: constants.ListDeployment,
 		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Environment,
-			flags.Output, flags.Interactive},
+			flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -183,7 +177,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Component:    fg.GetString(flags.Component),
 				Environment:  fg.GetString(flags.Environment),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -194,7 +187,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	endpointCmd := (&builder.CommandBuilder{
 		Command: constants.ListEndpoint,
 		Flags: []flags.Flag{flags.Organization, flags.Project, flags.Component, flags.Environment,
-			flags.Output, flags.Interactive},
+			flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -206,7 +199,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Component:    fg.GetString(flags.Component),
 				Environment:  fg.GetString(flags.Environment),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -217,7 +209,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// DataPlane command
 	dataPlaneCmd := (&builder.CommandBuilder{
 		Command: constants.ListDataPlane,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -226,7 +218,6 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			return impl.GetDataPlane(api.GetDataPlaneParams{
 				Organization: fg.GetString(flags.Organization),
 				OutputFormat: fg.GetString(flags.Output),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Name:         name,
 			})
 		},
@@ -237,7 +228,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Deployment Pipeline command
 	deploymentPipelineCmd := (&builder.CommandBuilder{
 		Command: constants.ListDeploymentPipeline,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {
@@ -256,7 +247,7 @@ func NewListCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	// Configuration groups command
 	configurationGroupsCmd := (&builder.CommandBuilder{
 		Command: constants.ListConfigurationGroup,
-		Flags:   []flags.Flag{flags.Organization, flags.Output, flags.Interactive},
+		Flags:   []flags.Flag{flags.Organization, flags.Output},
 		RunE: func(fg *builder.FlagGetter) error {
 			name := ""
 			if len(fg.GetArgs()) > 0 {

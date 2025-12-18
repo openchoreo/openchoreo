@@ -24,10 +24,6 @@ func NewGetDataPlaneImpl(config constants.CRDConfig) *GetDataPlaneImpl {
 }
 
 func (i *GetDataPlaneImpl) GetDataPlane(params api.GetDataPlaneParams) error {
-	if params.Interactive {
-		return getDataPlaneInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceDataPlane, params); err != nil {
 		return err
 	}

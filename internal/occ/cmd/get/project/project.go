@@ -24,10 +24,6 @@ func NewGetProjImpl(config constants.CRDConfig) *GetProjImpl {
 }
 
 func (i *GetProjImpl) GetProject(params api.GetProjectParams) error {
-	if params.Interactive {
-		return getProjectInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceProject, params); err != nil {
 		return err
 	}

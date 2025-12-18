@@ -17,7 +17,6 @@ type GetParams struct {
 type GetProjectParams struct {
 	Organization string
 	OutputFormat string
-	Interactive  bool
 	Name         string
 }
 
@@ -27,7 +26,6 @@ type GetComponentParams struct {
 	Project      string
 	OutputFormat string
 	Name         string
-	Interactive  bool // Add this field
 }
 
 // CreateOrganizationParams defines parameters for creating organizations
@@ -35,7 +33,6 @@ type CreateOrganizationParams struct {
 	Name        string
 	DisplayName string
 	Description string
-	Interactive bool
 }
 
 // CreateProjectParams defines parameters for creating projects
@@ -45,7 +42,6 @@ type CreateProjectParams struct {
 	DisplayName        string
 	Description        string
 	DeploymentPipeline string
-	Interactive        bool
 }
 
 // CreateComponentParams contains parameters for component creation
@@ -68,7 +64,6 @@ type CreateComponentParams struct {
 	Tag              string
 	Port             int
 	Endpoint         string
-	Interactive      bool
 }
 
 // ApplyParams defines parameters for applying configuration files
@@ -97,7 +92,6 @@ type LogParams struct {
 	Environment     string
 	Follow          bool
 	TailLines       int64
-	Interactive     bool
 	Deployment      string
 	DeploymentTrack string
 }
@@ -110,7 +104,6 @@ type CreateBuildParams struct {
 	Project         string
 	Component       string
 	DeploymentTrack string
-	Interactive     bool
 	// Build configuration
 	Docker    *openchoreov1alpha1.DockerConfiguration
 	Buildpack *openchoreov1alpha1.BuildpackConfiguration
@@ -128,7 +121,6 @@ type GetBuildParams struct {
 	Component       string
 	DeploymentTrack string
 	OutputFormat    string
-	Interactive     bool
 	Name            string
 }
 
@@ -141,7 +133,6 @@ type CreateDeployableArtifactParams struct {
 	DeploymentTrack string
 	DisplayName     string
 	Description     string
-	Interactive     bool
 }
 
 // GetDeployableArtifactParams defines parameters for listing deployable artifacts
@@ -163,7 +154,6 @@ type GetDeployableArtifactParams struct {
 	// Optional filters
 	GitRevision  string
 	DisabledOnly bool
-	Interactive  bool
 }
 
 // GetDeploymentParams defines parameters for listing deployments
@@ -181,7 +171,6 @@ type GetDeploymentParams struct {
 	// Display options
 	OutputFormat string
 	Name         string
-	Interactive  bool
 }
 
 // CreateDeploymentParams defines parameters for creating a deployment
@@ -193,7 +182,6 @@ type CreateDeploymentParams struct {
 	Environment        string
 	DeploymentTrack    string
 	DeployableArtifact string
-	Interactive        bool
 }
 
 // CreateDeploymentTrackParams defines parameters for creating a deployment track
@@ -207,7 +195,6 @@ type CreateDeploymentTrackParams struct {
 	APIVersion        string
 	AutoDeploy        bool
 	BuildTemplateSpec *openchoreov1alpha1.BuildTemplateSpec
-	Interactive       bool
 }
 
 // GetDeploymentTrackParams defines parameters for listing deployment tracks
@@ -216,7 +203,6 @@ type GetDeploymentTrackParams struct {
 	Project      string
 	Component    string
 	OutputFormat string
-	Interactive  bool
 	Name         string
 }
 
@@ -229,14 +215,12 @@ type CreateEnvironmentParams struct {
 	DataPlaneRef string
 	IsProduction bool
 	DNSPrefix    string
-	Interactive  bool
 }
 
 // GetEnvironmentParams defines parameters for listing environments
 type GetEnvironmentParams struct {
 	Organization string
 	OutputFormat string
-	Interactive  bool
 	Name         string
 }
 
@@ -256,14 +240,12 @@ type CreateDataPlaneParams struct {
 	GatewayType             string
 	PublicVirtualHost       string
 	OrganizationVirtualHost string
-	Interactive             bool
 }
 
 // GetDataPlaneParams defines parameters for listing data planes
 type GetDataPlaneParams struct {
 	Organization string
 	OutputFormat string
-	Interactive  bool
 	Name         string
 }
 
@@ -274,7 +256,6 @@ type GetEndpointParams struct {
 	Component    string
 	Environment  string
 	OutputFormat string
-	Interactive  bool
 	Name         string
 }
 
@@ -337,7 +318,6 @@ type CreateWorkloadParams struct {
 	ComponentName    string
 	ImageURL         string
 	OutputPath       string
-	Interactive      bool
 }
 
 // ScaffoldComponentParams defines parameters for scaffolding a component

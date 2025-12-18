@@ -41,9 +41,6 @@ var (
 		Long: fmt.Sprintf(`Create Choreo resources like organizations, projects, and components.
 
 Examples:
-  # Create an organization interactively
-  %[1]s create organization --interactive
-
   # Create a project in an organization
   %[1]s create project --organization acme-corp --name online-store
 
@@ -91,9 +88,6 @@ Examples:
 		Long: fmt.Sprintf(`Create a new project in an organization.
 
 Examples:
-  # Create a project interactively
-  %[1]s create project --interactive
-
   # Create a project in a specific organization
   %[1]s create project --organization acme-corp --name online-store`,
 			messages.DefaultCLIName),
@@ -106,9 +100,6 @@ Examples:
 		Long: fmt.Sprintf(`Create a new component in the specified project and organization.
 
 Examples:
-  # Create a component interactively
-  %[1]s create component --interactive
-
   # Create a component with Git repository
   %[1]s create component --name product-catalog --organization acme-corp --project online-store \
     --display-name "Product Catalog" --git-repository-url https://github.com/acme-corp/product-catalog --type Service
@@ -127,9 +118,6 @@ Examples:
 		Long: fmt.Sprintf(`Create a new organization in Choreo.
 
 Examples:
-  # Create an organization interactively
-  %[1]s create organization --interactive
-
   # Create an organization with specific details
   %[1]s create organization --name acme-corp --display-name "ACME" --description "ACME Corporation"`,
 			messages.DefaultCLIName),
@@ -296,10 +284,7 @@ This command creates a new build for a component. You can:
 - Create Buildpack builds
 - Specify build context and Dockerfile
 - Define custom build arguments`,
-		Example: `  # Create a build interactively
-  occ create build --interactive
-
-  # Create a Docker build
+		Example: `  # Create a build
   occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
     --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
 
@@ -382,10 +367,7 @@ This command allows you to:
 		Aliases: []string{"deployments", "deploy"},
 		Short:   "Create a deployment",
 		Long:    `Create a deployment in the specified organization, project and component.`,
-		Example: `  # Create a deployment interactively
-  occ create deployment --interactive
-
-  # Create a deployment with specific parameters
+		Example: `  # Create a deployment with specific parameters
   occ create deployment --name product-catalog-dev-01 --organization acme-corp --project online-store \
     --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
 	}
@@ -395,10 +377,7 @@ This command allows you to:
 		Aliases: []string{"deptrack", "deptracks"},
 		Short:   "Create a deployment track",
 		Long:    `Create a deployment track in the specified organization, project and component.`,
-		Example: `  # Create a deployment track interactively
-  occ create deploymenttrack --interactive
-
-  # Create a deployment track with specific parameters
+		Example: `  # Create a deployment track with specific parameters
   occ create deploymenttrack --name main-track --organization acme-corp --project online-store \
     --component product-catalog --api-version v1 --auto-deploy true`,
 	}
@@ -422,8 +401,7 @@ This command allows you to:
 		Use:     "environment [name]",
 		Aliases: []string{"env", "environments", "envs"},
 		Short:   "List environments",
-		Long: `List all environments or a specific environment in an organization.
-If no organization is specified, you will be prompted to select one interactively.`,
+		Long:    `List all environments or a specific environment in an organization.`,
 		Example: `  # List all environments in an organization
   occ get environment --organization acme-corp
 
@@ -431,10 +409,7 @@ If no organization is specified, you will be prompted to select one interactivel
   occ get environment development --organization acme-corp
 
   # Output environments in YAML format
-  occ get environment --organization acme-corp -o yaml
-
-  # get environments interactively
-  occ get environment --interactive`,
+  occ get environment --organization acme-corp -o yaml`,
 	}
 
 	CreateDataPlane = Command{
@@ -442,10 +417,7 @@ If no organization is specified, you will be prompted to select one interactivel
 		Aliases: []string{"dp", "dataplanes"},
 		Short:   "Create a data plane",
 		Long:    `Create a data plane in the specified organization.`,
-		Example: `  # Create a data plane interactively
-  occ create dataplane --interactive
-
-  # Create a data plane with specific parameters
+		Example: `  # Create a data plane with specific parameters
   occ create dataplane --name primary-dataplane --organization acme-corp --cluster-name k8s-cluster-01 \
     --connection-config kubeconfig --enable-cilium --enable-scale-to-zero --gateway-type envoy \
     --public-virtual-host api.example.com`,
@@ -489,10 +461,7 @@ If no organization is specified, you will be prompted to select one interactivel
 		Aliases: []string{"env", "environments"},
 		Short:   "Create an environment",
 		Long:    `Create an environment in the specified organization.`,
-		Example: `  # Create an environment interactively
-  occ create environment --interactive
-
-  # Create a development environment
+		Example: `  # Create a development environment
   occ create environment --name dev --organization acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
 
   # Create a production environment
@@ -505,10 +474,7 @@ If no organization is specified, you will be prompted to select one interactivel
 		Aliases: []string{"da", "artifact"},
 		Short:   "Create a deployable artifact",
 		Long:    `Create a deployable artifact in the specified organization, project and component.`,
-		Example: `  # Create a deployable artifact interactively
-  occ create deployableartifact --interactive
-
-  # Create a deployable artifact from a build
+		Example: `  # Create a deployable artifact from a build
   occ create deployableartifact --name product-catalog-artifact --organization acme-corp \
     --project online-store --component product-catalog --build product-catalog-build-01
 

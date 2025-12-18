@@ -23,10 +23,6 @@ func NewCreateEnvironmentImpl(config constants.CRDConfig) *CreateEnvironmentImpl
 }
 
 func (i *CreateEnvironmentImpl) CreateEnvironment(params api.CreateEnvironmentParams) error {
-	if params.Interactive {
-		return createEnvironmentInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceEnvironment, params); err != nil {
 		return err
 	}

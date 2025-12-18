@@ -19,7 +19,6 @@ import (
 func getBasicFlags() []flags.Flag {
 	return []flags.Flag{
 		flags.Name,
-		flags.Interactive,
 	}
 }
 
@@ -82,7 +81,6 @@ func newCreateOrganizationCmd(impl api.CommandImplementationInterface) *cobra.Co
 				Name:        fg.GetString(flags.Name),
 				DisplayName: fg.GetString(flags.DisplayName),
 				Description: fg.GetString(flags.Description),
-				Interactive: fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
@@ -104,7 +102,6 @@ func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command
 				DisplayName:        fg.GetString(flags.DisplayName),
 				Description:        fg.GetString(flags.Description),
 				DeploymentPipeline: fg.GetString(flags.DeploymentPipeline),
-				Interactive:        fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
@@ -134,7 +131,6 @@ func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				DisplayName:      fg.GetString(flags.DisplayName),
 				GitRepositoryURL: fg.GetString(flags.GitRepositoryURL),
 				// Type:             openchoreov1alpha1.DefinedComponentType(fg.GetString(flags.ComponentType)),
-				Interactive:      fg.GetBool(flags.Interactive),
 				Branch:           fg.GetString(flags.Branch),
 				Path:             fg.GetString(flags.Path),
 				DockerFile:       fg.GetString(flags.DockerfilePath),
@@ -164,7 +160,6 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 				ComponentName:    fg.GetString(flags.Component),
 				ImageURL:         fg.GetString(flags.Image),
 				OutputPath:       fg.GetString(flags.Output),
-				Interactive:      fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
@@ -197,7 +192,6 @@ func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				Path:         fg.GetString(flags.Path),
 				Revision:     fg.GetString(flags.Revision),
 				AutoBuild:    fg.GetBool(flags.AutoBuild),
-				Interactive:  fg.GetBool(flags.Interactive),
 				Docker: &openchoreov1alpha1.DockerConfiguration{
 					Context:        fg.GetString(flags.DockerContext),
 					DockerfilePath: fg.GetString(flags.DockerfilePath),
@@ -231,7 +225,6 @@ func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Comm
 				Environment:        fg.GetString(flags.Environment),
 				DeploymentTrack:    fg.GetString(flags.DeploymentTrack),
 				DeployableArtifact: fg.GetString(flags.DeployableArtifact),
-				Interactive:        fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
@@ -265,7 +258,6 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 				GatewayType:             fg.GetString(flags.GatewayType),
 				PublicVirtualHost:       fg.GetString(flags.PublicVirtualHost),
 				OrganizationVirtualHost: fg.GetString(flags.OrgVirtualHost),
-				Interactive:             fg.GetBool(flags.Interactive),
 				APIServerURL:            fg.GetString(flags.APIServerURL),
 				CACert:                  fg.GetString(flags.CaCert),
 				ClientCert:              fg.GetString(flags.ClientCert),
@@ -292,7 +284,6 @@ func newCreateDeploymentTrackCmd(impl api.CommandImplementationInterface) *cobra
 				Component:    fg.GetString(flags.Component),
 				APIVersion:   fg.GetString(flags.APIVersion),
 				AutoDeploy:   fg.GetBool(flags.AutoDeploy),
-				Interactive:  fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()
@@ -316,7 +307,6 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 				Organization: fg.GetString(flags.Organization),
 				DisplayName:  fg.GetString(flags.DisplayName),
 				Description:  fg.GetString(flags.Description),
-				Interactive:  fg.GetBool(flags.Interactive),
 				DataPlaneRef: fg.GetString(flags.DataPlaneRef),
 				IsProduction: fg.GetBool(flags.IsProduction),
 				DNSPrefix:    fg.GetString(flags.DNSPrefix),
@@ -341,7 +331,6 @@ func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *co
 				Project:         fg.GetString(flags.Project),
 				Component:       fg.GetString(flags.Component),
 				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
-				Interactive:     fg.GetBool(flags.Interactive),
 			})
 		},
 	}).Build()

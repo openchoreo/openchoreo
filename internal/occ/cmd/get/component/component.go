@@ -24,10 +24,6 @@ func NewGetCompImpl(config constants.CRDConfig) *GetCompImpl {
 }
 
 func (i *GetCompImpl) GetComponent(params api.GetComponentParams) error {
-	if params.Interactive {
-		return getComponentInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {
 		return err
 	}
