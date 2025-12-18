@@ -378,10 +378,6 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Extract query parameters
 	org := r.URL.Query().Get("org")
-	if org == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization (org) query parameter is required", services.CodeInvalidInput)
-		return
-	}
 	project := r.URL.Query().Get("project")
 	component := r.URL.Query().Get("component")
 	orgUnits := r.URL.Query()["ou"]
