@@ -68,7 +68,7 @@ spec:
                       description: |-
                         ForEach enables generating multiple resources from a list using CEL expression
                         Example: "${spec.configurations}" to iterate over a list
-                      pattern: ^\$\{.+\}$
+                      pattern: ^\$\{[\s\S]+\}\s*$
                       type: string
                     id:
                       description: |-
@@ -81,6 +81,7 @@ spec:
                         IncludeWhen is a CEL expression that determines if this resource should be created
                         If not specified, the resource is always created
                         Example: "${spec.autoscaling.enabled}"
+                      pattern: ^\$\{[\s\S]+\}\s*$
                       type: string
                     targetPlane:
                       default: dataplane

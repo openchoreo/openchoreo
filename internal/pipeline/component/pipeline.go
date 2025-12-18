@@ -32,8 +32,10 @@ var validate = validator.New(validator.WithRequiredStructEnabled())
 // NewPipeline creates a new component rendering pipeline.
 func NewPipeline(opts ...Option) *Pipeline {
 	p := &Pipeline{
-		templateEngine: template.NewEngine(),
-		options:        DefaultRenderOptions(),
+		templateEngine: template.NewEngineWithOptions(
+			template.WithCELExtensions(context.CELExtensions()...),
+		),
+		options: DefaultRenderOptions(),
 	}
 
 	// Apply options

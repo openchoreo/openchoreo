@@ -1,0 +1,15 @@
+# Default roles and mappings that can be seeded at installation time
+
+# Default roles
+roles:
+  - name: super-admin
+    actions:
+      - "*"
+
+# Default entitlement-to-role mappings
+mappings:
+  - role_name: super-admin
+    entitlement:
+      claim: groups
+      value: platformEngineer
+    effect: allow

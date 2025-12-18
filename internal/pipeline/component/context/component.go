@@ -156,6 +156,8 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 }
 
 // ToMap converts the ComponentContext to map[string]any for CEL evaluation.
+// All fields including configurations are converted to nested maps via JSON marshaling.
+// This allows consistent CEL access without requiring ext.NativeTypes() registration.
 func (c *ComponentContext) ToMap() map[string]any {
 	result, err := structToMap(c)
 	if err != nil {

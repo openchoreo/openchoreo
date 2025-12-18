@@ -24,6 +24,14 @@ type ListReleaseBindingsResponse struct {
 	Bindings []*models.ReleaseBindingResponse `json:"bindings"`
 }
 
+type ListComponentWorkflowRunsResponse struct {
+	WorkflowRuns []models.ComponentWorkflowResponse `json:"workflowRuns"`
+}
+
+type ListComponentWorkflowsResponse struct {
+	Workflows []*models.WorkflowResponse `json:"workflows"`
+}
+
 func (h *MCPHandler) CreateComponent(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (any, error) {
 	return h.Services.ComponentService.CreateComponent(ctx, orgName, projectName, req)
 }
@@ -61,10 +69,6 @@ func (h *MCPHandler) ListComponents(ctx context.Context, orgName, projectName st
 
 func (h *MCPHandler) GetComponent(ctx context.Context, orgName, projectName, componentName string, additionalResources []string) (any, error) {
 	return h.Services.ComponentService.GetComponent(ctx, orgName, projectName, componentName, additionalResources)
-}
-
-func (h *MCPHandler) GetComponentBinding(ctx context.Context, orgName, projectName, componentName, environment string) (any, error) {
-	return h.Services.ComponentService.GetComponentBinding(ctx, orgName, projectName, componentName, environment)
 }
 
 func (h *MCPHandler) UpdateComponentBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.UpdateBindingRequest) (any, error) {
@@ -214,4 +218,52 @@ func (h *MCPHandler) GetComponentSchema(ctx context.Context, orgName, projectNam
 
 func (h *MCPHandler) GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (any, error) {
 	return h.Services.ComponentService.GetComponentReleaseSchema(ctx, orgName, projectName, componentName, releaseName)
+}
+
+func (h *MCPHandler) ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) (any, error) {
+	return h.Services.ComponentService.ListComponentTraits(ctx, orgName, projectName, componentName)
+}
+
+func (h *MCPHandler) UpdateComponentTraits(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest) (any, error) {
+	return h.Services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, req)
+}
+
+func (h *MCPHandler) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error) {
+	return h.Services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+}
+
+func (h *MCPHandler) PatchComponent(ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest) (any, error) {
+	return h.Services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, req)
+}
+
+func (h *MCPHandler) ListComponentWorkflows(ctx context.Context, orgName string) (any, error) {
+	workflows, err := h.Services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName)
+	if err != nil {
+		return ListComponentWorkflowsResponse{}, err
+	}
+	return ListComponentWorkflowsResponse{
+		Workflows: workflows,
+	}, nil
+}
+
+func (h *MCPHandler) GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error) {
+	return h.Services.ComponentWorkflowService.GetComponentWorkflowSchema(ctx, orgName, cwName)
+}
+
+func (h *MCPHandler) TriggerComponentWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (any, error) {
+	return h.Services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
+}
+
+func (h *MCPHandler) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error) {
+	workflowRuns, err := h.Services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
+	if err != nil {
+		return ListComponentWorkflowRunsResponse{}, err
+	}
+	return ListComponentWorkflowRunsResponse{
+		WorkflowRuns: workflowRuns,
+	}, nil
+}
+
+func (h *MCPHandler) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowSchemaRequest) (any, error) {
+	return h.Services.ComponentService.UpdateComponentWorkflowSchema(ctx, orgName, projectName, componentName, req)
 }

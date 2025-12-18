@@ -63,11 +63,11 @@ func main() {
 
 	// Initialize authorization
 	authzConfig := authz.AuthZConfig{
-		Enabled:              os.Getenv("AUTHZ_ENABLED") == "true",
-		DatabasePath:         os.Getenv("AUTHZ_DATABASE_PATH"),
-		DefaultRolesFilePath: os.Getenv("AUTHZ_DEFAULT_ROLES_FILE_PATH"),
-		UserTypeConfigs:      cfg.Authz.UserTypes,
-		EnableCache:          false,
+		Enabled:                  os.Getenv("AUTHZ_ENABLED") == "true",
+		DatabasePath:             os.Getenv("AUTHZ_DATABASE_PATH"),
+		DefaultAuthzDataFilePath: os.Getenv("AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH"),
+		UserTypeConfigs:          cfg.Authz.UserTypes,
+		EnableCache:              false,
 	}
 	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))
 	if err != nil {

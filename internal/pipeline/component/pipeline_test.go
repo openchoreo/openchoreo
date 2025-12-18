@@ -389,6 +389,16 @@ spec:
 			wantResourceYAML:     loadTestDataFile(t, "configurations-and-secrets/expected-resources.yaml"),
 			wantErr:              false,
 		},
+		{
+			name:                 "component with configurations using configFiles helper",
+			snapshotYAML:         loadTestDataFile(t, "configurations-and-secrets/snapshot-with-config-helpers.yaml"),
+			settingsYAML:         loadTestDataFile(t, "configurations-and-secrets/settings.yaml"),
+			environmentYAML:      devEnvironmentYAML,
+			dataplaneYAML:        devDataplaneYAML,
+			secretReferencesYAML: loadTestDataFile(t, "configurations-and-secrets/secret-references.yaml"),
+			wantResourceYAML:     loadTestDataFile(t, "configurations-and-secrets/expected-resources-with-config-helpers.yaml"),
+			wantErr:              false,
+		},
 	}
 
 	for _, tt := range tests {

@@ -78,9 +78,9 @@ security:
   authz:
     enabled: false
     databasePath: "/var/lib/openchoreo/data/casbin.db"
-    # defaultRolesFilePath is optional - if not set, embedded default roles will be used
-    # To use custom roles, set this path and mount a ConfigMap with your roles
-    defaultRolesFilePath: ""
+    # defaultAuthzDataFilePath is optional - if not set, embedded default authz data will be used
+    # To use custom authz data (roles and mappings), set this path and mount a ConfigMap with your data
+    defaultAuthzDataFilePath: ""
 controllerManager:
   name: controller-manager
   replicas: 1
@@ -194,7 +194,8 @@ controllerManager:
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
     tls:
       caPath: /etc/cluster-gateway/ca.crt
-      caConfigMap: cluster-gateway-ca
+      # CA Secret created by cert-manager (contains ca.crt from cluster-gateway-ca Certificate)
+      caSecret: cluster-gateway-ca
 kubernetesClusterDomain: cluster.local
 metricsService:
   ports:

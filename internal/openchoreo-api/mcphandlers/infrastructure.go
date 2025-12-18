@@ -89,3 +89,7 @@ func (h *MCPHandler) ListTraits(ctx context.Context, orgName string) (any, error
 func (h *MCPHandler) GetTraitSchema(ctx context.Context, orgName, traitName string) (any, error) {
 	return h.Services.TraitService.GetTraitSchema(ctx, orgName, traitName)
 }
+
+func (h *MCPHandler) ListObservabilityPlanes(ctx context.Context, orgName string) (any, error) {
+	return h.Services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, orgName)
+}

@@ -268,19 +268,19 @@ This command allows you to:
 - Get logs from a specific build or deployment
 - Follow log output`,
 		Example: `  # Get logs from a specific build
-  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
   --component product-catalog
 
   # Get logs from a specific deployment
-  choreoctl logs --type deployment --deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ logs --type deployment --deployment product-catalog-dev-01 --organization acme-corp --project online-store \
   --component product-catalog --environment development
 
   # Get last 100 lines of logs from a specific build
-  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
   --component product-catalog --tail 100
 
   # Stream logs from a specific build
-  choreoctl logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
    --component product-catalog --follow
   `,
 	}
@@ -297,18 +297,18 @@ This command creates a new build for a component. You can:
 - Specify build context and Dockerfile
 - Define custom build arguments`,
 		Example: `  # Create a build interactively
-  choreoctl create build --interactive
+  occ create build --interactive
 
   # Create a Docker build
-  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
     --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
 
   # Create a Buildpack build
-  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
     --component product-catalog --buildpack-name java --buildpack-version  --deployment-track main
 
   # Create a build with revision and branch
-  choreoctl create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
     --component product-catalog --branch main --revision abc123 --auto-build true`,
 	}
 
@@ -319,13 +319,13 @@ This command creates a new build for a component. You can:
 		Long: `List all builds in the current project or organization.
 `,
 		Example: `  # List all builds
-  choreoctl get build
+  occ get build
 
   # List builds for a specific component
-  choreoctl get build  --organization acme-corp --project online-store --component product-catalog
+  occ get build  --organization acme-corp --project online-store --component product-catalog
 
   # List builds in yaml format
-  choreoctl get build -o yaml
+  occ get build -o yaml
 `,
 	}
 	ListDeployableArtifact = Command{
@@ -335,13 +335,13 @@ This command creates a new build for a component. You can:
 		Long: `List all deployable artifacts in the current project or organization.
 `,
 		Example: `  # List all deployable artifacts
-		  choreoctl get deployableartifact
+		  occ get deployableartifact
 
 		  # List deployable artifacts for a specific component
-		  choreoctl get deployableartifact  --organization acme-corp --project online-store --component product-catalog
+		  occ get deployableartifact  --organization acme-corp --project online-store --component product-catalog
 
 		  # List deployable artifacts in yaml format
-		  choreoctl get deployableartifact --organization acme-corp --project online-store --component product-catalog -o yaml
+		  occ get deployableartifact --organization acme-corp --project online-store --component product-catalog -o yaml
 `,
 	}
 	ListDeployment = Command{
@@ -356,24 +356,24 @@ This command allows you to:
 - Filter by environment and deployment track
 - View deployments in different output formats`,
 		Example: `  # List all deployments
-  choreoctl get deployment
+  occ get deployment
 
   # List deployments for a specific component
-  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog
+  occ get deployment --organization acme-corp --project online-store --component product-catalog
 
   # List deployments for a specific environment
-  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog \
+  occ get deployment --organization acme-corp --project online-store --component product-catalog \
   --environment dev
 
   # List deployments for a specific deployment track
-  choreoctl get deployment --organization acme-corp --project online-store --component product-catalog \
+  occ get deployment --organization acme-corp --project online-store --component product-catalog \
    --deployment-track main
 
   # List deployments in yaml format
-  choreoctl get deployment -o yaml --organization acme-corp --project product-catalog
+  occ get deployment -o yaml --organization acme-corp --project product-catalog
 
   # List details of a specific deployment
-  choreoctl get deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ get deployment product-catalog-dev-01 --organization acme-corp --project online-store \
    --component product-catalog`,
 	}
 
@@ -383,10 +383,10 @@ This command allows you to:
 		Short:   "Create a deployment",
 		Long:    `Create a deployment in the specified organization, project and component.`,
 		Example: `  # Create a deployment interactively
-  choreoctl create deployment --interactive
+  occ create deployment --interactive
 
   # Create a deployment with specific parameters
-  choreoctl create deployment --name product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ create deployment --name product-catalog-dev-01 --organization acme-corp --project online-store \
     --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
 	}
 
@@ -396,10 +396,10 @@ This command allows you to:
 		Short:   "Create a deployment track",
 		Long:    `Create a deployment track in the specified organization, project and component.`,
 		Example: `  # Create a deployment track interactively
-  choreoctl create deploymenttrack --interactive
+  occ create deploymenttrack --interactive
 
   # Create a deployment track with specific parameters
-  choreoctl create deploymenttrack --name main-track --organization acme-corp --project online-store \
+  occ create deploymenttrack --name main-track --organization acme-corp --project online-store \
     --component product-catalog --api-version v1 --auto-deploy true`,
 	}
 
@@ -409,13 +409,13 @@ This command allows you to:
 		Short:   "List deployment tracks",
 		Long:    `List deployment tracks in an organization, project and component.`,
 		Example: `  # List all deployment tracks
-  choreoctl get deploymenttrack --organization acme-corp --project online-store --component product-catalog
+  occ get deploymenttrack --organization acme-corp --project online-store --component product-catalog
 
   # List specific deployment track
-  choreoctl get deploymenttrack main-track --organization acme-corp --project online-store --component product-catalog
+  occ get deploymenttrack main-track --organization acme-corp --project online-store --component product-catalog
 
   # Output deployment tracks in YAML format
-  choreoctl get deploymenttrack -o yaml`,
+  occ get deploymenttrack -o yaml`,
 	}
 
 	ListEnvironment = Command{
@@ -425,16 +425,16 @@ This command allows you to:
 		Long: `List all environments or a specific environment in an organization.
 If no organization is specified, you will be prompted to select one interactively.`,
 		Example: `  # List all environments in an organization
-  choreoctl get environment --organization acme-corp
+  occ get environment --organization acme-corp
 
   # List a specific environment
-  choreoctl get environment development --organization acme-corp
+  occ get environment development --organization acme-corp
 
   # Output environments in YAML format
-  choreoctl get environment --organization acme-corp -o yaml
+  occ get environment --organization acme-corp -o yaml
 
   # get environments interactively
-  choreoctl get environment --interactive`,
+  occ get environment --interactive`,
 	}
 
 	CreateDataPlane = Command{
@@ -443,10 +443,10 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create a data plane",
 		Long:    `Create a data plane in the specified organization.`,
 		Example: `  # Create a data plane interactively
-  choreoctl create dataplane --interactive
+  occ create dataplane --interactive
 
   # Create a data plane with specific parameters
-  choreoctl create dataplane --name primary-dataplane --organization acme-corp --cluster-name k8s-cluster-01 \
+  occ create dataplane --name primary-dataplane --organization acme-corp --cluster-name k8s-cluster-01 \
     --connection-config kubeconfig --enable-cilium --enable-scale-to-zero --gateway-type envoy \
     --public-virtual-host api.example.com`,
 	}
@@ -457,13 +457,13 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "List data planes",
 		Long:    `List all data planes or a specific data plane in an organization.`,
 		Example: `  # List all data planes
-  choreoctl get dataplane --organization acme-corp
+  occ get dataplane --organization acme-corp
 
   # List a specific data plane
-  choreoctl get dataplane primary-dataplane --organization acme-corp
+  occ get dataplane primary-dataplane --organization acme-corp
 
   # Output data plane details in YAML format
-  choreoctl get dataplane --organization acme-corp -o yaml`,
+  occ get dataplane --organization acme-corp -o yaml`,
 	}
 
 	ListEndpoint = Command{
@@ -472,15 +472,15 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "List endpoints",
 		Long:    `List all endpoints in an organization, project, component, and environment.`,
 		Example: `  # List all endpoints
-  choreoctl get endpoint --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint --organization acme-corp --project online-store --component product-catalog \
   --environment dev
 
   # List a specific endpoint
-  choreoctl get endpoint product-ep --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint product-ep --organization acme-corp --project online-store --component product-catalog \
    --environment dev
 
   # Output endpoint details in YAML format
-  choreoctl get endpoint --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint --organization acme-corp --project online-store --component product-catalog \
   --environment development -o yaml`,
 	}
 
@@ -490,13 +490,13 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create an environment",
 		Long:    `Create an environment in the specified organization.`,
 		Example: `  # Create an environment interactively
-  choreoctl create environment --interactive
+  occ create environment --interactive
 
   # Create a development environment
-  choreoctl create environment --name dev --organization acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
+  occ create environment --name dev --organization acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
 
   # Create a production environment
-  choreoctl create environment --name production --organization acme-corp --dataplane-ref primary-dataplane \
+  occ create environment --name production --organization acme-corp --dataplane-ref primary-dataplane \
     --dns-prefix prod --production`,
 	}
 
@@ -506,14 +506,14 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create a deployable artifact",
 		Long:    `Create a deployable artifact in the specified organization, project and component.`,
 		Example: `  # Create a deployable artifact interactively
-  choreoctl create deployableartifact --interactive
+  occ create deployableartifact --interactive
 
   # Create a deployable artifact from a build
-  choreoctl create deployableartifact --name product-catalog-artifact --organization acme-corp \
+  occ create deployableartifact --name product-catalog-artifact --organization acme-corp \
     --project online-store --component product-catalog --build product-catalog-build-01
 
   # Create a deployable artifact from an image
-  choreoctl create deployableartifact --name product-catalog-artifact --organization acme-corp \
+  occ create deployableartifact --name product-catalog-artifact --organization acme-corp \
     --project online-store --component product-catalog --from-image-ref product-catalog:latest`,
 	}
 
@@ -523,7 +523,7 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "Create a deployment pipeline",
 		Long:    `Create a deployment pipeline in the specified organization.`,
 		Example: `  # Create a deployment pipeline with specific parameters
-  choreoctl create deploymentpipeline --name dev-stage-prod --organization acme-corp \
+  occ create deploymentpipeline --name dev-stage-prod --organization acme-corp \
    --environment-order "development,staging,production"`,
 	}
 
@@ -533,13 +533,13 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "List deployment pipelines",
 		Long:    `List all deployment pipelines or a specific deployment pipeline in an organization.`,
 		Example: `  # List all deployment pipelines
-  choreoctl get deploymentpipeline --organization acme-corp
+  occ get deploymentpipeline --organization acme-corp
 
   # List a specific deployment pipeline
-  choreoctl get deploymentpipeline default --organization acme-corp
+  occ get deploymentpipeline default --organization acme-corp
 
   # Output deployment pipeline details in YAML format
-  choreoctl get deploymentpipeline --organization acme-corp -o yaml`,
+  occ get deploymentpipeline --organization acme-corp -o yaml`,
 	}
 
 	ListConfigurationGroup = Command{
@@ -548,13 +548,13 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short:   "List configuration groups",
 		Long:    `List all configuration groups or a specific configuration group in an organization.`,
 		Example: `  # List all configuration groups
-  choreoctl get configurationgroup --organization acme-corp
+  occ get configurationgroup --organization acme-corp
 
   # List a specific configuration group
-  choreoctl get configurationgroup config-group-1 --organization acme-corp
+  occ get configurationgroup config-group-1 --organization acme-corp
 
   # Output configuration group details in YAML format
-  choreoctl get configurationgroup --organization acme-corp -o yaml`,
+  occ get configurationgroup --organization acme-corp -o yaml`,
 	}
 
 	// ------------------------------------------------------------------------
@@ -566,7 +566,7 @@ If no organization is specified, you will be prompted to select one interactivel
 		Use:   "config",
 		Short: "Manage Choreo configuration contexts",
 		Long: "Manage configuration contexts that store default values (e.g., organization, project, component) " +
-			"for choreoctl commands.",
+			"for occ commands.",
 		Example: fmt.Sprintf(`  # List all stored configuration contexts
   %[1]s config get-contexts
 
@@ -671,6 +671,6 @@ If no organization is specified, you will be prompted to select one interactivel
 		Short: "Delete OpenChoreo resources by file names",
 		Long:  "Delete resources in OpenChoreo platform such as organizations, projects, components, etc.",
 		Example: `  # Delete resources from a YAML file
-  choreoctl delete -f resources.yaml`,
+  occ delete -f resources.yaml`,
 	}
 )

@@ -2,7 +2,7 @@
 
 This guide walks you through the installation and setup of OpenChoreo on a multi-cluster Kubernetes environment. 
 The process involves creating and configuring two Kubernetes clusters: one for the **Control Plane** and another for the **Data Plane**. 
-After configuring the clusters, you will install OpenChoreo using Helm, verify the installation, and install the `choreoctl` CLI tool to manage OpenChoreo components.
+After configuring the clusters, you will install OpenChoreo using Helm, verify the installation, and install the `occ` CLI tool to manage OpenChoreo components.
 
 By the end of this guide, you'll have a fully functional OpenChoreo deployment running on a multi-cluster setup.
 
@@ -155,11 +155,11 @@ Run the following command:
 > [!NOTE]
 > If you're using clusters created with k3d, the above command should work automatically. If you're using different cluster names or contexts, adjust the `--control-plane-context` and `--target-context` flags accordingly.
 
-## Install the choreoctl
+## Install the occ
 
 [//]: # (TODO: Refine this once we properly release the CLI as a binary.)
 
-`choreoctl` is the command-line interface for OpenChoreo. With that, you can seamlessly interact with OpenChoreo and manage your resources.
+`occ` is the command-line interface for OpenChoreo. With that, you can seamlessly interact with OpenChoreo and manage your resources.
 
 ### Prerequisites
 
@@ -170,27 +170,27 @@ Run the following command:
    ```
 
 
-### Step 1 - Build `choreoctl`
+### Step 1 - Build `occ`
 From the root level of the repo, run:
 
 ```shell
-make choreoctl-release
+make occ-release
 ```
 
 Once this is completed, it will have a `dist` directory created in the project root directory.
 
-### Step 2 - Install `choreoctl` into your host machine
+### Step 2 - Install `occ` into your host machine
 
-Run the following command to install the `choreoctl` CLI into your host machine.
+Run the following command to install the `occ` CLI into your host machine.
 
 ```shell
-./install/choreoctl-install.sh
+./install/occ-install.sh
 ````
 
 To verify the installation, run:
 
 ```shell
-choreoctl
+occ
 ```
 
 You should see the following output:
@@ -199,7 +199,7 @@ You should see the following output:
 Welcome to Choreo CLI, the command-line interface for Open Source Internal Developer Platform
 
 Usage:
-  choreoctl [command]
+  occ [command]
 
 Available Commands:
   apply       Apply Choreo resource configurations
@@ -211,35 +211,35 @@ Available Commands:
   logs        Get Choreo resource logs
 
 Flags:
-  -h, --help   help for choreoctl
+  -h, --help   help for occ
 
-Use "choreoctl [command] --help" for more information about a command.
+Use "occ [command] --help" for more information about a command.
 ```
 
-Now `choreoctl` is all setup.
+Now `occ` is all setup.
 
-### Uninstall choreoctl
+### Uninstall occ
 
-If you want to uninstall `choreoctl` from your host machine, you can use the [script](../install/choreoctl-uninstall.sh) that we have provided.
+If you want to uninstall `occ` from your host machine, you can use the [script](../install/occ-uninstall.sh) that we have provided.
 
-Run the following command to uninstall `choreoctl`:
+Run the following command to uninstall `occ`:
 
 ```shell
-curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/choreoctl-uninstall.sh | bash
+curl -sL https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/install/occ-uninstall.sh | bash
 ```
 
 ## Access Your Deployed Services
 
 With k3d, services from the Data Plane are automatically accessible via localhost port mappings. The port mappings are configured in the k3d cluster configuration:
 
-- **Port 9080**: HTTP access to workloads (Envoy Gateway)
-- **Port 9443**: HTTPS access to workloads
+- **Port 19080**: HTTP access to workloads (kgateway)
+- **Port 19443**: HTTPS access to workloads
 
 You can access your deployed services using:
 
 ```shell
 # Access a service deployed on the Data Plane
-curl http://localhost:9080/<service-path>
+curl http://localhost:19080/<service-path>
 ```
 
 > [!NOTE]

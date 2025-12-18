@@ -40,6 +40,7 @@ type Toolsets struct {
 type OrganizationToolsetHandler interface {
 	GetOrganization(ctx context.Context, name string) (any, error)
 	ListOrganizations(ctx context.Context) (any, error)
+	ListSecretReferences(ctx context.Context, orgName string) (any, error)
 }
 
 // ProjectToolsetHandler handles organization and project operations
@@ -57,7 +58,6 @@ type ComponentToolsetHandler interface {
 	GetComponent(
 		ctx context.Context, orgName, projectName, componentName string, additionalResources []string,
 	) (any, error)
-	GetComponentBinding(ctx context.Context, orgName, projectName, componentName, environment string) (any, error)
 	UpdateComponentBinding(
 		ctx context.Context, orgName, projectName, componentName, bindingName string,
 		req *models.UpdateBindingRequest,
@@ -87,6 +87,26 @@ type ComponentToolsetHandler interface {
 	// Schema operations
 	GetComponentSchema(ctx context.Context, orgName, projectName, componentName string) (any, error)
 	GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (any, error)
+	// Trait operations
+	ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) (any, error)
+	UpdateComponentTraits(
+		ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
+	) (any, error)
+	// Release operations
+	GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error)
+	// Component patch operations
+	PatchComponent(
+		ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest,
+	) (any, error)
+	// Component workflow operations
+	ListComponentWorkflows(ctx context.Context, orgName string) (any, error)
+	GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error)
+	TriggerComponentWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (any, error)
+	ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error)
+	UpdateComponentWorkflowSchema(
+		ctx context.Context, orgName, projectName, componentName string,
+		req *models.UpdateComponentWorkflowSchemaRequest,
+	) (any, error)
 }
 
 // BuildToolsetHandler handles build operations
@@ -129,6 +149,13 @@ type InfrastructureToolsetHandler interface {
 	// Trait operations
 	ListTraits(ctx context.Context, orgName string) (any, error)
 	GetTraitSchema(ctx context.Context, orgName, traitName string) (any, error)
+
+	// ObservabilityPlane operations
+	ListObservabilityPlanes(ctx context.Context, orgName string) (any, error)
+
+	// ComponentWorkflow operations (org-level)
+	ListComponentWorkflows(ctx context.Context, orgName string) (any, error)
+	GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error)
 }
 
 // SchemaToolsetHandler handles schema and resource explanation operations

@@ -92,7 +92,7 @@ PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=reading-list-
 ### Add a new book
 
 ```bash
-curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books" \
+curl -X POST "http://${HOSTNAME}:19080${PATH_PREFIX}/api/v1/reading-list/books" \
 -H "Content-Type: application/json" \
 -d '{
 "id": "12",
@@ -105,13 +105,13 @@ curl -X POST "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books" \
 ### Retrieve the book by ID
 
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/api/v1/reading-list/books/12"
 ```
 
 ### Update a book
 
 ```bash
-curl -X PUT "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12" \
+curl -X PUT "http://${HOSTNAME}:19080${PATH_PREFIX}/api/v1/reading-list/books/12" \
 -H "Content-Type: application/json" \
 -d '{
 "title": "The Catcher in the Rye",
@@ -123,13 +123,13 @@ curl -X PUT "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12"
 ### Delete a book by ID
 
 ```bash
-curl -X DELETE "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books/12"
+curl -X DELETE "http://${HOSTNAME}:19080${PATH_PREFIX}/api/v1/reading-list/books/12"
 ```
 
 ### List all books
 
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/api/v1/reading-list/books"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/api/v1/reading-list/books"
 ```
 
 ## Troubleshooting

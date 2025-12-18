@@ -102,12 +102,13 @@ type ResourceTemplate struct {
 	// If not specified, the resource is always created
 	// Example: "${spec.autoscaling.enabled}"
 	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	IncludeWhen string `json:"includeWhen,omitempty"`
 
 	// ForEach enables generating multiple resources from a list using CEL expression
 	// Example: "${spec.configurations}" to iterate over a list
 	// +optional
-	// +kubebuilder:validation:Pattern=`^\$\{.+\}$`
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	ForEach string `json:"forEach,omitempty"`
 
 	// Var is the loop variable name when using forEach

@@ -1,5 +1,3 @@
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
 spec:
   environment: dev
   component:

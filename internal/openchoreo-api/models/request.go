@@ -105,7 +105,9 @@ type PatchComponentRequest struct {
 	// AutoDeploy controls whether the component should automatically deploy to the default environment
 	// +optional
 	AutoDeploy *bool `json:"autoDeploy,omitempty"`
-	// TODO Add support for other fields to be patched
+	// Parameters are component type parameters (port, replicas, exposed, etc.)
+	// +optional
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 type CreateComponentReleaseRequest struct {
@@ -355,6 +357,9 @@ type SecretKeyRef struct {
 
 // UpdateComponentWorkflowSchemaRequest represents the request to update a component's workflow schema
 type UpdateComponentWorkflowSchemaRequest struct {
+	// WorkflowName is required when initializing a workflow on a component that doesn't have one
+	// +optional
+	WorkflowName     string                         `json:"workflowName,omitempty"`
 	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
 	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`
 }

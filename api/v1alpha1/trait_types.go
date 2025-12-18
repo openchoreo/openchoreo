@@ -83,7 +83,7 @@ type TraitPatch struct {
 	// Requires 'var' to be set to name the binding used in operations
 	// Example: forEach: ${spec.mounts}
 	// +optional
-	// +kubebuilder:validation:Pattern=`^\$\{.+\}$`
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	ForEach string `json:"forEach,omitempty"`
 
 	// Var names the binding for forEach iterations
@@ -130,6 +130,7 @@ type PatchTarget struct {
 	// Where is an optional CEL expression to filter which resources to patch
 	// Example: ${resource.metadata.name.endsWith("-secret-envs")}
 	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	Where string `json:"where,omitempty"`
 }
 

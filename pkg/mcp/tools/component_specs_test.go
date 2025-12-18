@@ -18,6 +18,7 @@ func componentToolSpecs() []toolTestSpec {
 	specs = append(specs, componentReleaseSpecs()...)
 	specs = append(specs, componentBindingSpecs()...)
 	specs = append(specs, componentSchemaSpecs()...)
+	specs = append(specs, componentWorkflowSpecs()...)
 	return specs
 }
 
@@ -76,28 +77,6 @@ func componentBasicSpecs() []toolTestSpec {
 			},
 		},
 		{
-			name:                "get_component_binding",
-			toolset:             "component",
-			descriptionKeywords: []string{"component", "binding"},
-			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name", "component_name", "environment"},
-			testArgs: map[string]any{
-				"org_name":       testOrgName,
-				"project_name":   testProjectName,
-				"component_name": testComponentName,
-				"environment":    testEnvName,
-			},
-			expectedMethod: "GetComponentBinding",
-			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testProjectName ||
-					args[2] != testComponentName || args[3] != testEnvName {
-					t.Errorf("Expected (%s, %s, %s, %s), got (%v, %v, %v, %v)",
-						testOrgName, testProjectName, testComponentName, testEnvName,
-						args[0], args[1], args[2], args[3])
-				}
-			},
-		},
-		{
 			name:                "get_component_observer_url",
 			toolset:             "component",
 			descriptionKeywords: []string{"observability", "component"},
@@ -143,18 +122,39 @@ func componentBasicSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"create", "component"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name", "name", "type"},
+			requiredParams:      []string{"org_name", "project_name", "name", "componentType"},
 			optionalParams:      []string{"display_name", "description"},
 			testArgs: map[string]any{
-				"org_name":     testOrgName,
-				"project_name": testProjectName,
-				"name":         "new-component",
-				"type":         "WebApplication",
+				"org_name":      testOrgName,
+				"project_name":  testProjectName,
+				"name":          "new-component",
+				"componentType": "WebApplication",
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testOrgName || args[1] != testProjectName {
 					t.Errorf("Expected (%s, %s), got (%v, %v)", testOrgName, testProjectName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "patch_component",
+			toolset:             "component",
+			descriptionKeywords: []string{"patch", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			optionalParams:      []string{"auto_deploy"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"auto_deploy":    true,
+			},
+			expectedMethod: "PatchComponent",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
 				}
 			},
 		},
@@ -414,6 +414,178 @@ func componentSchemaSpecs() []toolTestSpec {
 					t.Errorf("Expected (%s, %s, %s, %s), got (%v, %v, %v, %v)",
 						testOrgName, testProjectName, testComponentName, testReleaseName,
 						args[0], args[1], args[2], args[3])
+				}
+			},
+		},
+		{
+			name:                "list_component_traits",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "trait", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+			},
+			expectedMethod: "ListComponentTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+				}
+			},
+		},
+		{
+			name:                "update_component_traits",
+			toolset:             "component",
+			descriptionKeywords: []string{"update", "trait", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name", "traits"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"traits": []interface{}{
+					map[string]interface{}{
+						"name":         "autoscaling",
+						"instanceName": "hpa-1",
+						"parameters":   map[string]interface{}{"minReplicas": float64(2)},
+					},
+				},
+			},
+			expectedMethod: "UpdateComponentTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+				}
+			},
+		},
+		{
+			name:                "get_environment_release",
+			toolset:             "component",
+			descriptionKeywords: []string{"release", "environment"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name", "environment_name"},
+			testArgs: map[string]any{
+				"org_name":         testOrgName,
+				"project_name":     testProjectName,
+				"component_name":   testComponentName,
+				"environment_name": testEnvName,
+			},
+			expectedMethod: "GetEnvironmentRelease",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName ||
+					args[2] != testComponentName || args[3] != testEnvName {
+					t.Errorf("Expected (%s, %s, %s, %s), got (%v, %v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, testEnvName,
+						args[0], args[1], args[2], args[3])
+				}
+			},
+		},
+	}
+}
+
+// componentWorkflowSpecs returns component workflow operation specs
+func componentWorkflowSpecs() []toolTestSpec {
+	return []toolTestSpec{
+		{
+			name:                "list_component_workflows",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "workflow", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+			},
+			expectedMethod: "ListComponentWorkflows",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName {
+					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_component_workflow_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"schema", "workflow", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "cwName"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+				"cwName":   "build-workflow",
+			},
+			expectedMethod: "GetComponentWorkflowSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != "build-workflow" {
+					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testOrgName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "trigger_component_workflow",
+			toolset:             "component",
+			descriptionKeywords: []string{"trigger", "workflow", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			optionalParams:      []string{"commit"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"commit":         "abc1234",
+			},
+			expectedMethod: "TriggerComponentWorkflow",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+				}
+			},
+		},
+		{
+			name:                "list_component_workflow_runs",
+			toolset:             "component",
+			descriptionKeywords: []string{"list", "workflow", "run", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+			},
+			expectedMethod: "ListComponentWorkflowRuns",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+				}
+			},
+		},
+		{
+			name:                "update_component_workflow_schema",
+			toolset:             "component",
+			descriptionKeywords: []string{"update", "workflow", "schema", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			optionalParams:      []string{"system_parameters", "parameters"},
+			testArgs: map[string]any{
+				"org_name":       testOrgName,
+				"project_name":   testProjectName,
+				"component_name": testComponentName,
+				"system_parameters": map[string]interface{}{
+					"repository": map[string]interface{}{
+						"url":     "https://github.com/example/repo",
+						"appPath": "/app",
+					},
+				},
+			},
+			expectedMethod: "UpdateComponentWorkflowSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
+						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
 				}
 			},
 		},

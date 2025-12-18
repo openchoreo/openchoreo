@@ -12,6 +12,7 @@ func (t *Toolsets) organizationToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListOrganizations,
 		t.RegisterGetOrganization,
+		t.RegisterListSecretReferences,
 	}
 }
 
@@ -30,7 +31,7 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterCreateComponent,
 		t.RegisterListComponents,
 		t.RegisterGetComponent,
-		t.RegisterComponentBinding,
+		t.RegisterPatchComponent,
 		t.RegisterUpdateComponentBinding,
 		t.RegisterGetComponentWorkloads,
 		t.RegisterListComponentReleases,
@@ -43,6 +44,14 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterDeployRelease,
 		t.RegisterPromoteComponent,
 		t.RegisterCreateWorkload,
+		t.RegisterListComponentTraits,
+		t.RegisterUpdateComponentTraits,
+		t.RegisterGetEnvironmentRelease,
+		t.RegisterListComponentWorkflows,
+		t.RegisterGetComponentWorkflowSchema,
+		t.RegisterTriggerComponentWorkflow,
+		t.RegisterListComponentWorkflowRuns,
+		t.RegisterUpdateComponentWorkflowSchema,
 	}
 }
 
@@ -80,6 +89,9 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 		t.RegisterGetWorkflowSchema,
 		t.RegisterListTraits,
 		t.RegisterGetTraitSchema,
+		t.RegisterListObservabilityPlanes,
+		t.RegisterListComponentWorkflowsOrgLevel,
+		t.RegisterGetComponentWorkflowSchemaOrgLevel,
 	}
 }
 

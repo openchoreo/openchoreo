@@ -5,8 +5,10 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -54,31 +56,6 @@ func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterComponentBinding(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_binding",
-		Description: "Get environment-specific configuration for a component. Bindings define how a component " +
-			"behaves in a particular environment (replicas, env vars, resource limits, etc.).",
-		InputSchema: createSchema(map[string]any{
-			"org_name":       defaultStringProperty(),
-			"project_name":   defaultStringProperty(),
-			"component_name": defaultStringProperty(),
-			"environment": stringProperty(
-				"E.g., 'dev', 'staging', 'production'. Use list_environments to discover"),
-		}, []string{"org_name", "project_name", "component_name", "environment"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName       string `json:"org_name"`
-		ProjectName   string `json:"project_name"`
-		ComponentName string `json:"component_name"`
-		Environment   string `json:"environment"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentBinding(
-			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.Environment,
-		)
-		return handleToolResult(result, err)
-	})
-}
-
 func (t *Toolsets) RegisterGetComponentWorkloads(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_component_workloads",
@@ -104,29 +81,117 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_component",
 		Description: "Create a new component in a project. Components are deployable units (services, jobs, etc.) " +
-			"with independent build and deployment lifecycles. Component names must be DNS-compatible.",
+			"with independent build and deployment lifecycles. ",
 		InputSchema: createSchema(map[string]any{
 			"org_name":     defaultStringProperty(),
 			"project_name": defaultStringProperty(),
 			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name": stringProperty("Human-readable display name"),
 			"description":  stringProperty("Human-readable description"),
-			"type":         stringProperty("Component type identifier. Use list_component_types to discover valid types"),
-		}, []string{"org_name", "project_name", "name", "type"}),
+			"componentType": stringProperty("Component type identifier in {workloadType}/{componentTypeName} format." +
+				"Use list_component_types to discover valid types"),
+			"autoDeploy": map[string]any{
+				"type": "boolean",
+				"description": "Optional: Automatically triggers the component deployment if the component or" +
+					" related resources such as build, configs are updated. Defaults to true.",
+			},
+			"parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
+			},
+			"workflow": map[string]any{
+				"type":        "object",
+				"description": "Optional: Component workflow configuration with name, systemParameters, and parameters",
+			},
+		}, []string{"org_name", "project_name", "name", "componentType"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName     string `json:"org_name"`
-		ProjectName string `json:"project_name"`
-		Name        string `json:"name"`
-		DisplayName string `json:"display_name"`
-		Description string `json:"description"`
-		Type        string `json:"type"`
+		OrgName       string                 `json:"org_name"`
+		ProjectName   string                 `json:"project_name"`
+		Name          string                 `json:"name"`
+		DisplayName   string                 `json:"display_name"`
+		Description   string                 `json:"description"`
+		ComponentType string                 `json:"componentType"`
+		AutoDeploy    *bool                  `json:"autoDeploy,omitempty"`
+		Parameters    map[string]interface{} `json:"parameters"`
+		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
 		componentReq := &models.CreateComponentRequest{
-			Name:        args.Name,
-			DisplayName: args.DisplayName,
-			Description: args.Description,
-			Type:        args.Type,
+			Name:          args.Name,
+			DisplayName:   args.DisplayName,
+			Description:   args.Description,
+			ComponentType: args.ComponentType,
 		}
+
+		// Set the component to auto deploy by default
+		if args.AutoDeploy == nil {
+			autoDeploy := true
+			componentReq.AutoDeploy = &autoDeploy
+		}
+
+		// Convert parameters if provided
+		if args.Parameters != nil {
+			rawParams, err := json.Marshal(args.Parameters)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
+					},
+					IsError: true,
+				}, nil, nil
+			}
+			componentReq.Parameters = &runtime.RawExtension{Raw: rawParams}
+		}
+
+		// Convert workflow if provided
+		if args.Workflow != nil {
+			workflow := &models.ComponentWorkflow{}
+			if name, ok := args.Workflow["name"].(string); ok {
+				workflow.Name = name
+			}
+
+			// Convert systemParameters if provided
+			if systemParams, ok := args.Workflow["systemParameters"].(map[string]interface{}); ok {
+				systemParamsModel := &models.ComponentWorkflowSystemParams{}
+				if repo, ok := systemParams["repository"].(map[string]interface{}); ok {
+					repoParams := models.ComponentWorkflowRepository{}
+					if url, ok := repo["url"].(string); ok {
+						repoParams.URL = url
+					}
+					if appPath, ok := repo["appPath"].(string); ok {
+						repoParams.AppPath = appPath
+					}
+					if revision, ok := repo["revision"].(map[string]interface{}); ok {
+						revParams := models.ComponentWorkflowRepositoryRevision{}
+						if branch, ok := revision["branch"].(string); ok {
+							revParams.Branch = branch
+						}
+						if commit, ok := revision["commit"].(string); ok {
+							revParams.Commit = commit
+						}
+						repoParams.Revision = revParams
+					}
+					systemParamsModel.Repository = repoParams
+				}
+				workflow.SystemParameters = systemParamsModel
+			}
+
+			// Convert parameters if provided
+			if params, ok := args.Workflow["parameters"].(map[string]interface{}); ok {
+				rawParams, err := json.Marshal(params)
+				if err != nil {
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							&mcp.TextContent{Text: "Failed to marshal workflow parameters: " + err.Error()},
+						},
+						IsError: true,
+					}, nil, nil
+				}
+				workflow.Parameters = &runtime.RawExtension{Raw: rawParams}
+			}
+
+			componentReq.ComponentWorkflow = workflow
+		}
+
 		result, err := t.ComponentToolset.CreateComponent(ctx, args.OrgName, args.ProjectName, componentReq)
 		return handleToolResult(result, err)
 	})
@@ -465,6 +530,286 @@ func (t *Toolsets) RegisterGetComponentReleaseSchema(s *mcp.Server) {
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetComponentReleaseSchema(
 			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.ReleaseName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListComponentTraits(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_component_traits",
+		Description: "List all trait instances attached to a component. Traits add capabilities to components " +
+			"(e.g., autoscaling, ingress, service mesh). Returns the trait name, instance name, and parameter values.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+		}, []string{"org_name", "project_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName       string `json:"org_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.ListComponentTraits(ctx, args.OrgName, args.ProjectName, args.ComponentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateComponentTraits(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_component_traits",
+		Description: "Update (replace) all trait instances on a component. This operation replaces the entire set of " +
+			"traits, so include all desired traits in the request. Each trait needs a name (trait type), instanceName " +
+			"(unique identifier), and optional parameters.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"traits": arrayProperty(
+				"Array of trait configurations. Each trait must have 'name', 'instanceName', and optional 'parameters'",
+				"object",
+			),
+		}, []string{"org_name", "project_name", "component_name", "traits"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName       string                         `json:"org_name"`
+		ProjectName   string                         `json:"project_name"`
+		ComponentName string                         `json:"component_name"`
+		Traits        []models.ComponentTraitRequest `json:"traits"`
+	}) (*mcp.CallToolResult, any, error) {
+		updateReq := &models.UpdateComponentTraitsRequest{
+			Traits: args.Traits,
+		}
+		result, err := t.ComponentToolset.UpdateComponentTraits(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName, updateReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetEnvironmentRelease(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_environment_release",
+		Description: "Get the Release spec and status for a component deployed in a specific environment. " +
+			"Returns the complete Release resource including all Kubernetes manifests and deployment status.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":         defaultStringProperty(),
+			"project_name":     defaultStringProperty(),
+			"component_name":   stringProperty("Use list_components to discover valid names"),
+			"environment_name": stringProperty("Use list_environments to discover valid names"),
+		}, []string{"org_name", "project_name", "component_name", "environment_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName         string `json:"org_name"`
+		ProjectName     string `json:"project_name"`
+		ComponentName   string `json:"component_name"`
+		EnvironmentName string `json:"environment_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetEnvironmentRelease(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.EnvironmentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "patch_component",
+		Description: "Patch (partially update) a component's configuration. Only the fields provided in the request " +
+			"will be updated; omitted fields remain unchanged. Supports updating autoDeploy and parameters.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"auto_deploy": map[string]any{
+				"type":        "boolean",
+				"description": "Optional: Whether the component should automatically deploy to the default environment",
+			},
+			"parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
+			},
+		}, []string{"org_name", "project_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName       string                 `json:"org_name"`
+		ProjectName   string                 `json:"project_name"`
+		ComponentName string                 `json:"component_name"`
+		AutoDeploy    *bool                  `json:"auto_deploy"`
+		Parameters    map[string]interface{} `json:"parameters"`
+	}) (*mcp.CallToolResult, any, error) {
+		patchReq := &models.PatchComponentRequest{}
+		if args.AutoDeploy != nil {
+			patchReq.AutoDeploy = args.AutoDeploy
+		}
+		if args.Parameters != nil {
+			rawParams, err := json.Marshal(args.Parameters)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
+					},
+					IsError: true,
+				}, nil, nil
+			}
+			patchReq.Parameters = &runtime.RawExtension{Raw: rawParams}
+		}
+		result, err := t.ComponentToolset.PatchComponent(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName, patchReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListComponentWorkflows(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_component_workflows",
+		Description: "List all available ComponentWorkflow templates in an organization. ComponentWorkflows are " +
+			"reusable workflow definitions (like CI/CD pipelines, build processes) that can be triggered for components.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+		}, []string{"org_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.ListComponentWorkflows(ctx, args.OrgName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetComponentWorkflowSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_workflow_schema",
+		Description: "Get the schema definition for a ComponentWorkflow template. Returns the JSON schema showing " +
+			"workflow configuration options, required fields, and their types.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+			"cwName":   stringProperty("ComponentWorkflow name. Use list_component_workflows to discover valid names"),
+		}, []string{"org_name", "cwName"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+		CwName  string `json:"cwName"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.GetComponentWorkflowSchema(ctx, args.OrgName, args.CwName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterTriggerComponentWorkflow(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "trigger_component_workflow",
+		Description: "Trigger a new workflow run for a component (e.g., build, test, deploy pipeline). " +
+			"Optionally specify a git commit SHA to build from a specific commit. If no commit is provided, " +
+			"the latest commit from the default branch will be used.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"commit":         stringProperty("Optional: Git commit SHA (7-40 hex characters) to build from"),
+		}, []string{"org_name", "project_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName       string `json:"org_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+		Commit        string `json:"commit"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.TriggerComponentWorkflow(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.Commit)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListComponentWorkflowRuns(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_component_workflow_runs",
+		Description: "List all workflow runs (executions) for a specific component. Shows the history of builds, " +
+			"tests, and other workflow executions with their status, timestamps, and results.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+		}, []string{"org_name", "project_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName       string `json:"org_name"`
+		ProjectName   string `json:"project_name"`
+		ComponentName string `json:"component_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.ListComponentWorkflowRuns(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterUpdateComponentWorkflowSchema(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "update_component_workflow_schema",
+		Description: "Update or initialize the workflow schema configuration for a specific component. " +
+			"This allows customizing workflow behavior, build settings, and other component-specific workflow " +
+			"parameters. If the component doesn't have a workflow, provide workflow_name to initialize it.",
+		InputSchema: createSchema(map[string]any{
+			"org_name":       defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+			"workflow_name": map[string]any{
+				"type":        "string",
+				"description": "Optional: Workflow name (required when initializing workflow on component that doesn't have one)",
+			},
+			"system_parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: System parameters including repository URL, revision (branch/commit), and app path",
+			},
+			"parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: Developer-defined workflow parameters (must match ComponentWorkflow schema)",
+			},
+		}, []string{"org_name", "project_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName          string                 `json:"org_name"`
+		ProjectName      string                 `json:"project_name"`
+		ComponentName    string                 `json:"component_name"`
+		WorkflowName     string                 `json:"workflow_name"`
+		SystemParameters map[string]interface{} `json:"system_parameters"`
+		Parameters       map[string]interface{} `json:"parameters"`
+	}) (*mcp.CallToolResult, any, error) {
+		updateReq := &models.UpdateComponentWorkflowSchemaRequest{
+			WorkflowName: args.WorkflowName,
+		}
+
+		// Convert system_parameters if provided
+		if args.SystemParameters != nil {
+			systemParams := &models.ComponentWorkflowSystemParams{}
+			if repo, ok := args.SystemParameters["repository"].(map[string]interface{}); ok {
+				repoParams := models.ComponentWorkflowRepository{}
+				if url, ok := repo["url"].(string); ok {
+					repoParams.URL = url
+				}
+				if appPath, ok := repo["appPath"].(string); ok {
+					repoParams.AppPath = appPath
+				}
+				if revision, ok := repo["revision"].(map[string]interface{}); ok {
+					revParams := models.ComponentWorkflowRepositoryRevision{}
+					if branch, ok := revision["branch"].(string); ok {
+						revParams.Branch = branch
+					}
+					if commit, ok := revision["commit"].(string); ok {
+						revParams.Commit = commit
+					}
+					repoParams.Revision = revParams
+				}
+				systemParams.Repository = repoParams
+			}
+			updateReq.SystemParameters = systemParams
+		}
+
+		// Convert parameters if provided (as RawExtension)
+		if args.Parameters != nil {
+			rawParams, err := json.Marshal(args.Parameters)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{
+						&mcp.TextContent{Text: "Failed to marshal parameters: " + err.Error()},
+					},
+					IsError: true,
+				}, nil, nil
+			}
+			updateReq.Parameters = &runtime.RawExtension{Raw: rawParams}
+		}
+
+		result, err := t.ComponentToolset.UpdateComponentWorkflowSchema(
+			ctx, args.OrgName, args.ProjectName, args.ComponentName, updateReq)
 		return handleToolResult(result, err)
 	})
 }

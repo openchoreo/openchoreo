@@ -39,5 +39,21 @@ func organizationToolSpecs() []toolTestSpec {
 				}
 			},
 		},
+		{
+			name:                "list_secret_references",
+			toolset:             "organization",
+			descriptionKeywords: []string{"list", "secret", "reference"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+			},
+			expectedMethod: "ListSecretReferences",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName {
+					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				}
+			},
+		},
 	}
 }

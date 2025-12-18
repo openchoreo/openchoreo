@@ -133,13 +133,13 @@ make k3d.down
 Once the cluster is running, you can access services via localhost:
 
 - **Control Plane UI/API**: http://openchoreo.localhost:8080
-- **Data Plane Workloads**: http://localhost:9080 (Envoy Gateway)
+- **Data Plane Workloads**: http://localhost:19080 (kgateway)
 - **Build Plane**: Argo Workflows at http://localhost:10081, Registry at http://localhost:10082
 - **Observability**: Observer API at http://localhost:11080, OpenSearch at http://localhost:11082
 
 ### Building and Running the Binaries
 
-This project comprises multiple binaries, mainly the `manager` binary and the `choreoctl` CLI tool.
+This project comprises multiple binaries, mainly the `manager` binary and the `occ` CLI tool.
 To build all the binaries, run:
 
 ```sh
@@ -147,7 +147,7 @@ make go.build
 ```
 
 This will produce the binaries in the `bin/dist` directory based on your OS and architecture.
-You can directly run the `manager` or `choreoctl` binary this location to try out.
+You can directly run the `manager` or `occ` binary this location to try out.
 
 ### Incremental Development
 
@@ -158,9 +158,9 @@ Rather using build and run the binaries every time, you can use the go run make 
   make go.run.manager ENABLE_WEBHOOKS=false
   ```
 
-- Running the `choreoctl` CLI tool:
+- Running the `occ` CLI tool:
   ```sh
-  make go.run.choreoctl GO_RUN_ARGS="version"
+  make go.run.occ GO_RUN_ARGS="version"
   ```
   
 ### Testing

@@ -66,14 +66,14 @@ jobs:
           # Build all binaries for Linux (amd64, arm64)
           make go.build-multiarch GO_TARGET_PLATFORMS="linux/amd64 linux/arm64"
 
-          # Build choreoctl for Darwin and Windows
-          make go.build-multiarch.choreoctl GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
+          # Build occ for Darwin and Windows
+          make go.build-multiarch.occ GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
 
-      - name: Upload choreoctl binaries
+      - name: Upload occ binaries
         uses: actions/upload-artifact@v5.0.0
         with:
-          name: choreoctl
-          path: bin/dist/**/choreoctl
+          name: occ
+          path: bin/dist/**/occ
 
       - name: Upload manager binaries
         uses: actions/upload-artifact@v5.0.0
@@ -118,10 +118,10 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
 
-      - name: Download choreoctl binaries
+      - name: Download occ binaries
         uses: actions/download-artifact@v6.0.0
         with:
-          name: choreoctl
+          name: occ
           path: bin/dist
 
       - name: Download manager binaries
@@ -157,10 +157,10 @@ jobs:
       - name: Set executable permissions
         # See: https://github.com/actions/download-artifact/issues/14
         run: |
-          chmod +x bin/dist/linux/amd64/choreoctl
-          chmod +x bin/dist/linux/arm64/choreoctl
-          chmod +x bin/dist/darwin/amd64/choreoctl
-          chmod +x bin/dist/darwin/arm64/choreoctl
+          chmod +x bin/dist/linux/amd64/occ
+          chmod +x bin/dist/linux/arm64/occ
+          chmod +x bin/dist/darwin/amd64/occ
+          chmod +x bin/dist/darwin/arm64/occ
           chmod +x bin/dist/linux/amd64/manager
           chmod +x bin/dist/linux/arm64/manager
           chmod +x bin/dist/linux/amd64/openchoreo-api

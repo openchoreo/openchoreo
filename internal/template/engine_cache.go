@@ -12,9 +12,9 @@ import (
 	"github.com/google/cel-go/cel"
 )
 
-// EngineOption configures cache behavior for the template engine.
-// Primarily used for testing and benchmarking different cache strategies.
-type EngineOption func(*EngineCache)
+// EngineOption configures the template engine.
+// Used for cache configuration, custom CEL extensions, and testing.
+type EngineOption func(*Engine)
 
 // DisableCache disables all caching (both environment and program caches).
 // Use this for benchmarking to measure the cost of caching vs compilation.
@@ -23,9 +23,8 @@ type EngineOption func(*EngineCache)
 //
 //	engine := template.NewEngineWithOptions(template.DisableCache())
 func DisableCache() EngineOption {
-	return func(cache *EngineCache) {
-		cache.envCacheDisabled = true
-		cache.progCacheDisabled = true
+	return func(e *Engine) {
+		e.cacheDisabled = true
 	}
 }
 
@@ -36,8 +35,8 @@ func DisableCache() EngineOption {
 //
 //	engine := template.NewEngineWithOptions(template.DisableProgramCacheOnly())
 func DisableProgramCacheOnly() EngineOption {
-	return func(cache *EngineCache) {
-		cache.progCacheDisabled = true
+	return func(e *Engine) {
+		e.programCacheDisabled = true
 	}
 }
 
@@ -134,31 +133,17 @@ type EngineCache struct {
 }
 
 // NewEngineCache creates a new cache with the default cache sizes.
-func NewEngineCache() *EngineCache {
-	return &EngineCache{
-		envCache:     newLRUCache[*cel.Env](defaultEnvCacheSize),
-		programCache: newLRUCache[cel.Program](defaultProgramCacheSize),
+func newEngineCache(envCacheDisabled, progCacheDisabled bool) *EngineCache {
+	cache := &EngineCache{
+		envCacheDisabled:  envCacheDisabled,
+		progCacheDisabled: progCacheDisabled,
 	}
-}
-
-// NewEngineCacheWithOptions creates a new cache with custom options.
-// This is primarily used for benchmarking different cache strategies.
-func NewEngineCacheWithOptions(opts ...EngineOption) *EngineCache {
-	cache := &EngineCache{}
-
-	// Apply options
-	for _, opt := range opts {
-		opt(cache)
-	}
-
-	// Only create caches if they're not disabled
-	if !cache.envCacheDisabled {
+	if !envCacheDisabled {
 		cache.envCache = newLRUCache[*cel.Env](defaultEnvCacheSize)
+		if !progCacheDisabled {
+			cache.programCache = newLRUCache[cel.Program](defaultProgramCacheSize)
+		}
 	}
-	if !cache.progCacheDisabled {
-		cache.programCache = newLRUCache[cel.Program](defaultProgramCacheSize)
-	}
-
 	return cache
 }
 

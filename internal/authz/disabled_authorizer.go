@@ -97,9 +97,19 @@ func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleName string) e
 	return authz.ErrAuthzDisabled
 }
 
+// ForceRemoveRole fails with error
+func (da *DisabledAuthorizer) ForceRemoveRole(ctx context.Context, roleName string) error {
+	return authz.ErrAuthzDisabled
+}
+
 // GetRole fails with error
 func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleName string) (*authz.Role, error) {
 	return nil, authz.ErrAuthzDisabled
+}
+
+// UpdateRole fails with error
+func (da *DisabledAuthorizer) UpdateRole(ctx context.Context, role *authz.Role) error {
+	return authz.ErrAuthzDisabled
 }
 
 // ListRoles fails with error
@@ -112,18 +122,18 @@ func (da *DisabledAuthorizer) AddRoleEntitlementMapping(ctx context.Context, map
 	return authz.ErrAuthzDisabled
 }
 
+// UpdateRoleEntitlementMapping fails with error
+func (da *DisabledAuthorizer) UpdateRoleEntitlementMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
+	return authz.ErrAuthzDisabled
+}
+
 // RemoveRoleEntitlementMapping fails with error
 func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, mappingID uint) error {
 	return authz.ErrAuthzDisabled
 }
 
-// GetRoleMappings fails with error
-func (da *DisabledAuthorizer) GetRoleMappings(ctx context.Context, roleName string) ([]*authz.RoleEntitlementMapping, error) {
-	return nil, authz.ErrAuthzDisabled
-}
-
 // ListRoleEntitlementMappings fails with error
-func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context) ([]*authz.RoleEntitlementMapping, error) {
+func (da *DisabledAuthorizer) ListRoleEntitlementMappings(ctx context.Context, filter *authz.RoleEntitlementMappingFilter) ([]*authz.RoleEntitlementMapping, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

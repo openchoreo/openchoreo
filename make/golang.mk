@@ -13,7 +13,7 @@ GO_TARGET_PLATFORMS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows
 # Format: <binary_name>:<main_file_path>
 GO_BUILD_BINARIES := \
 	manager:$(PROJECT_DIR)/cmd/main.go \
-	choreoctl:$(PROJECT_DIR)/cmd/choreoctl/main.go \
+	occ:$(PROJECT_DIR)/cmd/occ/main.go \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/main.go \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway \
@@ -78,7 +78,7 @@ endef
 
 # Define the build target for a binary
 # This will build the binary for the current platform
-# Ex: make go.build.manager, make go.build.choreoctl
+# Ex: make go.build.manager, make go.build.occ
 .PHONY: go.build.%
 go.build.%: ## Build a binary for the current platform. Ex: make go.build.manager
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
@@ -91,7 +91,7 @@ go.build.%: ## Build a binary for the current platform. Ex: make go.build.manage
 go.build: $(addprefix go.build., $(GO_BUILD_BINARY_NAMES)) ## Build all binaries for the current platform.
 
 # Build the binary for the multiple platforms via cross-compilation
-# Ex: make go.build.multiarch.manager, make go.build.multiarch.choreoctl
+# Ex: make go.build.multiarch.manager, make go.build.multiarch.occ
 .PHONY: go.build-multiarch.%
 go.build-multiarch.%: ## Build a binary for multiple platforms. Ex: make go.build-multiarch.manager
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
@@ -110,7 +110,7 @@ go.build-multiarch: $(addprefix go.build-multiarch., $(GO_BUILD_BINARY_NAMES)) #
 #-----------------------------------------------------------------------------
 
 .PHONY: go.package.%
-go.package.%: ## Package the multi arch binaries. Ex: make go.package.choreoctl
+go.package.%: ## Package the multi arch binaries. Ex: make go.package.occ
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
 		$(call log_error, Invalid go package target '$*'); \
 		exit 1; \
@@ -127,7 +127,7 @@ go.package: $(addprefix go.package., $(GO_BUILD_BINARY_NAMES)) ## Package all bi
 #-----------------------------------------------------------------------------
 
 .PHONY: go.run.%
-go.run.%: ## Run the go program using go run. Ex: make go.run.choreoctl GO_RUN_ARGS="version"
+go.run.%: ## Run the go program using go run. Ex: make go.run.occ GO_RUN_ARGS="version"
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
 		$(call log_error, Invalid go run target '$*'); \
 		exit 1; \
@@ -137,7 +137,7 @@ go.run.%: ## Run the go program using go run. Ex: make go.run.choreoctl GO_RUN_A
 	$(GO) run $(MAIN_PACKAGE_PATH) $(GO_RUN_ARGS)
 
 .PHONY: go.install.%
-go.install.%: go.build.% ## Install the go program to the GOBIN directory. Ex: make go.install.choreoctl
+go.install.%: go.build.% ## Install the go program to the GOBIN directory. Ex: make go.install.occ
 	@if [ -z "$(filter $*,$(GO_BUILD_BINARY_NAMES))" ]; then \
 		$(call log_error, Invalid go install target '$*'); \
 		exit 1; \

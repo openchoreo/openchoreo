@@ -64,25 +64,25 @@ jobs:
               make docker.retag-registry SOURCE_TAG=${{ env.RELEASE_TAG }} NEW_TAG=latest
           fi
 
-      - name: Download choreoctl artifact from the build workflow
+      - name: Download occ artifact from the build workflow
         uses: dawidd6/action-download-artifact@v11
         with:
           workflow: build-and-test.yml
           commit: ${{ env.GIT_SHA_LONG }}
           event: push
-          name: choreoctl
+          name: occ
           path: bin/dist
 
       - name: Set executable permissions
         run: |
-          chmod +x bin/dist/linux/amd64/choreoctl
-          chmod +x bin/dist/linux/arm64/choreoctl
-          chmod +x bin/dist/darwin/amd64/choreoctl
-          chmod +x bin/dist/darwin/arm64/choreoctl
+          chmod +x bin/dist/linux/amd64/occ
+          chmod +x bin/dist/linux/arm64/occ
+          chmod +x bin/dist/darwin/amd64/occ
+          chmod +x bin/dist/darwin/arm64/occ
 
-      - name: Package the choreoctl binaries
+      - name: Package the occ binaries
         run: |
-          make go.package.choreoctl
+          make go.package.occ
 
       - name: Package and push helm charts
         run: |
@@ -95,9 +95,9 @@ jobs:
           generate_release_notes: true
           tag_name: ${{ env.RELEASE_TAG }}
           files: |
-            bin/dist/linux/amd64/choreoctl_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
-            bin/dist/linux/arm64/choreoctl_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz
-            bin/dist/darwin/amd64/choreoctl_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz
-            bin/dist/darwin/arm64/choreoctl_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
-            bin/dist/windows/amd64/choreoctl_${{ env.RELEASE_TAG }}_windows_amd64.zip
-            bin/dist/windows/arm64/choreoctl_${{ env.RELEASE_TAG }}_windows_arm64.zip
+            bin/dist/linux/amd64/occ_${{ env.RELEASE_TAG }}_linux_amd64.tar.gz
+            bin/dist/linux/arm64/occ_${{ env.RELEASE_TAG }}_linux_arm64.tar.gz
+            bin/dist/darwin/amd64/occ_${{ env.RELEASE_TAG }}_darwin_amd64.tar.gz
+            bin/dist/darwin/arm64/occ_${{ env.RELEASE_TAG }}_darwin_arm64.tar.gz
+            bin/dist/windows/amd64/occ_${{ env.RELEASE_TAG }}_windows_amd64.zip
+            bin/dist/windows/arm64/occ_${{ env.RELEASE_TAG }}_windows_arm64.zip

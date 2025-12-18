@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/authz/data"
 )
 
@@ -48,7 +49,7 @@ func initializeSQLite(dbPath string) (*gorm.DB, error) {
 // NewAdapter creates a new gorm adapter with custom schema for Casbin
 // It initializes SQLite and auto-migrates the casbin_rule and actions tables
 // Returns the adapter and DB instance for use with ActionRepository
-func newAdapter(dbPath string, rolesFilePath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm.DB, error) {
+func newAdapter(dbPath string, authzDataFilePath string, logger *slog.Logger) (*gormadapter.Adapter, *gorm.DB, error) {
 	// Initialize SQLite database
 	db, err := initializeSQLite(dbPath)
 	if err != nil {
@@ -67,24 +68,44 @@ func newAdapter(dbPath string, rolesFilePath string, logger *slog.Logger) (*gorm
 		return nil, nil, fmt.Errorf("failed to create gorm adapter: %w", err)
 	}
 
-	// Seed initial data (actions and roles)
-	if err := seedInitialData(db, rolesFilePath, logger); err != nil {
+	// Seed initial data (actions, roles, and mappings)
+	if err := seedInitialData(db, authzDataFilePath, logger); err != nil {
 		return nil, nil, fmt.Errorf("failed to seed initial data: %w", err)
 	}
 
 	return adapter, db, nil
 }
 
-func seedInitialData(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
+func seedInitialData(db *gorm.DB, authzDataFilePath string, logger *slog.Logger) error {
 	logger.Info("seeding initial authorization data")
 
-	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := seedActions(tx, logger); err != nil {
+	// Load authz data from file
+	authzData, err := data.LoadDefaultAuthzDataFromFile(authzDataFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load authz data: %w", err)
+	}
+
+	actionRecords, err := prepareActionRecords()
+	if err != nil {
+		return fmt.Errorf("failed to prepare actions: %w", err)
+	}
+	roleRecords := prepareRoleRecords(authzData.Roles)
+	mappingRecords, err := prepareMappingRecords(authzData.Mappings)
+	if err != nil {
+		return fmt.Errorf("failed to prepare mappings: %w", err)
+	}
+
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := insertActions(tx, actionRecords, logger); err != nil {
 			return fmt.Errorf("failed to seed actions: %w", err)
 		}
 
-		if err := seedRoles(tx, rolesFilePath, logger); err != nil {
+		if err := insertRoles(tx, roleRecords, len(authzData.Roles), logger); err != nil {
 			return fmt.Errorf("failed to seed roles: %w", err)
+		}
+
+		if err := insertMappings(tx, mappingRecords, len(authzData.Mappings), logger); err != nil {
+			return fmt.Errorf("failed to seed mappings: %w", err)
 		}
 
 		return nil
@@ -98,21 +119,29 @@ func seedInitialData(db *gorm.DB, rolesFilePath string, logger *slog.Logger) err
 	return nil
 }
 
-// seedActions creates initial actions if they don't exist
-func seedActions(db *gorm.DB, logger *slog.Logger) error {
-	// Load actions from embedded file
+// prepareActionRecords loads and prepares action records for insertion
+func prepareActionRecords() ([]Action, error) {
 	actions, err := data.LoadActions()
 	if err != nil {
-		return fmt.Errorf("failed to load actions: %w", err)
+		return nil, fmt.Errorf("failed to load actions: %w", err)
 	}
 
-	// Prepare action records for batch insert
 	actionRecords := make([]Action, 0, len(actions))
 	for _, actionData := range actions {
 		actionRecords = append(actionRecords, Action{
 			Action:     actionData.Name,
 			IsInternal: actionData.IsInternal,
 		})
+	}
+
+	return actionRecords, nil
+}
+
+// insertActions inserts action records into the database
+func insertActions(db *gorm.DB, actionRecords []Action, logger *slog.Logger) error {
+	if len(actionRecords) == 0 {
+		logger.Info("no actions to seed")
+		return nil
 	}
 
 	// This is idempotent and safe for concurrent execution
@@ -122,22 +151,15 @@ func seedActions(db *gorm.DB, logger *slog.Logger) error {
 	}).Create(&actionRecords)
 
 	if result.Error != nil {
-		return fmt.Errorf("failed to seed actions: %w", result.Error)
+		return fmt.Errorf("failed to insert actions: %w", result.Error)
 	}
 
-	logger.Info("actions seeded", "total_actions", len(actions), "inserted", result.RowsAffected)
+	logger.Info("actions seeded", "total_actions", len(actionRecords), "inserted", result.RowsAffected)
 	return nil
 }
 
-// seedRoles creates initial role definitions from external file
-func seedRoles(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
-	// Load roles from external file
-	roleDefinitions, err := data.LoadRolesFromFile(rolesFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to load roles: %w", err)
-	}
-
-	// Prepare all role mapping records for batch insert
+// prepareRoleRecords prepares role-to-action mapping records for insertion
+func prepareRoleRecords(roleDefinitions []authzcore.Role) []CasbinRule {
 	ruleRecords := make([]CasbinRule, 0)
 	for _, roleDef := range roleDefinitions {
 		for _, action := range roleDef.Actions {
@@ -153,17 +175,70 @@ func seedRoles(db *gorm.DB, rolesFilePath string, logger *slog.Logger) error {
 			})
 		}
 	}
+	return ruleRecords
+}
 
-	// This is idempotent and safe for concurrent execution
+// insertRoles inserts role records into the database
+func insertRoles(db *gorm.DB, ruleRecords []CasbinRule, roleCount int, logger *slog.Logger) error {
+	if len(ruleRecords) == 0 {
+		logger.Info("no roles to seed")
+		return nil
+	}
+
 	result := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "ptype"}, {Name: "v0"}, {Name: "v1"}, {Name: "v2"}, {Name: "v3"}, {Name: "v4"}, {Name: "v5"}},
 		DoNothing: true, // Ignore conflicts on unique constraint
 	}).Create(&ruleRecords)
 
 	if result.Error != nil {
-		return fmt.Errorf("failed to seed roles: %w", result.Error)
+		return fmt.Errorf("failed to insert roles: %w", result.Error)
 	}
 
-	logger.Info("roles seeded", "file", rolesFilePath, "roles", len(roleDefinitions), "total_mappings", len(ruleRecords), "inserted", result.RowsAffected)
+	logger.Info("roles seeded", "roles", roleCount, "total_mappings", len(ruleRecords), "inserted", result.RowsAffected)
+	return nil
+}
+
+// prepareMappingRecords prepares role-entitlement mapping records for insertion
+func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping) ([]CasbinRule, error) {
+	policyRecords := make([]CasbinRule, 0, len(mappingDefinitions))
+	for _, mappingDef := range mappingDefinitions {
+		entitlement, err := formatSubject(mappingDef.Entitlement.Claim, mappingDef.Entitlement.Value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format entitlement: %w", err)
+		}
+		resourcePath := hierarchyToResourcePath(mappingDef.Hierarchy)
+
+		policyRecords = append(policyRecords, CasbinRule{
+			Ptype:      "p",
+			V0:         entitlement,
+			V1:         resourcePath,
+			V2:         mappingDef.RoleName,
+			V3:         string(mappingDef.Effect),
+			V4:         emptyContextJSON,
+			V5:         "",
+			IsInternal: mappingDef.IsInternal,
+		})
+	}
+	return policyRecords, nil
+}
+
+// insertMappings inserts mapping records into the database
+func insertMappings(db *gorm.DB, policyRecords []CasbinRule, mappingCount int, logger *slog.Logger) error {
+	if len(policyRecords) == 0 {
+		logger.Info("no mappings to seed")
+		return nil
+	}
+
+	// This is idempotent and safe for concurrent execution
+	result := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "ptype"}, {Name: "v0"}, {Name: "v1"}, {Name: "v2"}, {Name: "v3"}, {Name: "v4"}, {Name: "v5"}},
+		DoNothing: true,
+	}).Create(&policyRecords)
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to insert mappings: %w", result.Error)
+	}
+
+	logger.Info("mappings seeded", "total_mappings", mappingCount, "inserted", result.RowsAffected)
 	return nil
 }

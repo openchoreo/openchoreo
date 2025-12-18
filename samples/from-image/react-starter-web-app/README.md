@@ -23,14 +23,14 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 Once the application is deployed, you can access the React application at:
 
 ```
-http://react-starter-development.openchoreoapis.localhost:9080
+http://react-starter-development.openchoreoapis.localhost:19080
 ```
 
 You can also dynamically get the URL using:
 
 ```bash
 HOSTNAME=$(kubectl get httproute -A -l openchoreo.dev/component=react-starter -o jsonpath='{.items[0].spec.hostnames[0]}')
-echo "Access the application at: http://${HOSTNAME}:9080"
+echo "Access the application at: http://${HOSTNAME}:19080"
 ```
 
 ## Troubleshooting Access Issues

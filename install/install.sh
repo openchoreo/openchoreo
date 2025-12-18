@@ -122,8 +122,8 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 10: Setup choreoctl auto-completion
-setup_choreoctl_completion
+# Step 10: Setup occ auto-completion
+setup_occ_completion
 
 # Step 11: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
