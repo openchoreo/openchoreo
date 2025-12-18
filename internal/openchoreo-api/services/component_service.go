@@ -727,6 +727,85 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 	}, nil
 }
 
+// convertEnvVars converts environment variables from the request model to the CR model
+func (s *ComponentService) convertEnvVars(envVars []models.EnvVar) []openchoreov1alpha1.EnvVar {
+	result := make([]openchoreov1alpha1.EnvVar, len(envVars))
+	for i, env := range envVars {
+		envVar := openchoreov1alpha1.EnvVar{
+			Key:   env.Key,
+			Value: env.Value,
+		}
+
+		if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+			envVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
+				SecretRef: &openchoreov1alpha1.SecretKeyRef{
+					Name: env.ValueFrom.SecretRef.Name,
+					Key:  env.ValueFrom.SecretRef.Key,
+				},
+			}
+		}
+
+		result[i] = envVar
+	}
+	return result
+}
+
+// convertFileVars converts file variables from the request model to the CR model
+func (s *ComponentService) convertFileVars(fileVars []models.FileVar, containerName string) []openchoreov1alpha1.FileVar {
+	result := make([]openchoreov1alpha1.FileVar, len(fileVars))
+	for i, file := range fileVars {
+		decodedValue := file.Value
+		if file.Value != "" {
+			decoded, err := base64.StdEncoding.DecodeString(file.Value)
+			if err == nil {
+				decodedValue = string(decoded)
+			} else {
+				s.logger.Warn("Failed to decode base64 file value, using original value",
+					"key", file.Key,
+					"containerName", containerName,
+					"error", err)
+			}
+		}
+
+		fileVar := openchoreov1alpha1.FileVar{
+			Key:       file.Key,
+			MountPath: file.MountPath,
+			Value:     decodedValue,
+		}
+
+		if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+			fileVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
+				SecretRef: &openchoreov1alpha1.SecretKeyRef{
+					Name: file.ValueFrom.SecretRef.Name,
+					Key:  file.ValueFrom.SecretRef.Key,
+				},
+			}
+		}
+
+		result[i] = fileVar
+	}
+	return result
+}
+
+// applyWorkloadOverrides applies workload overrides to the release binding
+func (s *ComponentService) applyWorkloadOverrides(binding *openchoreov1alpha1.ReleaseBinding, req *models.PatchReleaseBindingRequest) {
+	if req.WorkloadOverrides == nil {
+		return
+	}
+
+	containers := make(map[string]openchoreov1alpha1.ContainerOverride)
+	for containerName, containerOverride := range req.WorkloadOverrides.Containers {
+		containers[containerName] = openchoreov1alpha1.ContainerOverride{
+			Env:   s.convertEnvVars(containerOverride.Env),
+			Files: s.convertFileVars(containerOverride.Files, containerName),
+		}
+	}
+
+	binding.Spec.WorkloadOverrides = &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+		Containers: containers,
+	}
+}
+
 // PatchReleaseBinding patches a ReleaseBinding with environment-specific overrides
 func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
@@ -764,41 +843,44 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 	}
 	var binding openchoreov1alpha1.ReleaseBinding
 	bindingExists := true
-	if err := s.k8sClient.Get(ctx, bindingKey, &binding); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			// Binding doesn't exist, we'll create it
-			bindingExists = false
-			s.logger.Debug("Release binding not found, will create new one", "org", orgName, "binding", bindingName)
 
-			if req.Environment == "" {
-				s.logger.Warn("Environment is required when creating a new release binding")
-				return nil, fmt.Errorf("environment is required when creating a new release binding")
-			}
+	err = s.k8sClient.Get(ctx, bindingKey, &binding)
+	// Return early for non-NotFound errors
+	if err != nil && client.IgnoreNotFound(err) != nil {
+		s.logger.Error("Failed to get release binding", "error", err)
+		return nil, fmt.Errorf("failed to get release binding: %w", err)
+	}
 
-			binding = openchoreov1alpha1.ReleaseBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      bindingName,
-					Namespace: orgName,
-					Labels: map[string]string{
-						labels.LabelKeyProjectName:   projectName,
-						labels.LabelKeyComponentName: componentName,
-					},
+	// Handle binding not found - create new one
+	if err != nil {
+		bindingExists = false
+		s.logger.Debug("Release binding not found, will create new one", "org", orgName, "binding", bindingName)
+
+		if req.Environment == "" {
+			s.logger.Warn("Environment is required when creating a new release binding")
+			return nil, fmt.Errorf("environment is required when creating a new release binding")
+		}
+
+		binding = openchoreov1alpha1.ReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      bindingName,
+				Namespace: orgName,
+				Labels: map[string]string{
+					labels.LabelKeyProjectName:   projectName,
+					labels.LabelKeyComponentName: componentName,
 				},
-				Spec: openchoreov1alpha1.ReleaseBindingSpec{
-					Owner: openchoreov1alpha1.ReleaseBindingOwner{
-						ProjectName:   projectName,
-						ComponentName: componentName,
-					},
-					Environment: req.Environment,
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ReleaseBindingOwner{
+					ProjectName:   projectName,
+					ComponentName: componentName,
 				},
-			}
+				Environment: req.Environment,
+			},
+		}
 
-			if req.ReleaseName != "" {
-				binding.Spec.ReleaseName = req.ReleaseName
-			}
-		} else {
-			s.logger.Error("Failed to get release binding", "error", err)
-			return nil, fmt.Errorf("failed to get release binding: %w", err)
+		if req.ReleaseName != "" {
+			binding.Spec.ReleaseName = req.ReleaseName
 		}
 	}
 
@@ -829,74 +911,7 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 		}
 	}
 
-	if req.WorkloadOverrides != nil {
-		containers := make(map[string]openchoreov1alpha1.ContainerOverride)
-
-		for containerName, containerOverride := range req.WorkloadOverrides.Containers {
-			envVars := make([]openchoreov1alpha1.EnvVar, len(containerOverride.Env))
-			for i, env := range containerOverride.Env {
-				envVar := openchoreov1alpha1.EnvVar{
-					Key:   env.Key,
-					Value: env.Value,
-				}
-
-				// Handle ValueFrom for secret references
-				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-					envVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
-						SecretRef: &openchoreov1alpha1.SecretKeyRef{
-							Name: env.ValueFrom.SecretRef.Name,
-							Key:  env.ValueFrom.SecretRef.Key,
-						},
-					}
-				}
-
-				envVars[i] = envVar
-			}
-
-			fileVars := make([]openchoreov1alpha1.FileVar, len(containerOverride.Files))
-			for i, file := range containerOverride.Files {
-				decodedValue := file.Value
-				if file.Value != "" {
-					decoded, err := base64.StdEncoding.DecodeString(file.Value)
-					if err == nil {
-						decodedValue = string(decoded)
-					} else {
-						s.logger.Warn("Failed to decode base64 file value, using original value",
-							"key", file.Key,
-							"containerName", containerName,
-							"error", err)
-					}
-				}
-
-				fileVar := openchoreov1alpha1.FileVar{
-					Key:       file.Key,
-					MountPath: file.MountPath,
-					Value:     decodedValue,
-				}
-
-				// Handle ValueFrom for secret references
-				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-					fileVar.ValueFrom = &openchoreov1alpha1.EnvVarValueFrom{
-						SecretRef: &openchoreov1alpha1.SecretKeyRef{
-							Name: file.ValueFrom.SecretRef.Name,
-							Key:  file.ValueFrom.SecretRef.Key,
-						},
-					}
-				}
-
-				fileVars[i] = fileVar
-			}
-
-			containers[containerName] = openchoreov1alpha1.ContainerOverride{
-				Env:   envVars,
-				Files: fileVars,
-			}
-		}
-
-		binding.Spec.WorkloadOverrides = &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
-			Containers: containers,
-		}
-	}
+	s.applyWorkloadOverrides(&binding, req)
 
 	// Create or update the binding
 	if bindingExists {
