@@ -255,7 +255,7 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	}
 
 	// Parse request body
-	var req models.UpdateComponentWorkflowParametersRequest
+	var req models.UpdateComponentWorkflowRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn("Invalid JSON body", "error", err)
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
