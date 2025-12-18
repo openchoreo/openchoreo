@@ -37,6 +37,11 @@ func (m *MockCoreToolsetHandler) ListOrganizations(ctx context.Context) (any, er
 	return `[{"name":"test-org"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) ListSecretReferences(ctx context.Context, orgName string) (any, error) {
+	m.recordCall("ListSecretReferences", orgName)
+	return `[{"name":"secret-ref-1"}]`, nil
+}
+
 func (m *MockCoreToolsetHandler) ListProjects(ctx context.Context, orgName string) (any, error) {
 	m.recordCall("ListProjects", orgName)
 	return `[{"name":"project1"}]`, nil
@@ -250,6 +255,66 @@ func (m *MockCoreToolsetHandler) GetComponentReleaseSchema(
 	return emptyObjectSchema, nil
 }
 
+func (m *MockCoreToolsetHandler) ListComponentTraits(
+	ctx context.Context, orgName, projectName, componentName string,
+) (any, error) {
+	m.recordCall("ListComponentTraits", orgName, projectName, componentName)
+	return `[{"name":"autoscaling","instanceName":"hpa-1","parameters":{"minReplicas":1,"maxReplicas":10}}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateComponentTraits(
+	ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
+) (any, error) {
+	m.recordCall("UpdateComponentTraits", orgName, projectName, componentName, req)
+	return `[{"name":"autoscaling","instanceName":"hpa-1","parameters":{"minReplicas":2,"maxReplicas":20}}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetEnvironmentRelease(
+	ctx context.Context, orgName, projectName, componentName, environmentName string,
+) (any, error) {
+	m.recordCall("GetEnvironmentRelease", orgName, projectName, componentName, environmentName)
+	return `{"spec":{"resources":[]},"status":{"phase":"Ready"}}`, nil
+}
+
+func (m *MockCoreToolsetHandler) PatchComponent(
+	ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest,
+) (any, error) {
+	m.recordCall("PatchComponent", orgName, projectName, componentName, req)
+	return `{"name":"patched-component"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListComponentWorkflows(ctx context.Context, orgName string) (any, error) {
+	m.recordCall("ListComponentWorkflows", orgName)
+	return `[{"name":"build-workflow"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error) {
+	m.recordCall("GetComponentWorkflowSchema", orgName, cwName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) TriggerComponentWorkflow(
+	ctx context.Context, orgName, projectName, componentName, commit string,
+) (any, error) {
+	m.recordCall("TriggerComponentWorkflow", orgName, projectName, componentName, commit)
+	return `{"runId":"workflow-run-1","status":"Running"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListComponentWorkflowRuns(
+	ctx context.Context, orgName, projectName, componentName string,
+) (any, error) {
+	m.recordCall("ListComponentWorkflowRuns", orgName, projectName, componentName)
+	return `[{"runId":"workflow-run-1","status":"Completed"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateComponentWorkflowSchema(
+	ctx context.Context, orgName, projectName, componentName string,
+	req *models.UpdateComponentWorkflowSchemaRequest,
+) (any, error) {
+	m.recordCall("UpdateComponentWorkflowSchema", orgName, projectName, componentName, req)
+	return `{"name":"component-1","workflowSchema":{}}`, nil
+}
+
 func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, orgName string) (any, error) {
 	m.recordCall("ListComponentTypes", orgName)
 	return `[{"name":"WebApplication"}]`, nil
@@ -278,6 +343,11 @@ func (m *MockCoreToolsetHandler) ListTraits(ctx context.Context, orgName string)
 func (m *MockCoreToolsetHandler) GetTraitSchema(ctx context.Context, orgName, traitName string) (any, error) {
 	m.recordCall("GetTraitSchema", orgName, traitName)
 	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) ListObservabilityPlanes(ctx context.Context, orgName string) (any, error) {
+	m.recordCall("ListObservabilityPlanes", orgName)
+	return `[{"name":"observability-plane-1"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) ApplyResource(ctx context.Context, resource map[string]interface{}) (any, error) {

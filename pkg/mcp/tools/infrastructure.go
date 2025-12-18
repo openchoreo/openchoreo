@@ -274,3 +274,52 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
 		return handleToolResult(result, err)
 	})
 }
+
+func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_observability_planes",
+		Description: "List all ObservabilityPlanes in an organization. ObservabilityPlanes provide monitoring, " +
+			"logging, tracing, and metrics collection capabilities for deployed components.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+		}, []string{"org_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.ListObservabilityPlanes(ctx, args.OrgName)
+		return handleToolResult(result, err)
+	})
+}
+func (t *Toolsets) RegisterListComponentWorkflowsOrgLevel(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_component_workflows_org_level",
+		Description: "List all ComponentWorkflow templates available in an organization. " +
+			"ComponentWorkflows are reusable workflow templates that can be triggered on components.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+		}, []string{"org_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.ListComponentWorkflows(ctx, args.OrgName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetComponentWorkflowSchemaOrgLevel(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_component_workflow_schema_org_level",
+		Description: "Get the schema for a ComponentWorkflow template in an organization. " +
+			"Returns the JSON schema defining the input parameters and configuration for the workflow.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+			"cw_name":  defaultStringProperty(),
+		}, []string{"org_name", "cw_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+		CWName  string `json:"cw_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.InfrastructureToolset.GetComponentWorkflowSchema(ctx, args.OrgName, args.CWName)
+		return handleToolResult(result, err)
+	})
+}

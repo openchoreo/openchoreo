@@ -38,3 +38,19 @@ func (t *Toolsets) RegisterListOrganizations(s *mcp.Server) {
 		return handleToolResult(result, err)
 	})
 }
+
+func (t *Toolsets) RegisterListSecretReferences(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_secret_references",
+		Description: "List all secret references for an organization. Secret references are " +
+			"credentials and sensitive configuration that can be used by components.",
+		InputSchema: createSchema(map[string]any{
+			"org_name": defaultStringProperty(),
+		}, []string{"org_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		OrgName string `json:"org_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.OrganizationToolset.ListSecretReferences(ctx, args.OrgName)
+		return handleToolResult(result, err)
+	})
+}

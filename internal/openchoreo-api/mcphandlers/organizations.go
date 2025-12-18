@@ -34,3 +34,17 @@ func (h *MCPHandler) listOrganizations(ctx context.Context) (ListOrganizationsRe
 func (h *MCPHandler) getOrganizationByName(ctx context.Context, name string) (*models.OrganizationResponse, error) {
 	return h.Services.OrganizationService.GetOrganization(ctx, name)
 }
+
+type ListSecretReferencesResponse struct {
+	SecretReferences []*models.SecretReferenceResponse `json:"secret_references"`
+}
+
+func (h *MCPHandler) ListSecretReferences(ctx context.Context, orgName string) (any, error) {
+	secretReferences, err := h.Services.SecretReferenceService.ListSecretReferences(ctx, orgName)
+	if err != nil {
+		return ListSecretReferencesResponse{}, err
+	}
+	return ListSecretReferencesResponse{
+		SecretReferences: secretReferences,
+	}, nil
+}

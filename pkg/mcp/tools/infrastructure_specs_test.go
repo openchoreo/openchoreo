@@ -227,5 +227,54 @@ func infrastructureToolSpecs() []toolTestSpec {
 				// args[1] is *models.CreateEnvironmentRequest
 			},
 		},
+		{
+			name:                "list_observability_planes",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"list", "observability", "plane"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+			},
+			expectedMethod: "ListObservabilityPlanes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName {
+					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				}
+			},
+		},
+		{
+			name:                "list_component_workflows_org_level",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"list", "workflow", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+			},
+			expectedMethod: "ListComponentWorkflows",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName {
+					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_component_workflow_schema_org_level",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"schema", "workflow", "component"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"org_name", "cw_name"},
+			testArgs: map[string]any{
+				"org_name": testOrgName,
+				"cw_name":  "build-workflow",
+			},
+			expectedMethod: "GetComponentWorkflowSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testOrgName || args[1] != "build-workflow" {
+					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testOrgName, args[0], args[1])
+				}
+			},
+		},
 	}
 }
