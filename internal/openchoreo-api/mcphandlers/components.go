@@ -25,7 +25,7 @@ type ListReleaseBindingsResponse struct {
 }
 
 type ListComponentWorkflowRunsResponse struct {
-	WorkflowRuns []models.ComponentWorkflowResponse `json:"workflowRuns"`
+	WorkflowRuns []*models.ComponentWorkflowResponse `json:"workflowRuns"`
 }
 
 type ListComponentWorkflowsResponse struct {
@@ -237,12 +237,33 @@ func (h *MCPHandler) PatchComponent(ctx context.Context, orgName, projectName, c
 }
 
 func (h *MCPHandler) ListComponentWorkflows(ctx context.Context, orgName string) (any, error) {
-	workflows, err := h.Services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName)
-	if err != nil {
-		return ListComponentWorkflowsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.WorkflowResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName, opts)
+		if err != nil {
+			return ListComponentWorkflowsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_workflows", len(allItems))
+
 	return ListComponentWorkflowsResponse{
-		Workflows: workflows,
+		Workflows: allItems,
 	}, nil
 }
 
@@ -255,12 +276,33 @@ func (h *MCPHandler) TriggerComponentWorkflow(ctx context.Context, orgName, proj
 }
 
 func (h *MCPHandler) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error) {
-	workflowRuns, err := h.Services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
-	if err != nil {
-		return ListComponentWorkflowRunsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ComponentWorkflowResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName, opts)
+		if err != nil {
+			return ListComponentWorkflowRunsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_workflow_runs", len(allItems))
+
 	return ListComponentWorkflowRunsResponse{
-		WorkflowRuns: workflowRuns,
+		WorkflowRuns: allItems,
 	}, nil
 }
 

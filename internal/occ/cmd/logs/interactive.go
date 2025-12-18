@@ -14,14 +14,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/occ/interactive"
+	"github.com/openchoreo/openchoreo/internal/occ/resources"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+)
+
+const (
+	stateOrgSelect = iota
 	stateProjSelect
 	stateCompSelect
 	stateTypeSelect
 	stateBuildSelect
 	stateEnvSelect
 	stateDeploymentSelect
+)
 
-	// Log types
+// Log types
+const (
 	logTypeBuild      = "build"
 	logTypeDeployment = "deployment"
 )

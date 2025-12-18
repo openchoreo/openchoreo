@@ -66,6 +66,8 @@ const (
 	FlagWaitDesc               = "Wait for resources to be deleted before returning"
 	FlagEnvironmentOrderDesc   = "Comma-separated list of environment names in promotion order (e.g., dev,staging,prod)"
 	FlagDeploymentPipelineDesc = "Name of the deployment pipeline (e.g., dev-prod-pipeline)"
-	FlagLimitDesc              = "Maximum number of resources to return. Omit the flag to return all resources (default). Examples: '--limit=5' to cap results, '--limit=0' to explicitly request all results (equivalent to --all)."
-	FlagAllDesc                = "Return all resources (equivalent to --limit=0). Use to explicitly request all results."
+	FlagLimitDesc              = "Maximum number of resources to return. " +
+		"Omit the flag to return all resources (default). " +
+		"Examples: '--limit=5' to cap results, '--limit=0' to explicitly request all results (equivalent to --all)."
+	FlagAllDesc = "Return all resources (equivalent to --limit=0). Use to explicitly request all results."
 )
