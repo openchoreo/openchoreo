@@ -2380,9 +2380,9 @@ func (s *ComponentService) createTypeSpecificResource() error {
 	return nil
 }
 
-// UpdateComponentWorkflowSchema updates the workflow schema for a component
-func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowSchemaRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+// UpdateComponentWorkflowParameters updates the workflow parameters for a component
+func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowParametersRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow parameters", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)

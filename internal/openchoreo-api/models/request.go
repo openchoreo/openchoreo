@@ -338,10 +338,8 @@ type SecretKeyRef struct {
 	Key  string `json:"key"`
 }
 
-// UpdateComponentWorkflowSchemaRequest represents the request to update a component's workflow schema
-type UpdateComponentWorkflowSchemaRequest struct {
-	// WorkflowName is required when initializing a workflow on a component that doesn't have one
-	// +optional
+// UpdateComponentWorkflowParametersRequest represents the request to update a component's workflow parameters
+type UpdateComponentWorkflowParametersRequest struct {
 	WorkflowName     string                         `json:"workflowName,omitempty"`
 	SystemParameters *ComponentWorkflowSystemParams `json:"systemParameters,omitempty"`
 	Parameters       *runtime.RawExtension          `json:"parameters,omitempty"`

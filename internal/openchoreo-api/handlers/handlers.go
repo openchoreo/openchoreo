@@ -107,9 +107,10 @@ func (h *Handler) Routes() http.Handler {
 	// ComponentWorkflow endpoints (component-specific workflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflow-schema", h.UpdateComponentWorkflowSchema)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.TriggerComponentWorkflow)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-workflows", h.ListComponentWorkflowRuns)
+	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
+	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", h.CreateComponentWorkflowRun)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", h.ListComponentWorkflowRuns)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", h.GetComponentWorkflowRun)
 
 	// Trait endpoints
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
