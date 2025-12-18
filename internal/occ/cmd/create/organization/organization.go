@@ -23,10 +23,6 @@ func NewCreateOrgImpl(config constants.CRDConfig) *CreateOrgImpl {
 }
 
 func (i *CreateOrgImpl) CreateOrganization(params api.CreateOrganizationParams) error {
-	if params.Interactive {
-		return createOrganizationInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceOrganization, params); err != nil {
 		return err
 	}

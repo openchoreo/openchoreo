@@ -23,10 +23,6 @@ func NewCreateProjImpl(config constants.CRDConfig) *CreateProjImpl {
 }
 
 func (i *CreateProjImpl) CreateProject(params api.CreateProjectParams) error {
-	if params.Interactive {
-		return createProjectInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceProject, params); err != nil {
 		return err
 	}

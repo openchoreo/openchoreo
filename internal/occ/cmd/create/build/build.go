@@ -23,10 +23,6 @@ func NewCreateBuildImpl(config constants.CRDConfig) *CreateBuildImpl {
 }
 
 func (i *CreateBuildImpl) CreateBuild(params api.CreateBuildParams) error {
-	if params.Interactive {
-		return createBuildInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceBuild, params); err != nil {
 		return err
 	}

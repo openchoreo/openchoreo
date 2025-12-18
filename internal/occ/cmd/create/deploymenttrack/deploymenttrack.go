@@ -23,10 +23,6 @@ func NewCreateDeploymentTrackImpl(config constants.CRDConfig) *CreateDeploymentT
 }
 
 func (i *CreateDeploymentTrackImpl) CreateDeploymentTrack(params api.CreateDeploymentTrackParams) error {
-	if params.Interactive {
-		return createDeploymentTrackInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceDeploymentTrack, params); err != nil {
 		return err
 	}

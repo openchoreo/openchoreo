@@ -23,10 +23,6 @@ func NewCreateCompImpl(config constants.CRDConfig) *CreateCompImpl {
 }
 
 func (i *CreateCompImpl) CreateComponent(params api.CreateComponentParams) error {
-	if params.Interactive {
-		return createComponentInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceComponent, params); err != nil {
 		return err
 	}

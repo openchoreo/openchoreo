@@ -180,7 +180,7 @@ rootCmd.AddCommand(
 - Clean up resources on error
 
 2. **User Experience**
-- Provide interactive and flag-based modes
+- flag-based mode
 - Add command examples and help text
 - Use consistent output formatting
 
@@ -196,7 +196,7 @@ rootCmd.AddCommand(
 ### Examples
 
 See existing commands for reference implementations:
-- list.go - Table output, YAML output, interactive mode
+- list.go - Table output, YAML output
 - create.go - Resource creation with validation
 - apply.go - File handling and error management
 

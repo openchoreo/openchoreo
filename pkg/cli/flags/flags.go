@@ -262,12 +262,6 @@ var (
 		Name:  "dataplane",
 		Usage: "Name of the Data plane",
 	}
-	Interactive = Flag{
-		Name:      "interactive",
-		Shorthand: "i",
-		Usage:     "Enable interactive mode",
-		Type:      "bool",
-	}
 	KubeconfigPath = Flag{
 		Name:  "kubeconfig",
 		Usage: "Path to the kubeconfig file",

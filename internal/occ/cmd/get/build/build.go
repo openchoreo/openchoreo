@@ -24,10 +24,6 @@ func NewGetBuildImpl(config constants.CRDConfig) *GetBuildImpl {
 }
 
 func (i *GetBuildImpl) GetBuild(params api.GetBuildParams) error {
-	if params.Interactive {
-		return getBuildInteractive(i.config)
-	}
-
 	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceBuild, params); err != nil {
 		return err
 	}

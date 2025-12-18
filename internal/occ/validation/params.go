@@ -255,41 +255,39 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 func validateLogParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdLogs {
 		if p, ok := params.(api.LogParams); ok {
-			// For non-interactive mode, validate required fields
-			if !p.Interactive {
-				// Check type parameter first
-				if p.Type == "" {
-					fields := map[string]string{
-						"type": "",
-					}
-					// Use empty resource string since this is a top-level parameter
-					return generateHelpError(cmdType, "", fields)
+			// Validate required fields
+			// Check type parameter first
+			if p.Type == "" {
+				fields := map[string]string{
+					"type": "",
 				}
+				// Use empty resource string since this is a top-level parameter
+				return generateHelpError(cmdType, "", fields)
+			}
 
-				// Validate type-specific required fields based on the type
-				switch p.Type {
-				case "build":
-					buildFields := map[string]string{
-						"organization": p.Organization,
-						"build":        p.Build,
-					}
-					if !checkRequiredFields(buildFields) {
-						return generateHelpError(cmdType, ResourceLogs, buildFields)
-					}
-				case "deployment":
-					deployFields := map[string]string{
-						"organization": p.Organization,
-						"project":      p.Project,
-						"component":    p.Component,
-						"environment":  p.Environment,
-						"deployment":   p.Deployment,
-					}
-					if !checkRequiredFields(deployFields) {
-						return generateHelpError(cmdType, ResourceLogs, deployFields)
-					}
-				default:
-					return fmt.Errorf("log type '%s' not supported. Valid types are: build, deployment", p.Type)
+			// Validate type-specific required fields based on the type
+			switch p.Type {
+			case "build":
+				buildFields := map[string]string{
+					"organization": p.Organization,
+					"build":        p.Build,
 				}
+				if !checkRequiredFields(buildFields) {
+					return generateHelpError(cmdType, ResourceLogs, buildFields)
+				}
+			case "deployment":
+				deployFields := map[string]string{
+					"organization": p.Organization,
+					"project":      p.Project,
+					"component":    p.Component,
+					"environment":  p.Environment,
+					"deployment":   p.Deployment,
+				}
+				if !checkRequiredFields(deployFields) {
+					return generateHelpError(cmdType, ResourceLogs, deployFields)
+				}
+			default:
+				return fmt.Errorf("log type '%s' not supported. Valid types are: build, deployment", p.Type)
 			}
 		}
 	}
