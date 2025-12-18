@@ -101,13 +101,13 @@ These abstractions provide the following benefits for businesses to build & oper
   - OpenChoreo compiles this model into the necessary Kubernetes resources, network policies, gateways, and observability hooks.
 - **Built-in ingress and egress API management**
   - OpenChoreo manages ingress and egress for all Components based on endpoint visibility (public, organization, or project). 
-  - APIs are exposed through Envoy gateways with built-in support for routing, rate limiting, authentication, and traffic policies — without requiring manual configuration.
+  - APIs are exposed through kgateways with built-in support for routing, rate limiting, authentication, and traffic policies — without requiring manual configuration.
 - **Software catalog and discoverability**
   - All exposed APIs, events and data are automatically registered in an internal catalog. Metadata such as endpoint path, visibility, and owning project is included. 
   - This enables discovery and governance of service interfaces across teams and environments.
 - **Zero trust security by default**
   - Each Cell acts as a security boundary where communication between components is explicitly declared and enforced. 
-  - Internal and external traffic is governed by Cilium network policies and routed through Envoy gateways. All traffic, including intra-cell communication, is encrypted using mTLS. 
+  - Internal and external traffic is governed by Cilium network policies and routed through kgateways. All traffic, including intra-cell communication, is encrypted using mTLS. 
   - No implicit trust is granted — every access is authenticated, authorized, and policy-checked.
 - **Observability by default**
   - Each Cell is instrumented for logging, metrics, and distributed tracing. Observability spans all ingress/egress gateways and component-to-component communication, with no additional configuration required. 

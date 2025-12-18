@@ -71,17 +71,17 @@ PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=greeting-serv
 
 ### Basic Greet
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet"
 ```
 
 ### Greet with name
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
 ### Example with direct URL
 ```bash
-curl http://development.openchoreoapis.localhost:9080/greeting-service/greeter/greet
+curl http://development.openchoreoapis.localhost:19080/greeting-service/greeter/greet
 ```
 
 ## Troubleshooting

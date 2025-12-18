@@ -1,7 +1,9 @@
 # Data Plane values for k3d dev environment
 
-# Gateway configuration for k3d dev environment (default ports 9080/9443)
+# Gateway configuration for k3d dev environment
 gateway:
+  httpPort: 19080
+  httpsPort: 19443
   # Envoy - enabled by default for traffic routing
   envoy:
     enabled: true
@@ -10,3 +12,7 @@ gateway:
     # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
+
+# External Secrets Operator configuration
+external-secrets:
+  enabled: true

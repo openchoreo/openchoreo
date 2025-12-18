@@ -307,6 +307,48 @@ items: '${parameters.defaults + parameters.custom}'
 `,
 		},
 		{
+			name: "flatten nested lists",
+			template: `
+items: '${[[1, 2], [3, 4], [5]].flatten()}'
+`,
+			inputs: `{}`,
+			want: `items:
+- 1
+- 2
+- 3
+- 4
+- 5
+`,
+		},
+		{
+			name: "flatten with transformList",
+			template: `
+files: |
+  ${containers.transformList(name, c,
+    has(c.files) ? c.files.map(f, {
+      "container": name,
+      "name": f.name
+    }) : []
+  ).flatten()}
+`,
+			inputs: `{
+  "containers": {
+    "app": {
+      "files": [
+        {"name": "config.yaml"},
+        {"name": "secrets.yaml"}
+      ]
+    }
+  }
+}`,
+			want: `files:
+- container: app
+  name: config.yaml
+- container: app
+  name: secrets.yaml
+`,
+		},
+		{
 			name: "optional types with safe navigation",
 			template: `
 metadata:
@@ -555,6 +597,22 @@ dynamicHash: ${oc_hash(metadata.value)}
 }`,
 			want: `hash: d58b3fa7
 dynamicHash: 578fbe87
+`,
+		},
+		{
+			name: "base64 encode and decode",
+			template: `
+encoded: ${base64.encode(bytes(parameters.value))}
+decoded: ${string(base64.decode(parameters.encoded))}
+`,
+			inputs: `{
+  "parameters": {
+    "value": "hello world",
+    "encoded": "aGVsbG8gd29ybGQ="
+  }
+}`,
+			want: `encoded: aGVsbG8gd29ybGQ=
+decoded: hello world
 `,
 		},
 	}

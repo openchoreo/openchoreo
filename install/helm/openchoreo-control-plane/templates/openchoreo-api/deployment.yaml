@@ -66,8 +66,8 @@ spec:
           value: "{{ .Values.security.authz.enabled }}"
         - name: AUTHZ_DATABASE_PATH
           value: {{ .Values.security.authz.databasePath | quote }}
-        - name: AUTHZ_DEFAULT_ROLES_FILE_PATH
-          value: {{ .Values.security.authz.defaultRolesFilePath | quote }}
+        - name: AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH
+          value: {{ .Values.security.authz.defaultAuthzDataFilePath | quote }}
         - name: DATABASE_PATH
           value: {{ .Values.openchoreoApi.database.path | quote }}
         - name: OPENCHOREO_API_CONFIG_PATH

@@ -38,17 +38,17 @@ PATH_PREFIX=$(kubectl get httproute -A -l openchoreo.dev/component=greeter-servi
 
 ### Basic Greet
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet"
 ```
 
 ### Greet with name
 ```bash
-curl "http://${HOSTNAME}:9080${PATH_PREFIX}/greeter/greet?name=Alice"
+curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=Alice"
 ```
 
 ### Generated URL
 ```bash
-curl http://development.openchoreoapis.localhost:9080/greeter-service/greeter/greet
+curl http://development.openchoreoapis.localhost:19080/greeter-service/greeter/greet
 ```
 
 ## Troubleshooting Service Access Issues

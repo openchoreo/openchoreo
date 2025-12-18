@@ -7,14 +7,14 @@ servers: 1
 agents: 0
 kubeAPI:
   hostPort: "6551"
-# Data Plane uses port range 9xxx
+# Data Plane uses port range 19xxx
 ports:
-  # HTTP traffic to workloads via Envoy Gateway
-  - port: 9080:9080
+  # HTTP traffic to workloads via Gateway
+  - port: 19080:19080
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to workloads via Envoy Gateway
-  - port: 9443:9443
+  # HTTPS traffic to workloads via Gateway
+  - port: 19443:19443
     nodeFilters:
       - loadbalancer
 options:
@@ -26,7 +26,7 @@ options:
       - arg: "--tls-san=host.k3d.internal"
         nodeFilters:
           - server:*
-      # Disable Traefik ingress controller (use Envoy Gateway instead)
+      # Disable Traefik ingress controller (use kgateway instead)
       - arg: "--disable=traefik"
         nodeFilters:
           - server:*

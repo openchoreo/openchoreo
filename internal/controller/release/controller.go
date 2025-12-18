@@ -410,7 +410,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
 		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
 
-		// Envoy Gateway
+		// kgateway
 		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "SecurityPolicy"},
 		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "BackendTrafficPolicy"},
 		{Group: "gateway.envoyproxy.io", Version: "v1alpha1", Kind: "HTTPRouteFilter"},

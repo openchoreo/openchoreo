@@ -13,11 +13,6 @@ global:
 traefik:
   enabled: false
 
-# Common security configuration
-security:
-  oidc:
-    authorizationUrl: http://thunder.openchoreo.localhost:8080/oauth2/authorize
-
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
 # Note: For k3d, we use Traefik IngressRouteTCP for TLS passthrough on shared port 8443
@@ -53,3 +48,12 @@ controllerManager:
     enabled: true
     # Use internal service DNS - controller manager runs inside the control plane cluster
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+
+thunder:
+  configuration:
+    server:
+      publicUrl: "http://thunder.openchoreo.localhost:8080"
+    gateClient:
+      hostname: "thunder.openchoreo.localhost"
+      port: 8080
+      scheme: "http"

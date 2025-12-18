@@ -44,8 +44,10 @@ fluentBit:
       port: "11082"
 
 gateway:
-  # Enable gateway (uses default ports 9080/9443)
+  # Enable gateway
   enabled: true
+  httpPort: 19080
+  httpsPort: 19443
 
   # Envoy - enabled by default for traffic routing
   envoy:
@@ -55,3 +57,7 @@ gateway:
     # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
+
+# External Secrets Operator configuration
+external-secrets:
+  enabled: true

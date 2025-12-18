@@ -65,6 +65,7 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh && \
     cp /tmp/install/add-data-plane.sh ${USER_HOME}/add-data-plane.sh && \
     cp /tmp/install/add-build-plane.sh ${USER_HOME}/add-build-plane.sh && \
+    cp /tmp/install/add-observability-plane.sh ${USER_HOME}/add-observability-plane.sh && \
     cp -r /tmp/samples ${USER_HOME}/samples && \
     chown -R openchoreo:openchoreo ${USER_HOME} && \
     rm -rf /tmp/install /tmp/samples && \

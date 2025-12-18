@@ -25,8 +25,14 @@ type PAP interface {
 	// RemoveRole deletes a role by name
 	RemoveRole(ctx context.Context, roleName string) error
 
+	// ForceRemoveRole deletes a role and all its associated role-entitlement mappings
+	ForceRemoveRole(ctx context.Context, roleName string) error
+
 	// GetRole retrieves a role by name
 	GetRole(ctx context.Context, roleName string) (*Role, error)
+
+	// UpdateRole updates an existing role's actions
+	UpdateRole(ctx context.Context, role *Role) error
 
 	// ListRoles returns all defined roles
 	ListRoles(ctx context.Context) ([]*Role, error)
@@ -34,14 +40,14 @@ type PAP interface {
 	// AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
+	// UpdateRoleEntitlementMapping updates an existing role-entitlement mapping
+	UpdateRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
+
 	// RemoveRoleEntitlementMapping removes a role-entitlement mapping
 	RemoveRoleEntitlementMapping(ctx context.Context, mappingID uint) error
 
-	// GetRoleMappings retrieves all entitlement mappings for a specific role
-	GetRoleMappings(ctx context.Context, roleName string) ([]*RoleEntitlementMapping, error)
-
-	// ListRoleEntitlementMappings lists all role-entitlement mappings
-	ListRoleEntitlementMappings(ctx context.Context) ([]*RoleEntitlementMapping, error)
+	// ListRoleEntitlementMappings lists role-entitlement mappings with optional filters
+	ListRoleEntitlementMappings(ctx context.Context, filter *RoleEntitlementMappingFilter) ([]*RoleEntitlementMapping, error)
 
 	// ListActions lists all defined actions in the system
 	ListActions(ctx context.Context) ([]string, error)

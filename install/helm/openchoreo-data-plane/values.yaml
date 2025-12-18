@@ -3,8 +3,6 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
   # Base domain for external access (e.g., "apps.openchoreo.example.com")
-  # Used for gateway hostname derivation (*.baseDomain)
-  baseDomain: "openchoreo.local"
 
 kubernetesClusterDomain: cluster.local
 
@@ -50,7 +48,10 @@ gateway:
     clusterIssuer: ""
     # -- Hostname for the HTTPS listener
     # Defaults to *.openchoreoapis.localhost if not specified
-    hostname: ""
+    hostname: "*.openchoreoapis.localhost"
+    # -- Secret name for the TLS certificate
+    # Defaults to openchoreo-gateway-tls if not specified
+    certName: "openchoreo-gateway-tls"
 
   # KGateway controller configuration
   controller:
