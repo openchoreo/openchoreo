@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
@@ -22,15 +24,17 @@ import (
 
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
-	services *services.Services
-	logger   *slog.Logger
+	services  *services.Services
+	logger    *slog.Logger
+	k8sClient client.Client
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, logger *slog.Logger) *Handler {
+func New(services *services.Services, k8sClient client.Client, logger *slog.Logger) *Handler {
 	return &Handler{
-		services: services,
-		logger:   logger,
+		services:  services,
+		k8sClient: k8sClient,
+		logger:    logger,
 	}
 }
 
@@ -55,6 +59,11 @@ func (h *Handler) Routes() http.Handler {
 
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
+
+	// Webhook endpoints (public - called by Git providers)
+	routes.HandleFunc("POST "+v1+"/webhooks/github", h.HandleGitHubWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/gitlab", h.HandleGitLabWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/bitbucket", h.HandleBitbucketWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 

@@ -59,6 +59,12 @@ type ComponentSpec struct {
 	// +optional
 	AutoDeploy bool `json:"autoDeploy,omitempty"`
 
+	// AutoBuild enables automatic builds when code is pushed to the repository
+	// When enabled, webhook events will trigger builds automatically
+	// Users must manually configure webhooks in their Git provider
+	// +optional
+	AutoBuild *bool `json:"autoBuild,omitempty"`
+
 	// Parameters from ComponentType (oneOf schema based on componentType)
 	// This is the merged schema of parameters + envOverrides from the ComponentType
 	// +optional

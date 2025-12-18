@@ -26,6 +26,7 @@ type Services struct {
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
+	GitHubWebhookService      *GitHubWebhookService
 	AuthzService              *AuthzService
 	ObservabilityPlaneService *ObservabilityPlaneService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
@@ -35,6 +36,15 @@ type Services struct {
 func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
+
+	// Create build plane service with client manager for multi-cluster support
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
+
+	// Create component workflow service
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "component-workflow"))
+
+	// Create GitHub webhook service (simplified - no git provider needed)
+	githubWebhookService := NewGitHubWebhookService(k8sClient, componentWorkflowService)
 
 	// Create component service (depends on project service)
 	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
@@ -48,9 +58,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create dataplane service
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
 
-	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
-
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
 
@@ -62,9 +69,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 
 	// Create Workflow service
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
-
-	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"))
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
@@ -92,6 +96,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
+		GitHubWebhookService:      githubWebhookService,
 		AuthzService:              authzService,
 		ObservabilityPlaneService: observabilityPlaneService,
 		k8sClient:                 k8sClient,

@@ -51,6 +51,12 @@ spec:
           spec:
             description: ComponentSpec defines the desired state of Component.
             properties:
+              autoBuild:
+                description: |-
+                  AutoBuild enables automatic builds when code is pushed to the repository
+                  When enabled, webhook events will trigger builds automatically
+                  Users must manually configure webhooks in their Git provider
+                type: boolean
               autoDeploy:
                 description: |-
                   AutoDeploy indicates whether the component should be deployed automatically when created

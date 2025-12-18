@@ -360,6 +360,14 @@ type RemoteReferenceInfo struct {
 	Version  string `json:"version,omitempty"`
 }
 
+// WebhookEventResponse represents the response after processing a webhook event
+type WebhookEventResponse struct {
+	Success            bool     `json:"success"`
+	Message            string   `json:"message"`
+	AffectedComponents []string `json:"affectedComponents,omitempty"`
+	TriggeredBuilds    int      `json:"triggeredBuilds"`
+}
+
 // ObservabilityPlaneResponse represents an observability plane in API responses
 type ObservabilityPlaneResponse struct {
 	Name        string    `json:"name"`
