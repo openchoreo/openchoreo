@@ -105,7 +105,7 @@ type ComponentToolsetHandler interface {
 	ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error)
 	UpdateComponentWorkflowSchema(
 		ctx context.Context, orgName, projectName, componentName string,
-		req *models.UpdateComponentWorkflowSchemaRequest,
+		req *models.UpdateComponentWorkflowRequest,
 	) (any, error)
 }
 

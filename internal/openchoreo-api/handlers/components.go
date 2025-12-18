@@ -246,10 +246,10 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
-func (h *Handler) UpdateComponentWorkflowSchema(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
-	logger.Debug("UpdateComponentWorkflowSchema handler called")
+	logger.Debug("UpdateComponentWorkflowParameters handler called")
 
 	// Extract path parameters
 	orgName := r.PathValue("orgName")
@@ -262,15 +262,15 @@ func (h *Handler) UpdateComponentWorkflowSchema(w http.ResponseWriter, r *http.R
 	}
 
 	// Parse request body
-	var req models.UpdateComponentWorkflowSchemaRequest
+	var req models.UpdateComponentWorkflowRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Warn("Invalid JSON body", "error", err)
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
 
-	// Call service to update workflow schema
-	component, err := h.services.ComponentService.UpdateComponentWorkflowSchema(ctx, orgName, projectName, componentName, &req)
+	// Call service to update workflow parameters
+	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -283,11 +283,11 @@ func (h *Handler) UpdateComponentWorkflowSchema(w http.ResponseWriter, r *http.R
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowSchemaInvalid) {
-			logger.Warn("Invalid workflow schema", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusBadRequest, "Invalid workflow schema", services.CodeWorkflowSchemaInvalid)
+			logger.Warn("Invalid workflow parameters", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid workflow parameters", services.CodeWorkflowSchemaInvalid)
 			return
 		}
-		logger.Error("Failed to update component workflow schema", "error", err)
+		logger.Error("Failed to update component workflow parameters", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, err.Error(), services.CodeInternalError)
 		return
 	}

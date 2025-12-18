@@ -306,6 +306,6 @@ func (h *MCPHandler) ListComponentWorkflowRuns(ctx context.Context, orgName, pro
 	}, nil
 }
 
-func (h *MCPHandler) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowSchemaRequest) (any, error) {
+func (h *MCPHandler) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (any, error) {
 	return h.Services.ComponentService.UpdateComponentWorkflowSchema(ctx, orgName, projectName, componentName, req)
 }

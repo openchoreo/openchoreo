@@ -2543,9 +2543,9 @@ func (s *ComponentService) createTypeSpecificResource() error {
 	return nil
 }
 
-// UpdateComponentWorkflowSchema updates the workflow schema for a component
-func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowSchemaRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+// UpdateComponentWorkflowParameters updates the workflow parameters for a component
+func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow parameters", "org", orgName, "project", projectName, "component", componentName)
 
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
@@ -2582,6 +2582,91 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 	if component.Spec.Workflow == nil {
 		s.logger.Warn("Component does not have workflow configuration", "org", orgName, "project", projectName, "component", componentName)
 		return nil, fmt.Errorf("component does not have workflow configuration")
+	}
+
+	// Update system parameters if provided
+	if req.SystemParameters != nil {
+		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
+			Repository: openchoreov1alpha1.RepositoryValues{
+				URL: req.SystemParameters.Repository.URL,
+				Revision: openchoreov1alpha1.RepositoryRevisionValues{
+					Branch: req.SystemParameters.Repository.Revision.Branch,
+					Commit: req.SystemParameters.Repository.Revision.Commit,
+				},
+				AppPath: req.SystemParameters.Repository.AppPath,
+			},
+		}
+	}
+
+	// Update developer parameters if provided
+	if req.Parameters != nil {
+		// Validate the parameters against the ComponentWorkflow CRD
+		if err := s.validateComponentWorkflowParameters(ctx, orgName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
+			return nil, ErrWorkflowSchemaInvalid
+		}
+		component.Spec.Workflow.Parameters = req.Parameters
+	}
+
+	// Update the component in Kubernetes
+	if err := s.k8sClient.Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component", "error", err)
+		return nil, fmt.Errorf("failed to update component: %w", err)
+	}
+
+	s.logger.Debug("Updated component workflow schema successfully", "org", orgName, "project", projectName, "component", componentName)
+
+	// Return the updated component
+	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+}
+
+// UpdateComponentWorkflowSchema updates or initializes the workflow schema configuration for a component
+func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+
+	// Verify project exists
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return nil, ErrProjectNotFound
+		}
+		return nil, fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Initialize workflow configuration if it doesn't exist
+	if component.Spec.Workflow == nil {
+		if req.WorkflowName == "" {
+			s.logger.Warn("Workflow name is required to initialize workflow configuration", "org", orgName, "project", projectName, "component", componentName)
+			return nil, fmt.Errorf("workflow name is required to initialize workflow configuration")
+		}
+		component.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowRunConfig{
+			Name: req.WorkflowName,
+		}
+	} else if req.WorkflowName != "" {
+		// Update workflow name if provided
+		component.Spec.Workflow.Name = req.WorkflowName
 	}
 
 	// Update system parameters if provided

@@ -206,6 +206,76 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 	}, nil
 }
 
+// GetComponentWorkflowRun retrieves a specific component workflow run by name
+func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, orgName, projectName, componentName, runName string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Getting component workflow run", "org", orgName, "project", projectName, "component", componentName, "run", runName)
+
+	var workflowRun openchoreov1alpha1.ComponentWorkflowRun
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: orgName,
+	}, &workflowRun)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component workflow run not found", "org", orgName, "run", runName)
+			return nil, ErrComponentWorkflowRunNotFound
+		}
+		s.logger.Error("Failed to get component workflow run", "error", err)
+		return nil, fmt.Errorf("failed to get component workflow run: %w", err)
+	}
+
+	// Verify the workflow run belongs to the specified component
+	if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
+		s.logger.Warn("Component workflow run does not belong to the specified component",
+			"org", orgName, "project", projectName, "component", componentName, "run", runName)
+		return nil, ErrComponentWorkflowRunNotFound
+	}
+
+	// Extract commit from the workflow system parameters
+	commit := workflowRun.Spec.Workflow.SystemParameters.Repository.Revision.Commit
+	if commit == "" {
+		commit = "latest"
+	}
+
+	// Build workflow configuration response
+	workflowConfig := &models.ComponentWorkflowConfigResponse{
+		Name: workflowRun.Spec.Workflow.Name,
+		SystemParameters: &models.SystemParametersResponse{
+			Repository: &models.RepositoryResponse{
+				URL:     workflowRun.Spec.Workflow.SystemParameters.Repository.URL,
+				AppPath: workflowRun.Spec.Workflow.SystemParameters.Repository.AppPath,
+				Revision: &models.RepositoryRevisionResponse{
+					Branch: workflowRun.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
+					Commit: workflowRun.Spec.Workflow.SystemParameters.Repository.Revision.Commit,
+				},
+			},
+		},
+	}
+
+	// Parse parameters if present
+	if workflowRun.Spec.Workflow.Parameters != nil && workflowRun.Spec.Workflow.Parameters.Raw != nil {
+		var params map[string]any
+		if err := yaml.Unmarshal(workflowRun.Spec.Workflow.Parameters.Raw, &params); err != nil {
+			s.logger.Warn("Failed to parse workflow parameters", "error", err)
+		} else {
+			workflowConfig.Parameters = params
+		}
+	}
+
+	return &models.ComponentWorkflowResponse{
+		Name:          workflowRun.Name,
+		UUID:          string(workflowRun.UID),
+		OrgName:       orgName,
+		ProjectName:   projectName,
+		ComponentName: componentName,
+		Commit:        commit,
+		Status:        getComponentWorkflowStatus(workflowRun.Status.Conditions),
+		Image:         workflowRun.Status.ImageStatus.Image,
+		Workflow:      workflowConfig,
+		CreatedAt:     workflowRun.CreationTimestamp.Time,
+	}, nil
+}
+
 // getComponentWorkflowStatus determines the user-friendly status from component workflow run conditions
 func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 	if len(workflowConditions) == 0 {

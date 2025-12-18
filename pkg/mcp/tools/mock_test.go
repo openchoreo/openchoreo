@@ -337,7 +337,7 @@ func (m *MockCoreToolsetHandler) ListComponentWorkflowRuns(
 
 func (m *MockCoreToolsetHandler) UpdateComponentWorkflowSchema(
 	ctx context.Context, orgName, projectName, componentName string,
-	req *models.UpdateComponentWorkflowSchemaRequest,
+	req *models.UpdateComponentWorkflowRequest,
 ) (any, error) {
 	m.recordCall("UpdateComponentWorkflowSchema", orgName, projectName, componentName, req)
 	return `{"name":"component-1","workflowSchema":{}}`, nil

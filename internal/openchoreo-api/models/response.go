@@ -203,15 +203,41 @@ type BuildPlaneResponse struct {
 
 // ComponentWorkflowResponse represents a component workflow run in API responses
 type ComponentWorkflowResponse struct {
-	Name          string    `json:"name"`
-	UUID          string    `json:"uuid"`
-	ComponentName string    `json:"componentName"`
-	ProjectName   string    `json:"projectName"`
-	OrgName       string    `json:"orgName"`
-	Commit        string    `json:"commit,omitempty"`
-	Status        string    `json:"status,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-	Image         string    `json:"image,omitempty"`
+	Name          string                           `json:"name"`
+	UUID          string                           `json:"uuid"`
+	OrgName       string                           `json:"orgName"`
+	ProjectName   string                           `json:"projectName"`
+	ComponentName string                           `json:"componentName"`
+	Commit        string                           `json:"commit,omitempty"`
+	Status        string                           `json:"status,omitempty"`
+	Image         string                           `json:"image,omitempty"`
+	Workflow      *ComponentWorkflowConfigResponse `json:"workflow,omitempty"`
+	CreatedAt     time.Time                        `json:"createdAt"`
+}
+
+// ComponentWorkflowConfigResponse represents the workflow configuration in API responses
+type ComponentWorkflowConfigResponse struct {
+	Name             string                    `json:"name"`
+	SystemParameters *SystemParametersResponse `json:"systemParameters,omitempty"`
+	Parameters       map[string]any            `json:"parameters,omitempty"`
+}
+
+// SystemParametersResponse represents system parameters in API responses
+type SystemParametersResponse struct {
+	Repository *RepositoryResponse `json:"repository,omitempty"`
+}
+
+// RepositoryResponse represents repository configuration in API responses
+type RepositoryResponse struct {
+	URL      string                      `json:"url"`
+	Revision *RepositoryRevisionResponse `json:"revision,omitempty"`
+	AppPath  string                      `json:"appPath"`
+}
+
+// RepositoryRevisionResponse represents repository revision in API responses
+type RepositoryRevisionResponse struct {
+	Branch string `json:"branch"`
+	Commit string `json:"commit,omitempty"`
 }
 
 func SuccessResponse[T any](data T) APIResponse[T] {
