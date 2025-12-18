@@ -103,7 +103,6 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 
 	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
 	if err != nil {
-		// Check for forbidden error FIRST
 		if errors.Is(err, services.ErrForbidden) {
 			log.Warn("Unauthorized to trigger component workflow", "org", orgName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -158,14 +157,9 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 	// Call service to list component workflow runs
 	workflowRuns, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
 	if err != nil {
-		// Check for forbidden error FIRST
-		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to list component workflow runs", "org", orgName, "project", projectName, "component", componentName)
-			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
-			return
-		}
+		// List operations don't check for ErrForbidden here - the service already filtered unauthorized items
 		log.Error("Failed to list component workflow runs", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list component workflow runs", "INTERNAL_ERROR")
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list component workflow runs", services.CodeInternalError)
 		return
 	}
 

@@ -450,6 +450,12 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting component release schema", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
 	componentKey := client.ObjectKey{
 		Namespace: orgName,
 		Name:      componentName,
@@ -810,6 +816,12 @@ func (s *ComponentService) applyWorkloadOverrides(binding *openchoreov1alpha1.Re
 func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
 	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateReleaseBinding, ResourceTypeReleaseBinding, bindingName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
@@ -1122,6 +1134,18 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 			if !matchesEnv {
 				continue
 			}
+		}
+
+		// Authorization check for each release binding
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewReleaseBinding, ResourceTypeReleaseBinding, binding.Name,
+			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				// Skip unauthorized release bindings
+				s.logger.Debug("Skipping unauthorized release binding", "org", orgName, "project", projectName, "component", componentName, "binding", binding.Name)
+				continue
+			}
+			// Return non-forbidden errors
+			return nil, err
 		}
 
 		bindings = append(bindings, s.toReleaseBindingResponse(binding, orgName, projectName, componentName))
@@ -2234,6 +2258,12 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, pro
 func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (interface{}, error) {
 	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkload, ResourceTypeWorkload, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)
 	if err != nil {
@@ -2283,6 +2313,12 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 // CreateComponentWorkload creates or updates workload data for a specific component
 func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName, projectName, componentName string, workloadSpec *openchoreov1alpha1.WorkloadSpec) (*openchoreov1alpha1.WorkloadSpec, error) {
 	s.logger.Debug("Creating/updating component workload", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkload, ResourceTypeWorkload, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
 
 	// Verify project exists
 	_, err := s.projectService.getProject(ctx, orgName, projectName)

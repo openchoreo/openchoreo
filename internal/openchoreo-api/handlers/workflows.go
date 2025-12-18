@@ -49,7 +49,6 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 
 	schema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, orgName, workflowName)
 	if err != nil {
-		// Check for forbidden error FIRST
 		if errors.Is(err, services.ErrForbidden) {
 			logger.Warn("Unauthorized to view workflow schema", "org", orgName, "workflow", workflowName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)

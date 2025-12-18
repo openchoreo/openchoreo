@@ -48,7 +48,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 	s.logger.Debug("Triggering component workflow", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
 
 	// Authorization check
-	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionTriggerComponentWorkflow, ResourceTypeComponentWorkflow, componentName,
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentWorkflow, ResourceTypeComponentWorkflow, componentName,
 		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
@@ -158,12 +158,6 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) ([]models.ComponentWorkflowResponse, error) {
 	s.logger.Debug("Listing component workflow runs", "org", orgName, "project", projectName, "component", componentName)
 
-	// Authorization check - use view component action since this is viewing component workflow runs
-	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
-		return nil, err
-	}
-
 	var workflowRuns openchoreov1alpha1.ComponentWorkflowRunList
 	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(orgName))
 	if err != nil {
@@ -176,6 +170,16 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 		// Filter by spec.owner fields
 		if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
 			continue
+		}
+
+		// Authorization check for each workflow run
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, workflowRun.Name,
+			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized component workflow run", "org", orgName, "project", projectName, "component", componentName, "workflowRun", workflowRun.Name)
+				continue
+			}
+			return nil, err
 		}
 
 		// Extract commit from the workflow system parameters
