@@ -353,13 +353,13 @@ The `configurations` object provides several helper methods to simplify working 
 
 | Helper Method | Description |
 |---------------|-------------|
-| `configurations[containerName].envFrom(prefix)` | Generates `envFrom` array with configMapRef and secretRef for a container |
-| `configurations.toConfigEnvList(prefix)` | Returns list of containers with config envs for forEach iteration (ConfigMap creation) |
-| `configurations.toSecretEnvList(prefix)` | Returns list of containers with secret envs for forEach iteration (ExternalSecret creation) |
-| `configurations.toConfigFileList(prefix)` | Flattens all config files from all containers into a single list |
-| `configurations.toSecretFileList(prefix)` | Flattens all secret files from all containers into a single list |
+| `configurations.toContainerEnvFrom(containerName)` | Generates `envFrom` array with configMapRef and secretRef for a container |
+| `configurations.toConfigEnvsByContainer()` | Returns list of config environment variable list groups by container |
+| `configurations.toSecretEnvsByContainer()` | Returns list of secret environment variable list groups by container |
+| `configurations.toConfigFileList()` | Flattens all config files from all containers into a single list |
+| `configurations.toSecretFileList()` | Flattens all secret files from all containers into a single list |
 | `configurations.toContainerVolumeMounts(containerName)` | Generates volumeMounts array for a container's files |
-| `configurations.toVolumes(prefix)` | Generates volumes array for all containers' files |
+| `configurations.toVolumes()` | Generates volumes array for all containers' files |
 
 For detailed documentation, examples, and usage patterns for each helper method, see [Configuration Helpers](./configuration_helpers.md).
 
@@ -373,9 +373,9 @@ spec:
       containers:
         - name: main
           image: myapp:latest
-          envFrom: ${configurations["main"].envFrom(metadata.name)}
+          envFrom: ${configurations.toContainerEnvFrom("main")}
           volumeMounts: ${configurations.toContainerVolumeMounts("main")}
-      volumes: ${configurations.toVolumes(metadata.name)}
+      volumes: ${configurations.toVolumes()}
 ```
 
 ## TraitContext

@@ -503,8 +503,6 @@ spec:
 					actualResources[i] = rr.Resource
 				}
 
-				// Normalize actual resources by marshaling and unmarshaling through YAML
-				// This ensures type consistency ([]any vs []map[string]any) with expected resources
 				actualYAML, err := yaml.Marshal(actualResources)
 				if err != nil {
 					t.Fatalf("Failed to marshal actual resources: %v", err)

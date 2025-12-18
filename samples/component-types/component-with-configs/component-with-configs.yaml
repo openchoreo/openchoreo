@@ -46,7 +46,7 @@ spec:
                 - name: ${parameters.containerName}
                   image: ${workload.containers[parameters.containerName].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
-                  envFrom: ${configurations.toContainerEnvFrom(parameters.containerName, metadata.name)}
+                  envFrom: ${configurations.toContainerEnvFrom(parameters.containerName)}
                   volumeMounts: ${configurations.toContainerVolumeMounts(parameters.containerName)}
                   ports:
                     - name: http
@@ -78,7 +78,7 @@ spec:
               targetPort: ${parameters.port}
               protocol: TCP
     - id: env-config
-      forEach: ${configurations.toConfigEnvList(metadata.name)}
+      forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig
       template:
         apiVersion: v1
@@ -89,7 +89,7 @@ spec:
         data: |
           ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
     - id: file-config
-      forEach: ${configurations.toConfigFileList(metadata.name)}
+      forEach: ${configurations.toConfigFileList()}
       var: config
       template:
         apiVersion: v1
@@ -101,7 +101,7 @@ spec:
           ${config.name}: |
             ${config.value}
     - id: secret-env-external
-      forEach: ${configurations.toSecretEnvList(metadata.name)}
+      forEach: ${configurations.toSecretEnvsByContainer()}
       var: secretEnv
       template:
         apiVersion: external-secrets.io/v1
@@ -126,7 +126,7 @@ spec:
               }
             })}
     - id: secret-file-external
-      forEach: ${configurations.toSecretFileList(metadata.name)}
+      forEach: ${configurations.toSecretFileList()}
       var: file
       template:
         apiVersion: external-secrets.io/v1

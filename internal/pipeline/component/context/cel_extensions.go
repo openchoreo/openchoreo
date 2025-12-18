@@ -24,24 +24,26 @@ const (
 
 // CELExtensions returns CEL environment options for configuration helpers.
 // These include:
-//   - Macro: configurations.toConfigFileList(prefix) -> configurationsToConfigFileList(configurations, prefix)
+//   - Macro: configurations.toConfigFileList() -> configurationsToConfigFileList(configurations, prefix)
 //   - Function: configurationsToConfigFileList
-//   - Macro: configurations.toSecretFileList(prefix) -> configurationsToSecretFileList(configurations, prefix)
+//   - Macro: configurations.toSecretFileList() -> configurationsToSecretFileList(configurations, prefix)
 //   - Function: configurationsToSecretFileList
-//   - Macro: configurations.toContainerEnvFrom(containerName, prefix) -> configurationsToContainerEnvFrom(configurations, containerName, prefix)
+//   - Macro: configurations.toContainerEnvFrom(containerName) -> configurationsToContainerEnvFrom(configurations, containerName, prefix)
 //   - Function: configurationsToContainerEnvFrom
 //   - Macro: configurations.toContainerVolumeMounts(containerName) -> configurationsToContainerVolumeMounts(configurations, containerName)
 //   - Function: configurationsToContainerVolumeMounts
-//   - Macro: configurations.toVolumes(prefix) -> configurationsToVolumes(configurations, prefix)
+//   - Macro: configurations.toVolumes() -> configurationsToVolumes(configurations, prefix)
 //   - Function: configurationsToVolumes
-//   - Macro: configurations.toConfigEnvList(prefix) -> configurationsToConfigEnvList(configurations, prefix)
-//   - Function: configurationsToConfigEnvList
-//   - Macro: configurations.toSecretEnvList(prefix) -> configurationsToSecretEnvList(configurations, prefix)
-//   - Function: configurationsToSecretEnvList
+//   - Macro: configurations.toConfigEnvsByContainer() -> configurationsToConfigEnvsByContainer(configurations, prefix)
+//   - Function: configurationsToConfigEnvsByContainer
+//   - Macro: configurations.toSecretEnvsByContainer() -> configurationsToSecretEnvsByContainer(configurations, prefix)
+//   - Function: configurationsToSecretEnvsByContainer
+//
+// Where prefix = metadata.componentName + "-" + metadata.environmentName (automatically injected by macros)
 func CELExtensions() []cel.EnvOption {
 	return []cel.EnvOption{
 		// Register the macros
-		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvListMacro, toSecretEnvListMacro),
+		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro),
 		// Register the functions
 		cel.Function("configurationsToConfigFileList",
 			cel.Overload("configurationsToConfigFileList_dyn_string",
@@ -75,47 +77,59 @@ func CELExtensions() []cel.EnvOption {
 				cel.BinaryBinding(configurationsToVolumesFunction),
 			),
 		),
-		cel.Function("configurationsToConfigEnvList",
-			cel.Overload("configurationsToConfigEnvList_dyn_string",
+		cel.Function("configurationsToConfigEnvsByContainer",
+			cel.Overload("configurationsToConfigEnvsByContainer_dyn_string",
 				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToConfigEnvListFunction),
+				cel.BinaryBinding(configurationsToConfigEnvsByContainerFunction),
 			),
 		),
-		cel.Function("configurationsToSecretEnvList",
-			cel.Overload("configurationsToSecretEnvList_dyn_string",
+		cel.Function("configurationsToSecretEnvsByContainer",
+			cel.Overload("configurationsToSecretEnvsByContainer_dyn_string",
 				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
-				cel.BinaryBinding(configurationsToSecretEnvListFunction),
+				cel.BinaryBinding(configurationsToSecretEnvsByContainerFunction),
 			),
 		),
 	}
 }
 
-// toConfigFileListMacro transforms configurations.toConfigFileList(prefix) into
+// buildPrefixExpr creates an AST expression for: metadata.componentName + "-" + metadata.environmentName
+func buildPrefixExpr(eh parser.ExprHelper) ast.Expr {
+	componentNameExpr := eh.NewSelect(eh.NewIdent("metadata"), "componentName")
+	environmentNameExpr := eh.NewSelect(eh.NewIdent("metadata"), "environmentName")
+	componentWithDash := eh.NewCall("_+_", componentNameExpr, eh.NewLiteral(types.String("-")))
+	// metadata.componentName + "-" + metadata.environmentName
+	return eh.NewCall("_+_", componentWithDash, environmentNameExpr)
+}
+
+// toConfigFileListMacro transforms configurations.toConfigFileList() into
 // configurationsToConfigFileList(configurations, prefix) at compile time.
-var toConfigFileListMacro = cel.ReceiverMacro("toConfigFileList", 1,
+var toConfigFileListMacro = cel.ReceiverMacro("toConfigFileList", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToConfigFileList", target, args[0]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToConfigFileList", target, prefixExpr), nil
 		}
 		return nil, nil
 	})
 
-// toSecretFileListMacro transforms configurations.toSecretFileList(prefix) into
+// toSecretFileListMacro transforms configurations.toSecretFileList() into
 // configurationsToSecretFileList(configurations, prefix) at compile time.
-var toSecretFileListMacro = cel.ReceiverMacro("toSecretFileList", 1,
+var toSecretFileListMacro = cel.ReceiverMacro("toSecretFileList", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToSecretFileList", target, args[0]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToSecretFileList", target, prefixExpr), nil
 		}
 		return nil, nil
 	})
 
-// toContainerEnvFromMacro transforms configurations.toContainerEnvFrom(containerName, prefix) into
+// toContainerEnvFromMacro transforms configurations.toContainerEnvFrom(containerName) into
 // configurationsToContainerEnvFrom(configurations, containerName, prefix) at compile time.
-var toContainerEnvFromMacro = cel.ReceiverMacro("toContainerEnvFrom", 2,
+var toContainerEnvFromMacro = cel.ReceiverMacro("toContainerEnvFrom", 1,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToContainerEnvFrom", target, args[0], args[1]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToContainerEnvFrom", target, args[0], prefixExpr), nil
 		}
 		return nil, nil
 	})
@@ -130,37 +144,41 @@ var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 
 		return nil, nil
 	})
 
-// toVolumesMacro transforms configurations.toVolumes(prefix) into
+// toVolumesMacro transforms configurations.toVolumes() into
 // configurationsToVolumes(configurations, prefix) at compile time.
-var toVolumesMacro = cel.ReceiverMacro("toVolumes", 1,
+var toVolumesMacro = cel.ReceiverMacro("toVolumes", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToVolumes", target, args[0]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToVolumes", target, prefixExpr), nil
 		}
 		return nil, nil
 	})
 
-// toConfigEnvListMacro transforms configurations.toConfigEnvList(prefix) into
-// configurationsToConfigEnvList(configurations, prefix) at compile time.
-var toConfigEnvListMacro = cel.ReceiverMacro("toConfigEnvList", 1,
+// toConfigEnvsByContainerMacro transforms configurations.toConfigEnvsByContainer() into
+// configurationsToConfigEnvsByContainer(configurations, prefix) at compile time.
+var toConfigEnvsByContainerMacro = cel.ReceiverMacro("toConfigEnvsByContainer", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToConfigEnvList", target, args[0]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToConfigEnvsByContainer", target, prefixExpr), nil
 		}
 		return nil, nil
 	})
 
-// toSecretEnvListMacro transforms configurations.toSecretEnvList(prefix) into
-// configurationsToSecretEnvList(configurations, prefix) at compile time.
-var toSecretEnvListMacro = cel.ReceiverMacro("toSecretEnvList", 1,
+// toSecretEnvsByContainerMacro transforms configurations.toSecretEnvsByContainer() into
+// configurationsToSecretEnvsByContainer(configurations, prefix) at compile time.
+var toSecretEnvsByContainerMacro = cel.ReceiverMacro("toSecretEnvsByContainer", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			return eh.NewCall("configurationsToSecretEnvList", target, args[0]), nil
+			prefixExpr := buildPrefixExpr(eh)
+			return eh.NewCall("configurationsToSecretEnvsByContainer", target, prefixExpr), nil
 		}
 		return nil, nil
 	})
 
-// configurationsToConfigFileListFunction is the CEL binding for configurations.toConfigFileList(prefix).
+// configurationsToConfigFileListFunction is the CEL binding for configurations.toConfigFileList().
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
 // Returns a list of maps, each containing: name, mountPath, value, resourceName, and optionally remoteRef.
 func configurationsToConfigFileListFunction(configurations, prefix ref.Val) ref.Val {
 	prefixStr, ok := prefix.Value().(string)
@@ -168,7 +186,6 @@ func configurationsToConfigFileListFunction(configurations, prefix ref.Val) ref.
 		return types.NewErr("toConfigFileList: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configMap, ok := configurations.Value().(map[string]any)
 	if !ok {
 		return types.NewErr("toConfigFileList: expected map[string]any, got %T", configurations.Value())
@@ -177,15 +194,16 @@ func configurationsToConfigFileListFunction(configurations, prefix ref.Val) ref.
 	return types.DefaultTypeAdapter.NativeToValue(result)
 }
 
-// configurationsToSecretFileListFunction is the CEL binding for configurations.toSecretFileList(prefix).
-// Returns a list of maps, each containing: name, mountPath, value, resourceName, and optionally remoteRef.
+// configurationsToSecretFileListFunction is the CEL binding for configurations.toSecretFileList().
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
+// Returns a list of maps, each containing: name, mountPath, resourceName, and remoteRef.
+// Note: Secret files do not have inline values, only remoteRef for external secret references.
 func configurationsToSecretFileListFunction(configurations, prefix ref.Val) ref.Val {
 	prefixStr, ok := prefix.Value().(string)
 	if !ok {
 		return types.NewErr("toSecretFileList: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configMap, ok := configurations.Value().(map[string]any)
 	if !ok {
 		return types.NewErr("toSecretFileList: expected map[string]any, got %T", configurations.Value())
@@ -194,7 +212,8 @@ func configurationsToSecretFileListFunction(configurations, prefix ref.Val) ref.
 	return types.DefaultTypeAdapter.NativeToValue(result)
 }
 
-// configurationsToContainerEnvFromFunction is the CEL binding for configurations.toContainerEnvFrom(containerName, prefix).
+// configurationsToContainerEnvFromFunction is the CEL binding for configurations.toContainerEnvFrom(containerName).
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the third parameter.
 // Returns a list of envFrom entries (configMapRef and/or secretRef) based on container config.
 func configurationsToContainerEnvFromFunction(configurations, containerName, prefix ref.Val) ref.Val {
 	containerNameStr, ok := containerName.Value().(string)
@@ -207,20 +226,22 @@ func configurationsToContainerEnvFromFunction(configurations, containerName, pre
 		return types.NewErr("toContainerEnvFrom: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configurationsMap, ok := configurations.Value().(map[string]any)
 	if !ok {
 		return types.NewErr("toContainerEnvFrom: expected map[string]any, got %T", configurations.Value())
 	}
 
-	// Get the specific container configuration
-	containerConfig, ok := configurationsMap[containerNameStr].(map[string]any)
-	if !ok {
-		// Return empty list if container not found
-		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
+	containerConfig, exists := configurationsMap[containerNameStr]
+	if !exists {
+		return types.NewErr("toContainerEnvFrom: container '%s' not found in configurations", containerNameStr)
 	}
 
-	result := makeEnvFromList(containerConfig, prefixStr, containerNameStr)
+	containerConfigMap, ok := containerConfig.(map[string]any)
+	if !ok {
+		return types.NewErr("toContainerEnvFrom: expected map[string]any for container '%s', got %T", containerNameStr, containerConfig)
+	}
+
+	result := makeEnvFromList(containerConfigMap, prefixStr, containerNameStr)
 	return types.DefaultTypeAdapter.NativeToValue(result)
 }
 
@@ -303,12 +324,10 @@ func makeSecretFileList(configMap map[string]any, prefix string) []map[string]an
 
 			name, _ := file["name"].(string)
 			mountPath, _ := file["mountPath"].(string)
-			value, _ := file["value"].(string)
 
 			entry := map[string]any{
 				"name":         name,
 				"mountPath":    mountPath,
-				"value":        value,
 				"resourceName": generateSecretResourceName(prefix, containerName, name),
 			}
 			if remoteRef, ok := file["remoteRef"].(map[string]any); ok {
@@ -339,24 +358,27 @@ func configurationsToContainerVolumeMountsFunction(configurations, containerName
 		return types.NewErr("toContainerVolumeMounts: containerName must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configurationsMap, ok := configurations.Value().(map[string]any)
 	if !ok {
 		return types.NewErr("toContainerVolumeMounts: expected map[string]any, got %T", configurations.Value())
 	}
 
-	// Get the specific container configuration
-	containerConfig, ok := configurationsMap[containerNameStr].(map[string]any)
-	if !ok {
-		// Return empty list if container not found
-		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
+	containerConfig, exists := configurationsMap[containerNameStr]
+	if !exists {
+		return types.NewErr("toContainerVolumeMounts: container '%s' not found in configurations", containerNameStr)
 	}
 
-	result := makeVolumeMountsList(containerConfig, containerNameStr)
+	containerConfigMap, ok := containerConfig.(map[string]any)
+	if !ok {
+		return types.NewErr("toContainerVolumeMounts: expected map[string]any for container '%s', got %T", containerNameStr, containerConfig)
+	}
+
+	result := makeVolumeMountsList(containerConfigMap, containerNameStr)
 	return types.DefaultTypeAdapter.NativeToValue(result)
 }
 
-// configurationsToVolumesFunction is the CEL binding for configurations.toVolumes(prefix).
+// configurationsToVolumesFunction is the CEL binding for configurations.toVolumes().
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
 // Returns a list of volume entries for all containers' files.
 func configurationsToVolumesFunction(configurations, prefix ref.Val) ref.Val {
 	prefixStr, ok := prefix.Value().(string)
@@ -364,7 +386,6 @@ func configurationsToVolumesFunction(configurations, prefix ref.Val) ref.Val {
 		return types.NewErr("toVolumes: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configMap, ok := configurations.Value().(map[string]any)
 	if !ok {
 		return types.NewErr("toVolumes: expected map[string]any, got %T", configurations.Value())
@@ -385,12 +406,7 @@ func makeEnvFromList(containerConfig map[string]any, prefix, containerName strin
 	// Check for config environment variables
 	if configs, ok := containerConfig["configs"].(map[string]any); ok {
 		if envs, ok := configs["envs"].([]any); ok && len(envs) > 0 {
-			configMapName := kubernetes.GenerateK8sNameWithLengthLimit(
-				kubernetes.MaxResourceNameLength,
-				prefix,
-				containerName,
-				"env-configs",
-			)
+			configMapName := generateEnvResourceName(prefix, containerName, "env-configs")
 			result = append(result, map[string]any{
 				"configMapRef": map[string]any{
 					"name": configMapName,
@@ -402,12 +418,7 @@ func makeEnvFromList(containerConfig map[string]any, prefix, containerName strin
 	// Check for secret environment variables
 	if secrets, ok := containerConfig["secrets"].(map[string]any); ok {
 		if envs, ok := secrets["envs"].([]any); ok && len(envs) > 0 {
-			secretName := kubernetes.GenerateK8sNameWithLengthLimit(
-				kubernetes.MaxResourceNameLength,
-				prefix,
-				containerName,
-				"env-secrets",
-			)
+			secretName := generateEnvResourceName(prefix, containerName, "env-secrets")
 			result = append(result, map[string]any{
 				"secretRef": map[string]any{
 					"name": secretName,
@@ -446,8 +457,6 @@ func makeVolumeMountsList(containerConfig map[string]any, containerName string) 
 				if file, ok := fileVal.(map[string]any); ok {
 					name, _ := file["name"].(string)
 					mountPath, _ := file["mountPath"].(string)
-
-					// Generate hash for volume name using the same pattern as the template
 					volumeName := containerName + "-file-mount-" + generateVolumeHash(mountPath, name)
 
 					result = append(result, map[string]any{
@@ -467,8 +476,6 @@ func makeVolumeMountsList(containerConfig map[string]any, containerName string) 
 				if file, ok := fileVal.(map[string]any); ok {
 					name, _ := file["name"].(string)
 					mountPath, _ := file["mountPath"].(string)
-
-					// Generate hash for volume name using the same pattern as the template
 					volumeName := containerName + "-file-mount-" + generateVolumeHash(mountPath, name)
 
 					result = append(result, map[string]any{
@@ -492,8 +499,6 @@ func makeVolumesList(configMap map[string]any, prefix string) []map[string]any {
 	}
 
 	result := make([]map[string]any, 0)
-
-	// Track volumes by name to avoid duplicates
 	volumes := make(map[string]map[string]any)
 
 	for containerName, containerVal := range configMap {
@@ -509,8 +514,6 @@ func makeVolumesList(configMap map[string]any, prefix string) []map[string]any {
 					if file, ok := fileVal.(map[string]any); ok {
 						name, _ := file["name"].(string)
 						mountPath, _ := file["mountPath"].(string)
-
-						// Generate hash for volume name and resource name
 						volumeName := containerName + "-file-mount-" + generateVolumeHash(mountPath, name)
 						configMapName := generateConfigResourceName(prefix, containerName, name)
 
@@ -532,8 +535,6 @@ func makeVolumesList(configMap map[string]any, prefix string) []map[string]any {
 					if file, ok := fileVal.(map[string]any); ok {
 						name, _ := file["name"].(string)
 						mountPath, _ := file["mountPath"].(string)
-
-						// Generate hash for volume name and resource name
 						volumeName := containerName + "-file-mount-" + generateVolumeHash(mountPath, name)
 						secretName := generateSecretResourceName(prefix, containerName, name)
 
@@ -549,7 +550,6 @@ func makeVolumesList(configMap map[string]any, prefix string) []map[string]any {
 		}
 	}
 
-	// Convert map to slice
 	for _, volume := range volumes {
 		result = append(result, volume)
 	}
@@ -557,18 +557,18 @@ func makeVolumesList(configMap map[string]any, prefix string) []map[string]any {
 	return result
 }
 
-// configurationsToConfigEnvListFunction is the CEL binding for configurations.toConfigEnvList(prefix).
+// configurationsToConfigEnvsByContainerFunction is the CEL binding for configurations.toConfigEnvsByContainer().
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
 // Returns a list of objects with container, resourceName, and envs for each container with config envs.
-func configurationsToConfigEnvListFunction(configurations, prefix ref.Val) ref.Val {
+func configurationsToConfigEnvsByContainerFunction(configurations, prefix ref.Val) ref.Val {
 	prefixStr, ok := prefix.Value().(string)
 	if !ok {
-		return types.NewErr("toConfigEnvList: prefix must be a string")
+		return types.NewErr("toConfigEnvsByContainer: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configMap, ok := configurations.Value().(map[string]any)
 	if !ok {
-		return types.NewErr("toConfigEnvList: expected map[string]any, got %T", configurations.Value())
+		return types.NewErr("toConfigEnvsByContainer: expected map[string]any, got %T", configurations.Value())
 	}
 
 	result := makeConfigEnvList(configMap, prefixStr)
@@ -600,14 +600,7 @@ func makeConfigEnvList(configMap map[string]any, prefix string) []map[string]any
 			continue
 		}
 
-		// Generate resource name for this container
-		// Use kubernetes.GenerateK8sNameWithLengthLimit directly to avoid the extra "config" in the name
-		resourceName := kubernetes.GenerateK8sNameWithLengthLimit(
-			kubernetes.MaxResourceNameLength,
-			prefix,
-			containerName,
-			"env-configs",
-		)
+		resourceName := generateEnvResourceName(prefix, containerName, "env-configs")
 
 		entry := map[string]any{
 			"container":    containerName,
@@ -620,18 +613,18 @@ func makeConfigEnvList(configMap map[string]any, prefix string) []map[string]any
 	return result
 }
 
-// configurationsToSecretEnvListFunction is the CEL binding for configurations.toSecretEnvList(prefix).
+// configurationsToSecretEnvsByContainerFunction is the CEL binding for configurations.toSecretEnvsByContainer().
+// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
 // Returns a list of objects with container, resourceName, and envs for each container with secret envs.
-func configurationsToSecretEnvListFunction(configurations, prefix ref.Val) ref.Val {
+func configurationsToSecretEnvsByContainerFunction(configurations, prefix ref.Val) ref.Val {
 	prefixStr, ok := prefix.Value().(string)
 	if !ok {
-		return types.NewErr("toSecretEnvList: prefix must be a string")
+		return types.NewErr("toSecretEnvsByContainer: prefix must be a string")
 	}
 
-	// configurations is a map[string]any after JSON marshaling in ComponentContext.ToMap()
 	configMap, ok := configurations.Value().(map[string]any)
 	if !ok {
-		return types.NewErr("toSecretEnvList: expected map[string]any, got %T", configurations.Value())
+		return types.NewErr("toSecretEnvsByContainer: expected map[string]any, got %T", configurations.Value())
 	}
 
 	result := makeSecretEnvList(configMap, prefixStr)
@@ -663,14 +656,7 @@ func makeSecretEnvList(configMap map[string]any, prefix string) []map[string]any
 			continue
 		}
 
-		// Generate resource name for this container
-		// Use kubernetes.GenerateK8sNameWithLengthLimit directly for consistency
-		resourceName := kubernetes.GenerateK8sNameWithLengthLimit(
-			kubernetes.MaxResourceNameLength,
-			prefix,
-			containerName,
-			"env-secrets",
-		)
+		resourceName := generateEnvResourceName(prefix, containerName, "env-secrets")
 
 		entry := map[string]any{
 			"container":    containerName,
@@ -690,4 +676,13 @@ func generateVolumeHash(mountPath, filename string) string {
 	h := fnv.New32a()
 	h.Write([]byte(input))
 	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+func generateEnvResourceName(prefix, container, suffix string) string {
+	return kubernetes.GenerateK8sNameWithLengthLimit(
+		kubernetes.MaxResourceNameLength,
+		prefix,
+		container,
+		suffix,
+	)
 }
