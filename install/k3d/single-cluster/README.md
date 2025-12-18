@@ -29,21 +29,16 @@ k3d cluster create --config install/k3d/single-cluster/config.yaml
 cert-manager is required for TLS certificate management:
 
 ```bash
-helm repo add jetstack https://charts.jetstack.io --force-update
-helm repo update jetstack
-
-helm install cert-manager jetstack/cert-manager \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-control-plane \
-  --create-namespace \
-  --version v1.17.1 \
-  --set crds.enabled=true
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true
 
 # Wait for cert-manager to be ready
 kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager \
-  -n openchoreo-control-plane --timeout=120s
+  -n cert-manager --timeout=120s
 kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager-webhook \
-  -n openchoreo-control-plane --timeout=120s
+  -n cert-manager --timeout=120s
 ```
 
 ### 3. Install Components
