@@ -18,7 +18,6 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Reconciler reconciles a ObservabilityAlertsNotificationChannel object
@@ -88,20 +87,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 // It follows the chain: Channel.Environment -> Environment.DataPlaneRef -> DataPlane.ObservabilityPlaneRef -> ObservabilityPlane
 func (r *Reconciler) getObservabilityPlaneClient(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (client.Client, error) {
 	// Get the Environment
-	environment, err := controller.GetEnvironmentByName(ctx, r.Client, channel, channel.Spec.Environment)
-	if err != nil {
+	env := &openchoreodevv1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: channel.Spec.Environment, Namespace: channel.Namespace}, env); err != nil {
 		return nil, fmt.Errorf("failed to get environment %s: %w", channel.Spec.Environment, err)
 	}
 
 	// Check if DataPlaneRef is configured
-	if environment.Spec.DataPlaneRef == "" {
-		return nil, fmt.Errorf("environment %s has no DataPlaneRef configured", environment.Name)
+	if env.Spec.DataPlaneRef == "" {
+		return nil, fmt.Errorf("environment %s has no DataPlaneRef configured", env.Name)
 	}
 
 	// Get the DataPlane
-	dataPlane, err := controller.GetDataPlaneByEnvironment(ctx, r.Client, environment)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dataplane %s: %w", environment.Spec.DataPlaneRef, err)
+	dataPlane := &openchoreodevv1alpha1.DataPlane{}
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: channel.Namespace}, dataPlane); err != nil {
+		return nil, fmt.Errorf("failed to get dataplane %s: %w", env.Spec.DataPlaneRef, err)
 	}
 
 	// Check if ObservabilityPlaneRef is configured

@@ -16,7 +16,6 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
@@ -59,9 +58,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-channel-no-env",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: "test-org",
-					},
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: "development",
@@ -110,7 +106,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 	Context("When reconciling a resource with full hierarchy", func() {
 		var (
 			channel            *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel
-			organization       *openchoreodevv1alpha1.Organization
 			dataPlane          *openchoreodevv1alpha1.DataPlane
 			environment        *openchoreodevv1alpha1.Environment
 			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
@@ -118,14 +113,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		)
 
 		BeforeEach(func() {
-			// Create Organization
-			organization = &openchoreodevv1alpha1.Organization{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespace,
-				},
-			}
-			Expect(k8sClient.Create(testCtx, organization)).To(Succeed())
-
 			// Create ObservabilityPlane with agent enabled
 			observabilityPlane = &openchoreodevv1alpha1.ObservabilityPlane{
 				ObjectMeta: metav1.ObjectMeta{
@@ -146,10 +133,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dataplane",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-						labels.LabelKeyName:             "test-dataplane",
-					},
 				},
 				Spec: openchoreodevv1alpha1.DataPlaneSpec{
 					ObservabilityPlaneRef: observabilityPlane.Name,
@@ -162,10 +145,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "development",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-						labels.LabelKeyName:             "development",
-					},
 				},
 				Spec: openchoreodevv1alpha1.EnvironmentSpec{
 					DataPlaneRef: dataPlane.Name,
@@ -185,9 +164,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-channel",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-					},
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
@@ -232,9 +208,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			}
 			if observabilityPlane != nil {
 				_ = k8sClient.Delete(testCtx, observabilityPlane)
-			}
-			if organization != nil {
-				_ = k8sClient.Delete(testCtx, organization)
 			}
 		})
 
@@ -293,7 +266,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 	Context("When reconciling a resource with SMTP auth", func() {
 		var (
 			channel            *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel
-			organization       *openchoreodevv1alpha1.Organization
 			dataPlane          *openchoreodevv1alpha1.DataPlane
 			environment        *openchoreodevv1alpha1.Environment
 			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
@@ -301,14 +273,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		)
 
 		BeforeEach(func() {
-			// Create Organization
-			organization = &openchoreodevv1alpha1.Organization{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespace,
-				},
-			}
-			Expect(k8sClient.Create(testCtx, organization)).To(Succeed())
-
 			// Create ObservabilityPlane
 			observabilityPlane = &openchoreodevv1alpha1.ObservabilityPlane{
 				ObjectMeta: metav1.ObjectMeta{
@@ -329,10 +293,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dataplane-auth",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-						labels.LabelKeyName:             "test-dataplane-auth",
-					},
 				},
 				Spec: openchoreodevv1alpha1.DataPlaneSpec{
 					ObservabilityPlaneRef: observabilityPlane.Name,
@@ -345,10 +305,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "development-auth",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-						labels.LabelKeyName:             "development-auth",
-					},
 				},
 				Spec: openchoreodevv1alpha1.EnvironmentSpec{
 					DataPlaneRef: dataPlane.Name,
@@ -362,9 +318,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-channel-auth",
 					Namespace: namespace,
-					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: namespace,
-					},
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
@@ -421,9 +374,6 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			}
 			if observabilityPlane != nil {
 				_ = k8sClient.Delete(testCtx, observabilityPlane)
-			}
-			if organization != nil {
-				_ = k8sClient.Delete(testCtx, organization)
 			}
 		})
 
