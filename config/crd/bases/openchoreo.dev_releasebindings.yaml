@@ -90,6 +90,15 @@ spec:
                   ReleaseName is the name of the ComponentRelease to bind
                   When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
                 type: string
+              targetPlane:
+                default: dataplane
+                description: |-
+                  TargetPlane specifies which plane this release binding should be deployed to.
+                  Defaults to "dataplane" if not specified.
+                enum:
+                - dataplane
+                - observabilityplane
+                type: string
               traitOverrides:
                 additionalProperties:
                   type: object

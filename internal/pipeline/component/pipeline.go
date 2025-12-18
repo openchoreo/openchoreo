@@ -158,12 +158,12 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 	}
 
-	// Sort resources for deterministic output
-	sortResources(resources)
+	// Sort resources for deterministic output while keeping target plane metadata aligned.
+	sortRenderedResources(renderedResources)
 
-	// Update sorted resources back to renderedResources
+	// Update sorted resources back to resources slice after sorting.
 	for i := 0; i < len(renderedResources); i++ {
-		renderedResources[i].Resource = resources[i]
+		resources[i] = renderedResources[i].Resource
 	}
 
 	metadata.ResourceCount = len(renderedResources)
@@ -285,30 +285,39 @@ func (p *Pipeline) validateResources(resources []map[string]any) error {
 // Sorts by: kind, apiVersion, metadata.namespace, metadata.name
 func sortResources(resources []map[string]any) {
 	sort.Slice(resources, func(i, j int) bool {
-		// Extract fields
-		kind1, _ := resources[i]["kind"].(string)
-		kind2, _ := resources[j]["kind"].(string)
-		if kind1 != kind2 {
-			return kind1 < kind2
-		}
-
-		apiVersion1, _ := resources[i]["apiVersion"].(string)
-		apiVersion2, _ := resources[j]["apiVersion"].(string)
-		if apiVersion1 != apiVersion2 {
-			return apiVersion1 < apiVersion2
-		}
-
-		meta1, _ := resources[i]["metadata"].(map[string]any)
-		meta2, _ := resources[j]["metadata"].(map[string]any)
-
-		ns1, _ := meta1["namespace"].(string)
-		ns2, _ := meta2["namespace"].(string)
-		if ns1 != ns2 {
-			return ns1 < ns2
-		}
-
-		name1, _ := meta1["name"].(string)
-		name2, _ := meta2["name"].(string)
-		return name1 < name2
+		return compareResources(resources[i], resources[j])
 	})
+}
+
+func sortRenderedResources(renderedResources []renderer.RenderedResource) {
+	sort.SliceStable(renderedResources, func(i, j int) bool {
+		return compareResources(renderedResources[i].Resource, renderedResources[j].Resource)
+	})
+}
+
+func compareResources(a, b map[string]any) bool {
+	kind1, _ := a["kind"].(string)
+	kind2, _ := b["kind"].(string)
+	if kind1 != kind2 {
+		return kind1 < kind2
+	}
+
+	apiVersion1, _ := a["apiVersion"].(string)
+	apiVersion2, _ := b["apiVersion"].(string)
+	if apiVersion1 != apiVersion2 {
+		return apiVersion1 < apiVersion2
+	}
+
+	meta1, _ := a["metadata"].(map[string]any)
+	meta2, _ := b["metadata"].(map[string]any)
+
+	ns1, _ := meta1["namespace"].(string)
+	ns2, _ := meta2["namespace"].(string)
+	if ns1 != ns2 {
+		return ns1 < ns2
+	}
+
+	name1, _ := meta1["name"].(string)
+	name2, _ := meta2["name"].(string)
+	return name1 < name2
 }

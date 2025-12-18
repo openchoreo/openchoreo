@@ -27,6 +27,9 @@ import (
 const (
 	// ControllerName is the name of the controller managing Release resources
 	ControllerName = "release-controller"
+
+	targetPlaneDataPlane          = "dataplane"
+	targetPlaneObservabilityPlane = "observabilityplane"
 )
 
 // Reconciler reconciles a Release object
@@ -77,11 +80,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Get dataplane client for the environment
-	dpClient, err := r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
-	if err != nil {
-		logger.Error(err, "Failed to get dataplane client")
-		return ctrl.Result{}, err
+	// Get plane client (dataplane or observabilityplane) for the environment based on targetPlane
+	targetPlane := release.Spec.TargetPlane
+	if targetPlane == "" {
+		targetPlane = targetPlaneDataPlane // Default to dataplane if not specified (avoid breaking change)
+	}
+
+	var planeClient client.Client
+	var err error
+	switch targetPlane {
+	case targetPlaneObservabilityPlane:
+		planeClient, err = r.getOPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		if err != nil {
+			logger.Error(err, "Failed to get observability plane client")
+			return ctrl.Result{}, err
+		}
+	case targetPlaneDataPlane:
+		fallthrough
+	default:
+		planeClient, err = r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		if err != nil {
+			logger.Error(err, "Failed to get dataplane client")
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Get desired resources from spec
@@ -93,25 +114,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Ensure namespaces exist before applying resources
 	desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
-	if err := r.ensureNamespaces(ctx, dpClient, desiredNamespaces); err != nil {
+	if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
 		logger.Error(err, "Failed to ensure namespaces")
 		return ctrl.Result{}, err
 	}
 
-	// PHASE 1: Apply desired resources to the dataplane
+	// PHASE 1: Apply desired resources to the target plane
 	// This ensures all resources in the spec are created/updated with proper tracking labels
-	if err := r.applyResources(ctx, dpClient, desiredResources); err != nil {
-		logger.Error(err, "Failed to apply resources to dataplane")
+	if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
+		logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
 		return ctrl.Result{}, err
 	}
 
-	// PHASE 2: Discover live resources that we manage in the dataplane
+	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)
 	// to ensure we find all resources that might need cleanup, preventing resource leaks
 	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources)
-	liveResources, err := r.listLiveResourcesByGVKs(ctx, dpClient, release, gvks)
+	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
-		logger.Error(err, "Failed to list live resources from dataplane")
+		logger.Error(err, "Failed to list live resources from target plane", "targetPlane", targetPlane)
 		return ctrl.Result{}, err
 	}
 
@@ -119,7 +140,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Stale = live resources that are no longer in the desired spec (e.g., user removed a ConfigMap)
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
 	staleResources := r.findStaleResources(liveResources, desiredResources)
-	if err := r.deleteResources(ctx, dpClient, staleResources); err != nil {
+	if err := r.deleteResources(ctx, planeClient, staleResources); err != nil {
 		logger.Error(err, "Failed to delete stale resources")
 		return ctrl.Result{}, err
 	}
@@ -142,8 +163,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	requeueAfter := getStableRequeueInterval(release)
-	logger.Info("Successfully applied the Release resources to the dataplane",
-		"requeueAfter", requeueAfter)
+	logger.Info("Successfully applied the Release resources to the target plane",
+		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
@@ -168,13 +189,58 @@ func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmen
 	return dpClient, nil
 }
 
-// applyResources applies the given resources to the dataplane
-func (r *Reconciler) applyResources(ctx context.Context, dpClient client.Client, resources []*unstructured.Unstructured) error {
+// getOPClient gets the observability plane client for the specified environment
+// It follows the chain: Environment -> DataPlane -> ObservabilityPlane
+func (r *Reconciler) getOPClient(ctx context.Context, orgName string, environmentName string) (client.Client, error) {
+	env := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: orgName}, env); err != nil {
+		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
+	}
+
+	// Check if DataPlaneRef is configured
+	if env.Spec.DataPlaneRef == "" {
+		return nil, fmt.Errorf("environment %s has no DataPlaneRef configured", environmentName)
+	}
+
+	// Get the DataPlane
+	dataPlane := &openchoreov1alpha1.DataPlane{}
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: orgName}, dataPlane); err != nil {
+		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
+	}
+
+	// Check if ObservabilityPlaneRef is configured
+	if dataPlane.Spec.ObservabilityPlaneRef == "" {
+		return nil, fmt.Errorf("dataplane %s has no ObservabilityPlaneRef configured", dataPlane.Name)
+	}
+
+	// Get the ObservabilityPlane
+	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+	if err := r.Get(ctx, client.ObjectKey{
+		Name:      dataPlane.Spec.ObservabilityPlaneRef,
+		Namespace: orgName,
+	}, observabilityPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("observability plane %s not found", dataPlane.Spec.ObservabilityPlaneRef)
+		}
+		return nil, fmt.Errorf("failed to get observability plane %s: %w", dataPlane.Spec.ObservabilityPlaneRef, err)
+	}
+
+	// Get Kubernetes client - supports agent mode (via HTTP proxy) through cluster gateway
+	opClient, err := kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, observabilityPlane, r.GatewayURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", observabilityPlane.Name, err)
+	}
+
+	return opClient, nil
+}
+
+// applyResources applies the given resources to the target plane
+func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []*unstructured.Unstructured) error {
 	for _, obj := range resources {
 		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
 
 		// Apply the resource using server-side apply
-		if err := dpClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
+		if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
 			return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
 		}
 	}
@@ -249,11 +315,11 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.Release, 
 	return namespaces
 }
 
-// ensureNamespaces ensures all required namespaces exist in the data plane
-func (r *Reconciler) ensureNamespaces(ctx context.Context, dpClient client.Client, namespaces []*corev1.Namespace) error {
+// ensureNamespaces ensures all required namespaces exist in the target plane
+func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) error {
 	for _, namespace := range namespaces {
 		existingNs := &corev1.Namespace{}
-		err := dpClient.Get(ctx, client.ObjectKey{Name: namespace.Name}, existingNs)
+		err := planeClient.Get(ctx, client.ObjectKey{Name: namespace.Name}, existingNs)
 
 		// Namespace already exists, skip to next
 		if err == nil {
@@ -266,7 +332,7 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, dpClient client.Clien
 		}
 
 		// Namespace doesn't exist, create it
-		if err := dpClient.Create(ctx, namespace); err != nil {
+		if err := planeClient.Create(ctx, namespace); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				// Another controller/release created it concurrently - that's fine
 				continue
@@ -276,7 +342,7 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, dpClient client.Clien
 
 		// TODO: Emit a Kubernetes event when namespace is created
 		// Example: r.Recorder.Event(release, corev1.EventTypeNormal, "NamespaceCreated",
-		//          fmt.Sprintf("Created namespace %s in data plane", namespace.Name))
+		//          fmt.Sprintf("Created namespace %s in target plane", namespace.Name))
 	}
 
 	return nil
@@ -308,13 +374,13 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 	return staleResources
 }
 
-// deleteResources deletes the given stale resources from the dataplane
-func (r *Reconciler) deleteResources(ctx context.Context, dpClient client.Client, staleResources []*unstructured.Unstructured) error {
+// deleteResources deletes the given stale resources from the target plane
+func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Client, staleResources []*unstructured.Unstructured) error {
 	for _, obj := range staleResources {
 		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
 
-		// Delete the resource from the dataplane
-		if err := dpClient.Delete(ctx, obj); err != nil {
+		// Delete the resource from the target plane
+		if err := planeClient.Delete(ctx, obj); err != nil {
 			return fmt.Errorf("failed to delete stale resource %s: %w", resourceID, err)
 		}
 	}
@@ -427,7 +493,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 }
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
-func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient client.Client, release *openchoreov1alpha1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
+func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
 	logger := log.FromContext(ctx)
 
 	var allLiveResources []*unstructured.Unstructured
@@ -455,7 +521,7 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, dpClient clien
 		}
 
 		// List resources with label selector
-		if err := dpClient.List(ctx, list, &client.ListOptions{
+		if err := planeClient.List(ctx, list, &client.ListOptions{
 			LabelSelector: selector,
 		}); err != nil {
 			logger.Error(err, "Failed to list resources", "gvk", gvk.String())

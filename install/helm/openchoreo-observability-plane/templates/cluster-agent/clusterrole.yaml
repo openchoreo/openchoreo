@@ -23,6 +23,7 @@ rules:
   resources:
   - secrets
   - configmaps
+  - namespaces
   verbs: ["*"]
 - apiGroups: [""]
   resources:

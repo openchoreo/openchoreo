@@ -399,47 +399,53 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			"warnings", renderOutput.Metadata.Warnings)
 	}
 
-	// Filter resources by target plane and log non-dataplane resources
+	// Filter resources by target plane
 	dataPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
+	observabilityPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
 
 	for _, renderedResource := range renderOutput.Resources {
 		switch renderedResource.TargetPlane {
 		case openchoreov1alpha1.TargetPlaneDataPlane:
 			dataPlaneResources = append(dataPlaneResources, renderedResource.Resource)
 		case openchoreov1alpha1.TargetPlaneObservabilityPlane:
-			// Log observability plane resource for now (deployment will be implemented later)
-			kind, _ := renderedResource.Resource["kind"].(string)
-			metadata, _ := renderedResource.Resource["metadata"].(map[string]any)
-			name, _ := metadata["name"].(string)
-			logger.Info("Skipping observabilityplane resource (will be deployed in future)",
-				"kind", kind, "name", name)
+			observabilityPlaneResources = append(observabilityPlaneResources, renderedResource.Resource)
 		}
 	}
 
 	// Convert filtered dataplane resources to Release format
-	releaseResources, err := r.convertToReleaseResources(dataPlaneResources)
+	dataPlaneReleaseResources, err := r.convertToReleaseResources(dataPlaneResources)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to convert resources: %v", err)
+		msg := fmt.Sprintf("Failed to convert dataplane resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 			ReasonRenderingFailed, msg)
-		logger.Error(err, "Failed to convert resources to Release format")
-		return ctrl.Result{}, fmt.Errorf("failed to convert resources: %w", err)
+		logger.Error(err, "Failed to convert dataplane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert dataplane resources: %w", err)
 	}
 
-	// Create or update Release
-	// Release name format: {component}-{environment}-{releaseHash}
-	releaseName := fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
-	release := &openchoreov1alpha1.Release{
+	// Convert filtered observability plane resources to Release format
+	observabilityPlaneReleaseResources, err := r.convertToReleaseResources(observabilityPlaneResources)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to convert observability plane resources: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to convert observability plane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert observability plane resources: %w", err)
+	}
+
+	// Create or update dataplane Release
+	// Release name format: {component}-{environment}
+	dataPlaneReleaseName := fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	dataPlaneRelease := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      releaseName,
+			Name:      dataPlaneReleaseName,
 			Namespace: releaseBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
+	dpOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, dataPlaneRelease, func() error {
 		// Check if we own this Release (only for existing releases)
-		if release.UID != "" {
-			hasOwner, err := controllerutil.HasOwnerReference(release.GetOwnerReferences(), releaseBinding, r.Scheme)
+		if dataPlaneRelease.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(dataPlaneRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
 			if err != nil {
 				return fmt.Errorf("failed to check owner reference: %w", err)
 			}
@@ -448,29 +454,30 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			}
 		}
 
-		release.Labels = map[string]string{
+		dataPlaneRelease.Labels = map[string]string{
 			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
 			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
 			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
 			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
 		}
 
-		release.Spec = openchoreov1alpha1.ReleaseSpec{
+		dataPlaneRelease.Spec = openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
-			Resources:       releaseResources,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Resources:       dataPlaneReleaseResources,
 		}
 
-		return controllerutil.SetControllerReference(releaseBinding, release, r.Scheme)
+		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)
 	})
 
 	if err != nil {
 		// Check for ownership conflict
 		if strings.Contains(err.Error(), "not owned by") {
-			msg := fmt.Sprintf("Release %q exists but is owned by another resource", release.Name)
+			msg := fmt.Sprintf("Release %q exists but is owned by another resource", dataPlaneRelease.Name)
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonReleaseOwnershipConflict, msg)
 			logger.Error(err, msg)
@@ -478,28 +485,98 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		// Transient errors
-		msg := fmt.Sprintf("Failed to reconcile Release: %v", err)
+		msg := fmt.Sprintf("Failed to reconcile dataplane Release: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 			ReasonReleaseUpdateFailed, msg)
-		logger.Error(err, "Failed to reconcile Release", "release", release.Name)
+		logger.Error(err, "Failed to reconcile dataplane Release", "release", dataPlaneRelease.Name)
 		return ctrl.Result{}, err
 	}
 
-	// Set ReleaseSynced condition based on operation result
-	switch op {
+	// Create or update observability plane Release
+	// Release name format: {component}-{environment}-observability
+	observabilityReleaseName := fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	observabilityRelease := &openchoreov1alpha1.Release{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      observabilityReleaseName,
+			Namespace: releaseBinding.Namespace,
+		},
+	}
+
+	opOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, observabilityRelease, func() error {
+		// Check if we own this Release (only for existing releases)
+		if observabilityRelease.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(observabilityRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+			if err != nil {
+				return fmt.Errorf("failed to check owner reference: %w", err)
+			}
+			if !hasOwner {
+				return fmt.Errorf("release exists but is not owned by this ReleaseBinding")
+			}
+		}
+
+		observabilityRelease.Labels = map[string]string{
+			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
+			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
+		}
+
+		observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
+				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
+				ComponentName: releaseBinding.Spec.Owner.ComponentName,
+			},
+			EnvironmentName: releaseBinding.Spec.Environment,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+			Resources:       observabilityPlaneReleaseResources,
+		}
+
+		return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
+	})
+
+	if err != nil {
+		// Check for ownership conflict
+		if strings.Contains(err.Error(), "not owned by") {
+			msg := fmt.Sprintf("Release %q exists but is owned by another resource", observabilityRelease.Name)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonReleaseOwnershipConflict, msg)
+			logger.Error(err, msg)
+			return ctrl.Result{}, nil
+		}
+
+		// Transient errors
+		msg := fmt.Sprintf("Failed to reconcile observability plane Release: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonReleaseUpdateFailed, msg)
+		logger.Error(err, "Failed to reconcile observability plane Release", "release", observabilityRelease.Name)
+		return ctrl.Result{}, err
+	}
+
+	// Set ReleaseSynced condition based on operation results.
+	// Prioritize dataplane operation result for readiness and requeue decisions.
+	switch dpOp {
 	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
-		msg := fmt.Sprintf("Release %q %s with %d resources", release.Name, op, len(releaseResources))
+		msg := fmt.Sprintf("Dataplane Release %q %s with %d resources; observability Release %q %s with %d resources",
+			dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources),
+			observabilityRelease.Name, opOp, len(observabilityPlaneReleaseResources))
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
-		logger.Info(fmt.Sprintf("Release %s", op), "release", release.Name, "resourceCount", len(releaseResources))
+		logger.Info("Releases reconciled",
+			"dataplaneReleaseOp", dpOp,
+			"dataplaneRelease", dataPlaneRelease.Name,
+			"dataplaneResourceCount", len(dataPlaneReleaseResources),
+			"observabilityReleaseOp", opOp,
+			"observabilityRelease", observabilityRelease.Name,
+			"observabilityResourceCount", len(observabilityPlaneReleaseResources))
 		return ctrl.Result{Requeue: true}, nil
 
 	case controllerutil.OperationResultNone:
-		msg := fmt.Sprintf("Release %q is up to date", release.Name)
+		msg := fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
+			dataPlaneRelease.Name, observabilityRelease.Name, opOp)
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
 
-	// Evaluate resource readiness from Release status (with component for workload type)
-	if err := r.setResourcesReadyStatus(ctx, releaseBinding, release, component); err != nil {
+	// Evaluate resource readiness from dataplane Release status (with component for workload type)
+	if err := r.setResourcesReadyStatus(ctx, releaseBinding, dataPlaneRelease, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
 
