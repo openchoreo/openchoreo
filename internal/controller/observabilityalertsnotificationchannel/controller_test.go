@@ -5,10 +5,12 @@ package observabilityalertsnotificationchannel
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -237,6 +239,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
+
+			// Verify finalizer is added
+			updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedChannel.Finalizers).To(ContainElement(NotificationChannelCleanupFinalizer))
 
 			// Verify ConfigMap was created
 			configMap := &corev1.ConfigMap{}
@@ -506,4 +514,390 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
 		})
 	})
+
+	Context("When testing finalizers", func() {
+		var (
+			channel            *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel
+			dataPlane          *openchoreodevv1alpha1.DataPlane
+			environment        *openchoreodevv1alpha1.Environment
+			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
+			opClient           client.Client
+			clientMgr          *kubernetesClient.KubeMultiClientManager
+		)
+
+		BeforeEach(func() {
+			// Create ObservabilityPlane with agent enabled
+			observabilityPlane = &openchoreodevv1alpha1.ObservabilityPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-observability-plane-finalizer",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityPlaneSpec{
+					Agent: &openchoreodevv1alpha1.AgentConfig{
+						Enabled: true,
+					},
+					ObserverURL: "http://observer.example.com",
+				},
+			}
+			Expect(k8sClient.Create(testCtx, observabilityPlane)).To(Succeed())
+
+			// Create DataPlane with ObservabilityPlaneRef
+			dataPlane = &openchoreodevv1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dataplane-finalizer",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.DataPlaneSpec{
+					ObservabilityPlaneRef: observabilityPlane.Name,
+				},
+			}
+			Expect(k8sClient.Create(testCtx, dataPlane)).To(Succeed())
+
+			// Create Environment with DataPlaneRef
+			environment = &openchoreodevv1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "development-finalizer",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.EnvironmentSpec{
+					DataPlaneRef: dataPlane.Name,
+				},
+			}
+			Expect(k8sClient.Create(testCtx, environment)).To(Succeed())
+
+			// Use the same client for testing (in real scenarios, this would be a proxy client)
+			opClient = k8sClient
+
+			// Create a test client manager
+			clientMgr = kubernetesClient.NewManager()
+			key := "observabilityplane/default/test-observability-plane-finalizer"
+			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+				return opClient, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if channel != nil {
+				// Clean up ConfigMap and Secret
+				configMap := &corev1.ConfigMap{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap); err == nil {
+					_ = k8sClient.Delete(testCtx, configMap)
+				}
+				secret := &corev1.Secret{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, secret); err == nil {
+					_ = k8sClient.Delete(testCtx, secret)
+				}
+				_ = k8sClient.Delete(testCtx, channel)
+			}
+			if environment != nil {
+				_ = k8sClient.Delete(testCtx, environment)
+			}
+			if dataPlane != nil {
+				_ = k8sClient.Delete(testCtx, dataPlane)
+			}
+			if observabilityPlane != nil {
+				_ = k8sClient.Delete(testCtx, observabilityPlane)
+			}
+		})
+
+		It("should add finalizer during reconciliation", func() {
+			// Create channel without finalizer
+			channel = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-channel-finalizer",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: environment.Name,
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					Config: openchoreodevv1alpha1.NotificationChannelConfig{
+						EmailConfig: openchoreodevv1alpha1.EmailConfig{
+							From: "test@example.com",
+							To:   []string{"test@example.com"},
+							SMTP: openchoreodevv1alpha1.SMTPConfig{
+								Host: "smtp.example.com",
+								Port: 587,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+			// Verify finalizer is not present initially
+			createdChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, createdChannel)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createdChannel.Finalizers).NotTo(ContainElement(NotificationChannelCleanupFinalizer))
+
+			// Reconcile
+			reconciler := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				K8sClientMgr: clientMgr,
+				GatewayURL:   "http://localhost:8080",
+			}
+
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			// Verify finalizer is added
+			updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedChannel.Finalizers).To(ContainElement(NotificationChannelCleanupFinalizer))
+		})
+
+		It("should delete ConfigMap and Secret and remove finalizer during deletion", func() {
+			// Create channel
+			channel = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-channel-delete",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: environment.Name,
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					Config: openchoreodevv1alpha1.NotificationChannelConfig{
+						EmailConfig: openchoreodevv1alpha1.EmailConfig{
+							From: "test@example.com",
+							To:   []string{"test@example.com"},
+							SMTP: openchoreodevv1alpha1.SMTPConfig{
+								Host: "smtp.example.com",
+								Port: 587,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+			reconciler := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				K8sClientMgr: clientMgr,
+				GatewayURL:   "http://localhost:8080",
+			}
+
+			// Reconcile to create ConfigMap and Secret and add finalizer
+			_, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify ConfigMap and Secret were created
+			configMap := &corev1.ConfigMap{}
+			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			secret := &corev1.Secret{}
+			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, secret)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify finalizer is present
+			updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedChannel.Finalizers).To(ContainElement(NotificationChannelCleanupFinalizer))
+
+			// Delete the channel
+			Expect(k8sClient.Delete(testCtx, updatedChannel)).To(Succeed())
+
+			// Wait for deletion timestamp to be set
+			deletedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, deletedChannel)
+				if err != nil {
+					return false
+				}
+				return !deletedChannel.DeletionTimestamp.IsZero()
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Reconcile to trigger finalization
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			// Verify ConfigMap is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &corev1.ConfigMap{})
+				return apierrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Verify Secret is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &corev1.Secret{})
+				return apierrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Verify finalizer is removed
+			finalChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, finalChannel)
+				if err != nil {
+					return apierrors.IsNotFound(err)
+				}
+				return !contains(finalChannel.Finalizers, NotificationChannelCleanupFinalizer)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Verify resource is eventually deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{})
+				return apierrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+		})
+
+		It("should handle finalization gracefully when ConfigMap and Secret don't exist", func() {
+			// Create channel with finalizer already set
+			channel = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-channel-no-resources",
+					Namespace:  namespace,
+					Finalizers: []string{NotificationChannelCleanupFinalizer},
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: environment.Name,
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					Config: openchoreodevv1alpha1.NotificationChannelConfig{
+						EmailConfig: openchoreodevv1alpha1.EmailConfig{
+							From: "test@example.com",
+							To:   []string{"test@example.com"},
+							SMTP: openchoreodevv1alpha1.SMTPConfig{
+								Host: "smtp.example.com",
+								Port: 587,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+			// Delete the channel (ConfigMap and Secret don't exist)
+			Expect(k8sClient.Delete(testCtx, channel)).To(Succeed())
+
+			// Wait for deletion timestamp to be set
+			deletedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, deletedChannel)
+				if err != nil {
+					return false
+				}
+				return !deletedChannel.DeletionTimestamp.IsZero()
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+
+			// Reconcile to trigger finalization
+			reconciler := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				K8sClientMgr: clientMgr,
+				GatewayURL:   "http://localhost:8080",
+			}
+
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+
+			// Should not error even though ConfigMap/Secret don't exist
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			// Verify finalizer is removed
+			finalChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, finalChannel)
+				if err != nil {
+					return apierrors.IsNotFound(err)
+				}
+				return !contains(finalChannel.Finalizers, NotificationChannelCleanupFinalizer)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+		})
+
+		It("should skip finalization when finalizer is not present", func() {
+			// Create channel without finalizer
+			channel = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-channel-no-finalizer",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: environment.Name,
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					Config: openchoreodevv1alpha1.NotificationChannelConfig{
+						EmailConfig: openchoreodevv1alpha1.EmailConfig{
+							From: "test@example.com",
+							To:   []string{"test@example.com"},
+							SMTP: openchoreodevv1alpha1.SMTPConfig{
+								Host: "smtp.example.com",
+								Port: 587,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+
+			// Verify finalizer is not present before deletion
+			createdChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, createdChannel)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createdChannel.Finalizers).NotTo(ContainElement(NotificationChannelCleanupFinalizer))
+
+			// Delete the channel
+			Expect(k8sClient.Delete(testCtx, channel)).To(Succeed())
+
+			// Reconcile - should handle gracefully whether resource is already deleted or has deletion timestamp
+			reconciler := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				K8sClientMgr: clientMgr,
+				GatewayURL:   "http://localhost:8080",
+			}
+
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+
+			// Should not error - controller handles NotFound gracefully, and no finalizer means no cleanup needed
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			// Verify resource is eventually deleted (may already be deleted if no finalizer)
+			Eventually(func() bool {
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{})
+				return apierrors.IsNotFound(err)
+			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
+		})
+	})
 })
+
+// Helper function to check if a slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}

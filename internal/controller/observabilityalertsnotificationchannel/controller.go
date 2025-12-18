@@ -14,10 +14,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+)
+
+const (
+	// NotificationChannelCleanupFinalizer is the finalizer that is used to clean up notification channel resources.
+	NotificationChannelCleanupFinalizer = "openchoreo.dev/notification-channel-cleanup"
 )
 
 // Reconciler reconciles a ObservabilityAlertsNotificationChannel object
@@ -54,6 +60,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get ObservabilityAlertsNotificationChannel")
+		return ctrl.Result{}, err
+	}
+
+	// Handle deletion and finalizers
+	if !channel.DeletionTimestamp.IsZero() {
+		return r.finalize(ctx, channel)
+	}
+
+	// Ensure finalizer is added
+	if _, err := r.ensureFinalizer(ctx, channel); err != nil {
+		logger.Error(err, "Failed to ensure finalizer")
 		return ctrl.Result{}, err
 	}
 
@@ -223,6 +240,100 @@ func (r *Reconciler) applySecret(ctx context.Context, opClient client.Client, se
 	if err := opClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("observabilityalertsnotificationchannel-controller")); err != nil {
 		return fmt.Errorf("failed to apply Secret %s: %w", secret.Name, err)
 	}
+	return nil
+}
+
+// ensureFinalizer ensures that the finalizer is added to the notification channel.
+// The first return value indicates whether the finalizer was added to the channel.
+func (r *Reconciler) ensureFinalizer(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (bool, error) {
+	// If the channel is being deleted, no need to add the finalizer
+	if !channel.DeletionTimestamp.IsZero() {
+		return false, nil
+	}
+
+	if controllerutil.AddFinalizer(channel, NotificationChannelCleanupFinalizer) {
+		return true, r.Update(ctx, channel)
+	}
+
+	return false, nil
+}
+
+// finalize cleans up the resources associated with the notification channel.
+func (r *Reconciler) finalize(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (ctrl.Result, error) {
+	logger := log.FromContext(ctx).WithValues("channel", channel.Name, "namespace", channel.Namespace)
+
+	if !controllerutil.ContainsFinalizer(channel, NotificationChannelCleanupFinalizer) {
+		// Nothing to do if the finalizer is not present
+		return ctrl.Result{}, nil
+	}
+
+	// Get ObservabilityPlane client
+	opClient, err := r.getObservabilityPlaneClient(ctx, channel)
+	if err != nil {
+		logger.Error(err, "Failed to get observability plane client during finalization")
+		return ctrl.Result{}, err
+	}
+
+	// Delete ConfigMap from observability plane
+	if err := r.deleteConfigMap(ctx, opClient, channel.Name, channel.Namespace); err != nil {
+		logger.Error(err, "Failed to delete ConfigMap from observability plane")
+		return ctrl.Result{}, err
+	}
+
+	// Delete Secret from observability plane
+	if err := r.deleteSecret(ctx, opClient, channel.Name, channel.Namespace); err != nil {
+		logger.Error(err, "Failed to delete Secret from observability plane")
+		return ctrl.Result{}, err
+	}
+
+	// Remove the finalizer once cleanup is done
+	if controllerutil.RemoveFinalizer(channel, NotificationChannelCleanupFinalizer) {
+		if err := r.Update(ctx, channel); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
+		}
+	}
+
+	logger.Info("Successfully finalized notification channel")
+	return ctrl.Result{}, nil
+}
+
+// deleteConfigMap deletes the ConfigMap from the observability plane cluster
+func (r *Reconciler) deleteConfigMap(ctx context.Context, opClient client.Client, name, namespace string) error {
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+
+	if err := opClient.Delete(ctx, configMap); err != nil {
+		if apierrors.IsNotFound(err) {
+			// ConfigMap already deleted, which is fine
+			return nil
+		}
+		return fmt.Errorf("failed to delete ConfigMap %s/%s: %w", namespace, name, err)
+	}
+
+	return nil
+}
+
+// deleteSecret deletes the Secret from the observability plane cluster
+func (r *Reconciler) deleteSecret(ctx context.Context, opClient client.Client, name, namespace string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+
+	if err := opClient.Delete(ctx, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Secret already deleted, which is fine
+			return nil
+		}
+		return fmt.Errorf("failed to delete Secret %s/%s: %w", namespace, name, err)
+	}
+
 	return nil
 }
 
