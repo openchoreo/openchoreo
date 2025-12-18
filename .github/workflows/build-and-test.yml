@@ -202,9 +202,16 @@ jobs:
 
       - name: ${{ github.event_name == 'push' && 'Package and push' || 'Package' }} helm charts
         run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "Packaging and pushing Helm charts..."
-            make helm-push
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            # Push per-commit SHA version (main + release-v* branches)
+            echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
+            make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
+
+            # Also push latest-dev for main branch only
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              echo "Packaging and pushing Helm charts as latest-dev..."
+              make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
+            fi
           else
             echo "Packaging Helm charts for verification..."
             make helm-package
