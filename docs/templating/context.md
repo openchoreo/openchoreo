@@ -48,9 +48,9 @@ metadata:
   dataPlaneName: "my-dataplane"         # ${metadata.dataPlaneName}
   dataPlaneUID: "c3d4e5f6-..."          # ${metadata.dataPlaneUID}
 
-  # Generated resource naming
-  name: "my-service-dev-a1b2c3d4"       # ${metadata.name}
-  namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace}
+  # Generated resource naming (use these in all resource templates)
+  name: "my-service-dev-a1b2c3d4"       # ${metadata.name} - use as prefix for all resource names to avoid conflicts between components
+  namespace: "dp-acme-corp-dev-x1y2z3"  # ${metadata.namespace} - use for all namespaced resources to ensure components in a project share the same namespace per environment
 
   # Common labels for all resources
   labels:                               # ${metadata.labels}
@@ -61,7 +61,7 @@ metadata:
   # Common annotations for all resources
   annotations: {}                       # ${metadata.annotations}
 
-  # Pod selectors for workload identity
+  # Pod selectors - use for selector.matchLabels, pod template labels, and service selectors
   podSelectors:                         # ${metadata.podSelectors}
     openchoreo.dev/component-uid: "abc123"
     openchoreo.dev/environment-uid: "dev"
