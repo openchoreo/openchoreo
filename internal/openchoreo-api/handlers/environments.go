@@ -73,6 +73,11 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 
 	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, orgName, envName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to view environment", "org", orgName, "env", envName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
 			return
@@ -111,6 +116,11 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 
 	environment, err := h.services.EnvironmentService.CreateEnvironment(ctx, orgName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to create environment", "org", orgName, "env", req.Name)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrEnvironmentAlreadyExists) {
 			writeErrorResponse(w, http.StatusConflict, "Environment already exists", services.CodeEnvironmentExists)
 			return

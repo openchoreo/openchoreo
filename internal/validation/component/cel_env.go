@@ -13,6 +13,7 @@ import (
 // Variable names available in component rendering context
 const (
 	VarParameters     = "parameters"
+	VarEnvOverrides   = "envOverrides"
 	VarWorkload       = "workload"
 	VarConfigurations = "configurations"
 	VarComponent      = "component"
@@ -23,12 +24,13 @@ const (
 // Variable names specific to trait rendering context
 const (
 	VarTrait = "trait"
-	// VarParameters, VarComponent, VarMetadata are shared with component context
+	// VarParameters, VarEnvOverrides, VarComponent, VarMetadata are shared with component context
 )
 
 // ComponentAllowedVariables lists all variables available in component rendering
 var ComponentAllowedVariables = []string{
 	VarParameters,
+	VarEnvOverrides,
 	VarWorkload,
 	VarConfigurations,
 	VarComponent,
@@ -39,6 +41,7 @@ var ComponentAllowedVariables = []string{
 // TraitAllowedVariables lists all variables available in trait rendering
 var TraitAllowedVariables = []string{
 	VarParameters,
+	VarEnvOverrides,
 	VarTrait,
 	VarComponent,
 	VarMetadata,
@@ -51,7 +54,8 @@ func BuildComponentCELEnv() (*cel.Env, error) {
 		cel.OptionalTypes(),
 
 		// Component context variables - matching internal/pipeline/component/context/component.go
-		cel.Variable(VarParameters, cel.DynType),                                  // Component parameters merged with env overrides
+		cel.Variable(VarParameters, cel.DynType),                                  // Component parameters from Component.Spec.Parameters
+		cel.Variable(VarEnvOverrides, cel.DynType),                                // Environment overrides from ReleaseBinding
 		cel.Variable(VarWorkload, cel.MapType(cel.StringType, cel.DynType)),       // Workload spec
 		cel.Variable(VarConfigurations, cel.MapType(cel.StringType, cel.DynType)), // Config/secret refs
 		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)),      // Component metadata
@@ -81,7 +85,8 @@ func BuildTraitCELEnv() (*cel.Env, error) {
 
 		// Trait context variables - matching internal/pipeline/component/context/trait.go
 		// Note: Traits don't have access to workload, configurations, or dataplane
-		cel.Variable(VarParameters, cel.DynType),                             // Trait parameters merged with env overrides
+		cel.Variable(VarParameters, cel.DynType),                             // Trait parameters from TraitInstance.Parameters
+		cel.Variable(VarEnvOverrides, cel.DynType),                           // Environment overrides from ReleaseBinding.TraitOverrides
 		cel.Variable(VarTrait, cel.MapType(cel.StringType, cel.DynType)),     // Trait metadata
 		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)), // Component reference
 		cel.Variable(VarMetadata, cel.MapType(cel.StringType, cel.DynType)),  // Resource generation metadata

@@ -58,19 +58,31 @@ run_command() {
 
 # Function to derive chart version from image version
 # This must be called AFTER OPENCHOREO_VERSION is set by the caller
+# Sets:
+#   OPENCHOREO_CHART_VERSION - the helm chart version to install
+#   BACKSTAGE_VERSION - the backstage image tag (latest-dev for commit SHAs since backstage is in a separate repo)
 derive_chart_version() {
     if [[ "$OPENCHOREO_VERSION" == "latest" ]]; then
         # Production latest: don't specify chart version (helm pulls latest)
         OPENCHOREO_CHART_VERSION=""
+        BACKSTAGE_VERSION="$OPENCHOREO_VERSION"
     elif [[ "$OPENCHOREO_VERSION" == "latest-dev" ]]; then
         # Development builds: use special dev chart version
         OPENCHOREO_CHART_VERSION="0.0.0-latest-dev"
+        BACKSTAGE_VERSION="$OPENCHOREO_VERSION"
     elif [[ "$OPENCHOREO_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
         # Release version with 'v' prefix: strip 'v' for chart version
         OPENCHOREO_CHART_VERSION="${OPENCHOREO_VERSION#v}"
+        BACKSTAGE_VERSION="$OPENCHOREO_VERSION"
+    elif [[ "$OPENCHOREO_VERSION" =~ ^[0-9a-f]{8}$ ]]; then
+        # Commit SHA (8 hex chars): prefix with 0.0.0-
+        OPENCHOREO_CHART_VERSION="0.0.0-${OPENCHOREO_VERSION}"
+        # Backstage is in a separate repo with different commits, use latest-dev
+        BACKSTAGE_VERSION="latest-dev"
     else
         # Assume it's already a valid chart version (e.g., "1.2.3")
         OPENCHOREO_CHART_VERSION="$OPENCHOREO_VERSION"
+        BACKSTAGE_VERSION="$OPENCHOREO_VERSION"
     fi
 }
 
@@ -556,7 +568,7 @@ install_control_plane() {
         "--values" "$HOME/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
-        "--set" "backstage.image.tag=$OPENCHOREO_VERSION"
+        "--set" "backstage.image.tag=$BACKSTAGE_VERSION"
 
     # Wait for cluster-gateway to be ready (required for agent connections)
     log_info "Waiting for cluster-gateway to be ready..."

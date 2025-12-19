@@ -43,34 +43,34 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"), authzPDP)
 
 	// Create environment service
-	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"))
+	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"), authzPDP)
 
 	// Create dataplane service
-	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"))
+	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
 
 	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"), authzPDP)
 
 	// Create deployment pipeline service (depends on project service)
-	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"))
+	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"), authzPDP)
 
 	// Create ComponentType service
-	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"))
+	componentTypeService := NewComponentTypeService(k8sClient, logger.With("service", "componenttype"), authzPDP)
 
 	// Create Trait service
-	traitService := NewTraitService(k8sClient, logger.With("service", "trait"))
+	traitService := NewTraitService(k8sClient, logger.With("service", "trait"), authzPDP)
 
 	// Create Workflow service
-	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"))
+	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
 	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"))
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
 
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
 	// Create SecretReference service
-	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"))
+	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"), authzPDP)
 
 	// Create Authorization service
 	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))

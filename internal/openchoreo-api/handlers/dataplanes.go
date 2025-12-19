@@ -64,6 +64,11 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 
 	dataplane, err := h.services.DataPlaneService.GetDataPlane(ctx, orgName, dpName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to view dataplane", "org", orgName, "dataplane", dpName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrDataPlaneNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
 			return
@@ -102,6 +107,11 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 
 	dataplane, err := h.services.DataPlaneService.CreateDataPlane(ctx, orgName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to create dataplane", "org", orgName, "dataplane", req.Name)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrDataPlaneAlreadyExists) {
 			writeErrorResponse(w, http.StatusConflict, "DataPlane already exists", services.CodeDataPlaneExists)
 			return

@@ -74,7 +74,6 @@ type ComponentTypeSchema struct {
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
 	// EnvOverrides can be overridden per environment via ReleaseBinding by platform engineers.
-	// These are also exposed to developers but can be changed per environment.
 	// Same nested map structure and type definition format as Parameters.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

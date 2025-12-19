@@ -28,6 +28,11 @@ func (h *Handler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Re
 	// Call service to get project deployment pipeline
 	pipeline, err := h.services.DeploymentPipelineService.GetProjectDeploymentPipeline(ctx, orgName, projectName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view deployment pipeline", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)

@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -21,13 +23,15 @@ import (
 type DataPlaneService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewDataPlaneService creates a new dataplane service
-func NewDataPlaneService(k8sClient client.Client, logger *slog.Logger) *DataPlaneService {
+func NewDataPlaneService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *DataPlaneService {
 	return &DataPlaneService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -51,8 +55,16 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string, o
 	}
 
 	dataplanes := make([]*models.DataPlaneResponse, 0, len(dpList.Items))
-	for _, item := range dpList.Items {
-		dataplanes = append(dataplanes, s.toDataPlaneResponse(&item))
+	for i := range dpList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized dataplane", "org", orgName, "dataplane", dpList.Items[i].Name)
+				continue
+			}
+			return nil, err
+		}
+		dataplanes = append(dataplanes, s.toDataPlaneResponse(&dpList.Items[i]))
 	}
 
 	s.logger.Debug("Listed dataplanes", "count", len(dataplanes), "org", orgName, "hasMore", dpList.Continue != "")
@@ -69,6 +81,11 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string, o
 // GetDataPlane retrieves a specific dataplane
 func (s *DataPlaneService) GetDataPlane(ctx context.Context, orgName, dpName string) (*models.DataPlaneResponse, error) {
 	s.logger.Debug("Getting dataplane", "org", orgName, "dataplane", dpName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	dp := &openchoreov1alpha1.DataPlane{}
 	key := client.ObjectKey{
@@ -94,6 +111,11 @@ func (s *DataPlaneService) CreateDataPlane(ctx context.Context, orgName string, 
 
 	// Sanitize input
 	req.Sanitize()
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateDataPlane, ResourceTypeDataPlane, req.Name,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	// Check if dataplane already exists
 	exists, err := s.dataPlaneExists(ctx, orgName, req.Name)

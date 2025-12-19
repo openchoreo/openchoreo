@@ -742,6 +742,11 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 
 	schema, err := h.services.ComponentService.GetComponentReleaseSchema(ctx, orgName, projectName, componentName, releaseName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view component release schema", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -833,6 +838,11 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 
 	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, orgName, projectName, componentName, bindingName, &req)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to update release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)

@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -24,14 +25,16 @@ type DeploymentPipelineService struct {
 	k8sClient      client.Client
 	projectService *ProjectService
 	logger         *slog.Logger
+	authzPDP       authz.PDP
 }
 
 // NewDeploymentPipelineService creates a new deployment pipeline service
-func NewDeploymentPipelineService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger) *DeploymentPipelineService {
+func NewDeploymentPipelineService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger, authzPDP authz.PDP) *DeploymentPipelineService {
 	return &DeploymentPipelineService{
 		k8sClient:      k8sClient,
 		projectService: projectService,
 		logger:         logger,
+		authzPDP:       authzPDP,
 	}
 }
 
@@ -54,6 +57,11 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 		// No explicit reference, look for default pipeline in the project's namespace
 		pipelineName = defaultPipeline
 		s.logger.Debug("No explicit deployment pipeline reference, using default", "pipeline", pipelineName)
+	}
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDeploymentPipeline, ResourceTypeDeploymentPipeline, pipelineName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		return nil, err
 	}
 
 	// Get the deployment pipeline

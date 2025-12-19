@@ -52,6 +52,11 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 	// Call service to get workloads
 	result, err := h.services.ComponentService.GetComponentWorkloads(ctx, orgName, projectName, componentName, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to view workloads", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			log.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
@@ -76,8 +81,9 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 				services.CodeInvalidContinueToken)
 			return
 		}
+
 		log.Error("Failed to get workloads", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get workloads", "INTERNAL_ERROR")
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get workloads", services.CodeInternalError)
 		return
 	}
 
@@ -125,8 +131,23 @@ func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
 	// Call service to create/update workload
 	createdWorkload, err := h.services.ComponentService.CreateComponentWorkload(ctx, orgName, projectName, componentName, &workloadSpec)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to create workload", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			log.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			log.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
 		log.Error("Failed to create workload", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create workload", "INTERNAL_ERROR")
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create workload", services.CodeInternalError)
 		return
 	}
 

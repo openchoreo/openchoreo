@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -24,13 +26,15 @@ import (
 type TraitService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewTraitService creates a new Trait service
-func NewTraitService(k8sClient client.Client, logger *slog.Logger) *TraitService {
+func NewTraitService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *TraitService {
 	return &TraitService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -55,6 +59,14 @@ func (s *TraitService) ListTraits(ctx context.Context, orgName string, opts *mod
 
 	traits := make([]*models.TraitResponse, 0, len(traitList.Items))
 	for i := range traitList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized trait", "org", orgName, "trait", traitList.Items[i].Name)
+				continue
+			}
+			return nil, err
+		}
 		traits = append(traits, s.toTraitResponse(&traitList.Items[i]))
 	}
 
@@ -72,6 +84,11 @@ func (s *TraitService) ListTraits(ctx context.Context, orgName string, opts *mod
 // GetTrait retrieves a specific Trait
 func (s *TraitService) GetTrait(ctx context.Context, orgName, traitName string) (*models.TraitResponse, error) {
 	s.logger.Debug("Getting Trait", "org", orgName, "name", traitName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	trait := &openchoreov1alpha1.Trait{}
 	key := client.ObjectKey{
@@ -94,6 +111,11 @@ func (s *TraitService) GetTrait(ctx context.Context, orgName, traitName string) 
 // GetTraitSchema retrieves the JSON schema for an Trait
 func (s *TraitService) GetTraitSchema(ctx context.Context, orgName, traitName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting Trait schema", "org", orgName, "name", traitName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	// First get the Trait
 	trait := &openchoreov1alpha1.Trait{}

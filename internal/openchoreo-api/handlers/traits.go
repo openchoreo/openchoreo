@@ -65,6 +65,11 @@ func (h *Handler) GetTraitSchema(w http.ResponseWriter, r *http.Request) {
 	// Call service to get Trait schema
 	schema, err := h.services.TraitService.GetTraitSchema(ctx, orgName, traitName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view trait schema", "org", orgName, "trait", traitName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrTraitNotFound) {
 			logger.Warn("Trait not found", "org", orgName, "name", traitName)
 			writeErrorResponse(w, http.StatusNotFound, "Trait not found", services.CodeTraitNotFound)

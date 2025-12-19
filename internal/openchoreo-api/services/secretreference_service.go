@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -21,13 +23,15 @@ import (
 type SecretReferenceService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewSecretReferenceService creates a new secret reference service
-func NewSecretReferenceService(k8sClient client.Client, logger *slog.Logger) *SecretReferenceService {
+func NewSecretReferenceService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *SecretReferenceService {
 	return &SecretReferenceService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -65,9 +69,19 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 		return nil, HandleListError(err, s.logger, opts.Continue, "secret references")
 	}
 
+	// Check authorization for each secret reference
 	secretReferences := make([]*models.SecretReferenceResponse, 0, len(secretRefList.Items))
-	for _, item := range secretRefList.Items {
-		secretReferences = append(secretReferences, s.toSecretReferenceResponse(&item))
+	for i := range secretRefList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewSecretReference, ResourceTypeSecretReference, secretRefList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized secret reference", "org", orgName, "secretReference", secretRefList.Items[i].Name)
+				continue
+			}
+			// Return other errors
+			return nil, err
+		}
+		secretReferences = append(secretReferences, s.toSecretReferenceResponse(&secretRefList.Items[i]))
 	}
 
 	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", orgName, "hasMore", secretRefList.Continue != "")

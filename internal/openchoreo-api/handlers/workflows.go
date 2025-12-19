@@ -60,6 +60,11 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 
 	schema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, orgName, workflowName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view workflow schema", "org", orgName, "workflow", workflowName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrWorkflowNotFound) {
 			logger.Warn("Workflow not found", "org", orgName, "name", workflowName)
 			writeErrorResponse(w, http.StatusNotFound, "Workflow not found", services.CodeWorkflowNotFound)

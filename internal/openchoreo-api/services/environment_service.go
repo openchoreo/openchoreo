@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -21,13 +23,15 @@ import (
 type EnvironmentService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewEnvironmentService creates a new environment service
-func NewEnvironmentService(k8sClient client.Client, logger *slog.Logger) *EnvironmentService {
+func NewEnvironmentService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *EnvironmentService {
 	return &EnvironmentService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -49,9 +53,19 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 		return nil, HandleListError(err, s.logger, opts.Continue, "environments")
 	}
 
+	// Check authorization for each environment
 	environments := make([]*models.EnvironmentResponse, 0, len(envList.Items))
-	for _, item := range envList.Items {
-		environments = append(environments, s.toEnvironmentResponse(&item))
+	for i := range envList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized environment", "org", orgName, "environment", envList.Items[i].Name)
+				continue
+			}
+			// Return other errors
+			return nil, err
+		}
+		environments = append(environments, s.toEnvironmentResponse(&envList.Items[i]))
 	}
 
 	s.logger.Debug("Listed environments", "count", len(environments), "org", orgName, "hasMore", envList.Continue != "")
@@ -65,8 +79,8 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 	}, nil
 }
 
-// GetEnvironment retrieves a specific environment
-func (s *EnvironmentService) GetEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
+// getEnvironment is the internal helper without authorization (INTERNAL USE ONLY)
+func (s *EnvironmentService) getEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
 	s.logger.Debug("Getting environment", "org", orgName, "env", envName)
 
 	env := &openchoreov1alpha1.Environment{}
@@ -87,12 +101,28 @@ func (s *EnvironmentService) GetEnvironment(ctx context.Context, orgName, envNam
 	return s.toEnvironmentResponse(env), nil
 }
 
+// GetEnvironment retrieves a specific environment
+func (s *EnvironmentService) GetEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
+
+	return s.getEnvironment(ctx, orgName, envName)
+}
+
 // CreateEnvironment creates a new environment
 func (s *EnvironmentService) CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (*models.EnvironmentResponse, error) {
 	s.logger.Debug("Creating environment", "org", orgName, "env", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateEnvironment, ResourceTypeEnvironment, req.Name,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	// Check if environment already exists
 	exists, err := s.environmentExists(ctx, orgName, req.Name)
@@ -222,7 +252,7 @@ type EnvironmentObserverResponse struct {
 func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, orgName, envName string) (*EnvironmentObserverResponse, error) {
 	s.logger.Debug("Getting environment observer URL", "org", orgName, "env", envName)
 
-	env, err := s.GetEnvironment(ctx, orgName, envName)
+	env, err := s.getEnvironment(ctx, orgName, envName)
 	if err != nil {
 		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "env", envName)
 		return nil, err

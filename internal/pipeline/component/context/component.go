@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
@@ -24,16 +23,14 @@ var validate = validator.New(validator.WithRequiredStructEnabled())
 // BuildComponentContext builds a CEL evaluation context for rendering component resources.
 //
 // The context includes:
-//   - parameters: Component parameters with environment overrides and schema defaults applied
-//   - workload: Workload specification (image, resources, etc.)
-//   - component: Component metadata (name, etc.)
-//   - environment: Environment name
-//   - metadata: Additional metadata
+//   - parameters: From Component.Spec.Parameters (pruned to schema.parameters) - access via ${parameters.*}
+//   - envOverrides: From ReleaseBinding.Spec.ComponentTypeEnvOverrides (pruned to schema.envOverrides) - access via ${envOverrides.*}
+//   - workload: Workload specification (image, resources, etc.) - access via ${workload.*}
+//   - metadata: Structured naming and labeling information - access via ${metadata.*}
+//   - dataplane: Data plane configuration - access via ${dataplane.*}
+//   - configurations: Extracted configuration items from workload - access via ${configurations.*}
 //
-// Parameter precedence (highest to lowest):
-//   - ReleaseBinding.Spec.ComponentTypeEnvOverrides (environment-specific)
-//   - Component.Spec.Parameters (component defaults)
-//   - Schema defaults from ComponentType
+// Schema defaults are applied to both parameters and envOverrides sections.
 func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, error) {
 	if err := validate.Struct(input); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
@@ -41,12 +38,13 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 
 	ctx := &ComponentContext{}
 
-	// Process parameters and envOverrides
-	finalParameters, err := processComponentParameters(input)
+	// Process parameters and envOverrides separately
+	parameters, envOverrides, err := processComponentParameters(input)
 	if err != nil {
 		return nil, err
 	}
-	ctx.Parameters = finalParameters
+	ctx.Parameters = parameters
+	ctx.EnvOverrides = envOverrides
 
 	workload := input.Workload
 	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
@@ -79,8 +77,10 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 }
 
 // processComponentParameters processes component parameters and envOverrides separately,
-// validates each against their respective schemas, merges them, and returns the final map.
-func processComponentParameters(input *ComponentContextInput) (map[string]any, error) {
+// validates each against their respective schemas, and returns them as separate maps.
+// Parameters come from Component.Spec.Parameters only.
+// EnvOverrides come from ReleaseBinding.Spec.ComponentTypeEnvOverrides only.
+func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
 	// Build both structural schemas in one call to share types unmarshaling
 	parametersSchema, envOverridesSchema, err := BuildStructuralSchemas(&SchemaInput{
 		Types:              input.ComponentType.Spec.Schema.Types,
@@ -88,19 +88,18 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to build schemas: %w", err)
+		return nil, nil, fmt.Errorf("failed to build schemas: %w", err)
 	}
 
-	// Extract component parameters once (used for both parameters and envOverrides sections)
+	// Extract component parameters (for parameters section only)
 	componentParams, err := extractParameters(input.Component.Spec.Parameters)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract component parameters: %w", err)
+		return nil, nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
 	// Process parameters: prune to parameters schema, apply defaults
 	var parameters map[string]any
 	if parametersSchema != nil {
-		// Clone the map to avoid modifying the original (needed for envOverrides processing)
 		parameters = make(map[string]any, len(componentParams))
 		maps.Copy(parameters, componentParams)
 		pruning.Prune(parameters, parametersSchema, false)
@@ -110,34 +109,18 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 		parameters = make(map[string]any)
 	}
 
-	// Process envOverrides: extract and merge based on DiscardComponentEnvOverrides flag
+	// Process envOverrides: ONLY from ReleaseBinding (no merging with Component)
 	var envOverrides map[string]any
-
-	if input.DiscardComponentEnvOverrides {
-		// Discard component envOverride values, use only ReleaseBinding
-		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
-			envOverrides, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
-			if err != nil {
-				return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
-			}
-		} else {
-			envOverrides = make(map[string]any)
+	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
+		envOverrides, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to extract environment overrides: %w", err)
 		}
 	} else {
-		// Use extracted component parameters as starting point for envOverrides
-		envOverrides = componentParams
-
-		// Merge with ReleaseBinding envOverrides
-		if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvOverrides != nil {
-			rbEnvOverrides, err := extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvOverrides)
-			if err != nil {
-				return nil, fmt.Errorf("failed to extract environment overrides: %w", err)
-			}
-			envOverrides = deepMerge(envOverrides, rbEnvOverrides)
-		}
+		envOverrides = make(map[string]any)
 	}
 
-	// Prune merged result against schema and apply defaults
+	// Prune against schema and apply defaults
 	if envOverridesSchema != nil {
 		pruning.Prune(envOverrides, envOverridesSchema, false)
 		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
@@ -146,13 +129,7 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, e
 		envOverrides = make(map[string]any)
 	}
 
-	// Top-level merge: combine parameters and envOverrides
-	// Safe because parameter and envOverride schemas don't overlap
-	finalParameters := make(map[string]any)
-	maps.Copy(finalParameters, parameters)
-	maps.Copy(finalParameters, envOverrides)
-
-	return finalParameters, nil
+	return parameters, envOverrides, nil
 }
 
 // ToMap converts the ComponentContext to map[string]any for CEL evaluation.
@@ -279,53 +256,4 @@ func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apie
 	}
 
 	return parametersSchema, envOverridesSchema, nil
-}
-
-// deepMerge recursively merges two parameter maps with override precedence.
-//
-// This function implements the parameter precedence model:
-// values from 'override' take precedence over 'base'.
-//
-// Merge behavior:
-//   - Nested objects: recursively merged to preserve partial overrides
-//   - Other values: override completely replaces base
-//   - All values are deep copied to prevent shared references
-//
-// This allows environment-specific ReleaseBinding overrides to selectively
-// override parts of Component.Spec.Parameters without replacing the entire structure.
-//
-// Example:
-//
-//	base:     {db: {host: "localhost", port: 5432}, replicas: 1}
-//	override: {db: {host: "prod.db.example.com"}, replicas: 3}
-//	result:   {db: {host: "prod.db.example.com", port: 5432}, replicas: 3}
-func deepMerge(base, override map[string]any) map[string]any {
-	if base == nil {
-		base = make(map[string]any)
-	}
-	if override == nil {
-		return base
-	}
-
-	// Copy all base values
-	result := clone.DeepCopyMap(base)
-
-	// Merge override values
-	for k, v := range override {
-		if existing, ok := result[k]; ok {
-			// Both exist - try to merge if both are maps
-			existingMap, existingIsMap := existing.(map[string]any)
-			overrideMap, overrideIsMap := v.(map[string]any)
-
-			if existingIsMap && overrideIsMap {
-				result[k] = deepMerge(existingMap, overrideMap)
-				continue
-			}
-		}
-
-		// Override takes precedence
-		result[k] = clone.DeepCopy(v)
-	}
-
-	return result
 }

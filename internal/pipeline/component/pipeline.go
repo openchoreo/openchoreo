@@ -69,14 +69,13 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
-		Component:                    input.Component,
-		ComponentType:                input.ComponentType,
-		Workload:                     input.Workload,
-		ReleaseBinding:               input.ReleaseBinding,
-		DataPlane:                    input.DataPlane,
-		SecretReferences:             input.SecretReferences,
-		Metadata:                     input.Metadata,
-		DiscardComponentEnvOverrides: p.options.DiscardComponentEnvOverrides,
+		Component:        input.Component,
+		ComponentType:    input.ComponentType,
+		Workload:         input.Workload,
+		ReleaseBinding:   input.ReleaseBinding,
+		DataPlane:        input.DataPlane,
+		SecretReferences: input.SecretReferences,
+		Metadata:         input.Metadata,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
@@ -117,13 +116,12 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
-			Trait:                        t,
-			Instance:                     traitInstance,
-			Component:                    input.Component,
-			ReleaseBinding:               input.ReleaseBinding,
-			Metadata:                     input.Metadata,
-			SchemaCache:                  schemaCache,
-			DiscardComponentEnvOverrides: p.options.DiscardComponentEnvOverrides,
+			Trait:          t,
+			Instance:       traitInstance,
+			Component:      input.Component,
+			ReleaseBinding: input.ReleaseBinding,
+			Metadata:       input.Metadata,
+			SchemaCache:    schemaCache,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",

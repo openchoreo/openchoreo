@@ -6,6 +6,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -24,13 +26,15 @@ import (
 type ComponentTypeService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewComponentTypeService creates a new ComponentType service
-func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger) *ComponentTypeService {
+func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *ComponentTypeService {
 	return &ComponentTypeService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -52,10 +56,19 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 		return nil, HandleListError(err, s.logger, opts.Continue, "component types")
 	}
 
-	// Convert items to response type
+	// Convert items to response type (with authorization filtering)
 	componentTypes := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
-	for _, ct := range ctList.Items {
-		componentTypes = append(componentTypes, s.toComponentTypeResponse(&ct))
+	for i := range ctList.Items {
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctList.Items[i].Name,
+			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized component type", "org", orgName, "componentType", ctList.Items[i].Name)
+				continue
+			}
+			return nil, err
+		}
+		componentTypes = append(componentTypes, s.toComponentTypeResponse(&ctList.Items[i]))
+
 	}
 
 	s.logger.Debug("Listed component types", "org", orgName, "count", len(componentTypes), "hasMore", ctList.Continue != "")
@@ -72,6 +85,11 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 // GetComponentType retrieves a specific ComponentType
 func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ctName string) (*models.ComponentTypeResponse, error) {
 	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	ct := &openchoreov1alpha1.ComponentType{}
 	key := client.ObjectKey{
@@ -94,6 +112,11 @@ func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ct
 // GetComponentTypeSchema retrieves the JSON schema for a ComponentType
 func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (*extv1.JSONSchemaProps, error) {
 	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctName)
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
+		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		return nil, err
+	}
 
 	// First get the CT
 	ct := &openchoreov1alpha1.ComponentType{}

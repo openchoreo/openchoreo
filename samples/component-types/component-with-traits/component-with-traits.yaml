@@ -51,11 +51,11 @@ spec:
                       protocol: TCP
                   resources:
                     requests:
-                      cpu: ${parameters.resources.requests.cpu}
-                      memory: ${parameters.resources.requests.memory}
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
                     limits:
-                      cpu: ${parameters.resources.limits.cpu}
-                      memory: ${parameters.resources.limits.memory}
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
 
     - id: service
       template:
@@ -103,8 +103,8 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${parameters.size}
-          storageClassName: ${parameters.storageClass}
+              storage: ${envOverrides.size}
+          storageClassName: ${envOverrides.storageClass}
 
   patches:
     - target:
@@ -166,9 +166,9 @@ spec:
           value:
             name: ${parameters.volumeName}
             emptyDir: |
-              ${parameters.sizeLimit != "" || parameters.medium != "" ? {
-                "sizeLimit": parameters.sizeLimit != "" ? parameters.sizeLimit : oc_omit(),
-                "medium": parameters.medium != "" ? parameters.medium : oc_omit()
+              ${envOverrides.sizeLimit != "" || envOverrides.medium != "" ? {
+                "sizeLimit": envOverrides.sizeLimit != "" ? envOverrides.sizeLimit : oc_omit(),
+                "medium": envOverrides.medium != "" ? envOverrides.medium : oc_omit()
               } : {}}
 
     # Add volumeMounts to each specified container
@@ -214,8 +214,6 @@ spec:
         volumeName: app-data
         mountPath: /var/data
         containerName: app
-        size: "20Gi"
-        storageClass: "fast"
     - name: emptydir-volume
       instanceName: cache
       parameters:
@@ -232,8 +230,6 @@ spec:
           - containerName: app
             mountPath: /tmp/work
             readOnly: false
-        medium: ""
-        sizeLimit: 1Gi
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -276,3 +272,5 @@ spec:
     data-storage:
       size: "5Gi"
       storageClass: "local-path"
+    workspace:
+      sizeLimit: "1Gi"

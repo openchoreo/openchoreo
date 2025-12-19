@@ -74,6 +74,11 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 
 	schema, err := h.services.ComponentWorkflowService.GetComponentWorkflowSchema(ctx, orgName, cwName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to view component workflow schema", "org", orgName, "componentWorkflow", cwName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrComponentWorkflowNotFound) {
 			log.Warn("ComponentWorkflow not found", "org", orgName, "name", cwName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentWorkflow not found", services.CodeComponentWorkflowNotFound)
@@ -120,6 +125,11 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 
 	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to trigger component workflow", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		// Check for invalid commit SHA error
 		if errors.Is(err, services.ErrInvalidCommitSHA) {
 			log.Warn("Invalid commit SHA provided", "commit", commit)
@@ -191,8 +201,10 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 				services.CodeInvalidContinueToken)
 			return
 		}
+
+		// List operations don't check for ErrForbidden here - the service already filtered unauthorized items
 		log.Error("Failed to list component workflow runs", "error", err)
-		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list component workflow runs", "INTERNAL_ERROR")
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list component workflow runs", services.CodeInternalError)
 		return
 	}
 
