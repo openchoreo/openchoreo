@@ -141,7 +141,7 @@ func GetK8sClientFromObservabilityPlane(
 	key := fmt.Sprintf("observabilityplane/%s/%s", observabilityPlane.Namespace, observabilityPlane.Name)
 
 	// Agent mode - use HTTP proxy through cluster gateway
-	if observabilityPlane.Spec.Agent != nil && observabilityPlane.Spec.Agent.Enabled {
+	if observabilityPlane.Spec.ClusterAgent.ClientCA.Value != "" {
 		if gatewayURL == "" {
 			return nil, fmt.Errorf("gatewayURL is required for agent mode")
 		}

@@ -122,8 +122,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityPlaneSpec{
-					Agent: &openchoreodevv1alpha1.AgentConfig{
-						Enabled: true,
+					ClusterAgent: openchoreodevv1alpha1.ClusterAgentConfig{
+						ClientCA: openchoreodevv1alpha1.ValueFrom{
+							Value: "test-ca-cert",
+						},
 					},
 					ObserverURL: "http://observer.example.com",
 				},
@@ -288,8 +290,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityPlaneSpec{
-					Agent: &openchoreodevv1alpha1.AgentConfig{
-						Enabled: true,
+					ClusterAgent: openchoreodevv1alpha1.ClusterAgentConfig{
+						ClientCA: openchoreodevv1alpha1.ValueFrom{
+							Value: "test-ca-cert",
+						},
 					},
 					ObserverURL: "http://observer.example.com",
 				},
@@ -533,8 +537,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityPlaneSpec{
-					Agent: &openchoreodevv1alpha1.AgentConfig{
-						Enabled: true,
+					ClusterAgent: openchoreodevv1alpha1.ClusterAgentConfig{
+						ClientCA: openchoreodevv1alpha1.ValueFrom{
+							Value: "test-ca-cert",
+						},
 					},
 					ObserverURL: "http://observer.example.com",
 				},
