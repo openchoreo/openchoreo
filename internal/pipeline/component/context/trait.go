@@ -64,6 +64,15 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 			InstanceName: input.Instance.InstanceName,
 		},
 	}
+
+	// Populate DataPlane configuration
+	ctx.DataPlane = DataPlaneData{
+		PublicVirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
+	}
+	if input.DataPlane.Spec.SecretStoreRef != nil {
+		ctx.DataPlane.SecretStore = input.DataPlane.Spec.SecretStoreRef.Name
+	}
+
 	return ctx, nil
 }
 

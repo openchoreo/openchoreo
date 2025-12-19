@@ -9,7 +9,7 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
 | **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `trait` |
+| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait` |
 
 ## ComponentContext
 
@@ -439,6 +439,18 @@ metadata:
     instance: ${trait.instanceName}
 ```
 
+### dataplane
+
+DataPlane configuration for the target environment. Same structure as ComponentContext.
+
+```yaml
+# Access pattern: ${dataplane.<field>}
+
+dataplane:
+  secretStore: "my-secret-store"        # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
+```
+
 ### parameters
 
 Trait instance parameters from `Component.Spec.Traits[].Parameters`, pruned to the Trait's `schema.parameters` section with defaults applied. Use for static configuration that doesn't change across environments.
@@ -507,7 +519,7 @@ spec:
   storageClassName: ${envOverrides.storageClass}
 ```
 
-**Note:** TraitContext does NOT have access to `workload`, `configurations`, or `dataplane`. These are only available in ComponentContext.
+**Note:** TraitContext does NOT have access to `workload` or `configurations`. These are only available in ComponentContext.
 
 ## Special Variables
 
@@ -587,7 +599,7 @@ The entire rendered Kubernetes resource is available, including:
 | `metadata.*` | ✅ | ✅ |
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
 | `envOverrides.*` | ✅ (from ReleaseBinding.ComponentTypeEnvOverrides) | ✅ (from ReleaseBinding.TraitOverrides) |
-| `dataplane.*` | ✅ | ❌ |
+| `dataplane.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ❌ |
 | `configurations.*` | ✅ | ❌ |
 | `trait.*` | ❌ | ✅ |

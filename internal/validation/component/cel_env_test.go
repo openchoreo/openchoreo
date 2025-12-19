@@ -166,7 +166,7 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 }
 
 func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
-	// Traits should not have access to workload, configurations, or dataplane
+	// Traits should not have access to workload or configurations
 	env, err := BuildTraitCELEnv(TraitCELEnvOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
@@ -175,7 +175,6 @@ func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
 	invalidExprs := []string{
 		"workload.containers",
 		"configurations.app",
-		"dataplane.secretStore",
 	}
 
 	for _, expr := range invalidExprs {
@@ -190,6 +189,7 @@ func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
 		"trait.instanceName",
 		"component.name",
 		"metadata.name",
+		"dataplane.secretStore",
 	}
 
 	for _, expr := range validExprs {

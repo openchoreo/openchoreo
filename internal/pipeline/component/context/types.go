@@ -121,6 +121,10 @@ type TraitContextInput struct {
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
 	SchemaCache map[string]*apiextschema.Structural
+
+	// DataPlane contains the data plane configuration.
+	// Required - controller must provide this.
+	DataPlane *v1alpha1.DataPlane `validate:"required"`
 }
 
 // SchemaInput contains schema information for applying defaults.
@@ -240,6 +244,10 @@ type TraitContext struct {
 	// EnvOverrides from ReleaseBinding.Spec.TraitOverrides[instanceName], pruned to Trait.Schema.EnvOverrides.
 	// Accessed via ${envOverrides.*}
 	EnvOverrides map[string]any `json:"envOverrides"`
+
+	// DataPlane provides data plane configuration.
+	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
+	DataPlane DataPlaneData `json:"dataplane"`
 }
 
 // TraitMetadata contains trait-specific metadata.

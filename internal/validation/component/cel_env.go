@@ -48,6 +48,7 @@ var TraitAllowedVariables = []string{
 	VarTrait,
 	VarComponent,
 	VarMetadata,
+	VarDataplane,
 }
 
 // ComponentCELEnvOptions configures the CEL environment for component validation.
@@ -185,8 +186,9 @@ type TraitCELEnvOptions struct {
 //   - trait: Typed from context.TraitMetadata
 //   - component: Object type with name field
 //   - metadata: Typed from context.MetadataContext
+//   - dataplane: Typed from context.DataPlaneData
 //
-// Note: Traits don't have access to workload, configurations, or dataplane
+// Note: Traits don't have access to workload or configurations
 func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
 	// Create base environment with standard extensions
 	baseEnvOpts := []cel.EnvOption{
@@ -260,6 +262,7 @@ func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
 		cel.Variable(VarTrait, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarMetadata, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(VarDataplane, cel.MapType(cel.StringType, cel.DynType)),
 	)
 
 	// If we have schema-aware types, create a DeclTypeProvider and get its env options

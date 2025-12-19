@@ -122,6 +122,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			ReleaseBinding: input.ReleaseBinding,
 			Metadata:       input.Metadata,
 			SchemaCache:    schemaCache,
+			DataPlane:      input.DataPlane,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
