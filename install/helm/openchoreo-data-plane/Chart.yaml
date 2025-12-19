@@ -39,6 +39,10 @@ dependencies:
     repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
     version: v2.1.1
     condition: gateway.enabled
+  - name: kube-prometheus-stack
+    repository: https://prometheus-community.github.io/helm-charts
+    version: 78.3.0
+    condition: kube-prometheus-stack.enabled
   - name: opentelemetry-collector
     repository: https://open-telemetry.github.io/opentelemetry-helm-charts
     version: 0.140.0

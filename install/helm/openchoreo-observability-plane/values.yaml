@@ -215,6 +215,14 @@ openSearchDashboards:
 observer:
   replicas: 1
 
+  extraEnvs:
+  - name: OPENSEARCH_ADDRESS
+    value: "https://opensearch:9200"
+  - name: PROMETHEUS_ADDRESS
+    value: "http://openchoreo-observability-prometheus:9091"
+  - name: PROMETHEUS_TIMEOUT
+    value: "30s"
+
   image:
     repository: ghcr.io/openchoreo/observer
     tag: ""  # If no value is set, use Chart.AppVersion
@@ -427,7 +435,7 @@ prometheus:
           - name: Prometheus
             type: prometheus
             access: proxy
-            url: http://openchoreo-observability-prometheus:9090
+            url: http://openchoreo-observability-prometheus:9091
             isDefault: true
 
   ## Flag to disable all the kubernetes component scrapers

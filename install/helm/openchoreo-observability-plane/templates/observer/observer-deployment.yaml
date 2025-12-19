@@ -69,8 +69,6 @@ spec:
           value: "8080"
         - name: LOG_LEVEL
           value: {{ if .Values.observer }}{{ .Values.observer.logLevel | default "info" | quote }}{{ else }}"info"{{ end }}
-        - name: OPENSEARCH_ADDRESS
-          value: "https://opensearch:9200"
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
@@ -81,10 +79,9 @@ spec:
             secretKeyRef:
               name: observer-opensearch
               key: password
-        - name: PROMETHEUS_ADDRESS
-          value: "http://openchoreo-observability-prometheus:9090"
-        - name: PROMETHEUS_TIMEOUT
-          value: {{ .Values.observer.prometheus.timeout | default "30s" | quote }}
+        {{- if .Values.observer.extraEnvs }}
+        {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health

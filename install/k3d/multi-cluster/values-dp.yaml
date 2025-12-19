@@ -58,6 +58,14 @@ gateway:
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
 
+kube-prometheus-stack:
+  enabled: true
+  prometheus:
+    prometheusSpec:
+      remoteWrite:
+      - url: "http://host.k3d.internal:11084/api/v1/write"
+      ## TODO: Enable mTLS
+
 # External Secrets Operator configuration
 external-secrets:
   enabled: true

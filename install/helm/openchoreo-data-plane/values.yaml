@@ -6,6 +6,94 @@ global:
 
 kubernetesClusterDomain: cluster.local
 
+# Prometheus configurations
+kube-prometheus-stack:
+  enabled: false
+  fullnameOverride: openchoreo-observability
+
+  ## Manages Prometheus and Alertmanager components
+  prometheusOperator:
+    enabled: true
+    fullnameOverride: prometheus-operator
+
+    resources:
+      limits:
+        cpu: 40m
+        memory: 50Mi
+      requests:
+        cpu: 20m
+        memory: 30Mi
+
+  ## Install Prometheus Operator CRDs
+  crds:
+    enabled: true
+
+  ## Setting to produces cleaner resource names
+  cleanPrometheusOperatorObjectNames: true
+
+  ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
+  prometheus:
+    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    agentMode: true
+    prometheusSpec:
+      remoteWrite:
+      - url: ""
+      # serviceMonitorNamespaceSelector: {}
+      # serviceMonitorSelector: {}
+      # serviceMonitorSelectorNilUsesHelmValues: false
+
+  ## Configuration for alertmanager
+  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  alertmanager:
+    enabled: false
+
+  ## Configuration for grafana
+  # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  grafana:
+    enabled: false
+
+  ## Configuration for kube-state-metrics subchart
+  kube-state-metrics:
+    fullnameOverride: kube-state-metrics
+    collectors:
+      - pods
+      # Jobs and Services to be added later
+    metricAllowlist:
+      - kube_pod_completion_time
+      - kube_pod_container_resource_limits
+      - kube_pod_container_resource_requests
+      - kube_pod_info
+      - kube_pod_init_container_resource_limits
+      - kube_pod_init_container_resource_requests
+      - kube_pod_labels
+      - kube_pod_start_time
+      - kube_pod_status_phase
+      # Jobs and Services to be added later
+    metricLabelsAllowlist:
+      - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
+      # Jobs and Services to be added later
+
+  ## Create default rules for monitoring the cluster
+  defaultRules:
+    create: false
+
+  ## Openchoreo Observability is not meant for monitoring the kubernetes cluster
+  ## Hence, following kube components are disabled
+  kubeApiServer:
+    enabled: false
+  kubeControllerManager:
+    enabled: false
+  coreDns:
+    enabled: false
+  kubeEtcd:
+    enabled: false
+  kubeScheduler:
+    enabled: false
+  kubeProxy:
+    enabled: false
+  nodeExporter:
+    enabled: false
+
 # Wait job configuration for post-install hooks
 waitJob:
   image: bitnamilegacy/kubectl:1.32.4
