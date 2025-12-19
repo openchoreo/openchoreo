@@ -1,0 +1,314 @@
+# ComponentType without APIConfiguration
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: http-service-with-api-management
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=80"
+
+    envOverrides:
+      resources:
+        $default: {}
+        requests:
+          $default: {}
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          $default: {}
+          cpu: "string | default=1000m"
+          memory: "string | default=1Gi"
+
+  resources:
+    # Kubernetes deployment for the HTTP service
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${parameters.resources.requests.cpu}
+                      memory: ${parameters.resources.requests.memory}
+                    limits:
+                      cpu: ${parameters.resources.limits.cpu}
+                      memory: ${parameters.resources.limits.memory}
+
+    # Kubernetes service to expose the HTTP service deployment
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+
+    # Gateway API HTTPRoute to accept ingress traffic to the HTTP service
+    # By default routes directly to the service (no API management)
+    # If api-configuration addon is used, it will patch this to route through API Gateway
+    - id: httproute
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: gateway-default
+              namespace: openchoreo-data-plane
+          hostnames:
+            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
+          rules:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.componentName}
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /
+            # Default: Route directly to the component service (no API management)
+            backendRefs:
+            - name: ${metadata.name}
+              port: 80
+
+---
+# Addon for API Configuration - reusable across any component type
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: api-configuration
+  namespace: default
+spec:
+  schema:
+    types:
+      GatewayRef:
+        name: "string"
+        namespace: "string"
+
+    parameters:
+      # Developer-facing parameters - static across environments
+      apiName: "string"
+      apiVersion: "string | default=v1.0"
+      context: "string"  # API context path (e.g., /greeter-api, /checkout-service)
+      upstreamPort: "integer | default=80"  # Port on the service to route to
+      operations: "array<map<string>>"
+        # Array of API operations
+        # Example:
+        # - method: GET
+        #   path: /*
+        # - method: POST
+        #   path: /orders
+      policies: "array<map<string>> | default=[]"
+        # Array of policies to apply
+        # Example:
+        # - name: JwtAuthentication
+        #   version: v0.1.0
+        #   params:
+        #     issuers:
+        #     - ThunderKeyManager
+
+    envOverrides:
+      # Platform engineers can override per environment
+      gatewayRefs: "[]GatewayRef | default=[]"
+        # Gateway references - can be overridden per environment
+        # Example:
+        # - name: cluster-gateway
+        #   namespace: openchoreo-data-plane
+        # - name: edge-gateway
+        #   namespace: openchoreo-edge
+
+  creates:
+    # Create ReferenceGrant to allow HTTPRoute to reference Service in openchoreo-data-plane
+    - template:
+        apiVersion: gateway.networking.k8s.io/v1beta1
+        kind: ReferenceGrant
+        metadata:
+          name: allow-httproute-to-api-gateway-${metadata.namespace}
+          namespace: openchoreo-data-plane
+        spec:
+          from:
+          - group: gateway.networking.k8s.io
+            kind: HTTPRoute
+            namespace: ${metadata.namespace}
+          to:
+          - group: ""
+            kind: Service
+            name: api-platform-default-gateway-router
+
+    # Create APIConfiguration resource
+    - template:
+        apiVersion: api.api-platform.wso2.com/v1
+        kind: APIConfiguration
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          gatewayRefs: |-
+            ${size(parameters.gatewayRefs) > 0 ? parameters.gatewayRefs : [
+              {"name": "api-platform-default", "namespace": "openchoreo-data-plane"}
+            ]}
+          apiConfiguration:
+            version: api-platform.wso2.com/v1
+            kind: http/rest
+            spec:
+              name: ${parameters.apiName}
+              version: ${parameters.apiVersion}
+              context: ${parameters.context}
+              upstream:
+                main:
+                  url: http://${metadata.name}.${metadata.namespace}:${parameters.upstreamPort}
+              policies: ${parameters.policies}
+              operations: ${parameters.operations}
+
+  patches:
+    # Patch HTTPRoute to route through API Gateway instead of directly to service
+    - target:
+        group: gateway.networking.k8s.io
+        version: v1
+        kind: HTTPRoute
+      operations:
+        # Replace the backendRefs to route through API platform gateway Service
+        - op: replace
+          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.name}')]
+          value:
+            name: api-platform-default-gateway-router
+            namespace: openchoreo-data-plane
+            port: 8080
+
+        # Update the URLRewrite filter to rewrite to the API context
+        - op: replace
+          path: /spec/rules/0/filters/0/urlRewrite/path
+          value:
+            type: ReplacePrefixMatch
+            replacePrefixMatch: ${parameters.context}
+
+---
+# Component using the ComponentType and the API Configuration addon
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app-http-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType: deployment/http-service-with-api-management
+
+  # Parameters for the ComponentType
+  parameters:
+    replicas: 2
+    port: 9090
+
+  # Traits - API Configuration is now added as a trait
+  traits:
+    - name: api-configuration
+      instanceName: greeter-api
+      parameters:
+        apiName: greeter-api
+        apiVersion: v1.0
+        context: /greeter-api/v1.0
+        upstreamPort: 80
+        operations:
+          - method: GET
+            path: /*
+          - method: POST
+            path: /*
+          - method: PUT
+            path: /*
+          - method: DELETE
+            path: /*
+          - method: PATCH
+            path: /*
+          - method: OPTIONS
+            path: /*
+        policies:
+          - name: JwtAuthentication
+            version: v0.1.0
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-http-service-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-http-service
+
+  containers:
+    app:
+      image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+      args:
+        - --port
+        - "9090"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: demo-app-http-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-http-service
+
+  environment: development
+
+  # Override ComponentType envOverrides for this environment
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  # Override trait envOverrides for this environment (keyed by instanceName)
+  traitOverrides:
+    greeter-api:  # instanceName from the trait
+      gatewayRefs:
+        - name: api-platform-default
+          namespace: openchoreo-data-plane

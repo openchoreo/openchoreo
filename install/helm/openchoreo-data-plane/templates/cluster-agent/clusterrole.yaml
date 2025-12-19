@@ -80,6 +80,7 @@ rules:
   - httproutes
   - tcproutes
   - grpcroutes
+  - referencegrants
   verbs: ["*"]
 # External Secrets Operator
 - apiGroups: ["external-secrets.io"]
@@ -87,6 +88,18 @@ rules:
   - externalsecrets
   - secretstores
   - clustersecretstores
+  verbs: ["*"]
+# API Platform resources (if using API Platform)
+- apiGroups: ["api.api-platform.wso2.com"]
+  resources:
+  - apiconfigurations
+  - gatewayconfigurations
+  verbs: ["*"]
+# KGateway resources (if using KGateway)
+- apiGroups: ["gateway.kgateway.dev"]
+  resources:
+  - backends
+  - gatewayparameters
   verbs: ["*"]
 {{- end }}
 {{- end }}

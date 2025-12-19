@@ -2,7 +2,7 @@
 apiVersion: api.api-platform.wso2.com/v1
 kind: GatewayConfiguration
 metadata:
-  name: cluster-gateway
+  name: api-platform-default
 spec:
   gatewayClassName: "production"
 
@@ -18,12 +18,7 @@ spec:
       limits:
         cpu: "2"
         memory: "4Gi"
-
-  controlPlane:
-    host: "gateway-control-plane.gateway-operator-system.svc.cluster.local:8443"
-    tls:
-      enabled: true
-
+        
   storage:
     type: sqlite
 {{- end }}

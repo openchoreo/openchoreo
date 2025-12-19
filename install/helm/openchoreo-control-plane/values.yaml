@@ -658,6 +658,7 @@ thunder:
       files:
         - 50-backstage-app.sh
         - 51-user-schema-and-users.sh
+        - 52-customers-org-unit-and-users.sh
     # Default users to create during bootstrap
     defaultUsers:
       - username: "admin@openchoreo.dev"
@@ -665,6 +666,23 @@ thunder:
         givenName: "Admin"
         familyName: "User"
         groups: ["platformEngineer"]
+    customersUsers:
+      - username: "customer1"
+        password: "password123"
+        givenName: "John"
+        familyName: "Doe"
+        groups: ["customers", "basic-users"]
+      - username: "customer2"
+        password: "password456"
+        givenName: "Jane"
+        familyName: "Smith"
+        groups: ["customers", "premium-users"]
+    customersAuth:
+      clientId: "customer-portal-client"
+      clientSecret: "supersecret"
+      redirectUrls:
+        - "https://your-domain.com/auth/callback"
+        - "https://your-domain.com/auth/handler"
 
 # Cluster Gateway configuration
 # The gateway manages WebSocket connections from cluster agents

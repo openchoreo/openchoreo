@@ -49,6 +49,6 @@ dependencies:
     condition: opentelemetry-collector.enabled
   - name: gateway-operator
     alias: api-platform
-    version: 0.0.1
+    version: 0.1.0
     repository: oci://ghcr.io/wso2/api-platform/helm-charts
     condition: api-platform.enabled
