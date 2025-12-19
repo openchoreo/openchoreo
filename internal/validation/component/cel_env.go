@@ -10,6 +10,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/model"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -90,6 +91,9 @@ func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
 
 	// Add OpenChoreo custom functions
 	baseEnvOpts = append(baseEnvOpts, template.CustomFunctions()...)
+
+	// Add configurations helper extensions (macros and functions)
+	baseEnvOpts = append(baseEnvOpts, context.CELExtensions()...)
 
 	baseEnv, err := cel.NewEnv(baseEnvOpts...)
 	if err != nil {

@@ -59,7 +59,7 @@ spec:
                     limits:
                       cpu: ${envOverrides.resources.limits.cpu}
                       memory: ${envOverrides.resources.limits.memory}
-              volumes: ${configurations.toVolumes(metadata.name)}
+              volumes: ${configurations.toVolumes()}
 
     - id: service
       template:
