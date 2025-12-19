@@ -251,7 +251,6 @@ func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
 	invalidExprs := []string{
 		"workload.containers",
 		"configurations.app",
-		"dataplane.secretStore",
 	}
 
 	for _, expr := range invalidExprs {
@@ -266,6 +265,7 @@ func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
 		"trait.instanceName",
 		"component.name",
 		"metadata.name",
+		"dataplane.secretStore",
 	}
 
 	for _, expr := range validExprs {

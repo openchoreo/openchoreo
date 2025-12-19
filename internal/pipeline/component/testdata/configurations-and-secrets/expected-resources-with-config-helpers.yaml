@@ -1,7 +1,7 @@
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: test-component-dev-12345678-env-configs-3e553e36
+    name: test-app-dev-main-env-configs-95889856
     labels:
       openchoreo.dev/component: test-app
       openchoreo.dev/environment: dev
@@ -13,7 +13,7 @@
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: test-component-dev-12345678-main-config-app-properties-74e21613
+    name: test-app-dev-main-config-app-properties-e61632ee
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -26,7 +26,7 @@
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: test-component-dev-12345678-main-config-config-json-5114fe83
+    name: test-app-dev-main-config-config-json-eb0eaa5e
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -57,39 +57,39 @@
             image: myapp:latest
             envFrom:
               - configMapRef:
-                  name: test-component-dev-12345678-env-configs-3e553e36
+                  name: test-app-dev-main-env-configs-95889856
               - secretRef:
-                  name: test-component-dev-12345678-env-secrets-7d163eae
+                  name: test-app-dev-main-env-secrets-0c528dd8
             volumeMounts:
-              - name: file-mount-9b2ef275
-                mountPath: /etc/tls/tls.crt
-                subPath: tls.crt
-              - name: file-mount-6c698306
+              - name: main-file-mount-6c698306
                 mountPath: /etc/config/config.json
                 subPath: config.json
-              - name: file-mount-5953ef7b
-                mountPath: /etc/config/application.yaml
-                subPath: application.yaml
-              - name: file-mount-d08babc2
+              - name: main-file-mount-d08babc2
                 mountPath: /etc/config/app.properties
                 subPath: app.properties
+              - name: main-file-mount-9b2ef275
+                mountPath: /etc/tls/tls.crt
+                subPath: tls.crt
+              - name: main-file-mount-5953ef7b
+                mountPath: /etc/config/application.yaml
+                subPath: application.yaml
         volumes:
-          - name: file-mount-5953ef7b
-            secret:
-              secretName: test-component-dev-12345678-secret-application-yaml-f2042975
-          - name: file-mount-9b2ef275
-            secret:
-              secretName: test-component-dev-12345678-secret-tls-crt-baf3eb48
-          - name: file-mount-6c698306
+          - name: main-file-mount-6c698306
             configMap:
-              name: test-component-dev-12345678-config-config-json-4334abe4
-          - name: file-mount-d08babc2
+              name: test-app-dev-main-config-config-json-eb0eaa5e
+          - name: main-file-mount-d08babc2
             configMap:
-              name: test-component-dev-12345678-config-app-properties-7a40d758
+              name: test-app-dev-main-config-app-properties-e61632ee
+          - name: main-file-mount-9b2ef275
+            secret:
+              secretName: test-app-dev-main-secret-tls-crt-57816c15
+          - name: main-file-mount-5953ef7b
+            secret:
+              secretName: test-app-dev-main-secret-application-yaml-37026539
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-component-dev-12345678-env-secrets-7d163eae
+    name: test-app-dev-main-env-secrets-0c528dd8
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -101,7 +101,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-component-dev-12345678-env-secrets-7d163eae
+      name: test-app-dev-main-env-secrets-0c528dd8
       creationPolicy: Owner
     data:
       - secretKey: DB_PASSWORD
@@ -115,7 +115,7 @@
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-component-dev-12345678-secret-application-yaml-f2042975
+    name: test-app-dev-main-secret-application-yaml-37026539
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -127,7 +127,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-component-dev-12345678-secret-application-yaml-f2042975
+      name: test-app-dev-main-secret-application-yaml-37026539
       creationPolicy: Owner
     data:
       - secretKey: application.yaml
@@ -137,7 +137,7 @@
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+    name: test-app-dev-main-secret-tls-crt-57816c15
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -149,7 +149,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-component-dev-12345678-secret-tls-crt-baf3eb48
+      name: test-app-dev-main-secret-tls-crt-57816c15
       creationPolicy: Owner
     data:
       - secretKey: tls.crt

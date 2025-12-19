@@ -10,6 +10,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/model"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -48,6 +49,7 @@ var TraitAllowedVariables = []string{
 	VarTrait,
 	VarComponent,
 	VarMetadata,
+	VarDataplane,
 }
 
 // ComponentCELEnvOptions configures the CEL environment for component validation.
@@ -89,6 +91,9 @@ func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
 
 	// Add OpenChoreo custom functions
 	baseEnvOpts = append(baseEnvOpts, template.CustomFunctions()...)
+
+	// Add configurations helper extensions (macros and functions)
+	baseEnvOpts = append(baseEnvOpts, context.CELExtensions()...)
 
 	baseEnv, err := cel.NewEnv(baseEnvOpts...)
 	if err != nil {
@@ -185,8 +190,9 @@ type TraitCELEnvOptions struct {
 //   - trait: Typed from context.TraitMetadata
 //   - component: Object type with name field
 //   - metadata: Typed from context.MetadataContext
+//   - dataplane: Typed from context.DataPlaneData
 //
-// Note: Traits don't have access to workload, configurations, or dataplane
+// Note: Traits don't have access to workload or configurations
 func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
 	// Create base environment with standard extensions
 	baseEnvOpts := []cel.EnvOption{
@@ -260,6 +266,7 @@ func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
 		cel.Variable(VarTrait, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarMetadata, cel.MapType(cel.StringType, cel.DynType)),
+		cel.Variable(VarDataplane, cel.MapType(cel.StringType, cel.DynType)),
 	)
 
 	// If we have schema-aware types, create a DeclTypeProvider and get its env options

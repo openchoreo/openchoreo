@@ -389,6 +389,10 @@ metadata:
 					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
+				"dataplane": map[string]any{
+					"publicVirtualHost": "app.example.com",
+					"secretStore":       "test-secret-store",
+				},
 				"metadata": map[string]any{
 					"name":            "test-component-dev-12345678",
 					"namespace":       "test-namespace",
@@ -460,6 +464,10 @@ spec:
 					"name":         "mysql-trait",
 					"instanceName": "db-1",
 				},
+				"dataplane": map[string]any{
+					"publicVirtualHost": "app.example.com",
+					"secretStore":       "test-secret-store",
+				},
 				"metadata": map[string]any{
 					"name":            "test-component-dev-12345678",
 					"namespace":       "test-namespace",
@@ -506,6 +514,16 @@ spec:
 					Annotations: map[string]string{},
 					PodSelectors: map[string]string{
 						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					},
+				},
+				DataPlane: &v1alpha1.DataPlane{
+					Spec: v1alpha1.DataPlaneSpec{
+						Gateway: v1alpha1.GatewaySpec{
+							PublicVirtualHost: "app.example.com",
+						},
+						SecretStoreRef: &v1alpha1.SecretStoreRef{
+							Name: "test-secret-store",
+						},
 					},
 				},
 			}

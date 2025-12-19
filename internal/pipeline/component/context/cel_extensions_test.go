@@ -4,6 +4,7 @@
 package context
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -21,8 +22,12 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 	}{
 		{
 			name: "single container with single config file",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{
@@ -43,14 +48,18 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 					"name":         "config.yaml",
 					"mountPath":    "/etc/config/config.yaml",
 					"value":        "key: value",
-					"resourceName": generateConfigResourceName("myapp", "app", "config.yaml"),
+					"resourceName": generateConfigResourceName("app-dev", "app", "config.yaml"),
 				},
 			},
 		},
 		{
 			name: "single container with multiple config files",
-			expr: `configurations.toConfigFileList("prefix")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{
@@ -64,14 +73,18 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 				},
 			},
 			want: []map[string]any{
-				{"name": "app.yaml", "mountPath": "/etc/app.yaml", "value": "app config", "resourceName": generateConfigResourceName("prefix", "app", "app.yaml")},
-				{"name": "logging.properties", "mountPath": "/etc/logging.properties", "value": "log.level=INFO", "resourceName": generateConfigResourceName("prefix", "app", "logging.properties")},
+				{"name": "app.yaml", "mountPath": "/etc/app.yaml", "value": "app config", "resourceName": generateConfigResourceName("app-dev", "app", "app.yaml")},
+				{"name": "logging.properties", "mountPath": "/etc/logging.properties", "value": "log.level=INFO", "resourceName": generateConfigResourceName("app-dev", "app", "logging.properties")},
 			},
 		},
 		{
 			name: "no config files returns empty list",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{"files": []any{}},
@@ -83,16 +96,24 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 		},
 		{
 			name: "empty configurations returns empty list",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{},
 			},
 			want: []map[string]any{},
 		},
 		{
 			name: "config file with remoteRef",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{
@@ -116,7 +137,7 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 					"name":         "config.yaml",
 					"mountPath":    "/etc/config.yaml",
 					"value":        "",
-					"resourceName": generateConfigResourceName("myapp", "app", "config.yaml"),
+					"resourceName": generateConfigResourceName("app-dev", "app", "config.yaml"),
 					"remoteRef": map[string]any{
 						"key":      "my-config-key",
 						"property": "config.yaml",
@@ -126,8 +147,12 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 		},
 		{
 			name: "dots in filename are replaced with hyphens in resourceName",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{
@@ -140,13 +165,17 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 				},
 			},
 			want: []map[string]any{
-				{"name": "application.properties", "mountPath": "/etc/application.properties", "value": "prop=value", "resourceName": generateConfigResourceName("myapp", "app", "application.properties")},
+				{"name": "application.properties", "mountPath": "/etc/application.properties", "value": "prop=value", "resourceName": generateConfigResourceName("app-dev", "app", "application.properties")},
 			},
 		},
 		{
 			name: "ignores secret files (only returns config files)",
-			expr: `configurations.toConfigFileList("myapp")`,
+			expr: `configurations.toConfigFileList()`,
 			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
 				"configurations": map[string]any{
 					"app": map[string]any{
 						"configs": map[string]any{
@@ -163,7 +192,7 @@ func TestConfigurationsToConfigFileListMacro(t *testing.T) {
 				},
 			},
 			want: []map[string]any{
-				{"name": "config.yaml", "mountPath": "/etc/config.yaml", "value": "config", "resourceName": generateConfigResourceName("myapp", "app", "config.yaml")},
+				{"name": "config.yaml", "mountPath": "/etc/config.yaml", "value": "config", "resourceName": generateConfigResourceName("app-dev", "app", "config.yaml")},
 			},
 		},
 	}
@@ -194,7 +223,11 @@ func TestToConfigFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - configurations is the expected receiver
-	_, err := engine.Render(`${configurations.toConfigFileList("prefix")}`, map[string]any{
+	_, err := engine.Render(`${configurations.toConfigFileList()}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
 		"configurations": map[string]any{},
 	})
 	if err != nil {
@@ -202,7 +235,11 @@ func TestToConfigFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
 	}
 
 	// This should fail - "other" is not a valid receiver for the macro
-	_, err = engine.Render(`${other.toConfigFileList("prefix")}`, map[string]any{
+	_, err = engine.Render(`${other.toConfigFileList()}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
 		"other": map[string]any{},
 	})
 	if err == nil {
@@ -233,6 +270,10 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	inputs := map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
 		"configurations": map[string]any{
 			"app": map[string]any{
 				"configs": map[string]any{
@@ -247,7 +288,7 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(configurations.toConfigFileList("prefix"))}`, inputs)
+		result, err := engine.Render(`${size(configurations.toConfigFileList())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -257,7 +298,7 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toConfigFileList("prefix").map(f, f.name)}`, inputs)
+		result, err := engine.Render(`${configurations.toConfigFileList().map(f, f.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -270,13 +311,13 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("list concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${configurations.toConfigFileList("prefix") + [{"name": "inline.yaml", "mountPath": "/inline.yaml"}]}`, inputs)
+		result, err := engine.Render(`${configurations.toConfigFileList() + [{"name": "inline.yaml", "mountPath": "/inline.yaml"}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		want := []any{
-			map[string]any{"name": "a.yaml", "mountPath": "/a.yaml", "value": "a", "resourceName": generateConfigResourceName("prefix", "app", "a.yaml")},
-			map[string]any{"name": "b.yaml", "mountPath": "/b.yaml", "value": "b", "resourceName": generateConfigResourceName("prefix", "app", "b.yaml")},
+			map[string]any{"name": "a.yaml", "mountPath": "/a.yaml", "value": "a", "resourceName": generateConfigResourceName("app-dev", "app", "a.yaml")},
+			map[string]any{"name": "b.yaml", "mountPath": "/b.yaml", "value": "b", "resourceName": generateConfigResourceName("app-dev", "app", "b.yaml")},
 			map[string]any{"name": "inline.yaml", "mountPath": "/inline.yaml"},
 		}
 		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
@@ -290,4 +331,1195 @@ func TestToConfigFileListCanBeUsedWithCELOperations(t *testing.T) {
 			t.Errorf("concatenation mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+func TestConfigurationsToSecretFileListMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "single container with single secret file",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{
+									"name":      "secret.yaml",
+									"mountPath": "/etc/secret/secret.yaml",
+									"remoteRef": map[string]any{
+										"key":      "my-secret",
+										"property": "password",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"name":         "secret.yaml",
+					"mountPath":    "/etc/secret/secret.yaml",
+					"resourceName": generateSecretResourceName("app-dev", "app", "secret.yaml"),
+					"remoteRef": map[string]any{
+						"key":      "my-secret",
+						"property": "password",
+					},
+				},
+			},
+		},
+		{
+			name: "single container with multiple secret files",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{
+									"name":      "db.env",
+									"mountPath": "/etc/db.env",
+									"remoteRef": map[string]any{"key": "db-credentials"},
+								},
+								map[string]any{
+									"name":      "api.key",
+									"mountPath": "/etc/api.key",
+									"remoteRef": map[string]any{"key": "api-credentials"},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"name":         "db.env",
+					"mountPath":    "/etc/db.env",
+					"resourceName": generateSecretResourceName("app-dev", "app", "db.env"),
+					"remoteRef":    map[string]any{"key": "db-credentials"},
+				},
+				{
+					"name":         "api.key",
+					"mountPath":    "/etc/api.key",
+					"resourceName": generateSecretResourceName("app-dev", "app", "api.key"),
+					"remoteRef":    map[string]any{"key": "api-credentials"},
+				},
+			},
+		},
+		{
+			name: "no secret files returns empty list",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{"files": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "empty configurations returns empty list",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "secret file with remoteRef properties",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{
+									"name":      "secret.yaml",
+									"mountPath": "/etc/secret.yaml",
+									"remoteRef": map[string]any{
+										"key":      "my-secret-key",
+										"property": "secret.yaml",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"name":         "secret.yaml",
+					"mountPath":    "/etc/secret.yaml",
+					"resourceName": generateSecretResourceName("app-dev", "app", "secret.yaml"),
+					"remoteRef": map[string]any{
+						"key":      "my-secret-key",
+						"property": "secret.yaml",
+					},
+				},
+			},
+		},
+		{
+			name: "ignores config files (only returns secret files)",
+			expr: `configurations.toSecretFileList()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"files": []any{
+								map[string]any{"name": "config.yaml", "mountPath": "/etc/config.yaml", "value": "config"},
+							},
+						},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{
+									"name":      "secret.yaml",
+									"mountPath": "/etc/secret.yaml",
+									"remoteRef": map[string]any{"key": "app-secret"},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"name":         "secret.yaml",
+					"mountPath":    "/etc/secret.yaml",
+					"resourceName": generateSecretResourceName("app-dev", "app", "secret.yaml"),
+					"remoteRef":    map[string]any{"key": "app-secret"},
+				},
+			},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["name"].(string) < b["name"].(string)
+			})); diff != "" {
+				t.Errorf("toSecretFileList() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestToSecretFileListMacroOnlyExpandsForConfigurations(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	// This should work - configurations is the expected receiver
+	_, err := engine.Render(`${configurations.toSecretFileList()}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"configurations": map[string]any{},
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// This should fail - "other" is not a valid receiver for the macro
+	_, err = engine.Render(`${other.toSecretFileList()}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"other": map[string]any{},
+	})
+	if err == nil {
+		t.Error("expected error for non-configurations receiver")
+	}
+}
+
+func TestToSecretFileListCanBeUsedWithCELOperations(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	inputs := map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"configurations": map[string]any{
+			"app": map[string]any{
+				"configs": map[string]any{"files": []any{}},
+				"secrets": map[string]any{
+					"files": []any{
+						map[string]any{
+							"name":      "a.secret",
+							"mountPath": "/a.secret",
+							"remoteRef": map[string]any{"key": "a-secret"},
+						},
+						map[string]any{
+							"name":      "b.secret",
+							"mountPath": "/b.secret",
+							"remoteRef": map[string]any{"key": "b-secret"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("size() operation", func(t *testing.T) {
+		result, err := engine.Render(`${size(configurations.toSecretFileList())}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if diff := cmp.Diff(int64(2), result); diff != "" {
+			t.Errorf("size() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("map() operation", func(t *testing.T) {
+		result, err := engine.Render(`${configurations.toSecretFileList().map(f, f.name)}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{"a.secret", "b.secret"}
+		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
+			return a.(string) < b.(string)
+		})); diff != "" {
+			t.Errorf("map() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("list concatenation with inline items", func(t *testing.T) {
+		result, err := engine.Render(`${configurations.toSecretFileList() + [{"name": "inline.secret", "mountPath": "/inline.secret"}]}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{
+			map[string]any{"name": "a.secret", "mountPath": "/a.secret", "resourceName": generateSecretResourceName("app-dev", "app", "a.secret"), "remoteRef": map[string]any{"key": "a-secret"}},
+			map[string]any{"name": "b.secret", "mountPath": "/b.secret", "resourceName": generateSecretResourceName("app-dev", "app", "b.secret"), "remoteRef": map[string]any{"key": "b-secret"}},
+			map[string]any{"name": "inline.secret", "mountPath": "/inline.secret"},
+		}
+		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
+			aMap, aOk := a.(map[string]any)
+			bMap, bOk := b.(map[string]any)
+			if aOk && bOk {
+				return aMap["name"].(string) < bMap["name"].(string)
+			}
+			return false
+		})); diff != "" {
+			t.Errorf("concatenation mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestContainerConfigEnvFromMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "container with both config and secret envs",
+			expr: `configurations.toContainerEnvFrom("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "LOG_LEVEL", "value": "info"},
+							},
+						},
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "API_KEY", "remoteRef": map[string]any{"key": "api-secret", "property": "key"}},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-configs")}},
+				{"secretRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-secrets")}},
+			},
+		},
+		{
+			name: "container with only config envs",
+			expr: `configurations.toContainerEnvFrom("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "DEBUG", "value": "true"},
+								map[string]any{"name": "PORT", "value": "8080"},
+							},
+						},
+						"secrets": map[string]any{"envs": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-configs")}},
+			},
+		},
+		{
+			name: "container with only secret envs",
+			expr: `configurations.toContainerEnvFrom("worker")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"worker": map[string]any{
+						"configs": map[string]any{"envs": []any{}},
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "DB_PASSWORD", "remoteRef": map[string]any{"key": "db-secret", "property": "password"}},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"secretRef": map[string]any{"name": generateEnvResourceName("app-dev", "worker", "env-secrets")}},
+			},
+		},
+		{
+			name: "container with no envs returns empty list",
+			expr: `configurations.toContainerEnvFrom("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"envs": []any{}},
+						"secrets": map[string]any{"envs": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "empty container config returns empty list",
+			expr: `configurations.toContainerEnvFrom("empty")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"empty": map[string]any{},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "container missing configs section",
+			expr: `configurations.toContainerEnvFrom("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "SECRET_KEY", "remoteRef": map[string]any{"key": "app-secret", "property": "key"}},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"secretRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-secrets")}},
+			},
+		},
+		{
+			name: "container missing secrets section",
+			expr: `configurations.toContainerEnvFrom("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "CONFIG_VAR", "value": "value"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-configs")}},
+			},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("envFrom() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestContainerConfigEnvFromMacroErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		inputs      map[string]any
+		expectError string
+	}{
+		{
+			name: "non-existent container returns error",
+			expr: `configurations.toContainerEnvFrom("nonexistent")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"envs": []any{}},
+					},
+				},
+			},
+			expectError: "container 'nonexistent' not found in configurations",
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err == nil {
+				t.Fatal("expected error but got none")
+			}
+			if !strings.Contains(err.Error(), tt.expectError) {
+				t.Errorf("expected error containing %q, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestEnvFromMacroValidation(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	// This should work - accessing container config from configurations
+	_, err := engine.Render(`${configurations.toContainerEnvFrom("main")}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"configurations": map[string]any{
+			"main": map[string]any{},
+		},
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// toContainerEnvFrom only works on configurations, not arbitrary variables
+	_, err = engine.Render(`${someVar.toContainerEnvFrom("main")}`, map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"someVar": map[string]any{
+			"configs": map[string]any{"envs": []any{}},
+			"secrets": map[string]any{"envs": []any{}},
+		},
+	})
+	if err == nil {
+		t.Error("expected error for non-configurations target, got nil")
+	}
+}
+
+func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	inputs := map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"configurations": map[string]any{
+			"app": map[string]any{
+				"configs": map[string]any{
+					"envs": []any{
+						map[string]any{"name": "CONFIG1", "value": "value1"},
+					},
+				},
+				"secrets": map[string]any{
+					"envs": []any{
+						map[string]any{"name": "SECRET1", "remoteRef": map[string]any{"key": "secret", "property": "key"}},
+					},
+				},
+			},
+		},
+	}
+
+	t.Run("size() operation", func(t *testing.T) {
+		result, err := engine.Render(`${size(configurations.toContainerEnvFrom("app"))}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if diff := cmp.Diff(int64(2), result); diff != "" {
+			t.Errorf("size() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("map() operation to extract names", func(t *testing.T) {
+		result, err := engine.Render(`${configurations.toContainerEnvFrom("app").map(e, has(e.configMapRef) ? e.configMapRef.name : e.secretRef.name)}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{generateEnvResourceName("app-dev", "app", "env-configs"), generateEnvResourceName("app-dev", "app", "env-secrets")}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("map() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("concatenation with inline items", func(t *testing.T) {
+		result, err := engine.Render(`${configurations.toContainerEnvFrom("app") + [{"configMapRef": {"name": "extra-config"}}]}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{
+			map[string]any{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-configs")}},
+			map[string]any{"secretRef": map[string]any{"name": generateEnvResourceName("app-dev", "app", "env-secrets")}},
+			map[string]any{"configMapRef": map[string]any{"name": "extra-config"}},
+		}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("concatenation mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestContainerConfigVolumeMountsMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "container with both config and secret files",
+			expr: `configurations.toContainerVolumeMounts("main")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"main": map[string]any{
+						"configs": map[string]any{
+							"files": []any{
+								map[string]any{"name": "app.properties", "mountPath": "/etc/config"},
+								map[string]any{"name": "config.json", "mountPath": "/etc/config"},
+							},
+						},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{"name": "tls.crt", "mountPath": "/etc/tls"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "main-file-mount-" + generateVolumeHash("/etc/config", "app.properties"), "mountPath": "/etc/config/app.properties", "subPath": "app.properties"},
+				{"name": "main-file-mount-" + generateVolumeHash("/etc/config", "config.json"), "mountPath": "/etc/config/config.json", "subPath": "config.json"},
+				{"name": "main-file-mount-" + generateVolumeHash("/etc/tls", "tls.crt"), "mountPath": "/etc/tls/tls.crt", "subPath": "tls.crt"},
+			},
+		},
+		{
+			name: "container with no files returns empty list",
+			expr: `configurations.toContainerVolumeMounts("app")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{"files": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["name"].(string) < b["name"].(string)
+			})); diff != "" {
+				t.Errorf("volumeMounts() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestContainerConfigVolumeMountsMacroErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		inputs      map[string]any
+		expectError string
+	}{
+		{
+			name: "non-existent container returns error",
+			expr: `configurations.toContainerVolumeMounts("nonexistent")`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+					},
+				},
+			},
+			expectError: "container 'nonexistent' not found in configurations",
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err == nil {
+				t.Fatal("expected error but got none")
+			}
+			if !strings.Contains(err.Error(), tt.expectError) {
+				t.Errorf("expected error containing %q, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestConfigurationsToVolumesMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "multiple containers with config and secret files",
+			expr: `configurations.toVolumes()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"main": map[string]any{
+						"configs": map[string]any{
+							"files": []any{
+								map[string]any{"name": "app.properties", "mountPath": "/etc/config"},
+							},
+						},
+						"secrets": map[string]any{
+							"files": []any{
+								map[string]any{"name": "tls.crt", "mountPath": "/etc/tls"},
+							},
+						},
+					},
+					"sidecar": map[string]any{
+						"configs": map[string]any{
+							"files": []any{
+								map[string]any{"name": "proxy.conf", "mountPath": "/etc/proxy"},
+							},
+						},
+						"secrets": map[string]any{"files": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"name": "main-file-mount-" + generateVolumeHash("/etc/config", "app.properties"),
+					"configMap": map[string]any{
+						"name": generateConfigResourceName("app-dev", "main", "app.properties"),
+					},
+				},
+				{
+					"name": "main-file-mount-" + generateVolumeHash("/etc/tls", "tls.crt"),
+					"secret": map[string]any{
+						"secretName": generateSecretResourceName("app-dev", "main", "tls.crt"),
+					},
+				},
+				{
+					"name": "sidecar-file-mount-" + generateVolumeHash("/etc/proxy", "proxy.conf"),
+					"configMap": map[string]any{
+						"name": generateConfigResourceName("app-dev", "sidecar", "proxy.conf"),
+					},
+				},
+			},
+		},
+		{
+			name: "no files returns empty list",
+			expr: `configurations.toVolumes()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"files": []any{}},
+						"secrets": map[string]any{"files": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["name"].(string) < b["name"].(string)
+			})); diff != "" {
+				t.Errorf("volumes() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestConfigurationsToConfigEnvsByContainerMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "multiple containers with config envs",
+			expr: `configurations.toConfigEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"main": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "LOG_LEVEL", "value": "info"},
+								map[string]any{"name": "DEBUG_MODE", "value": "true"},
+							},
+						},
+					},
+					"sidecar": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "PROXY_PORT", "value": "8080"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"container":    "main",
+					"resourceName": generateEnvResourceName("app-dev", "main", "env-configs"),
+					"envs": []any{
+						map[string]any{"name": "LOG_LEVEL", "value": "info"},
+						map[string]any{"name": "DEBUG_MODE", "value": "true"},
+					},
+				},
+				{
+					"container":    "sidecar",
+					"resourceName": generateEnvResourceName("app-dev", "sidecar", "env-configs"),
+					"envs": []any{
+						map[string]any{"name": "PROXY_PORT", "value": "8080"},
+					},
+				},
+			},
+		},
+		{
+			name: "single container with config envs",
+			expr: `configurations.toConfigEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "ENV_VAR", "value": "value1"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"container":    "app",
+					"resourceName": generateEnvResourceName("app-dev", "app", "env-configs"),
+					"envs": []any{
+						map[string]any{"name": "ENV_VAR", "value": "value1"},
+					},
+				},
+			},
+		},
+		{
+			name: "container with no config envs returns empty list",
+			expr: `configurations.toConfigEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{"envs": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "container with only secrets (no configs) returns empty list",
+			expr: `configurations.toConfigEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "SECRET_KEY", "value": "secret"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "empty configurations returns empty list",
+			expr: `configurations.toConfigEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{},
+			},
+			want: []map[string]any{},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["container"].(string) < b["container"].(string)
+			})); diff != "" {
+				t.Errorf("toConfigEnvsByContainer() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestConfigurationsToSecretEnvsByContainerMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "multiple containers with secret envs",
+			expr: `configurations.toSecretEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"main": map[string]any{
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{
+									"name": "DB_PASSWORD",
+									"remoteRef": map[string]any{
+										"key":      "db-password",
+										"property": "password",
+									},
+								},
+								map[string]any{
+									"name": "API_KEY",
+									"remoteRef": map[string]any{
+										"key": "api-key",
+									},
+								},
+							},
+						},
+					},
+					"sidecar": map[string]any{
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{
+									"name": "PROXY_SECRET",
+									"remoteRef": map[string]any{
+										"key": "proxy-secret",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"container":    "main",
+					"resourceName": generateEnvResourceName("app-dev", "main", "env-secrets"),
+					"envs": []any{
+						map[string]any{
+							"name": "DB_PASSWORD",
+							"remoteRef": map[string]any{
+								"key":      "db-password",
+								"property": "password",
+							},
+						},
+						map[string]any{
+							"name": "API_KEY",
+							"remoteRef": map[string]any{
+								"key": "api-key",
+							},
+						},
+					},
+				},
+				{
+					"container":    "sidecar",
+					"resourceName": generateEnvResourceName("app-dev", "sidecar", "env-secrets"),
+					"envs": []any{
+						map[string]any{
+							"name": "PROXY_SECRET",
+							"remoteRef": map[string]any{
+								"key": "proxy-secret",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "single container with secret envs",
+			expr: `configurations.toSecretEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"secrets": map[string]any{
+							"envs": []any{
+								map[string]any{
+									"name": "SECRET_KEY",
+									"remoteRef": map[string]any{
+										"key": "secret-key",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{
+					"container":    "app",
+					"resourceName": generateEnvResourceName("app-dev", "app", "env-secrets"),
+					"envs": []any{
+						map[string]any{
+							"name": "SECRET_KEY",
+							"remoteRef": map[string]any{
+								"key": "secret-key",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "container with no secret envs returns empty list",
+			expr: `configurations.toSecretEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"secrets": map[string]any{"envs": []any{}},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "container with only configs (no secrets) returns empty list",
+			expr: `configurations.toSecretEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{
+					"app": map[string]any{
+						"configs": map[string]any{
+							"envs": []any{
+								map[string]any{"name": "CONFIG_VAR", "value": "value"},
+							},
+						},
+					},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "empty configurations returns empty list",
+			expr: `configurations.toSecretEnvsByContainer()`,
+			inputs: map[string]any{
+				"metadata": map[string]any{
+					"componentName":   "app",
+					"environmentName": "dev",
+				},
+				"configurations": map[string]any{},
+			},
+			want: []map[string]any{},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["container"].(string) < b["container"].(string)
+			})); diff != "" {
+				t.Errorf("toSecretEnvsByContainer() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

@@ -9,7 +9,7 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
 | **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `trait` |
+| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait` |
 
 ## ComponentContext
 
@@ -345,54 +345,37 @@ envFrom: |
     [{"configMapRef": {"name": metadata.name + "-config"}}] : []}
 ```
 
-#### configurations.toConfigFileList(prefix)
+### Configuration Helper Methods
 
-Helper method that flattens `configs.files` from all containers in the `configurations` object into a single list, useful for `forEach` iteration. This aggregates config files across all workload containers.
+The `configurations` object provides several helper methods to simplify working with container configurations, environment variables, and file mounts. These helpers reduce boilerplate and make templates more readable.
 
-**Parameters:**
-- `prefix` - String used to generate unique resource names (typically `metadata.name`)
+**Available Helper Methods:**
 
-**Returns:** List of maps, each containing:
+| Helper Method | Description |
+|---------------|-------------|
+| `configurations.toContainerEnvFrom(containerName)` | Generates `envFrom` array with configMapRef and secretRef for a container |
+| `configurations.toConfigEnvsByContainer()` | Returns list of config environment variable list groups by container |
+| `configurations.toSecretEnvsByContainer()` | Returns list of secret environment variable list groups by container |
+| `configurations.toConfigFileList()` | Flattens all config files from all containers into a single list |
+| `configurations.toSecretFileList()` | Flattens all secret files from all containers into a single list |
+| `configurations.toContainerVolumeMounts(containerName)` | Generates volumeMounts array for a container's files |
+| `configurations.toVolumes()` | Generates volumes array for all containers' files |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | File name |
-| `mountPath` | string | Mount path |
-| `value` | string | File content (empty string if using remoteRef) |
-| `resourceName` | string | Generated Kubernetes-compliant resource name |
-| `remoteRef` | map | Remote reference (only present if the file uses a secret reference) |
+For detailed documentation, examples, and usage patterns for each helper method, see [Configuration Helpers](./configuration_helpers.md).
 
-**Example usage:**
-
-```yaml
-# Generate a ConfigMap for each config file across all containers
-resources:
-  - id: file-configs
-    forEach: ${configurations.toConfigFileList(metadata.name)}
-    var: config
-    template:
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: ${config.resourceName}
-        namespace: ${metadata.namespace}
-      data:
-        ${config.name}: |
-          ${config.value}
-```
-
-**Equivalent CEL expression:**
-
-If you need additional fields (e.g., `container` name) or different behavior, use the underlying data directly:
+**Quick Example:**
 
 ```yaml
-forEach: |
-  ${configurations.transformList(containerName, cfg,
-    cfg.configs.files.map(f, oc_merge(f, {
-      "container": containerName,
-      "resourceName": oc_generate_name(metadata.name, containerName, "config", f.name.replace(".", "-"))
-    }))
-  ).flatten()}
+# Using helper methods for cleaner templates
+spec:
+  template:
+    spec:
+      containers:
+        - name: main
+          image: myapp:latest
+          envFrom: ${configurations.toContainerEnvFrom("main")}
+          volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+      volumes: ${configurations.toVolumes()}
 ```
 
 ## TraitContext
@@ -437,6 +420,18 @@ metadata:
   labels:
     trait: ${trait.name}
     instance: ${trait.instanceName}
+```
+
+### dataplane
+
+DataPlane configuration for the target environment. Same structure as ComponentContext.
+
+```yaml
+# Access pattern: ${dataplane.<field>}
+
+dataplane:
+  secretStore: "my-secret-store"        # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
 ```
 
 ### parameters
@@ -507,7 +502,7 @@ spec:
   storageClassName: ${envOverrides.storageClass}
 ```
 
-**Note:** TraitContext does NOT have access to `workload`, `configurations`, or `dataplane`. These are only available in ComponentContext.
+**Note:** TraitContext does NOT have access to `workload` or `configurations`. These are only available in ComponentContext.
 
 ## Special Variables
 
@@ -587,7 +582,7 @@ The entire rendered Kubernetes resource is available, including:
 | `metadata.*` | ✅ | ✅ |
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
 | `envOverrides.*` | ✅ (from ReleaseBinding.ComponentTypeEnvOverrides) | ✅ (from ReleaseBinding.TraitOverrides) |
-| `dataplane.*` | ✅ | ❌ |
+| `dataplane.*` | ✅ | ✅ |
 | `workload.*` | ✅ | ❌ |
 | `configurations.*` | ✅ | ❌ |
 | `trait.*` | ❌ | ✅ |
