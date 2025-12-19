@@ -25,7 +25,9 @@ type MockOpenSearchClient struct {
 	monitorExists  bool
 	monitorSearch  error
 	monitorCreate  error
+	monitorUpdate  error
 	monitorDelete  error
+	monitorBody    map[string]interface{}
 }
 
 func (m *MockOpenSearchClient) Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error) {
@@ -47,11 +49,31 @@ func (m *MockOpenSearchClient) SearchMonitorByName(ctx context.Context, name str
 	return m.monitorID, m.monitorExists, m.monitorSearch
 }
 
+func (m *MockOpenSearchClient) GetMonitorByID(ctx context.Context, monitorID string) (map[string]interface{}, error) {
+	if m.monitorBody != nil {
+		return m.monitorBody, nil
+	}
+	// Return a default monitor body if not set
+	return map[string]interface{}{
+		"type":         "monitor",
+		"monitor_type": "query_level_monitor",
+		"name":         "test-monitor",
+		"enabled":      true,
+	}, nil
+}
+
 func (m *MockOpenSearchClient) CreateMonitor(ctx context.Context, monitor map[string]interface{}) (string, int64, error) {
 	if m.monitorCreate != nil {
 		return "", 0, m.monitorCreate
 	}
 	return m.monitorID, 0, nil
+}
+
+func (m *MockOpenSearchClient) UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (int64, error) {
+	if m.monitorUpdate != nil {
+		return 0, m.monitorUpdate
+	}
+	return time.Now().UnixMilli(), nil
 }
 
 func (m *MockOpenSearchClient) DeleteMonitor(ctx context.Context, monitorID string) error {

@@ -230,6 +230,90 @@ func (c *Client) CreateMonitor(ctx context.Context, monitor map[string]interface
 	return parsed.ID, parsed.Monitor.LastUpdateTime, nil
 }
 
+// GetMonitorByID retrieves an alerting monitor by ID using the Alerting plugin API.
+func (c *Client) GetMonitorByID(ctx context.Context, monitorID string) (map[string]interface{}, error) {
+	path := fmt.Sprintf("/_plugins/_alerting/monitors/%s", monitorID)
+	req, err := http.NewRequestWithContext(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := c.client.Perform(req)
+	if err != nil {
+		return nil, fmt.Errorf("monitor get request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		c.logger.Error("Monitor get failed",
+			"status", res.StatusCode,
+			"monitor_id", monitorID,
+			"response", string(bodyBytes))
+		return nil, fmt.Errorf("monitor get request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to parse monitor get response: %w", err)
+	}
+
+	// Extract the monitor object from the response
+	if monitor, ok := response["monitor"].(map[string]interface{}); ok {
+		return monitor, nil
+	}
+
+	return nil, fmt.Errorf("monitor object not found in response")
+}
+
+// UpdateMonitor updates an existing alerting monitor using the Alerting plugin API.
+func (c *Client) UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (int64, error) {
+	body, err := json.Marshal(monitor)
+	if err != nil {
+		return 0, fmt.Errorf("failed to marshal monitor: %w", err)
+	}
+	c.logger.Debug("Updating monitor", "monitor_id", monitorID, "body", string(body))
+
+	path := fmt.Sprintf("/_plugins/_alerting/monitors/%s", monitorID)
+	req, err := http.NewRequestWithContext(ctx, "PUT", path, bytes.NewReader(body))
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", "application/json")
+
+	res, err := c.client.Perform(req)
+	if err != nil {
+		return 0, fmt.Errorf("monitor update request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		c.logger.Error("Monitor update failed",
+			"status", res.StatusCode,
+			"monitor_id", monitorID,
+			"response", string(bodyBytes))
+		return 0, fmt.Errorf("monitor update request failed with status: %d, response: %s", res.StatusCode, string(bodyBytes))
+	}
+
+	type MonitorUpsertResponse struct {
+		LastUpdateTime int64 `json:"last_update_time"`
+	}
+	var parsed struct {
+		ID      string                `json:"_id"`
+		Monitor MonitorUpsertResponse `json:"monitor"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
+		return 0, fmt.Errorf("failed to parse monitor update response: %w", err)
+	}
+
+	c.logger.Debug("Monitor updated successfully",
+		"monitor_id", monitorID,
+		"last_update_time", parsed.Monitor.LastUpdateTime)
+	return parsed.Monitor.LastUpdateTime, nil
+}
+
 // DeleteMonitor deletes an alerting monitor using the Alerting plugin API.
 func (c *Client) DeleteMonitor(ctx context.Context, monitorID string) error {
 	path := fmt.Sprintf("/_plugins/_alerting/monitors/%s", monitorID)

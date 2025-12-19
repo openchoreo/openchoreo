@@ -591,30 +591,45 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"gte":    "{{period_end}}||-" + params.Condition.Window,
-					"lte":    "{{period_end}}",
-					"format": "epoch_millis",
+					"from":          "{{period_end}}||-" + params.Condition.Window,
+					"to":            "{{period_end}}",
+					"format":        "epoch_millis",
+					"include_lower": true,
+					"include_upper": true,
+					"boost":         1,
 				},
 			},
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSComponentID + ".keyword": params.Metadata.ComponentUID,
+				labels.OSComponentID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.ComponentUID,
+					"boost": 1,
+				},
 			},
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSEnvironmentID + ".keyword": params.Metadata.EnvironmentUID,
+				labels.OSEnvironmentID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.EnvironmentUID,
+					"boost": 1,
+				},
 			},
 		},
 		{
 			"term": map[string]interface{}{
-				labels.OSProjectID + ".keyword": params.Metadata.ProjectUID,
+				labels.OSProjectID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.ProjectUID,
+					"boost": 1,
+				},
 			},
 		},
 		{
 			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", params.Source.Query),
+				"log": map[string]interface{}{
+					"wildcard": fmt.Sprintf("*%s*", params.Source.Query),
+					"boost":    1,
+				},
 			},
 		},
 	}
@@ -623,7 +638,9 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		"size": 0,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"filter": filterConditions,
+				"filter":               filterConditions,
+				"adjust_pure_negative": true,
+				"boost":                1,
 			},
 		},
 	}
@@ -657,35 +674,37 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 		},
 		Triggers: []MonitorTrigger{
 			{
-				Name:     "trigger-" + params.Metadata.Name,
-				Severity: "1",
-				Condition: MonitorTriggerCondition{
-					Script: MonitorTriggerConditionScript{
-						Source: fmt.Sprintf("ctx.results[0].hits.total.value %s %s", GetOperatorSymbol(params.Condition.Operator), strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64)),
-						Lang:   "painless",
+				QueryLevelTrigger: &MonitorTriggerQueryLevelTrigger{
+					Name:     "trigger-" + params.Metadata.Name,
+					Severity: "1",
+					Condition: MonitorTriggerCondition{
+						Script: MonitorTriggerConditionScript{
+							Source: fmt.Sprintf("ctx.results[0].hits.total.value %s %s", GetOperatorSymbol(params.Condition.Operator), strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64)),
+							Lang:   "painless",
+						},
 					},
-				},
-				Actions: []MonitorTriggerAction{
-					{
-						Name:          "action-" + params.Metadata.Name,
-						DestinationID: "openchoreo-observer-alerting-webhook",
-						MessageTemplate: MonitorMessageTemplate{
-							Source: buildWebhookMessageTemplate(params),
-							Lang:   "mustache",
-						},
-						ThrottleEnabled: true,
-						Throttle: MonitorTriggerActionThrottle{
-							Value: 60, // TODO: Make throttle value configurable in future
-							Unit:  "MINUTES",
-						},
-						SubjectTemplate: MonitorMessageTemplate{
-							Source: "TheSubject", // TODO: Add appropriate subject template
-							Lang:   "mustache",
-						},
-						ActionExecutionPolicy: MonitorTriggerActionExecutionPolicy{
-							ActionExecutionScope: MonitorTriggerActionExecutionScope{
-								PerAlert: MonitorActionExecutionScopePerAlert{
-									ActionableAlerts: []string{"DEDUPED", "NEW"},
+					Actions: []MonitorTriggerAction{
+						{
+							Name:          "action-" + params.Metadata.Name,
+							DestinationID: "openchoreo-observer-alerting-webhook",
+							MessageTemplate: MonitorMessageTemplate{
+								Source: buildWebhookMessageTemplate(params),
+								Lang:   "mustache",
+							},
+							ThrottleEnabled: true,
+							Throttle: MonitorTriggerActionThrottle{
+								Value: 60, // TODO: Make throttle value configurable in future
+								Unit:  "MINUTES",
+							},
+							SubjectTemplate: MonitorMessageTemplate{
+								Source: "TheSubject", // TODO: Add appropriate subject template
+								Lang:   "mustache",
+							},
+							ActionExecutionPolicy: MonitorTriggerActionExecutionPolicy{
+								ActionExecutionScope: MonitorTriggerActionExecutionScope{
+									PerAlert: MonitorActionExecutionScopePerAlert{
+										ActionableAlerts: []string{"DEDUPED", "NEW"},
+									},
 								},
 							},
 						},

@@ -291,6 +291,18 @@ type MonitorInputSearch struct {
 
 // MonitorTrigger defines the conditions and actions for the monitor
 type MonitorTrigger struct {
+	QueryLevelTrigger  *MonitorTriggerQueryLevelTrigger  `json:"query_level_trigger,omitempty"`
+	BucketLevelTrigger *MonitorTriggerBucketLevelTrigger `json:"bucket_level_trigger,omitempty"`
+}
+
+type MonitorTriggerQueryLevelTrigger struct {
+	Name      string                  `json:"name"`
+	Severity  string                  `json:"severity"`
+	Condition MonitorTriggerCondition `json:"condition"`
+	Actions   []MonitorTriggerAction  `json:"actions"`
+}
+
+type MonitorTriggerBucketLevelTrigger struct {
 	Name      string                  `json:"name"`
 	Severity  string                  `json:"severity"`
 	Condition MonitorTriggerCondition `json:"condition"`

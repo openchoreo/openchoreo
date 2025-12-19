@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -28,7 +29,9 @@ type OpenSearchClient interface {
 	Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error)
 	GetIndexMapping(ctx context.Context, index string) (*opensearch.MappingResponse, error)
 	SearchMonitorByName(ctx context.Context, name string) (id string, exists bool, err error)
+	GetMonitorByID(ctx context.Context, monitorID string) (monitor map[string]interface{}, err error)
 	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, lastUpdateTime int64, err error)
+	UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (lastUpdateTime int64, err error)
 	DeleteMonitor(ctx context.Context, monitorID string) error
 	HealthCheck(ctx context.Context) error
 }
@@ -360,6 +363,29 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, rule types.Alertin
 
 // UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
 func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+	// Build the alert rule body
+	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build log alerting rule body: %w", err)
+	}
+
+	// Print the alert rule body in a pretty json format for debugging
+	if s.config.LogLevel == logLevelDebug {
+		alertRuleBodyJSON, err := json.Marshal(alertRuleBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal alert rule body: %w", err)
+		}
+		var prettyJSON bytes.Buffer
+		err = json.Indent(&prettyJSON, alertRuleBodyJSON, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to indent alert rule body: %w", err)
+		}
+		fmt.Println("Alert rule body:")
+		fmt.Println(prettyJSON.String())
+		fmt.Println("--------------------------------")
+	}
+
+	// Check if the alert rule already exists
 	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, rule.Metadata.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
@@ -370,32 +396,41 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 	lastUpdateTime := int64(0)
 
 	if exists {
-		s.logger.Debug("Alert rule " + rule.Metadata.Name + " already exists. Alert rule ID: " + backendID + ". Updating the alert rule.")
-		// TODO: Update the alert rule
-		action = "updated"
-	} else {
-		s.logger.Debug("Alert rule " + rule.Metadata.Name + " does not exist. Creating the alert rule.")
-		alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
+		s.logger.Debug("Alert rule already exists. Checking if update is needed.",
+			"rule_name", rule.Metadata.Name,
+			"monitor_id", backendID)
+
+		// Get the existing monitor to compare
+		existingMonitor, err := s.osClient.GetMonitorByID(ctx, backendID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build log alerting rule body: %w", err)
-		}
-		// print the alert rule body in a pretty json format for debugging
-		if s.config.LogLevel == logLevelDebug {
-			alertRuleBodyJSON, err := json.Marshal(alertRuleBody)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert rule body: %w", err)
-			}
-			var prettyJSON bytes.Buffer
-			err = json.Indent(&prettyJSON, alertRuleBodyJSON, "", "  ")
-			if err != nil {
-				return nil, fmt.Errorf("failed to indent alert rule body: %w", err)
-			}
-			fmt.Println("Alert rule body:")
-			fmt.Println(prettyJSON.String())
-			fmt.Println("--------------------------------")
+			return nil, fmt.Errorf("failed to get existing alert rule: %w", err)
 		}
 
-		// create the alert rule
+		// Compare the existing monitor with the new alert rule body
+		if s.monitorsAreEqual(existingMonitor, alertRuleBody) {
+			s.logger.Debug("Alert rule unchanged, skipping update.",
+				"rule_name", rule.Metadata.Name,
+				"monitor_id", backendID)
+			action = "unchanged"
+			// Use current time since we're not updating
+			lastUpdateTime = time.Now().UnixMilli()
+		} else {
+			s.logger.Debug("Alert rule changed, updating.",
+				"rule_name", rule.Metadata.Name,
+				"monitor_id", backendID)
+
+			// Update the alert rule
+			lastUpdateTime, err = s.osClient.UpdateMonitor(ctx, backendID, alertRuleBody)
+			if err != nil {
+				return nil, fmt.Errorf("failed to update alert rule: %w", err)
+			}
+			action = "updated"
+		}
+	} else {
+		s.logger.Debug("Alert rule does not exist. Creating the alert rule.",
+			"rule_name", rule.Metadata.Name)
+
+		// Create the alert rule
 		backendID, lastUpdateTime, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create alert rule: %w", err)
@@ -410,6 +445,61 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		Action:     action,
 		LastSynced: time.UnixMilli(lastUpdateTime).UTC().Format(time.RFC3339),
 	}, nil
+}
+
+// monitorsAreEqual compares two monitor bodies to determine if they are equal
+// It converts both monitors to MonitorBody struct to filter out metadata fields
+func (s *LoggingService) monitorsAreEqual(existing, new map[string]interface{}) bool {
+	// Convert existing monitor to MonitorBody struct (filters out metadata)
+	existingJSON, err := json.Marshal(existing)
+	if err != nil {
+		s.logger.Warn("Failed to marshal existing monitor for comparison", "error", err)
+		return false
+	}
+
+	var existingMonitor opensearch.MonitorBody
+	if err := json.Unmarshal(existingJSON, &existingMonitor); err != nil {
+		s.logger.Warn("Failed to unmarshal existing monitor to MonitorBody", "error", err)
+		return false
+	}
+
+	// Convert new monitor to MonitorBody struct (filters out metadata)
+	newJSON, err := json.Marshal(new)
+	if err != nil {
+		s.logger.Warn("Failed to marshal new monitor for comparison", "error", err)
+		return false
+	}
+
+	var newMonitor opensearch.MonitorBody
+	if err := json.Unmarshal(newJSON, &newMonitor); err != nil {
+		s.logger.Warn("Failed to unmarshal new monitor to MonitorBody", "error", err)
+		return false
+	}
+
+	isMonitorObjectEqual := reflect.DeepEqual(existingMonitor, newMonitor)
+	if isMonitorObjectEqual {
+		return true
+	}
+
+	s.logger.Debug("Monitors are not equal")
+
+	// Marshal monitor bodies to log for debugging
+	existingBodyJSON, err := json.Marshal(existingMonitor)
+	if err != nil {
+		s.logger.Warn("Failed to marshal existing MonitorBody for comparison", "error", err)
+		return false
+	}
+	newBodyJSON, err := json.Marshal(newMonitor)
+	if err != nil {
+		s.logger.Warn("Failed to marshal new MonitorBody for comparison", "error", err)
+		return false
+	}
+
+	s.logger.Debug("Monitor comparison details",
+		"existing", string(existingBodyJSON),
+		"new", string(newBodyJSON))
+
+	return false
 }
 
 // DeleteAlertRule deletes an alert rule from the observability backend
