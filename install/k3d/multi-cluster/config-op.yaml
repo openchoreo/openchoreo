@@ -21,6 +21,14 @@ ports:
   - port: 11082:9200
     nodeFilters:
       - loadbalancer
+  # Prometheus
+  - port: 11083:8081
+    nodeFilters:
+      - loadbalancer
+  - port: 11084:9091
+    nodeFilters:
+      - loadbalancer
+    
 options:
   k3s:
     extraArgs:

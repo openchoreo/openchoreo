@@ -67,7 +67,7 @@ func (da *DisabledAuthorizer) GetSubjectProfile(ctx context.Context, request *au
 		"subject", request.SubjectContext)
 
 	return &authz.UserCapabilitiesResponse{
-		User: nil,
+		User: request.SubjectContext,
 		Capabilities: map[string]*authz.ActionCapability{
 			"*": { // Wildcard action - all actions allowed
 				Allowed: []*authz.CapabilityResource{

@@ -126,7 +126,7 @@ func (e *Engine) Render(data any, inputs map[string]any) (any, error) {
 //   - Booleans: formatted as "true" or "false"
 //   - Objects/arrays: JSON-marshaled, falling back to %v formatting on error
 func (e *Engine) renderString(str string, inputs map[string]any) (any, error) {
-	expressions, err := findCELExpressions(str)
+	expressions, err := FindCELExpressions(str)
 	if err != nil {
 		return nil, err
 	}
@@ -136,15 +136,15 @@ func (e *Engine) renderString(str string, inputs map[string]any) (any, error) {
 
 	// Standalone expression: return native type (e.g., ${spec.replicas} returns int, not "3")
 	trimmed := strings.TrimSpace(str)
-	if len(expressions) == 1 && expressions[0].fullExpr == trimmed {
-		result, err := e.evaluateCEL(expressions[0].innerExpr, inputs)
+	if len(expressions) == 1 && expressions[0].FullExpr == trimmed {
+		result, err := e.evaluateCEL(expressions[0].InnerExpr, inputs)
 		return normalizeCELResult(result, err)
 	}
 
 	// Interpolation mode: substitute all expressions into the string
 	rendered := str
 	for _, match := range expressions {
-		value, err := e.evaluateCEL(match.innerExpr, inputs)
+		value, err := e.evaluateCEL(match.InnerExpr, inputs)
 		if err != nil {
 			return nil, err
 		}
@@ -170,20 +170,22 @@ func (e *Engine) renderString(str string, inputs map[string]any) (any, error) {
 			}
 		}
 
-		rendered = strings.Replace(rendered, match.fullExpr, replacement, 1)
+		rendered = strings.Replace(rendered, match.FullExpr, replacement, 1)
 	}
 
 	return rendered, nil
 }
 
-type celMatch struct {
-	fullExpr  string
-	innerExpr string
+// CELMatch represents a CEL expression found in a template string.
+type CELMatch struct {
+	FullExpr  string // The complete ${...} expression including delimiters
+	InnerExpr string // The CEL expression content without ${ and }
 }
 
-var errNestedExpression = errors.New("nested CEL expressions must be quoted")
+// ErrNestedExpression is returned when nested CEL expressions are found.
+var ErrNestedExpression = errors.New("nested CEL expressions must be quoted")
 
-// findCELExpressions locates all ${...} expression markers within a string.
+// FindCELExpressions locates all ${...} expression markers within a string.
 //
 // This function performs brace-balanced parsing to handle nested curly braces correctly.
 // For example, in "${merge({a: 1}, {b: 2})}", the parser counts opening and closing braces
@@ -193,15 +195,15 @@ var errNestedExpression = errors.New("nested CEL expressions must be quoted")
 // When the counter returns to zero, we've found the matching closing brace.
 //
 // Returns:
-//   - fullExpr: the complete ${...} expression including delimiters
-//   - innerExpr: the CEL expression content without ${ and }
+//   - FullExpr: the complete ${...} expression including delimiters
+//   - InnerExpr: the CEL expression content without ${ and }
 //
 // Example:
 //   - Input: "image:${spec.image}:${spec.tag}"
-//   - Output: [{fullExpr: "${spec.image}", innerExpr: "spec.image"},
-//     {fullExpr: "${spec.tag}", innerExpr: "spec.tag"}]
-func findCELExpressions(str string) ([]celMatch, error) {
-	var matches []celMatch
+//   - Output: [{FullExpr: "${spec.image}", InnerExpr: "spec.image"},
+//     {FullExpr: "${spec.tag}", InnerExpr: "spec.tag"}]
+func FindCELExpressions(str string) ([]CELMatch, error) {
+	var matches []CELMatch
 	i := 0
 	for i < len(str) {
 		start := strings.Index(str[i:], "${")
@@ -245,7 +247,7 @@ func findCELExpressions(str string) ([]celMatch, error) {
 				escaped = false
 			case '$':
 				if !inSingleQuote && !inDoubleQuote && pos+1 < len(str) && str[pos+1] == '{' {
-					return nil, fmt.Errorf("%w: %s", errNestedExpression, str[start:pos+2])
+					return nil, fmt.Errorf("%w: %s", ErrNestedExpression, str[start:pos+2])
 				}
 				escaped = false
 			default:
@@ -255,9 +257,9 @@ func findCELExpressions(str string) ([]celMatch, error) {
 		}
 
 		if brace == 0 {
-			matches = append(matches, celMatch{
-				fullExpr:  str[start:pos],
-				innerExpr: str[start+2 : pos-1],
+			matches = append(matches, CELMatch{
+				FullExpr:  str[start:pos],
+				InnerExpr: str[start+2 : pos-1],
 			})
 			i = pos
 		} else {

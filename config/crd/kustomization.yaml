@@ -25,6 +25,8 @@ resources:
   - bases/openchoreo.dev_componentworkflows.yaml
   - bases/openchoreo.dev_componentworkflowruns.yaml
   - bases/openchoreo.dev_observabilityplanes.yaml
+  - bases/openchoreo.dev_observabilityalertsnotificationchannels.yaml
+  - bases/openchoreo.dev_observabilityalertrules.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

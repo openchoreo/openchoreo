@@ -13,6 +13,10 @@ HELM_OCI_REGISTRY ?= oci://ghcr.io/openchoreo/helm-charts
 HELM_CONTROLLER_IMAGE := $(IMAGE_REPO_PREFIX)/controller
 HELM_CONTROLLER_IMAGE_PULL_POLICY ?= Always
 
+# Define the CRDs to be applied only to the observability plane chart
+OBSERVABILITY_PLANE_CRDS := \
+	observabilityalertrules
+
 ##@ Helm
 
 # Define the generation targets for the helm charts that are required for the helm package and push.
@@ -33,15 +37,36 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 		  $(YQ) eval '.backstage.backstage.image.tag = "$(TAG)"' -i $$VALUES_FILE; \
 		fi \
 	fi
-	@# Copy CRDs and RBAC to openchoreo-control-plane chart
-	@if [ ${CHART_NAME} == "openchoreo-control-plane" ]; then \
+	@case ${CHART_NAME} in \
+	"openchoreo-control-plane") \
 		$(call log_info, Generating resources for control-plane chart); \
 		$(MAKE) manifests; \
 		$(call log_info, Running helm-gen for openchoreo-control-plane chart); \
 		$(KUBEBUILDER_HELM_GEN) -config-dir $(PROJECT_DIR)/config -chart-dir $(CHART_PATH) -controller-subdir controller-manager; \
-	fi
+		$(call log_info, Removing ObservabilityPlane related CRDs and RBAC from control-plane chart); \
+		for crd in $(OBSERVABILITY_PLANE_CRDS); do \
+			$(call log_info, Removing $$crd CRD from control-plane chart); \
+			rm -f $(CHART_PATH)/crds/openchoreo.dev_$$crd.yaml; \
+			$(call log_info, Removing $$crd RBAC from control-plane chart); \
+			sed -i.bak "/$$crd/d" $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml && \
+			rm -f $(CHART_PATH)/templates/controller-manager/controller-manager-role.yaml.bak; \
+		done; \
+		;; \
+	"openchoreo-observability-plane") \
+		$(call log_info, Generating CRDs for observability plane chart); \
+		: "TODO: Automate this in future."; \
+		: " Manually copy the CRDs from config/crd/bases to the observability plane chart for now"; \
+		for crd in $(OBSERVABILITY_PLANE_CRDS); do \
+		  $(call log_info, Copying $$crd CRD from config/crd/bases to observability plane chart); \
+		  cp $(PROJECT_DIR)/config/crd/bases/openchoreo.dev_$$crd.yaml $(CHART_PATH)/crds/openchoreo.dev_$$crd.yaml; \
+		  $(call log_warning, Please add $$crd RBAC to the observability plane chart manually); \
+		done; \
+		;; \
+	esac
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)
+
+
 
 .PHONY: helm-generate
 helm-generate: $(addprefix helm-generate., $(HELM_CHART_NAMES)) ## Generate all helm charts.

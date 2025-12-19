@@ -1,0 +1,90 @@
+{{- if .Values.controllerManager.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.controllerManager.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
+spec:
+  replicas: {{ .Values.controllerManager.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.controllerManager.name }}
+      {{- with .Values.controllerManager.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controllerManager.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controllerManager.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controllerManager.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controllerManager.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: manager
+        image: {{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.controllerManager.image.pullPolicy }}
+        command:
+        - /manager
+        args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        env:
+        - name: ENABLE_WEBHOOKS
+          value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        {{- if .Values.controllerManager.clusterGateway.enabled }}
+        - name: CLUSTER_GATEWAY_URL
+          value: {{ quote .Values.controllerManager.clusterGateway.url }}
+        - name: CLUSTER_GATEWAY_CA_CERT
+          value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- end }}
+        ports:
+        - name: metrics
+          containerPort: 8080
+        - name: health
+          containerPort: 8081
+        - name: webhook-server
+          containerPort: 9443
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.controllerManager.resources | nindent 10 }}
+        {{- with .Values.controllerManager.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- if .Values.controllerManager.clusterGateway.enabled }}
+      volumes:
+      - name: cluster-gateway-ca
+        configMap:
+          name: {{ .Values.controllerManager.clusterGateway.tls.caConfigMap }}
+      {{- end }}
+{{- end }}

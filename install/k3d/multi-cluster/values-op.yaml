@@ -14,6 +14,16 @@ openSearch:
   service:
     type: LoadBalancer
 
+prometheus:
+  enabled: true
+  prometheus:
+    prometheusSpec:
+      enableRemoteWriteReceiver: true
+    service:
+      type: LoadBalancer
+      port: 9091
+      reloaderWebPort: 8081
+
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
   planeName: "default"
