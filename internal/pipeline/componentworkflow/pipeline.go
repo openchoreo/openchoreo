@@ -80,8 +80,8 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	if input.Context.ComponentName == "" {
 		return fmt.Errorf("context.componentName is required")
 	}
-	if input.Context.ComponentWorkflowRunName == "" {
-		return fmt.Errorf("context.componentWorkflowRunName is required")
+	if input.Context.WorkflowRunName == "" {
+		return fmt.Errorf("context.workflowRunName is required")
 	}
 
 	return nil
@@ -111,13 +111,13 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 	return resource, nil
 }
 
-// buildCELContext builds the CEL evaluation context with ctx.*, systemParameters.*, and parameters.* variables.
+// buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, and parameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
-	ctx := map[string]any{
+	metadata := map[string]any{
 		"orgName":                  input.Context.OrgName,
 		"projectName":              input.Context.ProjectName,
 		"componentName":            input.Context.ComponentName,
-		"componentWorkflowRunName": input.Context.ComponentWorkflowRunName,
+		"workflowRunName": input.Context.WorkflowRunName,
 	}
 
 	// Build system parameters - these are the actual values from ComponentWorkflowRun
@@ -130,7 +130,7 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"ctx":              ctx,
+		"metadata":         metadata,
 		"systemParameters": systemParameters,
 		"parameters":       parameters,
 	}, nil

@@ -43,7 +43,7 @@ type RenderMetadata struct {
 }
 
 // ComponentWorkflowContext provides contextual metadata for component workflow rendering.
-// These values are injected into CEL expressions as ${ctx.*} variables.
+// These values are injected into CEL expressions as ${metadata.*} variables.
 type ComponentWorkflowContext struct {
 	// OrgName is the organization name (typically the namespace).
 	OrgName string
@@ -54,6 +54,6 @@ type ComponentWorkflowContext struct {
 	// ComponentName is the component name from the component workflow owner.
 	ComponentName string
 
-	// ComponentWorkflowRunName is the name of the component workflow run CR.
-	ComponentWorkflowRunName string
+	// WorkflowRunName is the name of the component workflow run CR.
+	WorkflowRunName string
 }

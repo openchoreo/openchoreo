@@ -21,12 +21,12 @@ type ComponentWorkflowSpec struct {
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the build plane.
 	// Template variables are substituted with context and parameter values.
 	// Supported template variables:
-	//   ${ctx.componentWorkflowRunName} - ComponentWorkflowRun CR name
-	//   ${ctx.componentName}             - Component name
-	//   ${ctx.projectName}               - Project name
-	//   ${ctx.orgName}                   - Organization name (namespace)
-	//   ${systemParameters.*}            - System parameter values
-	//   ${parameters.*}                  - Developer parameter values
+	//   ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
+	//   ${metadata.componentName}    - Component name
+	//   ${metadata.projectName}      - Project name
+	//   ${metadata.orgName}          - Organization name (namespace)
+	//   ${systemParameters.*}        - System parameter values
+	//   ${parameters.*}              - Developer parameter values
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
