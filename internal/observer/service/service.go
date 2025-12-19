@@ -349,20 +349,20 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 }
 
 // UpsertAlertRule creates or updates an alert rule in the observability backend
-func (s *LoggingService) UpsertAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string, ruleName string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
 	// Decide the observability backend based on the type of rule
-	switch rule.Source.Type {
+	switch sourceType {
 	case "log":
-		return s.UpsertOpenSearchAlertRule(ctx, rule)
+		return s.UpsertOpenSearchAlertRule(ctx, ruleName, rule)
 	// case "metric": (not implemented yet)
 	// 	return s.UpsertMetricAlertRule(ctx, rule)
 	default:
-		return nil, fmt.Errorf("invalid alert rule source type: %s", rule.Source.Type)
+		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
 	}
 }
 
 // UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
-func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
 	// Build the alert rule body
 	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
 	if err != nil {
@@ -386,7 +386,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 	}
 
 	// Check if the alert rule already exists
-	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, rule.Metadata.Name)
+	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, ruleName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
 	}
@@ -397,7 +397,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 
 	if exists {
 		s.logger.Debug("Alert rule already exists. Checking if update is needed.",
-			"rule_name", rule.Metadata.Name,
+			"rule_name", ruleName,
 			"monitor_id", backendID)
 
 		// Get the existing monitor to compare
@@ -409,14 +409,14 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		// Compare the existing monitor with the new alert rule body
 		if s.monitorsAreEqual(existingMonitor, alertRuleBody) {
 			s.logger.Debug("Alert rule unchanged, skipping update.",
-				"rule_name", rule.Metadata.Name,
+				"rule_name", ruleName,
 				"monitor_id", backendID)
 			action = "unchanged"
 			// Use current time since we're not updating
 			lastUpdateTime = time.Now().UnixMilli()
 		} else {
 			s.logger.Debug("Alert rule changed, updating.",
-				"rule_name", rule.Metadata.Name,
+				"rule_name", ruleName,
 				"monitor_id", backendID)
 
 			// Update the alert rule
@@ -428,7 +428,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		}
 	} else {
 		s.logger.Debug("Alert rule does not exist. Creating the alert rule.",
-			"rule_name", rule.Metadata.Name)
+			"rule_name", ruleName)
 
 		// Create the alert rule
 		backendID, lastUpdateTime, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
@@ -440,7 +440,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 	// Return the alert rule ID
 	return &types.AlertingRuleSyncResponse{
 		Status:     "synced",
-		LogicalID:  rule.Metadata.Name,
+		LogicalID:  ruleName,
 		BackendID:  backendID,
 		Action:     action,
 		LastSynced: time.UnixMilli(lastUpdateTime).UTC().Format(time.RFC3339),

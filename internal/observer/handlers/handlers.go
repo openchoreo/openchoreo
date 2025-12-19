@@ -570,8 +570,18 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// UpsertAlertingRule handles PUT /api/alerting/rule/
+// UpsertAlertingRule handles PUT /api/alerting/rule/{sourceType}/{ruleName}
 func (h *Handler) UpsertAlertingRule(w http.ResponseWriter, r *http.Request) {
+	sourceType := httputil.GetPathParam(r, "sourceType")
+	if sourceType == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgSourceTypeRequired)
+		return
+	}
+	ruleName := httputil.GetPathParam(r, "ruleName")
+	if ruleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgRuleNameRequired)
+		return
+	}
 	var req types.AlertingRuleRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind alerting rule request", "error", err)
@@ -589,7 +599,7 @@ func (h *Handler) UpsertAlertingRule(w http.ResponseWriter, r *http.Request) {
 
 	// Upsert the alerting rule
 	ctx := r.Context()
-	resp, err := h.service.UpsertAlertRule(ctx, req)
+	resp, err := h.service.UpsertAlertRule(ctx, sourceType, ruleName, req)
 	if err != nil {
 		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", req.Metadata.Name)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to upsert alerting rule")

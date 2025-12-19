@@ -87,7 +87,7 @@ func main() {
 	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
 
 	// API routes - Alerting
-	mux.HandleFunc("PUT /api/alerting/rule", handler.UpsertAlertingRule)
+	mux.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
 	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
 	mux.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook) // Internal webhook for alerting
 
