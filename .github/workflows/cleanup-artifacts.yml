@@ -1,0 +1,174 @@
+name: Cleanup Old Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (show what would be deleted without deleting)'
+        type: boolean
+        default: true
+      retention_days:
+        description: 'Delete artifacts older than this many days'
+        type: number
+        default: 180
+
+jobs:
+  cleanup-docker-images:
+    name: Cleanup Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        package:
+          - controller
+          - cluster-gateway
+          - cluster-agent
+          - openchoreo-api
+          - observer
+          - openchoreo-cli
+          - quick-start
+          - init-observability-opensearch
+    steps:
+      - name: Calculate cutoff date
+        id: cutoff
+        run: |
+          CUTOFF=$(date -d "${{ inputs.retention_days }} days ago" -Iseconds -u)
+          echo "date=$CUTOFF" >> $GITHUB_OUTPUT
+          echo "Cutoff date: $CUTOFF (retention: ${{ inputs.retention_days }} days, dry_run: ${{ inputs.dry_run }})"
+
+      - name: Find old SHA-only versions
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Finding old SHA-only versions for ${{ matrix.package }}..."
+
+          # Get versions that:
+          # 1. Have tags (not untagged manifests)
+          # 2. All tags match 8-char SHA pattern (excludes latest-dev, releases)
+          # 3. Created before cutoff date
+          VERSIONS=$(gh api '/orgs/${{ github.repository_owner }}/packages/container/${{ matrix.package }}/versions' \
+            --paginate \
+            --jq '
+              .[] |
+              select(.metadata.container.tags | length > 0) |
+              select(.metadata.container.tags | all(test("^[0-9a-f]{8}$"))) |
+              select(.created_at < "${{ steps.cutoff.outputs.date }}") |
+              {id, tags: .metadata.container.tags, created_at}
+            ' 2>/dev/null || echo "")
+
+          if [ -z "$VERSIONS" ]; then
+            echo "No old SHA-only versions found for ${{ matrix.package }}"
+            echo "count=0" >> $GITHUB_OUTPUT
+          else
+            COUNT=$(echo "$VERSIONS" | jq -s 'length')
+            echo "Found $COUNT old SHA-only version(s) for ${{ matrix.package }}:"
+            echo "$VERSIONS" | jq -r '"  - \(.tags[0]) (created: \(.created_at), id: \(.id))"'
+            echo "versions<<EOF" >> $GITHUB_OUTPUT
+            echo "$VERSIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "count=$COUNT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete old versions
+        if: ${{ inputs.dry_run == false && steps.find.outputs.count != '0' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deleting old SHA-only versions for ${{ matrix.package }}..."
+
+          echo '${{ steps.find.outputs.versions }}' | jq -r '.id' | while read -r VERSION_ID; do
+            echo "Deleting version $VERSION_ID..."
+            # TODO: Uncomment when ready to enable deletion
+            # gh api -X DELETE "/orgs/${{ github.repository_owner }}/packages/container/${{ matrix.package }}/versions/$VERSION_ID"
+          done
+
+          echo "Cleanup complete for ${{ matrix.package }}"
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          echo "::notice::DRY RUN - No versions were deleted for ${{ matrix.package }}"
+          if [ "${{ steps.find.outputs.count }}" != "0" ]; then
+            echo "Would have deleted ${{ steps.find.outputs.count }} version(s)"
+          fi
+
+  cleanup-helm-charts:
+    name: Cleanup Helm Charts
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        chart:
+          - openchoreo-control-plane
+          - openchoreo-data-plane
+          - openchoreo-build-plane
+          - openchoreo-observability-plane
+    steps:
+      - name: Calculate cutoff date
+        id: cutoff
+        run: |
+          CUTOFF=$(date -d "${{ inputs.retention_days }} days ago" -Iseconds -u)
+          echo "date=$CUTOFF" >> $GITHUB_OUTPUT
+          echo "Cutoff date: $CUTOFF (retention: ${{ inputs.retention_days }} days, dry_run: ${{ inputs.dry_run }})"
+
+      - name: Find old SHA-only versions
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Finding old SHA-only versions for helm-charts/${{ matrix.chart }}..."
+
+          # Note: nested paths require URL encoding (helm-charts%2F)
+          # Get versions that:
+          # 1. Have tags (not untagged manifests)
+          # 2. All tags match 0.0.0-SHA pattern (excludes releases)
+          # 3. Created before cutoff date
+          VERSIONS=$(gh api "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/helm-charts%2F${{ matrix.chart }}/versions" \
+            --paginate \
+            --jq '
+              .[] |
+              select(.metadata.container.tags | length > 0) |
+              select(.metadata.container.tags | all(test("^0\\.0\\.0-[0-9a-f]{8}$"))) |
+              select(.created_at < "${{ steps.cutoff.outputs.date }}") |
+              {id, tags: .metadata.container.tags, created_at}
+            ' 2>/dev/null || echo "")
+
+          if [ -z "$VERSIONS" ]; then
+            echo "No old SHA-only versions found for helm-charts/${{ matrix.chart }}"
+            echo "count=0" >> $GITHUB_OUTPUT
+          else
+            COUNT=$(echo "$VERSIONS" | jq -s 'length')
+            echo "Found $COUNT old SHA-only version(s) for helm-charts/${{ matrix.chart }}:"
+            echo "$VERSIONS" | jq -r '"  - \(.tags[0]) (created: \(.created_at), id: \(.id))"'
+            echo "versions<<EOF" >> $GITHUB_OUTPUT
+            echo "$VERSIONS" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "count=$COUNT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Delete old versions
+        if: ${{ inputs.dry_run == false && steps.find.outputs.count != '0' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Deleting old SHA-only versions for helm-charts/${{ matrix.chart }}..."
+
+          # Note: nested paths require URL encoding
+          echo '${{ steps.find.outputs.versions }}' | jq -r '.id' | while read -r VERSION_ID; do
+            echo "Deleting version $VERSION_ID..."
+            # TODO: Uncomment when ready to enable deletion
+            # gh api -X DELETE "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/helm-charts%2F${{ matrix.chart }}/versions/$VERSION_ID"
+          done
+
+          echo "Cleanup complete for helm-charts/${{ matrix.chart }}"
+
+      - name: Dry run summary
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          echo "::notice::DRY RUN - No versions were deleted for helm-charts/${{ matrix.chart }}"
+          if [ "${{ steps.find.outputs.count }}" != "0" ]; then
+            echo "Would have deleted ${{ steps.find.outputs.count }} version(s)"
+          fi
