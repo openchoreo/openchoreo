@@ -66,7 +66,6 @@ func main() {
 		Enabled:                  os.Getenv("AUTHZ_ENABLED") == "true",
 		DatabasePath:             os.Getenv("AUTHZ_DATABASE_PATH"),
 		DefaultAuthzDataFilePath: os.Getenv("AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH"),
-		UserTypeConfigs:          cfg.Authz.UserTypes,
 		EnableCache:              false,
 	}
 	pap, pdp, err := authz.Initialize(authzConfig, baseLogger.With("component", "authz"))
@@ -78,8 +77,8 @@ func main() {
 	// Initialize services with PAP and PDP
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, baseLogger)
 
-	// Initialize HTTP handlers
-	handler := handlers.New(services, baseLogger.With("component", "handlers"))
+	// Initialize HTTP handlers with config for user type management
+	handler := handlers.New(services, cfg, baseLogger.With("component", "handlers"))
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(*port),

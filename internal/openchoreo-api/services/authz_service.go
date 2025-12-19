@@ -235,23 +235,10 @@ func (s *AuthzService) ListActions(ctx context.Context) ([]string, error) {
 	return actions, nil
 }
 
-// ListUserTypes lists all configured user types in the system
-func (s *AuthzService) ListUserTypes(ctx context.Context) ([]authz.UserTypeInfo, error) {
-	s.logger.Debug("Listing user types")
-
-	userTypes, err := s.pap.ListUserTypes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list user types: %w", err)
-	}
-
-	s.logger.Debug("Listed user types", "count", len(userTypes))
-	return userTypes, nil
-}
-
 // Evaluate evaluates an authorization request using the PDP
 func (s *AuthzService) Evaluate(ctx context.Context, request *authz.EvaluateRequest) (*authz.Decision, error) {
 	s.logger.Debug("Evaluating authorization request",
-		"subject", request.Subject,
+		"subject", request.SubjectContext,
 		"resource", request.Resource,
 		"action", request.Action)
 
@@ -288,7 +275,7 @@ func (s *AuthzService) BatchEvaluate(ctx context.Context, request *authz.BatchEv
 }
 
 func (s *AuthzService) GetSubjectProfile(ctx context.Context, request *authz.ProfileRequest) (*authz.UserCapabilitiesResponse, error) {
-	s.logger.Debug("Retrieving subject profile", "subject", request.Subject, "scope", request.Scope)
+	s.logger.Debug("Retrieving subject profile", "subject", request.SubjectContext, "scope", request.Scope)
 
 	profile, err := s.pdp.GetSubjectProfile(ctx, request)
 	if err != nil {

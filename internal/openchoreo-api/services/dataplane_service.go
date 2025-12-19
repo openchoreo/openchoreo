@@ -171,22 +171,9 @@ func (s *DataPlaneService) buildDataPlaneCR(orgName string, req *models.CreateDa
 	}
 
 	spec := openchoreov1alpha1.DataPlaneSpec{
-		KubernetesCluster: &openchoreov1alpha1.KubernetesClusterSpec{
-			Server: req.APIServerURL,
-			TLS: openchoreov1alpha1.KubernetesTLS{
-				CA: openchoreov1alpha1.ValueFrom{
-					Value: req.CACert,
-				},
-			},
-			Auth: openchoreov1alpha1.KubernetesAuth{
-				MTLS: &openchoreov1alpha1.MTLSAuth{
-					ClientCert: openchoreov1alpha1.ValueFrom{
-						Value: req.ClientCert,
-					},
-					ClientKey: openchoreov1alpha1.ValueFrom{
-						Value: req.ClientKey,
-					},
-				},
+		ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+			ClientCA: openchoreov1alpha1.ValueFrom{
+				Value: req.ClusterAgentClientCA,
 			},
 		},
 		Gateway: openchoreov1alpha1.GatewaySpec{
@@ -245,19 +232,6 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		secretStoreRef = dp.Spec.SecretStoreRef.Name
 	}
 
-	// Extract agent configuration
-	var agentEnabled bool
-	if dp.Spec.Agent != nil {
-		agentEnabled = dp.Spec.Agent.Enabled
-	}
-
-	// Extract KubernetesCluster fields if present (optional when agent mode is enabled)
-	// TODO: Implement a generic reflection-based utility function to handle extraction of values
-	var apiServerURL string
-	if dp.Spec.KubernetesCluster != nil {
-		apiServerURL = dp.Spec.KubernetesCluster.Server
-	}
-
 	response := &models.DataPlaneResponse{
 		Name:                    dp.Name,
 		Namespace:               dp.Namespace,
@@ -265,9 +239,6 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		Description:             description,
 		ImagePullSecretRefs:     dp.Spec.ImagePullSecretRefs,
 		SecretStoreRef:          secretStoreRef,
-		AgentEnabled:            agentEnabled,
-		KubernetesClusterName:   dp.Name,
-		APIServerURL:            apiServerURL,
 		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
 		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 		CreatedAt:               dp.CreationTimestamp.Time,

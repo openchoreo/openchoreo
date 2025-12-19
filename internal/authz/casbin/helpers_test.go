@@ -258,8 +258,10 @@ func TestValidateEvaluateRequest(t *testing.T) {
 		{
 			name: "valid request",
 			request: &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "valid-token",
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"test"},
 				},
 				Resource: authzcore.Resource{
 					Type: "component",
@@ -274,11 +276,9 @@ func TestValidateEvaluateRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing JWT token",
+			name: "missing subject context",
 			request: &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "",
-				},
+				SubjectContext: nil,
 				Resource: authzcore.Resource{
 					Type: "component",
 				},
@@ -289,8 +289,10 @@ func TestValidateEvaluateRequest(t *testing.T) {
 		{
 			name: "missing resource type",
 			request: &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "valid-token",
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"test"},
 				},
 				Resource: authzcore.Resource{
 					Type: "",
@@ -302,8 +304,10 @@ func TestValidateEvaluateRequest(t *testing.T) {
 		{
 			name: "missing action",
 			request: &authzcore.EvaluateRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "valid-token",
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"test"},
 				},
 				Resource: authzcore.Resource{
 					Type: "component",
@@ -326,8 +330,10 @@ func TestValidateEvaluateRequest(t *testing.T) {
 
 func TestValidateBatchEvaluateRequest(t *testing.T) {
 	validRequest := authzcore.EvaluateRequest{
-		Subject: authzcore.Subject{
-			JwtToken: "valid-token",
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"test"},
 		},
 		Resource: authzcore.Resource{
 			Type: "component",
@@ -360,13 +366,11 @@ func TestValidateBatchEvaluateRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid request at index 0 - missing JWT",
+			name: "invalid request at index 0 - missing subject context",
 			request: &authzcore.BatchEvaluateRequest{
 				Requests: []authzcore.EvaluateRequest{
 					{
-						Subject: authzcore.Subject{
-							JwtToken: "",
-						},
+						SubjectContext: nil,
 						Resource: authzcore.Resource{
 							Type: "component",
 						},
@@ -382,8 +386,10 @@ func TestValidateBatchEvaluateRequest(t *testing.T) {
 				Requests: []authzcore.EvaluateRequest{
 					validRequest,
 					{
-						Subject: authzcore.Subject{
-							JwtToken: "valid-token",
+						SubjectContext: &authzcore.SubjectContext{
+							Type:              "user",
+							EntitlementClaim:  "groups",
+							EntitlementValues: []string{"test"},
 						},
 						Resource: authzcore.Resource{
 							Type: "",
@@ -415,8 +421,10 @@ func TestValidateProfileRequest(t *testing.T) {
 		{
 			name: "valid profile request",
 			request: &authzcore.ProfileRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "valid-token",
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              authzcore.SubjectTypeUser,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"test-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
 					Organization: "acme",
@@ -430,11 +438,9 @@ func TestValidateProfileRequest(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "missing JWT token",
+			name: "missing subject context",
 			request: &authzcore.ProfileRequest{
-				Subject: authzcore.Subject{
-					JwtToken: "",
-				},
+				SubjectContext: nil,
 				Scope: authzcore.ResourceHierarchy{
 					Organization: "acme",
 				},

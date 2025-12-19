@@ -166,30 +166,9 @@ var (
 		Usage: messages.FlagDeployableArtifactDesc,
 	}
 
-	KubernetesClusterName = Flag{
-		Name:  "cluster-name",
-		Usage: "Name of the Kubernetes cluster",
-	}
-
 	ConnectionConfigRef = Flag{
 		Name:  "connection-config",
 		Usage: "Reference to the connection configuration",
-	}
-
-	EnableCilium = Flag{
-		Name:  "enable-cilium",
-		Usage: "Enable Cilium networking",
-		Type:  "bool",
-	}
-
-	EnableScaleToZero = Flag{
-		Name:  "enable-scale-to-zero",
-		Usage: "Enable scale to zero functionality",
-	}
-
-	GatewayType = Flag{
-		Name:  "gateway-type",
-		Usage: "Gateway type (e.g., envoy)",
 	}
 
 	PublicVirtualHost = Flag{
@@ -202,24 +181,9 @@ var (
 		Usage: "Organization virtual host for the gateway",
 	}
 
-	APIServerURL = Flag{
-		Name:  "api-server-url",
-		Usage: "The URL of the Kubernetes API server for the data plane",
-	}
-
-	CaCert = Flag{
-		Name:  "ca-cert",
-		Usage: "The CA certificate used to verify the API server's identity",
-	}
-
-	ClientCert = Flag{
-		Name:  "client-cert",
-		Usage: "The client certificate for authenticating to the API server",
-	}
-
-	ClientKey = Flag{
-		Name:  "client-key",
-		Usage: "The private key corresponding to the client certificate",
+	ClusterAgentClientCA = Flag{
+		Name:  "cluster-agent-client-ca",
+		Usage: "The CA certificate used to verify the cluster agent's client certificate",
 	}
 
 	EndpointType = Flag{

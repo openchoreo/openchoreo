@@ -23,13 +23,15 @@ import (
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
 	services *services.Services
+	config   *config.Config
 	logger   *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
 		services: services,
+		config:   cfg,
 		logger:   logger,
 	}
 }
@@ -171,7 +173,9 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("PUT "+v1+"/authz/role-mappings/{mappingId}", h.UpdateRoleMapping)
 	api.HandleFunc("DELETE "+v1+"/authz/role-mappings/{mappingId}", h.RemoveRoleMapping)
 	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
-	api.HandleFunc("GET "+v1+"/authz/user-types", h.ListUserTypes)
+
+	// User types endpoint
+	api.HandleFunc("GET "+v1+"/user-types", h.listUserTypes)
 
 	// Authorization evaluation endpoints
 	api.HandleFunc("POST "+v1+"/authz/evaluate", h.Evaluate)
@@ -184,6 +188,11 @@ func (h *Handler) Routes() http.Handler {
 	return mux
 }
 
+func (h *Handler) listUserTypes(w http.ResponseWriter, r *http.Request) {
+	userTypes := h.config.Security.UserTypes
+	writeSuccessResponse(w, http.StatusOK, userTypes)
+}
+
 // initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
 func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	// Get JWT configuration from environment variables
@@ -192,16 +201,28 @@ func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	jwtIssuer := os.Getenv(config.EnvJWTIssuer)
 	jwtAudience := os.Getenv(config.EnvJWTAudience) // Optional
 
+	// Create OAuth2 user type detector from configuration
+	var detector *jwt.Resolver
+	if len(h.config.Security.UserTypes) > 0 {
+		var err error
+		detector, err = jwt.NewResolver(h.config.Security.UserTypes)
+		if err != nil {
+			h.logger.Error("Failed to create OAuth2 user type detector", "error", err)
+			// Continue without detector - JWT middleware will still work but won't resolve SubjectContext
+		}
+	}
+
 	// Configure JWT middleware
-	config := jwt.Config{
+	jwtConfig := jwt.Config{
 		Disabled:         jwtDisabled,
 		JWKSURL:          jwksURL,
 		ValidateIssuer:   jwtIssuer,
 		ValidateAudience: jwtAudience, // Only validates if set
+		Detector:         detector,
 		Logger:           h.logger,
 	}
 
-	return jwt.Middleware(config)
+	return jwt.Middleware(jwtConfig)
 }
 
 func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {

@@ -24,16 +24,11 @@ const (
 	PolicyEffectDeny  PolicyEffectType = "deny"
 )
 
-// Subject represents the actor making the authorization request
-type Subject struct {
-	JwtToken string `json:"jwt_token"`
-}
-
-// SubjectContext - internal auth context for the subject
+// SubjectContext represents the authenticated subject making the authorization request
 type SubjectContext struct {
-	Type              SubjectType
-	EntitlementClaim  string
-	EntitlementValues []string
+	Type              SubjectType `json:"type"`
+	EntitlementClaim  string      `json:"entitlement_claim"`
+	EntitlementValues []string    `json:"entitlement_values"`
 }
 
 // ResourceHierarchy represents a single item in a resource hierarchy
@@ -70,10 +65,10 @@ type DecisionContext struct {
 
 // EvaluateRequest represents a single authorization request
 type EvaluateRequest struct {
-	Subject  Subject  `json:"subject"`
-	Resource Resource `json:"resource"`
-	Action   string   `json:"action"`
-	Context  Context  `json:"context"`
+	SubjectContext *SubjectContext `json:"subject_context"`
+	Resource       Resource        `json:"resource"`
+	Action         string          `json:"action"`
+	Context        Context         `json:"context"`
 }
 
 // BatchEvaluateRequest represents a batch of authorization requests
@@ -88,8 +83,8 @@ type BatchEvaluateResponse struct {
 
 // ProfileRequest represents a request to retrieve a subject's authorization profile
 type ProfileRequest struct {
-	// Subject is the actor whose profile is being requested
-	Subject Subject `json:"subject"`
+	// SubjectContext is the authenticated subject whose profile is being requested
+	SubjectContext *SubjectContext `json:"subject_context"`
 
 	// Scope is the resource hierarchy scope for the profile
 	Scope ResourceHierarchy `json:"scope"`
@@ -114,30 +109,6 @@ type Entitlement struct {
 
 	// Value is the entitlement value (e.g., "admin-group", "service-123")
 	Value string `json:"value" yaml:"value"`
-}
-
-// EntitlementClaimInfo represents information about an entitlement claim
-type EntitlementClaimInfo struct {
-	// Name is the JWT claim name (e.g., "group", "sub")
-	Name string `json:"name"`
-
-	// DisplayName is a human-readable name for the claim
-	DisplayName string `json:"display_name"`
-}
-
-// UserTypeInfo represents information about a configured user type
-type UserTypeInfo struct {
-	// Type is the user type (e.g., "user", "service_account")
-	Type SubjectType `json:"type"`
-
-	// DisplayName is a human-readable name for the user type
-	DisplayName string `json:"display_name"`
-
-	// Priority determines the order in which user types are checked (lower = higher priority)
-	Priority int `json:"priority"`
-
-	// Entitlement contains information about the entitlement claim
-	Entitlement EntitlementClaimInfo `json:"entitlement"`
 }
 
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
