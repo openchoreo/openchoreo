@@ -26,6 +26,9 @@ const (
 	// EnvJWTDisabled is the flag to disable JWT authentication
 	EnvJWTDisabled = "JWT_DISABLED"
 
+	// EnvJWKSURLTLSInsecureSkipVerify is the flag to skip TLS verification when fetching JWKS
+	EnvJWKSURLTLSInsecureSkipVerify = "JWKS_URL_TLS_INSECURE_SKIP_VERIFY"
+
 	// EnvLogLevel is the log level for the API server (debug, info, warn, error)
 	EnvLogLevel = "LOG_LEVEL"
 )
