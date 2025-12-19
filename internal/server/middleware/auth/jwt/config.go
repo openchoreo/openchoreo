@@ -99,7 +99,7 @@ func (c *Config) setDefaults() {
 		// Create HTTP client with TLS configuration
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{
-				//nolint:gosec // G402: InsecureSkipVerify is configurable via environment for testing purposes. Defaults to false.
+				//nolint:gosec // G402: InsecureSkipVerify is configurable via environment variables for testing purposes. Defaults to false.
 				InsecureSkipVerify: c.JWKSURLTLSInsecureSkipVerify,
 			},
 		}

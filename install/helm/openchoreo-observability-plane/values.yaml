@@ -292,6 +292,10 @@ observer:
   replicas: 1
 
   extraEnvs:
+  - name: JWKS_URL
+    value: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
+  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
+    value: "false"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS

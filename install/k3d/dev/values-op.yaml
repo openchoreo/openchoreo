@@ -2,6 +2,17 @@
 # Uses locally-built observer image with pullPolicy: Never
 
 observer:
+  extraEnvs:
+  - name: JWKS_URL
+    value: "https://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
+    value: "true"
+  - name: OPENSEARCH_ADDRESS
+    value: "https://opensearch:9200"
+  - name: PROMETHEUS_ADDRESS
+    value: "http://openchoreo-observability-prometheus:9091"
+  - name: PROMETHEUS_TIMEOUT
+    value: "30s"
   image:
     repository: ghcr.io/openchoreo/observer
     tag: latest-dev

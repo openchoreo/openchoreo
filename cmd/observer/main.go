@@ -22,6 +22,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 func main() {
@@ -94,10 +96,14 @@ func main() {
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
+	// Initialize JWT middleware
+	jwtAuth := initJWTMiddleware(logger)
+
 	// Apply middleware
 	handlerWithMiddleware := middleware.Chain(
 		middleware.Logger(logger),
 		middleware.Recovery(logger),
+		jwtAuth,
 	)(mux)
 
 	// Create HTTP server
@@ -175,4 +181,26 @@ func createBootstrapLogger() *slog.Logger {
 	// Use JSON handler for structured logging
 	handler := slog.NewJSONHandler(os.Stderr, opts)
 	return slog.New(handler)
+}
+
+// initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
+func initJWTMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+	jwtDisabled := os.Getenv(apiconfig.EnvJWTDisabled) == "true"
+	jwksURL := os.Getenv(apiconfig.EnvJWKSURL)
+	jwtIssuer := os.Getenv(apiconfig.EnvJWTIssuer)
+	jwtAudience := os.Getenv(apiconfig.EnvJWTAudience)
+	jwksURLTLSInsecureSkipVerify := os.Getenv(apiconfig.EnvJWKSURLTLSInsecureSkipVerify) == "true"
+
+	// Configure JWT middleware
+	config := jwt.Config{
+		Disabled:                     jwtDisabled,
+		JWKSURL:                      jwksURL,
+		ValidateIssuer:               jwtIssuer,
+		ValidateAudience:             jwtAudience,
+		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
+		TokenLookup:                  "header:x-openchoreo-token",
+		Logger:                       logger,
+	}
+
+	return jwt.Middleware(config)
 }
