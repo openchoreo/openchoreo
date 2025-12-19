@@ -224,78 +224,47 @@ data:
     {{- end }}
     {{- end }}
 
-  52-customers-org-unit-and-users.sh: |
+  52-default-apps.sh: |
     #!/bin/bash
     set -e
 
-    # Create Default App application
-    log_info "Checking if application 'Default App' already exists..."
+    # Create default applications
+    {{- if .Values.thunder.bootstrap.defaultApps }}
+    {{- range .Values.thunder.bootstrap.defaultApps }}
+    log_info "Checking if application with client ID '{{ .clientId }}' already exists..."
     existing_apps=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/applications')
 
     # Extract application ID if it exists
-    app_id=$(echo "$existing_apps" | grep -o '"name":"Default App"[^}]*"id":"[^"]*"' | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
+    app_id=$(echo "$existing_apps" | grep -o '"client_id":"{{ .clientId }}"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"{{ .clientId }}"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
     # Define the application payload
     APP_PAYLOAD='{
       "name": "Default App",
-      "description": "Default Application for Customers",
+      "description": "Default Application",
       "auth_flow_graph_id": "auth_flow_config_basic",
       "inbound_auth_config": [
         {
           "type": "oauth2",
           "config": {
-            "client_id": "{{ .Values.thunder.bootstrap.customersAuth.clientId }}",
-            "client_secret": "{{ .Values.thunder.bootstrap.customersAuth.clientSecret }}",
+            "client_id": "{{ .clientId }}",
+            "client_secret": "{{ .clientSecret }}",
+            {{- if .redirectUrls }}
             "redirect_uris": [
-              {{- if .Values.thunder.bootstrap.customersAuth.redirectUrls }}
-              {{- range $index, $url := .Values.thunder.bootstrap.customersAuth.redirectUrls }}
+              {{- range $index, $url := .redirectUrls }}
               {{- if $index }},{{ end }}
               "{{ $url }}"
               {{- end }}
-              {{- else }}
-              "{{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}/api/auth/default-idp/handler/frame"
-              {{- end }}
             ],
+            {{- end }}
             "grant_types": [
-              "authorization_code",
               "client_credentials"
-            ],
-            "response_types": [
-              "code"
             ],
             "token_endpoint_auth_method": "client_secret_post",
             "pkce_required": false,
             "public_client": false,
             "token": {
-              "issuer": "thunder",
               "access_token": {
-                "validity_period": 3600,
-                "user_attributes": [
-                  "given_name",
-                  "family_name",
-                  "username",
-                  "groups"
-                ]
-              },
-              "id_token": {
-                "validity_period": 3600,
-                "user_attributes": [
-                  "given_name",
-                  "family_name",
-                  "username",
-                  "groups"
-                ],
-                "scope_claims": {
-                  "groups": [
-                    "groups"
-                  ],
-                  "profile": [
-                    "username",
-                    "given_name",
-                    "family_name",
-                    "picture"
-                  ]
-                }
+                "validity_period": 3600
               }
             }
           }
@@ -303,8 +272,8 @@ data:
       ]
     }'
 
-    if echo "$existing_apps" | grep -q '"name":"Default App"'; then
-      log_info "Application 'Default App' already exists (id: $app_id), updating..."
+    if echo "$existing_apps" | grep -q '"client_id":"{{ .clientId }}"'; then
+      log_info "Application with client ID '{{ .clientId }}' already exists (id: $app_id), updating..."
       curl {{ $curlInsecure }} --location -X PUT "{{ $thunderUrl }}/applications/$app_id" \
         --header 'Content-Type: application/json' \
         --data "$APP_PAYLOAD" \
@@ -315,7 +284,7 @@ data:
 
       log_info "Application updated successfully"
     else
-      log_info "Application does not exist, creating default application..."
+      log_info "Application does not exist, creating application with client ID '{{ .clientId }}'..."
       curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/applications' \
         --header 'Content-Type: application/json' \
         --data "$APP_PAYLOAD" \
@@ -324,111 +293,7 @@ data:
         --retry 3 \
         --retry-delay 5
 
-      log_info "Default application created successfully"
-    fi
-
-    # Create the customers OU if it doesn't exist
-    log_info "Checking if customers organization unit exists..."
-    CUSTOMERS_ORG_UNITS_RESPONSE=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units')
-
-    if ! echo "$CUSTOMERS_ORG_UNITS_RESPONSE" | grep -q '"handle":"customers"'; then
-      log_info "Creating customers organization unit..."
-      CUSTOMERS_OU_CREATE_RESPONSE=$(curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/organization-units' \
-        --header 'Content-Type: application/json' \
-        --header 'Accept: application/json' \
-        --data '{
-          "name": "Customers",
-          "handle": "customers",
-          "description": "Customers organizational unit"
-        }' \
-        --fail-with-body \
-        --max-time 30 \
-        --retry 3 \
-        --retry-delay 5)
-      log_info "Customers organization unit created successfully"
-
-      # Extract ID from creation response
-      CUSTOMERS_ORG_UNIT_ID=$(echo "$CUSTOMERS_OU_CREATE_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    else
-      log_info "Customers organization unit already exists"
-      # Extract ID from existing organization units
-      CUSTOMERS_ORG_UNIT_ID=$(echo "$CUSTOMERS_ORG_UNITS_RESPONSE" | grep -o '"id":"[^"]*"[^}]*"handle":"customers"\|"handle":"customers"[^}]*"id":"[^"]*"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-    fi
-    log_info "Using customers organization unit ID: $CUSTOMERS_ORG_UNIT_ID"
-
-    log_info "Checking if user schema 'customer' already exists..."
-    existing_schemas=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/user-schemas')
-
-    if echo "$existing_schemas" | grep -q '"name":"customer"'; then
-      log_info "User schema 'customer' already exists, skipping creation"
-    else
-      log_info "User schema does not exist, creating user schema..."
-      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/user-schemas' \
-        --header 'accept: application/json' \
-        --header 'Content-Type: application/json' \
-        --data "{
-          \"name\": \"customer\",
-          \"ouId\": \"$CUSTOMERS_ORG_UNIT_ID\",
-          \"allowSelfRegistration\": true,
-          \"schema\": {
-            \"username\": {
-              \"type\": \"string\",
-              \"required\": true
-            },
-            \"password\": {
-              \"type\": \"string\",
-              \"required\": true
-            },
-            \"given_name\": {
-              \"type\": \"string\"
-            },
-            \"family_name\": {
-              \"type\": \"string\"
-            },
-            \"groups\": {
-              \"type\": \"array\",
-              \"items\": {\"type\": \"string\"}
-            }
-          }
-        }" \
-        --fail-with-body \
-        --max-time 30 \
-        --retry 3 \
-        --retry-delay 5
-
-      log_info "User schema created successfully"
-    fi
-
-    # Create customers users
-    {{- if .Values.thunder.bootstrap.customersUsers }}
-    {{- range .Values.thunder.bootstrap.customersUsers }}
-    log_info "Checking if user '{{ .username }}' already exists..."
-    existing_users=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/users')
-
-    if echo "$existing_users" | grep -q '"username":"{{ .username }}"'; then
-      log_info "User '{{ .username }}' already exists, skipping creation"
-    else
-      log_info "User does not exist, creating user '{{ .username }}'..."
-      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/users' \
-        --header 'accept: application/json' \
-        --header 'Content-Type: application/json' \
-        --data "{
-          \"type\": \"customer\",
-          \"organizationUnit\": \"$CUSTOMERS_ORG_UNIT_ID\",
-          \"attributes\": {
-            \"username\": \"{{ .username }}\",
-            \"password\": \"{{ .password }}\",
-            \"given_name\": \"{{ .givenName }}\",
-            \"family_name\": \"{{ .familyName }}\",
-            \"groups\": {{ .groups | toJson | replace "\"" "\\\"" }}
-          }
-        }" \
-        --fail-with-body \
-        --max-time 30 \
-        --retry 3 \
-        --retry-delay 5
-
-      log_info "User '{{ .username }}' created successfully"
+      log_info "Application created successfully"
     fi
     {{- end }}
     {{- end }}
