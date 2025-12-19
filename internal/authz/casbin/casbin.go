@@ -33,11 +33,10 @@ type CasbinEnforcer struct {
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string                     // Required: Path to SQLite database path
-	RolesFilePath     string                     // Optional: Path to roles YAML file (falls back to embedded if empty)
-	UserTypeConfigs   []authzcore.UserTypeConfig // Required: User type detection configuration
-	EnableCache       bool                       // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int                        // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath      string // Required: Path to SQLite database path
+	AuthzDataFilePath string // Optional: Path to roles YAML file (falls back to embedded if empty)
+	EnableCache       bool   // Optional: Enable policy cache (default: false)
+	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
 }
 
 const (
@@ -807,7 +806,6 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 		"context", request.Context)
 
 	result := false
-	var err error
 	decision := &authzcore.Decision{Decision: false,
 		Context: &authzcore.DecisionContext{
 			Reason: "no matching policies found",
