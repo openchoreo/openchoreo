@@ -9,19 +9,36 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// ValidateComponentTypeResources validates all resources in a ComponentType.
+// ValidateComponentTypeResourcesWithSchema validates all resources in a ComponentType with schema-aware type checking.
 // It checks CEL expressions, forEach loops, and ensures proper variable usage.
-func ValidateComponentTypeResources(ct *v1alpha1.ComponentType) field.ErrorList {
+//
+// Parameters:
+//   - ct: The ComponentType to validate
+//   - parametersSchema: Structural schema for parameters (from ComponentType.Schema.Parameters)
+//   - envOverridesSchema: Structural schema for envOverrides (from ComponentType.Schema.EnvOverrides)
+//
+// If schemas are nil, DynType will be used for those variables (no static type checking).
+// This provides better error messages by catching type errors at validation time.
+func ValidateComponentTypeResourcesWithSchema(
+	ct *v1alpha1.ComponentType,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// Create validator for component context
-	validator, err := NewCELValidator(ComponentTypeResource)
+	// Create schema-aware validator for component context
+	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+		ParametersSchema:   parametersSchema,
+		EnvOverridesSchema: envOverridesSchema,
+	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(
 			field.NewPath("spec"),
@@ -195,13 +212,20 @@ func (w *ExpressionWalker) walkValue(data interface{}, path *field.Path) {
 		for key, value := range v {
 			// Check if the key contains CEL expressions (dynamic keys)
 			if containsCELExpression(key) {
-				expressions := findCELExpressions(key)
+				expressions, err := template.FindCELExpressions(key)
+				if err != nil {
+					w.errors = append(w.errors, field.Invalid(
+						path.Key(key),
+						key,
+						fmt.Sprintf("invalid CEL in map key: %v", err)))
+					continue
+				}
 				for _, expr := range expressions {
-					if err := w.validator.ValidateWithEnv(expr.content, w.env); err != nil {
+					if err := w.validator.ValidateWithEnv(expr.InnerExpr, w.env); err != nil {
 						w.errors = append(w.errors, field.Invalid(
 							path.Key(key),
 							key,
-							fmt.Sprintf("invalid CEL in map key '%s': %v", expr.content, err)))
+							fmt.Sprintf("invalid CEL in map key '%s': %v", expr.InnerExpr, err)))
 					}
 				}
 			}
@@ -222,90 +246,23 @@ func (w *ExpressionWalker) walkValue(data interface{}, path *field.Path) {
 }
 
 func (w *ExpressionWalker) validateString(str string, path *field.Path) {
-	expressions := findCELExpressions(str)
+	expressions, err := template.FindCELExpressions(str)
+	if err != nil {
+		w.errors = append(w.errors, field.Invalid(
+			path,
+			str,
+			fmt.Sprintf("failed to parse CEL expressions: %v", err)))
+		return
+	}
 
 	for _, expr := range expressions {
-		if err := w.validator.ValidateWithEnv(expr.content, w.env); err != nil {
+		if err := w.validator.ValidateWithEnv(expr.InnerExpr, w.env); err != nil {
 			w.errors = append(w.errors, field.Invalid(
 				path,
 				str,
-				fmt.Sprintf("invalid CEL expression '%s': %v", expr.content, err)))
+				fmt.Sprintf("invalid CEL expression '%s': %v", expr.InnerExpr, err)))
 		}
 	}
-}
-
-// celExpression represents a CEL expression found in a string
-type celExpression struct {
-	full    string // The full ${...} expression
-	content string // Just the CEL expression without ${ and }
-	start   int    // Start position in the string
-	end     int    // End position in the string
-}
-
-// findCELExpressions finds all ${...} CEL expressions in a string.
-// It handles nested braces correctly (e.g., ${oc_merge({a: 1}, {b: 2})}).
-func findCELExpressions(str string) []celExpression {
-	var expressions []celExpression
-	i := 0
-
-	for i < len(str) {
-		// Find the start of a CEL expression
-		start := strings.Index(str[i:], "${")
-		if start == -1 {
-			break
-		}
-		start += i
-
-		// Use brace counting to find the matching closing brace
-		pos := start + 2
-		braceCount := 1
-		inSingleQuote := false
-		inDoubleQuote := false
-		escaped := false
-
-		for pos < len(str) && braceCount > 0 {
-			ch := str[pos]
-
-			// Handle escape sequences
-			if escaped {
-				escaped = false
-				pos++
-				continue
-			}
-
-			if ch == '\\' {
-				if inSingleQuote || inDoubleQuote {
-					escaped = true
-				}
-			} else if ch == '\'' && !inDoubleQuote {
-				inSingleQuote = !inSingleQuote
-			} else if ch == '"' && !inSingleQuote {
-				inDoubleQuote = !inDoubleQuote
-			} else if ch == '{' && !inSingleQuote && !inDoubleQuote {
-				braceCount++
-			} else if ch == '}' && !inSingleQuote && !inDoubleQuote {
-				braceCount--
-			}
-
-			pos++
-		}
-
-		// If we found a matching closing brace
-		if braceCount == 0 {
-			expressions = append(expressions, celExpression{
-				full:    str[start:pos],
-				content: str[start+2 : pos-1],
-				start:   start,
-				end:     pos,
-			})
-			i = pos
-		} else {
-			// Unclosed expression - skip it
-			i = start + 2
-		}
-	}
-
-	return expressions
 }
 
 // containsCELExpression checks if a string contains any CEL expressions

@@ -297,10 +297,8 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("includeWhen must be wrapped in ${...}"))
 		})
 
-		// Note: forEach with non-iterable type (e.g., integer) is NOT caught at validation time
-		// because the webhook uses permissive CEL validation. This is caught at runtime instead.
-		// This test documents the current behavior.
-		It("should allow forEach with any expression (caught at runtime, not validation)", func() {
+		// Schema-aware validation catches forEach with non-iterable types at validation time
+		It("should reject forEach with non-iterable expression", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
 				Parameters: &runtime.RawExtension{
 					Raw: []byte(`{"replicas": "integer"}`),
@@ -318,8 +316,9 @@ var _ = Describe("ComponentType Webhook", func() {
 			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
-			// Permissive mode allows this - type checking happens at runtime
-			Expect(err).ToNot(HaveOccurred())
+			// Schema-aware validation catches this error
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("forEach expression must return list or map"))
 		})
 	})
 

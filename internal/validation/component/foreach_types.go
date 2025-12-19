@@ -20,9 +20,6 @@ const (
 	ForEachList
 	// ForEachMap indicates forEach iterates over a map
 	ForEachMap
-
-	// dynamicTypeString represents a type that cannot be determined statically
-	dynamicTypeString = "dynamic"
 )
 
 // String returns the string representation of ForEachType
@@ -147,36 +144,4 @@ func ExtendEnvWithForEach(env *cel.Env, info *ForEachInfo) (*cel.Env, error) {
 	return env.Extend(
 		cel.Variable(info.VarName, info.VarType),
 	)
-}
-
-// GetForEachDescription returns a human-readable description of the forEach variable
-func GetForEachDescription(info *ForEachInfo) string {
-	if info == nil {
-		return ""
-	}
-
-	switch info.Type {
-	case ForEachMap:
-		keyStr := dynamicTypeString
-		valueStr := dynamicTypeString
-		if info.KeyType != nil {
-			keyStr = info.KeyType.String()
-		}
-		if info.ValueType != nil {
-			valueStr = info.ValueType.String()
-		}
-		return fmt.Sprintf("forEach over map creates variable '%s' with fields: key (%s), value (%s)",
-			info.VarName, keyStr, valueStr)
-
-	case ForEachList:
-		elemStr := dynamicTypeString
-		if info.ElementType != nil && info.ElementType != cel.DynType {
-			elemStr = info.ElementType.String()
-		}
-		return fmt.Sprintf("forEach over list creates variable '%s' of type %s",
-			info.VarName, elemStr)
-
-	default:
-		return fmt.Sprintf("forEach creates variable '%s' of unknown type", info.VarName)
-	}
 }

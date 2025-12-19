@@ -8,18 +8,34 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// ValidateTraitCreatesAndPatches validates all creates and patches in a Trait.
+// ValidateTraitCreatesAndPatchesWithSchema validates all creates and patches in a Trait with schema-aware type checking.
 // It checks CEL expressions, forEach loops, and ensures proper variable usage.
-func ValidateTraitCreatesAndPatches(trait *v1alpha1.Trait) field.ErrorList {
+//
+// Parameters:
+//   - trait: The Trait to validate
+//   - parametersSchema: Structural schema for parameters (from Trait.Schema.Parameters)
+//   - envOverridesSchema: Structural schema for envOverrides (from Trait.Schema.EnvOverrides)
+//
+// If schemas are nil, DynType will be used for those variables (no static type checking).
+// This provides better error messages by catching type errors at validation time.
+func ValidateTraitCreatesAndPatchesWithSchema(
+	trait *v1alpha1.Trait,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	// Create validator for trait context
-	validator, err := NewCELValidator(TraitResource)
+	// Create schema-aware validator for trait context
+	validator, err := NewCELValidator(TraitResource, CELValidatorSchemaOptions{
+		ParametersSchema:   parametersSchema,
+		EnvOverridesSchema: envOverridesSchema,
+	})
 	if err != nil {
 		allErrs = append(allErrs, field.InternalError(
 			field.NewPath("spec"),

@@ -971,71 +971,71 @@ func TestFindCELExpressions(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    []celMatch
+		want    []CELMatch
 		wantErr bool
 	}{
 		{
 			name:  "Simple expression",
 			input: "${resource.field}",
-			want: []celMatch{
-				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			want: []CELMatch{
+				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with function",
 			input: "${length(resource.list)}",
-			want: []celMatch{
-				{fullExpr: "${length(resource.list)}", innerExpr: "length(resource.list)"},
+			want: []CELMatch{
+				{FullExpr: "${length(resource.list)}", InnerExpr: "length(resource.list)"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with prefix",
 			input: "prefix-${resource.field}",
-			want: []celMatch{
-				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			want: []CELMatch{
+				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with suffix",
 			input: "${resource.field}-suffix",
-			want: []celMatch{
-				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
+			want: []CELMatch{
+				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions",
 			input: "${resource1.field}-middle-${resource2.field}",
-			want: []celMatch{
-				{fullExpr: "${resource1.field}", innerExpr: "resource1.field"},
-				{fullExpr: "${resource2.field}", innerExpr: "resource2.field"},
+			want: []CELMatch{
+				{FullExpr: "${resource1.field}", InnerExpr: "resource1.field"},
+				{FullExpr: "${resource2.field}", InnerExpr: "resource2.field"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with map access",
 			input: "${resource.map['key']}",
-			want: []celMatch{
-				{fullExpr: "${resource.map['key']}", innerExpr: "resource.map['key']"},
+			want: []CELMatch{
+				{FullExpr: "${resource.map['key']}", InnerExpr: "resource.map['key']"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with list index",
 			input: "${resource.list[0]}",
-			want: []celMatch{
-				{fullExpr: "${resource.list[0]}", innerExpr: "resource.list[0]"},
+			want: []CELMatch{
+				{FullExpr: "${resource.list[0]}", InnerExpr: "resource.list[0]"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Complex expression with operators",
 			input: "${resource.field == 'value' && resource.number > 5}",
-			want: []celMatch{
-				{fullExpr: "${resource.field == 'value' && resource.number > 5}", innerExpr: "resource.field == 'value' && resource.number > 5"},
+			want: []CELMatch{
+				{FullExpr: "${resource.field == 'value' && resource.number > 5}", InnerExpr: "resource.field == 'value' && resource.number > 5"},
 			},
 			wantErr: false,
 		},
@@ -1060,25 +1060,25 @@ func TestFindCELExpressions(t *testing.T) {
 		{
 			name:  "Expression with escaped quotes",
 			input: `${resource.field == "escaped\"quote"}`,
-			want: []celMatch{
-				{fullExpr: `${resource.field == "escaped\"quote"}`, innerExpr: `resource.field == "escaped\"quote"`},
+			want: []CELMatch{
+				{FullExpr: `${resource.field == "escaped\"quote"}`, InnerExpr: `resource.field == "escaped\"quote"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions with whitespace",
 			input: "  ${resource1.field}  ${resource2.field}  ",
-			want: []celMatch{
-				{fullExpr: "${resource1.field}", innerExpr: "resource1.field"},
-				{fullExpr: "${resource2.field}", innerExpr: "resource2.field"},
+			want: []CELMatch{
+				{FullExpr: "${resource1.field}", InnerExpr: "resource1.field"},
+				{FullExpr: "${resource2.field}", InnerExpr: "resource2.field"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with newlines",
 			input: "${resource.list.map(\n  x,\n  x * 2\n)}",
-			want: []celMatch{
-				{fullExpr: "${resource.list.map(\n  x,\n  x * 2\n)}", innerExpr: "resource.list.map(\n  x,\n  x * 2\n)"},
+			want: []CELMatch{
+				{FullExpr: "${resource.list.map(\n  x,\n  x * 2\n)}", InnerExpr: "resource.list.map(\n  x,\n  x * 2\n)"},
 			},
 			wantErr: false,
 		},
@@ -1091,58 +1091,58 @@ func TestFindCELExpressions(t *testing.T) {
 		{
 			name:  "Expression with nested-like string literal in double quotes",
 			input: `${outer("${inner}")}`,
-			want: []celMatch{
-				{fullExpr: `${outer("${inner}")}`, innerExpr: `outer("${inner}")`},
+			want: []CELMatch{
+				{FullExpr: `${outer("${inner}")}`, InnerExpr: `outer("${inner}")`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with nested-like string literal in single quotes",
 			input: "${outer('${inner}')}",
-			want: []celMatch{
-				{fullExpr: "${outer('${inner}')}", innerExpr: "outer('${inner}')"},
+			want: []CELMatch{
+				{FullExpr: "${outer('${inner}')}", InnerExpr: "outer('${inner}')"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "String literal with closing braces inside double quotes",
 			input: `${"text with }} inside"}`,
-			want: []celMatch{
-				{fullExpr: `${"text with }} inside"}`, innerExpr: `"text with }} inside"`},
+			want: []CELMatch{
+				{FullExpr: `${"text with }} inside"}`, InnerExpr: `"text with }} inside"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "String literal with opening brace inside double quotes",
 			input: `${"text with { inside"}`,
-			want: []celMatch{
-				{fullExpr: `${"text with { inside"}`, innerExpr: `"text with { inside"`},
+			want: []CELMatch{
+				{FullExpr: `${"text with { inside"}`, InnerExpr: `"text with { inside"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "String literal with opening brace inside single quotes",
 			input: "${'text with { inside'}",
-			want: []celMatch{
-				{fullExpr: "${'text with { inside'}", innerExpr: "'text with { inside'"},
+			want: []CELMatch{
+				{FullExpr: "${'text with { inside'}", InnerExpr: "'text with { inside'"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Expression with dictionary building",
 			input: "${true ? {'key': 'value'} : {'key': 'value2'}}",
-			want: []celMatch{
-				{fullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", innerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
+			want: []CELMatch{
+				{FullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", InnerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Multiple expressions with dictionary building",
 			input: "${true ? {'key': 'value'} : {'key': 'value2'}} somewhat ${resource.field} then ${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}",
-			want: []celMatch{
-				{fullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", innerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
-				{fullExpr: "${resource.field}", innerExpr: "resource.field"},
-				{fullExpr: "${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}", innerExpr: "false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}"},
+			want: []CELMatch{
+				{FullExpr: "${true ? {'key': 'value'} : {'key': 'value2'}}", InnerExpr: "true ? {'key': 'value'} : {'key': 'value2'}"},
+				{FullExpr: "${resource.field}", InnerExpr: "resource.field"},
+				{FullExpr: "${false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}}", InnerExpr: "false ? {'key': {'nestedKey':'value'}} : {'key': 'value2'}"},
 			},
 			wantErr: false,
 		},
@@ -1155,9 +1155,9 @@ func TestFindCELExpressions(t *testing.T) {
 		{
 			name:  "Mixed complete and incomplete - incomplete at end",
 			input: "${complete} ${complete2} ${incomplete",
-			want: []celMatch{
-				{fullExpr: "${complete}", innerExpr: "complete"},
-				{fullExpr: "${complete2}", innerExpr: "complete2"},
+			want: []CELMatch{
+				{FullExpr: "${complete}", InnerExpr: "complete"},
+				{FullExpr: "${complete2}", InnerExpr: "complete2"},
 			},
 			wantErr: false,
 		},
@@ -1170,72 +1170,72 @@ func TestFindCELExpressions(t *testing.T) {
 		{
 			name:  "String literal with just opening brace - the fix case",
 			input: `${"{"}`,
-			want: []celMatch{
-				{fullExpr: `${"{"}`, innerExpr: `"{"`},
+			want: []CELMatch{
+				{FullExpr: `${"{"}`, InnerExpr: `"{"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "String literal with closing brace",
 			input: `${"}"}`,
-			want: []celMatch{
-				{fullExpr: `${"}"}`, innerExpr: `"}"`},
+			want: []CELMatch{
+				{FullExpr: `${"}"}`, InnerExpr: `"}"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "String literal braces with concatenation",
 			input: `${"{metadata.name}=" + metadata.name}`,
-			want: []celMatch{
-				{fullExpr: `${"{metadata.name}=" + metadata.name}`, innerExpr: `"{metadata.name}=" + metadata.name`},
+			want: []CELMatch{
+				{FullExpr: `${"{metadata.name}=" + metadata.name}`, InnerExpr: `"{metadata.name}=" + metadata.name`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Merge function with nested braces",
 			input: "${merge({a: 1}, {b: 2})}",
-			want: []celMatch{
-				{fullExpr: "${merge({a: 1}, {b: 2})}", innerExpr: "merge({a: 1}, {b: 2})"},
+			want: []CELMatch{
+				{FullExpr: "${merge({a: 1}, {b: 2})}", InnerExpr: "merge({a: 1}, {b: 2})"},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Complex nested braces with strings",
 			input: `${data.map(x, {"key": x, "template": "value-{}" + x})}`,
-			want: []celMatch{
-				{fullExpr: `${data.map(x, {"key": x, "template": "value-{}" + x})}`, innerExpr: `data.map(x, {"key": x, "template": "value-{}" + x})`},
+			want: []CELMatch{
+				{FullExpr: `${data.map(x, {"key": x, "template": "value-{}" + x})}`, InnerExpr: `data.map(x, {"key": x, "template": "value-{}" + x})`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Escaped backslash before quote",
 			input: `${field == "test\\\"value"}`,
-			want: []celMatch{
-				{fullExpr: `${field == "test\\\"value"}`, innerExpr: `field == "test\\\"value"`},
+			want: []CELMatch{
+				{FullExpr: `${field == "test\\\"value"}`, InnerExpr: `field == "test\\\"value"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Single quote inside double quote",
 			input: `${field == "test'value"}`,
-			want: []celMatch{
-				{fullExpr: `${field == "test'value"}`, innerExpr: `field == "test'value"`},
+			want: []CELMatch{
+				{FullExpr: `${field == "test'value"}`, InnerExpr: `field == "test'value"`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Double quote inside single quote",
 			input: `${field == 'test"value'}`,
-			want: []celMatch{
-				{fullExpr: `${field == 'test"value'}`, innerExpr: `field == 'test"value'`},
+			want: []CELMatch{
+				{FullExpr: `${field == 'test"value'}`, InnerExpr: `field == 'test"value'`},
 			},
 			wantErr: false,
 		},
 		{
 			name:  "Escaped single quote in single quote string",
 			input: `${field == 'test\'value'}`,
-			want: []celMatch{
-				{fullExpr: `${field == 'test\'value'}`, innerExpr: `field == 'test\'value'`},
+			want: []CELMatch{
+				{FullExpr: `${field == 'test\'value'}`, InnerExpr: `field == 'test\'value'`},
 			},
 			wantErr: false,
 		},
@@ -1245,13 +1245,13 @@ func TestFindCELExpressions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := findCELExpressions(tt.input)
+			got, err := FindCELExpressions(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("findCELExpressions() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("FindCELExpressions() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if diff := cmp.Diff(tt.want, got, cmp.AllowUnexported(celMatch{})); diff != "" {
-				t.Errorf("findCELExpressions() mismatch (-want +got):\n%s", diff)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("FindCELExpressions() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
