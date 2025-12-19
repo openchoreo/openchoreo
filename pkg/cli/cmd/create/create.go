@@ -233,17 +233,10 @@ func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Comm
 //nolint:unused // Temporarily disabled
 func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := append(getMetadataFlags(),
-		flags.KubernetesClusterName,
-		flags.EnableCilium,
-		flags.EnableScaleToZero,
-		flags.GatewayType,
 		flags.PublicVirtualHost,
 		flags.OrgVirtualHost,
 		flags.Organization,
-		flags.APIServerURL,
-		flags.CaCert,
-		flags.ClientCert,
-		flags.ClientKey,
+		flags.ClusterAgentClientCA,
 	)
 	return (&builder.CommandBuilder{
 		Command: constants.CreateDataPlane,
@@ -252,16 +245,11 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 			return impl.CreateDataPlane(api.CreateDataPlaneParams{
 				Name:                    fg.GetString(flags.Name),
 				Organization:            fg.GetString(flags.Organization),
-				KubernetesClusterName:   fg.GetString(flags.KubernetesClusterName),
-				EnableCilium:            fg.GetBool(flags.EnableCilium),
-				EnableScaleToZero:       fg.GetBool(flags.EnableScaleToZero),
-				GatewayType:             fg.GetString(flags.GatewayType),
+				DisplayName:             fg.GetString(flags.DisplayName),
+				Description:             fg.GetString(flags.Description),
+				ClusterAgentClientCA:    fg.GetString(flags.ClusterAgentClientCA),
 				PublicVirtualHost:       fg.GetString(flags.PublicVirtualHost),
 				OrganizationVirtualHost: fg.GetString(flags.OrgVirtualHost),
-				APIServerURL:            fg.GetString(flags.APIServerURL),
-				CACert:                  fg.GetString(flags.CaCert),
-				ClientCert:              fg.GetString(flags.ClientCert),
-				ClientKey:               fg.GetString(flags.ClientKey),
 			})
 		},
 	}).Build()

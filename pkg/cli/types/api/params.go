@@ -230,14 +230,7 @@ type CreateDataPlaneParams struct {
 	Organization            string
 	DisplayName             string
 	Description             string
-	KubernetesClusterName   string
-	APIServerURL            string
-	CACert                  string
-	ClientCert              string
-	ClientKey               string
-	EnableCilium            bool
-	EnableScaleToZero       bool
-	GatewayType             string
+	ClusterAgentClientCA    string
 	PublicVirtualHost       string
 	OrganizationVirtualHost string
 }

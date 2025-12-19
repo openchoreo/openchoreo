@@ -140,12 +140,11 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 ### 5. Create DataPlane Resource
 
-The `add-data-plane.sh` script automatically extracts the cluster agent's client CA certificate from the data plane and creates the DataPlane CR:
+The `add-data-plane.sh` script automatically extracts the cluster agent's client CA certificate from the data plane and creates the DataPlane CR. All DataPlanes use cluster agent for secure communication.
 
 ```bash
 # Create DataPlane CR with automatic client CA extraction
 ./install/add-data-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
   --dataplane-context k3d-openchoreo-dp \
   --name default
@@ -173,7 +172,6 @@ kubectl --context k3d-openchoreo-cp create secret generic dataplane-default-ca \
 
 # Create DataPlane CR referencing the secret
 ./install/add-data-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
   --agent-ca-secret dataplane-default-ca \
   --name default
@@ -182,12 +180,11 @@ kubectl --context k3d-openchoreo-cp create secret generic dataplane-default-ca \
 
 ### 6. Create BuildPlane Resource (optional)
 
-Similar to the DataPlane, use `add-build-plane.sh` to automatically extract and configure:
+Similar to the DataPlane, use `add-build-plane.sh` to automatically extract and configure. All BuildPlanes use cluster agent for secure communication.
 
 ```bash
 # Create BuildPlane CR with automatic client CA extraction
 ./install/add-build-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
   --buildplane-context k3d-openchoreo-bp \
   --name default
@@ -215,7 +212,6 @@ kubectl --context k3d-openchoreo-cp create secret generic buildplane-default-ca 
 
 # Create BuildPlane CR referencing the secret
 ./install/add-build-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo-cp \
   --agent-ca-secret buildplane-default-ca \
   --name default

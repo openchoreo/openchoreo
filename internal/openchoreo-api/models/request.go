@@ -135,11 +135,7 @@ type CreateDataPlaneRequest struct {
 	Name                    string `json:"name"`
 	DisplayName             string `json:"displayName,omitempty"`
 	Description             string `json:"description,omitempty"`
-	KubernetesClusterName   string `json:"kubernetesClusterName"`
-	APIServerURL            string `json:"apiServerURL"`
-	CACert                  string `json:"caCert"`
-	ClientCert              string `json:"clientCert"`
-	ClientKey               string `json:"clientKey"`
+	ClusterAgentClientCA    string `json:"clusterAgentClientCA"`
 	PublicVirtualHost       string `json:"publicVirtualHost"`
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
@@ -211,11 +207,7 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
-	req.KubernetesClusterName = strings.TrimSpace(req.KubernetesClusterName)
-	req.APIServerURL = strings.TrimSpace(req.APIServerURL)
-	req.CACert = strings.TrimSpace(req.CACert)
-	req.ClientCert = strings.TrimSpace(req.ClientCert)
-	req.ClientKey = strings.TrimSpace(req.ClientKey)
+	req.ClusterAgentClientCA = strings.TrimSpace(req.ClusterAgentClientCA)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
 	req.ObservabilityPlaneRef = strings.TrimSpace(req.ObservabilityPlaneRef)

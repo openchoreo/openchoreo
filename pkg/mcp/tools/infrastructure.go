@@ -120,37 +120,27 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 
 func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_dataplane",
-		Description: "Create a new data plane in an organization. Data planes are Kubernetes clusters or cluster " +
-			"regions where component workloads actually execute.",
+		Name:        "create_dataplane",
+		Description: "Create a new data plane in an organization. Uses cluster agent for communication.",
 		InputSchema: createSchema(map[string]any{
 			"org_name": defaultStringProperty(),
 			"name": stringProperty(
 				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":              stringProperty("Human-readable display name"),
 			"description":               stringProperty("Human-readable description"),
-			"kubernetes_cluster_name":   stringProperty("Kubernetes cluster name"),
-			"api_server_url":            stringProperty("Kubernetes API server URL"),
-			"ca_cert":                   stringProperty("Kubernetes cluster CA certificate"),
-			"client_cert":               stringProperty("Kubernetes client certificate"),
-			"client_key":                stringProperty("Kubernetes client key"),
+			"cluster_agent_client_ca":   stringProperty("CA certificate to verify cluster agent's client certificate"),
 			"public_virtual_host":       stringProperty("Public virtual host for the data plane"),
 			"organization_virtual_host": stringProperty("Organization-specific virtual host"),
-			"observability_plane_ref":   stringProperty("Optional: Reference to an ObservabilityPlane resource for monitoring"),
+			"observability_plane_ref":   stringProperty("Optional: Reference to an ObservabilityPlane resource"),
 		}, []string{
-			"org_name", "name", "kubernetes_cluster_name", "api_server_url", "ca_cert",
-			"client_cert", "client_key", "public_virtual_host", "organization_virtual_host",
+			"org_name", "name", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
 		}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		OrgName                 string `json:"org_name"`
 		Name                    string `json:"name"`
 		DisplayName             string `json:"display_name"`
 		Description             string `json:"description"`
-		KubernetesClusterName   string `json:"kubernetes_cluster_name"`
-		APIServerURL            string `json:"api_server_url"`
-		CACert                  string `json:"ca_cert"`
-		ClientCert              string `json:"client_cert"`
-		ClientKey               string `json:"client_key"`
+		ClusterAgentClientCA    string `json:"cluster_agent_client_ca"`
 		PublicVirtualHost       string `json:"public_virtual_host"`
 		OrganizationVirtualHost string `json:"organization_virtual_host"`
 		ObservabilityPlaneRef   string `json:"observability_plane_ref"`
@@ -159,11 +149,7 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			Name:                    args.Name,
 			DisplayName:             args.DisplayName,
 			Description:             args.Description,
-			KubernetesClusterName:   args.KubernetesClusterName,
-			APIServerURL:            args.APIServerURL,
-			CACert:                  args.CACert,
-			ClientCert:              args.ClientCert,
-			ClientKey:               args.ClientKey,
+			ClusterAgentClientCA:    args.ClusterAgentClientCA,
 			PublicVirtualHost:       args.PublicVirtualHost,
 			OrganizationVirtualHost: args.OrganizationVirtualHost,
 			ObservabilityPlaneRef:   args.ObservabilityPlaneRef,

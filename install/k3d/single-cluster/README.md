@@ -112,49 +112,27 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 ### 4. Create DataPlane Resource
 
-Create a DataPlane resource to enable workload deployment.
-
-**Using Cluster Agent (Default):**
-
-This setup uses cluster agent by default for secure communication between control plane and data plane:
+Create a DataPlane resource to enable workload deployment. All DataPlanes use cluster agent for secure communication.
 
 ```bash
 ./install/add-data-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo \
   --name default
 ```
 
-The agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
-
-<details>
-<summary>Alternative: Using Direct API Access (Not recommended)</summary>
-
-For testing purposes, you can use direct Kubernetes API access instead:
-
-```bash
-./install/add-data-plane.sh --control-plane-context k3d-openchoreo
-```
-
-> **Note:** Direct API access is not recommended. The cluster agent approach provides better security and doesn't require exposing the Kubernetes API server.
-</details>
+The cluster agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
 ### 5. Create BuildPlane Resource (optional)
 
-Create a BuildPlane resource to enable building from source.
-
-**Using Cluster Agent (Default and only supported method):**
-
-This setup uses cluster agent for secure communication between control plane and build plane:
+Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
 ```bash
 ./install/add-build-plane.sh \
-  --enable-agent \
   --control-plane-context k3d-openchoreo \
   --name default
 ```
 
-The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
+The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
 ### 6. Create ObservabilityPlane Resource (optional)
 

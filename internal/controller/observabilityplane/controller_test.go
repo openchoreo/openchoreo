@@ -38,9 +38,12 @@ var _ = Describe("ObservabilityPlane Controller", func() {
 						Namespace: "default",
 					},
 					Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
-						Agent: &openchoreov1alpha1.AgentConfig{
-							Enabled: false,
+						ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+							ClientCA: openchoreov1alpha1.ValueFrom{
+								Value: "test-ca-cert",
+							},
 						},
+						ObserverURL: "https://observer.example.com",
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())

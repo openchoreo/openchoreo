@@ -662,7 +662,7 @@ func (s *Server) getDataPlaneClientCA(ctx context.Context, planeName string) ([]
 
 		if err := s.k8sClient.Get(ctx, key, &dataPlane); err == nil {
 			s.logger.Debug("found DataPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(dataPlane.Spec.Agent, namespace)
+			return s.extractCAFromPlane(&dataPlane.Spec.ClusterAgent, namespace)
 		}
 	}
 
@@ -675,7 +675,7 @@ func (s *Server) getDataPlaneClientCA(ctx context.Context, planeName string) ([]
 	for _, dp := range dataPlaneList.Items {
 		if dp.Name == planeName {
 			s.logger.Debug("found DataPlane CR via list", "name", planeName, "namespace", dp.Namespace)
-			return s.extractCAFromPlane(dp.Spec.Agent, dp.Namespace)
+			return s.extractCAFromPlane(&dp.Spec.ClusterAgent, dp.Namespace)
 		}
 	}
 
@@ -693,7 +693,7 @@ func (s *Server) getBuildPlaneClientCA(ctx context.Context, planeName string) ([
 
 		if err := s.k8sClient.Get(ctx, key, &buildPlane); err == nil {
 			s.logger.Debug("found BuildPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(buildPlane.Spec.Agent, namespace)
+			return s.extractCAFromPlane(&buildPlane.Spec.ClusterAgent, namespace)
 		}
 	}
 
@@ -706,7 +706,7 @@ func (s *Server) getBuildPlaneClientCA(ctx context.Context, planeName string) ([
 	for _, bp := range buildPlaneList.Items {
 		if bp.Name == planeName {
 			s.logger.Debug("found BuildPlane CR via list", "name", planeName, "namespace", bp.Namespace)
-			return s.extractCAFromPlane(bp.Spec.Agent, bp.Namespace)
+			return s.extractCAFromPlane(&bp.Spec.ClusterAgent, bp.Namespace)
 		}
 	}
 
@@ -724,7 +724,7 @@ func (s *Server) getObservabilityPlaneClientCA(ctx context.Context, planeName st
 
 		if err := s.k8sClient.Get(ctx, key, &observabilityPlane); err == nil {
 			s.logger.Debug("found ObservabilityPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(observabilityPlane.Spec.Agent, namespace)
+			return s.extractCAFromPlane(&observabilityPlane.Spec.ClusterAgent, namespace)
 		}
 	}
 
@@ -737,19 +737,19 @@ func (s *Server) getObservabilityPlaneClientCA(ctx context.Context, planeName st
 	for _, op := range observabilityPlaneList.Items {
 		if op.Name == planeName {
 			s.logger.Debug("found ObservabilityPlane CR via list", "name", planeName, "namespace", op.Namespace)
-			return s.extractCAFromPlane(op.Spec.Agent, op.Namespace)
+			return s.extractCAFromPlane(&op.Spec.ClusterAgent, op.Namespace)
 		}
 	}
 
 	return nil, fmt.Errorf("ObservabilityPlane %s not found", planeName)
 }
 
-// extractCAFromPlane extracts CA data from a plane's Agent configuration
-func (s *Server) extractCAFromPlane(agent *openchoreov1alpha1.AgentConfig, namespace string) ([]byte, error) {
-	if agent == nil || agent.ClientCA == nil {
+// extractCAFromPlane extracts CA data from a plane's ClusterAgent configuration
+func (s *Server) extractCAFromPlane(clusterAgent *openchoreov1alpha1.ClusterAgentConfig, namespace string) ([]byte, error) {
+	if clusterAgent == nil {
 		return nil, nil
 	}
-	return s.extractCADataWithNamespace(agent.ClientCA, namespace)
+	return s.extractCADataWithNamespace(&clusterAgent.ClientCA, namespace)
 }
 
 // extractCAData extracts CA certificate data from ValueFrom configuration

@@ -77,7 +77,9 @@ func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, orgName string) (
 }
 
 // GetBuildPlaneClient creates and returns a Kubernetes client for the build plane cluster
-func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName string) (client.Client, error) {
+// This method is deprecated and will be removed in a future version.
+// Build plane operations should use the cluster gateway proxy instead.
+func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName string, gatewayURL string) (client.Client, error) {
 	s.logger.Debug("Getting build plane client", "org", orgName)
 
 	// Get the build plane first
@@ -86,16 +88,11 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
-	if buildPlane.Spec.KubernetesCluster == nil {
-		s.logger.Error("KubernetesCluster configuration is required for BuildPlane", "org", orgName, "buildPlane", buildPlane.Name)
-		return nil, fmt.Errorf("kubernetesCluster configuration is required for BuildPlane")
-	}
-
-	buildPlaneClient, err := kubernetesClient.GetK8sClient(
+	// Use cluster agent proxy mode
+	buildPlaneClient, err := kubernetesClient.GetK8sClientFromBuildPlane(
 		s.bpClientMgr,
-		orgName,
-		buildPlane.Name,
-		*buildPlane.Spec.KubernetesCluster,
+		buildPlane,
+		gatewayURL,
 	)
 	if err != nil {
 		s.logger.Error("Failed to create build plane client", "error", err, "org", orgName)
@@ -149,8 +146,6 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 			Namespace:             buildPlanes.Items[i].Namespace,
 			DisplayName:           displayName,
 			Description:           description,
-			KubernetesClusterName: buildPlanes.Items[i].Name,
-			APIServerURL:          buildPlanes.Items[i].Spec.KubernetesCluster.Server,
 			ObservabilityPlaneRef: observabilityPlaneRef,
 			CreatedAt:             buildPlanes.Items[i].CreationTimestamp.Time,
 			Status:                status,

@@ -173,9 +173,6 @@ type DataPlaneResponse struct {
 	Description             string    `json:"description,omitempty"`
 	ImagePullSecretRefs     []string  `json:"imagePullSecretRefs,omitempty"`
 	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
-	AgentEnabled            bool      `json:"agentEnabled,omitempty"`
-	KubernetesClusterName   string    `json:"kubernetesClusterName"`
-	APIServerURL            string    `json:"apiServerURL,omitempty"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
 	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
 	ObservabilityPlaneRef   string    `json:"observabilityPlaneRef,omitempty"`
@@ -189,8 +186,6 @@ type BuildPlaneResponse struct {
 	Namespace             string    `json:"namespace"`
 	DisplayName           string    `json:"displayName,omitempty"`
 	Description           string    `json:"description,omitempty"`
-	KubernetesClusterName string    `json:"kubernetesClusterName"`
-	APIServerURL          string    `json:"apiServerURL"`
 	ObservabilityPlaneRef string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt             time.Time `json:"createdAt"`
 	Status                string    `json:"status,omitempty"`
