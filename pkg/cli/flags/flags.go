@@ -309,6 +309,18 @@ var (
 		Shorthand: "o",
 		Usage:     "Write output to specified file instead of stdout",
 	}
+
+	// Mode (context) flags
+
+	Mode = Flag{
+		Name:  "mode",
+		Usage: "Context mode: 'api-server' (default) or 'file-system'",
+	}
+
+	RootDirectoryPath = Flag{
+		Name:  "root-directory-path",
+		Usage: "Root directory path for file-system mode (defaults to current directory)",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

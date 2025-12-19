@@ -253,12 +253,14 @@ type GetEndpointParams struct {
 }
 
 type SetContextParams struct {
-	Name         string
-	Organization string
-	Project      string
-	Component    string
-	Environment  string
-	DataPlane    string
+	Name              string
+	Organization      string
+	Project           string
+	Component         string
+	Environment       string
+	DataPlane         string
+	Mode              string // "api-server" or "file-system"
+	RootDirectoryPath string // Path for file-system mode
 }
 
 type UseContextParams struct {
