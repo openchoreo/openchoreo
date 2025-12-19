@@ -68,7 +68,6 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 			return nil, err
 		}
 		componentTypes = append(componentTypes, s.toComponentTypeResponse(&ctList.Items[i]))
-
 	}
 
 	s.logger.Debug("Listed component types", "org", orgName, "count", len(componentTypes), "hasMore", ctList.Continue != "")
