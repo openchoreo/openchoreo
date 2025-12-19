@@ -28,18 +28,6 @@ rules:
     - create
     - patch
 - apiGroups:
-    - argoproj.io
-  resources:
-    - workflows
-  verbs:
-    - create
-    - delete
-    - get
-    - list
-    - patch
-    - update
-    - watch
-- apiGroups:
     - openchoreo.dev
   resources:
     - observabilityalertrules
