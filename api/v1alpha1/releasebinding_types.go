@@ -39,12 +39,6 @@ type ReleaseBindingSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.environment is immutable"
 	Environment string `json:"environment"`
 
-	// TargetPlane specifies which plane this release binding should be deployed to.
-	// Defaults to "dataplane" if not specified.
-	// +kubebuilder:validation:Enum=dataplane;observabilityplane
-	// +kubebuilder:default=dataplane
-	TargetPlane string `json:"targetPlane,omitempty"`
-
 	// ReleaseName is the name of the ComponentRelease to bind
 	// When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
 	// +optional
