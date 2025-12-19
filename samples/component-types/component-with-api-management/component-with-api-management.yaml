@@ -157,22 +157,19 @@ spec:
         #   namespace: openchoreo-edge
 
   creates:
-    # Create ReferenceGrant to allow HTTPRoute to reference Service in openchoreo-data-plane
+    # Create Backend resource that references the API gateway.
     - template:
-        apiVersion: gateway.networking.k8s.io/v1beta1
-        kind: ReferenceGrant
+        apiVersion: gateway.kgateway.dev/v1alpha1
+        kind: Backend
         metadata:
-          name: allow-httproute-to-api-gateway-${metadata.namespace}
-          namespace: openchoreo-data-plane
+          name: api-platform-default-gateway-router
+          namespace: ${metadata.namespace}
         spec:
-          from:
-          - group: gateway.networking.k8s.io
-            kind: HTTPRoute
-            namespace: ${metadata.namespace}
-          to:
-          - group: ""
-            kind: Service
-            name: api-platform-default-gateway-router
+          type: Static
+          static:
+            hosts:
+              - host: api-platform-default-gateway-router.openchoreo-data-plane
+                port: 8080
 
     # Create APIConfiguration resource
     - template:
@@ -206,13 +203,13 @@ spec:
         version: v1
         kind: HTTPRoute
       operations:
-        # Replace the backendRefs to route through API platform gateway Service
+        # Replace the backendRefs to route through API platform gateway router
         - op: replace
           path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.name}')]
           value:
+            group: gateway.kgateway.dev
+            kind: Backend
             name: api-platform-default-gateway-router
-            namespace: openchoreo-data-plane
-            port: 8080
 
         # Update the URLRewrite filter to rewrite to the API context
         - op: replace
