@@ -148,7 +148,7 @@ spec:
 
     envOverrides:
       # Platform engineers can override per environment
-      gatewayRefs: "[]GatewayRef | default=[]"
+      gatewayRefs: '[]GatewayRef | default=[{"name": "api-platform-default", "namespace": "openchoreo-data-plane"}]'
         # Gateway references - can be overridden per environment
         # Example:
         # - name: cluster-gateway
@@ -179,10 +179,7 @@ spec:
           name: ${metadata.name}
           namespace: ${metadata.namespace}
         spec:
-          gatewayRefs: |-
-            ${size(parameters.gatewayRefs) > 0 ? parameters.gatewayRefs : [
-              {"name": "api-platform-default", "namespace": "openchoreo-data-plane"}
-            ]}
+          gatewayRefs: ${envOverrides.gatewayRefs}
           apiConfiguration:
             version: api-platform.wso2.com/v1
             kind: http/rest

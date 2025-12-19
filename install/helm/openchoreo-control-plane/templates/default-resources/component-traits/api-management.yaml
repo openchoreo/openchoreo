@@ -37,7 +37,7 @@ spec:
     envOverrides:
       # Platform engineers can override per environment
       gatewayRefs:
-        "[]GatewayRef | default=[]"
+        '[]GatewayRef | default=[{"name": "api-platform-default", "namespace": "openchoreo-data-plane"}]'
         # Gateway references - can be overridden per environment
         # Example:
         # - name: api-platform-default
@@ -68,10 +68,7 @@ spec:
           name: ${metadata.name}
           namespace: ${metadata.namespace}
         spec:
-          gatewayRefs: |-
-            ${size(parameters.gatewayRefs) > 0 ? parameters.gatewayRefs : [
-              {"name": "api-platform-default", "namespace": "openchoreo-data-plane"}
-            ]}
+          gatewayRefs: ${envOverrides.gatewayRefs}
           apiConfiguration:
             version: api-platform.wso2.com/v1
             kind: http/rest
@@ -81,7 +78,7 @@ spec:
               context: ${parameters.context}
               upstream:
                 main:
-                  url: http://${metadata.name}.${metadata.namespace}:${parameters.upstreamPort}
+                  url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
               policies: ${parameters.policies}
               operations: ${parameters.operations}
 
@@ -94,7 +91,7 @@ spec:
       operations:
         # Replace the backendRefs to route through API platform gateway router
         - op: replace
-          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.name}')]
+          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.componentName}')]
           value:
             group: gateway.kgateway.dev
             kind: Backend
