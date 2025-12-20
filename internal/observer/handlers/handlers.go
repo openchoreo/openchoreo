@@ -4,6 +4,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 const (
@@ -34,6 +37,8 @@ const (
 	ErrorMsgComponentIDRequired     = "Component ID is required"
 	ErrorMsgProjectIDRequired       = "Project ID is required"
 	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
+	ErrorMsgRuleNameRequired        = "Rule name is required"
+	ErrorMsgSourceTypeRequired      = "Source type is required"
 	ErrorMsgInvalidRequestFormat    = "Invalid request format"
 	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
 	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
@@ -42,15 +47,17 @@ const (
 
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
-	service *service.LoggingService
-	logger  *slog.Logger
+	service               *service.LoggingService
+	logger                *slog.Logger
+	alertingWebhookSecret string
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger, alertingWebhookSecret string) *Handler {
 	return &Handler{
-		service: service,
-		logger:  logger,
+		service:               service,
+		logger:                logger,
+		alertingWebhookSecret: alertingWebhookSecret,
 	}
 }
 
@@ -561,4 +568,114 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	}
 
 	h.writeJSON(w, http.StatusOK, result)
+}
+
+// UpsertAlertingRule handles PUT /api/alerting/rule/{sourceType}/{ruleName}
+func (h *Handler) UpsertAlertingRule(w http.ResponseWriter, r *http.Request) {
+	sourceType := httputil.GetPathParam(r, "sourceType")
+	if sourceType == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgSourceTypeRequired)
+		return
+	}
+	ruleName := httputil.GetPathParam(r, "ruleName")
+	if ruleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgRuleNameRequired)
+		return
+	}
+	var req types.AlertingRuleRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind alerting rule request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// Input validations
+	err := validateAlertingRule(req)
+	if err != nil {
+		h.logger.Debug("Invalid alerting rule request", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	// Upsert the alerting rule
+	ctx := r.Context()
+	resp, err := h.service.UpsertAlertRule(ctx, sourceType, ruleName, req)
+	if err != nil {
+		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", req.Metadata.Name)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to upsert alerting rule")
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// DeleteAlertingRule handles DELETE /api/alerting/rule/{ruleName}
+func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
+	sourceType := httputil.GetPathParam(r, "sourceType")
+	if sourceType == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgSourceTypeRequired)
+		return
+	}
+	ruleName := httputil.GetPathParam(r, "ruleName")
+	if ruleName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgRuleNameRequired)
+		return
+	}
+
+	// Delete the alerting rule
+	ctx := r.Context()
+	resp, err := h.service.DeleteAlertRule(ctx, sourceType, ruleName)
+	if err != nil {
+		h.logger.Error("Failed to delete alerting rule", "error", err, "ruleName", ruleName)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to delete alerting rule")
+		return
+	}
+
+	// If rule was not found, return 404
+	if resp.Status == "not_found" {
+		h.writeJSON(w, http.StatusNotFound, resp)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, resp)
+}
+
+// AlertingWebhook handles POST /api/alerting/webhook/{secret}
+func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
+	// Validate the shared webhook secret to ensure the request originates from a trusted source.
+	secret := httputil.GetPathParam(r, "secret")
+	if secret == "" || secret != h.alertingWebhookSecret {
+		h.logger.Warn("Received alerting webhook with invalid or missing secret")
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+
+	// TODO: Implement full alerting support
+	// Receive triggered alerts from the observability backends
+	// Send the notification to the appropriate channels
+
+	// Read the request body
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Error("Failed to read request body", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
+		return
+	}
+
+	// Parse and log the webhook payload
+	if len(bodyBytes) == 0 {
+		h.logger.Warn("Alerting webhook received with empty request body")
+	} else {
+		var requestBody map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+			h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
+		} else {
+			// TEMP: Print the request body and return 200
+			h.logger.Debug("Alerting webhook received", "payload", requestBody)
+		}
+	}
+
+	h.writeJSON(w, http.StatusOK, map[string]string{
+		"message": "Alerting webhook received",
+	})
 }

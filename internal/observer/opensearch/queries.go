@@ -4,11 +4,14 @@
 package opensearch
 
 import (
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryBuilder provides methods to build OpenSearch queries
@@ -581,4 +584,181 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleRequest) map[string]interface{} {
+	filterConditions := []map[string]interface{}{
+		{
+			"range": map[string]interface{}{
+				"@timestamp": map[string]interface{}{
+					"from":          "{{period_end}}||-" + params.Condition.Window,
+					"to":            "{{period_end}}",
+					"format":        "epoch_millis",
+					"include_lower": true,
+					"include_upper": true,
+					"boost":         1,
+				},
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSComponentID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.ComponentUID,
+					"boost": 1,
+				},
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSEnvironmentID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.EnvironmentUID,
+					"boost": 1,
+				},
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.OSProjectID + ".keyword": map[string]interface{}{
+					"value": params.Metadata.ProjectUID,
+					"boost": 1,
+				},
+			},
+		},
+		{
+			"wildcard": map[string]interface{}{
+				"log": map[string]interface{}{
+					"wildcard": fmt.Sprintf("*%s*", params.Source.Query),
+					"boost":    1,
+				},
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": 0,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"filter":               filterConditions,
+				"adjust_pure_negative": true,
+				"boost":                1,
+			},
+		},
+	}
+	return query
+}
+
+func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRuleRequest) (map[string]interface{}, error) {
+	intervalDuration, err := time.ParseDuration(params.Condition.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interval format: %w", err)
+	}
+
+	monitorBody := MonitorBody{
+		Type:        "monitor",
+		MonitorType: "query_level_monitor",
+		Name:        params.Metadata.Name,
+		Enabled:     params.Condition.Enabled,
+		Schedule: MonitorSchedule{
+			Period: MonitorSchedulePeriod{
+				Interval: intervalDuration.Minutes(),
+				Unit:     "MINUTES",
+			},
+		},
+		Inputs: []MonitorInput{
+			{
+				Search: MonitorInputSearch{
+					Indices: []string{qb.indexPrefix + "*"},
+					Query:   qb.BuildLogAlertingRuleQuery(params),
+				},
+			},
+		},
+		Triggers: []MonitorTrigger{
+			{
+				QueryLevelTrigger: &MonitorTriggerQueryLevelTrigger{
+					Name:     "trigger-" + params.Metadata.Name,
+					Severity: "1",
+					Condition: MonitorTriggerCondition{
+						Script: MonitorTriggerConditionScript{
+							Source: fmt.Sprintf("ctx.results[0].hits.total.value %s %s", GetOperatorSymbol(params.Condition.Operator), strconv.FormatFloat(params.Condition.Threshold, 'f', -1, 64)),
+							Lang:   "painless",
+						},
+					},
+					Actions: []MonitorTriggerAction{
+						{
+							Name:          "action-" + params.Metadata.Name,
+							DestinationID: "openchoreo-observer-alerting-webhook",
+							MessageTemplate: MonitorMessageTemplate{
+								Source: buildWebhookMessageTemplate(params),
+								Lang:   "mustache",
+							},
+							ThrottleEnabled: true,
+							Throttle: MonitorTriggerActionThrottle{
+								Value: 60, // TODO: Make throttle value configurable in future
+								Unit:  "MINUTES",
+							},
+							SubjectTemplate: MonitorMessageTemplate{
+								Source: "TheSubject", // TODO: Add appropriate subject template
+								Lang:   "mustache",
+							},
+							ActionExecutionPolicy: MonitorTriggerActionExecutionPolicy{
+								ActionExecutionScope: MonitorTriggerActionExecutionScope{
+									PerAlert: MonitorActionExecutionScopePerAlert{
+										ActionableAlerts: []string{"DEDUPED", "NEW"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert to map[string]interface{} for compatibility with existing code
+	bodyBytes, err := json.Marshal(monitorBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal monitor body: %w", err)
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal monitor body: %w", err)
+	}
+
+	return result, nil
+}
+
+func GetOperatorSymbol(operator string) string {
+	switch operator {
+	case "gt":
+		return ">"
+	case "gte":
+		return ">="
+	case "lt":
+		return "<"
+	case "lte":
+		return "<="
+	}
+	return ""
+}
+
+// buildWebhookMessageTemplate builds a JSON message template for webhook notifications
+// It includes all metadata and alert context that will be available when the alert fires
+func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
+	// Escape JSON strings properly
+	ruleName, _ := json.Marshal(params.Metadata.Name)
+	componentUID, _ := json.Marshal(params.Metadata.ComponentUID)
+	projectUID, _ := json.Marshal(params.Metadata.ProjectUID)
+	environmentUID, _ := json.Marshal(params.Metadata.EnvironmentUID)
+	enableAiRootCauseAnalysis, _ := json.Marshal(params.Metadata.EnableAiRootCauseAnalysis)
+
+	// Build the JSON template with Mustache variables
+	return fmt.Sprintf(
+		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"enableAiRootCauseAnalysis":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		string(ruleName),
+		string(componentUID),
+		string(projectUID),
+		string(environmentUID),
+		string(enableAiRootCauseAnalysis),
+	)
 }

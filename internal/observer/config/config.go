@@ -20,6 +20,7 @@ type Config struct {
 	Prometheus PrometheusConfig `koanf:"prometheus"`
 	Auth       AuthConfig       `koanf:"auth"`
 	Logging    LoggingConfig    `koanf:"logging"`
+	Alerting   AlertingConfig   `koanf:"alerting"`
 	LogLevel   string           `koanf:"loglevel"`
 }
 
@@ -64,6 +65,14 @@ type LoggingConfig struct {
 	MaxLogLinesPerFile   int `koanf:"max.log.lines.per.file"`
 }
 
+// AlertingConfig holds configuration related to alerting features
+type AlertingConfig struct {
+	// WebhookSecret is a shared secret used to authenticate incoming alerting webhooks.
+	// This value must match the secret appended to the webhook URL configured in
+	// observability backends (e.g., OpenSearch, Prometheus).
+	WebhookSecret string `koanf:"webhook.secret"`
+}
+
 // Load loads configuration from environment variables and defaults
 func Load() (*Config, error) {
 	k := koanf.New(".")
@@ -99,6 +108,7 @@ func Load() (*Config, error) {
 		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
 		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
+		"ALERTING_WEBHOOK_SECRET":         "alerting.webhook.secret",
 		"LOG_LEVEL":                       "loglevel",
 		"PORT":                            "server.port",           // Common alias
 		"JWT_SECRET":                      "auth.jwt.secret",       // Common alias
@@ -169,8 +179,8 @@ func getDefaults() map[string]interface{} {
 			"password":       "admin",
 			"timeout":        "180s",
 			"max.retries":    3,
-			"index.prefix":   "kubernetes-",
-			"index.pattern":  "kubernetes-*",
+			"index.prefix":   "container-logs-",
+			"index.pattern":  "container-logs-*",
 			"legacy.pattern": "choreo*",
 		},
 		"prometheus": map[string]interface{}{
@@ -187,6 +197,11 @@ func getDefaults() map[string]interface{} {
 			"default.log.limit":       100,
 			"default.build.log.limit": 3000,
 			"max.log.lines.per.file":  600000,
+		},
+		"alerting": map[string]interface{}{
+			// This secret must be kept in sync with the default used in
+			// observability backends (e.g., OpenSearch, Prometheus).
+			"webhook.secret": "openchoreo-observer-alert-secret",
 		},
 		"loglevel": "info",
 	}

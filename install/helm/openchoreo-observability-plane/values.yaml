@@ -249,6 +249,8 @@ openSearchClusterSetup:
   image:
     repository: ghcr.io/openchoreo/init-observability-opensearch
     tag: ""
+  observerAddress: "http://observer.openchoreo-observability-plane:8080"
+  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh # TODO: Move to a kubernetes secret
 
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
@@ -279,6 +281,8 @@ observer:
     value: "http://openchoreo-observability-prometheus:9091"
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
+  - name: ALERTING_WEBHOOK_SECRET
+    value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
 
   image:
     repository: ghcr.io/openchoreo/observer

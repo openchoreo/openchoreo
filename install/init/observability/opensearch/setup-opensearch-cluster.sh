@@ -26,12 +26,12 @@ while [ $attempt -le $max_attempts ]; do
         break
     fi
     echo "Waiting for OpenSearch cluster to become ready... (attempt $attempt/$max_attempts)"
-    
+
     if [ $attempt -eq $max_attempts ]; then
         echo "ERROR: OpenSearch cluster did not become ready after $max_attempts attempts. Exiting."
         exit 1
     fi
-    
+
     attempt=$((attempt + 1))
     sleep 10
 done
@@ -177,10 +177,10 @@ echo "Creating index templates..."
 for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
     templateName="${indexTemplates[i]}"
     templateDefinition="${indexTemplates[i+1]}"
-    
+
     echo "Creating index template $templateName"
     templateContent="${!templateDefinition}"
-    
+
     response=$(curl --data "$templateContent" \
                     --header "Authorization: Basic $authnToken" \
                     --header "Content-Type: application/json" \
@@ -190,14 +190,14 @@ for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
                     --silent \
                     --write-out "\n%{http_code}" \
                     "$openSearchHost/_index_template/$templateName")
-    
+
     httpCode=$(echo "$response" | tail -n1)
     responseBody=$(echo "$response" | head -n-1)
-    
+
     if [ "$httpCode" -eq 200 ]; then
         echo "Response: $responseBody"
         echo "Successfully created/updated index template $templateName. HTTP response code: $httpCode"
-        
+
     else
         echo "Response: $responseBody"
         echo "Failed to create/update index template: $templateName. HTTP response code: $httpCode"
@@ -205,3 +205,70 @@ for ((i=0; i<${#indexTemplates[@]}; i+=2)); do
 done
 
 echo -e "Index template creation complete\n"
+
+# 3. Add Channel for Notifications
+# Reference: https://opensearch.org/docs/latest/observing-your-data/notifications/api
+# NOTE: The secret query parameter value must be kept in sync with the
+#       value configured in the observer service
+#       (see internal/observer/config/config.go -> alerting.webhook.secret).
+webhookName="openchoreo-observer-alerting-webhook"
+webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/openchoreo-observer-alert-secret}"
+
+# Desired webhook configuration payload (used for both create and update operations).
+webhookConfig="{
+  \"config_id\": \"$webhookName\",
+  \"config\": {
+    \"name\": \"$webhookName\",
+    \"description\": \"OpenChoreo Observer Alerting Webhook destination\",
+    \"config_type\": \"webhook\",
+    \"is_enabled\": true,
+    \"webhook\": {
+      \"url\": \"$webhookUrl\"
+    }
+  }
+}"
+
+echo -e "Checking if webhook destination already exists..."
+webhookCheckResponseCode=$(curl --location "$openSearchHost/_plugins/_notifications/configs/$webhookName" \
+                                --header "Authorization: Basic $authnToken" \
+                                --insecure \
+                                --output /dev/null \
+                                --request GET \
+                                --silent \
+                                --write-out "%{http_code}")
+
+if [ "$webhookCheckResponseCode" -eq 200 ]; then
+    echo "Webhook destination already exists. Checking if configuration is up to date..."
+
+    # Fetch the existing webhook configuration to compare against the desired URL.
+    existingWebhookConfig=$(curl --location "$openSearchHost/_plugins/_notifications/configs/$webhookName" \
+                                 --header "Authorization: Basic $authnToken" \
+                                 --insecure \
+                                 --silent)
+
+    existingWebhookUrl=$(echo "$existingWebhookConfig" | jq -r '.config.webhook.url // empty')
+
+    if [ "$existingWebhookUrl" = "$webhookUrl" ]; then
+        echo "Webhook destination configuration matches the desired state. No update required."
+    else
+        echo "Webhook destination configuration differs from desired state. Updating destination..."
+        updateWebhookResponse=$(curl --location "$openSearchHost/_plugins/_notifications/configs/$webhookName" \
+                                     --data "$webhookConfig" \
+                                     --header "Authorization: Basic $authnToken" \
+                                     --header 'Content-Type: application/json' \
+                                     --insecure \
+                                     --request PUT)
+        echo "HTTP response of webhook destination update API request: $updateWebhookResponse"
+    fi
+elif [ "$webhookCheckResponseCode" -eq 404 ]; then
+    echo "Webhook destination does not exist. Creating a new webhook destination..."
+    createWebhookResponse=$(curl --location "$openSearchHost/_plugins/_notifications/configs/" \
+                                  --data "$webhookConfig" \
+                                  --header "Authorization: Basic $authnToken" \
+                                  --header 'Content-Type: application/json' \
+                                  --insecure \
+                                  --request POST)
+    echo "HTTP response of webhook destination creation API request: $createWebhookResponse"
+else
+    echo "Error checking webhook destination. HTTP response code: $webhookCheckResponseCode"
+fi
