@@ -238,6 +238,75 @@ metadata: 'map[string]number'
 	assertConvertedSchema(t, "", schemaYAML, expected)
 }
 
+func TestConverter_MapAngleBracketSyntax(t *testing.T) {
+	const schemaYAML = `
+labels: 'map<string>'
+counts: 'map<integer>'
+`
+	const expected = `{
+  "type": "object",
+  "required": [
+    "counts",
+    "labels"
+  ],
+  "properties": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, "", schemaYAML, expected)
+}
+
+func TestConverter_MapWithCustomType(t *testing.T) {
+	const typesYAML = `
+Item:
+  name: string
+  value: 'integer | default=0'
+`
+	const schemaYAML = `
+items: 'map<Item>'
+`
+	const expected = `{
+  "type": "object",
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      }
+    }
+  }
+}`
+
+	assertConvertedSchema(t, typesYAML, schemaYAML, expected)
+}
+
 func TestConverter_ParenthesizedArraySyntaxRejected(t *testing.T) {
 	const schemaYAML = `
 tags: "[](map<string>)"
