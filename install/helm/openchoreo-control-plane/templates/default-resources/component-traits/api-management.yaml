@@ -1,3 +1,4 @@
+{{ if .Values.global.defaultResources.enabled }}
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
@@ -17,7 +18,7 @@ spec:
       context: "string" # API context path (e.g., /greeter-api, /checkout-service)
       upstreamPort: "integer | default=80" # Port on the service to route to
       operations:
-        "array<map<string>>"
+        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
         # Array of API operations
         # Example:
         # - method: GET
@@ -103,3 +104,4 @@ spec:
           value:
             type: ReplacePrefixMatch
             replacePrefixMatch: ${parameters.context}
+{{ end }}
