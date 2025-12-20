@@ -53,11 +53,11 @@ spec:
                       protocol: TCP
                   resources:
                     requests:
-                      cpu: ${parameters.resources.requests.cpu}
-                      memory: ${parameters.resources.requests.memory}
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
                     limits:
-                      cpu: ${parameters.resources.limits.cpu}
-                      memory: ${parameters.resources.limits.memory}
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
 
     # Kubernetes service to expose the HTTP service deployment
     - id: service
@@ -65,7 +65,7 @@ spec:
         apiVersion: v1
         kind: Service
         metadata:
-          name: ${metadata.name}
+          name: ${metadata.componentName}
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
@@ -107,7 +107,7 @@ spec:
                     replacePrefixMatch: /
             # Default: Route directly to the component service (no API management)
             backendRefs:
-            - name: ${metadata.name}
+            - name: ${metadata.componentName}
               port: 80
 
 ---
@@ -130,7 +130,7 @@ spec:
       apiVersion: "string | default=v1.0"
       context: "string"  # API context path (e.g., /greeter-api, /checkout-service)
       upstreamPort: "integer | default=80"  # Port on the service to route to
-      operations: "array<map<string>>"
+      operations: 'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
         # Array of API operations
         # Example:
         # - method: GET
@@ -189,7 +189,7 @@ spec:
               context: ${parameters.context}
               upstream:
                 main:
-                  url: http://${metadata.name}.${metadata.namespace}:${parameters.upstreamPort}
+                  url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
               policies: ${parameters.policies}
               operations: ${parameters.operations}
 
@@ -202,7 +202,7 @@ spec:
       operations:
         # Replace the backendRefs to route through API platform gateway router
         - op: replace
-          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.name}')]
+          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.componentName}')]
           value:
             group: gateway.kgateway.dev
             kind: Backend
@@ -242,19 +242,6 @@ spec:
         apiVersion: v1.0
         context: /greeter-api/v1.0
         upstreamPort: 80
-        operations:
-          - method: GET
-            path: /*
-          - method: POST
-            path: /*
-          - method: PUT
-            path: /*
-          - method: DELETE
-            path: /*
-          - method: PATCH
-            path: /*
-          - method: OPTIONS
-            path: /*
         policies:
           - name: JwtAuthentication
             version: v0.1.0

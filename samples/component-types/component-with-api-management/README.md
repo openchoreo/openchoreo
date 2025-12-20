@@ -57,59 +57,56 @@ backendRefs:
 
 ### 2. API Configuration Trait (Optional Addon)
 
-The `api-configuration` Trait ([lines 115-219](component-with-api-management.yaml#L115-L219)) is a reusable addon that can be applied to any component to enable API management.
+The `api-configuration` Trait ([lines 115-217](component-with-api-management.yaml#L115-L217)) is a reusable addon that can be applied to any component to enable API management.
 
 #### What It Creates
 
-1. **ReferenceGrant** ([lines 160-175](component-with-api-management.yaml#L160-L175))
-   - Allows the HTTPRoute to reference services in the `openchoreo-data-plane` namespace
-   - Required for cross-namespace service references in Gateway API
-   - Named uniquely per component to avoid conflicts
+1. **Backend** ([lines 160-173](component-with-api-management.yaml#L160-L173))
+   - Gateway kgateway.dev custom resource that references the API Platform Gateway router
+   - Provides static host configuration for the gateway service
+   - Enables routing to the API Platform Gateway in the `openchoreo-data-plane` namespace
 
-2. **APIConfiguration CRD** ([lines 177-197](component-with-api-management.yaml#L177-L197))
+2. **APIConfiguration CRD** ([lines 175-194](component-with-api-management.yaml#L175-L194))
    - WSO2 API Platform resource that defines the API
    - Configures operations, policies, upstream service, etc.
    - Enables features like JWT authentication, rate limiting, etc.
 
 #### What It Patches
 
-The trait patches the component's HTTPRoute to route through the API Platform Gateway ([lines 207-212](component-with-api-management.yaml#L207-L212)):
+The trait patches the component's HTTPRoute to route through the API Platform Gateway ([lines 203-209](component-with-api-management.yaml#L203-L209)):
 
 ```yaml
 backendRefs:
-- name: api-platform-default-gateway-router
-  namespace: openchoreo-data-plane
-  port: 8080
+- group: gateway.kgateway.dev
+  kind: Backend
+  name: api-platform-default-gateway-router
 ```
 
-It also updates the URL rewrite to use the API context path ([lines 217-219](component-with-api-management.yaml#L217-L219)):
+It also updates the URL rewrite to use the API context path ([lines 212-216](component-with-api-management.yaml#L212-L216)):
 
 ```yaml
 replacePrefixMatch: ${parameters.context}
 ```
 
-### 3. Cross-Namespace Reference Handling
+### 3. Backend Resource for Gateway Routing
 
-Since the HTTPRoute needs to reference a Service in a different namespace (`openchoreo-data-plane`), we use a **ReferenceGrant**:
+Instead of using cross-namespace Service references with ReferenceGrants, we use a **Backend** custom resource:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: Backend
 metadata:
-  name: allow-httproute-to-api-gateway-${metadata.name}
-  namespace: openchoreo-data-plane  # Created in the target namespace
+  name: api-platform-default-gateway-router
+  namespace: ${metadata.namespace}  # Created in the component namespace
 spec:
-  from:
-  - group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    namespace: ${metadata.namespace}  # Allow from component namespace
-  to:
-  - group: ""
-    kind: Service
-    name: api-platform-default-gateway-router
+  type: Static
+  static:
+    hosts:
+      - host: api-platform-default-gateway-router.openchoreo-data-plane
+        port: 8080
 ```
 
-This is the standard Kubernetes Gateway API approach for allowing cross-namespace references.
+This Backend resource is created in the component's namespace and references the API Platform Gateway router service using its fully qualified domain name (FQDN). The HTTPRoute then references this Backend resource, avoiding the need for cross-namespace Service references.
 
 ## Configuration Parameters
 
@@ -127,14 +124,14 @@ This is the standard Kubernetes Gateway API approach for allowing cross-namespac
 
 ### API Configuration Trait Parameters
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `apiName` | string | Yes | Name of the API |
-| `apiVersion` | string | No | API version (default: v1.0) |
-| `context` | string | Yes | API context path (e.g., /greeter-api/v1.0) |
-| `upstreamPort` | integer | No | Service port (default: 80) |
-| `operations` | array | Yes | List of API operations (method, path) |
-| `policies` | array | No | List of policies (authentication, rate limiting, etc.) |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `apiName` | string | Yes | - | Name of the API |
+| `apiVersion` | string | No | v1.0 | API version |
+| `context` | string | Yes | - | API context path (e.g., /greeter-api/v1.0) |
+| `upstreamPort` | integer | No | 80 | Service port |
+| `operations` | array | No | All HTTP methods on /* | List of API operations (method, path) |
+| `policies` | array | No | [] | List of policies (authentication, rate limiting, etc.) |
 
 ### Environment Overrides
 
@@ -218,19 +215,19 @@ Traffic flows through the API Platform Gateway which:
 
 See [component-with-api-management.yaml](component-with-api-management.yaml) for a complete working example including:
 - ComponentType definition ([lines 1-112](component-with-api-management.yaml#L1-L112))
-- API Configuration Trait ([lines 115-219](component-with-api-management.yaml#L115-L219))
-- Component instance ([lines 222-263](component-with-api-management.yaml#L222-L263))
-- Workload definition ([lines 266-281](component-with-api-management.yaml#L266-L281))
-- ReleaseBinding with environment overrides ([lines 284-311](component-with-api-management.yaml#L284-L311))
+- API Configuration Trait ([lines 115-217](component-with-api-management.yaml#L115-L217))
+- Component instance ([lines 220-248](component-with-api-management.yaml#L220-L248))
+- Workload definition ([lines 250-266](component-with-api-management.yaml#L250-L266))
+- ReleaseBinding with environment overrides ([lines 268-296](component-with-api-management.yaml#L268-L296))
 
 ## Key Features
 
 1. **Modular Design** - API management is optional, added via a trait
 2. **Reusable** - The trait can be applied to any ComponentType
 3. **Environment-Specific** - Override gateway references per environment
-4. **Standards-Based** - Uses Kubernetes Gateway API ReferenceGrant for cross-namespace access
+4. **Standards-Based** - Uses Gateway kgateway.dev Backend resource for flexible routing
 5. **Policy-Driven** - Support for authentication, rate limiting, and other API policies
-6. **Developer-Friendly** - Simple parameters hide infrastructure complexity
+6. **Developer-Friendly** - Simple parameters with sensible defaults hide infrastructure complexity
 
 ## API Platform Integration
 
@@ -261,19 +258,53 @@ kubectl get httproute demo-app-http-service
 # Check the APIConfiguration
 kubectl get apiconfiguration demo-app-http-service
 
-# Check the ReferenceGrant
-kubectl get referencegrant -n openchoreo-data-plane
+# Check the Backend resource
+kubectl get backend api-platform-default-gateway-router
 ```
 
-Access the API:
+### Testing the Secured API
+
+Since the API is secured with JWT authentication, you need to obtain an access token first. For testing purposes, we use the OpenChoreo Control Plane Thunder as the IDP.
+
+1. **Get an access token** using the OAuth2 client credentials flow:
 
 ```bash
-curl https://development.{your-domain}/demo-app-http-service
+curl -k -X POST https://thunder.openchoreo.localhost:8443/oauth2/token \
+  -d 'grant_type=client_credentials' \
+  -d 'client_id=customer-portal-client' \
+  -d 'client_secret=supersecret'
 ```
+
+Response:
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ik11WGVKSlg5MTdzb1pmOTBCeWF6VXBJdnpLZGFKMWtWUlFIdGs0NkYyY2M9IiwidHlwIjoiSldUIn0...",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+2. **Access the API** with the Bearer token:
+
+```bash
+# Export the token
+export TOKEN="<access_token_from_previous_response>"
+
+# Call the API
+curl https://development.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+The API Platform Gateway will:
+- Validate the JWT token
+- Rewrite the path from `/demo-app-http-service` to `/greeter-api/v1.0`
+- Route the request to the backend service
+- Return the response from the greeter service
 
 ## Notes
 
-- The ReferenceGrant must be created in the **target namespace** (`openchoreo-data-plane`)
-- Each component gets a unique ReferenceGrant to avoid conflicts
+- The Backend resource is created in the **component's namespace**, avoiding cross-namespace permission issues
+- The Backend references the API Platform Gateway router using its FQDN (Fully Qualified Domain Name)
 - The upstream URL in APIConfiguration includes the full service FQDN with namespace
 - JWT authentication requires proper token configuration in the ThunderKeyManager
+- The `operations` parameter has sensible defaults (all HTTP methods on /*) for quick prototyping
