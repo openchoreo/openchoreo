@@ -43,6 +43,21 @@ Reusable component workflow definitions for building applications from source co
 ### [GCP Microservices Demo](./gcp-microservices-demo)
 A complete microservices application based on Google's popular [microservices-demo](https://github.com/GoogleCloudPlatform/microservices-demo). This sample showcases how to deploy a full e-commerce application with multiple interconnected services using OpenChoreo.
 
+### [MCP Server - AI Assistant Integration](./mcp)
+Learn how to use OpenChoreo with AI assistants through the Model Context Protocol (MCP). Deploy and manage applications using natural language with AI assistants like Claude Code, Cursor, VS Code, and Claude Desktop.
+
+**Prerequisites:**
+- Running OpenChoreo instance
+- MCP server configured
+- AI assistant installed and configured
+
+**Available Guides:**
+- **[Getting Started](./mcp/getting-started/)** - Connect your AI assistant and explore OpenChoreo resources (10-15 min)
+- **[Service Deployment](./mcp/service-deployment/)** - Deploy services from source code to production using AI assistants (30-45 min)
+  - [Step-by-Step Guide](./mcp/service-deployment/step-by-step/) - Guided walkthrough with explicit prompts
+  - [Developer Chat](./mcp/service-deployment/developer-chat/) - Natural conversation-based deployment
+- **[Configuration Examples](./mcp/configs/)** - Setup instructions for different AI assistants
+
 ### [Platform Configuration](./platform-config)
 Configuration samples targeted at Platform Engineers. Learn how to set up deployment pipelines, configure environments, and establish platform governance using OpenChoreo's abstractions.
 
