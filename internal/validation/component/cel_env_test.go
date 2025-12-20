@@ -103,7 +103,6 @@ func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 		"metadata.namespace",
 		"workload.containers",
 		"configurations.app",
-		"component.name",
 		"dataplane.secretStore",
 	}
 
@@ -187,7 +186,6 @@ func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
 	// These should work (trait-specific variables)
 	validExprs := []string{
 		"trait.instanceName",
-		"component.name",
 		"metadata.name",
 		"dataplane.secretStore",
 	}

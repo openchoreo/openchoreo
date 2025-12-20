@@ -20,7 +20,6 @@ const (
 	VarEnvOverrides   = "envOverrides"
 	VarWorkload       = "workload"
 	VarConfigurations = "configurations"
-	VarComponent      = "component"
 	VarMetadata       = "metadata"
 	VarDataplane      = "dataplane"
 )
@@ -28,7 +27,7 @@ const (
 // Variable names specific to trait rendering context
 const (
 	VarTrait = "trait"
-	// VarParameters, VarEnvOverrides, VarComponent, VarMetadata are shared with component context
+	// VarParameters, VarEnvOverrides, VarMetadata, VarDataplane are shared with component context
 )
 
 // ComponentAllowedVariables lists all variables available in component rendering
@@ -37,7 +36,6 @@ var ComponentAllowedVariables = []string{
 	VarEnvOverrides,
 	VarWorkload,
 	VarConfigurations,
-	VarComponent,
 	VarMetadata,
 	VarDataplane,
 }
@@ -47,7 +45,6 @@ var TraitAllowedVariables = []string{
 	VarParameters,
 	VarEnvOverrides,
 	VarTrait,
-	VarComponent,
 	VarMetadata,
 	VarDataplane,
 }
@@ -74,7 +71,6 @@ type ComponentCELEnvOptions struct {
 //   - dataplane: Typed from context.DataPlaneData
 //   - workload: Typed from context.WorkloadData
 //   - configurations: Typed from context.ContainerConfigurationsMap
-//   - component: Object type with name field
 func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
 	// Create base environment with standard extensions
 	baseEnvOpts := []cel.EnvOption{
@@ -150,7 +146,6 @@ func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
 	varOpts = append(varOpts,
 		cel.Variable(VarWorkload, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarConfigurations, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarMetadata, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarDataplane, cel.MapType(cel.StringType, cel.DynType)),
 	)
@@ -188,7 +183,6 @@ type TraitCELEnvOptions struct {
 //   - parameters: Schema-aware type from Trait.Schema.Parameters (or empty object if not provided)
 //   - envOverrides: Schema-aware type from Trait.Schema.EnvOverrides (or empty object if not provided)
 //   - trait: Typed from context.TraitMetadata
-//   - component: Object type with name field
 //   - metadata: Typed from context.MetadataContext
 //   - dataplane: Typed from context.DataPlaneData
 //
@@ -264,7 +258,6 @@ func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
 	// Other variables use DynType for now (could be enhanced with reflection-based types later)
 	varOpts = append(varOpts,
 		cel.Variable(VarTrait, cel.MapType(cel.StringType, cel.DynType)),
-		cel.Variable(VarComponent, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarMetadata, cel.MapType(cel.StringType, cel.DynType)),
 		cel.Variable(VarDataplane, cel.MapType(cel.StringType, cel.DynType)),
 	)

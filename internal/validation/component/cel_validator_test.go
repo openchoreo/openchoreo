@@ -263,7 +263,6 @@ func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
 	// These should work - trait has access to these
 	validExprs := []string{
 		"trait.instanceName",
-		"component.name",
 		"metadata.name",
 		"dataplane.secretStore",
 	}
@@ -285,7 +284,6 @@ func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 	validExprs := []string{
 		"metadata.name",
 		"metadata.namespace",
-		"component.name",
 		"workload.containers",
 		"configurations.app",
 		"dataplane.secretStore",
