@@ -223,5 +223,79 @@ data:
     fi
     {{- end }}
     {{- end }}
+
+  52-default-apps.sh: |
+    #!/bin/bash
+    set -e
+
+    # Create default applications
+    {{- if .Values.thunder.bootstrap.defaultApps }}
+    {{- range .Values.thunder.bootstrap.defaultApps }}
+    log_info "Checking if application with client ID '{{ .clientId }}' already exists..."
+    existing_apps=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/applications')
+
+    # Extract application ID if it exists
+    app_id=$(echo "$existing_apps" | grep -o '"client_id":"{{ .clientId }}"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"{{ .clientId }}"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    # Define the application payload
+    APP_PAYLOAD='{
+      "name": "Default App",
+      "description": "Default Application",
+      "auth_flow_graph_id": "auth_flow_config_basic",
+      "inbound_auth_config": [
+        {
+          "type": "oauth2",
+          "config": {
+            "client_id": "{{ .clientId }}",
+            "client_secret": "{{ .clientSecret }}",
+            {{- if .redirectUrls }}
+            "redirect_uris": [
+              {{- range $index, $url := .redirectUrls }}
+              {{- if $index }},{{ end }}
+              "{{ $url }}"
+              {{- end }}
+            ],
+            {{- end }}
+            "grant_types": [
+              "client_credentials"
+            ],
+            "token_endpoint_auth_method": "client_secret_post",
+            "pkce_required": false,
+            "public_client": false,
+            "token": {
+              "access_token": {
+                "validity_period": 3600
+              }
+            }
+          }
+        }
+      ]
+    }'
+
+    if echo "$existing_apps" | grep -q '"client_id":"{{ .clientId }}"'; then
+      log_info "Application with client ID '{{ .clientId }}' already exists (id: $app_id), updating..."
+      curl {{ $curlInsecure }} --location -X PUT "{{ $thunderUrl }}/applications/$app_id" \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Application updated successfully"
+    else
+      log_info "Application does not exist, creating application with client ID '{{ .clientId }}'..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/applications' \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Application created successfully"
+    fi
+    {{- end }}
+    {{- end }}
 {{- end }}
 {{- end }}

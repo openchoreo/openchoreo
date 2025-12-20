@@ -420,4 +420,34 @@ clusterAgent:
 
 # API Platform configuration
 api-platform:
-  enabled: false
+  enabled: true
+  gateway:
+    helm:
+      chartName: "oci://ghcr.io/wso2/api-platform/helm-charts/gateway"
+    values:
+      gateway:
+        config:
+          policy_configurations:
+            JWTAuth_v010:
+              KeyManagers:
+              - name: ThunderKeyManager
+                issuer: thunder
+                jwks:
+                  remote:
+                    uri: http://thunder-service.openchoreo-control-plane:8090/oauth2/jwks
+                    skipTlsVerify: true
+              JwksCacheTtl: "5m"
+              JwksFetchTimeout: "5s"
+              JwksFetchRetryCount: 3
+              JwksFetchRetryInterval: "2s"
+              AllowedAlgorithms:
+                - RS256
+                - ES256
+              Leeway: "30s"
+              AuthHeaderScheme: Bearer
+              HeaderName: Authorization
+              OnFailureStatusCode: 401
+              ErrorMessageFormat: json
+              ErrorMessage: "Authentication failed."
+              ValidateIssuer: true  
+
