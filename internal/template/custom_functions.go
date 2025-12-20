@@ -14,10 +14,27 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 	"github.com/google/cel-go/parser"
 
 	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
+
+// BaseCELExtensions returns the CEL extensions used across OpenChoreo.
+// This includes optional types, common utility extensions for strings, encoding,
+// math, lists, sets, two-variable comprehensions, and OpenChoreo custom functions.
+func BaseCELExtensions() []cel.EnvOption {
+	opts := []cel.EnvOption{
+		cel.OptionalTypes(),
+		ext.Strings(),
+		ext.Encoders(),
+		ext.Math(),
+		ext.Lists(),
+		ext.Sets(),
+		ext.TwoVarComprehensions(),
+	}
+	return append(opts, CustomFunctions()...)
+}
 
 // omitValue is a sentinel used to mark values that should be pruned after rendering.
 // The template engine recognizes this sentinel and removes the containing field from output.

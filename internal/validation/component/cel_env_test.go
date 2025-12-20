@@ -214,3 +214,112 @@ func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 	assert.NotNil(t, issues.Err())
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }
+
+func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
+	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		expression string
+		wantErr    bool
+		errMsg     string
+	}{
+		// Valid metadata field access
+		{"valid metadata.name", "metadata.name", false, ""},
+		{"valid metadata.componentName", "metadata.componentName", false, ""},
+		{"valid metadata.namespace", "metadata.namespace", false, ""},
+		{"valid metadata.labels", "metadata.labels", false, ""},
+		{"valid metadata.podSelectors", "metadata.podSelectors", false, ""},
+
+		// Invalid metadata field access
+		{"invalid metadata.invalidField", "metadata.invalidField", true, "undefined field"},
+		{"invalid metadata.notAField", "metadata.notAField", true, "undefined field"},
+
+		// Valid dataplane field access
+		{"valid dataplane.secretStore", "dataplane.secretStore", false, ""},
+		{"valid dataplane.publicVirtualHost", "dataplane.publicVirtualHost", false, ""},
+
+		// Invalid dataplane field access
+		{"invalid dataplane.badField", "dataplane.badField", true, "undefined field"},
+		{"invalid dataplane.notExists", "dataplane.notExists", true, "undefined field"},
+
+		// Valid workload field access
+		{"valid workload.containers", "workload.containers", false, ""},
+
+		// Invalid workload field access
+		{"invalid workload.badField", "workload.badField", true, "undefined field"},
+
+		// Valid configurations access (map type allows dynamic keys)
+		{"valid configurations access", `configurations["app"]`, false, ""},
+		{"valid configurations map access", `configurations["anyContainerName"]`, false, ""},
+
+		// Nested access through map
+		{"valid nested workload", `workload.containers["app"].image`, false, ""},
+		{"invalid nested workload", `workload.containers["app"].invalidField`, true, "undefined field"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, issues := env.Compile(tt.expression)
+			if tt.wantErr {
+				assert.NotNil(t, issues.Err(), "expected error for %s", tt.expression)
+				if tt.errMsg != "" {
+					assert.Contains(t, issues.Err().Error(), tt.errMsg, "error message should contain: %s", tt.errMsg)
+				}
+			} else {
+				assert.Nil(t, issues.Err(), "unexpected error for %s: %v", tt.expression, issues.Err())
+			}
+		})
+	}
+}
+
+func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
+	env, err := BuildTraitCELEnv(TraitCELEnvOptions{})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		expression string
+		wantErr    bool
+		errMsg     string
+	}{
+		// Valid trait field access
+		{"valid trait.name", "trait.name", false, ""},
+		{"valid trait.instanceName", "trait.instanceName", false, ""},
+
+		// Invalid trait field access
+		{"invalid trait.badField", "trait.badField", true, "undefined field"},
+
+		// Valid metadata access
+		{"valid metadata.namespace", "metadata.namespace", false, ""},
+		{"valid metadata.componentName", "metadata.componentName", false, ""},
+
+		// Invalid metadata access
+		{"invalid metadata.badField", "metadata.badField", true, "undefined field"},
+
+		// Valid dataplane access
+		{"valid dataplane.secretStore", "dataplane.secretStore", false, ""},
+
+		// Invalid dataplane access
+		{"invalid dataplane.badField", "dataplane.badField", true, "undefined field"},
+
+		// Trait should not have workload or configurations
+		{"trait no workload", "workload.containers", true, "undeclared reference"},
+		{"trait no configurations", "configurations", true, "undeclared reference"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, issues := env.Compile(tt.expression)
+			if tt.wantErr {
+				assert.NotNil(t, issues.Err(), "expected error for %s", tt.expression)
+				if tt.errMsg != "" {
+					assert.Contains(t, issues.Err().Error(), tt.errMsg, "error message should contain: %s", tt.errMsg)
+				}
+			} else {
+				assert.Nil(t, issues.Err(), "unexpected error for %s: %v", tt.expression, issues.Err())
+			}
+		})
+	}
+}
