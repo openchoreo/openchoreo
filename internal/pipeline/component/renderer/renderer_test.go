@@ -188,6 +188,31 @@ func TestRenderResources(t *testing.T) {
 			wantCount: 2, // Only enabled items
 			wantErr:   false,
 		},
+		{
+			name: "resource with forEach over map",
+			templatesYAML: `
+- id: configmap
+  forEach: ${parameters.envVars}
+  var: env
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: env-${env.key}
+    data:
+      "${env.key}": "${env.value}"
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"envVars": map[string]any{
+						"DB_HOST": "localhost",
+						"DB_PORT": "5432",
+					},
+				},
+			},
+			wantCount: 2,
+			wantErr:   false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -440,6 +465,118 @@ template:
     config: val3
 `,
 			wantErr: false,
+		},
+		{
+			name: "forEach with map - creates resources for each entry",
+			templateYAML: `
+id: test
+forEach: ${configMap}
+var: entry
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: config-${entry.key}
+  data:
+    "${entry.key}": "${entry.value}"
+`,
+			context: map[string]any{
+				"configMap": map[string]any{
+					"database": "postgres://localhost:5432",
+					"cache":    "redis://localhost:6379",
+				},
+			},
+			wantCount: 2,
+			wantErr:   false,
+		},
+		{
+			name: "forEach with empty map",
+			templateYAML: `
+id: test
+forEach: ${emptyMap}
+var: entry
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: config-${entry.key}
+`,
+			context: map[string]any{
+				"emptyMap": map[string]any{},
+			},
+			wantCount: 0,
+			wantErr:   false,
+		},
+		{
+			name: "forEach with map - deterministic order",
+			templateYAML: `
+id: test
+forEach: ${settings}
+var: setting
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: setting-${setting.key}
+  data:
+    value: "${setting.value}"
+`,
+			context: map[string]any{
+				"settings": map[string]any{
+					"zebra": "z-value",
+					"alpha": "a-value",
+					"beta":  "b-value",
+				},
+			},
+			wantCount: 3,
+			// Keys sorted: alpha, beta, zebra
+			wantYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: setting-alpha
+  data:
+    value: a-value
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: setting-beta
+  data:
+    value: b-value
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: setting-zebra
+  data:
+    value: z-value
+`,
+			wantErr: false,
+		},
+		{
+			name: "forEach with map containing complex values",
+			templateYAML: `
+id: test
+forEach: ${configs}
+var: cfg
+template:
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: ${cfg.key}
+  data:
+    host: "${cfg.value.host}"
+    port: "${string(cfg.value.port)}"
+`,
+			context: map[string]any{
+				"configs": map[string]any{
+					"db": map[string]any{
+						"host": "localhost",
+						"port": 5432,
+					},
+				},
+			},
+			wantCount: 1,
+			wantErr:   false,
 		},
 	}
 

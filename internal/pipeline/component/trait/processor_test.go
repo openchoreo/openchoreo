@@ -543,6 +543,170 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name: "patch with forEach over map - add env vars",
+			resourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            env: []
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: env-injector
+spec:
+  patches:
+    - forEach: ${parameters.envVars}
+      var: env
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/0/env/-
+          value:
+            name: ${env.key}
+            value: ${env.value}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"envVars": map[string]any{
+						"DB_HOST": "localhost",
+						"API_KEY": "secret123",
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            env:
+              - name: API_KEY
+                value: secret123
+              - name: DB_HOST
+                value: localhost
+`,
+			wantErr: false,
+		},
+		{
+			name: "patch with forEach over empty map",
+			resourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            env: []
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: env-injector
+spec:
+  patches:
+    - forEach: ${parameters.envVars}
+      var: env
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/0/env/-
+          value:
+            name: ${env.key}
+            value: ${env.value}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"envVars": map[string]any{},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+            env: []
+`,
+			wantErr: false,
+		},
+		{
+			name: "patch with forEach over map - deterministic order",
+			resourcesYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: config
+  data: {}
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: data-injector
+spec:
+  patches:
+    - forEach: ${parameters.settings}
+      var: setting
+      target:
+        kind: ConfigMap
+        version: v1
+      operations:
+        - op: add
+          path: /data/${setting.key}
+          value: ${setting.value}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"settings": map[string]any{
+						"zebra": "z-value",
+						"alpha": "a-value",
+						"beta":  "b-value",
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: config
+  data:
+    alpha: a-value
+    beta: b-value
+    zebra: z-value
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
