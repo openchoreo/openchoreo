@@ -111,10 +111,13 @@ func (p *Processor) ApplyTraitCreates(
 // ApplyTraitPatches applies trait patches to existing resources.
 //
 // This function handles the orchestration of:
-//   - forEach iteration over collections
+//   - forEach iteration over collections (arrays and maps)
 //   - Resource targeting (finding which resources to patch, respecting targetPlane)
 //   - CEL rendering of patch operations and where clauses
 //   - Delegating to patch.ApplyPatches for the actual patching
+//
+// For forEach with maps, keys are iterated in sorted order with each item having
+// .key and .value fields.
 //
 // The patch package itself only handles the low-level mechanics of applying
 // operations to a single resource.
@@ -151,6 +154,7 @@ func (p *Processor) applyPatch(
 }
 
 // applyPatchWithForEach handles forEach iteration for a patch.
+// Supports both arrays and maps. For maps, items are {key, value} entries sorted by key.
 func (p *Processor) applyPatchWithForEach(
 	resources []renderer.RenderedResource,
 	traitName string,
@@ -164,9 +168,10 @@ func (p *Processor) applyPatchWithForEach(
 		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s patch #%d: %w", traitPatch.ForEach, traitName, patchIndex, err)
 	}
 
-	items, ok := itemsRaw.([]any)
-	if !ok {
-		return fmt.Errorf("forEach expression '%s' must evaluate to an array for trait %s patch #%d, got %T", traitPatch.ForEach, traitName, patchIndex, itemsRaw)
+	// Convert result to iterable items (supports arrays and maps)
+	items, err := renderer.ToIterableItems(itemsRaw)
+	if err != nil {
+		return fmt.Errorf("invalid forEach result for trait %s patch #%d: %w", traitName, patchIndex, err)
 	}
 
 	// Determine the variable name for each iteration (defaults to "item")

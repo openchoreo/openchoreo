@@ -373,7 +373,10 @@ resources:
 
 ### forEach - Dynamic Resource Generation (ComponentType and Trait patches)
 
-The `forEach` field generates multiple resources from a list or map. Available on ComponentType resources and Trait patches:
+The `forEach` field generates multiple resources from a list or map. Available on ComponentType resources and Trait patches.
+
+- **Lists**: Each item is bound directly to the loop variable
+- **Maps**: Each item has `.key` and `.value` fields; keys are iterated in **alphabetical order** for deterministic output
 
 ```yaml
 resources:
@@ -496,9 +499,13 @@ resources:
 
 ### Using forEach with Maps
 
+When iterating over a map, each item has `.key` and `.value` fields. **Map keys are iterated in alphabetical order** to ensure deterministic resource generation across runs.
+
 ```yaml
 resources:
   # Generate ConfigMap from map entries
+  # If configFiles = {"database": "postgres://...", "cache": "redis://..."}
+  # Items are iterated in order: cache, database (alphabetically sorted)
   - forEach: ${parameters.configFiles}
     var: config
     resource:
@@ -510,9 +517,29 @@ resources:
         "${config.key}": ${config.value}
 ```
 
+**Accessing nested values in maps:**
+
+```yaml
+resources:
+  # Map with complex values
+  # connections = {"db": {"host": "localhost", "port": 5432}, "cache": {"host": "redis", "port": 6379}}
+  - forEach: ${parameters.connections}
+    var: conn
+    resource:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ${conn.key}-config
+      data:
+        host: ${conn.value.host}
+        port: "${string(conn.value.port)}"
+```
+
+**Empty maps produce zero iterations** (no resources generated).
+
 ### Usage in Traits
 
-Trait patches support `forEach` for iteration and `where` for conditional targeting:
+Trait patches support `forEach` for iteration (over lists or maps) and `where` for conditional targeting:
 
 ```yaml
 # In Trait definition
@@ -558,4 +585,18 @@ spec:
           path: /spec/template/spec/containers/0/ports/-
           value: |
             ${{"containerPort": port.number, "name": port.name}}
+
+    # Use forEach with maps - keys are iterated alphabetically
+    - forEach: ${parameters.envVars}
+      var: env
+      target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/0/env/-
+          value:
+            name: ${env.key}
+            value: ${env.value}
 ```

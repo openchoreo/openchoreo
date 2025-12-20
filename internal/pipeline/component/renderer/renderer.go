@@ -45,9 +45,12 @@ type RenderedResource struct {
 //   - Iterate through ComponentType.Spec.Resources
 //   - For each ResourceTemplate:
 //   - Evaluate includeWhen (skip if false)
-//   - Check forEach (render multiple times if present)
+//   - Check forEach (render multiple times if present, supports arrays and maps)
 //   - Render template field using template engine
 //   - Return all rendered resources with their target planes
+//
+// For forEach with maps, keys are iterated in sorted order with each item having
+// .key and .value fields.
 //
 // Returns an error if any template fails to render (unless it's a missing data error
 // for includeWhen evaluation).
@@ -130,7 +133,8 @@ func (r *Renderer) shouldInclude(tmpl v1alpha1.ResourceTemplate, context map[str
 // renderWithForEach handles ResourceTemplate.forEach iteration.
 //
 // The process:
-//   - Evaluate forEach expression to get array of items
+//   - Evaluate forEach expression to get array or map
+//   - Convert to iterable items (maps become {key, value} entries, sorted by key)
 //   - For each item:
 //   - Clone context
 //   - Bind item to variable (tmpl.var or "item")
@@ -146,18 +150,10 @@ func (r *Renderer) renderWithForEach(
 		return nil, fmt.Errorf("failed to evaluate forEach expression for resource %s: %w", tmpl.ID, err)
 	}
 
-	// Ensure result is an array - handle both []any and []map[string]any
-	var items []any
-	switch v := result.(type) {
-	case []any:
-		items = v
-	case []map[string]any:
-		items = make([]any, len(v))
-		for i, m := range v {
-			items[i] = m
-		}
-	default:
-		return nil, fmt.Errorf("forEach must evaluate to array for resource %s, got %T", tmpl.ID, result)
+	// Convert result to iterable items (supports arrays and maps)
+	items, err := ToIterableItems(result)
+	if err != nil {
+		return nil, fmt.Errorf("invalid forEach result for resource %s: %w", tmpl.ID, err)
 	}
 
 	// Determine variable name
