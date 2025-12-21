@@ -131,6 +131,279 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name:              "create with includeWhen true - resource created",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: conditional-trait
+spec:
+  creates:
+    - includeWhen: ${parameters.enabled}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: conditional-config
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"enabled": true,
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: conditional-config
+`,
+			wantErr: false,
+		},
+		{
+			name:              "create with includeWhen false - resource skipped",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: conditional-trait
+spec:
+  creates:
+    - includeWhen: ${parameters.enabled}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: conditional-config
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"enabled": false,
+				},
+			},
+			wantResourcesYAML: `[]`,
+			wantErr:           false,
+		},
+		{
+			name:              "create with includeWhen missing data - returns error",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: conditional-trait
+spec:
+  creates:
+    - includeWhen: ${parameters.nonexistent}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: conditional-config
+`,
+			context: map[string]any{
+				"parameters": map[string]any{},
+			},
+			wantResourcesYAML: `[]`,
+			wantErr:           true,
+		},
+		{
+			name:              "create with forEach over list",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: volume-trait
+spec:
+  creates:
+    - forEach: ${parameters.volumes}
+      var: vol
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${vol.name}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${vol.size}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"volumes": []any{
+						map[string]any{"name": "data-vol", "size": "10Gi"},
+						map[string]any{"name": "cache-vol", "size": "5Gi"},
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: data-vol
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 10Gi
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: cache-vol
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+`,
+			wantErr: false,
+		},
+		{
+			name:              "create with forEach over map - deterministic order",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: config-trait
+spec:
+  creates:
+    - forEach: ${parameters.configs}
+      var: cfg
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${cfg.key}-config
+        data:
+          value: ${cfg.value}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"configs": map[string]any{
+						"zebra": "z-value",
+						"alpha": "a-value",
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: alpha-config
+  data:
+    value: a-value
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: zebra-config
+  data:
+    value: z-value
+`,
+			wantErr: false,
+		},
+		{
+			name:              "create with forEach over empty list",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: empty-trait
+spec:
+  creates:
+    - forEach: ${parameters.items}
+      var: item
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${item}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"items": []any{},
+				},
+			},
+			wantResourcesYAML: `[]`,
+			wantErr:           false,
+		},
+		{
+			name:              "create with includeWhen and forEach combined - includeWhen controls entire forEach block",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: conditional-forEach-trait
+spec:
+  creates:
+    - includeWhen: ${parameters.enabled}
+      forEach: ${parameters.volumes}
+      var: vol
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${vol.name}
+        spec:
+          resources:
+            requests:
+              storage: ${vol.size}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"enabled": false,
+					"volumes": []any{
+						map[string]any{"name": "vol1", "size": "10Gi"},
+						map[string]any{"name": "vol2", "size": "5Gi"},
+					},
+				},
+			},
+			wantResourcesYAML: `[]`,
+			wantErr:           false,
+		},
+		{
+			name:              "create with forEach using default var name 'item'",
+			baseResourcesYAML: `[]`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: default-var-trait
+spec:
+  creates:
+    - forEach: ${parameters.names}
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${item}-config
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"names": []any{"first", "second"},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: first-config
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: second-config
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

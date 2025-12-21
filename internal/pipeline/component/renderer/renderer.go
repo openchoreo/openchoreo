@@ -11,10 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
-
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -52,8 +49,7 @@ type RenderedResource struct {
 // For forEach with maps, keys are iterated in sorted order with each item having
 // .key and .value fields.
 //
-// Returns an error if any template fails to render (unless it's a missing data error
-// for includeWhen evaluation).
+// Returns an error if any template fails to render.
 func (r *Renderer) RenderResources(
 	templates []v1alpha1.ResourceTemplate,
 	context map[string]any,
@@ -62,7 +58,7 @@ func (r *Renderer) RenderResources(
 
 	for _, tmpl := range templates {
 		// Check if resource should be included
-		include, err := r.shouldInclude(tmpl, context)
+		include, err := ShouldInclude(r.templateEngine, tmpl.IncludeWhen, context)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate includeWhen for resource %s: %w", tmpl.ID, err)
 		}
@@ -100,81 +96,23 @@ func (r *Renderer) RenderResources(
 	return resources, nil
 }
 
-// shouldInclude evaluates the ResourceTemplate.includeWhen condition.
-//
-// Returns:
-//   - true if includeWhen is not set (default)
-//   - true if includeWhen evaluates to true
-//   - false if includeWhen evaluates to false
-//   - false if includeWhen evaluation fails with missing data (graceful degradation)
-//   - error for other evaluation failures
-func (r *Renderer) shouldInclude(tmpl v1alpha1.ResourceTemplate, context map[string]any) (bool, error) {
-	if tmpl.IncludeWhen == "" {
-		return true, nil
-	}
-
-	result, err := r.templateEngine.Render(tmpl.IncludeWhen, context)
-	if err != nil {
-		// Gracefully handle missing data - treat as false
-		if template.IsMissingDataError(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to evaluate includeWhen expression: %w", err)
-	}
-
-	boolResult, ok := result.(bool)
-	if !ok {
-		return false, fmt.Errorf("includeWhen must evaluate to bool, got %T", result)
-	}
-
-	return boolResult, nil
-}
-
 // renderWithForEach handles ResourceTemplate.forEach iteration.
-//
-// The process:
-//   - Evaluate forEach expression to get array or map
-//   - Convert to iterable items (maps become {key, value} entries, sorted by key)
-//   - For each item:
-//   - Clone context
-//   - Bind item to variable (tmpl.var or "item")
-//   - Render template with item context
-//   - Return all rendered resources
+// Delegates to the shared EvalForEach helper for iteration logic.
 func (r *Renderer) renderWithForEach(
 	tmpl v1alpha1.ResourceTemplate,
 	context map[string]any,
 ) ([]map[string]any, error) {
-	// Evaluate forEach expression
-	result, err := r.templateEngine.Render(tmpl.ForEach, context)
+	itemContexts, err := EvalForEach(r.templateEngine, tmpl.ForEach, tmpl.Var, context)
 	if err != nil {
-		return nil, fmt.Errorf("failed to evaluate forEach expression for resource %s: %w", tmpl.ID, err)
+		return nil, fmt.Errorf("failed to evaluate forEach for resource %s: %w", tmpl.ID, err)
 	}
 
-	// Convert result to iterable items (supports arrays and maps)
-	items, err := ToIterableItems(result)
-	if err != nil {
-		return nil, fmt.Errorf("invalid forEach result for resource %s: %w", tmpl.ID, err)
-	}
-
-	// Determine variable name
-	varName := tmpl.Var
-	if varName == "" {
-		varName = "item"
-	}
-
-	// Render template for each item
-	resources := make([]map[string]any, 0, len(items))
-	for i, item := range items {
-		// Clone context and bind item
-		itemContext := clone.DeepCopyMap(context)
-		itemContext[varName] = item
-
-		// Render resource with item context
+	resources := make([]map[string]any, 0, len(itemContexts))
+	for _, itemContext := range itemContexts {
 		rendered, err := r.renderSingleResource(tmpl, itemContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to render forEach iteration %d for resource %s: %w", i, tmpl.ID, err)
+			return nil, err
 		}
-
 		resources = append(resources, rendered)
 	}
 
@@ -251,29 +189,4 @@ func validateResource(resource map[string]any, resourceID string) error {
 	}
 
 	return nil
-}
-
-// ExtractTemplateData extracts the template data from a ResourceTemplate.
-// This is a helper for testing.
-func ExtractTemplateData(tmpl v1alpha1.ResourceTemplate) (any, error) {
-	if tmpl.Template.Raw == nil {
-		return nil, fmt.Errorf("template is nil")
-	}
-
-	var data any
-	if err := json.Unmarshal(tmpl.Template.Raw, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal template: %w", err)
-	}
-
-	return data, nil
-}
-
-// MustRawExtension creates a runtime.RawExtension from any value.
-// Panics if marshaling fails. For testing only.
-func MustRawExtension(v any) runtime.RawExtension {
-	data, err := json.Marshal(v)
-	if err != nil {
-		panic(fmt.Sprintf("failed to marshal value: %v", err))
-	}
-	return runtime.RawExtension{Raw: data}
 }

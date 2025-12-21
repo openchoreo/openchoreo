@@ -25,7 +25,6 @@ const (
 type CELValidator struct {
 	baseEnv      *cel.Env
 	resourceType ResourceType
-	allowedRoots map[string]bool
 }
 
 // CELValidatorSchemaOptions configures schema information for the validator.
@@ -43,16 +42,13 @@ type CELValidatorSchemaOptions struct {
 // Provides schema-aware type checking when schemas are provided in opts.
 func NewCELValidator(resourceType ResourceType, opts CELValidatorSchemaOptions) (*CELValidator, error) {
 	var env *cel.Env
-	var allowedRoots []string
 	var err error
 
 	switch resourceType {
 	case ComponentTypeResource:
 		env, err = BuildComponentCELEnv(ComponentCELEnvOptions(opts))
-		allowedRoots = ComponentAllowedVariables
 	case TraitResource:
 		env, err = BuildTraitCELEnv(TraitCELEnvOptions(opts))
-		allowedRoots = TraitAllowedVariables
 	default:
 		return nil, fmt.Errorf("unknown resource type: %v", resourceType)
 	}
@@ -61,16 +57,9 @@ func NewCELValidator(resourceType ResourceType, opts CELValidatorSchemaOptions) 
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
 
-	// Build allowed roots map for quick lookup
-	rootsMap := make(map[string]bool)
-	for _, root := range allowedRoots {
-		rootsMap[root] = true
-	}
-
 	return &CELValidator{
 		baseEnv:      env,
 		resourceType: resourceType,
-		allowedRoots: rootsMap,
 	}, nil
 }
 
@@ -82,23 +71,14 @@ func (v *CELValidator) ValidateExpression(expr string) error {
 // ValidateWithEnv validates a CEL expression with a specific environment.
 // This is used when the environment has been extended with forEach variables.
 func (v *CELValidator) ValidateWithEnv(expr string, env *cel.Env) error {
-	// Parse the expression
 	parsed, issues := env.Parse(expr)
 	if issues != nil && issues.Err() != nil {
 		return fmt.Errorf("parse error: %w", issues.Err())
 	}
 
-	// Type check the expression
-	checked, issues := env.Check(parsed)
+	_, issues = env.Check(parsed)
 	if issues != nil && issues.Err() != nil {
 		return fmt.Errorf("type check error: %w", issues.Err())
-	}
-
-	// Validate variable references using AST analysis
-	// Note: We don't validate against allowedRoots when using extended env
-	// because forEach variables are dynamically added
-	if env == v.baseEnv {
-		return v.validateVariableReferences(checked)
 	}
 
 	return nil
@@ -117,15 +97,9 @@ func (v *CELValidator) ValidateBooleanExpression(expr string, env *cel.Env) erro
 		return fmt.Errorf("type check error: %w", issues.Err())
 	}
 
-	// Verify output type is boolean
 	outputType := checked.OutputType()
 	if !outputType.IsExactType(cel.BoolType) && outputType != cel.DynType {
 		return fmt.Errorf("expression must return boolean, got %s", outputType)
-	}
-
-	// Validate variable references if using base environment
-	if env == v.baseEnv {
-		return v.validateVariableReferences(checked)
 	}
 
 	return nil
@@ -143,25 +117,14 @@ func (v *CELValidator) ValidateIterableExpression(expr string, env *cel.Env) err
 		return fmt.Errorf("type check error: %w", issues.Err())
 	}
 
-	// Verify output type is iterable (list or map)
 	outputType := checked.OutputType()
 	kind := outputType.Kind()
 
 	// Allow DynType since it could be iterable at runtime
-	// Reject known non-iterable types (strings, numbers, booleans, etc.)
 	if kind != types.ListKind && kind != types.MapKind && outputType != cel.DynType {
 		return fmt.Errorf("forEach expression must return list or map, got %s", outputType)
 	}
 
-	return nil
-}
-
-// validateVariableReferences performs basic validation of variable references
-// The CEL Check phase already does most of the validation, so we keep this simple
-func (v *CELValidator) validateVariableReferences(checkedAst *cel.Ast) error {
-	// For now, we rely on the CEL type checker to validate variable references
-	// The type checker will catch undefined variables and type mismatches
-	// We could enhance this later if needed to provide more specific error messages
 	return nil
 }
 

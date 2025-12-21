@@ -52,6 +52,19 @@ spec:
                   description: TraitCreate defines a resource template to be created
                     by the trait
                   properties:
+                    forEach:
+                      description: |-
+                        ForEach enables generating multiple resources from a list using CEL expression
+                        Example: "${parameters.volumes}" to iterate over a list
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    includeWhen:
+                      description: |-
+                        IncludeWhen is a CEL expression that determines if this resource should be created
+                        If not specified, the resource is always created
+                        Example: "${parameters.enableMetrics}"
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
                     targetPlane:
                       default: dataplane
                       description: |-
@@ -67,9 +80,18 @@ spec:
                         CEL expressions are enclosed in ${...} and will be evaluated at runtime
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+                    var:
+                      description: |-
+                        Var is the loop variable name when using forEach
+                        Example: "volume" will make each item available as ${volume} in templates
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                      type: string
                   required:
                   - template
                   type: object
+                  x-kubernetes-validations:
+                  - message: var is required when forEach is specified
+                    rule: '!has(self.forEach) || has(self.var)'
                 type: array
               patches:
                 description: Patches defines modifications to existing resources generated

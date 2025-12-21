@@ -12,7 +12,6 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
-	"github.com/google/cel-go/ext"
 )
 
 // Engine evaluates CEL backed templates that can contain inline expressions, map keys, and nested structures.
@@ -349,27 +348,12 @@ func (e *Engine) getOrCreateEnv(inputs map[string]any) (*cel.Env, error) {
 // buildEnv wires up CEL with the helper surface area expected by our templating story so authors
 // can reuse common snippets like `omit`, `merge`, and `sanitizeK8sResourceName`.
 func buildEnv(inputs map[string]any, celExtensions []cel.EnvOption) (*cel.Env, error) {
-	envOptions := []cel.EnvOption{
-		cel.OptionalTypes(),
-	}
+	envOptions := BaseCELExtensions()
 
 	// Add variables for all inputs
 	for key := range inputs {
 		envOptions = append(envOptions, cel.Variable(key, cel.DynType))
 	}
-
-	// Add standard CEL extensions
-	envOptions = append(envOptions,
-		ext.Strings(),
-		ext.Encoders(),
-		ext.Math(),
-		ext.Lists(),
-		ext.Sets(),
-		ext.TwoVarComprehensions(),
-	)
-
-	// Add our custom functions
-	envOptions = append(envOptions, CustomFunctions()...)
 
 	// Add custom CEL extensions (e.g., configuration helpers from context package)
 	envOptions = append(envOptions, celExtensions...)

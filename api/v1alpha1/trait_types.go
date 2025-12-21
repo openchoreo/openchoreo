@@ -24,6 +24,7 @@ type TraitSpec struct {
 }
 
 // TraitCreate defines a resource template to be created by the trait
+// +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"
 type TraitCreate struct {
 	// TargetPlane specifies which plane this resource should be deployed to
 	// Defaults to "dataplane" if not specified
@@ -31,6 +32,25 @@ type TraitCreate struct {
 	// +kubebuilder:validation:Enum=dataplane;observabilityplane
 	// +kubebuilder:default=dataplane
 	TargetPlane string `json:"targetPlane,omitempty"`
+
+	// IncludeWhen is a CEL expression that determines if this resource should be created
+	// If not specified, the resource is always created
+	// Example: "${parameters.enableMetrics}"
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	IncludeWhen string `json:"includeWhen,omitempty"`
+
+	// ForEach enables generating multiple resources from a list using CEL expression
+	// Example: "${parameters.volumes}" to iterate over a list
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	ForEach string `json:"forEach,omitempty"`
+
+	// Var is the loop variable name when using forEach
+	// Example: "volume" will make each item available as ${volume} in templates
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z_][a-zA-Z0-9_]*$`
+	Var string `json:"var,omitempty"`
 
 	// Template contains the Kubernetes resource with CEL expressions
 	// CEL expressions are enclosed in ${...} and will be evaluated at runtime
