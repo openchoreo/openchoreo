@@ -136,9 +136,9 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		ComponentWorkflowRun: componentWorkflowRun,
 		ComponentWorkflow:    componentWorkflow,
 		Context: componentworkflowpipeline.ComponentWorkflowContext{
-			OrgName:                  componentWorkflowRun.Namespace,
-			ProjectName:              componentWorkflowRun.Spec.Owner.ProjectName,
-			ComponentName:            componentWorkflowRun.Spec.Owner.ComponentName,
+			OrgName:         componentWorkflowRun.Namespace,
+			ProjectName:     componentWorkflowRun.Spec.Owner.ProjectName,
+			ComponentName:   componentWorkflowRun.Spec.Owner.ComponentName,
 			WorkflowRunName: componentWorkflowRun.Name,
 		},
 	}
@@ -196,6 +196,12 @@ func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
 	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
 		logger.Error(err, "failed to ensure prerequisite resources")
+		return ctrl.Result{Requeue: true}
+	}
+
+	// Apply additional resources (e.g., secrets, configmaps) before the main workflow
+	if err := r.applyRenderedResources(ctx, componentWorkflowRun, output.Resources, bpClient); err != nil {
+		logger.Error(err, "failed to apply rendered resources")
 		return ctrl.Result{Requeue: true}
 	}
 
@@ -286,6 +292,60 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 
 	componentWorkflowRun.Status.RunReference.Name = name
 	componentWorkflowRun.Status.RunReference.Namespace = namespace
+	return nil
+}
+
+// applyRenderedResources applies additional rendered resources (e.g., secrets, configmaps) to the build plane.
+func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	resources []componentworkflowpipeline.RenderedResource,
+	bpClient client.Client,
+) error {
+	logger := log.FromContext(ctx)
+
+	for _, res := range resources {
+		unstructuredResource := &unstructured.Unstructured{Object: res.Resource}
+
+		// Add labels to track ownership
+		labels := unstructuredResource.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels["openchoreo.dev/componentworkflowrun"] = componentWorkflowRun.Name
+		labels["openchoreo.dev/componentworkflowrun-namespace"] = componentWorkflowRun.Namespace
+		labels["openchoreo.dev/resource-id"] = res.ID
+		unstructuredResource.SetLabels(labels)
+
+		existingResource := &unstructured.Unstructured{}
+		existingResource.SetGroupVersionKind(unstructuredResource.GroupVersionKind())
+
+		namespace := unstructuredResource.GetNamespace()
+		name := unstructuredResource.GetName()
+
+		err := bpClient.Get(ctx, types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		}, existingResource)
+
+		if err != nil {
+			if errors.IsNotFound(err) {
+				if err := bpClient.Create(ctx, unstructuredResource); err != nil {
+					return fmt.Errorf("failed to create resource %q: %w", res.ID, err)
+				}
+				logger.Info("created resource", "id", res.ID, "name", name, "namespace", namespace)
+				continue
+			}
+			return fmt.Errorf("failed to get existing resource %q: %w", res.ID, err)
+		}
+
+		unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
+		if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+			return fmt.Errorf("failed to update resource %q: %w", res.ID, err)
+		}
+		logger.Info("updated resource", "id", res.ID, "name", name, "namespace", namespace)
+	}
+
 	return nil
 }
 

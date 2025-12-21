@@ -50,9 +50,16 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Render additional resources if defined
+	resources, err := p.renderResources(input.ComponentWorkflow.Spec.Resources, celContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render resources: %w", err)
+	}
+
 	return &RenderOutput{
-		Resource: resource,
-		Metadata: metadata,
+		Resource:  resource,
+		Resources: resources,
+		Metadata:  metadata,
 	}, nil
 }
 
@@ -111,12 +118,38 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 	return resource, nil
 }
 
+// renderResources renders additional resources defined in the ComponentWorkflow.
+func (p *Pipeline) renderResources(resources []v1alpha1.ComponentWorkflowResource, celContext map[string]any) ([]RenderedResource, error) {
+	if len(resources) == 0 {
+		return nil, nil
+	}
+
+	renderedResources := make([]RenderedResource, 0, len(resources))
+	for _, res := range resources {
+		rendered, err := p.renderTemplate(res.Template, celContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render resource %q: %w", res.ID, err)
+		}
+
+		if err := p.validateRenderedResource(rendered); err != nil {
+			return nil, fmt.Errorf("validation failed for resource %q: %w", res.ID, err)
+		}
+
+		renderedResources = append(renderedResources, RenderedResource{
+			ID:       res.ID,
+			Resource: rendered,
+		})
+	}
+
+	return renderedResources, nil
+}
+
 // buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, and parameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	metadata := map[string]any{
-		"orgName":                  input.Context.OrgName,
-		"projectName":              input.Context.ProjectName,
-		"componentName":            input.Context.ComponentName,
+		"orgName":         input.Context.OrgName,
+		"projectName":     input.Context.ProjectName,
+		"componentName":   input.Context.ComponentName,
 		"workflowRunName": input.Context.WorkflowRunName,
 	}
 

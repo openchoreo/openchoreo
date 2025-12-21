@@ -39,6 +39,32 @@ spec:
           spec:
             description: spec defines the desired state of ComponentWorkflow
             properties:
+              resources:
+                description: |-
+                  Resources are additional templates that generate Kubernetes resources dynamically
+                  to be deployed alongside the workflow run (e.g., secrets, configmaps).
+                  Template variables are substituted with context and parameter values.
+                items:
+                  description: |-
+                    ComponentWorkflowResource defines a template for generating Kubernetes resources
+                    to be deployed alongside the workflow run.
+                  properties:
+                    id:
+                      description: ID uniquely identifies this resource within the
+                        component workflow.
+                      minLength: 1
+                      type: string
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with CEL expressions.
+                        CEL expressions are enclosed in ${...} and will be evaluated at runtime.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - template
+                  type: object
+                type: array
               runTemplate:
                 description: |-
                   RunTemplate is the Kubernetes resource template to be rendered and applied to the build plane.

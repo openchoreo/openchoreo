@@ -31,6 +31,28 @@ type ComponentWorkflowSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
 	RunTemplate *runtime.RawExtension `json:"runTemplate"`
+
+	// Resources are additional templates that generate Kubernetes resources dynamically
+	// to be deployed alongside the workflow run (e.g., secrets, configmaps).
+	// Template variables are substituted with context and parameter values.
+	// +optional
+	Resources []ComponentWorkflowResource `json:"resources,omitempty"`
+}
+
+// ComponentWorkflowResource defines a template for generating Kubernetes resources
+// to be deployed alongside the workflow run.
+type ComponentWorkflowResource struct {
+	// ID uniquely identifies this resource within the component workflow.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ID string `json:"id"`
+
+	// Template contains the Kubernetes resource with CEL expressions.
+	// CEL expressions are enclosed in ${...} and will be evaluated at runtime.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Template *runtime.RawExtension `json:"template"`
 }
 
 // ComponentWorkflowSchema defines the parameter schemas for component workflows.
