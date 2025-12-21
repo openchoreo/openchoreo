@@ -13,6 +13,7 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/internal/clone"
 	"github.com/openchoreo/openchoreo/internal/schema/extractor"
@@ -23,6 +24,14 @@ type Definition struct {
 	Types   map[string]any
 	Schemas []map[string]any
 	Options extractor.Options
+}
+
+// Source provides access to schema raw extensions for extraction.
+// Both ComponentTypeSchema and TraitSchema implement this interface.
+type Source interface {
+	GetTypes() *runtime.RawExtension
+	GetParameters() *runtime.RawExtension
+	GetEnvOverrides() *runtime.RawExtension
 }
 
 // ToJSONSchema converts a schema definition into an OpenAPI v3 JSON schema.
