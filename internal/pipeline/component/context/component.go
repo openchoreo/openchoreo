@@ -9,6 +9,7 @@ import (
 	"maps"
 
 	"github.com/go-playground/validator/v10"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,8 +82,8 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 // Parameters come from Component.Spec.Parameters only.
 // EnvOverrides come from ReleaseBinding.Spec.ComponentTypeEnvOverrides only.
 func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
-	// Build both structural schemas in one call to share types unmarshaling
-	parametersSchema, envOverridesSchema, err := BuildStructuralSchemas(&SchemaInput{
+	// Build both schema bundles in one call to share types unmarshaling
+	parametersBundle, envOverridesBundle, err := BuildStructuralSchemas(&SchemaInput{
 		Types:              input.ComponentType.Spec.Schema.Types,
 		ParametersSchema:   input.ComponentType.Spec.Schema.Parameters,
 		EnvOverridesSchema: input.ComponentType.Spec.Schema.EnvOverrides,
@@ -97,13 +98,16 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 		return nil, nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
-	// Process parameters: prune to parameters schema, apply defaults
+	// Process parameters: prune to parameters schema, apply defaults, validate
 	var parameters map[string]any
-	if parametersSchema != nil {
+	if parametersBundle != nil {
 		parameters = make(map[string]any, len(componentParams))
 		maps.Copy(parameters, componentParams)
-		pruning.Prune(parameters, parametersSchema, false)
-		parameters = schema.ApplyDefaults(parameters, parametersSchema)
+		pruning.Prune(parameters, parametersBundle.Structural, false)
+		parameters = schema.ApplyDefaults(parameters, parametersBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(parameters, parametersBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("parameters validation failed: %w", err)
+		}
 	} else {
 		// No parameters schema defined - discard all parameters
 		parameters = make(map[string]any)
@@ -120,10 +124,13 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 		envOverrides = make(map[string]any)
 	}
 
-	// Prune against schema and apply defaults
-	if envOverridesSchema != nil {
-		pruning.Prune(envOverrides, envOverridesSchema, false)
-		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
+	// Prune against schema, apply defaults, and validate
+	if envOverridesBundle != nil {
+		pruning.Prune(envOverrides, envOverridesBundle.Structural, false)
+		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(envOverrides, envOverridesBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("envOverrides validation failed: %w", err)
+		}
 	} else {
 		// No envOverrides schema defined - discard all envOverrides
 		envOverrides = make(map[string]any)
@@ -204,11 +211,19 @@ func structToMap(v any) (map[string]any, error) {
 	return result, nil
 }
 
+// SchemaBundle holds both structural and JSON schemas for validation workflows.
+// The structural schema is used for pruning and defaulting, while the JSON schema
+// is used for validation.
+type SchemaBundle struct {
+	Structural *apiextschema.Structural
+	JSONSchema *extv1.JSONSchemaProps
+}
+
 // BuildStructuralSchemas builds separate structural schemas for parameters and envOverrides
 // while unmarshaling types only once.
 //
-// Returns (parametersSchema, envOverridesSchema, error). Either schema can be nil if not provided.
-func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apiextschema.Structural, error) {
+// Returns (parametersBundle, envOverridesBundle, error). Either bundle's schemas can be nil if not provided.
+func BuildStructuralSchemas(input *SchemaInput) (*SchemaBundle, *SchemaBundle, error) {
 	// Extract types from RawExtension once
 	var types map[string]any
 	if input.Types != nil {
@@ -217,8 +232,8 @@ func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apie
 		}
 	}
 
-	// Build parameters schema
-	var parametersSchema *apiextschema.Structural
+	// Build parameters schema bundle
+	var parametersBundle *SchemaBundle
 	if input.ParametersSchema != nil {
 		params, err := extractParameters(input.ParametersSchema)
 		if err != nil {
@@ -230,14 +245,18 @@ func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apie
 			Schemas: []map[string]any{params},
 		}
 
-		parametersSchema, err = schema.ToStructural(def)
+		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(def)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create parameters structural schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to create parameters schema: %w", err)
+		}
+		parametersBundle = &SchemaBundle{
+			Structural: structural,
+			JSONSchema: jsonSchema,
 		}
 	}
 
-	// Build envOverrides schema
-	var envOverridesSchema *apiextschema.Structural
+	// Build envOverrides schema bundle
+	var envOverridesBundle *SchemaBundle
 	if input.EnvOverridesSchema != nil {
 		envOverrides, err := extractParameters(input.EnvOverridesSchema)
 		if err != nil {
@@ -249,11 +268,15 @@ func BuildStructuralSchemas(input *SchemaInput) (*apiextschema.Structural, *apie
 			Schemas: []map[string]any{envOverrides},
 		}
 
-		envOverridesSchema, err = schema.ToStructural(def)
+		structural, jsonSchema, err := schema.ToStructuralAndJSONSchema(def)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create envOverrides structural schema: %w", err)
+			return nil, nil, fmt.Errorf("failed to create envOverrides schema: %w", err)
+		}
+		envOverridesBundle = &SchemaBundle{
+			Structural: structural,
+			JSONSchema: jsonSchema,
 		}
 	}
 
-	return parametersSchema, envOverridesSchema, nil
+	return parametersBundle, envOverridesBundle, nil
 }

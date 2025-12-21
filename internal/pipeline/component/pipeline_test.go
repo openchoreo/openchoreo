@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -844,6 +845,153 @@ func TestSortResources(t *testing.T) {
 	metadata := resources[1]["metadata"].(map[string]any)
 	if metadata["name"] != "svc-a" {
 		t.Errorf("Expected svc-a second, got %v", metadata["name"])
+	}
+}
+
+func TestPipeline_SchemaValidation(t *testing.T) {
+	baseMetadata := context.MetadataContext{
+		Name: "test", Namespace: "ns", ComponentName: "app", ComponentUID: "uid1",
+		ProjectName: "proj", ProjectUID: "uid2", DataPlaneName: "dp", DataPlaneUID: "uid3",
+		EnvironmentName: "dev", EnvironmentUID: "uid4",
+		Labels: map[string]string{}, Annotations: map[string]string{},
+		PodSelectors: map[string]string{"k": "v"},
+	}
+
+	tests := []struct {
+		name               string
+		componentTypeYAML  string
+		componentYAML      string
+		traitsYAML         string
+		releaseBindingYAML string
+		wantErrMsg         string
+	}{
+		{
+			name: "component parameters missing required field",
+			componentTypeYAML: `
+spec:
+  schema:
+    parameters:
+      replicas: integer
+  resources:
+    - id: deployment
+      template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
+`,
+			componentYAML: `spec: {parameters: {}}`,
+			wantErrMsg:    "parameters validation failed",
+		},
+		{
+			name: "component envOverrides missing required field",
+			componentTypeYAML: `
+spec:
+  schema:
+    envOverrides:
+      logLevel: string
+  resources:
+    - id: deployment
+      template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
+`,
+			componentYAML:      `spec: {}`,
+			releaseBindingYAML: `spec: {componentTypeEnvOverrides: {}}`,
+			wantErrMsg:         "envOverrides validation failed",
+		},
+		{
+			name: "trait parameters missing required field",
+			componentTypeYAML: `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
+`,
+			componentYAML: `
+spec:
+  traits:
+    - name: storage
+      instanceName: vol1
+      parameters: {}
+`,
+			traitsYAML: `
+- metadata: {name: storage}
+  spec:
+    schema:
+      parameters:
+        size: string
+`,
+			wantErrMsg: "parameters validation failed",
+		},
+		{
+			name: "trait envOverrides missing required field",
+			componentTypeYAML: `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: v1, kind: Pod, metadata: {name: x}}
+`,
+			componentYAML: `
+spec:
+  traits:
+    - name: storage
+      instanceName: vol1
+`,
+			traitsYAML: `
+- metadata: {name: storage}
+  spec:
+    schema:
+      envOverrides:
+        storageClass: string
+`,
+			releaseBindingYAML: `spec: {traitOverrides: {vol1: {}}}`,
+			wantErrMsg:         "envOverrides validation failed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var componentType v1alpha1.ComponentType
+			if err := yaml.Unmarshal([]byte(tt.componentTypeYAML), &componentType); err != nil {
+				t.Fatalf("Failed to parse componentType: %v", err)
+			}
+
+			var component v1alpha1.Component
+			if err := yaml.Unmarshal([]byte(tt.componentYAML), &component); err != nil {
+				t.Fatalf("Failed to parse component: %v", err)
+			}
+
+			var traits []v1alpha1.Trait
+			if tt.traitsYAML != "" {
+				if err := yaml.Unmarshal([]byte(tt.traitsYAML), &traits); err != nil {
+					t.Fatalf("Failed to parse traits: %v", err)
+				}
+			}
+
+			var releaseBinding *v1alpha1.ReleaseBinding
+			if tt.releaseBindingYAML != "" {
+				releaseBinding = &v1alpha1.ReleaseBinding{}
+				if err := yaml.Unmarshal([]byte(tt.releaseBindingYAML), releaseBinding); err != nil {
+					t.Fatalf("Failed to parse releaseBinding: %v", err)
+				}
+			}
+
+			input := &RenderInput{
+				ComponentType:  &componentType,
+				Component:      &component,
+				Traits:         traits,
+				Workload:       &v1alpha1.Workload{},
+				Environment:    &v1alpha1.Environment{},
+				DataPlane:      &v1alpha1.DataPlane{},
+				ReleaseBinding: releaseBinding,
+				Metadata:       baseMetadata,
+			}
+
+			_, err := NewPipeline().Render(input)
+			if err == nil {
+				t.Fatal("expected validation error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErrMsg) {
+				t.Errorf("error %q should contain %q", err.Error(), tt.wantErrMsg)
+			} else {
+				t.Log(err.Error())
+			}
+		})
 	}
 }
 

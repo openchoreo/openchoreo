@@ -17,7 +17,6 @@ import (
 	"sort"
 
 	"github.com/go-playground/validator/v10"
-	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -105,7 +104,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	}
 
 	// Create schema cache for trait reuse within this render
-	schemaCache := make(map[string]*apiextschema.Structural)
+	schemaCache := make(map[string]*context.SchemaBundle)
 
 	// Process each trait instance from the component
 	for _, traitInstance := range input.Component.Spec.Traits {

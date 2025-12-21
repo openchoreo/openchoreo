@@ -4,7 +4,6 @@
 package context
 
 import (
-	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -117,17 +116,18 @@ type TraitContextInput struct {
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
 
-	// SchemaCache is an optional cache for structural schemas, keyed by trait name.
+	// SchemaCache is an optional cache for schema bundles, keyed by trait name with suffix.
 	// Used to avoid rebuilding schemas for the same trait used multiple times.
 	// BuildTraitContext will check this cache before building and populate it after.
-	SchemaCache map[string]*apiextschema.Structural
+	// Cache keys use format "{traitName}:parameters" and "{traitName}:envOverrides".
+	SchemaCache map[string]*SchemaBundle
 
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`
 }
 
-// SchemaInput contains schema information for applying defaults.
+// SchemaInput contains schema information for building structural and JSON schemas.
 type SchemaInput struct {
 	// Types defines reusable type definitions.
 	Types *runtime.RawExtension
@@ -137,9 +137,6 @@ type SchemaInput struct {
 
 	// EnvOverridesSchema is the envOverrides schema definition.
 	EnvOverridesSchema *runtime.RawExtension
-
-	// Structural is the compiled structural schema (cached).
-	Structural *apiextschema.Structural
 }
 
 // ComponentContext represents the evaluated context for rendering component resources.
