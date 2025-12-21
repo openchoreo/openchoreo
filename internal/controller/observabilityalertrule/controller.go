@@ -24,7 +24,7 @@ import (
 
 const (
 	defaultObserverBaseURL = "http://observer.openchoreo-observability-plane:8080"
-	alertingRulePath       = "/api/alerting/rule/"
+	alertingRulePath       = "/api/alerting/rule"
 	conditionTypeSynced    = "Synced"
 )
 
@@ -111,7 +111,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	observerURL := getObserverBaseURL()
-	url := observerURL + alertingRulePath
+	url := fmt.Sprintf("%s%s/%s/%s", observerURL, alertingRulePath, alertRule.Spec.Source.Type, alertRule.Name)
 
 	bodyBytes, err := json.Marshal(requestPayload)
 	if err != nil {

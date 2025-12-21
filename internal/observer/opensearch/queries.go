@@ -26,6 +26,25 @@ func NewQueryBuilder(indexPrefix string) *QueryBuilder {
 	}
 }
 
+// formatDurationForOpenSearch normalizes durations so OpenSearch monitors accept them.
+// Handles hours/minutes/seconds cleanly (e.g., "1h0m0s" -> "1h", "5m0s" -> "5m").
+func formatDurationForOpenSearch(d string) (string, error) {
+	parsed, err := time.ParseDuration(d)
+	if err != nil {
+		return "", err
+	}
+
+	switch {
+	case parsed%time.Hour == 0:
+		return fmt.Sprintf("%dh", parsed/time.Hour), nil
+	case parsed%time.Minute == 0:
+		return fmt.Sprintf("%dm", parsed/time.Minute), nil
+	case parsed%time.Second == 0:
+		return fmt.Sprintf("%ds", parsed/time.Second), nil
+	}
+	return parsed.String(), nil
+}
+
 // addTimeRangeFilter adds time range filter to must conditions
 func addTimeRangeFilter(mustConditions []map[string]interface{}, startTime, endTime string) []map[string]interface{} {
 	if startTime != "" && endTime != "" {
@@ -586,12 +605,16 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleRequest) map[string]interface{} {
+func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleRequest) (map[string]interface{}, error) {
+	window, err := formatDurationForOpenSearch(params.Condition.Window)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format window duration: %w", err)
+	}
 	filterConditions := []map[string]interface{}{
 		{
 			"range": map[string]interface{}{
 				"@timestamp": map[string]interface{}{
-					"from":          "{{period_end}}||-" + params.Condition.Window,
+					"from":          "{{period_end}}||-" + window,
 					"to":            "{{period_end}}",
 					"format":        "epoch_millis",
 					"include_lower": true,
@@ -644,19 +667,24 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 			},
 		},
 	}
-	return query
+	return query, nil
 }
 
-func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRuleRequest) (map[string]interface{}, error) {
+func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(ruleName string, params types.AlertingRuleRequest) (map[string]interface{}, error) {
 	intervalDuration, err := time.ParseDuration(params.Condition.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid interval format: %w", err)
 	}
 
+	query, err := qb.BuildLogAlertingRuleQuery(params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build log alerting rule query: %w", err)
+	}
+
 	monitorBody := MonitorBody{
 		Type:        "monitor",
 		MonitorType: "query_level_monitor",
-		Name:        params.Metadata.Name,
+		Name:        ruleName,
 		Enabled:     params.Condition.Enabled,
 		Schedule: MonitorSchedule{
 			Period: MonitorSchedulePeriod{
@@ -668,14 +696,14 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 			{
 				Search: MonitorInputSearch{
 					Indices: []string{qb.indexPrefix + "*"},
-					Query:   qb.BuildLogAlertingRuleQuery(params),
+					Query:   query,
 				},
 			},
 		},
 		Triggers: []MonitorTrigger{
 			{
 				QueryLevelTrigger: &MonitorTriggerQueryLevelTrigger{
-					Name:     "trigger-" + params.Metadata.Name,
+					Name:     "trigger-" + ruleName,
 					Severity: "1",
 					Condition: MonitorTriggerCondition{
 						Script: MonitorTriggerConditionScript{
@@ -685,7 +713,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRul
 					},
 					Actions: []MonitorTriggerAction{
 						{
-							Name:          "action-" + params.Metadata.Name,
+							Name:          "action-" + ruleName,
 							DestinationID: "openchoreo-observer-alerting-webhook",
 							MessageTemplate: MonitorMessageTemplate{
 								Source: buildWebhookMessageTemplate(params),
