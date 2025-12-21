@@ -19,6 +19,7 @@ type Config struct {
 	OpenSearch OpenSearchConfig `koanf:"opensearch"`
 	Prometheus PrometheusConfig `koanf:"prometheus"`
 	Auth       AuthConfig       `koanf:"auth"`
+	Authz      AuthzConfig      `koanf:"authz"`
 	Logging    LoggingConfig    `koanf:"logging"`
 	Alerting   AlertingConfig   `koanf:"alerting"`
 	LogLevel   string           `koanf:"loglevel"`
@@ -55,6 +56,13 @@ type AuthConfig struct {
 	JWTSecret    string `koanf:"jwt.secret"`
 	EnableAuth   bool   `koanf:"enable.auth"`
 	RequiredRole string `koanf:"required.role"`
+}
+
+// AuthzConfig holds authorization configuration
+type AuthzConfig struct {
+	Enabled    bool          `koanf:"enabled"`
+	ServiceURL string        `koanf:"service.url"`
+	Timeout    time.Duration `koanf:"timeout"`
 }
 
 // LoggingConfig holds application logging configuration
@@ -107,6 +115,9 @@ func Load() (*Config, error) {
 		"AUTH_JWT_SECRET":                 "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":              "auth.required.role",
+		"AUTHZ_ENABLED":                   "authz.enabled",
+		"AUTHZ_SERVICE_URL":               "authz.service.url",
+		"AUTHZ_TIMEOUT":                   "authz.timeout",
 		"LOGGING_MAX_LOG_LIMIT":           "logging.max.log.limit",
 		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
@@ -196,6 +207,11 @@ func getDefaults() map[string]interface{} {
 			"jwt.secret":    "default-secret",
 			"required.role": "user",
 		},
+		"authz": map[string]interface{}{
+			"enabled":     false,
+			"service.url": "http://localhost:8080",
+			"timeout":     "30s",
+		},
 		"logging": map[string]interface{}{
 			"max.log.limit":           10000,
 			"default.log.limit":       100,
@@ -235,6 +251,15 @@ func (c *Config) validate() error {
 
 	if c.Logging.MaxLogLimit <= 0 {
 		return fmt.Errorf("max log limit must be positive")
+	}
+
+	if c.Authz.Enabled {
+		if c.Authz.ServiceURL == "" {
+			return fmt.Errorf("authz service URL is required when authz is enabled")
+		}
+		if c.Authz.Timeout <= 0 {
+			return fmt.Errorf("authz timeout must be positive")
+		}
 	}
 
 	return nil

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -44,14 +45,20 @@ func RequireRCA(next http.HandlerFunc) http.HandlerFunc {
 // Error codes and messages
 const (
 	// Error types
-	ErrorTypeMissingParameter = "missingParameter"
-	ErrorTypeInvalidRequest   = "invalidRequest"
-	ErrorTypeInternalError    = "internalError"
+	ErrorTypeMissingParameter   = "missingParameter"
+	ErrorTypeInvalidRequest     = "invalidRequest"
+	ErrorTypeInternalError      = "internalError"
+	ErrorTypeForbidden          = "forbidden"
+	ErrorTypeUnauthorized       = "unauthorized"
+	ErrorTypeServiceUnavailable = "serviceUnavailable"
 
 	// Error codes
 	ErrorCodeMissingParameter = "OBS-L-10"
 	ErrorCodeInvalidRequest   = "OBS-L-12"
 	ErrorCodeInternalError    = "OBS-L-25"
+	ErrorCodeAuthForbidden    = "OBS-AUTH-01"
+	ErrorCodeAuthUnavailable  = "OBS-AUTH-02"
+	ErrorCodeAuthUnauthorized = "OBS-AUTH-04"
 
 	// Error messages
 	ErrorMsgBuildIDRequired         = "Build ID is required"
@@ -69,21 +76,27 @@ const (
 	ErrorMsgFailedToRetrieveReports = "Failed to retrieve RCA reports"
 	ErrorMsgReportNotFound          = "RCA report not found"
 	ErrorMsgInvalidTimeFormat       = "Invalid time format"
+	ErrorMsgAccessDenied            = "Access denied"
+	ErrorMsgAuthServiceUnavailable  = "Authorization service temporarily unavailable"
+	ErrorMsgUnauthorized            = "Unauthorized request"
+	ErrorMsgMissingAuthHierarchy    = "Organization, Project, and Component IDs required for authorization"
 )
 
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
 	service               *service.LoggingService
 	logger                *slog.Logger
+	authzPDP              authzcore.PDP
 	alertingWebhookSecret string
 	rcaServiceURL         string
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger, alertingWebhookSecret, rcaServiceURL string) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, alertingWebhookSecret, rcaServiceURL string) *Handler {
 	return &Handler{
 		service:               service,
 		logger:                logger,
+		authzPDP:              authzPDP,
 		alertingWebhookSecret: alertingWebhookSecret,
 		rcaServiceURL:         rcaServiceURL,
 	}
