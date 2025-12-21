@@ -463,6 +463,13 @@ metadata:
   name: test-type
 spec:
   workloadType: deployment
+  schema:
+    types:
+      EnvVar:
+        name: string
+        value: string
+    parameters:
+      envVars: "[]EnvVar"
   resources:
     - id: configmaps
       forEach: ${parameters.envVars}
