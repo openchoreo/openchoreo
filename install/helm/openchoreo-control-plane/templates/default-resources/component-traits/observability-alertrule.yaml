@@ -1,0 +1,56 @@
+{{ if .Values.global.defaultResources.enabled }}
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: observability-alertrule
+  namespace: default
+spec:
+  schema:
+    parameters:
+      # Developer-facing parameters - static across environments
+      description: "string"
+      severity: "string | default=warning"
+      source:
+        type: "string"
+        query: "string"
+      condition:
+        window: "string | default=5m"
+        interval: "string | default=1m"
+        operator: "string | default=gt"
+        threshold: "integer | default=10"
+
+    envOverrides:
+      # Platform engineers can override per environment
+      enabled: "boolean | default=true"
+      enableAiRootCauseAnalysis: "boolean | default=false"
+      notificationChannel: "string"
+
+  creates:
+    - targetPlane: observabilityplane
+      template:
+        apiVersion: openchoreo.dev/v1alpha1
+        kind: ObservabilityAlertRule
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels:
+            # Required for observability backends. Automatically populated by the controller.
+            openchoreo.dev/component-uid: ${metadata.componentUID}
+            openchoreo.dev/project-uid: ${metadata.projectUID}
+            openchoreo.dev/environment-uid: ${metadata.environmentUID}
+        spec:
+          name: ${trait.instanceName}
+          description: ${parameters.description}
+          severity: ${parameters.severity}
+          enabled: ${envOverrides.enabled}
+          enableAiRootCauseAnalysis: ${envOverrides.enableAiRootCauseAnalysis}
+          notificationChannel: ${envOverrides.notificationChannel}
+          source:
+            type: ${parameters.source.type}
+            query: ${parameters.source.query}
+          condition:
+            window: ${parameters.condition.window}
+            interval: ${parameters.condition.interval}
+            operator: ${parameters.condition.operator}
+            threshold: ${parameters.condition.threshold}
+{{ end }}
