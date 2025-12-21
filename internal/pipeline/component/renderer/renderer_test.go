@@ -237,31 +237,24 @@ func TestRenderResources(t *testing.T) {
 
 func TestShouldInclude(t *testing.T) {
 	engine := template.NewEngine()
-	renderer := NewRenderer(engine)
 
 	tests := []struct {
-		name     string
-		template v1alpha1.ResourceTemplate
-		context  map[string]any
-		want     bool
-		wantErr  bool
+		name        string
+		includeWhen string
+		context     map[string]any
+		want        bool
+		wantErr     bool
 	}{
 		{
-			name: "no includeWhen - defaults to true",
-			template: v1alpha1.ResourceTemplate{
-				ID:          "test",
-				IncludeWhen: "",
-			},
-			context: map[string]any{},
-			want:    true,
-			wantErr: false,
+			name:        "no includeWhen - defaults to true",
+			includeWhen: "",
+			context:     map[string]any{},
+			want:        true,
+			wantErr:     false,
 		},
 		{
-			name: "includeWhen evaluates to true",
-			template: v1alpha1.ResourceTemplate{
-				ID:          "test",
-				IncludeWhen: "${enabled}",
-			},
+			name:        "includeWhen evaluates to true",
+			includeWhen: "${enabled}",
 			context: map[string]any{
 				"enabled": true,
 			},
@@ -269,11 +262,8 @@ func TestShouldInclude(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "includeWhen evaluates to false",
-			template: v1alpha1.ResourceTemplate{
-				ID:          "test",
-				IncludeWhen: "${enabled}",
-			},
+			name:        "includeWhen evaluates to false",
+			includeWhen: "${enabled}",
 			context: map[string]any{
 				"enabled": false,
 			},
@@ -281,11 +271,8 @@ func TestShouldInclude(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "includeWhen with complex expression",
-			template: v1alpha1.ResourceTemplate{
-				ID:          "test",
-				IncludeWhen: "${parameters.replicas > 1}",
-			},
+			name:        "includeWhen with complex expression",
+			includeWhen: "${parameters.replicas > 1}",
 			context: map[string]any{
 				"parameters": map[string]any{
 					"replicas": 3,
@@ -295,26 +282,23 @@ func TestShouldInclude(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "includeWhen with missing data - gracefully returns false",
-			template: v1alpha1.ResourceTemplate{
-				ID:          "test",
-				IncludeWhen: "${nonexistent.field}",
-			},
-			context: map[string]any{},
-			want:    false,
-			wantErr: false,
+			name:        "includeWhen with missing data - returns error",
+			includeWhen: "${nonexistent.field}",
+			context:     map[string]any{},
+			want:        false,
+			wantErr:     true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := renderer.shouldInclude(tt.template, tt.context)
+			got, err := ShouldInclude(engine, tt.includeWhen, tt.context)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("shouldInclude() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ShouldInclude() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("shouldInclude() = %v, want %v", got, tt.want)
+				t.Errorf("ShouldInclude() = %v, want %v", got, tt.want)
 			}
 		})
 	}

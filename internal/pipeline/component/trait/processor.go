@@ -67,45 +67,80 @@ func (p *Processor) ProcessTraits(
 }
 
 // ApplyTraitCreates renders and adds new resources from trait.spec.creates with targetPlane metadata.
+// Supports includeWhen for conditional creation and forEach for generating multiple resources.
 func (p *Processor) ApplyTraitCreates(
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
 ) ([]renderer.RenderedResource, error) {
 	for i, createTemplate := range trait.Spec.Creates {
-		// Extract template data
-		var templateData any
-		if err := json.Unmarshal(createTemplate.Template.Raw, &templateData); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal create template for trait %s create #%d: %w", trait.Name, i, err)
-		}
+		createPath := fmt.Sprintf("trait %s create #%d", trait.Name, i)
 
-		// Render template
-		rendered, err := p.templateEngine.Render(templateData, traitContext)
+		// Check includeWhen condition using shared helper
+		include, err := renderer.ShouldInclude(p.templateEngine, createTemplate.IncludeWhen, traitContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to render create template for trait %s create #%d: %w", trait.Name, i, err)
+			return nil, fmt.Errorf("failed to evaluate includeWhen for %s: %w", createPath, err)
+		}
+		if !include {
+			continue
 		}
 
-		// Ensure result is an object
-		resourceMap, ok := rendered.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("create template must render to object for trait %s create #%d, got %T", trait.Name, i, rendered)
+		// Handle forEach or single render
+		if createTemplate.ForEach != "" {
+			itemContexts, err := renderer.EvalForEach(p.templateEngine, createTemplate.ForEach, createTemplate.Var, traitContext)
+			if err != nil {
+				return nil, fmt.Errorf("failed to evaluate forEach for %s: %w", createPath, err)
+			}
+			for _, itemContext := range itemContexts {
+				rendered, err := p.renderSingleCreate(createTemplate, itemContext, createPath)
+				if err != nil {
+					return nil, err
+				}
+				resources = append(resources, rendered)
+			}
+		} else {
+			rendered, err := p.renderSingleCreate(createTemplate, traitContext, createPath)
+			if err != nil {
+				return nil, err
+			}
+			resources = append(resources, rendered)
 		}
-
-		// Remove omitted fields
-		cleanedAny := template.RemoveOmittedFields(resourceMap)
-		cleaned, ok := cleanedAny.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("RemoveOmittedFields returned unexpected type %T for trait %s create #%d", cleanedAny, trait.Name, i)
-		}
-
-		// Append to resources with targetPlane
-		resources = append(resources, renderer.RenderedResource{
-			Resource:    cleaned,
-			TargetPlane: createTemplate.TargetPlane,
-		})
 	}
 
 	return resources, nil
+}
+
+// renderSingleCreate renders a single TraitCreate template and returns a RenderedResource.
+func (p *Processor) renderSingleCreate(
+	create v1alpha1.TraitCreate,
+	context map[string]any,
+	path string,
+) (renderer.RenderedResource, error) {
+	var templateData any
+	if err := json.Unmarshal(create.Template.Raw, &templateData); err != nil {
+		return renderer.RenderedResource{}, fmt.Errorf("failed to unmarshal create template for %s: %w", path, err)
+	}
+
+	rendered, err := p.templateEngine.Render(templateData, context)
+	if err != nil {
+		return renderer.RenderedResource{}, fmt.Errorf("failed to render create template for %s: %w", path, err)
+	}
+
+	resourceMap, ok := rendered.(map[string]any)
+	if !ok {
+		return renderer.RenderedResource{}, fmt.Errorf("create template must render to object for %s, got %T", path, rendered)
+	}
+
+	cleanedAny := template.RemoveOmittedFields(resourceMap)
+	cleaned, ok := cleanedAny.(map[string]any)
+	if !ok {
+		return renderer.RenderedResource{}, fmt.Errorf("RemoveOmittedFields returned unexpected type %T for %s", cleanedAny, path)
+	}
+
+	return renderer.RenderedResource{
+		Resource:    cleaned,
+		TargetPlane: create.TargetPlane,
+	}, nil
 }
 
 // ApplyTraitPatches applies trait patches to existing resources.
@@ -281,10 +316,6 @@ func (p *Processor) filterTargets(
 		// Evaluate the where clause
 		result, err := p.templateEngine.Render(whereClause, baseContext)
 		if err != nil {
-			// If this is a "missing data" error, treat as non-match
-			if template.IsMissingDataError(err) {
-				continue
-			}
 			// Restore previous binding before returning error
 			if had {
 				baseContext["resource"] = previous

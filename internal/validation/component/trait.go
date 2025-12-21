@@ -62,7 +62,9 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	return allErrs
 }
 
-// ValidateTraitCreate validates a single trait create operation
+// ValidateTraitCreate validates a single trait create operation.
+// It validates includeWhen (must return boolean), forEach (must return iterable),
+// and the template body with schema-aware type checking.
 func ValidateTraitCreate(
 	create v1alpha1.TraitCreate,
 	validator *CELValidator,
@@ -70,6 +72,72 @@ func ValidateTraitCreate(
 ) field.ErrorList {
 	allErrs := field.ErrorList{}
 	env := validator.GetBaseEnv()
+
+	// Validate includeWhen if specified (must return boolean)
+	if create.IncludeWhen != "" {
+		includeWhenCEL, ok := extractCELFromTemplate(create.IncludeWhen)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("includeWhen"),
+				create.IncludeWhen,
+				"includeWhen must be a template expression wrapped with ${...}"))
+		} else {
+			if err := validator.ValidateBooleanExpression(includeWhenCEL, env); err != nil {
+				allErrs = append(allErrs, field.Invalid(
+					basePath.Child("includeWhen"),
+					create.IncludeWhen,
+					fmt.Sprintf("includeWhen must return boolean: %v", err)))
+			}
+		}
+	}
+
+	// Handle forEach - analyze and extend environment with loop variable
+	if create.ForEach != "" {
+		forEachCEL, ok := extractCELFromTemplate(create.ForEach)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("forEach"),
+				create.ForEach,
+				"forEach must be a template expression wrapped with ${...}"))
+		} else {
+			// Validate that forEach returns an iterable
+			if err := validator.ValidateIterableExpression(forEachCEL, env); err != nil {
+				allErrs = append(allErrs, field.Invalid(
+					basePath.Child("forEach"),
+					create.ForEach,
+					err.Error()))
+			}
+
+			// Analyze forEach to determine loop variable type
+			forEachInfo, err := AnalyzeForEachExpression(
+				forEachCEL,
+				create.Var,
+				env,
+			)
+
+			if err != nil {
+				// Only add error if it's not about type checking
+				if !strings.Contains(err.Error(), "type check") {
+					allErrs = append(allErrs, field.Invalid(
+						basePath.Child("forEach"),
+						create.ForEach,
+						fmt.Sprintf("failed to analyze forEach: %v", err)))
+				}
+			}
+
+			// Extend environment with the loop variable
+			if forEachInfo != nil {
+				extendedEnv, err := ExtendEnvWithForEach(env, forEachInfo)
+				if err != nil {
+					allErrs = append(allErrs, field.InternalError(
+						basePath.Child("forEach"),
+						fmt.Errorf("failed to extend environment: %w", err)))
+				} else {
+					env = extendedEnv
+				}
+			}
+		}
+	}
 
 	// Validate the create template
 	if create.Template != nil {
