@@ -31,7 +31,7 @@ ComponentWorkflow enforces a required structure for repository information while
 - **ComponentWorkflowRun CR**: Instance that triggers a build execution (created automatically or manually)
 - **System Parameters**: Required structured fields for repository information (url, branch, commit, appPath)
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
-- **Template Variables**: Placeholders like `${ctx.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
+- **Template Variables**: Placeholders like `${metadata.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
 - **Build Plane**: A Kubernetes cluster running Argo Workflows
 
 ## Available ComponentWorkflows
@@ -219,10 +219,10 @@ ComponentWorkflows support template variables for dynamic values in the `runTemp
 
 | Variable | Description | Scope |
 |----------|-------------|-------|
-| `${ctx.componentWorkflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
-| `${ctx.componentName}` | Component name | Component-level workflows only |
-| `${ctx.projectName}` | Project name | Component-level workflows only |
-| `${ctx.orgName}` | Organization (namespace) | All component workflows |
+| `${metadata.workflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
+| `${metadata.componentName}` | Component name | Component-level workflows only |
+| `${metadata.projectName}` | Project name | Component-level workflows only |
+| `${metadata.orgName}` | Organization (namespace) | All component workflows |
 | `${systemParameters.*}` | System parameter values (repository.url, etc.) | All component workflows |
 | `${parameters.*}` | Developer-provided parameter values | All component workflows |
 
@@ -233,16 +233,16 @@ spec:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
-      name: ${ctx.componentWorkflowRunName}
-      namespace: openchoreo-ci-${ctx.orgName}
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
     spec:
       arguments:
         parameters:
           # Context variables
           - name: component-name
-            value: ${ctx.componentName}
+            value: ${metadata.componentName}
           - name: project-name
-            value: ${ctx.projectName}
+            value: ${metadata.projectName}
           # System parameters
           - name: git-repo
             value: ${systemParameters.repository.url}
@@ -253,7 +253,7 @@ spec:
             value: ${parameters.version}
           # Hardcoded PE-controlled values
           - name: image-name
-            value: ${ctx.projectName}-${ctx.componentName}-image
+            value: ${metadata.projectName}-${metadata.componentName}-image
 ```
 
 ## System Parameters vs Developer Parameters
