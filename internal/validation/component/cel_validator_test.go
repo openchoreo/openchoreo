@@ -19,7 +19,7 @@ func TestCELValidator_SchemaAwareValidation_InvalidFieldAccess(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -60,7 +60,7 @@ func TestCELValidator_SchemaAwareValidation_NestedFields(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		EnvOverridesSchema: structural,
 	})
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestCELValidator_SchemaAwareValidation_NestedFields(t *testing.T) {
 
 func TestCELValidator_BackwardCompatibility_NilSchema(t *testing.T) {
 	// Without schemas, should use empty objects
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{})
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
 	require.NoError(t, err)
 
 	// With empty objects, any field access should fail
@@ -107,7 +107,7 @@ func TestCELValidator_BooleanExpression_Valid(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestCELValidator_BooleanExpression_Invalid(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestCELValidator_IterableExpression_Valid(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestCELValidator_IterableExpression_Invalid(t *testing.T) {
 		},
 	}
 
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestCELValidator_IterableExpression_Invalid(t *testing.T) {
 
 func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
 	// Trait validator should not allow access to workload-related variables
-	validator, err := NewCELValidator(TraitResource, CELValidatorSchemaOptions{})
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
 	require.NoError(t, err)
 
 	// These should fail - trait context doesn't have these variables
@@ -277,7 +277,7 @@ func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
 
 func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 	// ComponentType validator should allow access to all variables
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{})
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
 	require.NoError(t, err)
 
 	// All component context variables should be accessible
@@ -299,7 +299,7 @@ func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 
 func TestCELValidator_WithoutSchema(t *testing.T) {
 	// Without schemas, parameters and envOverrides are empty objects
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{})
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{})
 	require.NoError(t, err)
 
 	// Without schemas, parameters and envOverrides are empty objects

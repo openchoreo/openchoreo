@@ -16,7 +16,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/validation/component"
-	"github.com/openchoreo/openchoreo/internal/webhook/schemautil"
+	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 )
 
 // nolint:unused

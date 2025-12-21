@@ -21,7 +21,7 @@ func TestBuildComponentCELEnv_WithParametersSchema(t *testing.T) {
 		},
 	}
 
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{
+	env, err := BuildComponentCELEnv(SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestBuildComponentCELEnv_WithEnvOverridesSchema(t *testing.T) {
 		},
 	}
 
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{
+	env, err := BuildComponentCELEnv(SchemaOptions{
 		EnvOverridesSchema: structural,
 	})
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestBuildComponentCELEnv_WithEnvOverridesSchema(t *testing.T) {
 
 func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
 	// Without schema, parameters and envOverrides should be empty objects
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{})
+	env, err := BuildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -93,7 +93,7 @@ func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
 
 func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 	// Other variables (metadata, workload, etc.) should be accessible
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{})
+	env, err := BuildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -117,7 +117,7 @@ func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 
 func TestBuildComponentCELEnv_CustomFunctions(t *testing.T) {
 	// Verify custom functions are available
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{})
+	env, err := BuildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -147,7 +147,7 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 		},
 	}
 
-	env, err := BuildTraitCELEnv(TraitCELEnvOptions{
+	env, err := BuildTraitCELEnv(SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -166,7 +166,7 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 
 func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
 	// Traits should not have access to workload or configurations
-	env, err := BuildTraitCELEnv(TraitCELEnvOptions{})
+	env, err := BuildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -201,7 +201,7 @@ func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
 
 func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 	// Without schema, parameters and envOverrides should be empty objects
-	env, err := BuildTraitCELEnv(TraitCELEnvOptions{})
+	env, err := BuildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -216,7 +216,7 @@ func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 }
 
 func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
-	env, err := BuildComponentCELEnv(ComponentCELEnvOptions{})
+	env, err := BuildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -275,7 +275,7 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 }
 
 func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
-	env, err := BuildTraitCELEnv(TraitCELEnvOptions{})
+	env, err := BuildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 
 	tests := []struct {
