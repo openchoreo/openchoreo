@@ -356,10 +356,11 @@ func ValidateWithJSONSchema(values map[string]any, jsonSchema *extv1.JSONSchemaP
 	// Validate the values
 	result := validator.Validate(values)
 	if !result.IsValid() {
-		// Collect all validation errors
+		// Collect all validation errors, removing "in body" which is HTTP API terminology
 		var errMsgs []string
 		for _, err := range result.Errors {
-			errMsgs = append(errMsgs, err.Error())
+			msg := strings.ReplaceAll(err.Error(), " in body", "")
+			errMsgs = append(errMsgs, msg)
 		}
 		return fmt.Errorf("%s", strings.Join(errMsgs, "; "))
 	}

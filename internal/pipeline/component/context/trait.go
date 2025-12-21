@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 
-	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 
 	"github.com/openchoreo/openchoreo/internal/schema"
@@ -93,15 +92,15 @@ func (t *TraitContext) ToMap() map[string]any {
 func processTraitParameters(input *TraitContextInput) (map[string]any, map[string]any, error) {
 	traitName := input.Trait.Name
 
-	// Build or retrieve separate structural schemas for parameters and envOverrides
+	// Build or retrieve separate schema bundles for parameters and envOverrides
 	// Use cache keys with suffixes to distinguish between parameters and envOverrides schemas
-	parametersSchema := getCachedSchema(input.SchemaCache, traitName+":parameters")
-	envOverridesSchema := getCachedSchema(input.SchemaCache, traitName+":envOverrides")
+	parametersBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":parameters")
+	envOverridesBundle := getCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides")
 
-	// If either schema is missing, build both in one call to share types unmarshaling
-	if parametersSchema == nil || envOverridesSchema == nil {
+	// If either bundle is missing, build both in one call to share types unmarshaling
+	if parametersBundle == nil || envOverridesBundle == nil {
 		var err error
-		parametersSchema, envOverridesSchema, err = BuildStructuralSchemas(&SchemaInput{
+		parametersBundle, envOverridesBundle, err = BuildStructuralSchemas(&SchemaInput{
 			Types:              input.Trait.Spec.Schema.Types,
 			ParametersSchema:   input.Trait.Spec.Schema.Parameters,
 			EnvOverridesSchema: input.Trait.Spec.Schema.EnvOverrides,
@@ -109,8 +108,8 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build trait schemas: %w", err)
 		}
-		setCachedSchema(input.SchemaCache, traitName+":parameters", parametersSchema)
-		setCachedSchema(input.SchemaCache, traitName+":envOverrides", envOverridesSchema)
+		setCachedSchemaBundle(input.SchemaCache, traitName+":parameters", parametersBundle)
+		setCachedSchemaBundle(input.SchemaCache, traitName+":envOverrides", envOverridesBundle)
 	}
 
 	// Extract trait instance parameters (for parameters section only)
@@ -119,13 +118,16 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 		return nil, nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
 	}
 
-	// Process parameters: prune to parameters schema, apply defaults
+	// Process parameters: prune to parameters schema, apply defaults, validate
 	var parameters map[string]any
-	if parametersSchema != nil {
+	if parametersBundle != nil {
 		parameters = make(map[string]any, len(instanceParams))
 		maps.Copy(parameters, instanceParams)
-		pruning.Prune(parameters, parametersSchema, false)
-		parameters = schema.ApplyDefaults(parameters, parametersSchema)
+		pruning.Prune(parameters, parametersBundle.Structural, false)
+		parameters = schema.ApplyDefaults(parameters, parametersBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(parameters, parametersBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("parameters validation failed: %w", err)
+		}
 	} else {
 		// No parameters schema defined - discard all parameters
 		parameters = make(map[string]any)
@@ -147,10 +149,13 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 		envOverrides = make(map[string]any)
 	}
 
-	// Prune against schema and apply defaults
-	if envOverridesSchema != nil {
-		pruning.Prune(envOverrides, envOverridesSchema, false)
-		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesSchema)
+	// Prune against schema, apply defaults, and validate
+	if envOverridesBundle != nil {
+		pruning.Prune(envOverrides, envOverridesBundle.Structural, false)
+		envOverrides = schema.ApplyDefaults(envOverrides, envOverridesBundle.Structural)
+		if err := schema.ValidateWithJSONSchema(envOverrides, envOverridesBundle.JSONSchema); err != nil {
+			return nil, nil, fmt.Errorf("envOverrides validation failed: %w", err)
+		}
 	} else {
 		// No envOverrides schema defined - discard all envOverrides
 		envOverrides = make(map[string]any)
@@ -159,17 +164,17 @@ func processTraitParameters(input *TraitContextInput) (map[string]any, map[strin
 	return parameters, envOverrides, nil
 }
 
-// getCachedSchema retrieves a structural schema from the cache
-func getCachedSchema(cache map[string]*apiextschema.Structural, key string) *apiextschema.Structural {
+// getCachedSchemaBundle retrieves a schema bundle from the cache
+func getCachedSchemaBundle(cache map[string]*SchemaBundle, key string) *SchemaBundle {
 	if cache == nil {
 		return nil
 	}
 	return cache[key]
 }
 
-// setCachedSchema stores a structural schema in the cache
-func setCachedSchema(cache map[string]*apiextschema.Structural, key string, schema *apiextschema.Structural) {
+// setCachedSchemaBundle stores a schema bundle in the cache
+func setCachedSchemaBundle(cache map[string]*SchemaBundle, key string, bundle *SchemaBundle) {
 	if cache != nil {
-		cache[key] = schema
+		cache[key] = bundle
 	}
 }
