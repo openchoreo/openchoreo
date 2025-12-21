@@ -1,0 +1,49 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: google-cloud-buildpacks-private-registry
+  namespace: default
+spec:
+  schema:
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+
+    parameters: {}
+
+  # Rendered workflow resource for ComponentWorkflowRun executions
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          # Parameters from system parameters (developer-facing)
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          # PE-controlled hardcoded parameters
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}-image
+          - name: image-tag
+            value: v1
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks-private-registry
