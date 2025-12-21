@@ -71,6 +71,141 @@ spec:
                         description: Value is the inline value (optional fallback)
                         type: string
                     type: object
+                  enabled:
+                    description: |-
+                      Enabled indicates whether agent-based communication is enabled
+                      If false, direct Kubernetes API access is used via KubernetesCluster config
+                    type: boolean
+                type: object
+              kubernetesCluster:
+                description: |-
+                  KubernetesCluster defines the Kubernetes cluster where build workloads (e.g., Argo Workflows) will be executed.
+                  This field is optional when Agent.Enabled is true
+                properties:
+                  auth:
+                    description: Auth contains the authentication configuration
+                    properties:
+                      bearerToken:
+                        description: BearerToken contains the bearer token authentication
+                          configuration
+                        properties:
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          value:
+                            description: Value is the inline value (optional fallback)
+                            type: string
+                        type: object
+                      mtls:
+                        description: MTLS contains the certificate-based authentication
+                          configuration
+                        properties:
+                          clientCert:
+                            description: ClientCert contains the client certificate
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
+                            type: object
+                          clientKey:
+                            description: ClientKey contains the client private key
+                              configuration
+                            properties:
+                              secretRef:
+                                description: SecretRef is a reference to a secret
+                                  containing the value
+                                properties:
+                                  key:
+                                    description: Key is the key within the secret
+                                    type: string
+                                  name:
+                                    description: Name of the secret
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the secret (optional,
+                                      defaults to same namespace as parent resource)
+                                    type: string
+                                required:
+                                - key
+                                - name
+                                type: object
+                              value:
+                                description: Value is the inline value (optional fallback)
+                                type: string
+                            type: object
+                        required:
+                        - clientCert
+                        - clientKey
+                        type: object
+                    type: object
+                  server:
+                    description: Server is the URL of the Kubernetes API server
+                    type: string
+                  tls:
+                    description: TLS contains the TLS configuration for the connection
+                    properties:
+                      ca:
+                        description: CA contains the CA certificate configuration
+                        properties:
+                          secretRef:
+                            description: SecretRef is a reference to a secret containing
+                              the value
+                            properties:
+                              key:
+                                description: Key is the key within the secret
+                                type: string
+                              name:
+                                description: Name of the secret
+                                type: string
+                              namespace:
+                                description: Namespace of the secret (optional, defaults
+                                  to same namespace as parent resource)
+                                type: string
+                            required:
+                            - key
+                            - name
+                            type: object
+                          value:
+                            description: Value is the inline value (optional fallback)
+                            type: string
+                        type: object
+                    required:
+                    - ca
+                    type: object
                 required:
                 - clientCA
                 type: object
@@ -80,6 +215,17 @@ spec:
                 type: string
             required:
             - clusterAgent
+              secretStoreRef:
+                description: SecretStoreRef specifies the ESO ClusterSecretStore to
+                  use in the data plane
+                properties:
+                  name:
+                    description: Name of the ClusterSecretStore resource in the data
+                      plane cluster
+                    type: string
+                required:
+                - name
+                type: object
             type: object
           status:
             description: BuildPlaneStatus defines the observed state of BuildPlane.

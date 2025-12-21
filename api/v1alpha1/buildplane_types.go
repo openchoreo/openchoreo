@@ -20,6 +20,10 @@ type BuildPlaneSpec struct {
 	// This field is mandatory - all build planes must use cluster agent communication
 	ClusterAgent ClusterAgentConfig `json:"clusterAgent"`
 
+	// SecretStoreRef specifies the ESO ClusterSecretStore to use in the data plane
+	// +optional
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+
 	// ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this BuildPlane.
 	// +optional
 	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`

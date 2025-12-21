@@ -67,3 +67,7 @@ fluentBit:
     opensearch:
       host: "host.k3d.internal"
       port: "11082"
+
+# External Secrets Operator configuration
+external-secrets:
+  enabled: true
