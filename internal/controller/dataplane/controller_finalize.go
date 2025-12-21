@@ -64,6 +64,27 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 		return ctrl.Result{}, nil
 	}
 
+	// Notify gateway of DataPlane deletion before removing finalizer
+	if r.GatewayClient != nil {
+		if err := r.notifyGateway(ctx, dataPlane, "deleted"); err != nil {
+			// Don't fail finalization if gateway notification fails.
+			// Rationale:
+			// 1. Gateway unavailability shouldn't block CR deletion (operational resilience)
+			// 2. System is eventually consistent: when agent reconnects, gateway will
+			//    query for the CR, find it doesn't exist, and reject the connection
+			// 3. Prevents CRs from getting stuck in "Terminating" state indefinitely
+			// Trade-off: If gateway is unreachable, agents may attempt reconnection
+			// before discovering the CR is gone, wasting some resources temporarily.
+			logger.Error(err, "Failed to notify gateway of DataPlane deletion")
+		}
+	}
+
+	// Invalidate cached Kubernetes client before removing finalizer
+	// This ensures the cache is cleaned up even if the DataPlane CR is deleted
+	if r.ClientMgr != nil && r.CacheVersion != "" {
+		r.invalidateCache(ctx, dataPlane)
+	}
+
 	// Remove the finalizer once cleanup is done
 	if controllerutil.RemoveFinalizer(dataPlane, DataPlaneCleanupFinalizer) {
 		if err := r.Update(ctx, dataPlane); err != nil {

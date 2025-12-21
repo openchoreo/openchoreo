@@ -18,14 +18,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 // Reconciler reconciles a DataPlane object
 type Reconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme        *runtime.Scheme
+	Recorder      record.EventRecorder
+	ClientMgr     *kubernetesClient.KubeMultiClientManager
+	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
+	CacheVersion  string                // Cache key version prefix (e.g., "v2")
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -67,6 +72,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Invalidate cached Kubernetes client on UPDATE
+	// This ensures that any changes to the DataPlane CR (kubeconfig, credentials, etc.)
+	// trigger a new client to be created with the updated configuration
+	if r.ClientMgr != nil && r.CacheVersion != "" && !r.shouldIgnoreReconcile(dataPlane) {
+		r.invalidateCache(ctx, dataPlane)
+	}
+
 	// Handle create
 	// Ignore reconcile if the Dataplane is already available since this is a one-time create
 	if r.shouldIgnoreReconcile(dataPlane) {
@@ -87,6 +99,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Notify gateway of DataPlane reconciliation (create/update)
+	// Using "updated" since Reconcile handles both CREATE and UPDATE events
+	// and the gateway treats both identically (triggers agent reconnection)
+	if r.GatewayClient != nil {
+		if err := r.notifyGateway(ctx, dataPlane, "updated"); err != nil {
+			// Don't fail reconciliation if gateway notification fails.
+			// Rationale: Gateway notification is "best effort" - the system remains
+			// eventually consistent through agent reconnection and cert verification.
+			// Failing reconciliation would prevent CR status updates and requeue
+			// indefinitely if gateway is temporarily unavailable.
+			logger.Error(err, "Failed to notify gateway of DataPlane reconciliation")
+		}
+	}
+
 	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", dataPlane.Name))
 
 	return ctrl.Result{}, nil
@@ -94,6 +120,67 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 func (r *Reconciler) shouldIgnoreReconcile(dataPlane *openchoreov1alpha1.DataPlane) bool {
 	return meta.FindStatusCondition(dataPlane.Status.Conditions, string(controller.TypeAvailable)) != nil
+}
+
+// invalidateCache invalidates the cached Kubernetes client for this DataPlane
+func (r *Reconciler) invalidateCache(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) {
+	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
+
+	effectivePlaneID := dataPlane.Spec.PlaneID
+	if effectivePlaneID == "" {
+		effectivePlaneID = dataPlane.Name
+	}
+
+	// Cache key format: v2/dataplane/{planeID}/{namespace}/{name}
+	cacheKey := fmt.Sprintf("%s/dataplane/%s/%s/%s", r.CacheVersion, effectivePlaneID, dataPlane.Namespace, dataPlane.Name)
+	r.ClientMgr.RemoveClient(cacheKey)
+
+	// Also try invalidating using CR name as planeID (in case planeID was changed FROM default)
+	if effectivePlaneID != dataPlane.Name {
+		fallbackKey := fmt.Sprintf("%s/dataplane/%s/%s/%s", r.CacheVersion, dataPlane.Name, dataPlane.Namespace, dataPlane.Name)
+		r.ClientMgr.RemoveClient(fallbackKey)
+	}
+
+	logger.Info("Invalidated cached Kubernetes client for DataPlane",
+		"planeID", effectivePlaneID,
+		"cacheKey", cacheKey,
+	)
+}
+
+// notifyGateway sends a lifecycle notification to the cluster-gateway
+func (r *Reconciler) notifyGateway(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane, event string) error {
+	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
+
+	effectivePlaneID := dataPlane.Spec.PlaneID
+	if effectivePlaneID == "" {
+		effectivePlaneID = dataPlane.Name
+	}
+
+	notification := &gatewayClient.PlaneNotification{
+		PlaneType: "dataplane",
+		PlaneID:   effectivePlaneID,
+		Event:     event,
+		Namespace: dataPlane.Namespace,
+		Name:      dataPlane.Name,
+	}
+
+	logger.Info("notifying gateway of DataPlane lifecycle event",
+		"event", event,
+		"planeID", effectivePlaneID,
+	)
+
+	resp, err := r.GatewayClient.NotifyPlaneLifecycle(ctx, notification)
+	if err != nil {
+		return fmt.Errorf("failed to notify gateway: %w", err)
+	}
+
+	logger.Info("gateway notification successful",
+		"event", event,
+		"planeID", effectivePlaneID,
+		"disconnectedAgents", resp.DisconnectedAgents,
+	)
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

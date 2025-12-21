@@ -46,6 +46,10 @@ Options:
   --agent-ca-namespace NAMESPACE    Namespace of agent CA secret (only with --agent-ca-secret)
                                     Default: same as --namespace
 
+  --plane-id ID                     (Optional) Logical plane identifier shared across multiple CRs
+                                    If not specified, each CR uses its own name as the effective planeID
+                                    Use this for multi-tenant setups where multiple CRs share same physical plane
+
   --dry-run                         Preview the YAML without applying changes
 
   --help, -h                        Show this help message
@@ -72,6 +76,10 @@ Examples:
   # Using existing CA secret reference
   $script_name --agent-ca-secret my-agent-ca --agent-ca-namespace openchoreo-control-plane
 
+  # Multi-tenant setup with shared planeID
+  $script_name --name org-a-buildplane --namespace org-a --plane-id shared-prod
+  $script_name --name org-b-buildplane --namespace org-b --plane-id shared-prod
+
 Note:
   - All BuildPlanes use cluster agent for communication (mandatory)
   - Cluster agent establishes outbound WebSocket connection from build plane to control plane
@@ -84,6 +92,7 @@ CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
 BUILDPLANE_CONTEXT=""          # Build plane cluster for CA extraction
 BUILDPLANE_NAME="default"
 NAMESPACE="default"
+PLANE_ID=""                    # Optional logical plane identifier
 DRY_RUN=false
 AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
 AGENT_CA_NAMESPACE=""
@@ -143,6 +152,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       NAMESPACE="$2"
+      shift 2
+      ;;
+    --plane-id)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --plane-id requires a value"
+        exit 1
+      fi
+      PLANE_ID="$2"
       shift 2
       ;;
     --help|-h)
@@ -244,6 +261,12 @@ else
 $(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
 fi
 
+# Build planeID field if specified
+PLANE_ID_FIELD=""
+if [ -n "$PLANE_ID" ]; then
+  PLANE_ID_FIELD="  planeID: $PLANE_ID"
+fi
+
 # Generate the BuildPlane YAML with cluster agent configuration
 BUILDPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
@@ -255,6 +278,7 @@ metadata:
     openchoreo.dev/description: "BuildPlane created via $(basename $0) script with cluster agent"
     openchoreo.dev/display-name: "BuildPlane $BUILDPLANE_NAME"
 spec:
+$PLANE_ID_FIELD
   clusterAgent:
 $CLIENT_CA_CONFIG
   secretStoreRef:
@@ -267,6 +291,12 @@ if [ "$DRY_RUN" = true ]; then
   echo "$BUILDPLANE_YAML"
   exit 0
 else
+  # Ensure namespace exists
+  if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get namespace "$NAMESPACE" &>/dev/null; then
+    echo "Creating namespace '$NAMESPACE'..."
+    kubectl --context="$CONTROL_PLANE_CONTEXT" create namespace "$NAMESPACE"
+  fi
+
   if echo "$BUILDPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
     echo ""
     echo "✓ BuildPlane '$BUILDPLANE_NAME' created successfully in namespace '$NAMESPACE'"

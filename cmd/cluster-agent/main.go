@@ -27,7 +27,7 @@ func main() {
 	var (
 		serverURL         string
 		planeType         string
-		planeName         string
+		planeID           string
 		clientCertPath    string
 		clientKeyPath     string
 		serverCAPath      string
@@ -43,9 +43,9 @@ func main() {
 		cmdutil.GetEnv("SERVER_URL", "wss://cluster-gateway:8443/ws"),
 		"Cluster gateway WebSocket URL")
 	flag.StringVar(&planeType, "plane-type", cmdutil.GetEnv("PLANE_TYPE", "dataplane"),
-		"Plane type: dataplane, buildplane, or observabilityplane (required)")
-	flag.StringVar(&planeName, "plane-name", cmdutil.GetEnv("PLANE_NAME", ""),
-		"Plane name (required)")
+		"Plane type: dataplane, buildplane, or observabilityplane")
+	flag.StringVar(&planeID, "plane-id", cmdutil.GetEnv("PLANE_ID", ""),
+		"Logical plane identifier (shared across multiple CRs with same physical plane)")
 	flag.StringVar(&clientCertPath, "client-cert",
 		cmdutil.GetEnv("CLIENT_CERT_PATH", "/certs/tls.crt"),
 		"Path to client certificate")
@@ -63,12 +63,6 @@ func main() {
 	flag.StringVar(&logLevel, "log-level", cmdutil.GetEnv("LOG_LEVEL", "info"), "Log level (debug, info, warn, error)")
 	flag.Parse()
 
-	if planeName == "" {
-		fmt.Println("Error: plane-name is required")
-		flag.Usage()
-		os.Exit(1)
-	}
-
 	if planeType == "" {
 		planeType = "dataplane"
 	}
@@ -79,12 +73,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if planeID == "" {
+		fmt.Println("Error: plane-id is required")
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	logger := cmdutil.SetupLogger(logLevel)
 
 	logger.Info("starting OpenChoreo Cluster Agent",
 		"serverURL", serverURL,
 		"planeType", planeType,
-		"planeName", planeName,
+		"planeID", planeID,
 		"clientCert", clientCertPath,
 		"clientKey", clientKeyPath,
 		"serverCA", serverCAPath,
@@ -107,7 +107,7 @@ func main() {
 	config := &agentclient.Config{
 		ServerURL:         serverURL,
 		PlaneType:         planeType,
-		PlaneName:         planeName,
+		PlaneID:           planeID,
 		ClientCertPath:    clientCertPath,
 		ClientKeyPath:     clientKeyPath,
 		ServerCAPath:      serverCAPath,

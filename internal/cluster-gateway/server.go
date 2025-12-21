@@ -108,6 +108,13 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/ws", s.handleWebSocket)
 	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
 
+	// Register plane lifecycle API (for controller notifications)
+	planeAPI := NewPlaneAPI(s.connMgr, s.logger)
+	planeAPI.RegisterRoutes(mux)
+	s.logger.Info("plane lifecycle API registered",
+		"endpoints", []string{"/api/v1/planes/notify", "/api/v1/planes/{type}/{id}/reconnect"},
+	)
+
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.Port),
 		Handler:      mux,
@@ -195,7 +202,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	planeType := query.Get("planeType")
-	planeName := query.Get("planeName")
+	planeID := query.Get("planeID")
 
 	if planeType == "" {
 		s.logger.Warn("connection rejected: missing planeType parameter")
@@ -203,9 +210,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if planeName == "" {
-		s.logger.Warn("connection rejected: missing planeName parameter")
-		http.Error(w, "missing planeName parameter", http.StatusBadRequest)
+	if planeID == "" {
+		s.logger.Warn("connection rejected: missing planeID parameter")
+		http.Error(w, "missing planeID parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -217,17 +224,19 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.verifyClientCertificate(r, planeType, planeName); err != nil {
+	// Certificate verification checks against ALL CRs with matching planeType and planeID
+	// This supports multiple CRs sharing the same physical plane with different CA certificates
+	if err := s.verifyClientCertificate(r, planeType, planeID); err != nil {
 		s.logger.Warn("client certificate verification failed",
 			"planeType", planeType,
-			"planeName", planeName,
+			"planeID", planeID,
 			"error", err,
 		)
 		http.Error(w, fmt.Sprintf("client certificate verification failed: %v", err), http.StatusUnauthorized)
 		return
 	}
 
-	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeName)
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
 
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -235,20 +244,32 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register the connection with composite identifier
+	// Register the connection
 	// Multiple agent replicas for the same plane will share the same identifier for HA
-	connID, err := s.connMgr.Register(planeIdentifier, conn)
+	connID, err := s.connMgr.Register(planeType, planeID, conn)
 	if err != nil {
 		s.logger.Error("failed to register connection", "error", err)
 		conn.Close()
 		return
 	}
 
+	crsClientCAData, _ := s.getAllPlaneClientCAs(planeType, planeID)
+	crCount := len(crsClientCAData)
+
 	s.logger.Info("agent connected successfully",
 		"planeType", planeType,
-		"planeName", planeName,
+		"planeID", planeID,
 		"planeIdentifier", planeIdentifier,
+		"associatedCRs", crCount,
 	)
+
+	if crCount == 0 {
+		s.logger.Warn("agent connected without any associated CRs",
+			"planeType", planeType,
+			"planeID", planeID,
+			"note", "create a CR with matching planeID to enable proper CA verification",
+		)
+	}
 
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
@@ -335,37 +356,49 @@ func (s *Server) handleHTTPTunnelResponse(planeName string, resp *messaging.HTTP
 }
 
 // handleHTTPProxy handles HTTP proxy requests to data plane services
-// URL format: /api/proxy/{planeType}/{planeName}/{target}/{path...}
+// URL format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path...}
 // Examples:
-//   - /api/proxy/dataplane/my-dataplane/k8s/api/v1/pods
-//   - /api/proxy/buildplane/default/k8s/api/v1/namespaces
+//   - /api/proxy/dataplane/prod-cluster/org-a/org-a-dataplane/k8s/api/v1/pods
+//   - /api/proxy/buildplane/default/default/default/k8s/api/v1/namespaces
+//
+// Note: crNamespace and crName are metadata only (for logging, future authorization)
+// Routing to agent uses only planeType and planeID
 func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	requestID := getOrGenerateRequestID(r)
 	logger := s.logger.With("requestId", requestID)
 
-	// Parse URL: /api/proxy/{planeType}/{planeName}/{target}/{path...}
+	// Parse URL
 	path := strings.TrimPrefix(r.URL.Path, "/api/proxy/")
-	parts := strings.SplitN(path, "/", 4)
+	parts := strings.Split(path, "/")
 
-	if len(parts) < 4 {
+	var planeType, planeID, crNamespace, crName, target, targetPath string
+
+	// Expected format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path...}
+	// Minimum 6 parts required
+	if len(parts) >= 6 {
+		planeType = parts[0]
+		planeID = parts[1]
+		crNamespace = parts[2]
+		crName = parts[3]
+		target = parts[4]
+		targetPath = "/" + strings.Join(parts[5:], "/")
+	} else {
 		logger.Warn("invalid proxy URL format",
 			"path", r.URL.Path,
-			"expected", "/api/proxy/{planeType}/{planeName}/{target}/{path}",
+			"expected", "/api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}",
 		)
-		http.Error(w, "invalid proxy URL format: /api/proxy/{planeType}/{planeName}/{target}/{path}", http.StatusBadRequest)
+		http.Error(w, "invalid proxy URL format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}", http.StatusBadRequest)
 		return
 	}
-
-	planeType := parts[0]
-	planeName := parts[1]
-	target := parts[2]
-	targetPath := "/" + parts[3]
 
 	if err := s.validator.ValidateRequest(r, target, targetPath); err != nil {
 		var valErr *ValidationError
 		if errors.As(err, &valErr) {
 			logger.Warn("request validation failed",
-				"plane", planeName,
+				"planeType", planeType,
+				"planeID", planeID,
+				"crNamespace", crNamespace,
+				"crName", crName,
 				"target", target,
 				"path", targetPath,
 				"error", valErr.Message,
@@ -378,9 +411,9 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Construct planeIdentifier from planeType and planeName (e.g., "dataplane/default" or "buildplane/default")
-	// This matches how agents register themselves with the gateway
-	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeName)
+	// Construct simplified planeIdentifier for routing (2-part)
+	// CR info is metadata only
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
 
 	isStreaming := s.isStreamingRequest(r, targetPath)
 
@@ -398,7 +431,10 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	logger.Info("HTTP proxy request received",
-		"plane", planeIdentifier,
+		"planeType", planeType,
+		"planeID", planeID,
+		"crNamespace", crNamespace,
+		"crName", crName,
 		"target", target,
 		"path", targetPath,
 		"method", r.Method,
@@ -526,8 +562,10 @@ func (s *Server) GetConnectionManager() *ConnectionManager {
 	return s.connMgr
 }
 
-// verifyClientCertificate verifies the client certificate against the CA configured in the plane's CR
-func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName string) error {
+// verifyClientCertificate verifies the client certificate against ALL CAs from CRs with matching planeType and planeID
+// This supports multiple CRs sharing the same physical plane with different CA certificates
+// All CAs are combined into a single certificate pool for verification
+func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeID string) error {
 	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
 		return fmt.Errorf("no client certificate presented")
 	}
@@ -538,7 +576,7 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 
 	s.logger.Info("verifying client certificate",
 		"planeType", planeType,
-		"planeName", planeName,
+		"planeID", planeID,
 		"certificateCN", clientCN,
 		"certificateIssuer", clientIssuer,
 		"certificateNotBefore", clientCert.NotBefore,
@@ -546,27 +584,40 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 		"certificateSerialNumber", clientCert.SerialNumber.String(),
 	)
 
-	clientCAData, err := s.getPlaneClientCA(planeType, planeName)
+	// Get ALL CRs with matching planeType and planeID
+	crsClientCAData, err := s.getAllPlaneClientCAs(planeType, planeID)
 	if err != nil {
-		return fmt.Errorf("failed to get client CA configuration: %w", err)
+		return fmt.Errorf("failed to get client CA configurations: %w", err)
 	}
 
-	if clientCAData == nil {
-		s.logger.Warn("no client CA configured for plane, skipping certificate verification",
+	if len(crsClientCAData) == 0 {
+		s.logger.Warn("connection rejected: no CRs found for plane",
 			"planeType", planeType,
-			"planeName", planeName,
+			"planeID", planeID,
 		)
-		return nil
+		return fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
 	}
 
-	caCerts, err := parseCACertificates(clientCAData)
-	if err != nil {
-		s.logger.Error("failed to parse CA certificate for logging",
-			"error", err,
-		)
-	} else {
+	certPool := x509.NewCertPool()
+	caCount := 0
+	for crKey, caData := range crsClientCAData {
+		if caData == nil {
+			s.logger.Debug("skipping CR with no CA configured", "cr", crKey)
+			continue
+		}
+
+		caCerts, err := parseCACertificates(caData)
+		if err != nil {
+			s.logger.Warn("failed to parse CA certificate for CR",
+				"cr", crKey,
+				"error", err,
+			)
+			continue
+		}
+
 		for i, caCert := range caCerts {
-			s.logger.Info("CA certificate details",
+			s.logger.Debug("adding CA certificate to pool",
+				"cr", crKey,
 				"index", i,
 				"subject", caCert.Subject.CommonName,
 				"issuer", caCert.Issuer.CommonName,
@@ -575,12 +626,24 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 				"isCA", caCert.IsCA,
 			)
 		}
+
+		if certPool.AppendCertsFromPEM(caData) {
+			caCount++
+		} else {
+			s.logger.Warn("failed to append CA certificate to pool", "cr", crKey)
+		}
 	}
 
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(clientCAData) {
-		return fmt.Errorf("failed to parse client CA certificate")
+	if caCount == 0 {
+		return fmt.Errorf("no valid CA certificates found for plane %s/%s", planeType, planeID)
 	}
+
+	s.logger.Info("built certificate pool from multiple CRs",
+		"planeType", planeType,
+		"planeID", planeID,
+		"totalCRs", len(crsClientCAData),
+		"validCAs", caCount,
+	)
 
 	opts := x509.VerifyOptions{
 		Roots:     certPool,
@@ -589,16 +652,19 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 
 	chains, err := clientCert.Verify(opts)
 	if err != nil {
-		s.logger.Error("certificate verification failed with details",
+		s.logger.Error("certificate verification failed",
+			"planeType", planeType,
+			"planeID", planeID,
 			"clientCN", clientCN,
 			"clientIssuer", clientIssuer,
 			"error", err,
-			"errorType", fmt.Sprintf("%T", err),
 		)
 		return fmt.Errorf("certificate verification failed: %w", err)
 	}
 
 	s.logger.Info("certificate verification successful",
+		"planeType", planeType,
+		"planeID", planeID,
 		"clientCN", clientCN,
 		"chainCount", len(chains),
 	)
@@ -617,131 +683,129 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeName s
 		}
 	}
 
-	if clientCN != planeName {
-		s.logger.Warn("certificate CN does not match plane name",
-			"certificateCN", clientCN,
-			"planeName", planeName,
-			"note", "This is allowed but may indicate a configuration issue",
-		)
-	}
-
-	s.logger.Info("client certificate verified successfully",
-		"planeType", planeType,
-		"planeName", planeName,
-		"certificateCN", clientCN,
-	)
-
 	return nil
 }
 
-// getPlaneClientCA retrieves the client CA configuration from DataPlane, BuildPlane or ObservabilityPlane CR
-func (s *Server) getPlaneClientCA(planeType, planeName string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// getAllPlaneClientCAs retrieves client CA configurations from ALL CRs with matching planeType and planeID
+// Returns map of "namespace/name" -> CA data ([]byte)
+func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	result := make(map[string][]byte)
 
 	switch planeType {
 	case planeTypeDataPlane:
-		return s.getDataPlaneClientCA(ctx, planeName)
+		var dataplanes openchoreov1alpha1.DataPlaneList
+		if err := s.k8sClient.List(ctx, &dataplanes); err != nil {
+			return nil, fmt.Errorf("failed to list DataPlanes: %w", err)
+		}
+
+		for _, dp := range dataplanes.Items {
+			effectivePlaneID := dp.Spec.PlaneID
+			if effectivePlaneID == "" {
+				effectivePlaneID = dp.Name
+			}
+
+			if effectivePlaneID != planeID {
+				continue
+			}
+
+			crKey := fmt.Sprintf("%s/%s", dp.Namespace, dp.Name)
+			caData, err := s.extractCAFromPlane(&dp.Spec.ClusterAgent, dp.Namespace)
+			if err != nil {
+				s.logger.Warn("failed to extract CA from DataPlane",
+					"cr", crKey,
+					"error", err,
+				)
+				continue
+			}
+			result[crKey] = caData
+		}
+
 	case planeTypeBuildPlane:
-		return s.getBuildPlaneClientCA(ctx, planeName)
+		var buildplanes openchoreov1alpha1.BuildPlaneList
+		if err := s.k8sClient.List(ctx, &buildplanes); err != nil {
+			return nil, fmt.Errorf("failed to list BuildPlanes: %w", err)
+		}
+
+		for _, bp := range buildplanes.Items {
+			effectivePlaneID := bp.Spec.PlaneID
+			if effectivePlaneID == "" {
+				effectivePlaneID = bp.Name
+			}
+
+			if effectivePlaneID != planeID {
+				continue
+			}
+
+			crKey := fmt.Sprintf("%s/%s", bp.Namespace, bp.Name)
+			caData, err := s.extractCAFromPlane(&bp.Spec.ClusterAgent, bp.Namespace)
+			if err != nil {
+				s.logger.Warn("failed to extract CA from BuildPlane",
+					"cr", crKey,
+					"error", err,
+				)
+				continue
+			}
+			result[crKey] = caData
+		}
+
 	case planeTypeObservabilityPlane:
-		return s.getObservabilityPlaneClientCA(ctx, planeName)
+		var obsplanes openchoreov1alpha1.ObservabilityPlaneList
+		if err := s.k8sClient.List(ctx, &obsplanes); err != nil {
+			return nil, fmt.Errorf("failed to list ObservabilityPlanes: %w", err)
+		}
+
+		for _, op := range obsplanes.Items {
+			effectivePlaneID := op.Spec.PlaneID
+			if effectivePlaneID == "" {
+				effectivePlaneID = op.Name
+			}
+
+			if effectivePlaneID != planeID {
+				continue
+			}
+
+			crKey := fmt.Sprintf("%s/%s", op.Namespace, op.Name)
+			caData, err := s.extractCAFromPlane(&op.Spec.ClusterAgent, op.Namespace)
+			if err != nil {
+				s.logger.Warn("failed to extract CA from ObservabilityPlane",
+					"cr", crKey,
+					"error", err,
+				)
+				continue
+			}
+			result[crKey] = caData
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
 	}
-}
 
-// getDataPlaneClientCA retrieves the client CA from a DataPlane CR
-func (s *Server) getDataPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
-	namespacesToCheck := []string{"default"}
+	s.logger.Info("retrieved client CAs from CRs",
+		"planeType", planeType,
+		"planeID", planeID,
+		"totalCRs", len(result),
+	)
 
-	// Try to get from specific namespaces first
-	for _, namespace := range namespacesToCheck {
-		var dataPlane openchoreov1alpha1.DataPlane
-		key := client.ObjectKey{Name: planeName, Namespace: namespace}
-
-		if err := s.k8sClient.Get(ctx, key, &dataPlane); err == nil {
-			s.logger.Debug("found DataPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(&dataPlane.Spec.ClusterAgent, namespace)
+	if len(result) > 0 {
+		for crKey := range result {
+			s.logger.Info("discovered CR for plane",
+				"planeType", planeType,
+				"planeID", planeID,
+				"cr", crKey,
+			)
 		}
+	} else {
+		s.logger.Warn("no CRs found for connecting agent",
+			"planeType", planeType,
+			"planeID", planeID,
+			"note", "agent will connect but without proper CA verification",
+		)
 	}
 
-	// Fallback to listing all DataPlanes
-	var dataPlaneList openchoreov1alpha1.DataPlaneList
-	if err := s.k8sClient.List(ctx, &dataPlaneList); err != nil {
-		return nil, fmt.Errorf("failed to list DataPlane CRs: %w", err)
-	}
-
-	for _, dp := range dataPlaneList.Items {
-		if dp.Name == planeName {
-			s.logger.Debug("found DataPlane CR via list", "name", planeName, "namespace", dp.Namespace)
-			return s.extractCAFromPlane(&dp.Spec.ClusterAgent, dp.Namespace)
-		}
-	}
-
-	return nil, fmt.Errorf("DataPlane %s not found", planeName)
-}
-
-// getBuildPlaneClientCA retrieves the client CA from a BuildPlane CR
-func (s *Server) getBuildPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
-	namespacesToCheck := []string{"default"}
-
-	// Try to get from specific namespaces first
-	for _, namespace := range namespacesToCheck {
-		var buildPlane openchoreov1alpha1.BuildPlane
-		key := client.ObjectKey{Name: planeName, Namespace: namespace}
-
-		if err := s.k8sClient.Get(ctx, key, &buildPlane); err == nil {
-			s.logger.Debug("found BuildPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(&buildPlane.Spec.ClusterAgent, namespace)
-		}
-	}
-
-	// Fallback to listing all BuildPlanes
-	var buildPlaneList openchoreov1alpha1.BuildPlaneList
-	if err := s.k8sClient.List(ctx, &buildPlaneList); err != nil {
-		return nil, fmt.Errorf("failed to list BuildPlane CRs: %w", err)
-	}
-
-	for _, bp := range buildPlaneList.Items {
-		if bp.Name == planeName {
-			s.logger.Debug("found BuildPlane CR via list", "name", planeName, "namespace", bp.Namespace)
-			return s.extractCAFromPlane(&bp.Spec.ClusterAgent, bp.Namespace)
-		}
-	}
-
-	return nil, fmt.Errorf("BuildPlane %s not found", planeName)
-}
-
-// getObservabilityPlaneClientCA retrieves the client CA from an ObservabilityPlane CR
-func (s *Server) getObservabilityPlaneClientCA(ctx context.Context, planeName string) ([]byte, error) {
-	namespacesToCheck := []string{"default"}
-
-	// Try to get from specific namespaces first
-	for _, namespace := range namespacesToCheck {
-		var observabilityPlane openchoreov1alpha1.ObservabilityPlane
-		key := client.ObjectKey{Name: planeName, Namespace: namespace}
-
-		if err := s.k8sClient.Get(ctx, key, &observabilityPlane); err == nil {
-			s.logger.Debug("found ObservabilityPlane CR", "name", planeName, "namespace", namespace)
-			return s.extractCAFromPlane(&observabilityPlane.Spec.ClusterAgent, namespace)
-		}
-	}
-
-	// Fallback to listing all ObservabilityPlanes
-	var observabilityPlaneList openchoreov1alpha1.ObservabilityPlaneList
-	if err := s.k8sClient.List(ctx, &observabilityPlaneList); err != nil {
-		return nil, fmt.Errorf("failed to list ObservabilityPlane CRs: %w", err)
-	}
-
-	for _, op := range observabilityPlaneList.Items {
-		if op.Name == planeName {
-			s.logger.Debug("found ObservabilityPlane CR via list", "name", planeName, "namespace", op.Namespace)
-			return s.extractCAFromPlane(&op.Spec.ClusterAgent, op.Namespace)
-		}
-	}
-
-	return nil, fmt.Errorf("ObservabilityPlane %s not found", planeName)
+	return result, nil
 }
 
 // extractCAFromPlane extracts CA data from a plane's ClusterAgent configuration

@@ -33,5 +33,7 @@ fakeSecretStore:
 
 clusterAgent:
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeName: default
+  # Logical plane identifier - can be shared across multiple ObservabilityPlane CRs
+  # If not specified, defaults to Helm release name
+  planeID: ""
   planeType: observabilityplane

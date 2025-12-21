@@ -44,6 +44,10 @@ Options:
   --agent-ca-namespace NAMESPACE    Namespace of agent CA secret (only with --agent-ca-secret)
                                     Default: same as --namespace
 
+  --plane-id ID                     (Optional) Logical plane identifier shared across multiple CRs
+                                    If not specified, each CR uses its own name as the effective planeID
+                                    Use this for multi-tenant setups where multiple CRs share same physical plane
+
   --observabilityplane-context CONTEXT
                                     Kubernetes context of observability plane to extract client CA from
                                     Used in auto-extract mode (when --agent-ca-secret is not provided)
@@ -78,6 +82,12 @@ Examples:
   # Preview without applying
   $script_name --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080 --dry-run
 
+  # Multi-tenant setup with shared planeID
+  $script_name --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080 \\
+    --name org-a-observabilityplane --namespace org-a --plane-id shared-prod
+  $script_name --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080 \\
+    --name org-b-observabilityplane --namespace org-b --plane-id shared-prod
+
 Note:
   ObservabilityPlane requires agent mode for secure communication
 EOF
@@ -88,6 +98,7 @@ CONTROL_PLANE_CONTEXT=""
 OBSERVABILITYPLANE_CONTEXT=""  # Observability plane cluster for CA extraction
 OBSERVABILITYPLANE_NAME="default"
 NAMESPACE="default"
+PLANE_ID=""                    # Optional logical plane identifier
 OBSERVER_URL="http://observer.openchoreo-observability-plane.svc.cluster.local:8080" # Single cluster mode
 DRY_RUN=false
 AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
@@ -156,6 +167,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       OBSERVER_URL="$2"
+      shift 2
+      ;;
+    --plane-id)
+      if [ -z "$2" ] || [[ "$2" == --* ]]; then
+        error "Error: --plane-id requires a value"
+        exit 1
+      fi
+      PLANE_ID="$2"
       shift 2
       ;;
     --help|-h)
@@ -260,6 +279,12 @@ else
 $(echo "$CLIENT_CA_CERT" | sed 's/^/        /')"
 fi
 
+# Build planeID field if specified
+PLANE_ID_FIELD=""
+if [ -n "$PLANE_ID" ]; then
+  PLANE_ID_FIELD="  planeID: $PLANE_ID"
+fi
+
 # Generate the ObservabilityPlane YAML with agent configuration
 OBSERVABILITYPLANE_YAML=$(cat <<EOF
 apiVersion: openchoreo.dev/v1alpha1
@@ -282,6 +307,12 @@ if [ "$DRY_RUN" = true ]; then
   echo "$OBSERVABILITYPLANE_YAML"
   exit 0
 else
+  # Ensure namespace exists
+  if ! kubectl --context="$CONTROL_PLANE_CONTEXT" get namespace "$NAMESPACE" &>/dev/null; then
+    echo "Creating namespace '$NAMESPACE'..."
+    kubectl --context="$CONTROL_PLANE_CONTEXT" create namespace "$NAMESPACE"
+  fi
+
   if echo "$OBSERVABILITYPLANE_YAML" | kubectl --context="$CONTROL_PLANE_CONTEXT" apply -f - ; then
     echo "ObservabilityPlane '$OBSERVABILITYPLANE_NAME' created successfully"
   else

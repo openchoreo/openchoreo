@@ -55,8 +55,8 @@ spec:
         imagePullPolicy: {{ .Values.clusterAgent.image.pullPolicy }}
         args:
         - --server-url={{ .Values.clusterAgent.serverUrl }}
-        - --plane-name={{ .Values.clusterAgent.planeName }}
         - --plane-type={{ .Values.clusterAgent.planeType }}
+        - --plane-id={{ .Values.clusterAgent.planeID | default .Release.Name }}
         - --client-cert=/certs/tls.crt
         - --client-key=/certs/tls.key
         - --server-ca=/ca-certs/ca.crt

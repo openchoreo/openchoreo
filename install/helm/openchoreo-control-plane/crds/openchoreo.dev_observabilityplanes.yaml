@@ -79,6 +79,17 @@ spec:
                 description: ObserverURL is the base URL of the Observer API in the
                   observability plane cluster
                 type: string
+              planeID:
+                description: |-
+                  PlaneID identifies the logical plane this CR connects to.
+                  Multiple ObservabilityPlane CRs can share the same planeID to connect to the same physical cluster
+                  while maintaining separate configurations for multi-tenancy scenarios.
+                  If not specified, defaults to the CR name for backwards compatibility.
+                  Format: lowercase alphanumeric characters, hyphens allowed, max 63 characters.
+                  Examples: "shared-obs", "monitoring-cluster", "eu-central-1"
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
             required:
             - clusterAgent
             - observerURL

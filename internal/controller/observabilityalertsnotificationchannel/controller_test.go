@@ -219,7 +219,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			// Create a test client manager that returns our test client
 			// Pre-populate it with the test client using GetOrAddClient
 			clientMgr := kubernetesClient.NewManager()
-			key := "observabilityplane/default/test-observability-plane"
+			key := "v2/observabilityplane/default/test-observability-plane"
 			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
 				return opClient, nil
 			})
@@ -392,7 +392,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		It("should create Secret with SMTP auth references and ConfigMap with TLS config", func() {
 			// Create a test client manager that returns our test client
 			clientMgr := kubernetesClient.NewManager()
-			key := "observabilityplane/default/test-observability-plane-auth"
+			key := "v2/observabilityplane/default/test-observability-plane-auth"
 			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
 				return opClient, nil
 			})
@@ -576,7 +576,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 
 			// Create a test client manager
 			clientMgr = kubernetesClient.NewManager()
-			key := "observabilityplane/default/test-observability-plane-finalizer"
+			key := "v2/observabilityplane/default/test-observability-plane-finalizer"
 			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
 				return opClient, nil
 			})
