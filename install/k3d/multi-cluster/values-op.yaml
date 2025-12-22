@@ -24,8 +24,6 @@ prometheus:
       enableRemoteWriteReceiver: true
     service:
       type: LoadBalancer
-      port: 9091
-      reloaderWebPort: 8081
 
 
 ## Values for local templates

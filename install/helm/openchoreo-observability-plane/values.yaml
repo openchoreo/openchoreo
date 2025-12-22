@@ -481,6 +481,9 @@ prometheus:
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
       serviceMonitorSelectorNilUsesHelmValues: false
+    service:
+      port: 9091
+      reloaderWebPort: 8081
 
   ## Configuration for alertmanager
   ## ref: https://prometheus.io/docs/alerting/alertmanager/
