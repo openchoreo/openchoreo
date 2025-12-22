@@ -73,7 +73,7 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 		serverCA:   serverCertPool,
 		k8sClient:  k8sClient,
 		router:     router,
-		logger:     logger.With("component", "agent", "plane", cfg.PlaneName),
+		logger:     logger.With("component", "agent", "planeID", cfg.PlaneID),
 		stopChan:   make(chan struct{}),
 	}, nil
 }
@@ -81,7 +81,7 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 func (a *Agent) Start(ctx context.Context) error {
 	a.logger.Info("starting agent",
 		"planeType", a.config.PlaneType,
-		"planeName", a.config.PlaneName,
+		"planeID", a.config.PlaneID,
 		"serverURL", a.config.ServerURL,
 	)
 
@@ -150,7 +150,7 @@ func (a *Agent) connect() error {
 
 	query := u.Query()
 	query.Set("planeType", a.config.PlaneType)
-	query.Set("planeName", a.config.PlaneName)
+	query.Set("planeID", a.config.PlaneID)
 	u.RawQuery = query.Encode()
 
 	tlsConfig := &tls.Config{

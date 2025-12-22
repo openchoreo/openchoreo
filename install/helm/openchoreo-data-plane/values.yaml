@@ -345,9 +345,14 @@ clusterAgent:
     pullPolicy: IfNotPresent
   # Server URL of the cluster gateway in control plane
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  # Name of this data plane
-  planeName: default
-  # Type of plane (dataplane or buildplane)
+
+  # Logical plane identifier - shared across multiple CRs connecting to the same physical plane
+  # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
+  # If not specified, defaults to Helm release name
+  # Example: "prod-cluster" - all DataPlane CRs with planeID="prod-cluster" share this agent
+  planeID: ""
+
+  # Type of plane (dataplane, buildplane, or observabilityplane)
   planeType: dataplane
   # DNS rewrite configuration (for multi-cluster k3d setups)
   # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal

@@ -103,6 +103,17 @@ spec:
                 description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
                   for this DataPlane.
                 type: string
+              planeID:
+                description: |-
+                  PlaneID identifies the logical plane this CR connects to.
+                  Multiple DataPlane CRs can share the same planeID to connect to the same physical cluster
+                  while maintaining separate configurations for multi-tenancy scenarios.
+                  If not specified, defaults to the CR name for backwards compatibility.
+                  Format: lowercase alphanumeric characters, hyphens allowed, max 63 characters.
+                  Examples: "prod-cluster", "shared-dataplane", "us-east-1"
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
               secretStoreRef:
                 description: SecretStoreRef specifies the ESO ClusterSecretStore to
                   use in the data plane

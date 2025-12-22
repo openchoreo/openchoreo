@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/component: cluster-agent
 spec:
   secretName: {{ .Values.clusterAgent.tls.secretName }}
-  commonName: {{ .Values.clusterAgent.planeName }}
+  commonName: {{ .Values.clusterAgent.planeID | default .Release.Name }}
   subject:
     organizations:
       - OpenChoreo

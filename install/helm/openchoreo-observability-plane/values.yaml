@@ -481,6 +481,9 @@ prometheus:
       serviceMonitorNamespaceSelector: {}
       serviceMonitorSelector: {}
       serviceMonitorSelectorNilUsesHelmValues: false
+    service:
+      port: 9091
+      reloaderWebPort: 8081
 
   ## Configuration for alertmanager
   ## ref: https://prometheus.io/docs/alerting/alertmanager/
@@ -588,8 +591,13 @@ clusterAgent:
     pullPolicy: IfNotPresent
   # Server URL of the cluster gateway in control plane
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  # Name of this observability plane
-  planeName: default
+
+  # Logical plane identifier - shared across multiple CRs connecting to the same physical plane
+  # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
+  # If not specified, defaults to Helm release name
+  # Example: "shared-obs" - all ObservabilityPlane CRs with planeID="shared-obs" share this agent
+  planeID: ""
+
   # Type of plane (dataplane, buildplane, or observabilityplane)
   planeType: observabilityplane
   # DNS rewrite configuration (for multi-cluster k3d setups)

@@ -28,20 +28,38 @@ import (
 // ProxyClient is a Kubernetes client that communicates through the cluster gateway HTTP proxy
 // It implements the controller-runtime client.Client interface
 type ProxyClient struct {
-	gatewayURL string
-	planeName  string
-	httpClient *http.Client
-	scheme     *runtime.Scheme
+	gatewayURL  string
+	planeType   string
+	planeID     string
+	crNamespace string
+	crName      string
+	httpClient  *http.Client
+	scheme      *runtime.Scheme
 }
 
 // NewProxyClient creates a new proxy client for accessing a data plane or build plane through the cluster gateway
-func NewProxyClient(gatewayURL, planeName string, tlsConfig *ProxyTLSConfig) (client.Client, error) {
+// planeIdentifier format: "planeType/planeID" (e.g., "dataplane/prod-cluster")
+func NewProxyClient(gatewayURL, planeIdentifier string, crNamespace, crName string, tlsConfig *ProxyTLSConfig) (client.Client, error) {
 	if gatewayURL == "" {
 		return nil, fmt.Errorf("gatewayURL is required")
 	}
-	if planeName == "" {
-		return nil, fmt.Errorf("planeName is required")
+	if planeIdentifier == "" {
+		return nil, fmt.Errorf("planeIdentifier is required")
 	}
+	if crNamespace == "" {
+		return nil, fmt.Errorf("crNamespace is required")
+	}
+	if crName == "" {
+		return nil, fmt.Errorf("crName is required")
+	}
+
+	// Parse planeIdentifier: "planeType/planeID"
+	parts := strings.Split(planeIdentifier, "/")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid planeIdentifier format: expected 'planeType/planeID', got '%s'", planeIdentifier)
+	}
+	planeType := parts[0]
+	planeID := parts[1]
 
 	// Configure TLS for the HTTP client
 	tlsCfg, err := buildProxyTLSConfig(tlsConfig)
@@ -50,8 +68,11 @@ func NewProxyClient(gatewayURL, planeName string, tlsConfig *ProxyTLSConfig) (cl
 	}
 
 	return &ProxyClient{
-		gatewayURL: strings.TrimSuffix(gatewayURL, "/"),
-		planeName:  planeName,
+		gatewayURL:  strings.TrimSuffix(gatewayURL, "/"),
+		planeType:   planeType,
+		planeID:     planeID,
+		crNamespace: crNamespace,
+		crName:      crName,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsCfg,
@@ -61,12 +82,20 @@ func NewProxyClient(gatewayURL, planeName string, tlsConfig *ProxyTLSConfig) (cl
 	}, nil
 }
 
-// buildProxyURL constructs the proxy URL with proper URL encoding for the plane name
-// The planeName may contain '/' (e.g., "buildplane/default"), so we need to URL-encode it
+// buildProxyURL constructs the proxy URL in the new 6-part format:
+// /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}
 func (pc *ProxyClient) buildProxyURL(apiPath string) string {
-	// URL-encode the planeName so '/' becomes '%2F' and doesn't interfere with path parsing
-	encodedPlaneName := url.PathEscape(pc.planeName)
-	return fmt.Sprintf("%s/api/proxy/%s/k8s%s", pc.gatewayURL, encodedPlaneName, apiPath)
+	// URL-encode path components to handle special characters
+	encodedPlaneType := url.PathEscape(pc.planeType)
+	encodedPlaneID := url.PathEscape(pc.planeID)
+	encodedNamespace := url.PathEscape(pc.crNamespace)
+	encodedCRName := url.PathEscape(pc.crName)
+
+	// Target is always "k8s" for Kubernetes API requests
+	// The full format is: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path}
+	// Where {path} is the Kubernetes API path (e.g., /api/v1/namespaces/...)
+	return fmt.Sprintf("%s/api/proxy/%s/%s/%s/%s/k8s%s",
+		pc.gatewayURL, encodedPlaneType, encodedPlaneID, encodedNamespace, encodedCRName, apiPath)
 }
 
 // Get retrieves an object from the data plane Kubernetes API via the cluster gateway
@@ -394,7 +423,7 @@ func (psw *proxyStatusWriter) Update(ctx context.Context, obj client.Object, opt
 
 	apiPath := psw.client.buildStatusPath(gvk, obj.GetNamespace(), obj.GetName())
 
-	proxyURL := fmt.Sprintf("%s/api/proxy/%s/k8s%s", psw.client.gatewayURL, psw.client.planeName, apiPath)
+	proxyURL := psw.client.buildProxyURL(apiPath)
 
 	body, err := json.Marshal(obj)
 	if err != nil {
@@ -446,7 +475,7 @@ func (psw *proxyStatusWriter) Patch(ctx context.Context, obj client.Object, patc
 
 	queryParams := psw.client.buildSubResourcePatchQueryParams(patchOpts)
 
-	proxyURL := fmt.Sprintf("%s/api/proxy/%s/k8s%s", psw.client.gatewayURL, psw.client.planeName, apiPath)
+	proxyURL := psw.client.buildProxyURL(apiPath)
 	if queryParams != "" {
 		proxyURL += "?" + queryParams
 	}

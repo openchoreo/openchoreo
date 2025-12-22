@@ -18,10 +18,13 @@ import (
 
 // AgentConnection represents an active agent connection
 // Multiple agent replicas for the same plane can share the same PlaneIdentifier for HA
+// One agent per physical plane handles multiple CRs with the same planeID
 type AgentConnection struct {
 	ID              string // Unique connection identifier
 	Conn            *websocket.Conn
-	PlaneIdentifier string // Composite identifier: {planeType}/{planeName}
+	PlaneType       string // e.g., "dataplane", "buildplane", "observabilityplane"
+	PlaneID         string // Logical plane identifier (shared across CRs with same physical plane)
+	PlaneIdentifier string // Simplified identifier: {planeType}/{planeID}
 	ConnectedAt     time.Time
 	LastSeen        time.Time
 	mu              sync.Mutex
@@ -29,11 +32,15 @@ type AgentConnection struct {
 
 // ConnectionManager manages active agent connections
 // Supports multiple concurrent connections per plane identifier for HA
+// One agent per physical plane (planeID) handles multiple CRs
 type ConnectionManager struct {
-	connections map[string][]*AgentConnection // key: planeIdentifier, value: slice of connections
-	mu          sync.RWMutex
-	roundRobin  map[string]int // Track round-robin index per planeIdentifier
-	logger      *slog.Logger
+	// Primary index: planeIdentifier -> connections (for HA support)
+	// Key format: "planeType/planeID", Value: slice of agent connections
+	connections map[string][]*AgentConnection
+
+	mu         sync.RWMutex
+	roundRobin map[string]int // Track round-robin index per planeIdentifier
+	logger     *slog.Logger
 }
 
 // NewConnectionManager creates a new ConnectionManager
@@ -46,23 +53,28 @@ func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 }
 
 // Register registers a new agent connection
+// planeIdentifier format: {planeType}/{planeID}
 // Multiple agent replicas (for HA) for the same plane share the same planeIdentifier
 // Returns the connection ID which should be used for unregistration
-func (cm *ConnectionManager) Register(planeIdentifier string, conn *websocket.Conn) (string, error) {
+func (cm *ConnectionManager) Register(planeType, planeID string, conn *websocket.Conn) (string, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
 	connID := uuid.New().String()
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
 
 	now := time.Now()
 	newConn := &AgentConnection{
 		ID:              connID,
 		Conn:            conn,
+		PlaneType:       planeType,
+		PlaneID:         planeID,
 		PlaneIdentifier: planeIdentifier,
 		ConnectedAt:     now,
 		LastSeen:        now,
 	}
 
+	// Store by planeIdentifier (supports HA - multiple replicas)
 	cm.connections[planeIdentifier] = append(cm.connections[planeIdentifier], newConn)
 
 	totalForPlane := len(cm.connections[planeIdentifier])
@@ -70,6 +82,8 @@ func (cm *ConnectionManager) Register(planeIdentifier string, conn *websocket.Co
 
 	cm.logger.Info("agent registered",
 		"planeIdentifier", planeIdentifier,
+		"planeType", planeType,
+		"planeID", planeID,
 		"connectionID", connID,
 		"connectionsForPlane", totalForPlane,
 		"totalConnections", totalConnections,
@@ -103,6 +117,7 @@ func (cm *ConnectionManager) Unregister(planeIdentifier, connID string) {
 			conn.Conn.Close()
 			cm.connections[planeIdentifier] = append(conns[:i], conns[i+1:]...)
 
+			// Clean up index if no connections remain for this plane
 			if len(cm.connections[planeIdentifier]) == 0 {
 				delete(cm.connections, planeIdentifier)
 				delete(cm.roundRobin, planeIdentifier)
@@ -186,6 +201,45 @@ func (cm *ConnectionManager) Count() int {
 	defer cm.mu.RUnlock()
 
 	return cm.countAllConnections()
+}
+
+// DisconnectAllForPlane disconnects all agent connections for a specific planeType/planeID
+// This is used when a CR is deleted or updated to force agents to reconnect with new configuration
+func (cm *ConnectionManager) DisconnectAllForPlane(planeType, planeID string) int {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	conns, exists := cm.connections[planeIdentifier]
+	if !exists || len(conns) == 0 {
+		cm.logger.Debug("no connections to disconnect",
+			"planeType", planeType,
+			"planeID", planeID,
+		)
+		return 0
+	}
+
+	disconnectedCount := len(conns)
+
+	for _, conn := range conns {
+		conn.Conn.Close()
+		cm.logger.Info("disconnecting agent due to CR change",
+			"planeType", planeType,
+			"planeID", planeID,
+			"connectionID", conn.ID,
+		)
+	}
+
+	delete(cm.connections, planeIdentifier)
+	delete(cm.roundRobin, planeIdentifier)
+
+	cm.logger.Info("disconnected all agents for plane",
+		"planeType", planeType,
+		"planeID", planeID,
+		"disconnectedCount", disconnectedCount,
+	)
+
+	return disconnectedCount
 }
 
 // SendHTTPTunnelRequest sends an HTTPTunnelRequest through this connection

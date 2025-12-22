@@ -82,8 +82,17 @@ func (m *KubeMultiClientManager) GetOrAddClient(key string, createFunc func() (c
 	return cl, nil
 }
 
+// RemoveClient removes a client from the cache by key.
+// This is useful when a DataPlane/BuildPlane CR is updated and the cached client needs to be invalidated.
+func (m *KubeMultiClientManager) RemoveClient(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.clients, key)
+}
+
 // GetK8sClientFromDataPlane retrieves a Kubernetes client from DataPlane specification.
 // Only supports cluster agent mode via HTTP proxy through cluster gateway.
+// Note: Cache key includes CR for isolation, but planeIdentifier for proxy uses only planeID
 func GetK8sClientFromDataPlane(
 	clientMgr *KubeMultiClientManager,
 	dataplane *openchoreov1alpha1.DataPlane,
@@ -93,21 +102,31 @@ func GetK8sClientFromDataPlane(
 		return nil, fmt.Errorf("gatewayURL is required for cluster agent mode")
 	}
 
-	// Include plane type in cache key to avoid collision with BuildPlane
-	key := fmt.Sprintf("dataplane/%s/%s", dataplane.Namespace, dataplane.Name)
+	// Determine effective planeID (defaults to CR name if not specified)
+	planeID := dataplane.Spec.PlaneID
+	if planeID == "" {
+		planeID = dataplane.Name
+	}
 
-	// Use planeType/planeName format to match agent registration
-	// Agent registers as "dataplane/<name>", so we use the same identifier
-	planeIdentifier := fmt.Sprintf("dataplane/%s", dataplane.Name)
+	// Cache key: CR-specific for client isolation (each CR gets its own client instance)
+	// Include "v2" to force cache invalidation after proxy client signature change
+	key := fmt.Sprintf("v2/dataplane/%s/%s/%s", planeID, dataplane.Namespace, dataplane.Name)
+
+	// Plane identifier for proxy routing: simplified 2-part format
+	// Gateway routes to agent using only planeType and planeID
+	// CR info is sent in URL for metadata (logging, future authorization)
+	planeIdentifier := fmt.Sprintf("dataplane/%s", planeID)
 
 	// Use GetOrAddClient to cache the proxy client
 	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-		return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+		// Proxy client needs CR namespace/name to construct full 6-part URL
+		return NewProxyClient(gatewayURL, planeIdentifier, dataplane.Namespace, dataplane.Name, clientMgr.ProxyTLSConfig)
 	})
 }
 
 // GetK8sClientFromBuildPlane retrieves a Kubernetes client from BuildPlane specification.
 // Only supports cluster agent mode via HTTP proxy through cluster gateway.
+// Note: Cache key includes CR for isolation, but planeIdentifier for proxy uses only planeID
 func GetK8sClientFromBuildPlane(
 	clientMgr *KubeMultiClientManager,
 	buildplane *openchoreov1alpha1.BuildPlane,
@@ -117,16 +136,25 @@ func GetK8sClientFromBuildPlane(
 		return nil, fmt.Errorf("gatewayURL is required for cluster agent mode")
 	}
 
-	// Include plane type in cache key to avoid collision with DataPlane
-	key := fmt.Sprintf("buildplane/%s/%s", buildplane.Namespace, buildplane.Name)
+	// Determine effective planeID (defaults to CR name if not specified)
+	planeID := buildplane.Spec.PlaneID
+	if planeID == "" {
+		planeID = buildplane.Name
+	}
 
-	// Use planeType/planeName format to match agent registration
-	// Agent registers as "buildplane/<name>", so we use the same identifier
-	planeIdentifier := fmt.Sprintf("buildplane/%s", buildplane.Name)
+	// Cache key: CR-specific for client isolation (each CR gets its own client instance)
+	// Include "v2" to force cache invalidation after proxy client signature change
+	key := fmt.Sprintf("v2/buildplane/%s/%s/%s", planeID, buildplane.Namespace, buildplane.Name)
+
+	// Plane identifier for proxy routing: simplified 2-part format
+	// Gateway routes to agent using only planeType and planeID
+	// CR info is sent in URL for metadata (logging, future authorization)
+	planeIdentifier := fmt.Sprintf("buildplane/%s", planeID)
 
 	// Use GetOrAddClient to cache the proxy client
 	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-		return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+		// Proxy client needs CR namespace/name to construct full 6-part URL
+		return NewProxyClient(gatewayURL, planeIdentifier, buildplane.Namespace, buildplane.Name, clientMgr.ProxyTLSConfig)
 	})
 }
 
@@ -138,7 +166,8 @@ func GetK8sClientFromObservabilityPlane(
 	gatewayURL string,
 ) (client.Client, error) {
 	// Include plane type in cache key to avoid collision with DataPlane and BuildPlane
-	key := fmt.Sprintf("observabilityplane/%s/%s", observabilityPlane.Namespace, observabilityPlane.Name)
+	// Include "v2" to force cache invalidation after proxy client signature change
+	key := fmt.Sprintf("v2/observabilityplane/%s/%s", observabilityPlane.Namespace, observabilityPlane.Name)
 
 	// Agent mode - use HTTP proxy through cluster gateway
 	if observabilityPlane.Spec.ClusterAgent.ClientCA.Value != "" {
@@ -152,7 +181,7 @@ func GetK8sClientFromObservabilityPlane(
 
 		// Use GetOrAddClient to cache the proxy client
 		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
-			return NewProxyClient(gatewayURL, planeIdentifier, clientMgr.ProxyTLSConfig)
+			return NewProxyClient(gatewayURL, planeIdentifier, observabilityPlane.Namespace, observabilityPlane.Name, clientMgr.ProxyTLSConfig)
 		})
 	}
 

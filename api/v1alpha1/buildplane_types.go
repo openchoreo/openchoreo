@@ -15,6 +15,17 @@ type BuildPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// PlaneID identifies the logical plane this CR connects to.
+	// Multiple BuildPlane CRs can share the same planeID to connect to the same physical cluster
+	// while maintaining separate configurations for multi-tenancy scenarios.
+	// If not specified, defaults to the CR name for backwards compatibility.
+	// Format: lowercase alphanumeric characters, hyphens allowed, max 63 characters.
+	// Examples: "shared-builder", "ci-cluster", "us-west-2"
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	PlaneID string `json:"planeID,omitempty"`
+
 	// ClusterAgent specifies the configuration for cluster agent-based communication
 	// The cluster agent establishes a WebSocket connection to the control plane's cluster gateway
 	// This field is mandatory - all build planes must use cluster agent communication

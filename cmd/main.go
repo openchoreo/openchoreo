@@ -23,6 +23,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
@@ -93,6 +94,13 @@ func setupControlPlaneControllers(
 	clusterGatewayURL string,
 	enableLegacyCRDs bool,
 ) error {
+	// Create gateway client for plane lifecycle notifications
+	var gwClient *gatewayClient.Client
+	if clusterGatewayURL != "" {
+		gwClient = gatewayClient.NewClient(clusterGatewayURL)
+		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
+	}
+
 	if enableLegacyCRDs {
 		if err := (&organization.Reconciler{
 			Client: mgr.GetClient(),
@@ -114,12 +122,6 @@ func setupControlPlaneControllers(
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
-		if err := (&dataplane.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
 		if err := (&deploymentpipeline.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
@@ -138,6 +140,16 @@ func setupControlPlaneControllers(
 		}).SetupWithManager(mgr); err != nil {
 			return err
 		}
+	}
+
+	if err := (&dataplane.Reconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
+	}).SetupWithManager(mgr); err != nil {
+		return err
 	}
 
 	if err := (&component.Reconciler{
@@ -219,8 +231,11 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&buildplane.BuildPlaneReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
@@ -243,8 +258,11 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&observabilityplane.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}
