@@ -211,7 +211,6 @@ func initJWTMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 		ValidateIssuer:               jwtIssuer,
 		ValidateAudience:             jwtAudience,
 		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
-		TokenLookup:                  "header:x-openchoreo-token",
 		Logger:                       logger,
 	}
 

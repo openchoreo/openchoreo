@@ -4,7 +4,7 @@
 observer:
   extraEnvs:
   - name: JWKS_URL
-    value: "https://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    value: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
   - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
     value: "true"
   - name: OPENSEARCH_ADDRESS
