@@ -72,7 +72,7 @@ These resources are deployed to different planes:
 
 2. Store your Git access token in your secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault)
 
-3. Update `component-workflow-with-es.yaml` with the correct secret reference:
+3. Update `external-secrets/component-workflow-with-es.yaml` with the correct secret reference:
    ```yaml
    remoteRef:
      key: your-secret-key
@@ -82,10 +82,10 @@ These resources are deployed to different planes:
 4. Deploy the resources:
    ```bash
    # Apply to Build Plane
-   kubectl apply -f cluster-workflow-template.yaml
+   kubectl apply -f external-secrets/cluster-workflow-template.yaml
 
    # Apply to Control Plane (organization namespace)
-   kubectl apply -f component-workflow-with-es.yaml
+   kubectl apply -f external-secrets/component-workflow-with-es.yaml
    ```
 
 The ExternalSecret resource defined in the ComponentWorkflow will be created in the build execution namespace and automatically sync the Git credentials from your secrets manager.

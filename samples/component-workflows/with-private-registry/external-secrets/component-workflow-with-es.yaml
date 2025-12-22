@@ -1,7 +1,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentWorkflow
 metadata:
-  name: google-cloud-buildpacks-private-registry
+  name: google-cloud-buildpacks-private-registry-with-es
   namespace: default
 spec:
   schema:
@@ -43,6 +43,8 @@ spec:
             value: ${metadata.projectName}-${metadata.componentName}-image
           - name: image-tag
             value: v1
+          - name: registry-secret-name
+            value: ${metadata.workflowRunName}-registry-push-secret
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
@@ -54,7 +56,7 @@ spec:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: registry-push-secret
+          name: ${metadata.workflowRunName}-registry-push-secret
           namespace: openchoreo-ci-${metadata.orgName}
         spec:
           refreshInterval: 15s

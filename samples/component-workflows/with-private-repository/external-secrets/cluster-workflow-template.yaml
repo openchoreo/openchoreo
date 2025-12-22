@@ -1,9 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
-  name: google-cloud-buildpacks-private-repo
+  name: google-cloud-buildpacks-private-repo-with-es
 spec:
   entrypoint: build-workflow
+  arguments:
+    parameters:
+      - name: git-secret-name
   templates:
     - name: build-workflow
       steps:
@@ -36,7 +39,7 @@ spec:
       volumes:
         - name: git-secret
           secret:
-            secretName: git-clone-secret
+            secretName: '{{workflow.parameters.git-secret-name}}'
       container:
         command:
           - sh

@@ -83,10 +83,10 @@ These resources are deployed to different planes:
 3. Deploy the resources:
    ```bash
    # Apply to Build Plane
-   kubectl apply -f cluster-workflow-template.yaml
+   kubectl apply -f external-secrets/cluster-workflow-template.yaml
 
    # Apply to Control Plane (organization namespace)
-   kubectl apply -f component-workflow-with-es.yaml
+   kubectl apply -f external-secrets/component-workflow-with-es.yaml
    ```
 
 The ExternalSecret resource defined in the ComponentWorkflow will be created in the build execution namespace and automatically sync the registry credentials from your secrets manager.
