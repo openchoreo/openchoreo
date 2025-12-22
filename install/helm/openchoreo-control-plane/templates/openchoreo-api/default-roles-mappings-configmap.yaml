@@ -10,6 +10,23 @@ metadata:
 data:
   default-roles-mappings.yaml: |
     # Default roles and mappings that can be seeded at installation time
+    # Examples
+    # roles:
+    #   - name: custom-role
+    #     actions:
+    #       - "organization:view"
+    #       - "project:view"
+    #
+    # mappings:
+    #   - role_name: custom-role
+    #     entitlement:
+    #       claim: groups                    # JWT claim from your IDP
+    #       value: developers                # Value to match from the claim
+    #     effect: allow                      # "allow" (default) or "deny"
+    #     hierarchy:                         # Optional: scope this mapping to specific resources
+    #       organization: my-org             # Organization name
+    #       project: my-project              # Project name (requires organization)
+    #       component: my-component          # Component name (requires organization and project)
 
     # Default roles
     roles:
@@ -19,6 +36,7 @@ data:
           - "*"
 
       # Backstage catalog provider role for reading catalog data from the control plane
+      # DO NOT REMOVE: Required for Backstage integration
       - name: backstage-catalog-reader
         actions:
           - "component:view"
@@ -29,6 +47,7 @@ data:
           - "environment:view"
 
       # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
+      # DO NOT REMOVE: Required for RCA agent integration
       - name: rca-agent
         actions:
           - "component:view"
@@ -50,11 +69,13 @@ data:
           claim: groups
           value: platformEngineer
         effect: allow
+      # DO NOT REMOVE: Required for Backstage integration
       - role_name: backstage-catalog-reader
         entitlement:
           claim: sub
           value: openchoreo-backstage-client
         effect: allow
+      # DO NOT REMOVE: Required for RCA agent integration
       - role_name: rca-agent
         entitlement:
           claim: sub

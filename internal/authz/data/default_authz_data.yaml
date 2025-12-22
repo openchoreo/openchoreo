@@ -1,4 +1,21 @@
 # Default roles and mappings that can be seeded at installation time
+# Examples
+# roles:
+#   - name: custom-role
+#     actions:
+#       - "organization:view"
+#       - "project:view"
+#
+# mappings:
+#   - role_name: custom-role        
+#     entitlement:
+#       claim: groups                    # JWT claim from your IDP 
+#       value: developers                # Value to match from the claim
+#     effect: allow                      # "allow" (default) or "deny"
+#     hierarchy:                         # Optional: scope this mapping to specific resources
+#       organization: my-org             # Organization name
+#       project: my-project              # Project name (requires organization)
+#       component: my-component          # Component name (requires organization and project)
 
 # Default roles
 roles:
