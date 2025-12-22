@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	// BuildPlaneCleanupFinalizer is the finalizer used to clean up build plane resources.
-	BuildPlaneCleanupFinalizer = "openchoreo.dev/buildplane-cleanup"
+	// ComponentWorkflowRunCleanupFinalizer is the finalizer used to clean up build plane resources.
+	ComponentWorkflowRunCleanupFinalizer = "openchoreo.dev/componentworkflowrun-cleanup"
 )
 
 // ensureFinalizer ensures that the finalizer is added to the ComponentWorkflowRun.
@@ -33,7 +33,7 @@ func (r *ComponentWorkflowRunReconciler) ensureFinalizer(ctx context.Context, cw
 		return false, nil
 	}
 
-	if controllerutil.AddFinalizer(cwRun, BuildPlaneCleanupFinalizer) {
+	if controllerutil.AddFinalizer(cwRun, ComponentWorkflowRunCleanupFinalizer) {
 		return true, r.Update(ctx, cwRun)
 	}
 
@@ -44,7 +44,7 @@ func (r *ComponentWorkflowRunReconciler) ensureFinalizer(ctx context.Context, cw
 func (r *ComponentWorkflowRunReconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	if !controllerutil.ContainsFinalizer(cwRun, BuildPlaneCleanupFinalizer) {
+	if !controllerutil.ContainsFinalizer(cwRun, ComponentWorkflowRunCleanupFinalizer) {
 		return ctrl.Result{}, nil
 	}
 
@@ -118,7 +118,7 @@ func (r *ComponentWorkflowRunReconciler) deleteResource(ctx context.Context, bpC
 
 // removeFinalizer removes the finalizer from the ComponentWorkflowRun.
 func (r *ComponentWorkflowRunReconciler) removeFinalizer(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
-	if controllerutil.RemoveFinalizer(cwRun, BuildPlaneCleanupFinalizer) {
+	if controllerutil.RemoveFinalizer(cwRun, ComponentWorkflowRunCleanupFinalizer) {
 		if err := r.Update(ctx, cwRun); err != nil {
 			return ctrl.Result{}, err
 		}

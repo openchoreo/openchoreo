@@ -595,11 +595,11 @@ func TestResourceReference(t *testing.T) {
 }
 
 // Finalizer constant test
-func TestBuildPlaneCleanupFinalizer(t *testing.T) {
+func TestComponentWorkflowRunCleanupFinalizer(t *testing.T) {
 	t.Run("should have correct finalizer value", func(t *testing.T) {
-		expected := "openchoreo.dev/buildplane-cleanup"
-		if BuildPlaneCleanupFinalizer != expected {
-			t.Errorf("expected finalizer %s, got %s", expected, BuildPlaneCleanupFinalizer)
+		expected := "openchoreo.dev/componentworkflowrun-cleanup"
+		if ComponentWorkflowRunCleanupFinalizer != expected {
+			t.Errorf("expected finalizer %s, got %s", expected, ComponentWorkflowRunCleanupFinalizer)
 		}
 	})
 }

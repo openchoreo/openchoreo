@@ -31,8 +31,8 @@ var _ = Describe("ComponentWorkflowRun Finalizer", func() {
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
 				// Remove finalizer if present to allow deletion
-				if controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer) {
-					controllerutil.RemoveFinalizer(resource, BuildPlaneCleanupFinalizer)
+				if controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer) {
+					controllerutil.RemoveFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
 					Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 				}
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
@@ -70,15 +70,15 @@ var _ = Describe("ComponentWorkflowRun Finalizer", func() {
 			By("Verifying the resource was created without finalizer")
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-			Expect(controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer)).To(BeFalse())
+			Expect(controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)).To(BeFalse())
 
 			By("Adding the finalizer")
-			controllerutil.AddFinalizer(resource, BuildPlaneCleanupFinalizer)
+			controllerutil.AddFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
 			By("Verifying the finalizer was added")
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-			Expect(controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer)).To(BeTrue())
+			Expect(controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)).To(BeTrue())
 		})
 
 		It("should remove the finalizer correctly", func() {
@@ -87,7 +87,7 @@ var _ = Describe("ComponentWorkflowRun Finalizer", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       resourceName,
 					Namespace:  "default",
-					Finalizers: []string{BuildPlaneCleanupFinalizer},
+					Finalizers: []string{ComponentWorkflowRunCleanupFinalizer},
 				},
 				Spec: openchoreodevv1alpha1.ComponentWorkflowRunSpec{
 					Owner: openchoreodevv1alpha1.ComponentWorkflowOwner{
@@ -113,15 +113,15 @@ var _ = Describe("ComponentWorkflowRun Finalizer", func() {
 			By("Verifying the finalizer is present")
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-			Expect(controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer)).To(BeTrue())
+			Expect(controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)).To(BeTrue())
 
 			By("Removing the finalizer")
-			controllerutil.RemoveFinalizer(resource, BuildPlaneCleanupFinalizer)
+			controllerutil.RemoveFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
 			Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 
 			By("Verifying the finalizer was removed")
 			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-			Expect(controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer)).To(BeFalse())
+			Expect(controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)).To(BeFalse())
 		})
 	})
 
@@ -140,8 +140,8 @@ var _ = Describe("ComponentWorkflowRun Finalizer", func() {
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
 				// Remove finalizer if present to allow deletion
-				if controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer) {
-					controllerutil.RemoveFinalizer(resource, BuildPlaneCleanupFinalizer)
+				if controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer) {
+					controllerutil.RemoveFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
 					Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 				}
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())

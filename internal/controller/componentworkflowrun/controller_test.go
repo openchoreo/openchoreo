@@ -64,8 +64,8 @@ var _ = Describe("ComponentWorkflowRun Controller", func() {
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
 				// Remove finalizer if present to allow deletion
-				if controllerutil.ContainsFinalizer(resource, BuildPlaneCleanupFinalizer) {
-					controllerutil.RemoveFinalizer(resource, BuildPlaneCleanupFinalizer)
+				if controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer) {
+					controllerutil.RemoveFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
 					Expect(k8sClient.Update(ctx, resource)).To(Succeed())
 				}
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
