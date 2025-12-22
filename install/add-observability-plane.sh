@@ -296,6 +296,7 @@ metadata:
     openchoreo.dev/description: "ObservabilityPlane created via $(basename $0) script with cluster agent"
     openchoreo.dev/display-name: "ObservabilityPlane $OBSERVABILITYPLANE_NAME"
 spec:
+$PLANE_ID_FIELD
   clusterAgent:
 $CLIENT_CA_CONFIG
   observerURL: $OBSERVER_URL

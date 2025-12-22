@@ -175,9 +175,14 @@ func GetK8sClientFromObservabilityPlane(
 			return nil, fmt.Errorf("gatewayURL is required for agent mode")
 		}
 
+		planeID := observabilityPlane.Spec.PlaneID
+		if planeID == "" {
+			planeID = observabilityPlane.Name
+		}
+
 		// Use planeType/planeName format to match agent registration
 		// Agent registers as "observabilityplane/<name>", so we use the same identifier
-		planeIdentifier := fmt.Sprintf("observabilityplane/%s", observabilityPlane.Name)
+		planeIdentifier := fmt.Sprintf("observabilityplane/%s", planeID)
 
 		// Use GetOrAddClient to cache the proxy client
 		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
