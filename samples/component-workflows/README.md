@@ -31,7 +31,7 @@ ComponentWorkflow enforces a required structure for repository information while
 - **ComponentWorkflowRun CR**: Instance that triggers a build execution (created automatically or manually)
 - **System Parameters**: Required structured fields for repository information (url, branch, commit, appPath)
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
-- **Template Variables**: Placeholders like `${ctx.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
+- **Template Variables**: Placeholders like `${metadata.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
 - **Build Plane**: A Kubernetes cluster running Argo Workflows
 
 ## Available ComponentWorkflows
@@ -148,6 +148,100 @@ parameters:
   nodeVersion: string | default="18"
 ```
 
+### [Private Repository Sample](./with-private-repository/)
+
+Demonstrates cloning source code from private Git repositories that require authentication.
+
+**Use Case**: Building applications from private GitHub, GitLab, or Bitbucket repositories.
+
+### [Private Registry Sample](./with-private-registry/)
+
+Demonstrates pushing built container images to private registries that require authentication.
+
+**Use Case**: Pushing images to Docker Hub, GCR, ECR, Azure ACR, or other private registries.
+
+## Using Secrets in Workflows
+
+Build workflows often need access to secrets for authentication, such as:
+- **Git credentials** for cloning private repositories
+- **Registry credentials** for pushing images to private container registries
+- **API tokens** for external services during the build process
+
+ComponentWorkflows support two approaches for providing secrets to the Build Plane:
+
+### Option 1: External Secrets Operator (Recommended for GitOps)
+
+Use the `resources` field in ComponentWorkflow to define ExternalSecret resources that automatically sync secrets from external secret managers (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, etc.):
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: my-workflow
+spec:
+  # ... schema and runTemplate ...
+
+  resources:
+    - id: registry-credentials
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: registry-push-secret
+          namespace: openchoreo-ci-${metadata.orgName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: registry-push-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: dockerconfig
+              remoteRef:
+                key: my-secret-key
+                property: dockerconfigjson
+```
+
+**Benefits**:
+- Secrets are automatically synced and rotated
+- No manual secret management required
+- Ideal for GitOps workflows where all configuration is version-controlled
+- Secrets never appear in Git repositories
+
+### Option 2: Manual Secret Creation
+
+Create Kubernetes secrets directly in the Build Plane's execution namespace:
+
+```bash
+# For registry credentials
+kubectl create secret docker-registry registry-push-secret \
+  --docker-server=https://index.docker.io/v1/ \
+  --docker-username=your-username \
+  --docker-password=your-password \
+  -n openchoreo-ci-default
+
+# For Git credentials
+kubectl create secret generic git-clone-secret \
+  --from-literal=clone-secret=<your-personal-access-token> \
+  -n openchoreo-ci-default
+```
+
+**Benefits**:
+- Simple setup for development and testing
+- No additional operators required
+- Direct control over secret lifecycle
+
+### Sample Implementations
+
+See the following samples for complete working examples:
+
+| Sample | Description |
+|--------|-------------|
+| [with-private-repository](./with-private-repository/) | Clone from private Git repositories using PAT |
+| [with-private-registry](./with-private-registry/) | Push to private container registries using docker config |
+
 ## Using ComponentWorkflows
 
 ### Method 1: Reference in Component
@@ -219,10 +313,10 @@ ComponentWorkflows support template variables for dynamic values in the `runTemp
 
 | Variable | Description | Scope |
 |----------|-------------|-------|
-| `${ctx.componentWorkflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
-| `${ctx.componentName}` | Component name | Component-level workflows only |
-| `${ctx.projectName}` | Project name | Component-level workflows only |
-| `${ctx.orgName}` | Organization (namespace) | All component workflows |
+| `${metadata.workflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
+| `${metadata.componentName}` | Component name | Component-level workflows only |
+| `${metadata.projectName}` | Project name | Component-level workflows only |
+| `${metadata.orgName}` | Organization (namespace) | All component workflows |
 | `${systemParameters.*}` | System parameter values (repository.url, etc.) | All component workflows |
 | `${parameters.*}` | Developer-provided parameter values | All component workflows |
 
@@ -233,16 +327,16 @@ spec:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
-      name: ${ctx.componentWorkflowRunName}
-      namespace: openchoreo-ci-${ctx.orgName}
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
     spec:
       arguments:
         parameters:
           # Context variables
           - name: component-name
-            value: ${ctx.componentName}
+            value: ${metadata.componentName}
           - name: project-name
-            value: ${ctx.projectName}
+            value: ${metadata.projectName}
           # System parameters
           - name: git-repo
             value: ${systemParameters.repository.url}
@@ -253,7 +347,7 @@ spec:
             value: ${parameters.version}
           # Hardcoded PE-controlled values
           - name: image-name
-            value: ${ctx.projectName}-${ctx.componentName}-image
+            value: ${metadata.projectName}-${metadata.componentName}-image
 ```
 
 ## System Parameters vs Developer Parameters

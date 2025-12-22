@@ -209,19 +209,69 @@ spec:
                     description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
                     type: string
                 type: object
+              resources:
+                description: |-
+                  Resources contains references to additional resources applied to the build plane cluster.
+                  These are tracked for cleanup when the ComponentWorkflowRun is deleted.
+                items:
+                  description: ResourceReference tracks a resource applied to the
+                    build plane cluster for cleanup purposes.
+                  properties:
+                    apiVersion:
+                      description: APIVersion is the API version of the resource (e.g.,
+                        "v1", "apps/v1").
+                      minLength: 1
+                      type: string
+                    kind:
+                      description: Kind is the type of the resource (e.g., "Secret",
+                        "ConfigMap").
+                      minLength: 1
+                      type: string
+                    name:
+                      description: Name is the name of the resource in the build plane
+                        cluster.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the resource in the build plane cluster.
+                        Empty for cluster-scoped resources.
+                      type: string
+                  required:
+                  - apiVersion
+                  - kind
+                  - name
+                  type: object
+                type: array
               runReference:
                 description: |-
                   RunReference contains a reference to the workflow run resource that was applied to the build plane cluster.
                   This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
                 properties:
+                  apiVersion:
+                    description: APIVersion is the API version of the resource (e.g.,
+                      "v1", "apps/v1").
+                    minLength: 1
+                    type: string
+                  kind:
+                    description: Kind is the type of the resource (e.g., "Secret",
+                      "ConfigMap").
+                    minLength: 1
+                    type: string
                   name:
-                    description: Name is the name of the workflow run resource in
-                      the build plane cluster
+                    description: Name is the name of the resource in the build plane
+                      cluster.
+                    minLength: 1
                     type: string
                   namespace:
-                    description: Namespace is the namespace of the workflow run resource
-                      in the build plane cluster
+                    description: |-
+                      Namespace is the namespace of the resource in the build plane cluster.
+                      Empty for cluster-scoped resources.
                     type: string
+                required:
+                - apiVersion
+                - kind
+                - name
                 type: object
             type: object
         required:

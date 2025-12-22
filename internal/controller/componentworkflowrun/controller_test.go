@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -62,6 +63,11 @@ var _ = Describe("ComponentWorkflowRun Controller", func() {
 			By("Cleaning up the ComponentWorkflowRun resource")
 			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
 			if err := k8sClient.Get(ctx, typeNamespacedName, resource); err == nil {
+				// Remove finalizer if present to allow deletion
+				if controllerutil.ContainsFinalizer(resource, ComponentWorkflowRunCleanupFinalizer) {
+					controllerutil.RemoveFinalizer(resource, ComponentWorkflowRunCleanupFinalizer)
+					Expect(k8sClient.Update(ctx, resource)).To(Succeed())
+				}
 				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 			}
 		})
@@ -92,6 +98,91 @@ var _ = Describe("ComponentWorkflowRun Controller", func() {
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Requeue).To(BeFalse())
+		})
+
+		It("should have empty status initially", func() {
+			By("Verifying the ComponentWorkflowRun has empty status")
+			resource := &openchoreodevv1alpha1.ComponentWorkflowRun{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			Expect(resource.Status.Conditions).To(BeEmpty())
+			Expect(resource.Status.RunReference).To(BeNil())
+			Expect(resource.Status.Resources).To(BeNil())
+			Expect(resource.Status.ImageStatus.Image).To(BeEmpty())
+		})
+	})
+
+	Context("When working with status fields", func() {
+		It("should correctly set and retrieve RunReference", func() {
+			cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-run-ref",
+					Namespace: "default",
+				},
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					RunReference: &openchoreodevv1alpha1.ResourceReference{
+						APIVersion: "argoproj.io/v1alpha1",
+						Kind:       "Workflow",
+						Name:       "test-workflow-run",
+						Namespace:  "build-namespace",
+					},
+				},
+			}
+
+			Expect(cwf.Status.RunReference).NotTo(BeNil())
+			Expect(cwf.Status.RunReference.APIVersion).To(Equal("argoproj.io/v1alpha1"))
+			Expect(cwf.Status.RunReference.Kind).To(Equal("Workflow"))
+			Expect(cwf.Status.RunReference.Name).To(Equal("test-workflow-run"))
+			Expect(cwf.Status.RunReference.Namespace).To(Equal("build-namespace"))
+		})
+
+		It("should correctly set and retrieve Resources", func() {
+			resources := []openchoreodevv1alpha1.ResourceReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Secret",
+					Name:       "registry-credentials",
+					Namespace:  "build-namespace",
+				},
+				{
+					APIVersion: "v1",
+					Kind:       "ConfigMap",
+					Name:       "build-config",
+					Namespace:  "build-namespace",
+				},
+			}
+
+			cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-resources",
+					Namespace: "default",
+				},
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Resources: &resources,
+				},
+			}
+
+			Expect(cwf.Status.Resources).NotTo(BeNil())
+			Expect(*cwf.Status.Resources).To(HaveLen(2))
+			Expect((*cwf.Status.Resources)[0].Kind).To(Equal("Secret"))
+			Expect((*cwf.Status.Resources)[0].Name).To(Equal("registry-credentials"))
+			Expect((*cwf.Status.Resources)[1].Kind).To(Equal("ConfigMap"))
+			Expect((*cwf.Status.Resources)[1].Name).To(Equal("build-config"))
+		})
+
+		It("should correctly set and retrieve ImageStatus", func() {
+			cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-image-status",
+					Namespace: "default",
+				},
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					ImageStatus: openchoreodevv1alpha1.ComponentWorkflowImage{
+						Image: "registry.example.com/myapp:v1.0.0",
+					},
+				},
+			}
+
+			Expect(cwf.Status.ImageStatus.Image).To(Equal("registry.example.com/myapp:v1.0.0"))
 		})
 	})
 })

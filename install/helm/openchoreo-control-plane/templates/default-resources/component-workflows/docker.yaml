@@ -34,15 +34,15 @@ spec:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
-      name: ${ctx.componentWorkflowRunName}
-      namespace: openchoreo-ci-${ctx.orgName}
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
     spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${ctx.componentName}
+            value: ${metadata.componentName}
           - name: project-name
-            value: ${ctx.projectName}
+            value: ${metadata.projectName}
           # Parameters from system parameters (developer-facing)
           - name: git-repo
             value: ${systemParameters.repository.url}
@@ -59,7 +59,7 @@ spec:
             value: ${parameters.docker.filePath}
           # PE-controlled hardcoded parameters
           - name: image-name
-            value: ${ctx.projectName}-${ctx.componentName}-image
+            value: ${metadata.projectName}-${metadata.componentName}-image
           - name: image-tag
             value: v1
       serviceAccountName: workflow-sa

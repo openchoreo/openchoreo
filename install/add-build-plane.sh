@@ -257,6 +257,8 @@ metadata:
 spec:
   clusterAgent:
 $CLIENT_CA_CONFIG
+  secretStoreRef:
+      name: default
 EOF
 )
 

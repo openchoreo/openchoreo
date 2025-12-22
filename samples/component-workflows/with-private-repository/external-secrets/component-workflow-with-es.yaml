@@ -1,20 +1,10 @@
-{{ if .Values.global.defaultResources.enabled }}
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentWorkflow
 metadata:
-  name: google-cloud-buildpacks
+  name: google-cloud-buildpacks-private-repo-with-es
   namespace: default
-  annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
-    "helm.sh/hook": post-install, post-upgrade
-    "helm.sh/hook-weight": "7"
 spec:
-  # Schema definition for component workflows
   schema:
-    # System parameters - Required structured parameters for component builds
-    # These fields are necessary for build-specific platform features (webhooks, auto-build, UI actions)
-    # Platform Engineers can customize defaults, enums, and descriptions, but must maintain the field structure
-    # Note: All systemParameters fields must be of type string to ensure compatibility with build automation
     systemParameters:
       repository:
         url: string | description="Git repository URL"
@@ -23,7 +13,6 @@ spec:
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-    # Developer-configurable parameters - PE-defined schema for additional build configuration
     parameters: {}
 
   # Rendered workflow resource for ComponentWorkflowRun executions
@@ -54,8 +43,32 @@ spec:
             value: ${metadata.projectName}-${metadata.componentName}-image
           - name: image-tag
             value: v1
+          - name: git-secret-name
+            value: ${metadata.workflowRunName}-git-clone-secret
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: google-cloud-buildpacks
-{{ end }}
+        name: google-cloud-buildpacks-private-repos
+
+  resources:
+    - id: repo-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-clone-secret
+          namespace: openchoreo-ci-${metadata.orgName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: git-clone-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-clone-secret
+              remoteRef:
+                key: foo-key
+                property: foo-property
+                version: latest

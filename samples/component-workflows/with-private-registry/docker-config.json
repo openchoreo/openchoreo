@@ -1,0 +1,7 @@
+{
+  "auths": {
+    "https://index.docker.io/v1/": {
+      "auth": "<BASE64_OF_USERNAME_COLON_PASSWORD>"
+    }
+  }
+}

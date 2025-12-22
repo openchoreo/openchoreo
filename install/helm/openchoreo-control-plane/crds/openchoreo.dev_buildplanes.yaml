@@ -78,6 +78,17 @@ spec:
                 description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
                   for this BuildPlane.
                 type: string
+              secretStoreRef:
+                description: SecretStoreRef specifies the ESO ClusterSecretStore to
+                  use in the data plane
+                properties:
+                  name:
+                    description: Name of the ClusterSecretStore resource in the data
+                      plane cluster
+                    type: string
+                required:
+                - name
+                type: object
             required:
             - clusterAgent
             type: object

@@ -121,7 +121,12 @@ type ComponentWorkflowRunStatus struct {
 	// RunReference contains a reference to the workflow run resource that was applied to the build plane cluster.
 	// This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
 	// +optional
-	RunReference ComponentWorkflowRunReference `json:"runReference,omitempty"`
+	RunReference *ResourceReference `json:"runReference,omitempty"`
+
+	// Resources contains references to additional resources applied to the build plane cluster.
+	// These are tracked for cleanup when the ComponentWorkflowRun is deleted.
+	// +optional
+	Resources *[]ResourceReference `json:"resources,omitempty"`
 }
 
 // ComponentWorkflowImage contains information about a container image produced by a component workflow execution.
@@ -131,14 +136,25 @@ type ComponentWorkflowImage struct {
 	Image string `json:"image,omitempty"`
 }
 
-// ComponentWorkflowRunReference contains a reference to the workflow run resource applied to the build plane cluster.
-// This allows tracking the actual workflow execution instance that was created in the target cluster.
-type ComponentWorkflowRunReference struct {
-	// Name is the name of the workflow run resource in the build plane cluster
-	// +optional
-	Name string `json:"name,omitempty"`
+// ResourceReference tracks a resource applied to the build plane cluster for cleanup purposes.
+type ResourceReference struct {
+	// APIVersion is the API version of the resource (e.g., "v1", "apps/v1").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	APIVersion string `json:"apiVersion"`
 
-	// Namespace is the namespace of the workflow run resource in the build plane cluster
+	// Kind is the type of the resource (e.g., "Secret", "ConfigMap").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Kind string `json:"kind"`
+
+	// Name is the name of the resource in the build plane cluster.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Namespace is the namespace of the resource in the build plane cluster.
+	// Empty for cluster-scoped resources.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }

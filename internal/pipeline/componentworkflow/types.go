@@ -32,8 +32,21 @@ type RenderOutput struct {
 	// to unstructured.Unstructured for Kubernetes API operations.
 	Resource map[string]any
 
+	// Resources contains additional rendered Kubernetes resources (e.g., secrets, configmaps)
+	// to be applied alongside the main workflow resource.
+	Resources []RenderedResource
+
 	// Metadata contains rendering process information such as warnings.
 	Metadata *RenderMetadata
+}
+
+// RenderedResource represents a rendered Kubernetes resource with its identifier.
+type RenderedResource struct {
+	// ID is the unique identifier for this resource from the ComponentWorkflow spec.
+	ID string
+
+	// Resource is the fully rendered Kubernetes resource as a map.
+	Resource map[string]any
 }
 
 // RenderMetadata contains non-fatal information about the rendering process.
@@ -43,7 +56,7 @@ type RenderMetadata struct {
 }
 
 // ComponentWorkflowContext provides contextual metadata for component workflow rendering.
-// These values are injected into CEL expressions as ${ctx.*} variables.
+// These values are injected into CEL expressions as ${metadata.*} variables.
 type ComponentWorkflowContext struct {
 	// OrgName is the organization name (typically the namespace).
 	OrgName string
@@ -54,6 +67,6 @@ type ComponentWorkflowContext struct {
 	// ComponentName is the component name from the component workflow owner.
 	ComponentName string
 
-	// ComponentWorkflowRunName is the name of the component workflow run CR.
-	ComponentWorkflowRunName string
+	// WorkflowRunName is the name of the component workflow run CR.
+	WorkflowRunName string
 }

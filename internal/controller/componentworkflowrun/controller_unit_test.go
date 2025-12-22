@@ -459,6 +459,151 @@ func TestConvertParameterValuesToStrings(t *testing.T) {
 	})
 }
 
+// ResourceReference tests
+func TestResourceReference(t *testing.T) {
+	t.Run("should correctly store RunReference in status", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		cwf.Status.RunReference = &openchoreodevv1alpha1.ResourceReference{
+			APIVersion: "argoproj.io/v1alpha1",
+			Kind:       "Workflow",
+			Name:       "test-workflow-run",
+			Namespace:  "build-namespace",
+		}
+
+		if cwf.Status.RunReference == nil {
+			t.Error("expected RunReference to be set")
+		}
+		if cwf.Status.RunReference.APIVersion != "argoproj.io/v1alpha1" {
+			t.Errorf("expected APIVersion argoproj.io/v1alpha1, got %s", cwf.Status.RunReference.APIVersion)
+		}
+		if cwf.Status.RunReference.Kind != "Workflow" {
+			t.Errorf("expected Kind Workflow, got %s", cwf.Status.RunReference.Kind)
+		}
+		if cwf.Status.RunReference.Name != "test-workflow-run" {
+			t.Errorf("expected Name test-workflow-run, got %s", cwf.Status.RunReference.Name)
+		}
+		if cwf.Status.RunReference.Namespace != "build-namespace" {
+			t.Errorf("expected Namespace build-namespace, got %s", cwf.Status.RunReference.Namespace)
+		}
+	})
+
+	t.Run("should correctly store Resources in status", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		resources := []openchoreodevv1alpha1.ResourceReference{
+			{
+				APIVersion: "v1",
+				Kind:       "Secret",
+				Name:       "registry-credentials",
+				Namespace:  "build-namespace",
+			},
+			{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+				Name:       "build-config",
+				Namespace:  "build-namespace",
+			},
+		}
+		cwf.Status.Resources = &resources
+
+		if cwf.Status.Resources == nil {
+			t.Error("expected Resources to be set")
+		}
+		if len(*cwf.Status.Resources) != 2 {
+			t.Errorf("expected 2 resources, got %d", len(*cwf.Status.Resources))
+		}
+		if (*cwf.Status.Resources)[0].Kind != "Secret" {
+			t.Errorf("expected first resource kind Secret, got %s", (*cwf.Status.Resources)[0].Kind)
+		}
+		if (*cwf.Status.Resources)[1].Kind != "ConfigMap" {
+			t.Errorf("expected second resource kind ConfigMap, got %s", (*cwf.Status.Resources)[1].Kind)
+		}
+	})
+
+	t.Run("should correctly store ImageStatus in status", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		cwf.Status.ImageStatus = openchoreodevv1alpha1.ComponentWorkflowImage{
+			Image: "registry.example.com/myapp:v1.0.0",
+		}
+
+		if cwf.Status.ImageStatus.Image != "registry.example.com/myapp:v1.0.0" {
+			t.Errorf("expected Image registry.example.com/myapp:v1.0.0, got %s", cwf.Status.ImageStatus.Image)
+		}
+	})
+
+	t.Run("should handle nil RunReference", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		if cwf.Status.RunReference != nil {
+			t.Error("expected RunReference to be nil")
+		}
+	})
+
+	t.Run("should handle nil Resources", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		if cwf.Status.Resources != nil {
+			t.Error("expected Resources to be nil")
+		}
+	})
+
+	t.Run("should handle empty Resources slice", func(t *testing.T) {
+		cwf := &openchoreodevv1alpha1.ComponentWorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-run",
+				Namespace: "default",
+			},
+		}
+
+		emptyResources := []openchoreodevv1alpha1.ResourceReference{}
+		cwf.Status.Resources = &emptyResources
+
+		if cwf.Status.Resources == nil {
+			t.Error("expected Resources to not be nil")
+		}
+		if len(*cwf.Status.Resources) != 0 {
+			t.Errorf("expected 0 resources, got %d", len(*cwf.Status.Resources))
+		}
+	})
+}
+
+// Finalizer constant test
+func TestComponentWorkflowRunCleanupFinalizer(t *testing.T) {
+	t.Run("should have correct finalizer value", func(t *testing.T) {
+		expected := "openchoreo.dev/componentworkflowrun-cleanup"
+		if ComponentWorkflowRunCleanupFinalizer != expected {
+			t.Errorf("expected finalizer %s, got %s", expected, ComponentWorkflowRunCleanupFinalizer)
+		}
+	})
+}
+
 // Condition function tests
 func TestConditionFunctions(t *testing.T) {
 	t.Run("setWorkflowPendingCondition", func(t *testing.T) {

@@ -7,12 +7,12 @@ metadata:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
   # Template Variable Reference (processed by controller):
-  # ${ctx.componentWorkflowRunName}  - ComponentWorkflowRun CR name
-  # ${ctx.componentName}             - Component name (Only accessible for component level component-workflows)
-  # ${ctx.projectName}               - Project name (Only accessible for component level component-workflows)
-  # ${ctx.orgName}                   - Organization name (namespace)
-  # ${systemParameters.*}            - Developer-provided values from systemParameters schema
-  # ${parameters.*}                  - Developer-provided values from parameters schema
+  # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
+  # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
+  # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
+  # ${metadata.orgName}          - Organization name (namespace)
+  # ${systemParameters.*}        - Developer-provided values from systemParameters schema
+  # ${parameters.*}              - Developer-provided values from parameters schema
 
   # Schema definition for component workflows
   schema:
@@ -36,15 +36,15 @@ spec:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
-      name: ${ctx.componentWorkflowRunName}
-      namespace: openchoreo-ci-${ctx.orgName}
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
     spec:
       arguments:
         parameters:
           - name: component-name
-            value: ${ctx.componentName}
+            value: ${metadata.componentName}
           - name: project-name
-            value: ${ctx.projectName}
+            value: ${metadata.projectName}
           # Parameters from system parameters (developer-facing)
           - name: git-repo
             value: ${systemParameters.repository.url}
@@ -59,7 +59,7 @@ spec:
             value: ${parameters.nodeVersion}
           # PE-controlled hardcoded parameters
           - name: image-name
-            value: ${ctx.projectName}-${ctx.componentName}
+            value: ${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
       serviceAccountName: workflow-sa
