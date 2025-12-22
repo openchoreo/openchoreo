@@ -9,10 +9,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Config struct {
@@ -44,6 +48,100 @@ type PlaneNotification struct {
 type NotificationResponse struct {
 	DisconnectedAgents int  `json:"disconnectedAgents"`
 	Success            bool `json:"success"`
+}
+
+// TransientError represents a transient error that should be retried
+// Examples: network errors, 5xx status codes, timeouts
+type TransientError struct {
+	StatusCode int
+	Message    string
+	Err        error
+}
+
+func (e *TransientError) Error() string {
+	if e.StatusCode > 0 {
+		return fmt.Sprintf("transient gateway error (status %d): %s", e.StatusCode, e.Message)
+	}
+	return fmt.Sprintf("transient gateway error: %s", e.Message)
+}
+
+func (e *TransientError) Unwrap() error {
+	return e.Err
+}
+
+// PermanentError represents a permanent error that should not be retried
+// Examples: 4xx status codes (except 429), validation errors
+type PermanentError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *PermanentError) Error() string {
+	if e.StatusCode > 0 {
+		return fmt.Sprintf("permanent gateway error (status %d): %s", e.StatusCode, e.Message)
+	}
+	return fmt.Sprintf("permanent gateway error: %s", e.Message)
+}
+
+func IsTransientError(err error) bool {
+	var transientErr *TransientError
+	return err != nil && (errors.As(err, &transientErr) || isNetworkError(err))
+}
+
+func IsPermanentError(err error) bool {
+	var permanentErr *PermanentError
+	return err != nil && errors.As(err, &permanentErr)
+}
+
+func isNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "no such host") ||
+		strings.Contains(errStr, "network is unreachable") ||
+		strings.Contains(errStr, "i/o timeout") ||
+		errors.Is(err, context.DeadlineExceeded)
+}
+
+func classifyHTTPError(statusCode int) error {
+	if statusCode >= http.StatusInternalServerError && statusCode < 600 {
+		return &TransientError{
+			StatusCode: statusCode,
+			Message:    "gateway server error",
+		}
+	} else if statusCode == http.StatusTooManyRequests {
+		return &TransientError{
+			StatusCode: statusCode,
+			Message:    "gateway rate limited",
+		}
+	} else if statusCode >= http.StatusBadRequest && statusCode < http.StatusInternalServerError {
+		return &PermanentError{
+			StatusCode: statusCode,
+			Message:    "gateway client error",
+		}
+	}
+	return &TransientError{
+		StatusCode: statusCode,
+		Message:    "unexpected status code",
+	}
+}
+
+func HandleGatewayError(logger interface{ Error(error, string, ...any) }, err error, operation string) (shouldRetry bool, result ctrl.Result, retryErr error) {
+	if IsTransientError(err) {
+		logger.Error(err, fmt.Sprintf("Transient error notifying gateway of %s, will retry", operation))
+		return true, ctrl.Result{}, err
+	}
+
+	if IsPermanentError(err) {
+		logger.Error(err, fmt.Sprintf("Permanent error notifying gateway of %s, skipping retry", operation))
+		return false, ctrl.Result{}, nil
+	}
+
+	logger.Error(err, fmt.Sprintf("Failed to notify gateway of %s", operation))
+	return false, ctrl.Result{}, nil
 }
 
 // NewClient creates a new gateway client with insecure TLS (for local development only)
@@ -153,12 +251,16 @@ func (c *Client) NotifyPlaneLifecycle(ctx context.Context, notification *PlaneNo
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send notification: %w", err)
+		// Network errors are transient and should be retried
+		return nil, &TransientError{
+			Message: "failed to send notification",
+			Err:     err,
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gateway returned status %d", resp.StatusCode)
+		return nil, classifyHTTPError(resp.StatusCode)
 	}
 
 	var response NotificationResponse
@@ -178,12 +280,16 @@ func (c *Client) ForceReconnect(ctx context.Context, planeType, planeID string) 
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send reconnect request: %w", err)
+		// Network errors are transient and should be retried
+		return nil, &TransientError{
+			Message: "failed to send reconnect request",
+			Err:     err,
+		}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("gateway returned status %d", resp.StatusCode)
+		return nil, classifyHTTPError(resp.StatusCode)
 	}
 
 	var response NotificationResponse

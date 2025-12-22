@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
@@ -67,15 +68,9 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 	// Notify gateway of DataPlane deletion before removing finalizer
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, dataPlane, "deleted"); err != nil {
-			// Don't fail finalization if gateway notification fails.
-			// Rationale:
-			// 1. Gateway unavailability shouldn't block CR deletion (operational resilience)
-			// 2. System is eventually consistent: when agent reconnects, gateway will
-			//    query for the CR, find it doesn't exist, and reject the connection
-			// 3. Prevents CRs from getting stuck in "Terminating" state indefinitely
-			// Trade-off: If gateway is unreachable, agents may attempt reconnection
-			// before discovering the CR is gone, wasting some resources temporarily.
-			logger.Error(err, "Failed to notify gateway of DataPlane deletion")
+			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "DataPlane deletion"); shouldRetry {
+				return result, retryErr
+			}
 		}
 	}
 
