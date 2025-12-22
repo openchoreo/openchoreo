@@ -12,22 +12,22 @@ import (
 
 // UserTypeConfig represents configuration for a single user type
 type UserTypeConfig struct {
-	Type           auth.SubjectType      `yaml:"type"`            // "user" or "service_account"
-	DisplayName    string                `yaml:"display_name"`    // Human-readable name for user type
-	Priority       int                   `yaml:"priority"`        // Check order (lower = higher priority)
-	AuthMechanisms []AuthMechanismConfig `yaml:"auth_mechanisms"` // Supported authentication mechanisms
+	Type           auth.SubjectType      `yaml:"type" json:"type"`                      // "user" or "service_account"
+	DisplayName    string                `yaml:"display_name" json:"displayName"`       // Human-readable name for user type
+	Priority       int                   `yaml:"priority" json:"priority"`              // Check order (lower = higher priority)
+	AuthMechanisms []AuthMechanismConfig `yaml:"auth_mechanisms" json:"authMechanisms"` // Supported authentication mechanisms
 }
 
 // AuthMechanismConfig represents configuration for a specific authentication mechanism
 type AuthMechanismConfig struct {
-	Type        string            `yaml:"type"`        // Authentication mechanism type (e.g., "jwt", "oauth2", "api_key")
-	Entitlement EntitlementConfig `yaml:"entitlement"` // Entitlement configuration for this mechanism
+	Type        string            `yaml:"type" json:"type"`               // Authentication mechanism type (e.g., "jwt", "oauth2", "api_key")
+	Entitlement EntitlementConfig `yaml:"entitlement" json:"entitlement"` // Entitlement configuration for this mechanism
 }
 
 // EntitlementConfig defines how to extract entitlement claims from authentication tokens
 type EntitlementConfig struct {
-	Claim       string `yaml:"claim"`        // Claim name for detection and entitlement (e.g., "groups", "scopes")
-	DisplayName string `yaml:"display_name"` // Human-readable name for the claim
+	Claim       string `yaml:"claim" json:"claim"`              // Claim name for detection and entitlement (e.g., "groups", "scopes")
+	DisplayName string `yaml:"display_name" json:"displayName"` // Human-readable name for the claim
 }
 
 // ValidateConfig validates an array of user type configurations
