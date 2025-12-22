@@ -343,7 +343,7 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 		return nil, nil
 	}
 
-	var appliedResources []openchoreodevv1alpha1.ResourceReference
+	appliedResources := make([]openchoreodevv1alpha1.ResourceReference, 0, len(resources))
 
 	for _, res := range resources {
 		unstructuredResource := &unstructured.Unstructured{Object: res.Resource}
