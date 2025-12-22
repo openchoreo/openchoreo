@@ -211,13 +211,21 @@ func (p *Pipeline) buildStructuralSchema(cwf *v1alpha1.ComponentWorkflow) (*apie
 		return nil, nil
 	}
 
+	// Extract types from RawExtension
+	var types map[string]any
+	if cwf.Spec.Schema.Types != nil {
+		if err := json.Unmarshal(cwf.Spec.Schema.Types.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
 	schemaMap, err := extractParameters(cwf.Spec.Schema.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract schema parameters: %w", err)
 	}
 
 	def := schema.Definition{
-		Types:   make(map[string]any),
+		Types:   types,
 		Schemas: []map[string]any{schemaMap},
 	}
 
