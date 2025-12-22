@@ -32,5 +32,5 @@ observer:
 # Cluster Agent configuration for single-cluster setup
 clusterAgent:
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeName: default
+  planeID: observabilityplane-default
   planeType: observabilityplane
