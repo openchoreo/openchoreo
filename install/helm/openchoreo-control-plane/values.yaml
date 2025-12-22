@@ -80,7 +80,7 @@ security:
     databasePath: "/var/lib/openchoreo/data/casbin.db"
     # defaultAuthzDataFilePath is optional - if not set, embedded default authz data will be used
     # To use custom authz data (roles and mappings), set this path and mount a ConfigMap with your data
-    defaultAuthzDataFilePath: ""
+    defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
 controllerManager:
   name: controller-manager
   replicas: 1

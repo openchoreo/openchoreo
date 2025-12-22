@@ -80,6 +80,11 @@ spec:
         - name: config
           mountPath: /etc/openchoreo
           readOnly: true
+        {{- if .Values.security.authz.enabled }}
+        - name: authz-data
+          mountPath: /etc/openchoreo/authz
+          readOnly: true
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -109,4 +114,9 @@ spec:
       - name: config
         configMap:
           name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
+      {{- if .Values.security.authz.enabled }}
+      - name: authz-data
+        configMap:
+          name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-default-roles-mappings
+      {{- end }}
 {{- end }}
