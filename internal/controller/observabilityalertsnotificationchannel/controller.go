@@ -74,6 +74,26 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Ensure the first channel for an environment becomes the default automatically
+	if changed, err := r.ensureDefaultChannel(ctx, channel); err != nil {
+		logger.Error(err, "Failed to ensure environment default notification channel")
+		return ctrl.Result{}, err
+	} else if changed {
+		// Refresh the channel so subsequent steps (ConfigMap/Secret) use the updated spec.
+		if err := r.Get(ctx, req.NamespacedName, channel); err != nil {
+			logger.Error(err, "Failed to refresh channel after defaulting")
+			return ctrl.Result{}, err
+		}
+		// Ensure the refreshed object still carries the default flag (defensive).
+		if !channel.Spec.IsEnvDefault {
+			channel.Spec.IsEnvDefault = true
+			if err := r.Update(ctx, channel); err != nil {
+				logger.Error(err, "Failed to persist environment default flag on channel")
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	// Get ObservabilityPlane client
 	opClient, err := r.getObservabilityPlaneClient(ctx, channel)
 	if err != nil {
@@ -158,11 +178,12 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 			},
 		},
 		Data: map[string]string{
-			"type":      string(channel.Spec.Type),
-			"from":      channel.Spec.Config.From,
-			"to":        fmt.Sprintf("%v", channel.Spec.Config.To),
-			"smtp.host": channel.Spec.Config.SMTP.Host,
-			"smtp.port": fmt.Sprintf("%d", channel.Spec.Config.SMTP.Port),
+			"type":         string(channel.Spec.Type),
+			"from":         channel.Spec.Config.From,
+			"to":           fmt.Sprintf("%v", channel.Spec.Config.To),
+			"smtp.host":    channel.Spec.Config.SMTP.Host,
+			"smtp.port":    fmt.Sprintf("%d", channel.Spec.Config.SMTP.Port),
+			"isEnvDefault": fmt.Sprintf("%t", channel.Spec.IsEnvDefault),
 		},
 	}
 
@@ -335,6 +356,64 @@ func (r *Reconciler) deleteSecret(ctx context.Context, opClient client.Client, n
 	}
 
 	return nil
+}
+
+// ensureDefaultChannel sets IsEnvDefault=true when this is the first channel for the environment.
+// It only mutates the resource if no other default exists for the same environment.
+func (r *Reconciler) ensureDefaultChannel(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (bool, error) {
+	// If already marked default, nothing to do.
+	if channel.Spec.IsEnvDefault {
+		return false, nil
+	}
+
+	// Check if any other channel in the same namespace+environment is already default.
+	var channels openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelList
+	if err := r.List(ctx, &channels, client.InNamespace(channel.Namespace)); err != nil {
+		return false, fmt.Errorf("failed to list notification channels: %w", err)
+	}
+
+	envChannelCount := 0
+	for _, existing := range channels.Items {
+		if existing.Spec.Environment != channel.Spec.Environment {
+			continue
+		}
+		if !existing.DeletionTimestamp.IsZero() {
+			// Skip channels that are on their way out.
+			continue
+		}
+		envChannelCount++
+		if existing.Name == channel.Name {
+			continue
+		}
+		if existing.Spec.IsEnvDefault {
+			// A default already exists for this environment; leave this one unchanged.
+			return false, nil
+		}
+	}
+
+	// If this is the only active channel for the environment, make it default.
+	if envChannelCount == 1 {
+		log.FromContext(ctx).
+			WithValues("channel", channel.Name, "namespace", channel.Namespace, "environment", channel.Spec.Environment).
+			Info("Setting notification channel as default for environment (first channel)")
+		original := channel.DeepCopy()
+		channel.Spec.IsEnvDefault = true
+		if err := r.Patch(ctx, channel, client.MergeFrom(original)); err != nil {
+			return false, fmt.Errorf("failed to set channel as environment default: %w", err)
+		}
+		return true, nil
+	}
+
+	// No default exists; mark this channel as the default.
+	logger := log.FromContext(ctx).WithValues("channel", channel.Name, "namespace", channel.Namespace, "environment", channel.Spec.Environment)
+	logger.Info("Setting notification channel as default for environment")
+	original := channel.DeepCopy()
+	channel.Spec.IsEnvDefault = true
+	if err := r.Patch(ctx, channel, client.MergeFrom(original)); err != nil {
+		return false, fmt.Errorf("failed to set channel as environment default: %w", err)
+	}
+
+	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
