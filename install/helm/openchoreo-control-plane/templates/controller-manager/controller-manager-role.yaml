@@ -12,6 +12,7 @@ rules:
   resources:
     - configmaps
     - namespaces
+    - secrets
   verbs:
     - create
     - delete

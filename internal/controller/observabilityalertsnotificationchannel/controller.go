@@ -6,6 +6,7 @@ package observabilityalertsnotificationchannel
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -109,7 +110,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Create Secret with the same name as the channel
-	secret := r.createSecret(channel)
+	secret, err := r.createSecret(ctx, channel)
+	if err != nil {
+		logger.Error(err, "Failed to create Secret for notification channel")
+		return ctrl.Result{}, err
+	}
 	if err := r.applySecret(ctx, opClient, secret); err != nil {
 		logger.Error(err, "Failed to apply Secret to observability plane")
 		return ctrl.Result{}, err
@@ -202,7 +207,10 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 }
 
 // createSecret creates a Secret with the same name as the channel
-func (r *Reconciler) createSecret(channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) *corev1.Secret {
+// It resolves secret references from the control plane and copies the actual values
+func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel) (*corev1.Secret, error) {
+	logger := log.FromContext(ctx)
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      channel.Name,
@@ -216,20 +224,63 @@ func (r *Reconciler) createSecret(channel *openchoreodevv1alpha1.ObservabilityAl
 		Data: make(map[string][]byte),
 	}
 
-	// Add SMTP auth credentials if present
+	// Add SMTP auth credentials if present - resolve secret references and copy actual values
 	if channel.Spec.Config.SMTP.Auth != nil {
+		logger.Info("Resolving SMTP auth credentials",
+			"hasUsernameRef", channel.Spec.Config.SMTP.Auth.Username != nil && channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef != nil,
+			"hasPasswordRef", channel.Spec.Config.SMTP.Auth.Password != nil && channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef != nil)
+
 		if channel.Spec.Config.SMTP.Auth.Username != nil && channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef != nil {
-			// Note: This is a reference, not the actual value. In a real implementation,
-			// you would need to resolve the secret reference and copy the value.
-			// For now, we'll store the reference information.
-			secret.Data["smtp.auth.username.secret"] = []byte(fmt.Sprintf("%s/%s", channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef.Name, channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef.Key))
+			ref := channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef
+			logger.Info("Resolving SMTP username from secret",
+				"secretName", ref.Name,
+				"secretKey", ref.Key,
+				"namespace", channel.Namespace)
+
+			username, err := r.resolveSecretKeyRef(ctx, channel.Namespace, ref)
+			if err != nil {
+				logger.Error(err, "Failed to resolve SMTP username secret reference")
+				return nil, fmt.Errorf("failed to resolve SMTP username secret: %w", err)
+			}
+			secret.Data["smtp.auth.username"] = []byte(username)
+			logger.Info("SMTP username resolved successfully")
 		}
 		if channel.Spec.Config.SMTP.Auth.Password != nil && channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef != nil {
-			secret.Data["smtp.auth.password.secret"] = []byte(fmt.Sprintf("%s/%s", channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef.Name, channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef.Key))
+			ref := channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef
+			logger.Info("Resolving SMTP password from secret",
+				"secretName", ref.Name,
+				"secretKey", ref.Key,
+				"namespace", channel.Namespace)
+
+			password, err := r.resolveSecretKeyRef(ctx, channel.Namespace, ref)
+			if err != nil {
+				logger.Error(err, "Failed to resolve SMTP password secret reference")
+				return nil, fmt.Errorf("failed to resolve SMTP password secret: %w", err)
+			}
+			secret.Data["smtp.auth.password"] = []byte(password)
+			logger.Info("SMTP password resolved successfully")
 		}
+	} else {
+		logger.Info("No SMTP auth configuration found in channel spec")
 	}
 
-	return secret
+	return secret, nil
+}
+
+// resolveSecretKeyRef resolves a SecretKeyRef to its actual value
+func (r *Reconciler) resolveSecretKeyRef(ctx context.Context, namespace string, ref *openchoreodevv1alpha1.SecretKeyRef) (string, error) {
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, client.ObjectKey{Name: ref.Name, Namespace: namespace}, secret); err != nil {
+		return "", fmt.Errorf("failed to get secret %s/%s: %w", namespace, ref.Name, err)
+	}
+
+	value, ok := secret.Data[ref.Key]
+	if !ok {
+		return "", fmt.Errorf("key %s not found in secret %s/%s", ref.Key, namespace, ref.Name)
+	}
+
+	// Trim whitespace/newlines that may have been accidentally included in the secret
+	return strings.TrimSpace(string(value)), nil
 }
 
 // applyConfigMap applies the ConfigMap to the observability plane cluster
