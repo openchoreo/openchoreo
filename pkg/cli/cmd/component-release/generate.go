@@ -1,0 +1,108 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentrelease
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
+	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+)
+
+// NewComponentReleaseCmd creates the component-release command group
+func NewComponentReleaseCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   constants.ComponentReleaseRoot.Use,
+		Short: constants.ComponentReleaseRoot.Short,
+		Long:  constants.ComponentReleaseRoot.Long,
+	}
+
+	cmd.AddCommand(newGenerateCmd(impl))
+	return cmd
+}
+
+// newGenerateCmd creates the component-release generate command
+func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ComponentReleaseGenerate,
+		Flags: []flags.Flag{
+			flags.All,
+			flags.Project,
+			flags.Component,
+			flags.OutputPath,
+			flags.DryRun,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			// Check which flags were explicitly provided by the user on the command line
+			// We check os.Args because context defaults are applied via PersistentPreRunE
+			// which marks flags as "changed" even though the user didn't provide them
+			allSet := isFlagInArgs("--all")
+			projectSet := isFlagInArgs("--project")
+			componentSet := isFlagInArgs("--component")
+			outputPathSet := isFlagInArgs("--output-path")
+
+			// Validation logic:
+			// 1. If --all is set, reject --project or --component
+			if allSet {
+				if projectSet || componentSet {
+					return fmt.Errorf("--all cannot be combined with --project or --component")
+				}
+				// --all is valid on its own
+			} else if componentSet {
+				// 2. If --component is set, --project MUST also be set
+				if !projectSet {
+					return fmt.Errorf("--component requires --project to be specified")
+				}
+				// 3. If --component is set, --output-path MUST also be set
+				if !outputPathSet {
+					return fmt.Errorf("--output-path is required when specifying --component")
+				}
+				// --component with --project and --output-path is valid
+			} else if projectSet {
+				// 4. --project alone is valid (processes all components in that project)
+				// Nothing to validate
+			} else {
+				// 5. None of the required flags were explicitly set
+				return fmt.Errorf("one of --all, --project, or --component must be specified")
+			}
+
+			// Build params with only explicitly set values (not context defaults)
+			params := api.GenerateComponentReleaseParams{
+				OutputPath: fg.GetString(flags.OutputPath),
+				DryRun:     fg.GetBool(flags.DryRun),
+			}
+
+			// Only set the values that were explicitly provided
+			if allSet {
+				params.All = true
+			}
+			if projectSet {
+				params.ProjectName = fg.GetString(flags.Project)
+			}
+			if componentSet {
+				params.ComponentName = fg.GetString(flags.Component)
+			}
+
+			return impl.GenerateComponentRelease(params)
+		},
+	}).Build()
+
+	return cmd
+}
+
+// isFlagInArgs checks if a flag was explicitly provided in os.Args
+func isFlagInArgs(flagName string) bool {
+	for _, arg := range os.Args {
+		if arg == flagName || strings.HasPrefix(arg, flagName+"=") {
+			return true
+		}
+	}
+	return false
+}

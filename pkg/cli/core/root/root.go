@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/apply"
+	componentrelease "github.com/openchoreo/openchoreo/pkg/cli/cmd/component-release"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/create"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
@@ -36,6 +37,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		configContext.NewConfigCmd(impl),
 		delete.NewDeleteCmd(impl),
 		version.NewVersionCmd(),
+		componentrelease.NewComponentReleaseCmd(impl),
 	)
 
 	return rootCmd

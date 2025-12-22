@@ -25,6 +25,7 @@ type CommandImplementationInterface interface {
 	ConfigurationGroupAPI
 	WorkloadAPI
 	ScaffoldAPI
+	ComponentReleaseAPI
 }
 
 // OrganizationAPI defines organization-related operations
@@ -131,4 +132,9 @@ type WorkloadAPI interface {
 // ScaffoldAPI defines methods for scaffolding resources
 type ScaffoldAPI interface {
 	ScaffoldComponent(params ScaffoldComponentParams) error
+}
+
+// ComponentReleaseAPI defines component release operations (file-system mode)
+type ComponentReleaseAPI interface {
+	GenerateComponentRelease(params GenerateComponentReleaseParams) error
 }

@@ -321,6 +321,23 @@ var (
 		Name:  "root-directory-path",
 		Usage: "Root directory path for file-system mode (defaults to current directory)",
 	}
+
+	All = Flag{
+		Name:  "all",
+		Usage: "Process all resources",
+		Type:  "bool",
+	}
+
+	OutputPath = Flag{
+		Name:  "output-path",
+		Usage: "Custom output directory path",
+	}
+
+	DryRun = Flag{
+		Name:  "dry-run",
+		Usage: "Preview changes without writing files",
+		Type:  "bool",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.
