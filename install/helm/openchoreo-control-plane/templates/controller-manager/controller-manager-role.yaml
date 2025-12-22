@@ -12,7 +12,6 @@ rules:
   resources:
     - configmaps
     - namespaces
-    - secrets
   verbs:
     - create
     - delete
@@ -28,6 +27,14 @@ rules:
   verbs:
     - create
     - patch
+- apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
 - apiGroups:
     - argoproj.io
   resources:
