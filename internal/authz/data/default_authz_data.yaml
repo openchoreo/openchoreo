@@ -2,9 +2,35 @@
 
 # Default roles
 roles:
+  # Super admin role with full permissions to all resources
   - name: super-admin
     actions:
       - "*"
+
+  # Backstage catalog provider role for reading catalog data from the control plane
+  - name: backstage-catalog-reader
+    actions:
+      - "component:view"
+      - "componenttype:view"
+      - "organization:view"
+      - "project:view"
+      - "dataplane:view"
+      - "environment:view"
+
+  # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
+  - name: rca-agent
+    actions:
+      - "component:view"
+      - "project:view"
+      - "organization:view"
+      - "componentrelease:view"
+      - "releasebinding:view"
+      - "componentworkflowrun:view"
+      - "environment:view"
+      - "logs:view"
+      - "metrics:view"
+      - "alerts:view"
+      - "traces:view"
 
 # Default entitlement-to-role mappings
 mappings:
@@ -12,4 +38,14 @@ mappings:
     entitlement:
       claim: groups
       value: platformEngineer
+    effect: allow
+  - role_name: backstage-catalog-reader
+    entitlement:
+      claim: sub
+      value: openchoreo-backstage-client
+    effect: allow
+  - role_name: rca-agent
+    entitlement:
+      claim: sub
+      value: openchoreo-rca-agent
     effect: allow
