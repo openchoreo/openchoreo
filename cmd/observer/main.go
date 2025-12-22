@@ -69,7 +69,7 @@ func main() {
 	// Initialize handlers
 	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
 
-	// Health check endpoint
+	// Health check endpoint (no JWT authentication)
 	mux.HandleFunc("GET /health", handler.Health)
 
 	// API routes - Build Logs
@@ -99,11 +99,24 @@ func main() {
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(logger)
 
-	// Apply middleware
+	// Create a custom middleware that applies JWT only to non-health endpoints
+	jwtForAPIOnly := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip JWT for health endpoint
+			if r.Method == "GET" && r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Apply JWT for all other endpoints
+			jwtAuth(next).ServeHTTP(w, r)
+		})
+	}
+
+	// Apply middleware with selective JWT
 	handlerWithMiddleware := middleware.Chain(
 		middleware.Logger(logger),
 		middleware.Recovery(logger),
-		jwtAuth,
+		jwtForAPIOnly,
 	)(mux)
 
 	// Create HTTP server
