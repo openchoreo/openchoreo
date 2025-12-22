@@ -4,6 +4,7 @@
 package jwt
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -74,6 +75,12 @@ type Config struct {
 	// If not set, http.DefaultClient is used
 	HTTPClient *http.Client
 
+	// JWKSURLTLSInsecureSkipVerify controls whether the HTTP client verifies the server's certificate chain and host name when fetching JWKS
+	// If true, TLS accepts any certificate presented by the JWKS server and any host name in that certificate
+	// This should only be used for testing or in trusted environments
+	// Default: false
+	JWKSURLTLSInsecureSkipVerify bool
+
 	// Detector is used to detect user type and extract SubjectContext from JWT tokens
 	// If provided, the middleware will resolve SubjectContext and store it in the request context
 	// If not provided, only token and claims will be stored in the context
@@ -89,7 +96,17 @@ func (c *Config) setDefaults() {
 		c.Logger = slog.Default()
 	}
 	if c.HTTPClient == nil {
-		c.HTTPClient = &http.Client{Timeout: 10 * time.Second}
+		// Create HTTP client with TLS configuration
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{
+				//nolint:gosec // G402: InsecureSkipVerify is configurable via environment variables for testing purposes. Defaults to false.
+				InsecureSkipVerify: c.JWKSURLTLSInsecureSkipVerify,
+			},
+		}
+		c.HTTPClient = &http.Client{
+			Timeout:   10 * time.Second,
+			Transport: transport,
+		}
 	}
 	if c.JWKSRefreshInterval == 0 {
 		c.JWKSRefreshInterval = 1 * time.Hour

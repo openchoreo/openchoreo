@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
+	componentrelease "github.com/openchoreo/openchoreo/internal/occ/cmd/component-release"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/build"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/component"
@@ -232,4 +233,11 @@ func (c *CommandImplementation) GetConfigurationGroup(params api.GetConfiguratio
 func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentParams) error {
 	scaffoldImpl := scaffoldcomponent.NewScaffoldComponentImpl()
 	return scaffoldImpl.ScaffoldComponent(params)
+}
+
+// Component Release Operations (File-System Mode)
+
+func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComponentReleaseParams) error {
+	releaseImpl := componentrelease.NewComponentReleaseImpl()
+	return releaseImpl.GenerateComponentRelease(params)
 }

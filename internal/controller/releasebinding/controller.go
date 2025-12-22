@@ -47,7 +47,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
@@ -67,6 +67,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// Keep a copy for comparison
 	old := releaseBinding.DeepCopy()
+
+	// Handle deletion - run finalizer logic
+	if !releaseBinding.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing releaseBinding")
+		return r.finalize(ctx, old, releaseBinding)
+	}
+
+	// Ensure finalizer is added
+	if finalizerAdded, err := r.ensureFinalizer(ctx, releaseBinding); err != nil || finalizerAdded {
+		return ctrl.Result{}, err
+	}
 
 	// Deferred status update
 	defer func() {
@@ -353,6 +364,16 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
 
+	// Prepare a render-time copy of the ReleaseBinding with defaults injected (e.g., alert notification channel).
+	renderBinding := releaseBinding.DeepCopy()
+	if err := r.applyDefaultNotificationChannel(ctx, renderBinding, componentRelease); err != nil {
+		msg := fmt.Sprintf("Failed to apply default notification channel: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to apply default notification channel")
+		return ctrl.Result{}, fmt.Errorf("failed to apply default notification channel: %w", err)
+	}
+
 	// Build Component from ComponentRelease for rendering
 	// The pipeline expects a Component object, so we need to reconstruct it from the ComponentRelease
 	snapshotComponent := buildComponentFromRelease(componentRelease)
@@ -377,7 +398,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Traits:           snapshotTraits,
 		Workload:         snapshotWorkload,
 		Environment:      environment,
-		ReleaseBinding:   releaseBinding,
+		ReleaseBinding:   renderBinding,
 		DataPlane:        dataPlane,
 		SecretReferences: secretReferences,
 		Metadata:         metadataContext,
@@ -399,47 +420,53 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			"warnings", renderOutput.Metadata.Warnings)
 	}
 
-	// Filter resources by target plane and log non-dataplane resources
+	// Filter resources by target plane
 	dataPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
+	observabilityPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
 
 	for _, renderedResource := range renderOutput.Resources {
 		switch renderedResource.TargetPlane {
 		case openchoreov1alpha1.TargetPlaneDataPlane:
 			dataPlaneResources = append(dataPlaneResources, renderedResource.Resource)
 		case openchoreov1alpha1.TargetPlaneObservabilityPlane:
-			// Log observability plane resource for now (deployment will be implemented later)
-			kind, _ := renderedResource.Resource["kind"].(string)
-			metadata, _ := renderedResource.Resource["metadata"].(map[string]any)
-			name, _ := metadata["name"].(string)
-			logger.Info("Skipping observabilityplane resource (will be deployed in future)",
-				"kind", kind, "name", name)
+			observabilityPlaneResources = append(observabilityPlaneResources, renderedResource.Resource)
 		}
 	}
 
 	// Convert filtered dataplane resources to Release format
-	releaseResources, err := r.convertToReleaseResources(dataPlaneResources)
+	dataPlaneReleaseResources, err := r.convertToReleaseResources(dataPlaneResources)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to convert resources: %v", err)
+		msg := fmt.Sprintf("Failed to convert dataplane resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 			ReasonRenderingFailed, msg)
-		logger.Error(err, "Failed to convert resources to Release format")
-		return ctrl.Result{}, fmt.Errorf("failed to convert resources: %w", err)
+		logger.Error(err, "Failed to convert dataplane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert dataplane resources: %w", err)
 	}
 
-	// Create or update Release
-	// Release name format: {component}-{environment}-{releaseHash}
-	releaseName := fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
-	release := &openchoreov1alpha1.Release{
+	// Convert filtered observability plane resources to Release format
+	observabilityPlaneReleaseResources, err := r.convertToReleaseResources(observabilityPlaneResources)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to convert observability plane resources: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to convert observability plane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert observability plane resources: %w", err)
+	}
+
+	// Create or update dataplane Release
+	// Release name format: {component}-{environment}
+	dataPlaneReleaseName := fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	dataPlaneRelease := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      releaseName,
+			Name:      dataPlaneReleaseName,
 			Namespace: releaseBinding.Namespace,
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, release, func() error {
+	dpOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, dataPlaneRelease, func() error {
 		// Check if we own this Release (only for existing releases)
-		if release.UID != "" {
-			hasOwner, err := controllerutil.HasOwnerReference(release.GetOwnerReferences(), releaseBinding, r.Scheme)
+		if dataPlaneRelease.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(dataPlaneRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
 			if err != nil {
 				return fmt.Errorf("failed to check owner reference: %w", err)
 			}
@@ -448,29 +475,30 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			}
 		}
 
-		release.Labels = map[string]string{
+		dataPlaneRelease.Labels = map[string]string{
 			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
 			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
 			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
 			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
 		}
 
-		release.Spec = openchoreov1alpha1.ReleaseSpec{
+		dataPlaneRelease.Spec = openchoreov1alpha1.ReleaseSpec{
 			Owner: openchoreov1alpha1.ReleaseOwner{
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
-			Resources:       releaseResources,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Resources:       dataPlaneReleaseResources,
 		}
 
-		return controllerutil.SetControllerReference(releaseBinding, release, r.Scheme)
+		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)
 	})
 
 	if err != nil {
 		// Check for ownership conflict
 		if strings.Contains(err.Error(), "not owned by") {
-			msg := fmt.Sprintf("Release %q exists but is owned by another resource", release.Name)
+			msg := fmt.Sprintf("Release %q exists but is owned by another resource", dataPlaneRelease.Name)
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonReleaseOwnershipConflict, msg)
 			logger.Error(err, msg)
@@ -478,28 +506,98 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		// Transient errors
-		msg := fmt.Sprintf("Failed to reconcile Release: %v", err)
+		msg := fmt.Sprintf("Failed to reconcile dataplane Release: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 			ReasonReleaseUpdateFailed, msg)
-		logger.Error(err, "Failed to reconcile Release", "release", release.Name)
+		logger.Error(err, "Failed to reconcile dataplane Release", "release", dataPlaneRelease.Name)
 		return ctrl.Result{}, err
 	}
 
-	// Set ReleaseSynced condition based on operation result
-	switch op {
+	// Create or update observability plane Release
+	// Release name format: {component}-{environment}-observability
+	observabilityReleaseName := fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	observabilityRelease := &openchoreov1alpha1.Release{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      observabilityReleaseName,
+			Namespace: releaseBinding.Namespace,
+		},
+	}
+
+	opOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, observabilityRelease, func() error {
+		// Check if we own this Release (only for existing releases)
+		if observabilityRelease.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(observabilityRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+			if err != nil {
+				return fmt.Errorf("failed to check owner reference: %w", err)
+			}
+			if !hasOwner {
+				return fmt.Errorf("release exists but is not owned by this ReleaseBinding")
+			}
+		}
+
+		observabilityRelease.Labels = map[string]string{
+			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
+			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
+		}
+
+		observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{
+			Owner: openchoreov1alpha1.ReleaseOwner{
+				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
+				ComponentName: releaseBinding.Spec.Owner.ComponentName,
+			},
+			EnvironmentName: releaseBinding.Spec.Environment,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+			Resources:       observabilityPlaneReleaseResources,
+		}
+
+		return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
+	})
+
+	if err != nil {
+		// Check for ownership conflict
+		if strings.Contains(err.Error(), "not owned by") {
+			msg := fmt.Sprintf("Release %q exists but is owned by another resource", observabilityRelease.Name)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonReleaseOwnershipConflict, msg)
+			logger.Error(err, msg)
+			return ctrl.Result{}, nil
+		}
+
+		// Transient errors
+		msg := fmt.Sprintf("Failed to reconcile observability plane Release: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonReleaseUpdateFailed, msg)
+		logger.Error(err, "Failed to reconcile observability plane Release", "release", observabilityRelease.Name)
+		return ctrl.Result{}, err
+	}
+
+	// Set ReleaseSynced condition based on operation results.
+	// Prioritize dataplane operation result for readiness and requeue decisions.
+	switch dpOp {
 	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
-		msg := fmt.Sprintf("Release %q %s with %d resources", release.Name, op, len(releaseResources))
+		msg := fmt.Sprintf("Dataplane Release %q %s with %d resources; observability Release %q %s with %d resources",
+			dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources),
+			observabilityRelease.Name, opOp, len(observabilityPlaneReleaseResources))
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
-		logger.Info(fmt.Sprintf("Release %s", op), "release", release.Name, "resourceCount", len(releaseResources))
+		logger.Info("Releases reconciled",
+			"dataplaneReleaseOp", dpOp,
+			"dataplaneRelease", dataPlaneRelease.Name,
+			"dataplaneResourceCount", len(dataPlaneReleaseResources),
+			"observabilityReleaseOp", opOp,
+			"observabilityRelease", observabilityRelease.Name,
+			"observabilityResourceCount", len(observabilityPlaneReleaseResources))
 		return ctrl.Result{Requeue: true}, nil
 
 	case controllerutil.OperationResultNone:
-		msg := fmt.Sprintf("Release %q is up to date", release.Name)
+		msg := fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
+			dataPlaneRelease.Name, observabilityRelease.Name, opOp)
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
 
-	// Evaluate resource readiness from Release status (with component for workload type)
-	if err := r.setResourcesReadyStatus(ctx, releaseBinding, release, component); err != nil {
+	// Evaluate resource readiness from dataplane Release status (with component for workload type)
+	if err := r.setResourcesReadyStatus(ctx, releaseBinding, dataPlaneRelease, component); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
 	}
 
@@ -617,6 +715,85 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	return fmt.Sprintf("resource-%d", index)
 }
 
+// applyDefaultNotificationChannel injects a default notificationChannel override for
+// observability alert rule traits when none is provided for the environment.
+func (r *Reconciler) applyDefaultNotificationChannel(
+	ctx context.Context,
+	rb *openchoreov1alpha1.ReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+) error {
+	// Identify observability-alertrule trait instances in the release.
+	alertRuleInstances := make([]openchoreov1alpha1.ComponentTrait, 0)
+	for _, trait := range componentRelease.Spec.ComponentProfile.Traits {
+		if trait.Name == "observability-alertrule" {
+			alertRuleInstances = append(alertRuleInstances, trait)
+		}
+	}
+
+	if len(alertRuleInstances) == 0 {
+		return nil
+	}
+
+	defaultChannel, err := r.getDefaultNotificationChannelName(ctx, rb.Namespace, rb.Spec.Environment)
+	if err != nil {
+		return err
+	}
+
+	if rb.Spec.TraitOverrides == nil {
+		rb.Spec.TraitOverrides = make(map[string]runtime.RawExtension)
+	}
+
+	for _, trait := range alertRuleInstances {
+		override, ok := rb.Spec.TraitOverrides[trait.InstanceName]
+		if ok {
+			// Check if notificationChannel already set
+			var existing map[string]any
+			if len(override.Raw) > 0 {
+				if err := json.Unmarshal(override.Raw, &existing); err != nil {
+					return fmt.Errorf("failed to unmarshal trait override for %s: %w", trait.InstanceName, err)
+				}
+				if val, ok := existing["notificationChannel"]; ok && fmt.Sprintf("%v", val) != "" {
+					continue
+				}
+				// inject and re-marshal
+				existing["notificationChannel"] = defaultChannel
+				updated, err := json.Marshal(existing)
+				if err != nil {
+					return fmt.Errorf("failed to marshal trait override for %s: %w", trait.InstanceName, err)
+				}
+				rb.Spec.TraitOverrides[trait.InstanceName] = runtime.RawExtension{Raw: updated}
+				continue
+			}
+		}
+
+		// No override or empty override; create one with default notificationChannel
+		payload := map[string]any{"notificationChannel": defaultChannel}
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal default notificationChannel override for %s: %w", trait.InstanceName, err)
+		}
+		rb.Spec.TraitOverrides[trait.InstanceName] = runtime.RawExtension{Raw: raw}
+	}
+
+	return nil
+}
+
+// getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.
+func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, namespace, environment string) (string, error) {
+	var channels openchoreov1alpha1.ObservabilityAlertsNotificationChannelList
+	if err := r.List(ctx, &channels, client.InNamespace(namespace)); err != nil {
+		return "", fmt.Errorf("failed to list ObservabilityAlertsNotificationChannels: %w", err)
+	}
+
+	for _, ch := range channels.Items {
+		if ch.Spec.Environment == environment && ch.Spec.IsEnvDefault && ch.DeletionTimestamp.IsZero() {
+			return ch.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no default ObservabilityAlertsNotificationChannel found for environment %q", environment)
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ctx := context.Background()
@@ -629,6 +806,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.Release{}).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

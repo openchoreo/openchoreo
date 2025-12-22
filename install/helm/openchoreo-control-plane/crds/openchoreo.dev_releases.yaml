@@ -88,6 +88,15 @@ spec:
                   - object
                   type: object
                 type: array
+              targetPlane:
+                default: dataplane
+                description: |-
+                  TargetPlane specifies which plane this release should be deployed to.
+                  Defaults to "dataplane" if not specified.
+                enum:
+                - dataplane
+                - observabilityplane
+                type: string
             required:
             - environmentName
             - owner

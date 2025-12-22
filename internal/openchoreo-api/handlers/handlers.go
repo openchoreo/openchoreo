@@ -200,6 +200,7 @@ func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 	jwksURL := os.Getenv(config.EnvJWKSURL)
 	jwtIssuer := os.Getenv(config.EnvJWTIssuer)
 	jwtAudience := os.Getenv(config.EnvJWTAudience) // Optional
+	jwksURLTLSInsecureSkipVerify := os.Getenv(config.EnvJWKSURLTLSInsecureSkipVerify) == "true"
 
 	// Create OAuth2 user type detector from configuration
 	var detector *jwt.Resolver
@@ -214,12 +215,13 @@ func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
 
 	// Configure JWT middleware
 	jwtConfig := jwt.Config{
-		Disabled:         jwtDisabled,
-		JWKSURL:          jwksURL,
-		ValidateIssuer:   jwtIssuer,
-		ValidateAudience: jwtAudience, // Only validates if set
-		Detector:         detector,
-		Logger:           h.logger,
+		Disabled:                     jwtDisabled,
+		JWKSURL:                      jwksURL,
+		ValidateIssuer:               jwtIssuer,
+		ValidateAudience:             jwtAudience,
+		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
+		Detector:                     detector,
+		Logger:                       h.logger,
 	}
 
 	return jwt.Middleware(jwtConfig)

@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
@@ -126,5 +127,32 @@ func (r *Reconciler) listReleaseBindingsForSecretReference(ctx context.Context, 
 			"secretReference", secretRef.Name)
 	}
 
+	return requests
+}
+
+// findReleaseBindingsForComponent maps a Component to its owned ReleaseBindings.
+// Note: Uses the shared index key controller.IndexKeyReleaseBindingOwnerComponentName
+// which is registered by the Component controller.
+func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj client.Object) []ctrl.Request {
+	component := obj.(*openchoreov1alpha1.Component)
+
+	// List all ReleaseBindings that reference this Component
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(component.Namespace),
+		client.MatchingFields{controller.IndexKeyReleaseBindingOwnerComponentName: component.Name}); err != nil {
+		return nil
+	}
+
+	// Create reconcile requests for each ReleaseBinding
+	requests := make([]ctrl.Request, len(bindings.Items))
+	for i, binding := range bindings.Items {
+		requests[i] = ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      binding.Name,
+				Namespace: binding.Namespace,
+			},
+		}
+	}
 	return requests
 }

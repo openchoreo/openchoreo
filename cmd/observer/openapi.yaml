@@ -25,6 +25,9 @@ tags:
   - name: Health
     description: Health check endpoints
 
+security:
+  - BearerAuth: []
+
 paths:
   /health:
     get:
@@ -33,6 +36,7 @@ paths:
       summary: Health check
       description: Check the health status of the observer service including OpenSearch and Prometheus connectivity
       operationId: health
+      security: []
       responses:
         '200':
           description: Service is healthy
@@ -1159,3 +1163,10 @@ components:
           format: date-time
           description: Timestamp when the rule was last synced in RFC3339 format
           example: "2025-01-10T12:34:56Z"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication. Include the token in the Authorization header as 'Bearer <token>'.

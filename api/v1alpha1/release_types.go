@@ -39,6 +39,12 @@ type ReleaseSpec struct {
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
 	ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
+
+	// TargetPlane specifies which plane this release should be deployed to.
+	// Defaults to "dataplane" if not specified.
+	// +kubebuilder:validation:Enum=dataplane;observabilityplane
+	// +kubebuilder:default=dataplane
+	TargetPlane string `json:"targetPlane,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release.

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,7 +42,7 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 
 			// Set up a test HTTP server to mock the observer API
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == http.MethodPut && r.URL.Path == "/api/alerting/rule/" {
+				if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/alerting/rule/") {
 					response := map[string]interface{}{
 						"status":     "synced",
 						"logicalId":  resourceName,

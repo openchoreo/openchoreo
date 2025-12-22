@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -203,15 +204,42 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					_ = k8sClient.Delete(testCtx, secret)
 				}
 				_ = k8sClient.Delete(testCtx, channel)
+
+				// If deletion gets stuck on a finalizer, remove it to unblock cleanup between specs.
+				existing := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, existing); err == nil {
+					if controllerutil.RemoveFinalizer(existing, NotificationChannelCleanupFinalizer) {
+						_ = k8sClient.Update(testCtx, existing)
+					}
+				}
+
+				// Wait for the channel (and associated resources) to be fully removed to avoid
+				// AlreadyExists errors between specs when a deletion is still in progress.
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{})
+					return apierrors.IsNotFound(err)
+				}, time.Second*30, time.Millisecond*200).Should(BeTrue())
 			}
 			if environment != nil {
 				_ = k8sClient.Delete(testCtx, environment)
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: environment.Name, Namespace: namespace}, &openchoreodevv1alpha1.Environment{})
+					return apierrors.IsNotFound(err)
+				}, time.Second*30, time.Millisecond*200).Should(BeTrue())
 			}
 			if dataPlane != nil {
 				_ = k8sClient.Delete(testCtx, dataPlane)
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: dataPlane.Name, Namespace: namespace}, &openchoreodevv1alpha1.DataPlane{})
+					return apierrors.IsNotFound(err)
+				}, time.Second*30, time.Millisecond*200).Should(BeTrue())
 			}
 			if observabilityPlane != nil {
 				_ = k8sClient.Delete(testCtx, observabilityPlane)
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: observabilityPlane.Name, Namespace: namespace}, &openchoreodevv1alpha1.ObservabilityPlane{})
+					return apierrors.IsNotFound(err)
+				}, time.Second*30, time.Millisecond*200).Should(BeTrue())
 			}
 		})
 
@@ -256,6 +284,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Namespace).To(Equal(channel.Namespace))
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
 			Expect(configMap.Data["type"]).To(Equal("email"))
+			Expect(configMap.Data["isEnvDefault"]).To(Equal("true"))
 			Expect(configMap.Data["from"]).To(Equal("test@example.com"))
 			Expect(configMap.Data["to"]).To(ContainSubstring("recipient1@example.com"))
 			Expect(configMap.Data["smtp.host"]).To(Equal("smtp.example.com"))
@@ -270,6 +299,41 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Name).To(Equal(channel.Name))
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
+		})
+
+		It("should mark the first channel in an environment as default", func() {
+			clientMgr := kubernetesClient.NewManager()
+			key := "v2/observabilityplane/default/test-observability-plane"
+			_, err := clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+				return opClient, nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			reconciler := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				K8sClientMgr: clientMgr,
+				GatewayURL:   "http://localhost:8080",
+			}
+
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			Eventually(func() bool {
+				updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)
+				if err != nil {
+					return false
+				}
+				return updatedChannel.Spec.IsEnvDefault
+			}, time.Second*5, time.Millisecond*200).Should(BeTrue())
 		})
 	})
 
@@ -445,8 +509,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Kind:       "ObservabilityAlertsNotificationChannel",
 				},
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
-					Environment: "development",
-					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					Environment:  "development",
+					IsEnvDefault: true,
+					Type:         openchoreodevv1alpha1.NotificationChannelTypeEmail,
 					Config: openchoreodevv1alpha1.NotificationChannelConfig{
 						EmailConfig: openchoreodevv1alpha1.EmailConfig{
 							From: "sender@example.com",
@@ -470,6 +535,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Name).To(Equal(channel.Name))
 			Expect(configMap.Namespace).To(Equal(channel.Namespace))
 			Expect(configMap.Data["type"]).To(Equal("email"))
+			Expect(configMap.Data["isEnvDefault"]).To(Equal("true"))
 			Expect(configMap.Data["from"]).To(Equal("sender@example.com"))
 			Expect(configMap.Data["smtp.host"]).To(Equal("smtp.example.com"))
 			Expect(configMap.Data["smtp.port"]).To(Equal("465"))

@@ -309,6 +309,18 @@ var (
 		Usage:     "Write output to specified file instead of stdout",
 	}
 
+	// Mode (context) flags
+
+	Mode = Flag{
+		Name:  "mode",
+		Usage: "Context mode: 'api-server' (default) or 'file-system'",
+	}
+
+	RootDirectoryPath = Flag{
+		Name:  "root-directory-path",
+		Usage: "Root directory path for file-system mode (defaults to current directory)",
+	}
+
 	All = Flag{
 		Name:  "all",
 		Usage: messages.FlagAllDesc,
@@ -319,6 +331,17 @@ var (
 		Name:  "limit",
 		Usage: messages.FlagLimitDesc,
 		Type:  "int",
+	}
+
+	OutputPath = Flag{
+		Name:  "output-path",
+		Usage: "Custom output directory path",
+	}
+
+	DryRun = Flag{
+		Name:  "dry-run",
+		Usage: "Preview changes without writing files",
+		Type:  "bool",
 	}
 )
 

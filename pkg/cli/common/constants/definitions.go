@@ -597,6 +597,36 @@ This command allows you to:
 	}
 
 	// ------------------------------------------------------------------------
+	// Component Release Commands (File-System Mode)
+	// ------------------------------------------------------------------------
+
+	ComponentReleaseRoot = Command{
+		Use:   "component-release",
+		Short: "Manage component releases",
+		Long:  "Commands for managing component releases in file-system mode",
+	}
+
+	ComponentReleaseGenerate = Command{
+		Use:   "generate",
+		Short: "Generate component releases",
+		Long:  "Generate ComponentRelease resources from Component, Workload, ComponentType, and Trait definitions",
+		Example: fmt.Sprintf(`  # Generate releases for all components
+  %[1]s component-release generate --all
+
+  # Generate releases for all components in a specific project
+  %[1]s component-release generate --project demo-project
+
+  # Generate release for a specific component (requires --project)
+  %[1]s component-release generate --project demo-project --component greeter-service
+
+  # Dry run (preview without writing)
+  %[1]s component-release generate --all --dry-run
+
+  # Custom output path
+  %[1]s component-release generate --all --output-path /custom/path`, messages.DefaultCLIName),
+	}
+
+	// ------------------------------------------------------------------------
 	// Flag Descriptions (Used in config commands)
 	// ------------------------------------------------------------------------
 

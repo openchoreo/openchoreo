@@ -74,7 +74,7 @@ controllerManager:
   # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
   # quickStart: Limited set of features for quick-start setup
   installationMode: singleCluster
-  
+
 
 ## Values for dependent charts
 data-prepper:
@@ -200,75 +200,6 @@ openSearch:
 
   singleNode: true
 
-# OpenSearch configuration for operator based OpenSearch deployment
-openSearchCluster:
-  enabled: true
-
-  bootstrap:
-    resources:
-      limits:
-        cpu: 1000m
-        memory: 1000Mi
-      requests:
-        cpu: 100m
-        memory: 1000Mi
-
-  general:
-    setVMMaxMapCount: true
-    version: 3.3.0
-
-  dashboards:
-    enable: false
-    replicas: 1
-    version: 3.3.0
-
-  nodePools:
-    data:
-      replicas: 2
-      diskSize: 5Gi
-      resources:
-        limits:
-          cpu: 1000m
-          memory: 1000Mi
-        requests:
-          cpu: 100m
-          memory: 1000Mi
-    master:
-      replicas: 3
-      diskSize: 1Gi
-      resources:
-        limits:
-          cpu: 1000m
-          memory: 900Mi
-        requests:
-          cpu: 100m
-          memory: 900Mi
-
-  # Secrets
-  adminUsername: admin
-  adminUserPassword: ThisIsTheOpenSearchPassword1
-  internalUsers: |
-    # This is the internal user database
-    # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
-
-    _meta:
-      type: "internalusers"
-      config_version: 2
-
-    admin:
-      hash: "%s"
-      reserved: true
-      backend_roles:
-      - "admin"
-      description: "Admin user"
-
-openSearchClusterSetup:
-  image:
-    repository: ghcr.io/openchoreo/init-observability-opensearch
-    tag: ""
-  observerAddress: "http://observer.openchoreo-observability-plane:8080"
-  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh # TODO: Move to a kubernetes secret
-
 # Customizing OpenSearch Dashboards configurations
 openSearchDashboards:
   enabled: false
@@ -292,6 +223,10 @@ observer:
   replicas: 1
 
   extraEnvs:
+  - name: JWKS_URL
+    value: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
+  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
+    value: "false"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -740,6 +675,8 @@ openSearchClusterSetup:
   image:
     repository: ghcr.io/openchoreo/init-observability-opensearch
     tag: ""
+  observerAddress: "http://observer.openchoreo-observability-plane:8080"
+  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh # TODO: Move to a kubernetes secret
 
 
 ## opentelemetryCollectorCustomizations aren't passed to the opentelemetry-collector helm values file directly.

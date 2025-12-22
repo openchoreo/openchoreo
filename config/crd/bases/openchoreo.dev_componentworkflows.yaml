@@ -170,6 +170,12 @@ spec:
                     required:
                     - repository
                     type: object
+                  types:
+                    description: |-
+                      Types defines reusable type definitions that can be referenced in schema fields.
+                      This is a nested map structure where keys are type names and values are type definitions.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 required:
                 - systemParameters
                 type: object

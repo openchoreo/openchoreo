@@ -40,6 +40,10 @@ func (f *FlagGetter) GetArgs() []string {
 	return f.args
 }
 
+func (f *FlagGetter) GetCommand() *cobra.Command {
+	return f.cmd
+}
+
 func (b *CommandBuilder) Build() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     b.Command.Use,

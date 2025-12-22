@@ -27,11 +27,7 @@ import (
 // Reconciler reconciles a Component object
 type Reconciler struct {
 	client.Client
-	// IsGitOpsMode indicates whether the controller is running in GitOps mode
-	// In GitOps mode, the controller will not create or update resources directly in the cluster,
-	// but will instead generate the necessary manifests and creates GitCommitRequests to update the Git repository.
-	IsGitOpsMode bool
-	Scheme       *runtime.Scheme
+	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
@@ -42,6 +38,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflowruns,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=gitcommitrequests,verbs=get;list;watch;create;update;patch;delete
@@ -58,6 +55,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get Component")
+		return ctrl.Result{}, err
+	}
+
+	// Keep a copy of the original object for comparison
+	old := comp.DeepCopy()
+
+	// Handle deletion - run finalizer logic
+	if !comp.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing component")
+		return r.finalize(ctx, old, comp)
+	}
+
+	// Ensure finalizer is added
+	if finalizerAdded, err := r.ensureFinalizer(ctx, comp); err != nil || finalizerAdded {
 		return ctrl.Result{}, err
 	}
 
@@ -411,11 +422,6 @@ func (r *Reconciler) handleAutoDeploy(
 		ReleaseHash: currentHash,
 	}
 
-	// TODO: Add watch for DeploymentPipeline in SetupWithManager.
-	// If the DeploymentPipeline's promotion paths are reordered after Component creation,
-	// the root environment might change, requiring the ReleaseBinding to be updated..
-	// Currently, Components won't be re-reconciled when this happens.
-
 	return r.ensureReleaseBinding(ctx, comp, releaseName, firstEnv, bindingName)
 }
 
@@ -535,7 +541,7 @@ func (r *Reconciler) ensureReleaseBinding(
 ) error {
 	logger := log.FromContext(ctx)
 
-	envKey := fmt.Sprintf("%s/%s/%s", comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
+	envKey := makeReleaseBindingIndexKey(comp.Spec.Owner.ProjectName, comp.Name, firstEnv)
 	releaseBindingList := openchoreov1alpha1.ReleaseBindingList{}
 	err := r.List(ctx, &releaseBindingList, client.InNamespace(comp.Namespace),
 		client.MatchingFields{releaseBindingIndex: envKey})
@@ -620,8 +626,6 @@ func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.IsGitOpsMode = true
-
 	ctx := context.Background()
 
 	// Set up field indexes for efficient lookups
@@ -641,20 +645,37 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup release binding index: %w", err)
 	}
 
-	// TODO: Add watch for DeploymentPipeline.
-	// Components depend on the DeploymentPipeline's promotion paths to determine the root environment.
-	// If the promotion path order changes after Component creation, Components won't be re-reconciled
-	// and may continue using the wrong environment for snapshots.
-	// Need to implement:
-	// - Watches(&openchoreov1alpha1.DeploymentPipeline{}, handler.EnqueueRequestsFromMapFunc(...))
+	if err := r.setupComponentReleaseOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup component release owner index: %w", err)
+	}
+
+	if err := r.setupComponentWorkflowRunOwnerIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup component workflow run owner index: %w", err)
+	}
+
+	// Note: The following shared indexes are set up in controller.SetupSharedIndexes (called from main.go):
+	// - ReleaseBinding owner index (used by Component and ReleaseBinding controllers)
+	// - Component owner project index (used by Project and Component controllers)
+	// - Project deploymentPipelineRef index (used by Component controller)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Component{}).
+		Watches(&openchoreov1alpha1.ComponentRelease{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentRelease)).
+		Watches(&openchoreov1alpha1.ReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentsForReleaseBinding)).
+		Watches(&openchoreov1alpha1.ComponentWorkflowRun{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentWorkflowRun)).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
+		Watches(&openchoreov1alpha1.Project{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForProject)).
+		Watches(&openchoreov1alpha1.DeploymentPipeline{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForDeploymentPipeline)).
 		Named("component").
 		Complete(r)
 }

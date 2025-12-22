@@ -6,6 +6,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -95,14 +96,16 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 		{"Component", formatValueOrPlaceholder(currentCtx.Component)},
 		{"Environment", formatValueOrPlaceholder(currentCtx.Environment)},
 		{"Data Plane", formatValueOrPlaceholder(currentCtx.DataPlane)},
+		{"Mode", formatValueOrPlaceholder(currentCtx.Mode)},
+		{"Root Directory Path", formatValueOrPlaceholder(currentCtx.RootDirectoryPath)},
 	}
 
 	if err := printTable(headers, rows); err != nil {
 		return err
 	}
 
-	// Print control plane info if available
-	if cfg.ControlPlane != nil {
+	// Print control plane info if available and in kubernetes mode
+	if cfg.ControlPlane != nil && currentCtx.Mode != configContext.ModeFileSystem {
 		fmt.Println("\nControl Plane:")
 		cpHeaders := []string{"PROPERTY", "VALUE"}
 		tokenDisplay := "-"
@@ -127,14 +130,48 @@ func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Validate mode
+	mode := params.Mode
+	if mode == "" {
+		mode = configContext.ModeAPIServer // default
+	}
+	if mode != configContext.ModeAPIServer && mode != configContext.ModeFileSystem {
+		return fmt.Errorf("invalid mode %q: must be 'api-server' or 'file-system'", mode)
+	}
+
+	// Validate root-directory-path for file-system mode
+	rootPath := params.RootDirectoryPath
+	if mode == configContext.ModeFileSystem {
+		if rootPath == "" {
+			// Default to current directory
+			var err error
+			rootPath, err = os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current directory: %w", err)
+			}
+		}
+		// Validate path exists and is a directory
+		info, err := os.Stat(rootPath)
+		if err != nil {
+			return fmt.Errorf("invalid root-directory-path %q: %w", rootPath, err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("root-directory-path %q is not a directory", rootPath)
+		}
+		// Convert to an absolute path
+		rootPath, _ = filepath.Abs(rootPath)
+	}
+
 	// Create new context
 	newCtx := configContext.Context{
-		Name:         params.Name,
-		Organization: params.Organization,
-		Project:      params.Project,
-		Component:    params.Component,
-		Environment:  params.Environment,
-		DataPlane:    params.DataPlane,
+		Name:              params.Name,
+		Organization:      params.Organization,
+		Project:           params.Project,
+		Component:         params.Component,
+		Environment:       params.Environment,
+		DataPlane:         params.DataPlane,
+		Mode:              mode,
+		RootDirectoryPath: rootPath,
 	}
 
 	// Update or create the context
@@ -156,6 +193,12 @@ func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
 			}
 			if params.DataPlane == "" {
 				newCtx.DataPlane = cfg.Contexts[i].DataPlane
+			}
+			if params.Mode == "" {
+				newCtx.Mode = cfg.Contexts[i].Mode
+			}
+			if params.RootDirectoryPath == "" && mode == configContext.ModeFileSystem {
+				newCtx.RootDirectoryPath = cfg.Contexts[i].RootDirectoryPath
 			}
 			cfg.Contexts[i] = newCtx
 			found = true

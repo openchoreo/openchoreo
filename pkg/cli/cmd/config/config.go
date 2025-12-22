@@ -30,13 +30,20 @@ type ControlPlane struct {
 
 // Context represents a single named configuration context.
 type Context struct {
-	Name         string `yaml:"name"`
-	Organization string `yaml:"organization,omitempty"`
-	Project      string `yaml:"project,omitempty"`
-	Component    string `yaml:"component,omitempty"`
-	Environment  string `yaml:"environment,omitempty"`
-	DataPlane    string `yaml:"dataPlane,omitempty"`
+	Name              string `yaml:"name"`
+	Organization      string `yaml:"organization,omitempty"`
+	Project           string `yaml:"project,omitempty"`
+	Component         string `yaml:"component,omitempty"`
+	Environment       string `yaml:"environment,omitempty"`
+	DataPlane         string `yaml:"dataPlane,omitempty"`
+	Mode              string `yaml:"mode,omitempty"`              // "api-server" or "file-system"
+	RootDirectoryPath string `yaml:"rootDirectoryPath,omitempty"` // Path for file-system mode
 }
+
+const (
+	ModeAPIServer  = "api-server"
+	ModeFileSystem = "file-system"
+)
 
 func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd := &cobra.Command{
@@ -74,6 +81,8 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.Component,
 			flags.DataPlane,
 			flags.Environment,
+			flags.Mode,
+			flags.RootDirectoryPath,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			args := fg.GetArgs()
@@ -81,12 +90,14 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				return fmt.Errorf("context name is required")
 			}
 			return impl.SetContext(api.SetContextParams{
-				Name:         args[0],
-				Organization: fg.GetString(flags.Organization),
-				Project:      fg.GetString(flags.Project),
-				Component:    fg.GetString(flags.Component),
-				DataPlane:    fg.GetString(flags.DataPlane),
-				Environment:  fg.GetString(flags.Environment),
+				Name:              args[0],
+				Organization:      fg.GetString(flags.Organization),
+				Project:           fg.GetString(flags.Project),
+				Component:         fg.GetString(flags.Component),
+				DataPlane:         fg.GetString(flags.DataPlane),
+				Environment:       fg.GetString(flags.Environment),
+				Mode:              fg.GetString(flags.Mode),
+				RootDirectoryPath: fg.GetString(flags.RootDirectoryPath),
 			})
 		},
 	}).Build()

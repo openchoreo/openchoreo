@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -38,7 +39,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, release *openchoreov1a
 	return false, nil
 }
 
-// finalize cleans up the data plane resources associated with the Release.
+// finalize cleans up the target plane (dataplane or observabilityplane) resources associated with the Release.
 func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alpha1.Release) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
 		// Nothing to do if the finalizer is not present
@@ -55,20 +56,41 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 		return ctrl.Result{}, nil
 	}
 
-	// STEP 2: Get dataplane client and find all managed resources
-	dpClient, err := r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
-	if err != nil {
-		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
-		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
-			return ctrl.Result{}, updateErr
+	// STEP 2: Get plane client (dataplane or observabilityplane) and find all managed resources
+	targetPlane := release.Spec.TargetPlane
+	if targetPlane == "" {
+		targetPlane = "dataplane" // Default to dataplane if not specified
+	}
+
+	var planeClient client.Client
+	var err error
+	switch targetPlane {
+	case "observabilityplane":
+		planeClient, err = r.getOPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		if err != nil {
+			meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+			if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
+				return ctrl.Result{}, updateErr
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to get observability plane client for finalization: %w", err)
 		}
-		return ctrl.Result{}, fmt.Errorf("failed to get dataplane client for finalization: %w", err)
+	case "dataplane":
+		fallthrough
+	default:
+		planeClient, err = r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		if err != nil {
+			meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
+			if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
+				return ctrl.Result{}, updateErr
+			}
+			return ctrl.Result{}, fmt.Errorf("failed to get dataplane client for finalization: %w", err)
+		}
 	}
 
 	// STEP 3: List all live resources we manage (use empty desired resources since we want to delete everything)
 	var emptyDesiredResources []*unstructured.Unstructured
 	gvks := findAllKnownGVKs(emptyDesiredResources, release.Status.Resources)
-	liveResources, err := r.listLiveResourcesByGVKs(ctx, dpClient, release, gvks)
+	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
@@ -78,7 +100,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, release *openchoreov1alp
 	}
 
 	// STEP 4: Delete all live resources (since we want to delete everything, all live resources are "stale")
-	if err := r.deleteResources(ctx, dpClient, liveResources); err != nil {
+	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr

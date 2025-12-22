@@ -21,7 +21,7 @@ gateway:
 clusterAgent:
   enabled: true
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeName: default
+  planeID: dataplane-default
   planeType: dataplane
   # TLS configuration for single-cluster setup
   # Helm post-install jobs will automatically copy the CA from control plane

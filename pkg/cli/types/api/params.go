@@ -263,12 +263,14 @@ type GetEndpointParams struct {
 }
 
 type SetContextParams struct {
-	Name         string
-	Organization string
-	Project      string
-	Component    string
-	Environment  string
-	DataPlane    string
+	Name              string
+	Organization      string
+	Project           string
+	Component         string
+	Environment       string
+	DataPlane         string
+	Mode              string // "api-server" or "file-system"
+	RootDirectoryPath string // Path for file-system mode
 }
 
 type UseContextParams struct {
@@ -336,4 +338,13 @@ type ScaffoldComponentParams struct {
 	OutputPath    string
 	SkipComments  bool // skip structural comments and field descriptions
 	SkipOptional  bool // skip optional fields without defaults
+}
+
+// GenerateComponentReleaseParams defines parameters for generating component releases
+type GenerateComponentReleaseParams struct {
+	All           bool   // Generate for all components
+	ProjectName   string // Generate for all components in this project
+	ComponentName string // Generate for specific component
+	OutputPath    string // Optional: custom output directory
+	DryRun        bool   // Preview without writing files
 }

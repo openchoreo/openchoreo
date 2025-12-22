@@ -152,7 +152,7 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	force := r.URL.Query().Get("force") == "true"
+	force := r.URL.Query().Get("force") == "true" // nolint:goconst
 
 	if err := h.services.AuthzService.RemoveRole(r.Context(), roleName, force); err != nil {
 		h.logger.Error("Failed to remove role", "error", err, "role", roleName, "force", force)

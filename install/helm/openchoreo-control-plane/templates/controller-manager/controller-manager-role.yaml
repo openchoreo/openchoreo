@@ -59,7 +59,6 @@ rules:
     - organizations
     - projects
     - releasebindings
-    - releases
     - secretreferences
     - traits
     - workflowruns
@@ -131,3 +130,16 @@ rules:
     - get
     - patch
     - update
+- apiGroups:
+    - openchoreo.dev
+  resources:
+    - releases
+  verbs:
+    - create
+    - delete
+    - deletecollection
+    - get
+    - list
+    - patch
+    - update
+    - watch

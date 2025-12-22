@@ -204,7 +204,7 @@ spec:
   autoDeploy: true
 
   parameters:
-    replicas: "e"
+    replicas: 1
     port: 8080
 
   traits:

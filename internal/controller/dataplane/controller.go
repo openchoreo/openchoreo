@@ -104,12 +104,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// and the gateway treats both identically (triggers agent reconnection)
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, dataPlane, "updated"); err != nil {
-			// Don't fail reconciliation if gateway notification fails.
-			// Rationale: Gateway notification is "best effort" - the system remains
-			// eventually consistent through agent reconnection and cert verification.
-			// Failing reconciliation would prevent CR status updates and requeue
-			// indefinitely if gateway is temporarily unavailable.
-			logger.Error(err, "Failed to notify gateway of DataPlane reconciliation")
+			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "DataPlane reconciliation"); shouldRetry {
+				return result, retryErr
+			}
 		}
 	}
 

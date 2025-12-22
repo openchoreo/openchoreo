@@ -22,6 +22,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
+	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 func main() {
@@ -67,7 +69,7 @@ func main() {
 	// Initialize handlers
 	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
 
-	// Health check endpoint
+	// Health check endpoint (no JWT authentication)
 	mux.HandleFunc("GET /health", handler.Health)
 
 	// API routes - Build Logs
@@ -94,10 +96,27 @@ func main() {
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
-	// Apply middleware
+	// Initialize JWT middleware
+	jwtAuth := initJWTMiddleware(logger)
+
+	// Create a custom middleware that applies JWT only to non-health endpoints
+	jwtForAPIOnly := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip JWT for health endpoint
+			if r.Method == "GET" && r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// Apply JWT for all other endpoints
+			jwtAuth(next).ServeHTTP(w, r)
+		})
+	}
+
+	// Apply middleware with selective JWT
 	handlerWithMiddleware := middleware.Chain(
 		middleware.Logger(logger),
 		middleware.Recovery(logger),
+		jwtForAPIOnly,
 	)(mux)
 
 	// Create HTTP server
@@ -175,4 +194,25 @@ func createBootstrapLogger() *slog.Logger {
 	// Use JSON handler for structured logging
 	handler := slog.NewJSONHandler(os.Stderr, opts)
 	return slog.New(handler)
+}
+
+// initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
+func initJWTMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+	jwtDisabled := os.Getenv(apiconfig.EnvJWTDisabled) == "true"
+	jwksURL := os.Getenv(apiconfig.EnvJWKSURL)
+	jwtIssuer := os.Getenv(apiconfig.EnvJWTIssuer)
+	jwtAudience := os.Getenv(apiconfig.EnvJWTAudience)
+	jwksURLTLSInsecureSkipVerify := os.Getenv(apiconfig.EnvJWKSURLTLSInsecureSkipVerify) == "true"
+
+	// Configure JWT middleware
+	config := jwt.Config{
+		Disabled:                     jwtDisabled,
+		JWKSURL:                      jwksURL,
+		ValidateIssuer:               jwtIssuer,
+		ValidateAudience:             jwtAudience,
+		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
+		Logger:                       logger,
+	}
+
+	return jwt.Middleware(config)
 }

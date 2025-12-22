@@ -59,6 +59,13 @@ type ComponentWorkflowResource struct {
 // It separates system parameters (required structure for build features) from
 // developer parameters (flexible PE-defined configuration).
 type ComponentWorkflowSchema struct {
+	// Types defines reusable type definitions that can be referenced in schema fields.
+	// This is a nested map structure where keys are type names and values are type definitions.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Types *runtime.RawExtension `json:"types,omitempty"`
+
 	// SystemParameters defines the required structured schema for repository information.
 	// This schema must follow a specific structure to enable build-specific platform features.
 	// Platform Engineers can customize defaults, enums, and descriptions within each field,
@@ -90,6 +97,9 @@ type ComponentWorkflowSchema struct {
 	// +kubebuilder:validation:Type=object
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
+
+// GetTypes returns the types raw extension.
+func (s *ComponentWorkflowSchema) GetTypes() *runtime.RawExtension { return s.Types }
 
 // SystemParametersSchema defines the required schema structure for system parameters.
 // This structure is enforced to enable build-specific platform features like webhooks,

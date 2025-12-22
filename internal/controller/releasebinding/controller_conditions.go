@@ -4,6 +4,8 @@
 package releasebinding
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -21,6 +23,9 @@ const (
 	// ConditionReady indicates the overall readiness of the ReleaseBinding
 	// This is the top-level condition that aggregates ReleaseSynced and ResourcesReady
 	ConditionReady controller.ConditionType = "Ready"
+
+	// ConditionFinalizing indicates that the ReleaseBinding is being finalized (deleted).
+	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
 
 // Constants for condition reasons
@@ -97,4 +102,18 @@ const (
 	ReasonCronJobScheduled controller.ConditionReason = "CronJobScheduled"
 	// ReasonCronJobSuspended indicates CronJob is suspended
 	ReasonCronJobSuspended controller.ConditionReason = "CronJobSuspended"
+
+	// ReasonFinalizing indicates the ReleaseBinding is being finalized
+	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )
+
+// NewReleaseBindingFinalizingCondition creates a condition indicating the ReleaseBinding is being finalized.
+func NewReleaseBindingFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonFinalizing,
+		"ReleaseBinding is finalizing",
+		generation,
+	)
+}

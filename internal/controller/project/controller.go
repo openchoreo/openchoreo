@@ -102,11 +102,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Project{}).
 		Named("project").
-		// Watch for Component changes to reconcile the project
-		Watches(
-			&openchoreov1alpha1.Component{},
-			handler.EnqueueRequestsFromMapFunc(controller.HierarchyWatchHandler[*openchoreov1alpha1.Component, *openchoreov1alpha1.Project](
-				r.Client, controller.GetProject)),
-		).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.findProjectForComponent)).
 		Complete(r)
 }

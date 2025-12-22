@@ -364,7 +364,7 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string,
 // UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
 func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
 	// Build the alert rule body
-	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
+	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(ruleName, rule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build log alerting rule body: %w", err)
 	}

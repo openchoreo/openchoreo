@@ -4,6 +4,8 @@
 package component
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -14,6 +16,9 @@ const (
 	// When autoDeploy is enabled, this means ComponentRelease and ReleaseBinding are created/updated.
 	// When autoDeploy is disabled, this means the Component has been validated.
 	ConditionReady controller.ConditionType = "Ready"
+
+	// ConditionFinalizing indicates that the Component is being finalized (deleted).
+	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
 
 // Constants for condition reasons
@@ -48,4 +53,18 @@ const (
 
 	// ReasonAutoDeployFailed indicates failure to handle autoDeploy (ComponentRelease/ReleaseBinding creation)
 	ReasonAutoDeployFailed controller.ConditionReason = "AutoDeployFailed"
+
+	// ReasonFinalizing indicates the Component is being finalized
+	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )
+
+// NewComponentFinalizingCondition creates a condition indicating the Component is being finalized.
+func NewComponentFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonFinalizing,
+		"Component is finalizing",
+		generation,
+	)
+}

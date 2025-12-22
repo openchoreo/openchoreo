@@ -72,12 +72,9 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// and the gateway treats both identically (triggers agent reconnection)
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, buildPlane, "updated"); err != nil {
-			// Don't fail reconciliation if gateway notification fails.
-			// Rationale: Gateway notification is "best effort" - the system remains
-			// eventually consistent through agent reconnection and cert verification.
-			// Failing reconciliation would prevent CR status updates and requeue
-			// indefinitely if gateway is temporarily unavailable.
-			logger.Error(err, "Failed to notify gateway of BuildPlane reconciliation")
+			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "BuildPlane reconciliation"); shouldRetry {
+				return result, retryErr
+			}
 		}
 	}
 
@@ -108,15 +105,9 @@ func (r *BuildPlaneReconciler) finalize(ctx context.Context, buildPlane *opencho
 	// Notify gateway of BuildPlane deletion before removing finalizer
 	if r.GatewayClient != nil {
 		if err := r.notifyGateway(ctx, buildPlane, "deleted"); err != nil {
-			// Don't fail finalization if gateway notification fails.
-			// Rationale:
-			// 1. Gateway unavailability shouldn't block CR deletion (operational resilience)
-			// 2. System is eventually consistent: when agent reconnects, gateway will
-			//    query for the CR, find it doesn't exist, and reject the connection
-			// 3. Prevents CRs from getting stuck in "Terminating" state indefinitely
-			// Trade-off: If gateway is unreachable, agents may attempt reconnection
-			// before discovering the CR is gone, wasting some resources temporarily.
-			logger.Error(err, "Failed to notify gateway of BuildPlane deletion")
+			if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "BuildPlane deletion"); shouldRetry {
+				return result, retryErr
+			}
 		}
 	}
 
