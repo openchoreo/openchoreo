@@ -1,6 +1,9 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 # This file contains overrides specific to running the observability plane in a k3d environment
 
+kgateway:
+  enabled: true
+
 observer:
   service:
     type: LoadBalancer
@@ -23,6 +26,9 @@ prometheus:
       type: LoadBalancer
       port: 9091
       reloaderWebPort: 8081
+
+
+## Values for local templates
 
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
@@ -52,3 +58,9 @@ clusterAgent:
   # RBAC for cluster agent
   rbac:
     create: true
+
+gateway:
+  enabled: true
+
+tls:
+  enabled: true

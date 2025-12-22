@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
-	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 )
 
 // ResourceType indicates which type of resource is being validated
@@ -27,28 +26,19 @@ type CELValidator struct {
 	resourceType ResourceType
 }
 
-// CELValidatorSchemaOptions configures schema information for the validator.
-type CELValidatorSchemaOptions struct {
-	// ParametersSchema is the structural schema for parameters.
-	ParametersSchema *apiextschema.Structural
-
-	// EnvOverridesSchema is the structural schema for envOverrides.
-	EnvOverridesSchema *apiextschema.Structural
-}
-
 // NewCELValidator creates a validator for the specified resource type.
 // The validator uses different environments for ComponentType vs Trait resources
 // to enforce proper variable access (e.g., traits can't access workload).
 // Provides schema-aware type checking when schemas are provided in opts.
-func NewCELValidator(resourceType ResourceType, opts CELValidatorSchemaOptions) (*CELValidator, error) {
+func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidator, error) {
 	var env *cel.Env
 	var err error
 
 	switch resourceType {
 	case ComponentTypeResource:
-		env, err = BuildComponentCELEnv(ComponentCELEnvOptions(opts))
+		env, err = BuildComponentCELEnv(opts)
 	case TraitResource:
-		env, err = BuildTraitCELEnv(TraitCELEnvOptions(opts))
+		env, err = BuildTraitCELEnv(opts)
 	default:
 		return nil, fmt.Errorf("unknown resource type: %v", resourceType)
 	}

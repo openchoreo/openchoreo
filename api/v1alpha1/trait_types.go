@@ -96,6 +96,15 @@ type TraitSchema struct {
 	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
 }
 
+// GetTypes returns the types raw extension.
+func (s *TraitSchema) GetTypes() *runtime.RawExtension { return s.Types }
+
+// GetParameters returns the parameters raw extension.
+func (s *TraitSchema) GetParameters() *runtime.RawExtension { return s.Parameters }
+
+// GetEnvOverrides returns the envOverrides raw extension.
+func (s *TraitSchema) GetEnvOverrides() *runtime.RawExtension { return s.EnvOverrides }
+
 // TraitPatch defines a modification to an existing resource
 // +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"
 type TraitPatch struct {

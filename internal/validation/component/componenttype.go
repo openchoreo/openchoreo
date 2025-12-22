@@ -35,7 +35,7 @@ func ValidateComponentTypeResourcesWithSchema(
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for component context
-	validator, err := NewCELValidator(ComponentTypeResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
 		ParametersSchema:   parametersSchema,
 		EnvOverridesSchema: envOverridesSchema,
 	})

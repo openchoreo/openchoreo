@@ -1,0 +1,22 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kgateway-envoy
+  namespace: {{ .Release.Namespace }}
+spec:
+  gatewayClassName: kgateway
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: openchoreo-observability-plane-wildcard
+            namespace: {{ .Release.Namespace }}
+{{- end }}

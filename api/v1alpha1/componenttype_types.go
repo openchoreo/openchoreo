@@ -81,6 +81,15 @@ type ComponentTypeSchema struct {
 	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
 }
 
+// GetTypes returns the types raw extension.
+func (s *ComponentTypeSchema) GetTypes() *runtime.RawExtension { return s.Types }
+
+// GetParameters returns the parameters raw extension.
+func (s *ComponentTypeSchema) GetParameters() *runtime.RawExtension { return s.Parameters }
+
+// GetEnvOverrides returns the envOverrides raw extension.
+func (s *ComponentTypeSchema) GetEnvOverrides() *runtime.RawExtension { return s.EnvOverrides }
+
 // ResourceTemplate defines a template for generating Kubernetes resources
 // +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"
 type ResourceTemplate struct {

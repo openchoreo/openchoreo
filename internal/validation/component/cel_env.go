@@ -28,13 +28,14 @@ var (
 	traitContextFields     = decltype.ExtractFields(reflect.TypeOf(context.TraitContext{}), schemaBasedFields)
 )
 
-// ComponentCELEnvOptions configures the CEL environment for component validation.
-type ComponentCELEnvOptions struct {
-	// ParametersSchema is the structural schema for parameters (from ComponentType.Schema.Parameters).
+// SchemaOptions provides schema configuration for CEL environment and validation.
+// Used by both component and trait CEL environments.
+type SchemaOptions struct {
+	// ParametersSchema is the structural schema for parameters.
 	// If nil, an empty object type will be used.
 	ParametersSchema *apiextschema.Structural
 
-	// EnvOverridesSchema is the structural schema for envOverrides (from ComponentType.Schema.EnvOverrides).
+	// EnvOverridesSchema is the structural schema for envOverrides.
 	// If nil, an empty object type will be used.
 	EnvOverridesSchema *apiextschema.Structural
 }
@@ -43,7 +44,7 @@ type ComponentCELEnvOptions struct {
 // Variables are derived from ComponentContext struct fields:
 //   - parameters, envOverrides: Schema-aware types (or empty object if not provided)
 //   - metadata, dataplane, workload, configurations: Types derived via reflection
-func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
+func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	baseEnv, err := createBaseEnv(true)
 	if err != nil {
 		return nil, err
@@ -78,24 +79,13 @@ func BuildComponentCELEnv(opts ComponentCELEnvOptions) (*cel.Env, error) {
 	return baseEnv.Extend(varOpts...)
 }
 
-// TraitCELEnvOptions configures the CEL environment for trait validation.
-type TraitCELEnvOptions struct {
-	// ParametersSchema is the structural schema for parameters (from Trait.Schema.Parameters).
-	// If nil, an empty object type will be used.
-	ParametersSchema *apiextschema.Structural
-
-	// EnvOverridesSchema is the structural schema for envOverrides (from Trait.Schema.EnvOverrides).
-	// If nil, an empty object type will be used.
-	EnvOverridesSchema *apiextschema.Structural
-}
-
 // BuildTraitCELEnv creates a schema-aware CEL environment for trait validation.
 // Variables are derived from TraitContext struct fields:
 //   - parameters, envOverrides: Schema-aware types (or empty object if not provided)
 //   - trait, metadata, dataplane: Types derived via reflection
 //
 // Note: Traits don't have access to workload or configurations (not in TraitContext)
-func BuildTraitCELEnv(opts TraitCELEnvOptions) (*cel.Env, error) {
+func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
 	baseEnv, err := createBaseEnv(false)
 	if err != nil {
 		return nil, err

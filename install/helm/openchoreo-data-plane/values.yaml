@@ -420,7 +420,7 @@ clusterAgent:
 
 # API Platform configuration
 api-platform:
-  enabled: true
+  enabled: false
   gateway:
     helm:
       chartName: "oci://ghcr.io/wso2/api-platform/helm-charts/gateway"

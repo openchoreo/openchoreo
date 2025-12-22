@@ -32,7 +32,7 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	allErrs := field.ErrorList{}
 
 	// Create schema-aware validator for trait context
-	validator, err := NewCELValidator(TraitResource, CELValidatorSchemaOptions{
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{
 		ParametersSchema:   parametersSchema,
 		EnvOverridesSchema: envOverridesSchema,
 	})

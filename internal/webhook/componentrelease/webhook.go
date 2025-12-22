@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"gopkg.in/yaml.v3"
-	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,6 +18,7 @@ import (
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/validation/component"
+	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
 )
 
 // nolint:unused
@@ -375,7 +375,7 @@ func validateComponentTypeCELExpressions(release *openchoreodevv1alpha1.Componen
 	basePath := field.NewPath("spec", "componentType")
 
 	// Extract and build structural schemas for CEL validation
-	parametersSchema, envOverridesSchema, schemaErrs := extractComponentTypeSchemas(
+	parametersSchema, envOverridesSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
 		&release.Spec.ComponentType.Schema,
 		basePath.Child("schema"),
 	)
@@ -411,7 +411,7 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	allErrs := field.ErrorList{}
 
 	// Extract and build structural schemas for CEL validation
-	parametersSchema, envOverridesSchema, schemaErrs := extractTraitSchemas(
+	parametersSchema, envOverridesSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
 		&traitSpec.Schema,
 		basePath.Child("schema"),
 	)
@@ -440,152 +440,6 @@ func validateTraitCELExpressions(traitSpec *openchoreodevv1alpha1.TraitSpec, bas
 	}
 
 	return allErrs
-}
-
-// extractComponentTypeSchemas extracts and validates schemas from embedded ComponentType
-func extractComponentTypeSchemas(schemaSpec *openchoreodevv1alpha1.ComponentTypeSchema, basePath *field.Path) (
-	*apiextschema.Structural, *apiextschema.Structural, field.ErrorList,
-) {
-	allErrs := field.ErrorList{}
-
-	// Extract types from RawExtension
-	var types map[string]any
-	if schemaSpec.Types != nil && len(schemaSpec.Types.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.Types.Raw, &types); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("types"),
-				omitValue,
-				fmt.Sprintf("failed to parse types: %v", err)))
-			return nil, nil, allErrs
-		}
-	}
-
-	// Extract and build parameters structural schema
-	var parametersSchema *apiextschema.Structural
-	var params map[string]any
-	if schemaSpec.Parameters != nil && len(schemaSpec.Parameters.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.Parameters.Raw, &params); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("parameters"),
-				omitValue,
-				fmt.Sprintf("failed to parse parameters schema: %v", err)))
-		} else {
-			def := schema.Definition{
-				Types:   types,
-				Schemas: []map[string]any{params},
-			}
-			structural, err := schema.ToStructural(def)
-			if err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					basePath.Child("parameters"),
-					omitValue,
-					fmt.Sprintf("failed to build structural schema: %v", err)))
-			} else {
-				parametersSchema = structural
-			}
-		}
-	}
-
-	// Extract and build envOverrides structural schema
-	var envOverridesSchema *apiextschema.Structural
-	var envOverrides map[string]any
-	if schemaSpec.EnvOverrides != nil && len(schemaSpec.EnvOverrides.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.EnvOverrides.Raw, &envOverrides); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("envOverrides"),
-				omitValue,
-				fmt.Sprintf("failed to parse envOverrides schema: %v", err)))
-		} else {
-			def := schema.Definition{
-				Types:   types,
-				Schemas: []map[string]any{envOverrides},
-			}
-			structural, err := schema.ToStructural(def)
-			if err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					basePath.Child("envOverrides"),
-					omitValue,
-					fmt.Sprintf("failed to build structural schema: %v", err)))
-			} else {
-				envOverridesSchema = structural
-			}
-		}
-	}
-
-	return parametersSchema, envOverridesSchema, allErrs
-}
-
-// extractTraitSchemas extracts and validates schemas from embedded Trait
-func extractTraitSchemas(schemaSpec *openchoreodevv1alpha1.TraitSchema, basePath *field.Path) (
-	*apiextschema.Structural, *apiextschema.Structural, field.ErrorList,
-) {
-	allErrs := field.ErrorList{}
-
-	// Extract types from RawExtension
-	var types map[string]any
-	if schemaSpec.Types != nil && len(schemaSpec.Types.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.Types.Raw, &types); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("types"),
-				omitValue,
-				fmt.Sprintf("failed to parse types: %v", err)))
-			return nil, nil, allErrs
-		}
-	}
-
-	// Extract and build parameters structural schema
-	var parametersSchema *apiextschema.Structural
-	var params map[string]any
-	if schemaSpec.Parameters != nil && len(schemaSpec.Parameters.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.Parameters.Raw, &params); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("parameters"),
-				omitValue,
-				fmt.Sprintf("failed to parse parameters schema: %v", err)))
-		} else {
-			def := schema.Definition{
-				Types:   types,
-				Schemas: []map[string]any{params},
-			}
-			structural, err := schema.ToStructural(def)
-			if err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					basePath.Child("parameters"),
-					omitValue,
-					fmt.Sprintf("failed to build structural schema: %v", err)))
-			} else {
-				parametersSchema = structural
-			}
-		}
-	}
-
-	// Extract and build envOverrides structural schema
-	var envOverridesSchema *apiextschema.Structural
-	var envOverrides map[string]any
-	if schemaSpec.EnvOverrides != nil && len(schemaSpec.EnvOverrides.Raw) > 0 {
-		if err := yaml.Unmarshal(schemaSpec.EnvOverrides.Raw, &envOverrides); err != nil {
-			allErrs = append(allErrs, field.Invalid(
-				basePath.Child("envOverrides"),
-				omitValue,
-				fmt.Sprintf("failed to parse envOverrides schema: %v", err)))
-		} else {
-			def := schema.Definition{
-				Types:   types,
-				Schemas: []map[string]any{envOverrides},
-			}
-			structural, err := schema.ToStructural(def)
-			if err != nil {
-				allErrs = append(allErrs, field.Invalid(
-					basePath.Child("envOverrides"),
-					omitValue,
-					fmt.Sprintf("failed to build structural schema: %v", err)))
-			} else {
-				envOverridesSchema = structural
-			}
-		}
-	}
-
-	return parametersSchema, envOverridesSchema, allErrs
 }
 
 // adjustPathForComponentType adjusts a path from "spec.resources..." to "spec.componentType.resources..."
