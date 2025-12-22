@@ -89,6 +89,12 @@ func main() {
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
 
+	// ===== Internal Routes (No Authentication Required) =====
+	// TODO: Expose through a separate route group
+	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
+	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
+	routes.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook)
+
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
 	// API routes - RCA Reports
@@ -120,11 +126,6 @@ func main() {
 	// API routes - Metrics
 	api.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
 	api.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
-
-	// API routes - Alerting
-	api.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
-	api.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
-	api.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook) // Internal webhook for alerting
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
 	mcpMiddleware := initMCPMiddleware(logger)
