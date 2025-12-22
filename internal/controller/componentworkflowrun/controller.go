@@ -64,6 +64,17 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 	// Keep a copy for comparison
 	old := componentWorkflowRun.DeepCopy()
 
+	// Handle deletion - finalize before anything else
+	if !componentWorkflowRun.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing ComponentWorkflowRun")
+		return r.finalize(ctx, componentWorkflowRun)
+	}
+
+	// Ensure finalizer is added
+	if finalizerAdded, err := r.ensureFinalizer(ctx, componentWorkflowRun); err != nil || finalizerAdded {
+		return ctrl.Result{}, err
+	}
+
 	// Deferred status update
 	defer func() {
 		// Skip update if nothing changed
@@ -89,13 +100,17 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 
 	buildPlane, err := controller.GetBuildPlane(ctx, r.Client, componentWorkflowRun)
 	if err != nil {
-		logger.Error(err, "failed to get build plane")
+		logger.Error(err, "failed to get build plane",
+			"workflowrun", componentWorkflowRun.Name,
+			"namespace", componentWorkflowRun.Namespace)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
 	bpClient, err := r.getBuildPlaneClient(buildPlane)
 	if err != nil {
-		logger.Error(err, "failed to get build plane client")
+		logger.Error(err, "failed to get build plane client",
+			"buildplane", buildPlane.Name,
+			"workflowrun", componentWorkflowRun.Name)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -106,7 +121,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		return ctrl.Result{}, nil
 	}
 
-	if componentWorkflowRun.Status.RunReference.Name != "" && componentWorkflowRun.Status.RunReference.Namespace != "" {
+	if componentWorkflowRun.Status.RunReference != nil && componentWorkflowRun.Status.RunReference.Name != "" && componentWorkflowRun.Status.RunReference.Namespace != "" {
 		runResource := &argoproj.Workflow{}
 		err = bpClient.Get(ctx, types.NamespacedName{
 			Name:      componentWorkflowRun.Status.RunReference.Name,
@@ -116,7 +131,9 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		if err == nil {
 			return r.syncWorkflowRunStatus(componentWorkflowRun, runResource), nil
 		} else if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to get run resource")
+			logger.Error(err, "failed to get run resource",
+				"runName", componentWorkflowRun.Status.RunReference.Name,
+				"runNamespace", componentWorkflowRun.Status.RunReference.Namespace)
 			return ctrl.Result{Requeue: true}, nil
 		}
 		setWorkflowNotFoundCondition(componentWorkflowRun)
@@ -128,7 +145,8 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		Name:      componentWorkflowRun.Spec.Workflow.Name,
 		Namespace: componentWorkflowRun.Namespace,
 	}, componentWorkflow); err != nil {
-		logger.Error(err, "failed to get ComponentWorkflow")
+		logger.Error(err, "failed to get ComponentWorkflow",
+			"workflow", componentWorkflowRun.Spec.Workflow.Name)
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -166,7 +184,9 @@ func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
 
 	shouldRequeue, err := r.createWorkloadFromComponentWorkflowRun(ctx, componentWorkflowRun, bpClient)
 	if err != nil {
-		logger.Error(err, "failed to create workload CR")
+		logger.Error(err, "failed to create workload CR",
+			"workflowrun", componentWorkflowRun.Name,
+			"namespace", componentWorkflowRun.Namespace)
 		if shouldRequeue {
 			return ctrl.Result{Requeue: true}
 		}
@@ -189,24 +209,32 @@ func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 
 	serviceAccountName, err := extractServiceAccountName(output.Resource)
 	if err != nil {
-		logger.Error(err, "failed to extract service account name from rendered resource")
+		logger.Error(err, "failed to extract service account name from rendered resource",
+			"workflowrun", componentWorkflowRun.Name,
+			"namespace", componentWorkflowRun.Namespace)
 		return ctrl.Result{Requeue: true}
 	}
 
 	// Ensure prerequisite resources (namespace, RBAC) are created in the build plane
 	if err := r.ensurePrerequisites(ctx, runResNamespace, serviceAccountName, bpClient); err != nil {
-		logger.Error(err, "failed to ensure prerequisite resources")
+		logger.Error(err, "failed to ensure prerequisite resources",
+			"workflowrun", componentWorkflowRun.Name)
 		return ctrl.Result{Requeue: true}
 	}
 
 	// Apply additional resources (e.g., secrets, configmaps) before the main workflow
-	if err := r.applyRenderedResources(ctx, componentWorkflowRun, output.Resources, bpClient); err != nil {
-		logger.Error(err, "failed to apply rendered resources")
+	appliedResources, err := r.applyRenderedResources(ctx, componentWorkflowRun, output.Resources, bpClient)
+	if err != nil {
+		logger.Error(err, "failed to apply rendered resources",
+			"workflowrun", componentWorkflowRun.Name)
 		return ctrl.Result{Requeue: true}
 	}
+	componentWorkflowRun.Status.Resources = appliedResources
 
 	if err := r.applyRenderedRunResource(ctx, componentWorkflowRun, output.Resource, bpClient); err != nil {
-		logger.Error(err, "failed to apply rendered run resource")
+		logger.Error(err, "failed to apply rendered run resource",
+			"workflowrun", componentWorkflowRun.Name,
+			"targetNamespace", runResNamespace)
 		return ctrl.Result{Requeue: true}
 	}
 
@@ -243,14 +271,19 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 	resource map[string]any,
 	bpClient client.Client,
 ) error {
-	resource = convertParameterValuesToStrings(resource)
+	logger := log.FromContext(ctx)
 
+	resource = convertParameterValuesToStrings(resource)
 	unstructuredResource := &unstructured.Unstructured{Object: resource}
 
-	resourceNamespace := unstructuredResource.GetNamespace()
-	if resourceNamespace == componentWorkflowRun.Namespace || resourceNamespace == "" {
+	name := unstructuredResource.GetName()
+	namespace := unstructuredResource.GetNamespace()
+	kind := unstructuredResource.GetKind()
+
+	// Set ownership tracking via controller reference or labels
+	if namespace == componentWorkflowRun.Namespace || namespace == "" {
 		if err := ctrl.SetControllerReference(componentWorkflowRun, unstructuredResource, r.Scheme); err != nil {
-			return fmt.Errorf("failed to set controller reference: %w", err)
+			return fmt.Errorf("failed to set controller reference for %s %q in namespace %q: %w", kind, name, namespace, err)
 		}
 	} else {
 		labels := unstructuredResource.GetLabels()
@@ -259,39 +292,41 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 		}
 		labels["openchoreo.dev/componentworkflowrun"] = componentWorkflowRun.Name
 		labels["openchoreo.dev/componentworkflowrun-namespace"] = componentWorkflowRun.Namespace
+		labels["openchoreo.dev/managed-by"] = "componentworkflowrun-controller"
 		unstructuredResource.SetLabels(labels)
 	}
 
+	// Check if resource already exists
 	existingResource := &unstructured.Unstructured{}
 	existingResource.SetGroupVersionKind(unstructuredResource.GroupVersionKind())
 
-	namespace := unstructuredResource.GetNamespace()
-	name := unstructuredResource.GetName()
-
-	err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}, existingResource)
-
+	err := bpClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, existingResource)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			if err := bpClient.Create(ctx, unstructuredResource); err != nil {
-				return err
-			}
-			componentWorkflowRun.Status.RunReference.Name = name
-			componentWorkflowRun.Status.RunReference.Namespace = namespace
-			return nil
+		if !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to get %s %q in namespace %q: %w", kind, name, namespace, err)
 		}
-		return fmt.Errorf("failed to get existing resource: %w", err)
+		// Resource doesn't exist, create it
+		if err := bpClient.Create(ctx, unstructuredResource); err != nil {
+			return fmt.Errorf("failed to create %s %q in namespace %q: %w", kind, name, namespace, err)
+		}
+		logger.Info("created run resource", "kind", kind, "name", name, "namespace", namespace)
+	} else {
+		// Resource exists, update it
+		unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
+		if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+			return fmt.Errorf("failed to update %s %q in namespace %q: %w", kind, name, namespace, err)
+		}
+		logger.Info("updated run resource", "kind", kind, "name", name, "namespace", namespace)
 	}
 
-	unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
-	if err := bpClient.Update(ctx, unstructuredResource); err != nil {
-		return err
+	// Update status with run resource reference
+	componentWorkflowRun.Status.RunReference = &openchoreodevv1alpha1.ResourceReference{
+		APIVersion: unstructuredResource.GetAPIVersion(),
+		Kind:       unstructuredResource.GetKind(),
+		Name:       name,
+		Namespace:  namespace,
 	}
 
-	componentWorkflowRun.Status.RunReference.Name = name
-	componentWorkflowRun.Status.RunReference.Namespace = namespace
 	return nil
 }
 
@@ -301,8 +336,14 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	resources []componentworkflowpipeline.RenderedResource,
 	bpClient client.Client,
-) error {
+) (*[]openchoreodevv1alpha1.ResourceReference, error) {
 	logger := log.FromContext(ctx)
+
+	if len(resources) == 0 {
+		return nil, nil
+	}
+
+	var appliedResources []openchoreodevv1alpha1.ResourceReference
 
 	for _, res := range resources {
 		unstructuredResource := &unstructured.Unstructured{Object: res.Resource}
@@ -314,7 +355,7 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 		}
 		labels["openchoreo.dev/componentworkflowrun"] = componentWorkflowRun.Name
 		labels["openchoreo.dev/componentworkflowrun-namespace"] = componentWorkflowRun.Namespace
-		labels["openchoreo.dev/resource-id"] = res.ID
+		labels["openchoreo.dev/managed-by"] = "componentworkflowrun-controller"
 		unstructuredResource.SetLabels(labels)
 
 		existingResource := &unstructured.Unstructured{}
@@ -322,6 +363,7 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 
 		namespace := unstructuredResource.GetNamespace()
 		name := unstructuredResource.GetName()
+		kind := unstructuredResource.GetKind()
 
 		err := bpClient.Get(ctx, types.NamespacedName{
 			Name:      name,
@@ -331,22 +373,31 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 		if err != nil {
 			if errors.IsNotFound(err) {
 				if err := bpClient.Create(ctx, unstructuredResource); err != nil {
-					return fmt.Errorf("failed to create resource %q: %w", res.ID, err)
+					return nil, fmt.Errorf("failed to create %s %q in namespace %q: %w", kind, name, namespace, err)
 				}
-				logger.Info("created resource", "id", res.ID, "name", name, "namespace", namespace)
-				continue
+				logger.Info("created resource", "id", res.ID, "kind", kind, "name", name, "namespace", namespace)
+			} else {
+				return nil, fmt.Errorf("failed to get %s %q in namespace %q: %w", kind, name, namespace, err)
 			}
-			return fmt.Errorf("failed to get existing resource %q: %w", res.ID, err)
+		} else {
+			unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
+			if err := bpClient.Update(ctx, unstructuredResource); err != nil {
+				return nil, fmt.Errorf("failed to update %s %q in namespace %q: %w", kind, name, namespace, err)
+			}
+			logger.Info("updated resource", "id", res.ID, "kind", kind, "name", name, "namespace", namespace)
 		}
 
-		unstructuredResource.SetResourceVersion(existingResource.GetResourceVersion())
-		if err := bpClient.Update(ctx, unstructuredResource); err != nil {
-			return fmt.Errorf("failed to update resource %q: %w", res.ID, err)
-		}
-		logger.Info("updated resource", "id", res.ID, "name", name, "namespace", namespace)
+		// Track the applied resource for status update
+		gvk := unstructuredResource.GroupVersionKind()
+		appliedResources = append(appliedResources, openchoreodevv1alpha1.ResourceReference{
+			APIVersion: gvk.GroupVersion().String(),
+			Kind:       gvk.Kind,
+			Name:       name,
+			Namespace:  namespace,
+		})
 	}
 
-	return nil
+	return &appliedResources, nil
 }
 
 func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
@@ -357,39 +408,46 @@ func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
 	logger := log.FromContext(ctx).WithValues("componentworkflowrun", componentWorkflowRun.Name)
 
 	// Use the stored RunReference to retrieve the run resource
-	if componentWorkflowRun.Status.RunReference.Name == "" || componentWorkflowRun.Status.RunReference.Namespace == "" {
+	if componentWorkflowRun.Status.RunReference == nil || componentWorkflowRun.Status.RunReference.Name == "" || componentWorkflowRun.Status.RunReference.Namespace == "" {
 		logger.Error(nil, "run resource reference not found in status")
 		return true, fmt.Errorf("run resource reference not set in status")
 	}
 
+	runRefName := componentWorkflowRun.Status.RunReference.Name
+	runRefNamespace := componentWorkflowRun.Status.RunReference.Namespace
+
 	runResource := &argoproj.Workflow{}
 	if err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      componentWorkflowRun.Status.RunReference.Name,
-		Namespace: componentWorkflowRun.Status.RunReference.Namespace,
+		Name:      runRefName,
+		Namespace: runRefNamespace,
 	}, runResource); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("run resource not found, skipping workload creation")
-			return false, fmt.Errorf("run resource not found: %w", err)
+			logger.Info("run resource not found, skipping workload creation",
+				"runName", runRefName,
+				"runNamespace", runRefNamespace)
+			return false, fmt.Errorf("run resource %q in namespace %q not found: %w", runRefName, runRefNamespace, err)
 		}
-		return true, fmt.Errorf("failed to get run resource: %w", err)
+		return true, fmt.Errorf("failed to get run resource %q in namespace %q: %w", runRefName, runRefNamespace, err)
 	}
 
 	workloadCR := extractWorkloadCRFromRunResource(runResource)
 	if workloadCR == "" {
-		logger.Info("no workload CR found in run resource outputs")
-		return false, fmt.Errorf("no workload CR found in run resource outputs")
+		logger.Info("no workload CR found in run resource outputs",
+			"runName", runRefName,
+			"runNamespace", runRefNamespace)
+		return false, fmt.Errorf("no workload CR found in run resource %q outputs", runRefName)
 	}
 
 	workload := &openchoreodevv1alpha1.Workload{}
 	if err := yaml.Unmarshal([]byte(workloadCR), workload); err != nil {
-		return true, fmt.Errorf("failed to unmarshal workload CR: %w", err)
+		return true, fmt.Errorf("failed to unmarshal workload CR from run resource %q: %w", runRefName, err)
 	}
 
 	// Set the namespace to match the componentworkflowrun
 	workload.Namespace = componentWorkflowRun.Namespace
 
 	if err := r.Patch(ctx, workload, client.Apply, client.FieldOwner("componentworkflowrun-controller"), client.ForceOwnership); err != nil {
-		return true, fmt.Errorf("failed to apply workload CR: %w", err)
+		return true, fmt.Errorf("failed to apply workload %q in namespace %q: %w", workload.Name, workload.Namespace, err)
 	}
 
 	return false, nil
