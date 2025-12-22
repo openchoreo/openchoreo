@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -26,6 +27,8 @@ const (
 	defaultObserverBaseURL = "http://observer.openchoreo-observability-plane:8080"
 	alertingRulePath       = "/api/alerting/rule"
 	conditionTypeSynced    = "Synced"
+	// AlertRuleCleanupFinalizer is used to ensure alert rules are deleted from the backend before the CR is removed
+	AlertRuleCleanupFinalizer = "openchoreo.dev/alertrule-cleanup"
 )
 
 // AlertingRuleMetadata represents the metadata section of the observer alerting rule API.
@@ -97,10 +100,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// If being deleted, we currently do not propagate deletes to the observer backend.
-	// This can be enhanced later to call the DELETE endpoint.
+	// Handle deletion - delete alert rule from observer backend
 	if !alertRule.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		return r.finalize(ctx, alertRule)
+	}
+
+	// Ensure finalizer is added for cleanup
+	if !controllerutil.ContainsFinalizer(alertRule, AlertRuleCleanupFinalizer) {
+		controllerutil.AddFinalizer(alertRule, AlertRuleCleanupFinalizer)
+		if err := r.Update(ctx, alertRule); err != nil {
+			logger.Error(err, "failed to add finalizer")
+			return ctrl.Result{}, err
+		}
+		// Re-fetch after update to avoid conflicts
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Build the alerting rule request from the CR spec.
@@ -278,6 +291,61 @@ func setStatusCondition(rule *openchoreov1alpha1.ObservabilityAlertRule, status 
 		}
 	}
 	rule.Status.Conditions = append(rule.Status.Conditions, newCond)
+}
+
+// finalize handles the cleanup of the alert rule from the observer backend
+func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	if !controllerutil.ContainsFinalizer(alertRule, AlertRuleCleanupFinalizer) {
+		// Finalizer not present, nothing to clean up
+		return ctrl.Result{}, nil
+	}
+
+	logger.Info("Deleting alert rule from observer backend", "name", alertRule.Name, "sourceType", alertRule.Spec.Source.Type)
+
+	// Call DELETE endpoint on observer
+	observerURL := getObserverBaseURL()
+	url := fmt.Sprintf("%s%s/%s/%s", observerURL, alertingRulePath, alertRule.Spec.Source.Type, alertRule.Name)
+
+	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodDelete, url, nil)
+	if err != nil {
+		logger.Error(err, "failed to create DELETE HTTP request")
+		return ctrl.Result{}, err
+	}
+
+	resp, err := r.httpClient.Do(httpReq)
+	if err != nil {
+		logger.Error(err, "failed to call observer alerting DELETE API")
+		return ctrl.Result{}, err
+	}
+	defer resp.Body.Close()
+
+	// Accept 200, 204, or 404 (already deleted) as success
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 || resp.StatusCode == http.StatusNotFound {
+		logger.Info("Alert rule deleted from observer backend", "name", alertRule.Name, "statusCode", resp.StatusCode)
+	} else {
+		var errBody struct {
+			Message string `json:"message,omitempty"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&errBody)
+		err = fmt.Errorf("observer alerting DELETE API returned status %d: %s", resp.StatusCode, errBody.Message)
+		logger.Error(err, "observer alerting DELETE API call failed")
+		return ctrl.Result{}, err
+	}
+
+	// Remove finalizer after successful cleanup
+	controllerutil.RemoveFinalizer(alertRule, AlertRuleCleanupFinalizer)
+	if err := r.Update(ctx, alertRule); err != nil {
+		logger.Error(err, "failed to remove finalizer")
+		return ctrl.Result{}, err
+	}
+
+	logger.Info("Successfully finalized alert rule", "name", alertRule.Name)
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
