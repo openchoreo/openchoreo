@@ -16,6 +16,22 @@ spec:
 
   # Schema definition for component workflows
   schema:
+    # Types - Reusable type definitions for complex structures
+    # These can be referenced in parameters using the type name (e.g., "[]Endpoint", "ResourceRequirements")
+    # Allows defining lists, arrays, and nested objects with consistent structure
+    types:
+      Endpoint:
+        name: "string"
+        port: "integer"
+        type: "string | enum=REST,HTTP,TCP,UDP"
+        schemaFile: "string | description='Path to the schema file defining the endpoint structure'"
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
+        
     # System parameters - Required structured parameters for component workflows
     # These fields are necessary for workflow-specific platform features
     # Platform Engineers can customize defaults, enums, and descriptions, but must maintain the field structure
@@ -33,9 +49,6 @@ spec:
       testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
       command: '[]string | default=[] description="Custom command to override the default entrypoint"'
       args: '[]string | default=[] description="Custom arguments to pass to the command"'
-      resources:
-        cpuCores: integer | default=1 minimum=1 maximum=8 description="Number of CPU cores allocated for the build"
-        memoryGb: integer | default=2 minimum=1 maximum=32 description="Amount of memory in GB allocated for the build"
       timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
       cache:
         enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
@@ -43,6 +56,8 @@ spec:
       limits:
         maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
         maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
+      endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
+      resources: "ResourceRequirements | default={}"
 
   # Rendered workflow resource for ComponentWorkflowRun executions
   runTemplate:
@@ -76,10 +91,6 @@ spec:
             value: ${parameters.command}
           - name: args
             value: ${parameters.args}
-          - name: cpu-cores
-            value: ${parameters.resources.cpuCores}
-          - name: memory-gb
-            value: ${parameters.resources.memoryGb}
           - name: timeout
             value: ${parameters.timeout}
           - name: cache-enabled
@@ -90,6 +101,10 @@ spec:
             value: ${parameters.limits.maxRetries}
           - name: max-duration-minutes
             value: ${parameters.limits.maxDurationMinutes}
+          - name: endpoints
+            value: ${parameters.endpoints}
+          - name: resources
+            value: ${parameters.resources}
           # PE-controlled hardcoded parameters
           - name: builder-image
             value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1

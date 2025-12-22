@@ -394,6 +394,135 @@ parameters:
     paths: '[]string | default=[]'
 ```
 
+## Reusable Type Definitions
+
+ComponentWorkflows support a `types` field in the schema to define reusable type definitions for complex structures. This enables you to define custom types that can be referenced in parameters, reducing duplication and ensuring consistency.
+
+### Why Use Types?
+
+- **Reusability**: Define complex structures once and reference them multiple times
+- **Consistency**: Ensure the same structure is used across different parameters
+- **Maintainability**: Update type definitions in one place
+- **Clarity**: Make schemas more readable by extracting complex nested structures
+
+### Defining Types
+
+Types are defined at the schema level and can represent objects, arrays, or nested structures:
+
+```yaml
+schema:
+  types:
+    # Object type for endpoint configuration
+    Endpoint:
+      name: "string"
+      port: "integer"
+      type: "string | enum=REST,HTTP,TCP,UDP"
+      schemaFile: "string | description='Path to the schema file'"
+
+    # Nested object type for resource configuration
+    ResourceRequirements:
+      requests: "ResourceQuantity | default={}"
+      limits: "ResourceQuantity | default={}"
+
+    ResourceQuantity:
+      cpu: "string | default=100m"
+      memory: "string | default=256Mi"
+```
+
+### Using Types in Parameters
+
+Once defined, types can be referenced in parameters using the type name:
+
+```yaml
+schema:
+  types:
+    Endpoint:
+      name: "string"
+      port: "integer"
+      type: "string | enum=REST,HTTP,TCP,UDP"
+
+  parameters:
+    # Reference type as an array
+    endpoints: '[]Endpoint | default=[] description="List of service endpoints"'
+
+    # Reference type as a single object
+    resources: "ResourceRequirements | default={}"
+
+    # Use built-in array types
+    tags: '[]string | default=["latest"] description="Image tags"'
+```
+
+### Type Reference Syntax
+
+- **Single object**: `ResourceRequirements`
+- **Array of objects**: `[]Endpoint`
+- **Built-in arrays**: `[]string`, `[]integer`, `[]boolean`
+- **Nested types**: Types can reference other types (e.g., `ResourceRequirements` references `ResourceQuantity`)
+
+### Example: Complete Schema with Types
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: example-workflow
+spec:
+  schema:
+    # Define reusable types
+    types:
+      Endpoint:
+        name: "string"
+        port: "integer"
+        type: "string | enum=REST,HTTP,TCP,UDP"
+
+      ResourceRequirements:
+        requests: "ResourceQuantity"
+        limits: "ResourceQuantity"
+
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
+
+    systemParameters:
+      repository:
+        url: string
+        revision:
+          branch: string | default=main
+          commit: string
+        appPath: string | default=.
+
+    parameters:
+      # Use custom types
+      endpoints: '[]Endpoint | default=[] description="Service endpoints"'
+      resources: "ResourceRequirements | default={}"
+
+      # Regular parameters
+      version: integer | default=1
+      buildArgs: '[]string | default=[]'
+```
+
+### Accessing Typed Parameters in Templates
+
+Typed parameters can be accessed in the `runTemplate` just like any other parameter:
+
+```yaml
+spec:
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    spec:
+      arguments:
+        parameters:
+          # Access array of custom type
+          - name: endpoints
+            value: ${parameters.endpoints}
+
+          - name: resources
+            value: ${parameters.resources}
+```
+
+**Note**: Complex types (arrays and objects) are automatically converted to JSON strings when passed to Argo Workflow parameters, as Argo expects scalar string values.
+
 ## Platform Engineer vs Developer Responsibilities
 
 ### Platform Engineers Define:
