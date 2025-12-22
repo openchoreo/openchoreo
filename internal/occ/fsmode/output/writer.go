@@ -302,7 +302,7 @@ func (w *Writer) resolveOutputPath(
 
 	// Priority 1: Check config file for component-specific or project-specific path
 	if opts.Config != nil {
-		if configDir := opts.Config.GetOutputDir(projectName, componentName); configDir != "" {
+		if configDir := opts.Config.GetReleaseOutputDir(projectName, componentName); configDir != "" {
 			// If config path is relative, resolve it against baseDir
 			if !filepath.IsAbs(configDir) {
 				configDir = filepath.Join(w.baseDir, configDir)

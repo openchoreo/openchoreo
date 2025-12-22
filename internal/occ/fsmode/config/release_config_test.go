@@ -21,24 +21,28 @@ func TestLoadReleaseConfig(t *testing.T) {
 			name: "valid config with all fields",
 			content: `apiVersion: openchoreo.dev/v1alpha1
 kind: ReleaseConfig
-defaultOutputDir: ./releases
-projects:
-  demo-project:
-    defaultOutputDir: ./projects/demo/releases
-    components:
-      greeter: ./projects/demo/components/greeter/releases
-  ecommerce-demo:
-    defaultOutputDir: ./projects/ecommerce/releases
+componentReleaseDefaults:
+  defaultOutputDir: ./releases
+  projects:
+    demo-project:
+      defaultOutputDir: ./projects/demo/releases
+      components:
+        greeter: ./projects/demo/components/greeter/releases
+    ecommerce-demo:
+      defaultOutputDir: ./projects/ecommerce/releases
 `,
 			wantErr: false,
 			checkFunc: func(t *testing.T, cfg *ReleaseConfig) {
-				if cfg.DefaultOutputDir != "./releases" {
-					t.Errorf("expected defaultOutputDir './releases', got '%s'", cfg.DefaultOutputDir)
+				if cfg.ComponentReleaseDefaults == nil {
+					t.Fatal("expected componentReleaseDefaults to be non-nil")
 				}
-				if len(cfg.Projects) != 2 {
-					t.Errorf("expected 2 projects, got %d", len(cfg.Projects))
+				if cfg.ComponentReleaseDefaults.DefaultOutputDir != "./releases" {
+					t.Errorf("expected defaultOutputDir './releases', got '%s'", cfg.ComponentReleaseDefaults.DefaultOutputDir)
 				}
-				if cfg.Projects["demo-project"].DefaultOutputDir != "./projects/demo/releases" {
+				if len(cfg.ComponentReleaseDefaults.Projects) != 2 {
+					t.Errorf("expected 2 projects, got %d", len(cfg.ComponentReleaseDefaults.Projects))
+				}
+				if cfg.ComponentReleaseDefaults.Projects["demo-project"].DefaultOutputDir != "./projects/demo/releases" {
 					t.Errorf("unexpected project defaultOutputDir")
 				}
 			},
@@ -50,12 +54,8 @@ kind: ReleaseConfig
 `,
 			wantErr: false,
 			checkFunc: func(t *testing.T, cfg *ReleaseConfig) {
-				if cfg.DefaultOutputDir != "" {
-					t.Errorf("expected empty defaultOutputDir, got '%s'", cfg.DefaultOutputDir)
-				}
-				if len(cfg.Projects) != 0 {
-					t.Errorf("expected 0 projects, got %d", len(cfg.Projects))
-				}
+				// ComponentReleaseDefaults can be nil for minimal config
+				// This is valid - it means no custom output directories configured
 			},
 		},
 		{
@@ -145,23 +145,25 @@ func TestLoadReleaseConfig_FileNotFound(t *testing.T) {
 	}
 }
 
-func TestGetOutputDir(t *testing.T) {
+func TestGetReleaseOutputDir(t *testing.T) {
 	cfg := &ReleaseConfig{
-		APIVersion:       "openchoreo.dev/v1alpha1",
-		Kind:             "ReleaseConfig",
-		DefaultOutputDir: "./global-releases",
-		Projects: map[string]ProjectConfig{
-			"demo-project": {
-				DefaultOutputDir: "./projects/demo/releases",
-				Components: map[string]string{
-					"greeter": "./projects/demo/components/greeter/releases",
-					"api":     "./projects/demo/components/api/releases",
+		APIVersion: "openchoreo.dev/v1alpha1",
+		Kind:       "ReleaseConfig",
+		ComponentReleaseDefaults: &ComponentReleaseDefaults{
+			DefaultOutputDir: "./global-releases",
+			Projects: map[string]ProjectReleaseConfig{
+				"demo-project": {
+					DefaultOutputDir: "./projects/demo/releases",
+					Components: map[string]string{
+						"greeter": "./projects/demo/components/greeter/releases",
+						"api":     "./projects/demo/components/api/releases",
+					},
 				},
+				"ecommerce-demo": {
+					DefaultOutputDir: "./projects/ecommerce/releases",
+				},
+				"minimal-project": {},
 			},
-			"ecommerce-demo": {
-				DefaultOutputDir: "./projects/ecommerce/releases",
-			},
-			"minimal-project": {},
 		},
 	}
 
@@ -205,20 +207,32 @@ func TestGetOutputDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := cfg.GetOutputDir(tt.projectName, tt.componentName)
+			got := cfg.GetReleaseOutputDir(tt.projectName, tt.componentName)
 			if got != tt.want {
-				t.Errorf("GetOutputDir(%q, %q) = %q, want %q",
+				t.Errorf("GetReleaseOutputDir(%q, %q) = %q, want %q",
 					tt.projectName, tt.componentName, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestGetOutputDir_NilConfig(t *testing.T) {
+func TestGetReleaseOutputDir_NilConfig(t *testing.T) {
 	var cfg *ReleaseConfig = nil
-	got := cfg.GetOutputDir("project", "component")
+	got := cfg.GetReleaseOutputDir("project", "component")
 	if got != "" {
 		t.Errorf("expected empty string for nil config, got %q", got)
+	}
+}
+
+func TestGetReleaseOutputDir_NilComponentReleaseDefaults(t *testing.T) {
+	cfg := &ReleaseConfig{
+		APIVersion:               "openchoreo.dev/v1alpha1",
+		Kind:                     "ReleaseConfig",
+		ComponentReleaseDefaults: nil,
+	}
+	got := cfg.GetReleaseOutputDir("project", "component")
+	if got != "" {
+		t.Errorf("expected empty string when ComponentReleaseDefaults is nil, got %q", got)
 	}
 }
 
