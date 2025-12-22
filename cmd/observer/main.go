@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/mcp"
@@ -48,6 +49,14 @@ func main() {
 	logger := initLogger(cfg.LogLevel)
 	logger.Info("Configuration loaded successfully", "log_level", cfg.LogLevel)
 
+	// Initialize Kubernetes client for fetching notification channel configs
+	k8sClient, err := k8s.NewK8sClient()
+	if err != nil {
+		logger.Warn("Failed to initialize Kubernetes client, alert notifications will be disabled",
+			"error", err)
+		// Continue without k8s client - notifications will be skipped
+	}
+
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
 	if err != nil {
@@ -64,7 +73,7 @@ func main() {
 	metricsService := prometheus.NewMetricsService(promClient, logger)
 
 	// Initialize logging service
-	loggingService := service.NewLoggingService(osClient, metricsService, cfg, logger)
+	loggingService := service.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger)
 
 	// Initialize HTTP server
 	mux := http.NewServeMux()
