@@ -21,6 +21,17 @@ openSearchCluster:
 
 # OpenChoreo Observer Service Configuration
 observer:
+  extraEnvs:
+    - name: JWKS_URL
+      value: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
+      value: "false"
+    - name: OPENSEARCH_ADDRESS
+      value: "https://opensearch:9200"
+    - name: PROMETHEUS_ADDRESS
+      value: "http://openchoreo-observability-prometheus:9091"
+    - name: PROMETHEUS_TIMEOUT
+      value: "30s"
   resources:
     limits:
       cpu: 50m
