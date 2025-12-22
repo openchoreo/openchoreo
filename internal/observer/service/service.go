@@ -11,10 +11,17 @@ import (
 	"log/slog"
 	"reflect"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
@@ -33,6 +40,7 @@ type OpenSearchClient interface {
 	CreateMonitor(ctx context.Context, monitor map[string]interface{}) (id string, lastUpdateTime int64, err error)
 	UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (lastUpdateTime int64, err error)
 	DeleteMonitor(ctx context.Context, monitorID string) error
+	WriteAlertEntry(ctx context.Context, entry map[string]interface{}) (string, error)
 	HealthCheck(ctx context.Context) error
 }
 
@@ -41,6 +49,7 @@ type LoggingService struct {
 	osClient       OpenSearchClient
 	queryBuilder   *opensearch.QueryBuilder
 	metricsService *prometheus.MetricsService
+	k8sClient      client.Client
 	config         *config.Config
 	logger         *slog.Logger
 }
@@ -65,11 +74,12 @@ type HTTPMetricsTimeSeries struct {
 }
 
 // NewLoggingService creates a new logging service instance
-func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, cfg *config.Config, logger *slog.Logger) *LoggingService {
+func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, k8sClient client.Client, cfg *config.Config, logger *slog.Logger) *LoggingService {
 	return &LoggingService{
 		osClient:       osClient,
 		queryBuilder:   opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
 		metricsService: metricsService,
+		k8sClient:      k8sClient,
 		config:         cfg,
 		logger:         logger,
 	}
@@ -949,4 +959,263 @@ func (s *LoggingService) GetRCAReportByAlert(ctx context.Context, params opensea
 		"available_versions_count", len(availableVersions))
 
 	return result, nil
+}
+
+// SendAlertNotification sends an alert notification via the configured notification channel
+func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody map[string]interface{}) error {
+	// Extract metadata from the webhook payload
+	ruleName := "unknown-rule"
+	if name, ok := requestBody["ruleName"].(string); ok && name != "" {
+		ruleName = name
+	}
+
+	notificationChannelName := ""
+	if channel, ok := requestBody["notificationChannel"].(string); ok && channel != "" {
+		notificationChannelName = channel
+	}
+
+	// If no notification channel is specified, log and skip
+	if notificationChannelName == "" {
+		s.logger.Warn("Missing notification channel in webhook payload, skipping notification",
+			"ruleName", ruleName,
+			"notificationChannel", notificationChannelName)
+		return nil
+	}
+
+	// Fetch the notification channel configuration from Kubernetes
+	channelConfig, err := s.getNotificationChannelConfig(ctx, notificationChannelName)
+	if err != nil {
+		s.logger.Error("Failed to get notification channel config",
+			"error", err,
+			"channelName", notificationChannelName)
+		return fmt.Errorf("failed to get notification channel config: %w", err)
+	}
+
+	// Render the incoming alert payload for human-friendly notifications
+	payload, err := json.MarshalIndent(requestBody, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal alert payload: %w", err)
+	}
+
+	// Build subject and body using templates if available, otherwise use defaults
+	subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
+	if channelConfig.Email.SubjectTemplate != "" {
+		subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
+	}
+
+	emailBody := fmt.Sprintf("An alert was received at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
+	if channelConfig.Email.BodyTemplate != "" {
+		emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
+	}
+
+	// Send the notification using the fetched config
+	if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
+		s.logger.Error("Failed to send alert notification email",
+			"error", err,
+			"channelName", notificationChannelName,
+			"recipients", channelConfig.Email.To)
+		return fmt.Errorf("failed to send alert notification email: %w", err)
+	}
+
+	s.logger.Info("Alert notification sent successfully",
+		"ruleName", ruleName,
+		"channelName", notificationChannelName,
+		"recipients", channelConfig.Email.To)
+
+	return nil
+}
+
+// getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
+// It reads the ConfigMap and Secret for the notification channel and resolves SMTP credentials
+func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Search for the ConfigMap for the notification channel in all namespaces
+	var configMap *corev1.ConfigMap
+	foundConfigMap := false
+
+	configMapList := &corev1.ConfigMapList{}
+	if err := s.k8sClient.List(ctx, configMapList); err != nil {
+		return nil, fmt.Errorf("failed to list ConfigMaps in all namespaces: %w", err)
+	}
+
+	for _, cm := range configMapList.Items {
+		if cm.Name == channelName {
+			cmCopy := cm.DeepCopy()
+			configMap = cmCopy
+			foundConfigMap = true
+			break
+		}
+	}
+
+	if !foundConfigMap {
+		return nil, fmt.Errorf("failed to find notification channel ConfigMap %s in any namespace", channelName)
+	}
+
+	// Search for the Secret for the notification channel in all namespaces
+	var secret *corev1.Secret
+	secretFound := false
+
+	secretList := &corev1.SecretList{}
+	if err := s.k8sClient.List(ctx, secretList); err != nil {
+		return nil, fmt.Errorf("failed to list Secrets in all namespaces: %w", err)
+	}
+
+	for _, sec := range secretList.Items {
+		if sec.Name == channelName {
+			secret = sec.DeepCopy()
+			secretFound = true
+			break
+		}
+	}
+
+	if !secretFound {
+		return nil, fmt.Errorf("failed to find notification channel Secret %s in any namespace", channelName)
+	}
+
+	// Parse SMTP port from ConfigMap
+	smtpPort := 587 // default SMTP port
+	if portStr, ok := configMap.Data["smtp.port"]; ok {
+		if port, err := strconv.Atoi(portStr); err == nil {
+			smtpPort = port
+		}
+	}
+
+	// Parse recipients from ConfigMap (stored as string representation of array)
+	var recipients []string
+	if toStr, ok := configMap.Data["to"]; ok {
+		// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
+		// Parse it back to a slice
+		recipients = parseRecipientsList(toStr)
+	}
+
+	config := &notifications.NotificationChannelConfig{
+		SMTP: notifications.SMTPConfig{
+			Host: configMap.Data["smtp.host"],
+			Port: smtpPort,
+			From: configMap.Data["from"],
+		},
+		Email: notifications.EmailConfig{
+			To:              recipients,
+			SubjectTemplate: configMap.Data["template.subject"],
+			BodyTemplate:    configMap.Data["template.body"],
+		},
+	}
+
+	// Read SMTP credentials directly from the secret
+	if secret != nil && secret.Data != nil {
+		s.logger.Debug("Reading SMTP credentials from secret",
+			"secretName", secret.Name,
+			"secretNamespace", secret.Namespace)
+
+		if username, ok := secret.Data["smtp.auth.username"]; ok {
+			config.SMTP.Username = string(username)
+			s.logger.Debug("SMTP username loaded")
+		} else {
+			s.logger.Warn("SMTP username key not found in secret")
+		}
+		if password, ok := secret.Data["smtp.auth.password"]; ok {
+			config.SMTP.Password = string(password)
+			s.logger.Debug("SMTP password loaded")
+		} else {
+			s.logger.Warn("SMTP password key not found in secret")
+		}
+	} else {
+		s.logger.Warn("Secret is nil or has no data",
+			"secretNil", secret == nil)
+	}
+
+	s.logger.Debug("Final SMTP config",
+		"host", config.SMTP.Host,
+		"port", config.SMTP.Port,
+		"from", config.SMTP.From,
+		"hasUsername", config.SMTP.Username != "",
+		"hasPassword", config.SMTP.Password != "")
+
+	return config, nil
+}
+
+// parseRecipientsList parses a string representation of recipients list
+// The format is "[email1@example.com email2@example.com]" as stored by the controller
+func parseRecipientsList(s string) []string {
+	// Remove brackets if present
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	s = strings.TrimSpace(s)
+
+	if s == "" {
+		return nil
+	}
+
+	// Split by whitespace
+	parts := strings.Fields(s)
+	return parts
+}
+
+// renderTemplate performs simple template rendering by replacing ${key} with values from the map
+func (s *LoggingService) renderTemplate(template string, data map[string]interface{}) string {
+	result := template
+
+	// Replace known placeholders
+	replacements := map[string]string{
+		"${alert.name}":        getString(data, "ruleName"),
+		"${alert.ruleName}":    getString(data, "ruleName"),
+		"${alert.value}":       getStringFromAny(data["alertValue"]),
+		"${alert.timestamp}":   getString(data, "timestamp"),
+		"${alert.componentId}": getString(data, "componentUid"),
+		"${alert.projectId}":   getString(data, "projectUid"),
+		"${alert.envId}":       getString(data, "environmentUid"),
+	}
+
+	for placeholder, value := range replacements {
+		result = strings.ReplaceAll(result, placeholder, value)
+	}
+
+	return result
+}
+
+// getString safely extracts a string value from the map
+func getString(m map[string]interface{}, key string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return ""
+}
+
+// getStringFromAny converts any value to string representation
+func getStringFromAny(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+// StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
+func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[string]interface{}) (string, error) {
+	ruleName := "unknown-rule"
+	if name, ok := requestBody["ruleName"].(string); ok && name != "" {
+		ruleName = name
+	}
+
+	alertEntry := map[string]interface{}{
+		"@timestamp":      requestBody["timestamp"],
+		"alert_rule_name": ruleName,
+		"alert_value":     requestBody["alertValue"],
+		"labels": map[string]interface{}{
+			labels.ComponentID:   requestBody["componentUid"],
+			labels.EnvironmentID: requestBody["environmentUid"],
+			labels.ProjectID:     requestBody["projectUid"],
+		},
+		"enable_ai_rca": requestBody["enableAiRootCauseAnalysis"],
+	}
+
+	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
+	if err != nil {
+		s.logger.Error("Failed to write alert entry to OpenSearch", "error", err)
+		return "", fmt.Errorf("failed to write alert entry: %w", err)
+	}
+
+	return alertID, nil
 }

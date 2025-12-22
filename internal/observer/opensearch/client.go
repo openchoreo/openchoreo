@@ -20,6 +20,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
+const alertsIndexName = "openchoreo-alerts"
+
 // Client wraps the OpenSearch client with logging and configuration
 type Client struct {
 	client *opensearch.Client
@@ -340,4 +342,42 @@ func (c *Client) DeleteMonitor(ctx context.Context, monitorID string) error {
 
 	c.logger.Debug("Monitor deleted successfully", "monitor_id", monitorID)
 	return nil
+}
+
+// WriteAlertEntry writes an alert entry to OpenSearch (openchoreo-alerts index)
+func (c *Client) WriteAlertEntry(ctx context.Context, entry map[string]interface{}) (string, error) {
+	body, err := json.Marshal(entry)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal alert entry: %w", err)
+	}
+
+	req := opensearchapi.IndexRequest{
+		Index:   alertsIndexName,
+		Body:    bytes.NewReader(body),
+		Refresh: "true",
+	}
+
+	res, err := req.Do(ctx, c.client)
+	if err != nil {
+		return "", fmt.Errorf("alert index request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		bodyBytes, _ := io.ReadAll(res.Body)
+		c.logger.Error("Alert index request returned error",
+			"status", res.Status(),
+			"response", string(bodyBytes))
+		return "", fmt.Errorf("alert index request failed with status: %s, response: %s", res.Status(), string(bodyBytes))
+	}
+
+	var parsed struct {
+		ID string `json:"_id"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
+		return "", fmt.Errorf("failed to parse alert index response: %w", err)
+	}
+
+	c.logger.Debug("Alert entry written", "alert_id", parsed.ID)
+	return parsed.ID, nil
 }

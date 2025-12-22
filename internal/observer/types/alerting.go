@@ -3,7 +3,7 @@
 
 package types
 
-// AlertingRuleRequest represents the request body for PUT /api/alerting/rule/{ruleName}
+// AlertingRuleRequest represents the request body for PUT /api/alerting/rule/{sourceType}/{ruleName}
 type AlertingRuleRequest struct {
 	Metadata  AlertingRuleMetadata  `json:"metadata"`
 	Source    AlertingRuleSource    `json:"source"`
@@ -17,6 +17,7 @@ type AlertingRuleMetadata struct {
 	ProjectUID                string `json:"project-uid"`
 	EnvironmentUID            string `json:"environment-uid"`
 	Severity                  string `json:"severity"`
+	NotificationChannel       string `json:"notificationChannel"`
 	EnableAiRootCauseAnalysis bool   `json:"enableAiRootCauseAnalysis"`
 }
 

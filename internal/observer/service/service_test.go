@@ -28,6 +28,8 @@ type MockOpenSearchClient struct {
 	monitorUpdate  error
 	monitorDelete  error
 	monitorBody    map[string]interface{}
+	alertEntryID   string
+	alertEntryErr  error
 }
 
 func (m *MockOpenSearchClient) Search(ctx context.Context, indices []string, query map[string]interface{}) (*opensearch.SearchResponse, error) {
@@ -78,6 +80,20 @@ func (m *MockOpenSearchClient) UpdateMonitor(ctx context.Context, monitorID stri
 
 func (m *MockOpenSearchClient) DeleteMonitor(ctx context.Context, monitorID string) error {
 	return m.monitorDelete
+}
+
+func (m *MockOpenSearchClient) WriteAlertEntry(ctx context.Context, entry map[string]interface{}) (string, error) {
+	if m.alertEntryErr != nil {
+		return "", m.alertEntryErr
+	}
+	if m.alertEntryID == "" {
+		m.alertEntryID = "alert-entry-id"
+	}
+	// store entry to ensure it's non-nil for potential future assertions
+	if m.monitorBody == nil {
+		m.monitorBody = entry
+	}
+	return m.alertEntryID, nil
 }
 
 func newMockLoggingService() *LoggingService {

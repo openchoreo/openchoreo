@@ -778,15 +778,17 @@ func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 	componentUID, _ := json.Marshal(params.Metadata.ComponentUID)
 	projectUID, _ := json.Marshal(params.Metadata.ProjectUID)
 	environmentUID, _ := json.Marshal(params.Metadata.EnvironmentUID)
+	notificationChannel, _ := json.Marshal(params.Metadata.NotificationChannel)
 	enableAiRootCauseAnalysis, _ := json.Marshal(params.Metadata.EnableAiRootCauseAnalysis)
 
 	// Build the JSON template with Mustache variables
 	return fmt.Sprintf(
-		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"enableAiRootCauseAnalysis":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"notificationChannel":%s,"enableAiRootCauseAnalysis":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
 		string(ruleName),
 		string(componentUID),
 		string(projectUID),
 		string(environmentUID),
+		string(notificationChannel),
 		string(enableAiRootCauseAnalysis),
 	)
 }
