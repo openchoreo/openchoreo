@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/mcp"
@@ -66,11 +68,23 @@ func main() {
 	// Initialize logging service
 	loggingService := service.NewLoggingService(osClient, metricsService, cfg, logger)
 
+	// Initialize authz client
+	var authzPDP authzcore.PDP
+	if cfg.Authz.Enabled {
+		authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
+		if err != nil {
+			logger.Error("Failed to create authz client", "error", err)
+			os.Exit(1)
+		}
+		authzPDP = authzClient
+		logger.Info("Authorization client initialized")
+	}
+
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
+	handler := handlers.NewHandler(loggingService, logger, authzPDP, cfg.Alerting.WebhookSecret)
 
 	// ===== Initialize Middlewares =====
 
