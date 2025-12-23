@@ -7,7 +7,7 @@ metadata:
   annotations:
     openchoreo.dev/display-name: {{ .Values.global.defaultResources.project.displayName }}
     openchoreo.dev/description: {{ .Values.global.defaultResources.project.description }}
-    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook": post-install
     "helm.sh/hook-weight": "7"
   labels:
     openchoreo.dev/organization: default
