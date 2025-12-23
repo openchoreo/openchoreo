@@ -1,16 +1,43 @@
-## STRUCTURE OF THE VALUES FILE
-# This values file has 2 main sections:
-# 1. Values passed to dependent helm charts (like opentelemetry-collector, kgateway, etc)
-# 2. Values passed to templates in the openchoreo-observability-plane chart itself
+# yaml-language-server: $schema=values.schema.json
 
+# @schema.root
+# title: OpenChoreo Observability Plane
+# description: |
+#   Helm chart values for the OpenChoreo Observability Plane.
+#   This chart deploys a complete observability stack including logging (OpenSearch, Fluent Bit),
+#   metrics (Prometheus, OpenTelemetry), tracing, and AI-powered root cause analysis.
+#   Values are organized into two sections:
+#   1. Values passed to dependent helm charts (opentelemetry-collector, prometheus, opensearch, etc.)
+#   2. Values passed to templates in the openchoreo-observability-plane chart itself
+# @schema.root
 
-# Global values shared across all components
+# @schema
+# type: object
+# additionalProperties: true
+# description: Global values shared across all components in the observability plane
+# @schema
 global:
+  # @schema
+  # type: string
+  # description: Base domain for the observability plane used in gateway routing and ingress configuration
+  # default: ""
+  # @schema
   baseDomain: ""
 
-  # Common labels to add to all resources
+  # @schema
+  # type: object
+  # description: Common labels applied to all resources created by this chart
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   commonLabels: {}
 
+  # @schema
+  # description: Installation mode of OpenChoreo
+  # enum: [singleCluster, multiCluster, quickStart]
+  # default: singleCluster
+  # @schema
   # Installation mode of OpenChoreo
   # Supported values:
   # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster
@@ -18,70 +45,369 @@ global:
   # quickStart: Limited set of features for quick-start setup
   installationMode: singleCluster
 
-# Kubernetes cluster domain for controller manager defaults
+# @schema
+# type: string
+# description: Kubernetes cluster domain used for service discovery DNS resolution
+# default: cluster.local
+# @schema
 kubernetesClusterDomain: cluster.local
 
+# @schema
+# type: object
+# description: Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs
+# @schema
 controllerManager:
+  # @schema
+  # type: boolean
+  # description: Enable or disable the controller manager deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the controller manager deployment and associated resources
+  # default: controller-manager
+  # @schema
   name: controller-manager
+
+  # @schema
+  # type: integer
+  # description: Number of controller manager pod replicas
+  # minimum: 0
+  # default: 1
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration for the controller manager
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository for the controller manager
+    # default: ghcr.io/openchoreo/controller
+    # @schema
     repository: ghcr.io/openchoreo/controller
+
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
     tag: ""
+
+    # @schema
+    # description: Image pull policy for the controller manager container
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
+
+  # @schema
+  # type: string
+  # description: Identifier for this deployment plane type
+  # default: observabilityplane
+  # @schema
   deploymentPlane: observabilityplane
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits for the controller manager container
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for the controller manager
+      # default: 500m
+      # @schema
       cpu: 500m
+      # @schema
+      # type: string
+      # description: Memory limit for the controller manager
+      # default: 512Mi
+      # @schema
       memory: 512Mi
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed to the container
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for the controller manager
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request for the controller manager
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+
+  # @schema
+  # type: object
+  # description: Service account configuration for the controller manager
+  # @schema
   serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a dedicated service account for the controller manager
+    # default: true
+    # @schema
     create: true
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+
+  # @schema
+  # type: object
+  # description: Priority class configuration for scheduling priority
+  # @schema
   priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a priority class for the controller manager
+    # default: false
+    # @schema
     create: false
+    # @schema
+    # type: string
+    # description: Name of the priority class
+    # default: observabilityplane-controller-manager
+    # @schema
     name: observabilityplane-controller-manager
+    # @schema
+    # type: integer
+    # description: Priority value (higher values indicate higher priority)
+    # minimum: 0
+    # default: 900000
+    # @schema
     value: 900000
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling constraints
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling on tainted nodes
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
   affinity: {}
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across failure domains
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   topologySpreadConstraints: []
+
+  # @schema
+  # type: object
+  # description: Pod-level security context settings
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Require the container to run as a non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: integer
+    # description: User ID to run the container process
+    # minimum: 0
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # @schema
+    # type: integer
+    # description: Group ID to run the container process
+    # minimum: 0
+    # default: 1000
+    # @schema
     runAsGroup: 1000
+    # @schema
+    # type: integer
+    # description: Group ID for filesystem access
+    # minimum: 0
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container-level security context settings
+  # @schema
   containerSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation within the container
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # description: Linux capabilities configuration
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop from the container
+      # items:
+      #   type: string
+      # default: ["ALL"]
+      # @schema
       drop:
         - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: false
+    # @schema
     readOnlyRootFilesystem: false
+    # @schema
+    # type: object
+    # description: Seccomp profile configuration
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Unconfined, Localhost]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+
+  # @schema
+  # type: object
+  # description: Controller manager process configuration
+  # @schema
   manager:
+    # @schema
+    # type: array
+    # description: Command line arguments passed to the controller manager
+    # items:
+    #   type: string
+    # @schema
     args:
       - --metrics-bind-address=:0
       - --health-probe-bind-address=:8081
       - --deployment-plane=observabilityplane
+    # @schema
+    # type: object
+    # description: Environment variable configuration for the manager
+    # @schema
     env:
+      # @schema
+      # type: string
+      # description: Enable or disable admission webhooks
+      # default: "false"
+      # @schema
       enableWebhooks: "false"
+
+  # @schema
+  # type: object
+  # description: Cluster gateway configuration for multi-cluster communication
+  # @schema
   clusterGateway:
+    # @schema
+    # type: boolean
+    # description: Enable cluster gateway integration for multi-cluster setups
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: string
+    # description: URL of the cluster gateway service in the control plane
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    # type: object
+    # description: TLS configuration for cluster gateway communication
+    # @schema
     tls:
+      # @schema
+      # type: string
+      # description: Path to the CA certificate file for gateway verification
+      # default: /etc/cluster-gateway/ca.crt
+      # @schema
       caPath: /etc/cluster-gateway/ca.crt
+      # @schema
+      # type: string
+      # description: Name of the ConfigMap containing the gateway CA certificate
+      # default: cluster-gateway-ca
+      # @schema
       caConfigMap: cluster-gateway-ca
 
 ## Values for dependent charts
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Data Prepper subchart configuration for trace data processing and transformation before sending to OpenSearch
+# @schema
 data-prepper:
+  # @schema
+  # type: boolean
+  # description: Enable Data Prepper for trace pipeline processing
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of Data Prepper resources
+  # default: data-prepper
+  # @schema
   fullnameOverride: "data-prepper"
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Pipeline configuration for Data Prepper trace processing
+  # @schema
   pipelineConfig:
+    # @schema
+    # type: boolean
+    # description: Enable pipeline configuration
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Pipeline definitions for trace processing (passed directly to Data Prepper)
+    # @schema
     config:
       trace-pipeline:
         delay: "100"
@@ -100,60 +426,259 @@ data-prepper:
               index: otel-traces-%{yyyy-MM-dd}
               username: admin
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits for Data Prepper pods
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for Data Prepper
+      # default: 1000m
+      # @schema
       cpu: 1000m
+      # @schema
+      # type: string
+      # description: Memory limit for Data Prepper
+      # default: 500Mi
+      # @schema
       memory: 500Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for Data Prepper
+      # default: 700m
+      # @schema
       cpu: 700m
+      # @schema
+      # type: string
+      # description: Memory request for Data Prepper
+      # default: 500Mi
+      # @schema
       memory: 500Mi
 
 
-# External Secrets Operator configuration for secret management
-# Single cluster: Set to false to use data plane's ESO
-# Multi-cluster: Set to true to install dedicated ESO in observability plane
+# @schema
+# type: object
+# additionalProperties: true
+# description: |
+#   External Secrets Operator subchart configuration for secret management.
+#   Single cluster: Set enabled to false to use the data plane's ESO.
+#   Multi-cluster: Set enabled to true to install a dedicated ESO in the observability plane.
+# @schema
 external-secrets:
+  # @schema
+  # type: boolean
+  # description: Enable External Secrets Operator installation in this chart
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of External Secrets Operator resources
+  # default: external-secrets
+  # @schema
   fullnameOverride: external-secrets
+
+  # @schema
+  # type: string
+  # description: Override the name of External Secrets Operator resources
+  # default: external-secrets
+  # @schema
   nameOverride: external-secrets
 
 
-# Fake Secret Store configuration for local development
+# @schema
+# type: object
+# additionalProperties: true
+# description: Fake Secret Store configuration for local development without a real secret backend
+# @schema
 fakeSecretStore:
+  # @schema
+  # type: boolean
+  # description: Enable fake secret store (requires external-secrets.enabled to be true)
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Name of the ClusterSecretStore resource
+  # default: default
+  # @schema
   name: default
+
+  # @schema
+  # type: array
+  # description: List of fake secrets to provide for development
+  # items:
+  #   type: object
+  #   properties:
+  #     key:
+  #       type: string
+  #       description: Secret key name
+  #     value:
+  #       type: string
+  #       description: Secret value
+  # @schema
   secrets:
     - key: RCA_LLM_API_KEY
       value: "fake-llm-api-key-for-development"
 
-# kgateway configurations
+# @schema
+# type: object
+# additionalProperties: true
+# description: KGateway subchart configuration for API gateway functionality using Envoy-based gateway
+# @schema
 kgateway:
+  # @schema
+  # type: boolean
+  # description: Enable KGateway API gateway
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of KGateway resources
+  # default: kgateway
+  # @schema
   fullnameOverride: "kgateway"
 
-  # KGateway controller configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: KGateway controller configuration
+  # @schema
   controller:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Container image configuration for the KGateway controller
+    # @schema
     image:
+      # @schema
+      # description: Image pull policy for the KGateway controller
+      # enum: [Always, IfNotPresent, Never]
+      # default: IfNotPresent
+      # @schema
       pullPolicy: IfNotPresent
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Service configuration for the KGateway controller
+    # @schema
     service:
+      # @schema
+      # description: Kubernetes service type
+      # enum: [ClusterIP, NodePort, LoadBalancer]
+      # default: ClusterIP
+      # @schema
       type: ClusterIP
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Service port configuration
+      # @schema
       ports:
+        # @schema
+        # type: integer
+        # description: gRPC port for the API gateway
+        # minimum: 1
+        # maximum: 65535
+        # default: 9978
+        # @schema
         agwGrpc: 9978
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits for the KGateway controller
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the container can use
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: CPU limit for KGateway controller
+        # default: 200m
+        # @schema
         cpu: 200m
+        # @schema
+        # type: string
+        # description: Memory limit for KGateway controller
+        # default: 256Mi
+        # @schema
         memory: 256Mi
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed to the container
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: CPU request for KGateway controller
+        # default: 100m
+        # @schema
         cpu: 100m
+        # @schema
+        # type: string
+        # description: Memory request for KGateway controller
+        # default: 128Mi
+        # @schema
         memory: 128Mi
 
 
+# @schema
+# type: object
+# additionalProperties: true
+# description: OpenTelemetry Collector subchart configuration for telemetry data collection and processing
+# @schema
 opentelemetry-collector:
+  # @schema
+  # type: boolean
+  # description: Enable OpenTelemetry Collector deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: ClusterRole configuration for the collector
+  # @schema
   clusterRole:
+    # @schema
+    # type: boolean
+    # description: Create a ClusterRole for the collector
+    # default: true
+    # @schema
     create: true
+    # @schema
+    # type: array
+    # description: RBAC rules for the collector ClusterRole
+    # items:
+    #   type: object
+    # @schema
     rules:
       - apiGroups: [""]
         resources: ["pods"]
@@ -162,65 +687,291 @@ opentelemetry-collector:
         resources: ["replicasets"]
         verbs: ["list","watch"]
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: ConfigMap configuration for the collector
+  # @schema
   configMap:
+    # @schema
+    # type: boolean
+    # description: Create ConfigMap (set to false to use existing ConfigMap)
+    # default: false
+    # @schema
     create: false
+    # @schema
+    # type: string
+    # description: Name of existing ConfigMap to use for collector configuration
+    # default: opentelemetry-collector-config
+    # @schema
     existingName: "opentelemetry-collector-config"
 
+  # @schema
+  # type: string
+  # description: Override the full name of OpenTelemetry Collector resources
+  # default: opentelemetry-collector
+  # @schema
   fullnameOverride: "opentelemetry-collector"
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository (uses contrib distribution for extended features)
+    # default: otel/opentelemetry-collector-contrib
+    # @schema
     repository: otel/opentelemetry-collector-contrib
 
+  # @schema
+  # description: Deployment mode for the collector
+  # enum: [deployment, daemonset, statefulset, sidecar]
+  # default: deployment
+  # @schema
   mode: deployment
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits for the collector
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for the collector
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory limit for the collector
+      # default: 200Mi
+      # @schema
       memory: 200Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for the collector
+      # default: 50m
+      # @schema
       cpu: 50m
+      # @schema
+      # type: string
+      # description: Memory request for the collector
+      # default: 100Mi
+      # @schema
       memory: 100Mi
 
 
+# @schema
+# type: object
+# additionalProperties: true
+# description: OpenSearch Helm subchart configuration (legacy, prefer openSearchCluster for operator-based deployment)
+# @schema
 openSearch:
+  # @schema
+  # type: boolean
+  # description: Enable OpenSearch Helm chart deployment (alternative to operator-based openSearchCluster)
+  # default: false
+  # @schema
   enabled: false
 
+  # @schema
+  # type: array
+  # description: Extra environment variables for OpenSearch pods
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
   extraEnvs:
     - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
       value: ThisIsTheOpenSearchPassword1
+
+  # @schema
+  # type: string
+  # description: Override the name of OpenSearch resources
+  # default: opensearch
+  # @schema
   nameOverride: "opensearch"
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container image configuration for OpenSearch
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: OpenSearch image tag version
+    # default: "3.3.0"
+    # @schema
     tag: "3.3.0"
+
+  # @schema
+  # type: string
+  # description: Name of the master service for cluster discovery
+  # default: opensearch
+  # @schema
   masterService: opensearch
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: RBAC configuration for OpenSearch
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources for OpenSearch
+    # default: true
+    # @schema
     create: true
+    # @schema
+    # type: string
+    # description: Name of the service account for OpenSearch
+    # default: opensearch
+    # @schema
     serviceAccountName: "opensearch"
 
+  # @schema
+  # type: boolean
+  # description: Run OpenSearch as a single node (for development/testing)
+  # default: true
+  # @schema
   singleNode: true
 
-# Customizing OpenSearch Dashboards configurations
+# @schema
+# type: object
+# additionalProperties: true
+# description: OpenSearch Dashboards subchart configuration for visualization UI
+# @schema
 openSearchDashboards:
+  # @schema
+  # type: boolean
+  # description: Enable OpenSearch Dashboards deployment
+  # default: false
+  # @schema
   enabled: false
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: OpenSearch Dashboards configuration options
+  # @schema
   config:
+    # @schema
+    # type: string
+    # description: Disable security features in dashboards (for development)
+    # default: "true"
+    # @schema
     disableSecurity: "true"
 
+  # @schema
+  # type: array
+  # description: Extra environment variables for OpenSearch Dashboards pods
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
   extraEnvs:
   - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
     value: "true"
 
+  # @schema
+  # type: string
+  # description: Override the name of OpenSearch Dashboards resources
+  # default: opensearch-dashboards
+  # @schema
   nameOverride: "opensearch-dashboards"
+
+  # @schema
+  # type: string
+  # description: Override the full name of OpenSearch Dashboards resources
+  # default: opensearch-dashboards
+  # @schema
   fullnameOverride: "opensearch-dashboards"
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: OpenSearch Dashboards image tag version
+    # default: "3.3.0"
+    # @schema
     tag: "3.3.0"
+
+  # @schema
+  # type: string
+  # description: URL of the OpenSearch cluster to connect to
+  # default: http://opensearch:9200
+  # @schema
   opensearchHosts: "http://opensearch:9200"
+
+  # @schema
+  # type: integer
+  # description: Number of OpenSearch Dashboards replicas
+  # minimum: 0
+  # default: 1
+  # @schema
   replicas: 1
 
-# OpenChoreo Observer Service Configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing
+# @schema
 observer:
+  # @schema
+  # type: integer
+  # description: Number of Observer pod replicas
+  # minimum: 0
+  # default: 1
+  # @schema
   replicas: 1
 
+  # @schema
+  # type: array
+  # description: Extra environment variables for the Observer container
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://localhost:11080"
@@ -239,37 +990,152 @@ observer:
   - name: ALERTING_WEBHOOK_SECRET
     value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
 
+  # @schema
+  # type: object
+  # description: Container image configuration for the Observer
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository for the Observer
+    # default: ghcr.io/openchoreo/observer
+    # @schema
     repository: ghcr.io/openchoreo/observer
-    tag: ""  # If no value is set, use Chart.AppVersion
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy for the Observer container
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
 
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration for the Observer
+  # @schema
   service:
+    # @schema
+    # description: Kubernetes service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port for the Observer API
+    # minimum: 1
+    # maximum: 65535
+    # default: 8080
+    # @schema
     port: 8080
 
+  # @schema
+  # description: Log level for the Observer service
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
 
+  # @schema
+  # type: object
+  # description: Prometheus connection configuration
+  # @schema
   prometheus:
-    # Prometheus server address (will be constructed from helm release name)
-    address: ""  # If no value is set, use observability-plane-promet-prometheus:9090
+    # @schema
+    # type: string
+    # description: Prometheus server address (auto-constructed from release name if empty)
+    # default: ""
+    # @schema
+    address: ""
+    # @schema
+    # type: string
+    # description: Timeout for Prometheus queries
+    # default: 30s
+    # @schema
     timeout: 30s
 
+  # @schema
+  # type: object
+  # description: Resource requests and limits for the Observer container
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for the Observer
+      # default: 200m
+      # @schema
       cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory limit for the Observer
+      # default: 200Mi
+      # @schema
       memory: 200Mi
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed to the container
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for the Observer
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request for the Observer
+      # default: 128Mi
+      # @schema
       memory: 128Mi
 
+  # @schema
+  # type: string
+  # description: Username for OpenSearch authentication
+  # default: admin
+  # @schema
   openSearchUsername: admin
+
+  # @schema
+  # type: string
+  # description: Password for OpenSearch authentication
+  # default: ThisIsTheOpenSearchPassword1
+  # @schema
   openSearchPassword: ThisIsTheOpenSearchPassword1
 
-# Fluent Bit configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: Fluent Bit subchart configuration for log collection and forwarding to OpenSearch
+# @schema
 fluentBit:
+  # @schema
+  # type: boolean
+  # description: Enable Fluent Bit log collector deployment
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)
+  # @schema
   config:
+    # @schema
+    # type: string
+    # description: Custom parser definitions in Fluent Bit configuration format
+    # @schema
     customParsers: |
       [PARSER]
           Name docker_no_time
@@ -278,6 +1144,10 @@ fluentBit:
           Time_Key time
           Time_Format %Y-%m-%dT%H:%M:%S.%L
 
+    # @schema
+    # type: string
+    # description: Input plugin configuration for log collection
+    # @schema
     inputs: |
       [INPUT]
           Name tail
@@ -294,6 +1164,10 @@ fluentBit:
           Skip_Long_Lines On
           Tag kube.*
 
+    # @schema
+    # type: string
+    # description: Filter plugin configuration for log processing
+    # @schema
     filters: |
       [FILTER]
           Name kubernetes
@@ -306,6 +1180,10 @@ fluentBit:
           tls.verify Off
           Use_Kubelet true
 
+    # @schema
+    # type: string
+    # description: Output plugin configuration for log forwarding to OpenSearch
+    # @schema
     outputs: |
       [OUTPUT]
           Name opensearch
@@ -323,48 +1201,195 @@ fluentBit:
           tls On
           tls.verify Off
 
+  # @schema
+  # description: DNS policy for Fluent Bit pods
+  # enum: [ClusterFirst, ClusterFirstWithHostNet, Default, None]
+  # default: ClusterFirstWithHostNet
+  # @schema
   dnsPolicy: ClusterFirstWithHostNet
+
+  # @schema
+  # type: boolean
+  # description: Use host network for Fluent Bit pods (required for node log access)
+  # default: true
+  # @schema
   hostNetwork: true
 
+  # @schema
+  # type: array
+  # description: Extra volume mounts for the Fluent Bit container
+  # items:
+  #   type: object
+  # @schema
   extraVolumeMounts:
   - name: db
     mountPath: "/var/lib/fluent-bit/db"
     readOnly: false
+
+  # @schema
+  # type: array
+  # description: Extra volumes for the Fluent Bit pod
+  # items:
+  #   type: object
+  # @schema
   extraVolumes:
     - name: db
       hostPath:
         path: /var/lib/fluent-bit/db
         type: DirectoryOrCreate
 
+  # @schema
+  # type: string
+  # description: Override the full name of Fluent Bit resources
+  # default: fluent-bit
+  # @schema
   fullnameOverride: "fluent-bit"
+
+  # @schema
+  # type: integer
+  # description: Port for Fluent Bit metrics endpoint
+  # minimum: 1
+  # maximum: 65535
+  # default: 2021
+  # @schema
   metricsPort: 2021
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: RBAC configuration for Fluent Bit
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Enable node-level access for reading container logs
+    # default: true
+    # @schema
     nodeAccess: true
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits for Fluent Bit
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for Fluent Bit
+      # default: 200m
+      # @schema
       cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory limit for Fluent Bit
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for Fluent Bit
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request for Fluent Bit
+      # default: 128Mi
+      # @schema
       memory: 128Mi
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Security context for the Fluent Bit container
+  # @schema
   securityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Linux capabilities configuration
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
       - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
     readOnlyRootFilesystem: true
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: integer
+    # description: User ID to run the container
+    # minimum: 0
+    # default: 10000
+    # @schema
     runAsUser: 10000
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service configuration for Fluent Bit
+  # @schema
   service:
+    # @schema
+    # type: integer
+    # description: Service port for Fluent Bit metrics
+    # minimum: 1
+    # maximum: 65535
+    # default: 2021
+    # @schema
     port: 2021
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Test framework configuration
+  # @schema
   testFramework:
+    # @schema
+    # type: boolean
+    # description: Enable Fluent Bit test framework
+    # default: false
+    # @schema
     enabled: false
 
+  # @schema
+  # type: array
+  # description: Init containers for the Fluent Bit pod (used to set volume ownership)
+  # items:
+  #   type: object
+  # @schema
   initContainers:
   - name: set-volume-ownership
     image: busybox
@@ -387,66 +1412,271 @@ fluentBit:
     - name: db
       mountPath: /var/lib/fluent-bit/db
 
-# Prometheus configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: Prometheus stack subchart configuration (kube-prometheus-stack) for metrics collection and monitoring
+# @schema
 prometheus:
+  # @schema
+  # type: boolean
+  # description: Enable Prometheus stack deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Override the full name of Prometheus stack resources
+  # default: openchoreo-observability
+  # @schema
   fullnameOverride: openchoreo-observability
 
-  ## Manages Prometheus and Alertmanager components
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus Operator configuration for managing Prometheus and Alertmanager
+  # @schema
   prometheusOperator:
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus Operator deployment
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: string
+    # description: Override the full name of Prometheus Operator resources
+    # default: prometheus-operator
+    # @schema
     fullnameOverride: prometheus-operator
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits for Prometheus Operator
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the container can use
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: CPU limit
+        # default: 40m
+        # @schema
         cpu: 40m
+        # @schema
+        # type: string
+        # description: Memory limit
+        # default: 50Mi
+        # @schema
         memory: 50Mi
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: CPU request
+        # default: 20m
+        # @schema
         cpu: 20m
+        # @schema
+        # type: string
+        # description: Memory request
+        # default: 30Mi
+        # @schema
         memory: 30Mi
 
-  ## Install Prometheus Operator CRDs
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus Operator CRDs configuration
+  # @schema
   crds:
+    # @schema
+    # type: boolean
+    # description: Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, etc.)
+    # default: true
+    # @schema
     enabled: true
 
-  ## Setting to produces cleaner resource names
+  # @schema
+  # type: boolean
+  # description: Produce cleaner resource names without redundant suffixes
+  # default: true
+  # @schema
   cleanPrometheusOperatorObjectNames: true
 
-  ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus server configuration (requires prometheusOperator.enabled)
+  # @schema
   prometheus:
-    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus server deployment
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Prometheus specification configuration
+    # @schema
     prometheusSpec:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Namespace selector for ServiceMonitors (empty = all namespaces)
+      # default: {}
+      # @schema
       serviceMonitorNamespaceSelector: {}
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Label selector for ServiceMonitors (empty = all ServiceMonitors)
+      # default: {}
+      # @schema
       serviceMonitorSelector: {}
+      # @schema
+      # type: boolean
+      # description: Use Helm values for ServiceMonitor selection when selector is nil
+      # default: false
+      # @schema
       serviceMonitorSelectorNilUsesHelmValues: false
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Prometheus service configuration
+    # @schema
     service:
+      # @schema
+      # type: integer
+      # description: Prometheus server port
+      # minimum: 1
+      # maximum: 65535
+      # default: 9091
+      # @schema
       port: 9091
+      # @schema
+      # type: integer
+      # description: Config reloader web port
+      # minimum: 1
+      # maximum: 65535
+      # default: 8081
+      # @schema
       reloaderWebPort: 8081
 
-  ## Configuration for alertmanager
-  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Alertmanager configuration (disabled by default in OpenChoreo)
+  # @schema
   alertmanager:
+    # @schema
+    # type: boolean
+    # description: Enable Alertmanager deployment
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Alertmanager specification
+    # @schema
     alertmanagerSpec:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Pod metadata configuration
+      # @schema
       podMetadata:
+        # @schema
+        # type: string
+        # description: Name for Alertmanager pod metadata
+        # default: alertmanager
+        # @schema
         name: alertmanager
 
-  ## Configuration for grafana
-  # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Grafana subchart configuration (disabled by default, OpenChoreo uses custom dashboards)
+  # @schema
   grafana:
+    # @schema
+    # type: boolean
+    # description: Enable Grafana deployment
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: string
+    # description: Override the full name of Grafana resources
+    # default: grafana
+    # @schema
     fullnameOverride: grafana
+    # @schema
+    # type: string
+    # description: Grafana admin username
+    # default: admin
+    # @schema
     adminUser: admin
+    # @schema
+    # type: string
+    # description: Grafana admin password
+    # default: admin
+    # @schema
     adminPassword: admin
-    ## OpenChoreo Observability Plane does not ship default Grafana dashboards or datasources
-    ## OpenChoreo specific dashboards and datasources will be added separately
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Sidecar configuration for dynamic dashboard/datasource provisioning
+    # @schema
     sidecar:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Dashboard sidecar configuration
+      # @schema
       dashboards:
+        # @schema
+        # type: boolean
+        # description: Enable dashboard sidecar
+        # default: false
+        # @schema
         enabled: false
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Datasource sidecar configuration
+      # @schema
       datasources:
+        # @schema
+        # type: boolean
+        # description: Enable datasource sidecar
+        # default: false
+        # @schema
         enabled: false
+    # @schema
+    # type: boolean
+    # description: Enable default Grafana dashboards
+    # default: false
+    # @schema
     defaultDashboardsEnabled: false
-    ## Datasources of OpenChoreo Observability Plane
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Static datasource configuration for Grafana
+    # @schema
     datasources:
       datasources.yaml:
         apiVersion: 1
@@ -457,18 +1687,58 @@ prometheus:
             url: http://openchoreo-observability-prometheus:9091
             isDefault: true
 
-  ## Flag to disable all the kubernetes component scrapers
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes component ServiceMonitors configuration
+  # @schema
   kubernetesServiceMonitors:
+    # @schema
+    # type: boolean
+    # description: Enable Kubernetes component ServiceMonitors
+    # default: true
+    # @schema
     enabled: true
-  ## Component scraping kube state metrics
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kube-state-metrics ServiceMonitor configuration
+  # @schema
   kubeStateMetrics:
-    enabled: true # kubeStateMetrics service monitor needs to be custom defined
-  ## Configuration for kube-state-metrics subchart
+    # @schema
+    # type: boolean
+    # description: Enable kube-state-metrics scraping
+    # default: true
+    # @schema
+    enabled: true
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kube-state-metrics subchart configuration for Kubernetes resource metrics
+  # @schema
   kube-state-metrics:
+    # @schema
+    # type: string
+    # description: Override the full name of kube-state-metrics resources
+    # default: kube-state-metrics
+    # @schema
     fullnameOverride: kube-state-metrics
+    # @schema
+    # type: array
+    # description: List of Kubernetes resources to collect metrics from
+    # items:
+    #   type: string
+    # @schema
     collectors:
       - pods
-      # Jobs and Services to be added later
+    # @schema
+    # type: array
+    # description: Allowlist of specific metrics to collect (improves performance)
+    # items:
+    #   type: string
+    # @schema
     metricAllowlist:
       - kube_pod_completion_time
       - kube_pod_container_resource_limits
@@ -479,186 +1749,789 @@ prometheus:
       - kube_pod_labels
       - kube_pod_start_time
       - kube_pod_status_phase
-      # Jobs and Services to be added later
+    # @schema
+    # type: array
+    # description: Labels to include from Kubernetes resources (OpenChoreo-specific labels)
+    # items:
+    #   type: string
+    # @schema
     metricLabelsAllowlist:
       - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
-      # Jobs and Services to be added later
 
-  ## Configuration for thanosRuler
-  ## ref: https://thanos.io/tip/components/rule.md/
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Thanos Ruler configuration (disabled by default)
+  # @schema
   thanosRuler:
-    enabled: false # This section needs to be further configured for queryEndpoints etc.
+    # @schema
+    # type: boolean
+    # description: Enable Thanos Ruler for long-term alerting
+    # default: false
+    # @schema
+    enabled: false
 
-  ## Create default rules for monitoring the cluster
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Default Prometheus alerting rules
+  # @schema
   defaultRules:
+    # @schema
+    # type: boolean
+    # description: Create default alerting rules
+    # default: false
+    # @schema
     create: false
 
-  ## Component scraping the kubelet and kubelet-hosted cAdvisor
-  ## Disable when cAdvisor ServiceMonitor is added
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubelet and cAdvisor scraping configuration
+  # @schema
   kubelet:
+    # @schema
+    # type: boolean
+    # description: Enable kubelet metrics scraping
+    # default: true
+    # @schema
     enabled: true
 
-  ## Openchoreo Observability is not meant for monitoring the kubernetes cluster
-  ## Hence, following kube components are disabled
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes API server scraping (disabled - not for cluster monitoring)
+  # @schema
   kubeApiServer:
+    # @schema
+    # type: boolean
+    # description: Enable API server metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes controller manager scraping (disabled - not for cluster monitoring)
+  # @schema
   kubeControllerManager:
+    # @schema
+    # type: boolean
+    # description: Enable controller manager metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: CoreDNS scraping (disabled - not for cluster monitoring)
+  # @schema
   coreDns:
+    # @schema
+    # type: boolean
+    # description: Enable CoreDNS metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: etcd scraping (disabled - not for cluster monitoring)
+  # @schema
   kubeEtcd:
+    # @schema
+    # type: boolean
+    # description: Enable etcd metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes scheduler scraping (disabled - not for cluster monitoring)
+  # @schema
   kubeScheduler:
+    # @schema
+    # type: boolean
+    # description: Enable scheduler metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes proxy scraping (disabled - not for cluster monitoring)
+  # @schema
   kubeProxy:
+    # @schema
+    # type: boolean
+    # description: Enable kube-proxy metrics scraping
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Node exporter configuration (disabled - not for cluster monitoring)
+  # @schema
   nodeExporter:
+    # @schema
+    # type: boolean
+    # description: Enable node exporter deployment
+    # default: false
+    # @schema
     enabled: false
 
 
 ## Values for local templates
 
-# Cluster Agent configuration for agent-based communication with control plane
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Agent configuration for WebSocket-based communication with the control plane's cluster gateway
+# @schema
 clusterAgent:
+  # @schema
+  # type: boolean
+  # description: Enable cluster agent deployment for multi-cluster communication
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the cluster agent deployment and associated resources
+  # default: cluster-agent-observabilityplane
+  # @schema
   name: cluster-agent-observabilityplane
+
+  # @schema
+  # type: integer
+  # description: Number of cluster agent pod replicas
+  # minimum: 0
+  # default: 1
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration for the cluster agent
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository for the cluster agent
+    # default: ghcr.io/openchoreo/cluster-agent
+    # @schema
     repository: ghcr.io/openchoreo/cluster-agent
-    tag: "" # If no value is set, use Chart.AppVersion
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy for the cluster agent
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
-  # Server URL of the cluster gateway in control plane
+
+  # @schema
+  # type: string
+  # description: WebSocket URL of the cluster gateway in the control plane
+  # default: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # @schema
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
 
-  # Logical plane identifier - shared across multiple CRs connecting to the same physical plane
-  # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
-  # If not specified, defaults to Helm release name
-  # Example: "shared-obs" - all ObservabilityPlane CRs with planeID="shared-obs" share this agent
+  # @schema
+  # type: string
+  # description: |
+  #   Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.
+  #   Defaults to Helm release name if not specified.
+  # default: default-observabilityplane
+  # @schema
   planeID: default-observabilityplane
 
-  # Type of plane (dataplane, buildplane, or observabilityplane)
+  # @schema
+  # description: Type of plane this agent serves
+  # enum: [dataplane, buildplane, observabilityplane]
+  # default: observabilityplane
+  # @schema
   planeType: observabilityplane
-  # DNS rewrite configuration (for multi-cluster k3d setups)
-  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+
+  # @schema
+  # type: object
+  # description: DNS rewrite configuration for multi-cluster k3d setups
+  # @schema
   dnsRewrite:
+    # @schema
+    # type: boolean
+    # description: Enable CoreDNS rewrite for *.openchoreo.localhost to host.k3d.internal
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: string
+  # description: Interval between heartbeat messages to the control plane
+  # default: 30s
+  # @schema
   heartbeatInterval: 30s
+
+  # @schema
+  # type: string
+  # description: Delay before reconnecting after connection loss
+  # default: 5s
+  # @schema
   reconnectDelay: 5s
+
+  # @schema
+  # description: Log level for the cluster agent
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits for the cluster agent
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 50m
+      # @schema
       cpu: "50m"
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 128Mi
+      # @schema
       memory: "128Mi"
+    # @schema
+    # type: object
+    # description: Maximum resources the container can use
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 100m
+      # @schema
       cpu: "100m"
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 256Mi
+      # @schema
       memory: "256Mi"
+
+  # @schema
+  # type: object
+  # description: Service account configuration for the cluster agent
+  # @schema
   serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a dedicated service account
+    # default: true
+    # @schema
     create: true
+    # @schema
+    # type: string
+    # description: Name of the service account
+    # default: cluster-agent-observabilityplane
+    # @schema
     name: cluster-agent-observabilityplane
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+
+  # @schema
+  # type: object
+  # description: RBAC configuration for the cluster agent
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create ClusterRole and ClusterRoleBinding for the agent
+    # default: true
+    # @schema
     create: true
+
+  # @schema
+  # type: object
+  # description: Priority class configuration for scheduling priority
+  # @schema
   priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a priority class
+    # default: false
+    # @schema
     create: false
+    # @schema
+    # type: string
+    # description: Name of the priority class
+    # default: cluster-agent-observabilityplane
+    # @schema
     name: cluster-agent-observabilityplane
+    # @schema
+    # type: integer
+    # description: Priority value
+    # minimum: 0
+    # default: 900000
+    # @schema
     value: 900000
+
+  # @schema
+  # type: object
+  # description: TLS configuration for secure communication with cluster gateway
+  # @schema
   tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS for cluster agent communication
+    # default: true
+    # @schema
     enabled: true
-    # Generate client certificates locally using cert-manager (multi-cluster setup)
-    # Set to true when the observability plane is in a different cluster from control plane
-    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+    # @schema
+    # type: boolean
+    # description: Generate client certificates using cert-manager (for multi-cluster setups)
+    # default: false
+    # @schema
     generateCerts: false
-    # Secret containing client certificate and key
+    # @schema
+    # type: string
+    # description: Name of the Secret containing client certificate and key
+    # default: cluster-agent-tls
+    # @schema
     secretName: cluster-agent-tls
+    # @schema
+    # type: string
+    # description: Name of the client certificate Secret
+    # default: cluster-agent-tls
+    # @schema
     clientSecretName: cluster-agent-tls
-    # ConfigMap containing server CA certificate for verifying gateway
+    # @schema
+    # type: string
+    # description: Name of the ConfigMap containing server CA certificate
+    # default: cluster-gateway-ca
+    # @schema
     serverCAConfigMap: cluster-gateway-ca
-    # Optional: Inline server CA certificate value (PEM format)
-    # For multi-cluster setup where agent needs to verify gateway server
-    # If provided, this value is used instead of copying from control plane
+    # @schema
+    # type: string
+    # description: Inline server CA certificate in PEM format (for multi-cluster setups)
+    # default: ""
+    # @schema
     serverCAValue: ""
-    # CA secret for signing agent client certificates
-    # Option 1: Reference existing secret (single-cluster setup)
-    # This should be the name of the cluster-gateway-ca secret created in control plane
+    # @schema
+    # type: string
+    # description: CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).
+    # default: cluster-gateway-ca
+    # @schema
     caSecretName: cluster-gateway-ca
-    # Namespace where the CA secret exists (control plane namespace)
+    # @schema
+    # type: string
+    # description: Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).
+    # default: openchoreo-control-plane
+    # @schema
     caSecretNamespace: openchoreo-control-plane
-    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
-    # If provided, this takes precedence over caSecretName/caSecretNamespace
-    # Use this when observability plane is in a different cluster from control plane
+    # @schema
+    # type: string
+    # description: Inline CA certificate in PEM format (for multi-cluster, takes precedence)
+    # default: ""
+    # @schema
     caValue: ""
-    # Certificate duration and renewal
-    duration: 2160h # 90 days
-    renewBefore: 360h # 15 days
-  # Namespace where cluster-gateway CA exists (control plane namespace)
+    # @schema
+    # type: string
+    # description: Certificate validity duration (e.g., 2160h = 90 days)
+    # default: 2160h
+    # @schema
+    duration: 2160h
+    # @schema
+    # type: string
+    # description: Time before expiry to renew certificate (e.g., 360h = 15 days)
+    # default: 360h
+    # @schema
+    renewBefore: 360h
+
+  # @schema
+  # type: string
+  # description: Namespace where cluster-gateway CA ConfigMap exists
+  # default: openchoreo-control-plane
+  # @schema
   serverCANamespace: openchoreo-control-plane
+
+  # @schema
+  # type: object
+  # description: Pod-level security context
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: integer
+    # description: User ID to run as
+    # minimum: 0
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # @schema
+    # type: integer
+    # description: Filesystem group ID
+    # minimum: 0
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container-level security context
+  # @schema
   securityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # description: Linux capabilities configuration
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
         - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
     readOnlyRootFilesystem: true
+
+  # @schema
+  # type: object
+  # description: Annotations to add to cluster agent pods
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   podAnnotations: {}
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
   affinity: {}
 
 
+# @schema
+# type: object
+# description: KGateway resource configuration for HTTPS gateway routing
+# @schema
 gateway:
+  # @schema
+  # type: boolean
+  # description: Enable gateway resource creation
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: integer
+  # description: HTTPS port for the gateway listener
+  # minimum: 1
+  # maximum: 65535
+  # default: 443
+  # @schema
   httpsPort: 443
 
-# OpenSearch configuration for operator based OpenSearch deployment
+# @schema
+# type: object
+# description: OpenSearch Operator-based cluster configuration (preferred over openSearch Helm chart)
+# @schema
 openSearchCluster:
+  # @schema
+  # type: boolean
+  # description: Enable OpenSearch cluster deployment via OpenSearch Operator
+  # default: true
+  # @schema
   enabled: true
 
+  # @schema
+  # type: object
+  # description: Bootstrap node configuration for cluster initialization
+  # @schema
   bootstrap:
+    # @schema
+    # type: object
+    # description: Resource configuration for bootstrap node
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # description: Maximum resources
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: CPU limit
+        # default: 1000m
+        # @schema
         cpu: 1000m
+        # @schema
+        # type: string
+        # description: Memory limit
+        # default: 1000Mi
+        # @schema
         memory: 1000Mi
+      # @schema
+      # type: object
+      # description: Minimum resources
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: CPU request
+        # default: 100m
+        # @schema
         cpu: 100m
+        # @schema
+        # type: string
+        # description: Memory request
+        # default: 1000Mi
+        # @schema
         memory: 1000Mi
 
+  # @schema
+  # type: object
+  # description: General OpenSearch cluster settings
+  # @schema
   general:
+    # @schema
+    # type: boolean
+    # description: Set vm.max_map_count sysctl for OpenSearch (required for production)
+    # default: true
+    # @schema
     setVMMaxMapCount: true
+    # @schema
+    # type: string
+    # description: OpenSearch version to deploy
+    # default: "3.3.0"
+    # @schema
     version: 3.3.0
 
+  # @schema
+  # type: object
+  # description: OpenSearch Dashboards configuration (managed by operator)
+  # @schema
   dashboards:
+    # @schema
+    # type: boolean
+    # description: Enable OpenSearch Dashboards
+    # default: false
+    # @schema
     enable: false
+    # @schema
+    # type: integer
+    # description: Number of dashboard replicas
+    # minimum: 0
+    # default: 1
+    # @schema
     replicas: 1
+    # @schema
+    # type: string
+    # description: OpenSearch Dashboards version
+    # default: "3.3.0"
+    # @schema
     version: 3.3.0
 
+  # @schema
+  # type: object
+  # description: Node pool configurations for the OpenSearch cluster
+  # @schema
   nodePools:
+    # @schema
+    # type: object
+    # description: Data node pool configuration (stores actual data)
+    # @schema
     data:
+      # @schema
+      # type: integer
+      # description: Number of data node replicas
+      # minimum: 1
+      # default: 2
+      # @schema
       replicas: 2
+      # @schema
+      # type: string
+      # description: Persistent volume size for data nodes
+      # default: 5Gi
+      # @schema
       diskSize: 5Gi
+      # @schema
+      # type: object
+      # description: Resource configuration for data nodes
+      # @schema
       resources:
+        # @schema
+        # type: object
+        # description: Maximum resources
+        # @schema
         limits:
+          # @schema
+          # type: string
+          # description: CPU limit
+          # default: 1000m
+          # @schema
           cpu: 1000m
+          # @schema
+          # type: string
+          # description: Memory limit
+          # default: 1000Mi
+          # @schema
           memory: 1000Mi
+        # @schema
+        # type: object
+        # description: Minimum resources
+        # @schema
         requests:
+          # @schema
+          # type: string
+          # description: CPU request
+          # default: 100m
+          # @schema
           cpu: 100m
+          # @schema
+          # type: string
+          # description: Memory request
+          # default: 1000Mi
+          # @schema
           memory: 1000Mi
+    # @schema
+    # type: object
+    # description: Master node pool configuration (cluster coordination)
+    # @schema
     master:
+      # @schema
+      # type: integer
+      # description: Number of master node replicas (should be odd for quorum)
+      # minimum: 1
+      # default: 3
+      # @schema
       replicas: 3
+      # @schema
+      # type: string
+      # description: Persistent volume size for master nodes
+      # default: 1Gi
+      # @schema
       diskSize: 1Gi
+      # @schema
+      # type: object
+      # description: Resource configuration for master nodes
+      # @schema
       resources:
+        # @schema
+        # type: object
+        # description: Maximum resources
+        # @schema
         limits:
+          # @schema
+          # type: string
+          # description: CPU limit
+          # default: 1000m
+          # @schema
           cpu: 1000m
+          # @schema
+          # type: string
+          # description: Memory limit
+          # default: 900Mi
+          # @schema
           memory: 900Mi
+        # @schema
+        # type: object
+        # description: Minimum resources
+        # @schema
         requests:
+          # @schema
+          # type: string
+          # description: CPU request
+          # default: 100m
+          # @schema
           cpu: 100m
+          # @schema
+          # type: string
+          # description: Memory request
+          # default: 900Mi
+          # @schema
           memory: 900Mi
 
-  # Secrets
+  # @schema
+  # type: string
+  # description: Admin username for OpenSearch cluster
+  # default: admin
+  # @schema
   adminUsername: admin
+
+  # @schema
+  # type: string
+  # description: Admin password for OpenSearch cluster
+  # default: ThisIsTheOpenSearchPassword1
+  # @schema
   adminUserPassword: ThisIsTheOpenSearchPassword1
+
+  # @schema
+  # type: string
+  # description: Internal users configuration in YAML format (bcrypt hashed passwords)
+  # @schema
   internalUsers: |
     # This is the internal user database
     # The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
@@ -674,101 +2547,382 @@ openSearchCluster:
       - "admin"
       description: "Admin user"
 
+# @schema
+# type: object
+# description: OpenSearch cluster post-install setup job configuration
+# @schema
 openSearchClusterSetup:
+  # @schema
+  # type: object
+  # description: Container image for the setup job
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository
+    # default: ghcr.io/openchoreo/init-observability-opensearch
+    # @schema
     repository: ghcr.io/openchoreo/init-observability-opensearch
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
     tag: ""
+
+  # @schema
+  # type: string
+  # description: Observer service address for setup configuration
+  # default: http://observer.openchoreo-observability-plane:8080
+  # @schema
   observerAddress: "http://observer.openchoreo-observability-plane:8080"
-  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh # TODO: Move to a kubernetes secret
+
+  # @schema
+  # type: string
+  # description: Webhook secret for alerting integration
+  # default: qxbfqk3yjiejrlelolvh
+  # @schema
+  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh
 
 
-## opentelemetryCollectorCustomizations aren't passed to the opentelemetry-collector helm values file directly.
-# They are to be used by openchoreo specific templates
+# @schema
+# type: object
+# description: |
+#   OpenTelemetry Collector customizations used by OpenChoreo templates.
+#   These are NOT passed to the opentelemetry-collector Helm chart directly.
+# @schema
 opentelemetryCollectorCustomizations:
+  # @schema
+  # type: object
+  # description: OpenSearch exporter queue configuration
+  # @schema
   openSearchQueue:
+    # @schema
+    # type: integer
+    # description: Number of consumers processing the queue
+    # minimum: 1
+    # default: 5
+    # @schema
     numConsumers: 5
+    # @schema
+    # type: integer
+    # description: Maximum queue size for pending exports
+    # minimum: 1
+    # default: 1000
+    # @schema
     queueSize: 1000
+    # @schema
+    # description: Queue sizing strategy
+    # enum: [items, bytes]
+    # default: items
+    # @schema
     sizer: items
+
+  # @schema
+  # type: object
+  # description: Tail-based sampling configuration for trace rate limiting
+  # @schema
   tailSampling:
+    # @schema
+    # type: string
+    # description: Time to wait before making sampling decision
+    # default: 10s
+    # @schema
     decisionWait: 10s
+    # @schema
+    # type: integer
+    # description: Number of traces to keep in memory
+    # minimum: 1
+    # default: 100
+    # @schema
     numTraces: 100
+    # @schema
+    # type: integer
+    # description: Expected new traces per second (for cache sizing)
+    # minimum: 1
+    # default: 10
+    # @schema
     expectedNewTracesPerSec: 10
+    # @schema
+    # type: object
+    # description: Decision cache configuration
+    # @schema
     decisionCache:
+      # @schema
+      # type: integer
+      # description: Cache size for sampled trace decisions
+      # minimum: 0
+      # default: 10000
+      # @schema
       sampledCacheSize: 10000
+      # @schema
+      # type: integer
+      # description: Cache size for non-sampled trace decisions
+      # minimum: 0
+      # default: 1000
+      # @schema
       nonSampledCacheSize: 1000
+    # @schema
+    # type: integer
+    # description: Maximum spans per second rate limit
+    # minimum: 1
+    # default: 10
+    # @schema
     spansPerSecond: 10
 
-
-# Common security configuration shared across all components
+# @schema
+# type: object
+# description: Common security configuration shared across all components
+# @schema
 security:
-  # Global security toggle - when disabled, authentication is turned off for all components
+  # @schema
+  # type: boolean
+  # description: Global security toggle - when disabled, authentication is turned off for all components
+  # default: true
+  # @schema
   enabled: true
+  # @schema
+  # type: object
+  # description: OIDC configuration
+  # @schema
   oidc:
+    # @schema
+    # type: string
+    # description: OIDC issuer URL
+    # default: ""
+    # @schema
     issuer: ""
+    # @schema
+    # type: string
+    # description: JWKS URL for token verification
+    # default: ""
+    # @schema
     jwksUrl: ""
+    # @schema
+    # type: string
+    # description: Skip TLS verification for JWKS URL
+    # default: "false"
+    # @schema
     jwksUrlTlsInsecureSkipVerify: "false"
+  # @schema
+  # type: object
+  # description: JWT configuration
+  # @schema
   jwt:
-    # Expected audience claim in JWT tokens
+    # @schema
+    # type: string
+    # description: Expected audience claim in JWT tokens
+    # default: ""
+    # @schema
     audience: ""
 
-
+# @schema
+# type: object
+# description: Global TLS certificate configuration using cert-manager
+# @schema
 tls:
+  # @schema
+  # type: boolean
+  # description: Enable TLS certificate generation for the observability plane
+  # default: false
+  # @schema
   enabled: false
 
-# Wait job configuration for post-install hooks
+# @schema
+# type: object
+# description: Wait job configuration for post-install hooks
+# @schema
 waitJob:
+  # @schema
+  # type: string
+  # description: Container image for kubectl-based wait jobs
+  # default: bitnamilegacy/kubectl:1.32.4
+  # @schema
   image: bitnamilegacy/kubectl:1.32.4
 
-# RCA Agent configuration
+# @schema
+# type: object
+# description: AI-powered Root Cause Analysis agent configuration
+# @schema
 rca:
+  # @schema
+  # type: boolean
+  # description: Enable RCA agent deployment
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Name of the RCA agent deployment
+  # default: ai-rca-agent
+  # @schema
   name: ai-rca-agent
+
+  # @schema
+  # type: integer
+  # description: Number of RCA agent replicas
+  # minimum: 0
+  # default: 1
+  # @schema
   replicas: 1
 
+  # @schema
+  # type: object
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container image repository
+    # default: ghcr.io/openchoreo/ai-rca-agent
+    # @schema
     repository: ghcr.io/openchoreo/ai-rca-agent
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
     tag: ""
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
 
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port
+    # minimum: 1
+    # maximum: 65535
+    # default: 8080
+    # @schema
     port: 8080
 
+  # @schema
+  # type: object
+  # description: Resource requests and limits
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 128Mi
+      # @schema
       memory: 128Mi
+    # @schema
+    # type: object
+    # description: Maximum resources
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 500m
+      # @schema
       cpu: 500m
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 512Mi
+      # @schema
       memory: 512Mi
 
-  # Observer MCP endpoint (leave empty for auto-discovery)
+  # @schema
+  # type: string
+  # description: Observer MCP endpoint URL (leave empty for auto-discovery)
+  # default: ""
+  # @schema
   observerMcpUrl: ""
 
-  # OpenChoreo API MCP endpoint (leave empty for auto-discovery)
+  # @schema
+  # type: string
+  # description: OpenChoreo API MCP endpoint URL (leave empty for auto-discovery)
+  # default: ""
+  # @schema
   openchoreoMcpUrl: ""
 
-  # Control plane namespace (required for auto-discovery)
+  # @schema
+  # type: string
+  # description: Control plane namespace for service auto-discovery
+  # default: openchoreo-control-plane
+  # @schema
   controlPlaneNamespace: openchoreo-control-plane
 
-  # LLM Configuration for RCA agent
+  # @schema
+  # type: object
+  # description: LLM configuration for AI-powered analysis
+  # @schema
   llm:
-    # Model name (e.g., claude-sonnet-4-5, gpt-5, gemini-2.0-flash-exp)
+    # @schema
+    # type: string
+    # description: LLM model name (e.g., claude-sonnet-4-5, gpt-5, gemini-2.0-flash-exp)
+    # default: ""
+    # @schema
     modelName: ""
 
-    # API key can be set via: --set rca.llm.apiKey="your-key" during helm install/upgrade
+    # @schema
+    # type: string
+    # description: LLM API key (set via --set rca.llm.apiKey during install)
+    # default: ""
+    # @schema
     apiKey: ""
 
-  # OpenSearch Configuration for RCA agent
+  # @schema
+  # type: object
+  # description: OpenSearch connection configuration for RCA agent
+  # @schema
   opensearch:
+    # @schema
+    # type: string
+    # description: OpenSearch cluster address
+    # default: https://opensearch:9200
+    # @schema
     address: "https://opensearch:9200"
 
-  # OAuth2 Client Credentials Configuration for RCA agent authentication
-  # Works with any IDP that supports OAuth2 client_credentials grant (Thunder, Keycloak, Auth0, etc.)
+  # @schema
+  # type: object
+  # description: OAuth2 client credentials configuration for RCA agent authentication
+  # @schema
   oauth:
-    # Token URL for obtaining access tokens
+    # @schema
+    # type: string
+    # description: Token URL for obtaining access tokens from IDP
+    # default: http://thunder.openchoreo.localhost:8080/oauth2/token
+    # @schema
     tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
-    # Client ID registered with the IDP
+    # @schema
+    # type: string
+    # description: OAuth2 client ID registered with the IDP
+    # default: openchoreo-rca-agent
+    # @schema
     clientId: "openchoreo-rca-agent"
-    # Client Secret - can be overridden via: --set rca.oauth.clientSecret="your-secret"
+    # @schema
+    # type: string
+    # description: OAuth2 client secret (override via --set rca.oauth.clientSecret)
+    # default: openchoreo-rca-agent-secret
+    # @schema
     clientSecret: "openchoreo-rca-agent-secret"

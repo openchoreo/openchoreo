@@ -1,37 +1,153 @@
-# Global values shared across all components
+# yaml-language-server: $schema=values.schema.json
+
+# @schema
+# title: OpenChoreo Control Plane Helm Chart Values
+# description: Configuration values for the OpenChoreo Control Plane Helm chart
+# @schema
+
+# @schema
+# type: object
+# description: Global values shared across all components
+# @schema
 global:
-  # Base domain for all services
-  # Console: <baseDomain>, API: api.<baseDomain>
+  # @schema
+  # type: string
+  # description: Base domain for all services. Console will be at baseDomain, API at api.baseDomain
+  # default: openchoreo.local
+  # @schema
   baseDomain: openchoreo.local
 
-  # Port suffix for URLs (e.g., ":8080" for non-standard ports)
-  # Include the colon. Leave empty for standard ports (80/443)
+  # @schema
+  # type: string
+  # description: Port suffix for URLs (e.g., ":8080" for non-standard ports). Include the colon. Leave empty for standard ports (80/443)
+  # default: ""
+  # @schema
   port: ""
 
-  # TLS - enables HTTPS for all ingresses
-  # When enabled, TLS hosts are auto-derived from baseDomain
+  # @schema
+  # type: object
+  # description: TLS configuration - enables HTTPS for all ingresses. When enabled, TLS hosts are auto-derived from baseDomain
+  # @schema
   tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS/HTTPS for all ingresses
+    # default: false
+    # @schema
     enabled: false
-    # Secret containing TLS certificate (must have all hosts: baseDomain, api.baseDomain, thunder.baseDomain)
+    # @schema
+    # type: string
+    # description: Secret containing TLS certificate (must have all hosts - baseDomain, api.baseDomain, thunder.baseDomain)
+    # default: control-plane-tls
+    # @schema
     secretName: "control-plane-tls"
 
-  # Ingress class for all services (uses Traefik by default)
+  # @schema
+  # type: string
+  # description: Ingress class for all services (uses Traefik by default)
+  # default: openchoreo-traefik
+  # @schema
   ingressClassName: openchoreo-traefik
 
-  # Other settings
+  # @schema
+  # type: string
+  # description: Kubernetes cluster name identifier
+  # default: openchoreo
+  # @schema
   clusterName: openchoreo
+
+  # @schema
+  # type: array
+  # description: Docker registry credentials for pulling images
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Name of the image pull secret
+  # default: []
+  # @schema
   imagePullSecrets: []
+
+  # @schema
+  # type: object
+  # description: Labels applied to all resources created by the chart
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   commonLabels: {}
 
-  # Default OpenChoreo resources created during installation
+  # @schema
+  # type: object
+  # description: Default OpenChoreo resources created during installation
+  # @schema
   defaultResources:
+    # @schema
+    # type: boolean
+    # description: Enable creation of default resources (organization, project, environments, pipeline)
+    # default: true
+    # @schema
     enabled: true
+
+    # @schema
+    # type: object
+    # description: Default organization configuration
+    # @schema
     organization:
+      # @schema
+      # type: string
+      # description: Display name for the default organization
+      # default: Default Organization
+      # @schema
       displayName: Default Organization
+      # @schema
+      # type: string
+      # description: Description for the default organization
+      # default: Getting started with your first organization
+      # @schema
       description: Getting started with your first organization
+
+    # @schema
+    # type: object
+    # description: Default project configuration
+    # @schema
     project:
+      # @schema
+      # type: string
+      # description: Display name for the default project
+      # default: Default Project
+      # @schema
       displayName: Default Project
+      # @schema
+      # type: string
+      # description: Description for the default project
+      # default: Your first project to get started
+      # @schema
       description: Your first project to get started
+
+    # @schema
+    # type: array
+    # description: Default environments to create
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Environment identifier (lowercase, no spaces)
+    #     displayName:
+    #       type: string
+    #       description: Human-readable environment name
+    #     description:
+    #       type: string
+    #       description: Environment description
+    #     dnsPrefix:
+    #       type: string
+    #       description: DNS prefix for the environment
+    #     isCritical:
+    #       type: boolean
+    #       description: Whether this is a critical/production environment
+    # @schema
     environments:
       - name: development
         displayName: Development
@@ -48,9 +164,42 @@ global:
         description: Production environment
         dnsPrefix: prod
         isCritical: true
+
+    # @schema
+    # type: object
+    # description: Default deployment pipeline configuration
+    # @schema
     deploymentPipeline:
+      # @schema
+      # type: string
+      # description: Display name for the default pipeline
+      # default: Default Pipeline
+      # @schema
       displayName: Default Pipeline
+      # @schema
+      # type: string
+      # description: Description for the default pipeline
+      # @schema
       description: Standard deployment pipeline with dev, staging, and prod environments
+      # @schema
+      # type: array
+      # description: Promotion order defining how deployments flow between environments
+      # items:
+      #   type: object
+      #   properties:
+      #     sourceEnvironmentRef:
+      #       type: string
+      #       description: Source environment name
+      #     targetEnvironmentRefs:
+      #       type: array
+      #       items:
+      #         type: object
+      #         properties:
+      #           name:
+      #             type: string
+      #           requiresApproval:
+      #             type: boolean
+      # @schema
       promotionOrder:
         - sourceEnvironmentRef: development
           targetEnvironmentRefs:
@@ -60,84 +209,453 @@ global:
           targetEnvironmentRefs:
             - name: production
               requiresApproval: false
-# Override the full name of the chart release
+
+# @schema
+# type: string
+# description: Override the full name of the chart release
+# default: openchoreo
+# @schema
 fullnameOverride: openchoreo
-# Common security configuration shared across all components
+
+# @schema
+# type: object
+# description: Common security configuration shared across all components
+# @schema
 security:
-  # Global security toggle - when disabled, authentication is turned off for all components
+  # @schema
+  # type: boolean
+  # description: Global security toggle - when disabled, authentication is turned off for all components
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: object
+  # description: OpenID Connect (OIDC) configuration for authentication
+  # @schema
   oidc:
+    # @schema
+    # type: string
+    # description: OIDC provider issuer URL
+    # default: ""
+    # @schema
     issuer: ""
+    # @schema
+    # type: string
+    # description: OIDC well-known configuration endpoint URL
+    # default: ""
+    # @schema
     wellKnownEndpoint: ""
+    # @schema
+    # type: string
+    # description: OIDC JWKS URL for token validation
+    # default: ""
+    # @schema
     jwksUrl: ""
+    # @schema
+    # type: string
+    # description: OIDC authorization endpoint URL
+    # default: ""
+    # @schema
     authorizationUrl: ""
+    # @schema
+    # type: string
+    # description: OIDC token endpoint URL
+    # default: ""
+    # @schema
     tokenUrl: ""
+
+  # @schema
+  # type: object
+  # description: JWT token configuration
+  # @schema
   jwt:
-    # Expected audience claim in JWT tokens
+    # @schema
+    # type: string
+    # description: Expected audience claim in JWT tokens
+    # default: ""
+    # @schema
     audience: ""
+
+  # @schema
+  # type: object
+  # description: Authorization (authz) configuration using Casbin
+  # @schema
   authz:
+    # @schema
+    # type: boolean
+    # description: Enable authorization using Casbin
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: string
+    # description: Path to the Casbin database file
+    # default: /var/lib/openchoreo/data/casbin.db
+    # @schema
     databasePath: "/var/lib/openchoreo/data/casbin.db"
-    # defaultAuthzDataFilePath is optional - if not set, embedded default authz data will be used
-    # To use custom authz data (roles and mappings), set this path and mount a ConfigMap with your data
+    # @schema
+    # type: string
+    # description: Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap
+    # default: /etc/openchoreo/authz/default-roles-mappings.yaml
+    # @schema
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
+
+# @schema
+# type: object
+# description: Controller Manager configuration - the main controller for OpenChoreo CRDs
+# @schema
 controllerManager:
+  # @schema
+  # type: string
+  # description: Name of the controller-manager deployment
+  # default: controller-manager
+  # @schema
   name: controller-manager
+
+  # @schema
+  # type: integer
+  # description: Number of controller-manager replicas
+  # minimum: 1
+  # default: 1
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Docker image repository
+    # default: ghcr.io/openchoreo/controller
+    # @schema
     repository: ghcr.io/openchoreo/controller
-    tag: "" # If no value is set, use Chart.AppVersion
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: Always
+    # @schema
     pullPolicy: Always
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits for the controller-manager container
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Resource limits
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 1000m
+      # @schema
       cpu: 1000m
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 1Gi
+      # @schema
       memory: 1Gi
+    # @schema
+    # type: object
+    # description: Resource requests
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 200m
+      # @schema
       cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+
+  # @schema
+  # type: object
+  # description: Service account configuration
+  # @schema
   serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a service account for the controller-manager
+    # default: true
+    # @schema
     create: true
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+
+  # @schema
+  # type: object
+  # description: Priority class configuration for pod scheduling priority
+  # @schema
   priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a priority class for the controller-manager
+    # default: false
+    # @schema
     create: false
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: openchoreo-controller-manager
+    # @schema
     name: openchoreo-controller-manager
+    # @schema
+    # type: integer
+    # description: Priority class value (higher = more priority)
+    # default: 1000000
+    # @schema
     value: 1000000
+
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port
+    # default: 8080
+    # @schema
     port: 8080
+    # @schema
+    # type: [integer, "null"]
+        # description: NodePort (only used if service.type is NodePort)
+        # @schema
     nodePort: null
+
+  # @schema
+  # type: object
+  # description: Prometheus metrics configuration
+  # @schema
   metrics:
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus metrics endpoint
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: object
+    # description: ServiceMonitor configuration for Prometheus Operator
+    # @schema
     serviceMonitor:
+      # @schema
+      # type: boolean
+      # description: Create a ServiceMonitor resource for Prometheus Operator
+      # default: false
+      # @schema
       enabled: false
+      # @schema
+      # type: string
+      # description: Namespace where ServiceMonitor should be created
+      # default: monitoring
+      # @schema
       namespace: monitoring
+      # @schema
+      # type: string
+      # description: Scrape interval
+      # default: 30s
+      # @schema
       interval: 30s
+      # @schema
+      # type: string
+      # description: Scrape timeout
+      # default: 10s
+      # @schema
       scrapeTimeout: 10s
+      # @schema
+      # type: object
+      # description: Labels to add to the ServiceMonitor
+      # additionalProperties:
+      #   type: string
+      # @schema
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: array
+      # description: Metric relabeling rules
+      # items:
+      #   type: object
+      # default: []
+      # @schema
       relabelings: []
+
+  # @schema
+  # type: object
+  # description: Pod Disruption Budget configuration
+  # @schema
   podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Enable PodDisruptionBudget
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum number of pods that must be available
+    # minimum: 0
+    # default: 1
+    # @schema
     minAvailable: 1
+
+  # @schema
+  # type: object
+  # description: Network policy configuration
+  # @schema
   networkPolicy:
+    # @schema
+    # type: boolean
+    # description: Enable NetworkPolicy
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: array
+    # description: Ingress rules for the NetworkPolicy
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     ingress: []
+    # @schema
+    # type: array
+    # description: Egress rules for the NetworkPolicy
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     egress: []
+
+  # @schema
+  # type: object
+  # description: Horizontal Pod Autoscaler configuration
+  # @schema
   autoscaling:
+    # @schema
+    # type: boolean
+    # description: Enable Horizontal Pod Autoscaler
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum number of replicas
+    # minimum: 1
+    # default: 1
+    # @schema
     minReplicas: 1
+    # @schema
+    # type: integer
+    # description: Maximum number of replicas
+    # minimum: 1
+    # default: 3
+    # @schema
     maxReplicas: 3
+    # @schema
+    # type: integer
+    # description: Target CPU utilization percentage for scaling
+    # minimum: 1
+    # maximum: 100
+    # default: 70
+    # @schema
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: integer
+    # description: Target memory utilization percentage for scaling
+    # minimum: 1
+    # maximum: 100
+    # default: 80
+    # @schema
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: object
+    # description: HPA scaling behavior configuration
+    # @schema
     behavior:
+      # @schema
+      # type: object
+      # description: Scale-down behavior configuration
+      # @schema
       scaleDown:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds before scaling down
+        # default: 300
+        # @schema
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: array
+        # description: Scale-down policies
+        # items:
+        #   type: object
+        #   properties:
+        #     type:
+        #       type: string
+        #       enum: [Percent, Pods]
+        #     value:
+        #       type: integer
+        #     periodSeconds:
+        #       type: integer
+        # @schema
         policies:
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: object
+      # description: Scale-up behavior configuration
+      # @schema
       scaleUp:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds before scaling up
+        # default: 0
+        # @schema
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: array
+        # description: Scale-up policies
+        # items:
+        #   type: object
+        #   properties:
+        #     type:
+        #       type: string
+        #       enum: [Percent, Pods]
+        #     value:
+        #       type: integer
+        #     periodSeconds:
+        #       type: integer
+        # @schema
         policies:
           - type: Percent
             value: 100
@@ -145,7 +663,36 @@ controllerManager:
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # description: Policy selection strategy
+        # enum: [Max, Min, Disabled]
+        # default: Max
+        # @schema
         selectPolicy: Max
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across zones and nodes
+  # items:
+  #   type: object
+  #   properties:
+  #     maxSkew:
+  #       type: integer
+  #       description: Maximum allowed difference in pod count
+  #     topologyKey:
+  #       type: string
+  #       description: Node label key for topology
+  #     whenUnsatisfiable:
+  #       type: string
+  #       enum: [DoNotSchedule, ScheduleAnyway]
+  #     labelSelector:
+  #       type: object
+  #       properties:
+  #         matchLabels:
+  #           type: object
+  #           additionalProperties:
+  #             type: string
+  # @schema
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
@@ -161,116 +708,609 @@ controllerManager:
         matchLabels:
           app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: controller-manager
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  #   properties:
+  #     key:
+  #       type: string
+  #     operator:
+  #       type: string
+  #       enum: [Exists, Equal]
+  #     value:
+  #       type: string
+  #     effect:
+  #       type: string
+  #       enum: [NoSchedule, PreferNoSchedule, NoExecute]
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
   affinity: {}
+
+  # @schema
+  # type: object
+  # description: Pod security context
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: object
+    # description: Seccomp profile configuration
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: integer
+    # description: User ID to run the container as
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # @schema
+    # type: integer
+    # description: Group ID to run the container as
+    # default: 1000
+    # @schema
     runAsGroup: 1000
+    # @schema
+    # type: integer
+    # description: Filesystem group for volumes
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container security context
+  # @schema
   containerSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # description: Linux capabilities configuration
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
         - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: false
+    # @schema
     readOnlyRootFilesystem: false
+    # @schema
+    # type: object
+    # description: Seccomp profile for container
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: object
+    # description: AppArmor profile configuration
+    # @schema
     appArmorProfile:
+      # @schema
+      # description: AppArmor profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: Unconfined
+      # @schema
       type: Unconfined
+
+  # @schema
+  # type: object
+  # description: Controller manager arguments and environment configuration
+  # @schema
   manager:
+    # @schema
+    # type: array
+    # description: Command-line arguments for the controller-manager
+    # items:
+    #   type: string
+    # @schema
     args:
       - --metrics-bind-address=:8443
       - --leader-elect
       - --health-probe-bind-address=:8081
+    # @schema
+    # type: object
+    # description: Environment variables for the controller-manager
+    # @schema
     env:
+      # @schema
+      # description: Enable admission webhooks
+      # enum: ["true", "false"]
+      # default: "true"
+      # @schema
       enableWebhooks: "true"
-  # Cluster Gateway configuration for agent-based data plane communication
+
+  # @schema
+  # type: object
+  # description: Cluster Gateway configuration for agent-based data plane communication
+  # @schema
   clusterGateway:
+    # @schema
+    # type: boolean
+    # description: Enable cluster gateway integration for remote data plane communication
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: string
+    # description: Cluster gateway service URL
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
     url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    # type: object
+    # description: TLS configuration for cluster gateway connection
+    # @schema
     tls:
+      # @schema
+      # type: string
+      # description: Path to the CA certificate file
+      # default: /etc/cluster-gateway/ca.crt
+      # @schema
       caPath: /etc/cluster-gateway/ca.crt
-      # CA Secret created by cert-manager (contains ca.crt from cluster-gateway-ca Certificate)
+      # @schema
+      # type: string
+      # description: Name of the secret containing the CA certificate
+      # default: cluster-gateway-ca
+      # @schema
       caSecret: cluster-gateway-ca
+
+# @schema
+# type: string
+# description: Kubernetes cluster domain suffix
+# default: cluster.local
+# @schema
 kubernetesClusterDomain: cluster.local
+
+# @schema
+# type: object
+# description: Metrics service configuration
+# @schema
 metricsService:
+  # @schema
+  # type: array
+  # description: Ports exposed by the metrics service
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #     port:
+  #       type: integer
+  #     protocol:
+  #       type: string
+  #       enum: [TCP, UDP]
+  #     targetPort:
+  #       type: integer
+  # @schema
   ports:
     - name: https
       port: 8443
       protocol: TCP
       targetPort: 8443
+  # @schema
+  # description: Service type
+  # enum: [ClusterIP, NodePort, LoadBalancer]
+  # default: ClusterIP
+  # @schema
   type: ClusterIP
+
+# @schema
+# type: object
+# description: Webhook service configuration
+# @schema
 webhookService:
+  # @schema
+  # type: array
+  # description: Ports exposed by the webhook service
+  # items:
+  #   type: object
+  #   properties:
+  #     port:
+  #       type: integer
+  #     protocol:
+  #       type: string
+  #       enum: [TCP, UDP]
+  #     targetPort:
+  #       type: integer
+  # @schema
   ports:
     - port: 443
       protocol: TCP
       targetPort: 9443
+  # @schema
+  # description: Service type
+  # enum: [ClusterIP, NodePort, LoadBalancer]
+  # default: ClusterIP
+  # @schema
   type: ClusterIP
+
+# @schema
+# type: object
+# description: Wait job configuration for Helm hooks
+# @schema
 waitJob:
+  # @schema
+  # type: string
+  # description: Container image for wait jobs
+  # default: bitnamilegacy/kubectl:1.32.4
+  # @schema
   image: bitnamilegacy/kubectl:1.32.4
+
+# @schema
+# type: object
+# description: Kubernetes metrics server configuration
+# @schema
 metricsServer:
+  # @schema
+  # type: boolean
+  # description: Enable metrics server deployment
+  # default: false
+  # @schema
   enabled: false
+  # @schema
+  # type: boolean
+  # description: Allow insecure TLS connections to kubelet
+  # default: true
+  # @schema
   kubeletInsecureTlsEnabled: true
+
+# @schema
+# type: object
+# description: OpenChoreo API server configuration
+# @schema
 openchoreoApi:
-  name: openchoreo-api # Static name for all openchoreo-api resources (Service, Deployment, ClusterRole, etc.)
+  # @schema
+  # type: string
+  # description: Static name for all openchoreo-api resources (Service, Deployment, ClusterRole, etc.)
+  # default: openchoreo-api
+  # @schema
+  name: openchoreo-api
+
+  # @schema
+  # type: boolean
+  # description: Enable the OpenChoreo API server
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: integer
+  # description: Number of API server replicas
+  # minimum: 1
+  # default: 1
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Docker image repository
+    # default: ghcr.io/openchoreo/openchoreo-api
+    # @schema
     repository: ghcr.io/openchoreo/openchoreo-api
-    tag: "" # If no value is set, use Chart.AppVersion
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
+
+  # @schema
+  # type: object
+  # description: MCP (Model Context Protocol) configuration
+  # @schema
   mcp:
+    # @schema
+    # type: string
+    # description: Comma-separated list of enabled MCP toolsets
+    # default: organization,project,component,build,deployment,infrastructure
+    # @schema
     toolsets: "organization,project,component,build,deployment,infrastructure"
+
+  # @schema
+  # description: Log level for the API server
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
-  # Base URL for the API server (used for OAuth metadata)
-  # If not set, defaults to: <protocol>://api.<baseDomain><port>
+
+  # @schema
+  # type: string
+  # description: Base URL for the API server (used for OAuth metadata). If not set, defaults to protocol://api.baseDomain:port
+  # default: ""
+  # @schema
   serverBaseUrl: ""
-  # Base URL for the authorization server (used for OAuth metadata)
-  # If not set, defaults to: <protocol>://thunder.<baseDomain><port>
+
+  # @schema
+  # type: string
+  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
+  # default: ""
+  # @schema
   authServerBaseUrl: ""
+
+  # @schema
+  # type: object
+  # description: Database configuration
+  # @schema
   database:
+    # @schema
+    # type: string
+    # description: Path to the SQLite database file
+    # default: /var/lib/openchoreo/data/controlplane.db
+    # @schema
     path: "/var/lib/openchoreo/data/controlplane.db"
+    # @schema
+    # type: object
+    # description: Persistent volume configuration for the database
+    # @schema
     persistence:
+      # @schema
+      # type: boolean
+      # description: Enable persistent storage for the database
+      # default: true
+      # @schema
       enabled: true
+      # @schema
+      # type: string
+      # description: Size of the persistent volume
+      # default: 500Mi
+      # @schema
       size: 500Mi
-      storageClassName: "" # Use default storage class if not specified
+      # @schema
+      # type: string
+      # description: Storage class name. If empty, uses the default storage class
+      # default: ""
+      # @schema
+      storageClassName: ""
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Resource requests
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 200m
+      # @schema
       cpu: "200m"
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 256Mi
+      # @schema
       memory: "256Mi"
+    # @schema
+    # type: object
+    # description: Resource limits
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 1000m
+      # @schema
       cpu: "1000m"
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 1Gi
+      # @schema
       memory: "1Gi"
+
+  # @schema
+  # type: object
+  # description: Service account configuration
+  # @schema
   serviceAccount:
-    name: openchoreo-api # Service account name (always created when openchoreoApi.enabled is true)
-    annotations: {}
-  priorityClass:
-    create: false
+    # @schema
+    # type: string
+    # description: Service account name (always created when openchoreoApi.enabled is true)
+    # default: openchoreo-api
+    # @schema
     name: openchoreo-api
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    annotations: {}
+
+  # @schema
+  # type: object
+  # description: Priority class configuration
+  # @schema
+  priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a priority class
+    # default: false
+    # @schema
+    create: false
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: openchoreo-api
+    # @schema
+    name: openchoreo-api
+    # @schema
+    # type: integer
+    # description: Priority class value
+    # default: 900000
+    # @schema
     value: 900000
+
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port
+    # default: 8080
+    # @schema
     port: 8080
+    # @schema
+    # type: [integer, "null"]
+        # description: NodePort (only used if service.type is NodePort)
+        # @schema
     nodePort: null
+
+  # @schema
+  # type: object
+  # description: Horizontal Pod Autoscaler configuration
+  # @schema
   autoscaling:
+    # @schema
+    # type: boolean
+    # description: Enable Horizontal Pod Autoscaler
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum number of replicas
+    # minimum: 1
+    # default: 1
+    # @schema
     minReplicas: 1
+    # @schema
+    # type: integer
+    # description: Maximum number of replicas
+    # minimum: 1
+    # default: 3
+    # @schema
     maxReplicas: 3
+    # @schema
+    # type: integer
+    # description: Target CPU utilization percentage
+    # minimum: 1
+    # maximum: 100
+    # default: 70
+    # @schema
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: integer
+    # description: Target memory utilization percentage
+    # minimum: 1
+    # maximum: 100
+    # default: 80
+    # @schema
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: object
+    # description: HPA scaling behavior
+    # @schema
     behavior:
+      # @schema
+      # type: object
+      # description: Scale-down behavior
+      # @schema
       scaleDown:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds
+        # default: 300
+        # @schema
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: array
+        # description: Scale-down policies
+        # items:
+        #   type: object
+        # @schema
         policies:
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: object
+      # description: Scale-up behavior
+      # @schema
       scaleUp:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds
+        # default: 0
+        # @schema
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: array
+        # description: Scale-up policies
+        # items:
+        #   type: object
+        # @schema
         policies:
           - type: Percent
             value: 100
@@ -278,30 +1318,179 @@ openchoreoApi:
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # description: Policy selection strategy
+        # enum: [Max, Min, Disabled]
+        # default: Max
+        # @schema
         selectPolicy: Max
+
+  # @schema
+  # type: object
+  # description: Pod Disruption Budget configuration
+  # @schema
   podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Enable PodDisruptionBudget
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum available pods
+    # minimum: 0
+    # default: 1
+    # @schema
     minAvailable: 1
+
+  # @schema
+  # type: object
+  # description: Network policy configuration
+  # @schema
   networkPolicy:
+    # @schema
+    # type: boolean
+    # description: Enable NetworkPolicy
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: array
+    # description: Ingress rules
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     ingress: []
+    # @schema
+    # type: array
+    # description: Egress rules
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     egress: []
+
+  # @schema
+  # type: object
+  # description: Prometheus metrics configuration
+  # @schema
   metrics:
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus metrics
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: object
+    # description: ServiceMonitor configuration
+    # @schema
     serviceMonitor:
+      # @schema
+      # type: boolean
+      # description: Create ServiceMonitor resource
+      # default: false
+      # @schema
       enabled: false
+      # @schema
+      # type: string
+      # description: Namespace for ServiceMonitor
+      # default: monitoring
+      # @schema
       namespace: monitoring
+      # @schema
+      # type: string
+      # description: Scrape interval
+      # default: 30s
+      # @schema
       interval: 30s
+      # @schema
+      # type: string
+      # description: Scrape timeout
+      # default: 10s
+      # @schema
       scrapeTimeout: 10s
+      # @schema
+      # type: object
+      # description: Labels for ServiceMonitor
+      # additionalProperties:
+      #   type: string
+      # @schema
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: array
+      # description: Metric relabeling rules
+      # items:
+      #   type: object
+      # default: []
+      # @schema
       relabelings: []
+
+  # @schema
+  # type: object
+  # description: Ingress configuration
+  # @schema
   ingress:
+    # @schema
+    # type: boolean
+    # description: Enable ingress
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: string
+    # description: Ingress class name. If empty, uses global.ingressClassName
+    # default: ""
+    # @schema
     ingressClassName: ""
+    # @schema
+    # type: object
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+    # @schema
+    # type: array
+    # description: Ingress hosts. If empty, derives from global.baseDomain
+    # items:
+    #   type: object
+    #   properties:
+    #     host:
+    #       type: string
+    #     paths:
+    #       type: array
+    #       items:
+    #         type: object
+    # default: []
+    # @schema
     hosts: []
+    # @schema
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    #   properties:
+    #     secretName:
+    #       type: string
+    #     hosts:
+    #       type: array
+    #       items:
+    #         type: string
+    # default: []
+    # @schema
     tls: []
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints
+  # items:
+  #   type: object
+  # @schema
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
@@ -317,27 +1506,161 @@ openchoreoApi:
         matchLabels:
           app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: api-server
+
+  # @schema
+  # type: object
+  # description: Node selector
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules
+  # default: {}
+  # @schema
   affinity: {}
+
+  # @schema
+  # type: object
+  # description: Pod security context
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: object
+    # description: Seccomp profile
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: integer
+    # description: User ID
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # @schema
+    # type: integer
+    # description: Group ID
+    # default: 1000
+    # @schema
     runAsGroup: 1000
+    # @schema
+    # type: integer
+    # description: Filesystem group
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container security context
+  # @schema
   containerSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # description: Linux capabilities
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
         - ALL
+    # @schema
+    # type: boolean
+    # description: Read-only root filesystem
+    # default: false
+    # @schema
     readOnlyRootFilesystem: false
+    # @schema
+    # type: object
+    # description: Seccomp profile
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: object
+    # description: AppArmor profile
+    # @schema
     appArmorProfile:
+      # @schema
+      # description: AppArmor profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: Unconfined
+      # @schema
       type: Unconfined
+
+  # @schema
+  # type: object
+  # description: Security configuration for authorization user types
+  # @schema
   security:
+    # @schema
+    # type: array
+    # description: User type definitions for authorization
+    # items:
+    #   type: object
+    #   properties:
+    #     type:
+    #       type: string
+    #       description: User type identifier
+    #     display_name:
+    #       type: string
+    #       description: Human-readable name
+    #     priority:
+    #       type: integer
+    #       description: Priority order
+    #     auth_mechanisms:
+    #       type: array
+    #       items:
+    #         type: object
+    #         properties:
+    #           type:
+    #             type: string
+    #           entitlement:
+    #             type: object
+    #             properties:
+    #               claim:
+    #                 type: string
+    #               display_name:
+    #                 type: string
+    # @schema
     userTypes:
       - type: "user"
         display_name: "User"
@@ -356,47 +1679,217 @@ openchoreoApi:
               claim: "sub"
               display_name: "Client ID"
 
-# Backstage UI configuration
+# @schema
+# type: object
+# description: Backstage UI configuration
+# @schema
 backstage:
+  # @schema
+  # type: boolean
+  # description: Enable Backstage UI deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: integer
+  # description: Number of Backstage replicas
+  # minimum: 1
+  # default: 1
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Docker image repository
+    # default: ghcr.io/openchoreo/openchoreo-ui
+    # @schema
     repository: ghcr.io/openchoreo/openchoreo-ui
-    tag: "" # If no value is set, use Chart.AppVersion
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
+
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port
+    # default: 7007
+    # @schema
     port: 7007
+    # @schema
+    # type: [integer, "null"]
+        # description: NodePort (only used if service.type is NodePort)
+        # @schema
     nodePort: null
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Resource limits
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 2000m
+      # @schema
       cpu: 2000m
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 2Gi
+      # @schema
       memory: 2Gi
+    # @schema
+    # type: object
+    # description: Resource requests
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 200m
+      # @schema
       cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+
+  # @schema
+  # type: object
+  # description: Service account configuration
+  # @schema
   serviceAccount:
-    name: openchoreo-backstage # Service account name (always created when backstage.enabled is true)
-    annotations: {}
-  priorityClass:
-    create: false
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: openchoreo-backstage
+    # @schema
     name: openchoreo-backstage
+    # @schema
+    # type: object
+    # description: Service account annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    annotations: {}
+
+  # @schema
+  # type: object
+  # description: Priority class configuration
+  # @schema
+  priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a priority class
+    # default: false
+    # @schema
+    create: false
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: openchoreo-backstage
+    # @schema
+    name: openchoreo-backstage
+    # @schema
+    # type: integer
+    # description: Priority class value
+    # default: 800000
+    # @schema
     value: 800000
+
+  # @schema
+  # type: string
+  # description: Backend secret for Backstage encryption. If empty, a random secret is generated
+  # default: ""
+  # @schema
   backendSecret: ""
+
+  # @schema
+  # type: object
+  # description: OpenChoreo API connection configuration
+  # @schema
   openchoreoApi:
+    # @schema
+    # type: string
+    # description: OpenChoreo API URL. If empty, auto-derived from internal service
+    # default: ""
+    # @schema
     url: ""
 
-  # Feature flags for enabling/disabling OpenChoreo features in Backstage
-  # These control which plugins and functionality are available in the UI
+  # @schema
+  # type: object
+  # description: Feature flags for enabling/disabling OpenChoreo features in Backstage
+  # @schema
   features:
-    # Build plane / Workflows functionality
-    # When disabled, hides Workflows tab and WorkflowsOverviewCard from entity pages
+    # @schema
+    # type: object
+    # description: Build plane / Workflows functionality configuration
+    # @schema
     workflows:
+      # @schema
+      # type: boolean
+      # description: Enable Workflows tab and WorkflowsOverviewCard in entity pages
+      # default: true
+      # @schema
       enabled: true
-    # Observability plane features (Metrics, Traces, Runtime Logs)
-    # When disabled, hides Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard from entity pages
+    # @schema
+    # type: object
+    # description: Observability plane features (Metrics, Traces, Runtime Logs)
+    # @schema
     observability:
+      # @schema
+      # type: boolean
+      # description: Enable Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard in entity pages
+      # default: true
+      # @schema
       enabled: true
+
+  # @schema
+  # type: array
+  # description: Environment variables for the Backstage container
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
   env:
     - name: NODE_ENV
       value: production
@@ -404,31 +1897,154 @@ backstage:
       value: info
     - name: PORT
       value: "7007"
+
+  # @schema
+  # type: string
+  # description: Backstage public base URL. If empty, auto-derived from global.baseDomain
+  # default: ""
+  # @schema
   baseUrl: ""
+
+  # @schema
+  # type: object
+  # description: Thunder identity provider connection configuration
+  # @schema
   thunder:
+    # @schema
+    # type: string
+    # description: Thunder public base URL. If empty, auto-derived from global.baseDomain
+    # default: ""
+    # @schema
     baseUrl: ""
+    # @schema
+    # type: string
+    # description: Thunder API token for authentication
+    # default: ""
+    # @schema
     token: ""
+
+  # @schema
+  # type: object
+  # description: OAuth/OIDC authentication configuration
+  # @schema
   auth:
+    # @schema
+    # type: string
+    # description: OAuth authorization endpoint URL. If empty, auto-derived from Thunder
+    # default: ""
+    # @schema
     authorizationUrl: ""
+    # @schema
+    # type: string
+    # description: OAuth token endpoint URL. If empty, auto-derived from Thunder
+    # default: ""
+    # @schema
     tokenUrl: ""
+    # @schema
+    # type: string
+    # description: OAuth client ID
+    # default: openchoreo-backstage-client
+    # @schema
     clientId: "openchoreo-backstage-client"
+    # @schema
+    # type: string
+    # description: OAuth client secret
+    # default: backstage-portal-secret
+    # @schema
     clientSecret: "backstage-portal-secret"
+    # @schema
+    # type: array
+    # description: OAuth redirect URLs
+    # items:
+    #   type: string
+    # default: []
+    # @schema
     redirectUrls: []
+
+  # @schema
+  # type: object
+  # description: Horizontal Pod Autoscaler configuration
+  # @schema
   autoscaling:
+    # @schema
+    # type: boolean
+    # description: Enable HPA
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum replicas
+    # minimum: 1
+    # default: 1
+    # @schema
     minReplicas: 1
+    # @schema
+    # type: integer
+    # description: Maximum replicas
+    # minimum: 1
+    # default: 3
+    # @schema
     maxReplicas: 3
+    # @schema
+    # type: integer
+    # description: Target CPU utilization percentage
+    # minimum: 1
+    # maximum: 100
+    # default: 70
+    # @schema
     targetCPUUtilizationPercentage: 70
+    # @schema
+    # type: integer
+    # description: Target memory utilization percentage
+    # minimum: 1
+    # maximum: 100
+    # default: 80
+    # @schema
     targetMemoryUtilizationPercentage: 80
+    # @schema
+    # type: object
+    # description: HPA scaling behavior
+    # @schema
     behavior:
+      # @schema
+      # type: object
+      # description: Scale-down behavior
+      # @schema
       scaleDown:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds
+        # default: 300
+        # @schema
         stabilizationWindowSeconds: 300
+        # @schema
+        # type: array
+        # description: Scale-down policies
+        # items:
+        #   type: object
+        # @schema
         policies:
           - type: Percent
             value: 50
             periodSeconds: 60
+      # @schema
+      # type: object
+      # description: Scale-up behavior
+      # @schema
       scaleUp:
+        # @schema
+        # type: integer
+        # description: Stabilization window in seconds
+        # default: 0
+        # @schema
         stabilizationWindowSeconds: 0
+        # @schema
+        # type: array
+        # description: Scale-up policies
+        # items:
+        #   type: object
+        # @schema
         policies:
           - type: Percent
             value: 100
@@ -436,30 +2052,165 @@ backstage:
           - type: Pods
             value: 4
             periodSeconds: 60
+        # @schema
+        # description: Policy selection strategy
+        # enum: [Max, Min, Disabled]
+        # default: Max
+        # @schema
         selectPolicy: Max
+
+  # @schema
+  # type: object
+  # description: Pod Disruption Budget configuration
+  # @schema
   podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Enable PDB
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum available pods
+    # minimum: 0
+    # default: 1
+    # @schema
     minAvailable: 1
+
+  # @schema
+  # type: object
+  # description: Network policy configuration
+  # @schema
   networkPolicy:
+    # @schema
+    # type: boolean
+    # description: Enable NetworkPolicy
+    # default: false
+    # @schema
     enabled: false
+    # @schema
+    # type: array
+    # description: Ingress rules
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     ingress: []
+    # @schema
+    # type: array
+    # description: Egress rules
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     egress: []
+
+  # @schema
+  # type: object
+  # description: Prometheus metrics configuration
+  # @schema
   metrics:
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus metrics
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: object
+    # description: ServiceMonitor configuration
+    # @schema
     serviceMonitor:
+      # @schema
+      # type: boolean
+      # description: Create ServiceMonitor resource
+      # default: false
+      # @schema
       enabled: false
+      # @schema
+      # type: string
+      # description: Namespace for ServiceMonitor
+      # default: monitoring
+      # @schema
       namespace: monitoring
+      # @schema
+      # type: string
+      # description: Scrape interval
+      # default: 30s
+      # @schema
       interval: 30s
+      # @schema
+      # type: string
+      # description: Scrape timeout
+      # default: 10s
+      # @schema
       scrapeTimeout: 10s
+      # @schema
+      # type: object
+      # description: Labels for ServiceMonitor
+      # additionalProperties:
+      #   type: string
+      # @schema
       labels:
         prometheus: kube-prometheus
+      # @schema
+      # type: array
+      # description: Metric relabeling rules
+      # items:
+      #   type: object
+      # default: []
+      # @schema
       relabelings: []
+
+  # @schema
+  # type: object
+  # description: Ingress configuration
+  # @schema
   ingress:
+    # @schema
+    # type: boolean
+    # description: Enable ingress
+    # default: true
+    # @schema
     enabled: true
+    # @schema
+    # type: string
+    # description: Ingress class name
+    # default: ""
+    # @schema
     ingressClassName: ""
+    # @schema
+    # type: object
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+    # @schema
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     hosts: []
+    # @schema
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     tls: []
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints
+  # items:
+  #   type: object
+  # @schema
   topologySpreadConstraints:
     - maxSkew: 1
       topologyKey: topology.kubernetes.io/zone
@@ -475,206 +2226,1377 @@ backstage:
         matchLabels:
           app.kubernetes.io/name: openchoreo
           app.kubernetes.io/component: backstage
+
+  # @schema
+  # type: object
+  # description: Node selector
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules
+  # default: {}
+  # @schema
   affinity: {}
+
+  # @schema
+  # type: object
+  # description: Pod security context
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # @schema
+    # type: object
+    # description: Seccomp profile
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: integer
+    # description: User ID
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # @schema
+    # type: integer
+    # description: Group ID
+    # default: 1000
+    # @schema
     runAsGroup: 1000
+    # @schema
+    # type: integer
+    # description: Filesystem group
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container security context
+  # @schema
   containerSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # description: Linux capabilities
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
         - ALL
+    # @schema
+    # type: boolean
+    # description: Read-only root filesystem
+    # default: false
+    # @schema
     readOnlyRootFilesystem: false
+    # @schema
+    # type: object
+    # description: Seccomp profile
+    # @schema
     seccompProfile:
+      # @schema
+      # description: Seccomp profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: RuntimeDefault
+      # @schema
       type: RuntimeDefault
+    # @schema
+    # type: object
+    # description: AppArmor profile
+    # @schema
     appArmorProfile:
+      # @schema
+      # description: AppArmor profile type
+      # enum: [RuntimeDefault, Localhost, Unconfined]
+      # default: Unconfined
+      # @schema
       type: Unconfined
 
-# Asgardeo Thunder (Platform Identity Provider) configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: Asgardeo Thunder (Platform Identity Provider) configuration
+# @schema
 thunder:
+  # type: boolean
+  # description: Enable Thunder identity provider deployment
+  # default: true
+  # @schema
+  # type: boolean
+  # description: Enable Thunder identity provider deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # type: string
+  # description: Override the Thunder release name
+  # default: thunder
+  # @schema
+  # type: string
+  # description: Override the Thunder release name
+  # default: thunder
+  # @schema
   fullnameOverride: thunder
-  # Deployment configuration
+
+  # type: object
+  # additionalProperties: true
+  # description: Deployment configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Deployment configuration
+  # @schema
   deployment:
+    # type: integer
+    # description: Number of Thunder replicas
+    # minimum: 1
+    # default: 1
+    # @schema
+    # type: integer
+    # description: Number of Thunder replicas
+    # minimum: 1
+    # default: 1
+    # @schema
     replicaCount: 1
+
+    # type: object
+    # additionalProperties: true
+    # description: Rolling update strategy
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Rolling update strategy
+    # @schema
     strategy:
+      # type: object
+      # additionalProperties: true
+      # description: Rolling update parameters
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Rolling update parameters
+      # @schema
       rollingUpdate:
+        # type: integer
+        # description: Maximum surge pods during update
+        # default: 1
+        # @schema
+        # type: integer
+        # description: Maximum surge pods during update
+        # default: 1
+        # @schema
         maxSurge: 1
+        # type: integer
+        # description: Maximum unavailable pods during update
+        # default: 0
+        # @schema
+        # type: integer
+        # description: Maximum unavailable pods during update
+        # default: 0
+        # @schema
         maxUnavailable: 0
+
+    # type: object
+    # additionalProperties: true
+    # description: Security context for the pod
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Security context for the pod
+    # @schema
     securityContext:
-      # Must be false for SQLite to work (needs write access to database directory)
+      # type: boolean
+      # description: Read-only root filesystem. Must be false for SQLite
+      # default: false
+      # @schema
+      # type: boolean
+      # description: Read-only root filesystem. Must be false for SQLite
+      # default: false
+      # @schema
       readOnlyRootFilesystem: false
+      # type: boolean
+      # description: Enable run as user
+      # default: true
+      # @schema
+      # type: boolean
+      # description: Enable run as user
+      # default: true
+      # @schema
       enableRunAsUser: true
+      # type: integer
+      # description: Filesystem group
+      # default: 802
+      # @schema
+      # type: integer
+      # description: Filesystem group
+      # default: 802
+      # @schema
       fsGroup: 802
+      # type: integer
+      # description: User ID
+      # default: 802
+      # @schema
+      # type: integer
+      # description: User ID
+      # default: 802
+      # @schema
       runAsUser: 802
+      # type: object
+      # additionalProperties: true
+      # description: Seccomp profile configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Seccomp profile configuration
+      # @schema
       seccompProfile:
+        # type: boolean
+        # description: Enable seccomp profile
+        # default: true
+        # @schema
+        # type: boolean
+        # description: Enable seccomp profile
+        # default: true
+        # @schema
         enabled: true
+        # description: Seccomp profile type
+        # enum: [RuntimeDefault, Localhost, Unconfined]
+        # default: RuntimeDefault
+        # @schema
+        # description: Seccomp profile type
+        # enum: [RuntimeDefault, Localhost, Unconfined]
+        # default: RuntimeDefault
+        # @schema
         type: RuntimeDefault
+
+    # type: integer
+    # description: Termination grace period in seconds
+    # default: 10
+    # @schema
+    # type: integer
+    # description: Termination grace period in seconds
+    # default: 10
+    # @schema
     terminationGracePeriodSeconds: 10
+
+    # type: object
+    # additionalProperties: true
+    # description: Container image configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Container image configuration
+    # @schema
     image:
+      # type: string
+      # description: Image registry
+      # default: ghcr.io/asgardeo
+      # @schema
+      # type: string
+      # description: Image registry
+      # default: ghcr.io/asgardeo
+      # @schema
       registry: ghcr.io/asgardeo
+      # type: string
+      # description: Image repository
+      # default: thunder
+      # @schema
+      # type: string
+      # description: Image repository
+      # default: thunder
+      # @schema
       repository: thunder
+      # type: string
+      # description: Image tag
+      # default: "0.15.0"
+      # @schema
+      # type: string
+      # description: Image tag
+      # default: "0.15.0"
+      # @schema
       tag: "0.15.0"
+      # description: Image pull policy
+      # enum: [Always, IfNotPresent, Never]
+      # default: IfNotPresent
+      # @schema
+      # description: Image pull policy
+      # enum: [Always, IfNotPresent, Never]
+      # default: IfNotPresent
+      # @schema
       pullPolicy: IfNotPresent
+
+    # type: object
+    # additionalProperties: true
+    # description: Container configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Container configuration
+    # @schema
     container:
+      # type: integer
+      # description: Container port
+      # default: 8090
+      # @schema
+      # type: integer
+      # description: Container port
+      # default: 8090
+      # @schema
       port: 8090
+
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits
+    # @schema
     resources:
+      # type: object
+      # additionalProperties: true
+      # description: Resource limits
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Resource limits
+      # @schema
       limits:
+        # type: string
+        # description: CPU limit
+        # default: 500m
+        # @schema
+        # type: string
+        # description: CPU limit
+        # default: 500m
+        # @schema
         cpu: 500m
+        # type: string
+        # description: Memory limit
+        # default: 512Mi
+        # @schema
+        # type: string
+        # description: Memory limit
+        # default: 512Mi
+        # @schema
         memory: 512Mi
+      # type: object
+      # additionalProperties: true
+      # description: Resource requests
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Resource requests
+      # @schema
       requests:
+        # type: string
+        # description: CPU request
+        # default: 100m
+        # @schema
+        # type: string
+        # description: CPU request
+        # default: 100m
+        # @schema
         cpu: 100m
+        # type: string
+        # description: Memory request
+        # default: 128Mi
+        # @schema
+        # type: string
+        # description: Memory request
+        # default: 128Mi
+        # @schema
         memory: 128Mi
 
+  # type: object
+  # additionalProperties: true
+  # description: Persistent storage configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Persistent storage configuration
+  # @schema
   persistence:
+    # type: boolean
+    # description: Enable persistent storage
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Enable persistent storage
+    # default: true
+    # @schema
     enabled: true
+    # type: string
+    # description: Storage class name. If empty, uses default storage class
+    # default: ""
+    # @schema
+    # type: string
+    # description: Storage class name. If empty, uses default storage class
+    # default: ""
+    # @schema
     storageClass: ""
+    # description: Access mode for the persistent volume
+    # enum: [ReadWriteOnce, ReadWriteMany, ReadOnlyMany]
+    # default: ReadWriteOnce
+    # @schema
+    # description: Access mode for the persistent volume
+    # enum: [ReadWriteOnce, ReadWriteMany, ReadOnlyMany]
+    # default: ReadWriteOnce
+    # @schema
     accessMode: ReadWriteOnce
+    # type: string
+    # description: Size of the persistent volume
+    # default: 1Gi
+    # @schema
+    # type: string
+    # description: Size of the persistent volume
+    # default: 1Gi
+    # @schema
     size: 1Gi
+    # type: object
+    # additionalProperties: true
+    # description: Annotations for the PVC
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Annotations for the PVC
+    # default: {}
+    # @schema
     annotations: {}
 
-  # Service configuration
+  # type: object
+  # additionalProperties: true
+  # description: Service configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service configuration
+  # @schema
   service:
+    # type: integer
+    # description: Service port
+    # default: 8090
+    # @schema
+    # type: integer
+    # description: Service port
+    # default: 8090
+    # @schema
     port: 8090
 
-  # Service Account configuration
+  # type: object
+  # additionalProperties: true
+  # description: Service account configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service account configuration
+  # @schema
   serviceAccount:
+    # type: string
+    # description: Service account name
+    # default: thunder-service-account
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: thunder-service-account
+    # @schema
     name: thunder-service-account
+    # type: boolean
+    # description: Create service account
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Create service account
+    # default: true
+    # @schema
     create: true
 
-  # HPA configuration (disabled for local dev)
+  # type: object
+  # additionalProperties: true
+  # description: Horizontal Pod Autoscaler configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Horizontal Pod Autoscaler configuration
+  # @schema
   hpa:
+    # type: boolean
+    # description: Enable HPA
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Enable HPA
+    # default: false
+    # @schema
     enabled: false
 
-  # PDB configuration (disabled for local dev)
+  # type: object
+  # additionalProperties: true
+  # description: Pod Disruption Budget configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Pod Disruption Budget configuration
+  # @schema
   pdb:
+    # type: string
+    # description: Minimum available pods (percentage or number)
+    # default: "50%"
+    # @schema
+    # type: string
+    # description: Minimum available pods (percentage or number)
+    # default: "50%"
+    # @schema
     minAvailable: "50%"
 
-  # Ingress configuration (disabled - using k3d ingress instead)
+  # type: object
+  # additionalProperties: true
+  # description: Standard ingress configuration (typically disabled in favor of ocIngress)
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Standard ingress configuration (typically disabled in favor of ocIngress)
+  # @schema
   ingress:
+    # type: boolean
+    # description: Enable standard ingress
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Enable standard ingress
+    # default: false
+    # @schema
     enabled: false
+    # type: string
+    # description: Ingress class name
+    # default: ""
+    # @schema
+    # type: string
+    # description: Ingress class name
+    # default: ""
+    # @schema
     ingressClassName: ""
+    # type: object
+    # additionalProperties: true
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Ingress annotations
+    # default: {}
+    # @schema
     annotations: {}
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     hosts: []
-    tls: []
-  
-  ocIngress:
-    enabled: true
-    ingressClassName: ""
-    annotations: {}
-    hosts: []
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     tls: []
 
-  # Thunder application configuration
+  # type: object
+  # additionalProperties: true
+  # description: OpenChoreo-specific ingress configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: OpenChoreo-specific ingress configuration
+  # @schema
+  ocIngress:
+    # type: boolean
+    # description: Enable OpenChoreo ingress
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Enable OpenChoreo ingress
+    # default: true
+    # @schema
+    enabled: true
+    # type: string
+    # description: Ingress class name. If empty, uses global.ingressClassName
+    # default: ""
+    # @schema
+    # type: string
+    # description: Ingress class name. If empty, uses global.ingressClassName
+    # default: ""
+    # @schema
+    ingressClassName: ""
+    # type: object
+    # additionalProperties: true
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Ingress annotations
+    # default: {}
+    # @schema
+    annotations: {}
+    # type: array
+    # description: Ingress hosts. If empty, derives from global.baseDomain
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    # type: array
+    # description: Ingress hosts. If empty, derives from global.baseDomain
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    hosts: []
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    # type: array
+    # description: Ingress TLS configuration
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    tls: []
+
+  # type: object
+  # additionalProperties: true
+  # description: Thunder application configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Thunder application configuration
+  # @schema
   configuration:
+    # type: object
+    # additionalProperties: true
+    # description: Server configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Server configuration
+    # @schema
     server:
+      # type: integer
+      # description: Server port
+      # default: 8090
+      # @schema
+      # type: integer
+      # description: Server port
+      # default: 8090
+      # @schema
       port: 8090
+      # type: boolean
+      # description: HTTP-only mode (no HTTPS termination at Thunder)
+      # default: true
+      # @schema
+      # type: boolean
+      # description: HTTP-only mode (no HTTPS termination at Thunder)
+      # default: true
+      # @schema
       httpOnly: true
+      # type: string
+      # description: Public URL for Thunder. If empty, auto-derived from global.baseDomain
+      # default: ""
+      # @schema
+      # type: string
+      # description: Public URL for Thunder. If empty, auto-derived from global.baseDomain
+      # default: ""
+      # @schema
       publicUrl: ""
 
+    # type: object
+    # additionalProperties: true
+    # description: Gate client configuration for API gateway integration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Gate client configuration for API gateway integration
+    # @schema
     gateClient:
+      # type: string
+      # description: Gate client hostname
+      # default: ""
+      # @schema
+      # type: string
+      # description: Gate client hostname
+      # default: ""
+      # @schema
       hostname: ""
+      # type: integer
+      # description: Gate client port
+      # default: 8080
+      # @schema
+      # type: integer
+      # description: Gate client port
+      # default: 8080
+      # @schema
       port: 8080
+      # description: Protocol scheme
+      # enum: [http, https]
+      # default: http
+      # @schema
+      # description: Protocol scheme
+      # enum: [http, https]
+      # default: http
+      # @schema
       scheme: "http"
+      # type: string
+      # description: Login path
+      # default: /gate/signin
+      # @schema
+      # type: string
+      # description: Login path
+      # default: /gate/signin
+      # @schema
       loginPath: "/gate/signin"
+      # type: string
+      # description: Error path
+      # default: /gate/error
+      # @schema
+      # type: string
+      # description: Error path
+      # default: /gate/error
+      # @schema
       errorPath: "/gate/error"
 
+    # type: object
+    # additionalProperties: true
+    # description: Security file paths
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Security file paths
+    # @schema
     security:
+      # type: string
+      # description: Server certificate file path
+      # default: repository/resources/security/server.cert
+      # @schema
+      # type: string
+      # description: Server certificate file path
+      # default: repository/resources/security/server.cert
+      # @schema
       certFile: "repository/resources/security/server.cert"
+      # type: string
+      # description: Server private key file path
+      # default: repository/resources/security/server.key
+      # @schema
+      # type: string
+      # description: Server private key file path
+      # default: repository/resources/security/server.key
+      # @schema
       keyFile: "repository/resources/security/server.key"
+      # type: string
+      # description: Crypto key file path
+      # default: repository/resources/security/crypto.key
+      # @schema
+      # type: string
+      # description: Crypto key file path
+      # default: repository/resources/security/crypto.key
+      # @schema
       cryptoFile: "repository/resources/security/crypto.key"
 
-    # Database configuration - Using SQLite for local k3d development
+    # type: object
+    # additionalProperties: true
+    # description: Database configuration using SQLite
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Database configuration using SQLite
+    # @schema
     database:
+      # type: object
+      # additionalProperties: true
+      # description: Identity database configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Identity database configuration
+      # @schema
       identity:
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
         type: sqlite
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/thunderdb.db
+        # @schema
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/thunderdb.db
+        # @schema
         sqlitePath: "repository/database/thunderdb.db"
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
         sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
+      # type: object
+      # additionalProperties: true
+      # description: Runtime database configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Runtime database configuration
+      # @schema
       runtime:
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
         type: sqlite
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/runtimedb.db
+        # @schema
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/runtimedb.db
+        # @schema
         sqlitePath: "repository/database/runtimedb.db"
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
         sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
+      # type: object
+      # additionalProperties: true
+      # description: User database configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: User database configuration
+      # @schema
       user:
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
+        # description: Database type
+        # enum: [sqlite, mysql, postgres]
+        # default: sqlite
+        # @schema
         type: sqlite
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/userdb.db
+        # @schema
+        # type: string
+        # description: SQLite database file path
+        # default: repository/database/userdb.db
+        # @schema
         sqlitePath: "repository/database/userdb.db"
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
+        # type: string
+        # description: SQLite connection options
+        # default: _journal_mode=WAL&_busy_timeout=5000
+        # @schema
         sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000"
 
-    # Cache configuration
+    # type: object
+    # additionalProperties: true
+    # description: Cache configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Cache configuration
+    # @schema
     cache:
+      # type: boolean
+      # description: Disable caching
+      # default: false
+      # @schema
+      # type: boolean
+      # description: Disable caching
+      # default: false
+      # @schema
       disabled: false
+      # description: Cache type
+      # enum: [inmemory, redis]
+      # default: inmemory
+      # @schema
+      # description: Cache type
+      # enum: [inmemory, redis]
+      # default: inmemory
+      # @schema
       type: "inmemory"
+      # type: integer
+      # description: Maximum cache size
+      # default: 1000
+      # @schema
+      # type: integer
+      # description: Maximum cache size
+      # default: 1000
+      # @schema
       size: 1000
+      # type: integer
+      # description: Cache TTL in seconds
+      # default: 3600
+      # @schema
+      # type: integer
+      # description: Cache TTL in seconds
+      # default: 3600
+      # @schema
       ttl: 3600
+      # description: Cache eviction policy
+      # enum: [LRU, LFU]
+      # default: LRU
+      # @schema
+      # description: Cache eviction policy
+      # enum: [LRU, LFU]
+      # default: LRU
+      # @schema
       evictionPolicy: "LRU"
+      # type: integer
+      # description: Cache cleanup interval in seconds
+      # default: 300
+      # @schema
+      # type: integer
+      # description: Cache cleanup interval in seconds
+      # default: 300
+      # @schema
       cleanupInterval: 300
 
-    # Token configuration
+    # type: object
+    # additionalProperties: true
+    # description: JWT token configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: JWT token configuration
+    # @schema
     jwt:
+      # type: string
+      # description: JWT issuer name
+      # default: thunder
+      # @schema
+      # type: string
+      # description: JWT issuer name
+      # default: thunder
+      # @schema
       issuer: "thunder"
+      # type: integer
+      # description: Token validity period in seconds
+      # default: 3600
+      # @schema
+      # type: integer
+      # description: Token validity period in seconds
+      # default: 3600
+      # @schema
       validityPeriod: 3600
+      # type: string
+      # description: Token audience
+      # default: application
+      # @schema
+      # type: string
+      # description: Token audience
+      # default: application
+      # @schema
       audience: "application"
 
-    # OAuth configuration
+    # type: object
+    # additionalProperties: true
+    # description: OAuth configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: OAuth configuration
+    # @schema
     oauth:
+      # type: object
+      # additionalProperties: true
+      # description: Refresh token configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Refresh token configuration
+      # @schema
       refreshToken:
+        # type: boolean
+        # description: Renew refresh token on grant
+        # default: false
+        # @schema
+        # type: boolean
+        # description: Renew refresh token on grant
+        # default: false
+        # @schema
         renewOnGrant: false
+        # type: integer
+        # description: Refresh token validity period in seconds
+        # default: 86400
+        # @schema
+        # type: integer
+        # description: Refresh token validity period in seconds
+        # default: 86400
+        # @schema
         validityPeriod: 86400
 
-    # Flow configuration
+    # type: object
+    # additionalProperties: true
+    # description: Authentication flow configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Authentication flow configuration
+    # @schema
     flow:
+      # type: string
+      # description: Directory containing flow graph definitions
+      # default: repository/resources/graphs/
+      # @schema
+      # type: string
+      # description: Directory containing flow graph definitions
+      # default: repository/resources/graphs/
+      # @schema
       graphDirectory: "repository/resources/graphs/"
+      # type: object
+      # additionalProperties: true
+      # description: Authentication flow settings
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Authentication flow settings
+      # @schema
       authn:
+        # type: string
+        # description: Default authentication flow
+        # default: auth_flow_config_basic
+        # @schema
+        # type: string
+        # description: Default authentication flow
+        # default: auth_flow_config_basic
+        # @schema
         defaultFlow: "auth_flow_config_basic"
 
-    # CORS configuration - Include both ingress hosts
+    # type: object
+    # additionalProperties: true
+    # description: CORS configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: CORS configuration
+    # @schema
     cors:
+      # type: array
+      # description: Allowed origins for CORS
+      # items:
+      #   type: string
+      # @schema
+      # type: array
+      # description: Allowed origins for CORS
+      # items:
+      #   type: string
+      # @schema
       allowedOrigins:
         - "http://openchoreo.localhost:8080"
         - "http://localhost:7007"
 
-  # Setup job configuration
+  # type: object
+  # additionalProperties: true
+  # description: Setup job configuration for Thunder initialization
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Setup job configuration for Thunder initialization
+  # @schema
   setup:
+    # type: boolean
+    # description: Enable the setup job
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Enable the setup job
+    # default: true
+    # @schema
     enabled: true
+    # type: integer
+    # description: Job backoff limit (retry count)
+    # default: 3
+    # @schema
+    # type: integer
+    # description: Job backoff limit (retry count)
+    # default: 3
+    # @schema
     backoffLimit: 3
-    ttlSecondsAfterFinished: 86400  # 24 hours
+    # type: integer
+    # description: Job retention time in seconds after completion (24 hours)
+    # default: 86400
+    # @schema
+    # type: integer
+    # description: Job retention time in seconds after completion (24 hours)
+    # default: 86400
+    # @schema
+    ttlSecondsAfterFinished: 86400
+    # type: boolean
+    # description: Preserve job after completion
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Preserve job after completion
+    # default: true
+    # @schema
     preserveJob: true
+    # type: boolean
+    # description: Enable debug mode for setup job
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Enable debug mode for setup job
+    # default: false
+    # @schema
     debug: false
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits for setup job
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests and limits for setup job
+    # @schema
     resources:
+      # type: object
+      # additionalProperties: true
+      # description: Resource limits
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Resource limits
+      # @schema
       limits:
+        # type: string
+        # description: CPU limit
+        # default: 500m
+        # @schema
+        # type: string
+        # description: CPU limit
+        # default: 500m
+        # @schema
         cpu: 500m
+        # type: string
+        # description: Memory limit
+        # default: 256Mi
+        # @schema
+        # type: string
+        # description: Memory limit
+        # default: 256Mi
+        # @schema
         memory: 256Mi
+      # type: object
+      # additionalProperties: true
+      # description: Resource requests
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Resource requests
+      # @schema
       requests:
+        # type: string
+        # description: CPU request
+        # default: 250m
+        # @schema
+        # type: string
+        # description: CPU request
+        # default: 250m
+        # @schema
         cpu: 250m
+        # type: string
+        # description: Memory request
+        # default: 128Mi
+        # @schema
+        # type: string
+        # description: Memory request
+        # default: 128Mi
+        # @schema
         memory: 128Mi
 
-  # Bootstrap configuration for Backstage OAuth app and default users
-  # These scripts run during the setup job to initialize Thunder
-  # Scripts are defined in templates/thunder/bootstrap-scripts-configmap.yaml
+  # type: object
+  # additionalProperties: true
+  # description: Bootstrap configuration for Backstage OAuth app and default users
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Bootstrap configuration for Backstage OAuth app and default users
+  # @schema
   bootstrap:
+    # type: boolean
+    # description: Enable bootstrap scripts
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Enable bootstrap scripts
+    # default: true
+    # @schema
     enabled: true
+    # type: object
+    # additionalProperties: true
+    # description: ConfigMap configuration for bootstrap scripts
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: ConfigMap configuration for bootstrap scripts
+    # @schema
     configMap:
-      # Reference to external ConfigMap containing bootstrap scripts
-      # Using Pattern 2: Only override specific files while preserving Thunder's default bootstrap scripts
+      # type: string
+      # description: ConfigMap name containing bootstrap scripts
+      # default: openchoreo-thunder-bootstrap
+      # @schema
+      # type: string
+      # description: ConfigMap name containing bootstrap scripts
+      # default: openchoreo-thunder-bootstrap
+      # @schema
       name: openchoreo-thunder-bootstrap
+      # type: array
+      # description: Bootstrap script files to run
+      # items:
+      #   type: string
+      # @schema
+      # type: array
+      # description: Bootstrap script files to run
+      # items:
+      #   type: string
+      # @schema
       files:
         - 50-backstage-app.sh
         - 51-user-schema-and-users.sh
         - 52-default-apps.sh
         - 53-rca-agent-client.sh
-    # Default users to create during bootstrap
+    # @schema
+    # type: array
+    # description: Default users to create during bootstrap
+    # items:
+    #   type: object
+    #   properties:
+    #     username:
+    #       type: string
+    #       description: User email/username
+    #     password:
+    #       type: string
+    #       description: User password
+    #     givenName:
+    #       type: string
+    #       description: User first name
+    #     familyName:
+    #       type: string
+    #       description: User last name
+    #     groups:
+    #       type: array
+    #       items:
+    #         type: string
+    #       description: User group memberships
+    # @schema
     defaultUsers:
       - username: "admin@openchoreo.dev"
         password: "Admin@123"
         givenName: "Admin"
         familyName: "User"
         groups: ["platformEngineer"]
-    # Default OAuth applications to create during bootstrap
+    # type: array
+    # description: Default OAuth applications to create during bootstrap
+    # items:
+    #   type: object
+    #   properties:
+    #     clientId:
+    #       type: string
+    #       description: OAuth client ID
+    #     clientSecret:
+    #       type: string
+    #       description: OAuth client secret
+    # @schema
+    # type: array
+    # description: Default OAuth applications to create during bootstrap
+    # items:
+    #   type: object
+    #   properties:
+    #     clientId:
+    #       type: string
+    #       description: OAuth client ID
+    #     clientSecret:
+    #       type: string
+    #       description: OAuth client secret
+    # @schema
     defaultApps:
       - clientId: "customer-portal-client"
         clientSecret: "supersecret"
@@ -686,109 +3608,932 @@ thunder:
       clientId: "openchoreo-rca-agent"
       clientSecret: "openchoreo-rca-agent-secret"
 
-# Cluster Gateway configuration
-# The gateway manages WebSocket connections from cluster agents
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Gateway configuration - manages WebSocket connections from cluster agents
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Gateway configuration - manages WebSocket connections from cluster agents
+# @schema
 clusterGateway:
+  # type: boolean
+  # description: Enable the cluster gateway
+  # default: true
+  # @schema
+  # type: boolean
+  # description: Enable the cluster gateway
+  # default: true
+  # @schema
   enabled: true
+
+  # type: string
+  # description: Name of the cluster gateway deployment
+  # default: cluster-gateway
+  # @schema
+  # type: string
+  # description: Name of the cluster gateway deployment
+  # default: cluster-gateway
+  # @schema
   name: cluster-gateway
+
+  # type: integer
+  # description: Number of cluster gateway replicas
+  # minimum: 1
+  # default: 1
+  # @schema
+  # type: integer
+  # description: Number of cluster gateway replicas
+  # minimum: 1
+  # default: 1
+  # @schema
   replicas: 1
+
+  # type: object
+  # description: Container image configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container image configuration
+  # @schema
   image:
+    # type: string
+    # description: Docker image repository
+    # default: ghcr.io/openchoreo/cluster-gateway
+    # @schema
+    # type: string
+    # description: Docker image repository
+    # default: ghcr.io/openchoreo/cluster-gateway
+    # @schema
     repository: ghcr.io/openchoreo/cluster-gateway
-    tag: "" # If no value is set, use Chart.AppVersion
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion
+    # default: ""
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion
+    # default: ""
+    # @schema
+    tag: ""
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
+
+  # type: integer
+  # description: WebSocket port for agent connections
+  # default: 8443
+  # @schema
+  # type: integer
+  # description: WebSocket port for agent connections
+  # default: 8443
+  # @schema
   port: 8443
+
+  # type: string
+  # description: Heartbeat interval for agent connections
+  # default: 30s
+  # @schema
+  # type: string
+  # description: Heartbeat interval for agent connections
+  # default: 30s
+  # @schema
   heartbeatInterval: 30s
+
+  # type: string
+  # description: Heartbeat timeout for agent connections
+  # default: 90s
+  # @schema
+  # type: string
+  # description: Heartbeat timeout for agent connections
+  # default: 90s
+  # @schema
   heartbeatTimeout: 90s
+
+  # description: Log level
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
+  # description: Log level
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
+
+  # type: object
+  # description: Resource requests and limits
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits
+  # @schema
   resources:
+    # type: object
+    # description: Resource requests
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests
+    # @schema
     requests:
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
       cpu: "100m"
+      # type: string
+      # description: Memory request
+      # default: 64Mi
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 64Mi
+      # @schema
       memory: "64Mi"
+    # type: object
+    # description: Resource limits
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits
+    # @schema
     limits:
+      # type: string
+      # description: CPU limit
+      # default: 500m
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 500m
+      # @schema
       cpu: "500m"
+      # type: string
+      # description: Memory limit
+      # default: 256Mi
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 256Mi
+      # @schema
       memory: "256Mi"
+
+  # type: object
+  # description: Service account configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service account configuration
+  # @schema
   serviceAccount:
+    # type: boolean
+    # description: Create a service account
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Create a service account
+    # default: true
+    # @schema
     create: true
+    # type: string
+    # description: Service account name
+    # default: cluster-gateway
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: cluster-gateway
+    # @schema
     name: cluster-gateway
+    # type: object
+    # description: Service account annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    # type: object
+    # description: Service account annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+
+  # type: object
+  # description: Priority class configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Priority class configuration
+  # @schema
   priorityClass:
+    # type: boolean
+    # description: Create a priority class
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Create a priority class
+    # default: false
+    # @schema
     create: false
+    # type: string
+    # description: Priority class name
+    # default: cluster-gateway
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: cluster-gateway
+    # @schema
     name: cluster-gateway
+    # type: integer
+    # description: Priority class value
+    # default: 900000
+    # @schema
+    # type: integer
+    # description: Priority class value
+    # default: 900000
+    # @schema
     value: 900000
+
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
     type: ClusterIP
+    # type: integer
+    # description: Service port
+    # default: 8443
+    # @schema
+    # type: integer
+    # description: Service port
+    # default: 8443
+    # @schema
     port: 8443
+    # type: [integer, "null"]
+        # description: NodePort (only used if service.type is NodePort)
+    # @schema
+    # type: [integer, "null"]
+        # description: NodePort (only used if service.type is NodePort)
+        # @schema
     nodePort: null
+    # type: [string, "null"]
+        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
+    # @schema
+    # type: [string, "null"]
+        # description: LoadBalancer IP (only used if service.type is LoadBalancer)
+        # @schema
     loadBalancerIP: null
+    # type: [string, "null"]
+        # description: Cluster IP (set to None for headless service)
+    # @schema
+    # type: [string, "null"]
+        # description: Cluster IP (set to None for headless service)
+        # @schema
     clusterIP: null
+
+  # type: object
+  # description: Ingress configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Ingress configuration
+  # @schema
   ingress:
+    # type: boolean
+    # description: Enable ingress
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Enable ingress
+    # default: false
+    # @schema
     enabled: false
+    # type: string
+    # description: Ingress class name
+    # default: ""
+    # @schema
+    # type: string
+    # description: Ingress class name
+    # default: ""
+    # @schema
     ingressClassName: ""
+    # type: object
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    # type: object
+    # description: Ingress annotations
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    # default: []
+    # @schema
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    # default: []
+    # @schema
     hosts: []
+
+  # type: object
+  # description: TLS configuration using cert-manager
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: TLS configuration using cert-manager
+  # @schema
   tls:
+    # type: boolean
+    # description: Enable TLS
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Enable TLS
+    # default: true
+    # @schema
     enabled: true
+    # type: string
+    # description: TLS secret name
+    # default: cluster-gateway-tls
+    # @schema
+    # type: string
+    # description: TLS secret name
+    # default: cluster-gateway-tls
+    # @schema
     secretName: cluster-gateway-tls
+    # type: object
+    # description: cert-manager issuer reference
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: cert-manager issuer reference
+    # @schema
     issuerRef:
+      # description: Issuer kind
+      # enum: [Issuer, ClusterIssuer]
+      # default: Issuer
+      # @schema
+      # description: Issuer kind
+      # enum: [Issuer, ClusterIssuer]
+      # default: Issuer
+      # @schema
       kind: Issuer
+      # type: string
+      # description: Issuer name
+      # default: cluster-gateway-selfsigned-issuer
+      # @schema
+      # type: string
+      # description: Issuer name
+      # default: cluster-gateway-selfsigned-issuer
+      # @schema
       name: cluster-gateway-selfsigned-issuer
+    # type: array
+    # description: DNS names for the certificate
+    # items:
+    #   type: string
+    # @schema
+    # type: array
+    # description: DNS names for the certificate
+    # items:
+    #   type: string
+    # @schema
     dnsNames:
       - cluster-gateway.openchoreo-control-plane.svc
       - cluster-gateway.openchoreo-control-plane.svc.cluster.local
-    duration: 2160h # 90 days
-    renewBefore: 360h # 15 days
+    # type: string
+    # description: Certificate validity duration (90 days)
+    # default: 2160h
+    # @schema
+    # type: string
+    # description: Certificate validity duration (90 days)
+    # default: 2160h
+    # @schema
+    duration: 2160h
+    # type: string
+    # description: Certificate renewal threshold (15 days before expiry)
+    # default: 360h
+    # @schema
+    # type: string
+    # description: Certificate renewal threshold (15 days before expiry)
+    # default: 360h
+    # @schema
+    renewBefore: 360h
+
+  # type: object
+  # description: Pod security context
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Pod security context
+  # @schema
   podSecurityContext:
+    # type: boolean
+    # description: Run as non-root user
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Run as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+    # type: integer
+    # description: User ID
+    # default: 1000
+    # @schema
+    # type: integer
+    # description: User ID
+    # default: 1000
+    # @schema
     runAsUser: 1000
+    # type: integer
+    # description: Filesystem group
+    # default: 1000
+    # @schema
+    # type: integer
+    # description: Filesystem group
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # type: object
+  # description: Container security context
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container security context
+  # @schema
   securityContext:
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+    # type: object
+    # description: Linux capabilities
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Linux capabilities
+    # @schema
     capabilities:
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
       drop:
         - ALL
+    # type: boolean
+    # description: Read-only root filesystem
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Read-only root filesystem
+    # default: true
+    # @schema
     readOnlyRootFilesystem: true
+
+  # type: object
+  # description: Node selector
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  # type: object
+  # description: Node selector
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # type: array
+  # description: Tolerations
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  # type: array
+  # description: Tolerations
+  # items:
+  #   type: object
+  # default: []
+  # @schema
   tolerations: []
+
+  # type: object
+  # description: Affinity rules
+  # default: {}
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Affinity rules
+  # default: {}
+  # @schema
   affinity: {}
 
+# type: object
+# description: Traefik ingress controller configuration (subchart)
+# @schema
+# type: object
+# additionalProperties: true
+# description: Traefik ingress controller configuration (subchart)
+# @schema
 traefik:
+  # type: boolean
+  # description: Enable Traefik ingress controller
+  # default: true
+  # @schema
+  # type: boolean
+  # description: Enable Traefik ingress controller
+  # default: true
+  # @schema
   enabled: true
+
+  # type: string
+  # description: Override the Traefik release name
+  # default: openchoreo-traefik
+  # @schema
+  # type: string
+  # description: Override the Traefik release name
+  # default: openchoreo-traefik
+  # @schema
   fullnameOverride: openchoreo-traefik
+
+  # type: object
+  # additionalProperties: true
+  # description: IngressClass configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: IngressClass configuration
+  # @schema
   ingressClass:
+    # type: boolean
+    # description: Create IngressClass resource
+    # default: true
+    # @schema
+    # type: boolean
+    # description: Create IngressClass resource
+    # default: true
+    # @schema
     enabled: true
+    # type: boolean
+    # description: Set as the default IngressClass
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Set as the default IngressClass
+    # default: false
+    # @schema
     isDefaultClass: false
+    # type: string
+    # description: IngressClass name
+    # default: openchoreo-traefik
+    # @schema
+    # type: string
+    # description: IngressClass name
+    # default: openchoreo-traefik
+    # @schema
     name: openchoreo-traefik
+
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes service configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes service configuration
+  # @schema
   service:
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: LoadBalancer
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: LoadBalancer
+    # @schema
     type: LoadBalancer
-  # Port configuration for Traefik LoadBalancer
+
+  # type: object
+  # additionalProperties: true
+  # description: Port configuration for Traefik LoadBalancer
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Port configuration for Traefik LoadBalancer
+  # @schema
   ports:
+    # type: object
+    # additionalProperties: true
+    # description: HTTP port configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: HTTP port configuration
+    # @schema
     web:
-      port: 8000           # Container port
-      exposedPort: 80      # LoadBalancer port for HTTP
+      # type: integer
+      # description: Container port for HTTP
+      # default: 8000
+      # @schema
+      # type: integer
+      # description: Container port for HTTP
+      # default: 8000
+      # @schema
+      port: 8000
+      # type: integer
+      # description: LoadBalancer exposed port for HTTP
+      # default: 80
+      # @schema
+      # type: integer
+      # description: LoadBalancer exposed port for HTTP
+      # default: 80
+      # @schema
+      exposedPort: 80
+      # type: object
+      # additionalProperties: true
+      # description: Expose configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Expose configuration
+      # @schema
       expose:
+        # type: boolean
+        # description: Expose port by default
+        # default: true
+        # @schema
+        # type: boolean
+        # description: Expose port by default
+        # default: true
+        # @schema
         default: true
+    # type: object
+    # additionalProperties: true
+    # description: HTTPS port configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: HTTPS port configuration
+    # @schema
     websecure:
-      port: 8443           # Container port
-      exposedPort: 443     # LoadBalancer port for HTTPS
+      # type: integer
+      # description: Container port for HTTPS
+      # default: 8443
+      # @schema
+      # type: integer
+      # description: Container port for HTTPS
+      # default: 8443
+      # @schema
+      port: 8443
+      # type: integer
+      # description: LoadBalancer exposed port for HTTPS
+      # default: 443
+      # @schema
+      # type: integer
+      # description: LoadBalancer exposed port for HTTPS
+      # default: 443
+      # @schema
+      exposedPort: 443
+      # type: object
+      # additionalProperties: true
+      # description: Expose configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Expose configuration
+      # @schema
       expose:
+        # type: boolean
+        # description: Expose port by default
+        # default: true
+        # @schema
+        # type: boolean
+        # description: Expose port by default
+        # default: true
+        # @schema
         default: true
+      # type: object
+      # additionalProperties: true
+      # description: TLS configuration for websecure port
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: TLS configuration for websecure port
+      # @schema
       tls:
+        # type: boolean
+        # description: Enable TLS on websecure port
+        # default: true
+        # @schema
+        # type: boolean
+        # description: Enable TLS on websecure port
+        # default: true
+        # @schema
         enabled: true
+
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource requests and limits
+  # @schema
   resources:
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource requests
+    # @schema
     requests:
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
       cpu: 100m
+      # type: string
+      # description: Memory request
+      # default: 128Mi
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 128Mi
+      # @schema
       memory: 128Mi
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits
+    # @schema
     limits:
+      # type: string
+      # description: CPU limit
+      # default: 500m
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 500m
+      # @schema
       cpu: 500m
+      # type: string
+      # description: Memory limit
+      # default: 256Mi
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+
+  # type: object
+  # additionalProperties: true
+  # description: IngressRoute configuration for Traefik dashboard
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: IngressRoute configuration for Traefik dashboard
+  # @schema
   ingressRoute:
+    # type: object
+    # additionalProperties: true
+    # description: Dashboard configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Dashboard configuration
+    # @schema
     dashboard:
+      # type: boolean
+      # description: Enable Traefik dashboard
+      # default: false
+      # @schema
+      # type: boolean
+      # description: Enable Traefik dashboard
+      # default: false
+      # @schema
       enabled: false
+
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes provider configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes provider configuration
+  # @schema
   providers:
+    # type: object
+    # additionalProperties: true
+    # description: Kubernetes Ingress provider configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Kubernetes Ingress provider configuration
+    # @schema
     kubernetesIngress:
+      # type: string
+      # description: IngressClass to watch
+      # default: openchoreo-traefik
+      # @schema
+      # type: string
+      # description: IngressClass to watch
+      # default: openchoreo-traefik
+      # @schema
       ingressClass: openchoreo-traefik
+
+  # type: object
+  # additionalProperties: true
+  # description: Logging configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Logging configuration
+  # @schema
   logs:
+    # type: object
+    # additionalProperties: true
+    # description: General logging configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: General logging configuration
+    # @schema
     general:
+      # description: Log level
+      # enum: [DEBUG, INFO, WARN, ERROR]
+      # default: INFO
+      # @schema
+      # description: Log level
+      # enum: [DEBUG, INFO, WARN, ERROR]
+      # default: INFO
+      # @schema
       level: INFO
+    # type: object
+    # additionalProperties: true
+    # description: Access log configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Access log configuration
+    # @schema
     access:
+      # type: boolean
+      # description: Enable access logs
+      # default: false
+      # @schema
+      # type: boolean
+      # description: Enable access logs
+      # default: false
+      # @schema
       enabled: false

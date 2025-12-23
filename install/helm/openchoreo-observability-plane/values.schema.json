@@ -1,0 +1,3726 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "clusterAgent": {
+      "additionalProperties": true,
+      "description": "Cluster Agent configuration for WebSocket-based communication with the control plane's cluster gateway",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "dnsRewrite": {
+          "additionalProperties": false,
+          "description": "DNS rewrite configuration for multi-cluster k3d setups",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable CoreDNS rewrite for *.openchoreo.localhost to host.k3d.internal",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "dnsRewrite",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable cluster agent deployment for multi-cluster communication",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "heartbeatInterval": {
+          "default": "30s",
+          "description": "Interval between heartbeat messages to the control plane",
+          "required": [],
+          "title": "heartbeatInterval",
+          "type": "string"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration for the cluster agent",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy for the cluster agent",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/cluster-agent",
+              "description": "Container image repository for the cluster agent",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Log level for the cluster agent",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "required": [],
+          "title": "logLevel"
+        },
+        "name": {
+          "default": "cluster-agent-observabilityplane",
+          "description": "Name of the cluster agent deployment and associated resources",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "planeID": {
+          "default": "default-observabilityplane",
+          "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified.\n",
+          "required": [],
+          "title": "planeID",
+          "type": "string"
+        },
+        "planeType": {
+          "default": "observabilityplane",
+          "description": "Type of plane this agent serves",
+          "enum": [
+            "dataplane",
+            "buildplane",
+            "observabilityplane"
+          ],
+          "required": [],
+          "title": "planeType"
+        },
+        "podAnnotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations to add to cluster agent pods",
+          "required": [],
+          "title": "podAnnotations",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod-level security context",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Filesystem group ID",
+              "minimum": 0,
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID to run as",
+              "minimum": 0,
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "priorityClass": {
+          "additionalProperties": false,
+          "description": "Priority class configuration for scheduling priority",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "cluster-agent-observabilityplane",
+              "description": "Name of the priority class",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 900000,
+              "description": "Priority value",
+              "minimum": 0,
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "rbac": {
+          "additionalProperties": false,
+          "description": "RBAC configuration for the cluster agent",
+          "properties": {
+            "create": {
+              "default": true,
+              "description": "Create ClusterRole and ClusterRoleBinding for the agent",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "rbac",
+          "type": "object"
+        },
+        "reconnectDelay": {
+          "default": "5s",
+          "description": "Delay before reconnecting after connection loss",
+          "required": [],
+          "title": "reconnectDelay",
+          "type": "string"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of cluster agent pod replicas",
+          "minimum": 0,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for the cluster agent",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Minimum resources guaranteed",
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "securityContext": {
+          "additionalProperties": false,
+          "description": "Container-level security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "description": "Mount root filesystem as read-only",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "securityContext",
+          "type": "object"
+        },
+        "serverCANamespace": {
+          "default": "openchoreo-control-plane",
+          "description": "Namespace where cluster-gateway CA ConfigMap exists",
+          "required": [],
+          "title": "serverCANamespace",
+          "type": "string"
+        },
+        "serverUrl": {
+          "default": "wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws",
+          "description": "WebSocket URL of the cluster gateway in the control plane",
+          "required": [],
+          "title": "serverUrl",
+          "type": "string"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the cluster agent",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "description": "Create a dedicated service account",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "cluster-agent-observabilityplane",
+              "description": "Name of the service account",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration for secure communication with cluster gateway",
+          "properties": {
+            "caSecretName": {
+              "default": "cluster-gateway-ca",
+              "description": "CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).",
+              "required": [],
+              "title": "caSecretName",
+              "type": "string"
+            },
+            "caSecretNamespace": {
+              "default": "openchoreo-control-plane",
+              "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
+              "required": [],
+              "title": "caSecretNamespace",
+              "type": "string"
+            },
+            "caValue": {
+              "default": "",
+              "description": "Inline CA certificate in PEM format (for multi-cluster, takes precedence)",
+              "required": [],
+              "title": "caValue",
+              "type": "string"
+            },
+            "clientSecretName": {
+              "default": "cluster-agent-tls",
+              "description": "Name of the client certificate Secret",
+              "required": [],
+              "title": "clientSecretName",
+              "type": "string"
+            },
+            "duration": {
+              "default": "2160h",
+              "description": "Certificate validity duration (e.g., 2160h = 90 days)",
+              "required": [],
+              "title": "duration",
+              "type": "string"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable TLS for cluster agent communication",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "generateCerts": {
+              "default": false,
+              "description": "Generate client certificates using cert-manager (for multi-cluster setups)",
+              "required": [],
+              "title": "generateCerts",
+              "type": "boolean"
+            },
+            "renewBefore": {
+              "default": "360h",
+              "description": "Time before expiry to renew certificate (e.g., 360h = 15 days)",
+              "required": [],
+              "title": "renewBefore",
+              "type": "string"
+            },
+            "secretName": {
+              "default": "cluster-agent-tls",
+              "description": "Name of the Secret containing client certificate and key",
+              "required": [],
+              "title": "secretName",
+              "type": "string"
+            },
+            "serverCAConfigMap": {
+              "default": "cluster-gateway-ca",
+              "description": "Name of the ConfigMap containing server CA certificate",
+              "required": [],
+              "title": "serverCAConfigMap",
+              "type": "string"
+            },
+            "serverCAValue": {
+              "default": "",
+              "description": "Inline server CA certificate in PEM format (for multi-cluster setups)",
+              "required": [],
+              "title": "serverCAValue",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tls",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "clusterAgent",
+      "type": "object"
+    },
+    "controllerManager": {
+      "additionalProperties": false,
+      "description": "Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster gateway configuration for multi-cluster communication",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable cluster gateway integration for multi-cluster setups",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS configuration for cluster gateway communication",
+              "properties": {
+                "caConfigMap": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the ConfigMap containing the gateway CA certificate",
+                  "required": [],
+                  "title": "caConfigMap",
+                  "type": "string"
+                },
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path to the CA certificate file for gateway verification",
+                  "required": [],
+                  "title": "caPath",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "description": "URL of the cluster gateway service in the control plane",
+              "required": [],
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
+          "type": "object"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "description": "Container-level security context settings",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation within the container",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "default": [
+                    "ALL"
+                  ],
+                  "description": "Capabilities to drop from the container",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": false,
+              "description": "Mount root filesystem as read-only",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile configuration",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Unconfined",
+                    "Localhost"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "deploymentPlane": {
+          "default": "observabilityplane",
+          "description": "Identifier for this deployment plane type",
+          "required": [],
+          "title": "deploymentPlane",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable or disable the controller manager deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration for the controller manager",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy for the controller manager container",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/controller",
+              "description": "Container image repository for the controller manager",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "manager": {
+          "additionalProperties": false,
+          "description": "Controller manager process configuration",
+          "properties": {
+            "args": {
+              "description": "Command line arguments passed to the controller manager",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "args",
+              "type": "array"
+            },
+            "env": {
+              "additionalProperties": false,
+              "description": "Environment variable configuration for the manager",
+              "properties": {
+                "enableWebhooks": {
+                  "default": "false",
+                  "description": "Enable or disable admission webhooks",
+                  "required": [],
+                  "title": "enableWebhooks",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "env",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "manager",
+          "type": "object"
+        },
+        "name": {
+          "default": "controller-manager",
+          "description": "Name of the controller manager deployment and associated resources",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling constraints",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod-level security context settings",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Group ID for filesystem access",
+              "minimum": 0,
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsGroup": {
+              "default": 1000,
+              "description": "Group ID to run the container process",
+              "minimum": 0,
+              "required": [],
+              "title": "runAsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Require the container to run as a non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID to run the container process",
+              "minimum": 0,
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "priorityClass": {
+          "additionalProperties": false,
+          "description": "Priority class configuration for scheduling priority",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class for the controller manager",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "observabilityplane-controller-manager",
+              "description": "Name of the priority class",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 900000,
+              "description": "Priority value (higher values indicate higher priority)",
+              "minimum": 0,
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of controller manager pod replicas",
+          "minimum": 0,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for the controller manager container",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "description": "CPU limit for the controller manager",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "description": "Memory limit for the controller manager",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request for the controller manager",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory request for the controller manager",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the controller manager",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "description": "Create a dedicated service account for the controller manager",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling on tainted nodes",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "topologySpreadConstraints",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "controllerManager",
+      "type": "object"
+    },
+    "data-prepper": {
+      "additionalProperties": true,
+      "description": "Data Prepper subchart configuration for trace data processing and transformation before sending to OpenSearch",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable Data Prepper for trace pipeline processing",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "data-prepper",
+          "description": "Override the full name of Data Prepper resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "pipelineConfig": {
+          "additionalProperties": true,
+          "description": "Pipeline configuration for Data Prepper trace processing",
+          "properties": {
+            "config": {
+              "additionalProperties": true,
+              "description": "Pipeline definitions for trace processing (passed directly to Data Prepper)",
+              "properties": {
+                "trace-pipeline": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "buffer": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "bounded_blocking": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "batch_size": {
+                              "default": 200,
+                              "required": [],
+                              "title": "batch_size",
+                              "type": "integer"
+                            },
+                            "buffer_size": {
+                              "default": 12800,
+                              "required": [],
+                              "title": "buffer_size",
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "buffer_size",
+                            "batch_size"
+                          ],
+                          "title": "bounded_blocking",
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "bounded_blocking"
+                      ],
+                      "title": "buffer",
+                      "type": "object"
+                    },
+                    "delay": {
+                      "default": "100",
+                      "required": [],
+                      "title": "delay",
+                      "type": "string"
+                    },
+                    "sink": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "opensearch": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "hosts": {
+                                    "items": {
+                                      "anyOf": [
+                                        {
+                                          "required": [],
+                                          "type": "string"
+                                        }
+                                      ],
+                                      "required": []
+                                    },
+                                    "required": [],
+                                    "title": "hosts",
+                                    "type": "array"
+                                  },
+                                  "index": {
+                                    "default": "otel-traces-%{yyyy-MM-dd}",
+                                    "required": [],
+                                    "title": "index",
+                                    "type": "string"
+                                  },
+                                  "insecure": {
+                                    "default": true,
+                                    "required": [],
+                                    "title": "insecure",
+                                    "type": "boolean"
+                                  },
+                                  "password": {
+                                    "default": "ThisIsTheOpenSearchPassword1",
+                                    "required": [],
+                                    "title": "password",
+                                    "type": "string"
+                                  },
+                                  "username": {
+                                    "default": "admin",
+                                    "required": [],
+                                    "title": "username",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "hosts",
+                                  "password",
+                                  "insecure",
+                                  "index",
+                                  "username"
+                                ],
+                                "title": "opensearch",
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "opensearch"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "required": [],
+                      "title": "sink",
+                      "type": "array"
+                    },
+                    "source": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "otel_trace_source": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "ssl": {
+                              "default": false,
+                              "required": [],
+                              "title": "ssl",
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "ssl"
+                          ],
+                          "title": "otel_trace_source",
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "otel_trace_source"
+                      ],
+                      "title": "source",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "delay",
+                    "source",
+                    "buffer",
+                    "sink"
+                  ],
+                  "title": "trace-pipeline",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "trace-pipeline"
+              ],
+              "title": "config",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable pipeline configuration",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "pipelineConfig",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits for Data Prepper pods",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "1000m",
+                  "description": "CPU limit for Data Prepper",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "500Mi",
+                  "description": "Memory limit for Data Prepper",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "700m",
+                  "description": "CPU request for Data Prepper",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "500Mi",
+                  "description": "Memory request for Data Prepper",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "data-prepper",
+      "type": "object"
+    },
+    "external-secrets": {
+      "additionalProperties": true,
+      "description": "External Secrets Operator subchart configuration for secret management.\nSingle cluster: Set enabled to false to use the data plane's ESO.\nMulti-cluster: Set enabled to true to install a dedicated ESO in the observability plane.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable External Secrets Operator installation in this chart",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "external-secrets",
+          "description": "Override the full name of External Secrets Operator resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "nameOverride": {
+          "default": "external-secrets",
+          "description": "Override the name of External Secrets Operator resources",
+          "required": [],
+          "title": "nameOverride",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "external-secrets",
+      "type": "object"
+    },
+    "fakeSecretStore": {
+      "additionalProperties": true,
+      "description": "Fake Secret Store configuration for local development without a real secret backend",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable fake secret store (requires external-secrets.enabled to be true)",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "name": {
+          "default": "default",
+          "description": "Name of the ClusterSecretStore resource",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "secrets": {
+          "description": "List of fake secrets to provide for development",
+          "items": {
+            "properties": {
+              "key": {
+                "description": "Secret key name",
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "description": "Secret value",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "secrets",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "fakeSecretStore",
+      "type": "object"
+    },
+    "fluentBit": {
+      "additionalProperties": true,
+      "description": "Fluent Bit subchart configuration for log collection and forwarding to OpenSearch",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "description": "Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)",
+          "properties": {
+            "customParsers": {
+              "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
+              "description": "Custom parser definitions in Fluent Bit configuration format",
+              "required": [],
+              "title": "customParsers",
+              "type": "string"
+            },
+            "filters": {
+              "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
+              "description": "Filter plugin configuration for log processing",
+              "required": [],
+              "title": "filters",
+              "type": "string"
+            },
+            "inputs": {
+              "default": "[INPUT]\n    Name tail\n    Buffer_Chunk_Size 32KB\n    Buffer_Max_Size 2MB\n    DB /var/lib/fluent-bit/db/tail-container-logs.db\n    Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-observability-plane_*.log\n    Inotify_Watcher false\n    Mem_Buf_Limit 256MB\n    Path /var/log/containers/*.log\n    multiline.parser docker, cri\n    Read_from_Head On\n    Refresh_Interval 5\n    Skip_Long_Lines On\n    Tag kube.*\n",
+              "description": "Input plugin configuration for log collection",
+              "required": [],
+              "title": "inputs",
+              "type": "string"
+            },
+            "outputs": {
+              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd admin\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "description": "Output plugin configuration for log forwarding to OpenSearch",
+              "required": [],
+              "title": "outputs",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "config",
+          "type": "object"
+        },
+        "dnsPolicy": {
+          "default": "ClusterFirstWithHostNet",
+          "description": "DNS policy for Fluent Bit pods",
+          "enum": [
+            "ClusterFirst",
+            "ClusterFirstWithHostNet",
+            "Default",
+            "None"
+          ],
+          "required": [],
+          "title": "dnsPolicy"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable Fluent Bit log collector deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "extraVolumeMounts": {
+          "description": "Extra volume mounts for the Fluent Bit container",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "extraVolumeMounts",
+          "type": "array"
+        },
+        "extraVolumes": {
+          "description": "Extra volumes for the Fluent Bit pod",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "extraVolumes",
+          "type": "array"
+        },
+        "fullnameOverride": {
+          "default": "fluent-bit",
+          "description": "Override the full name of Fluent Bit resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "hostNetwork": {
+          "default": true,
+          "description": "Use host network for Fluent Bit pods (required for node log access)",
+          "required": [],
+          "title": "hostNetwork",
+          "type": "boolean"
+        },
+        "initContainers": {
+          "description": "Init containers for the Fluent Bit pod (used to set volume ownership)",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "initContainers",
+          "type": "array"
+        },
+        "metricsPort": {
+          "default": 2021,
+          "description": "Port for Fluent Bit metrics endpoint",
+          "maximum": 65535,
+          "minimum": 1,
+          "required": [],
+          "title": "metricsPort",
+          "type": "integer"
+        },
+        "rbac": {
+          "additionalProperties": true,
+          "description": "RBAC configuration for Fluent Bit",
+          "properties": {
+            "nodeAccess": {
+              "default": true,
+              "description": "Enable node-level access for reading container logs",
+              "required": [],
+              "title": "nodeAccess",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "rbac",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits for Fluent Bit",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU limit for Fluent Bit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory limit for Fluent Bit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request for Fluent Bit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request for Fluent Bit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "securityContext": {
+          "additionalProperties": true,
+          "description": "Security context for the Fluent Bit container",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": true,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "description": "Mount root filesystem as read-only",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run container as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 10000,
+              "description": "User ID to run the container",
+              "minimum": 0,
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "securityContext",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": true,
+          "description": "Service configuration for Fluent Bit",
+          "properties": {
+            "port": {
+              "default": 2021,
+              "description": "Service port for Fluent Bit metrics",
+              "maximum": 65535,
+              "minimum": 1,
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "testFramework": {
+          "additionalProperties": true,
+          "description": "Test framework configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable Fluent Bit test framework",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "testFramework",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "fluentBit",
+      "type": "object"
+    },
+    "gateway": {
+      "additionalProperties": false,
+      "description": "KGateway resource configuration for HTTPS gateway routing",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable gateway resource creation",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "httpsPort": {
+          "default": 443,
+          "description": "HTTPS port for the gateway listener",
+          "maximum": 65535,
+          "minimum": 1,
+          "required": [],
+          "title": "httpsPort",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "gateway",
+      "type": "object"
+    },
+    "global": {
+      "additionalProperties": true,
+      "description": "Global values shared across all components in the observability plane",
+      "properties": {
+        "baseDomain": {
+          "default": "",
+          "description": "Base domain for the observability plane used in gateway routing and ingress configuration",
+          "required": [],
+          "title": "baseDomain",
+          "type": "string"
+        },
+        "commonLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Common labels applied to all resources created by this chart",
+          "required": [],
+          "title": "commonLabels",
+          "type": "object"
+        },
+        "installationMode": {
+          "default": "singleCluster",
+          "description": "Installation mode of OpenChoreo",
+          "enum": [
+            "singleCluster",
+            "multiCluster",
+            "quickStart"
+          ],
+          "required": [],
+          "title": "installationMode"
+        }
+      },
+      "required": [],
+      "title": "global",
+      "type": "object"
+    },
+    "kgateway": {
+      "additionalProperties": true,
+      "description": "KGateway subchart configuration for API gateway functionality using Envoy-based gateway",
+      "properties": {
+        "controller": {
+          "additionalProperties": true,
+          "description": "KGateway controller configuration",
+          "properties": {
+            "image": {
+              "additionalProperties": true,
+              "description": "Container image configuration for the KGateway controller",
+              "properties": {
+                "pullPolicy": {
+                  "default": "IfNotPresent",
+                  "description": "Image pull policy for the KGateway controller",
+                  "enum": [
+                    "Always",
+                    "IfNotPresent",
+                    "Never"
+                  ],
+                  "required": [],
+                  "title": "pullPolicy"
+                }
+              },
+              "required": [],
+              "title": "image",
+              "type": "object"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource requests and limits for the KGateway controller",
+              "properties": {
+                "limits": {
+                  "additionalProperties": true,
+                  "description": "Maximum resources the container can use",
+                  "properties": {
+                    "cpu": {
+                      "default": "200m",
+                      "description": "CPU limit for KGateway controller",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "description": "Memory limit for KGateway controller",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": true,
+                  "description": "Minimum resources guaranteed to the container",
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU request for KGateway controller",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory request for KGateway controller",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            },
+            "service": {
+              "additionalProperties": true,
+              "description": "Service configuration for the KGateway controller",
+              "properties": {
+                "ports": {
+                  "additionalProperties": true,
+                  "description": "Service port configuration",
+                  "properties": {
+                    "agwGrpc": {
+                      "default": 9978,
+                      "description": "gRPC port for the API gateway",
+                      "maximum": 65535,
+                      "minimum": 1,
+                      "required": [],
+                      "title": "agwGrpc",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "ports",
+                  "type": "object"
+                },
+                "type": {
+                  "default": "ClusterIP",
+                  "description": "Kubernetes service type",
+                  "enum": [
+                    "ClusterIP",
+                    "NodePort",
+                    "LoadBalancer"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "service",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "controller",
+          "type": "object"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable KGateway API gateway",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "kgateway",
+          "description": "Override the full name of KGateway resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "kgateway",
+      "type": "object"
+    },
+    "kubernetesClusterDomain": {
+      "default": "cluster.local",
+      "description": "Kubernetes cluster domain used for service discovery DNS resolution",
+      "required": [],
+      "title": "kubernetesClusterDomain",
+      "type": "string"
+    },
+    "observer": {
+      "additionalProperties": true,
+      "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
+      "properties": {
+        "extraEnvs": {
+          "description": "Extra environment variables for the Observer container",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "extraEnvs",
+          "type": "array"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration for the Observer",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy for the Observer container",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/observer",
+              "description": "Container image repository for the Observer",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Log level for the Observer service",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "required": [],
+          "title": "logLevel"
+        },
+        "openSearchPassword": {
+          "default": "ThisIsTheOpenSearchPassword1",
+          "description": "Password for OpenSearch authentication",
+          "required": [],
+          "title": "openSearchPassword",
+          "type": "string"
+        },
+        "openSearchUsername": {
+          "default": "admin",
+          "description": "Username for OpenSearch authentication",
+          "required": [],
+          "title": "openSearchUsername",
+          "type": "string"
+        },
+        "prometheus": {
+          "additionalProperties": false,
+          "description": "Prometheus connection configuration",
+          "properties": {
+            "address": {
+              "default": "",
+              "description": "Prometheus server address (auto-constructed from release name if empty)",
+              "required": [],
+              "title": "address",
+              "type": "string"
+            },
+            "timeout": {
+              "default": "30s",
+              "description": "Timeout for Prometheus queries",
+              "required": [],
+              "title": "timeout",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "prometheus",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of Observer pod replicas",
+          "minimum": 0,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for the Observer container",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU limit for the Observer",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "200Mi",
+                  "description": "Memory limit for the Observer",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request for the Observer",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request for the Observer",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration for the Observer",
+          "properties": {
+            "port": {
+              "default": 8080,
+              "description": "Service port for the Observer API",
+              "maximum": 65535,
+              "minimum": 1,
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Kubernetes service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "observer",
+      "type": "object"
+    },
+    "openSearch": {
+      "additionalProperties": true,
+      "description": "OpenSearch Helm subchart configuration (legacy, prefer openSearchCluster for operator-based deployment)",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable OpenSearch Helm chart deployment (alternative to operator-based openSearchCluster)",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "extraEnvs": {
+          "description": "Extra environment variables for OpenSearch pods",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "extraEnvs",
+          "type": "array"
+        },
+        "image": {
+          "additionalProperties": true,
+          "description": "Container image configuration for OpenSearch",
+          "properties": {
+            "tag": {
+              "default": "3.3.0",
+              "description": "OpenSearch image tag version",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "masterService": {
+          "default": "opensearch",
+          "description": "Name of the master service for cluster discovery",
+          "required": [],
+          "title": "masterService",
+          "type": "string"
+        },
+        "nameOverride": {
+          "default": "opensearch",
+          "description": "Override the name of OpenSearch resources",
+          "required": [],
+          "title": "nameOverride",
+          "type": "string"
+        },
+        "rbac": {
+          "additionalProperties": true,
+          "description": "RBAC configuration for OpenSearch",
+          "properties": {
+            "create": {
+              "default": true,
+              "description": "Create RBAC resources for OpenSearch",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "serviceAccountName": {
+              "default": "opensearch",
+              "description": "Name of the service account for OpenSearch",
+              "required": [],
+              "title": "serviceAccountName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "rbac",
+          "type": "object"
+        },
+        "singleNode": {
+          "default": true,
+          "description": "Run OpenSearch as a single node (for development/testing)",
+          "required": [],
+          "title": "singleNode",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "openSearch",
+      "type": "object"
+    },
+    "openSearchCluster": {
+      "additionalProperties": false,
+      "description": "OpenSearch Operator-based cluster configuration (preferred over openSearch Helm chart)",
+      "properties": {
+        "adminUserPassword": {
+          "default": "ThisIsTheOpenSearchPassword1",
+          "description": "Admin password for OpenSearch cluster",
+          "required": [],
+          "title": "adminUserPassword",
+          "type": "string"
+        },
+        "adminUsername": {
+          "default": "admin",
+          "description": "Admin username for OpenSearch cluster",
+          "required": [],
+          "title": "adminUsername",
+          "type": "string"
+        },
+        "bootstrap": {
+          "additionalProperties": false,
+          "description": "Bootstrap node configuration for cluster initialization",
+          "properties": {
+            "resources": {
+              "additionalProperties": false,
+              "description": "Resource configuration for bootstrap node",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "description": "Maximum resources",
+                  "properties": {
+                    "cpu": {
+                      "default": "1000m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "1000Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "description": "Minimum resources",
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "1000Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "bootstrap",
+          "type": "object"
+        },
+        "dashboards": {
+          "additionalProperties": false,
+          "description": "OpenSearch Dashboards configuration (managed by operator)",
+          "properties": {
+            "enable": {
+              "default": false,
+              "description": "Enable OpenSearch Dashboards",
+              "required": [],
+              "title": "enable",
+              "type": "boolean"
+            },
+            "replicas": {
+              "default": 1,
+              "description": "Number of dashboard replicas",
+              "minimum": 0,
+              "required": [],
+              "title": "replicas",
+              "type": "integer"
+            },
+            "version": {
+              "default": "3.3.0",
+              "description": "OpenSearch Dashboards version",
+              "required": [],
+              "title": "version",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "dashboards",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable OpenSearch cluster deployment via OpenSearch Operator",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "general": {
+          "additionalProperties": false,
+          "description": "General OpenSearch cluster settings",
+          "properties": {
+            "setVMMaxMapCount": {
+              "default": true,
+              "description": "Set vm.max_map_count sysctl for OpenSearch (required for production)",
+              "required": [],
+              "title": "setVMMaxMapCount",
+              "type": "boolean"
+            },
+            "version": {
+              "default": "3.3.0",
+              "description": "OpenSearch version to deploy",
+              "required": [],
+              "title": "version",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "general",
+          "type": "object"
+        },
+        "internalUsers": {
+          "default": "# This is the internal user database\n# The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh\n\n_meta:\n  type: \"internalusers\"\n  config_version: 2\n\nadmin:\n  hash: \"%s\"\n  reserved: true\n  backend_roles:\n  - \"admin\"\n  description: \"Admin user\"\n",
+          "description": "Internal users configuration in YAML format (bcrypt hashed passwords)",
+          "required": [],
+          "title": "internalUsers",
+          "type": "string"
+        },
+        "nodePools": {
+          "additionalProperties": false,
+          "description": "Node pool configurations for the OpenSearch cluster",
+          "properties": {
+            "data": {
+              "additionalProperties": false,
+              "description": "Data node pool configuration (stores actual data)",
+              "properties": {
+                "diskSize": {
+                  "default": "5Gi",
+                  "description": "Persistent volume size for data nodes",
+                  "required": [],
+                  "title": "diskSize",
+                  "type": "string"
+                },
+                "replicas": {
+                  "default": 2,
+                  "description": "Number of data node replicas",
+                  "minimum": 1,
+                  "required": [],
+                  "title": "replicas",
+                  "type": "integer"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Resource configuration for data nodes",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "description": "Maximum resources",
+                      "properties": {
+                        "cpu": {
+                          "default": "1000m",
+                          "description": "CPU limit",
+                          "required": [],
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "1000Mi",
+                          "description": "Memory limit",
+                          "required": [],
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "description": "Minimum resources",
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "description": "CPU request",
+                          "required": [],
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "1000Mi",
+                          "description": "Memory request",
+                          "required": [],
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "data",
+              "type": "object"
+            },
+            "master": {
+              "additionalProperties": false,
+              "description": "Master node pool configuration (cluster coordination)",
+              "properties": {
+                "diskSize": {
+                  "default": "1Gi",
+                  "description": "Persistent volume size for master nodes",
+                  "required": [],
+                  "title": "diskSize",
+                  "type": "string"
+                },
+                "replicas": {
+                  "default": 3,
+                  "description": "Number of master node replicas (should be odd for quorum)",
+                  "minimum": 1,
+                  "required": [],
+                  "title": "replicas",
+                  "type": "integer"
+                },
+                "resources": {
+                  "additionalProperties": false,
+                  "description": "Resource configuration for master nodes",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "description": "Maximum resources",
+                      "properties": {
+                        "cpu": {
+                          "default": "1000m",
+                          "description": "CPU limit",
+                          "required": [],
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "900Mi",
+                          "description": "Memory limit",
+                          "required": [],
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "description": "Minimum resources",
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "description": "CPU request",
+                          "required": [],
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "900Mi",
+                          "description": "Memory request",
+                          "required": [],
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [],
+                  "title": "resources",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "master",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "nodePools",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "openSearchCluster",
+      "type": "object"
+    },
+    "openSearchClusterSetup": {
+      "additionalProperties": false,
+      "description": "OpenSearch cluster post-install setup job configuration",
+      "properties": {
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image for the setup job",
+          "properties": {
+            "repository": {
+              "default": "ghcr.io/openchoreo/init-observability-opensearch",
+              "description": "Container image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "observerAddress": {
+          "default": "http://observer.openchoreo-observability-plane:8080",
+          "description": "Observer service address for setup configuration",
+          "required": [],
+          "title": "observerAddress",
+          "type": "string"
+        },
+        "observerAlertingWebhookSecret": {
+          "default": "qxbfqk3yjiejrlelolvh",
+          "description": "Webhook secret for alerting integration",
+          "required": [],
+          "title": "observerAlertingWebhookSecret",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "openSearchClusterSetup",
+      "type": "object"
+    },
+    "openSearchDashboards": {
+      "additionalProperties": true,
+      "description": "OpenSearch Dashboards subchart configuration for visualization UI",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "description": "OpenSearch Dashboards configuration options",
+          "properties": {
+            "disableSecurity": {
+              "default": "true",
+              "description": "Disable security features in dashboards (for development)",
+              "required": [],
+              "title": "disableSecurity",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "config",
+          "type": "object"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable OpenSearch Dashboards deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "extraEnvs": {
+          "description": "Extra environment variables for OpenSearch Dashboards pods",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "extraEnvs",
+          "type": "array"
+        },
+        "fullnameOverride": {
+          "default": "opensearch-dashboards",
+          "description": "Override the full name of OpenSearch Dashboards resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "image": {
+          "additionalProperties": true,
+          "description": "Container image configuration",
+          "properties": {
+            "tag": {
+              "default": "3.3.0",
+              "description": "OpenSearch Dashboards image tag version",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "nameOverride": {
+          "default": "opensearch-dashboards",
+          "description": "Override the name of OpenSearch Dashboards resources",
+          "required": [],
+          "title": "nameOverride",
+          "type": "string"
+        },
+        "opensearchHosts": {
+          "default": "http://opensearch:9200",
+          "description": "URL of the OpenSearch cluster to connect to",
+          "required": [],
+          "title": "opensearchHosts",
+          "type": "string"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of OpenSearch Dashboards replicas",
+          "minimum": 0,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "openSearchDashboards",
+      "type": "object"
+    },
+    "opentelemetry-collector": {
+      "additionalProperties": true,
+      "description": "OpenTelemetry Collector subchart configuration for telemetry data collection and processing",
+      "properties": {
+        "clusterRole": {
+          "additionalProperties": true,
+          "description": "ClusterRole configuration for the collector",
+          "properties": {
+            "create": {
+              "default": true,
+              "description": "Create a ClusterRole for the collector",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "rules": {
+              "description": "RBAC rules for the collector ClusterRole",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "rules",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "clusterRole",
+          "type": "object"
+        },
+        "configMap": {
+          "additionalProperties": true,
+          "description": "ConfigMap configuration for the collector",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create ConfigMap (set to false to use existing ConfigMap)",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "existingName": {
+              "default": "opentelemetry-collector-config",
+              "description": "Name of existing ConfigMap to use for collector configuration",
+              "required": [],
+              "title": "existingName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "configMap",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable OpenTelemetry Collector deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "opentelemetry-collector",
+          "description": "Override the full name of OpenTelemetry Collector resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "image": {
+          "additionalProperties": true,
+          "description": "Container image configuration",
+          "properties": {
+            "repository": {
+              "default": "otel/opentelemetry-collector-contrib",
+              "description": "Container image repository (uses contrib distribution for extended features)",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "mode": {
+          "default": "deployment",
+          "description": "Deployment mode for the collector",
+          "enum": [
+            "deployment",
+            "daemonset",
+            "statefulset",
+            "sidecar"
+          ],
+          "required": [],
+          "title": "mode"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits for the collector",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU limit for the collector",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "200Mi",
+                  "description": "Memory limit for the collector",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "description": "CPU request for the collector",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "100Mi",
+                  "description": "Memory request for the collector",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "opentelemetry-collector",
+      "type": "object"
+    },
+    "opentelemetryCollectorCustomizations": {
+      "additionalProperties": false,
+      "description": "OpenTelemetry Collector customizations used by OpenChoreo templates.\nThese are NOT passed to the opentelemetry-collector Helm chart directly.",
+      "properties": {
+        "openSearchQueue": {
+          "additionalProperties": false,
+          "description": "OpenSearch exporter queue configuration",
+          "properties": {
+            "numConsumers": {
+              "default": 5,
+              "description": "Number of consumers processing the queue",
+              "minimum": 1,
+              "required": [],
+              "title": "numConsumers",
+              "type": "integer"
+            },
+            "queueSize": {
+              "default": 1000,
+              "description": "Maximum queue size for pending exports",
+              "minimum": 1,
+              "required": [],
+              "title": "queueSize",
+              "type": "integer"
+            },
+            "sizer": {
+              "default": "items",
+              "description": "Queue sizing strategy",
+              "enum": [
+                "items",
+                "bytes"
+              ],
+              "required": [],
+              "title": "sizer"
+            }
+          },
+          "required": [],
+          "title": "openSearchQueue",
+          "type": "object"
+        },
+        "tailSampling": {
+          "additionalProperties": false,
+          "description": "Tail-based sampling configuration for trace rate limiting",
+          "properties": {
+            "decisionCache": {
+              "additionalProperties": false,
+              "description": "Decision cache configuration",
+              "properties": {
+                "nonSampledCacheSize": {
+                  "default": 1000,
+                  "description": "Cache size for non-sampled trace decisions",
+                  "minimum": 0,
+                  "required": [],
+                  "title": "nonSampledCacheSize",
+                  "type": "integer"
+                },
+                "sampledCacheSize": {
+                  "default": 10000,
+                  "description": "Cache size for sampled trace decisions",
+                  "minimum": 0,
+                  "required": [],
+                  "title": "sampledCacheSize",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "decisionCache",
+              "type": "object"
+            },
+            "decisionWait": {
+              "default": "10s",
+              "description": "Time to wait before making sampling decision",
+              "required": [],
+              "title": "decisionWait",
+              "type": "string"
+            },
+            "expectedNewTracesPerSec": {
+              "default": 10,
+              "description": "Expected new traces per second (for cache sizing)",
+              "minimum": 1,
+              "required": [],
+              "title": "expectedNewTracesPerSec",
+              "type": "integer"
+            },
+            "numTraces": {
+              "default": 100,
+              "description": "Number of traces to keep in memory",
+              "minimum": 1,
+              "required": [],
+              "title": "numTraces",
+              "type": "integer"
+            },
+            "spansPerSecond": {
+              "default": 10,
+              "description": "Maximum spans per second rate limit",
+              "minimum": 1,
+              "required": [],
+              "title": "spansPerSecond",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "tailSampling",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "opentelemetryCollectorCustomizations",
+      "type": "object"
+    },
+    "prometheus": {
+      "additionalProperties": true,
+      "description": "Prometheus stack subchart configuration (kube-prometheus-stack) for metrics collection and monitoring",
+      "properties": {
+        "alertmanager": {
+          "additionalProperties": true,
+          "description": "Alertmanager configuration (disabled by default in OpenChoreo)",
+          "properties": {
+            "alertmanagerSpec": {
+              "additionalProperties": true,
+              "description": "Alertmanager specification",
+              "properties": {
+                "podMetadata": {
+                  "additionalProperties": true,
+                  "description": "Pod metadata configuration",
+                  "properties": {
+                    "name": {
+                      "default": "alertmanager",
+                      "description": "Name for Alertmanager pod metadata",
+                      "required": [],
+                      "title": "name",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "podMetadata",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "alertmanagerSpec",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable Alertmanager deployment",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "alertmanager",
+          "type": "object"
+        },
+        "cleanPrometheusOperatorObjectNames": {
+          "default": true,
+          "description": "Produce cleaner resource names without redundant suffixes",
+          "required": [],
+          "title": "cleanPrometheusOperatorObjectNames",
+          "type": "boolean"
+        },
+        "coreDns": {
+          "additionalProperties": true,
+          "description": "CoreDNS scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable CoreDNS metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "coreDns",
+          "type": "object"
+        },
+        "crds": {
+          "additionalProperties": true,
+          "description": "Prometheus Operator CRDs configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, etc.)",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "crds",
+          "type": "object"
+        },
+        "defaultRules": {
+          "additionalProperties": true,
+          "description": "Default Prometheus alerting rules",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create default alerting rules",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "defaultRules",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable Prometheus stack deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "openchoreo-observability",
+          "description": "Override the full name of Prometheus stack resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "grafana": {
+          "additionalProperties": true,
+          "description": "Grafana subchart configuration (disabled by default, OpenChoreo uses custom dashboards)",
+          "properties": {
+            "adminPassword": {
+              "default": "admin",
+              "description": "Grafana admin password",
+              "required": [],
+              "title": "adminPassword",
+              "type": "string"
+            },
+            "adminUser": {
+              "default": "admin",
+              "description": "Grafana admin username",
+              "required": [],
+              "title": "adminUser",
+              "type": "string"
+            },
+            "datasources": {
+              "additionalProperties": true,
+              "description": "Static datasource configuration for Grafana",
+              "properties": {
+                "datasources.yaml": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "apiVersion": {
+                      "default": 1,
+                      "required": [],
+                      "title": "apiVersion",
+                      "type": "integer"
+                    },
+                    "datasources": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "access": {
+                                "default": "proxy",
+                                "required": [],
+                                "title": "access",
+                                "type": "string"
+                              },
+                              "isDefault": {
+                                "default": true,
+                                "required": [],
+                                "title": "isDefault",
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "default": "Prometheus",
+                                "required": [],
+                                "title": "name",
+                                "type": "string"
+                              },
+                              "type": {
+                                "default": "prometheus",
+                                "required": [],
+                                "title": "type",
+                                "type": "string"
+                              },
+                              "url": {
+                                "default": "http://openchoreo-observability-prometheus:9091",
+                                "required": [],
+                                "title": "url",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "type",
+                              "access",
+                              "url",
+                              "isDefault"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "required": [],
+                      "title": "datasources",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "apiVersion",
+                    "datasources"
+                  ],
+                  "title": "datasources.yaml",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "datasources.yaml"
+              ],
+              "title": "datasources",
+              "type": "object"
+            },
+            "defaultDashboardsEnabled": {
+              "default": false,
+              "description": "Enable default Grafana dashboards",
+              "required": [],
+              "title": "defaultDashboardsEnabled",
+              "type": "boolean"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable Grafana deployment",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "fullnameOverride": {
+              "default": "grafana",
+              "description": "Override the full name of Grafana resources",
+              "required": [],
+              "title": "fullnameOverride",
+              "type": "string"
+            },
+            "sidecar": {
+              "additionalProperties": true,
+              "description": "Sidecar configuration for dynamic dashboard/datasource provisioning",
+              "properties": {
+                "dashboards": {
+                  "additionalProperties": true,
+                  "description": "Dashboard sidecar configuration",
+                  "properties": {
+                    "enabled": {
+                      "default": false,
+                      "description": "Enable dashboard sidecar",
+                      "required": [],
+                      "title": "enabled",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "dashboards",
+                  "type": "object"
+                },
+                "datasources": {
+                  "additionalProperties": true,
+                  "description": "Datasource sidecar configuration",
+                  "properties": {
+                    "enabled": {
+                      "default": false,
+                      "description": "Enable datasource sidecar",
+                      "required": [],
+                      "title": "enabled",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "datasources",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "sidecar",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "grafana",
+          "type": "object"
+        },
+        "kube-state-metrics": {
+          "additionalProperties": true,
+          "description": "Kube-state-metrics subchart configuration for Kubernetes resource metrics",
+          "properties": {
+            "collectors": {
+              "description": "List of Kubernetes resources to collect metrics from",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "collectors",
+              "type": "array"
+            },
+            "fullnameOverride": {
+              "default": "kube-state-metrics",
+              "description": "Override the full name of kube-state-metrics resources",
+              "required": [],
+              "title": "fullnameOverride",
+              "type": "string"
+            },
+            "metricAllowlist": {
+              "description": "Allowlist of specific metrics to collect (improves performance)",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "metricAllowlist",
+              "type": "array"
+            },
+            "metricLabelsAllowlist": {
+              "description": "Labels to include from Kubernetes resources (OpenChoreo-specific labels)",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "metricLabelsAllowlist",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "kube-state-metrics",
+          "type": "object"
+        },
+        "kubeApiServer": {
+          "additionalProperties": true,
+          "description": "Kubernetes API server scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable API server metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeApiServer",
+          "type": "object"
+        },
+        "kubeControllerManager": {
+          "additionalProperties": true,
+          "description": "Kubernetes controller manager scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable controller manager metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeControllerManager",
+          "type": "object"
+        },
+        "kubeEtcd": {
+          "additionalProperties": true,
+          "description": "etcd scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable etcd metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeEtcd",
+          "type": "object"
+        },
+        "kubeProxy": {
+          "additionalProperties": true,
+          "description": "Kubernetes proxy scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable kube-proxy metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeProxy",
+          "type": "object"
+        },
+        "kubeScheduler": {
+          "additionalProperties": true,
+          "description": "Kubernetes scheduler scraping (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable scheduler metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeScheduler",
+          "type": "object"
+        },
+        "kubeStateMetrics": {
+          "additionalProperties": true,
+          "description": "Kube-state-metrics ServiceMonitor configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable kube-state-metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubeStateMetrics",
+          "type": "object"
+        },
+        "kubelet": {
+          "additionalProperties": true,
+          "description": "Kubelet and cAdvisor scraping configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable kubelet metrics scraping",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubelet",
+          "type": "object"
+        },
+        "kubernetesServiceMonitors": {
+          "additionalProperties": true,
+          "description": "Kubernetes component ServiceMonitors configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Kubernetes component ServiceMonitors",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "kubernetesServiceMonitors",
+          "type": "object"
+        },
+        "nodeExporter": {
+          "additionalProperties": true,
+          "description": "Node exporter configuration (disabled - not for cluster monitoring)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable node exporter deployment",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "nodeExporter",
+          "type": "object"
+        },
+        "prometheus": {
+          "additionalProperties": true,
+          "description": "Prometheus server configuration (requires prometheusOperator.enabled)",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Prometheus server deployment",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "prometheusSpec": {
+              "additionalProperties": true,
+              "description": "Prometheus specification configuration",
+              "properties": {
+                "serviceMonitorNamespaceSelector": {
+                  "additionalProperties": true,
+                  "default": {},
+                  "description": "Namespace selector for ServiceMonitors (empty = all namespaces)",
+                  "required": [],
+                  "title": "serviceMonitorNamespaceSelector",
+                  "type": "object"
+                },
+                "serviceMonitorSelector": {
+                  "additionalProperties": true,
+                  "default": {},
+                  "description": "Label selector for ServiceMonitors (empty = all ServiceMonitors)",
+                  "required": [],
+                  "title": "serviceMonitorSelector",
+                  "type": "object"
+                },
+                "serviceMonitorSelectorNilUsesHelmValues": {
+                  "default": false,
+                  "description": "Use Helm values for ServiceMonitor selection when selector is nil",
+                  "required": [],
+                  "title": "serviceMonitorSelectorNilUsesHelmValues",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "prometheusSpec",
+              "type": "object"
+            },
+            "service": {
+              "additionalProperties": true,
+              "description": "Prometheus service configuration",
+              "properties": {
+                "port": {
+                  "default": 9091,
+                  "description": "Prometheus server port",
+                  "maximum": 65535,
+                  "minimum": 1,
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                },
+                "reloaderWebPort": {
+                  "default": 8081,
+                  "description": "Config reloader web port",
+                  "maximum": 65535,
+                  "minimum": 1,
+                  "required": [],
+                  "title": "reloaderWebPort",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "service",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "prometheus",
+          "type": "object"
+        },
+        "prometheusOperator": {
+          "additionalProperties": true,
+          "description": "Prometheus Operator configuration for managing Prometheus and Alertmanager",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Prometheus Operator deployment",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "fullnameOverride": {
+              "default": "prometheus-operator",
+              "description": "Override the full name of Prometheus Operator resources",
+              "required": [],
+              "title": "fullnameOverride",
+              "type": "string"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource requests and limits for Prometheus Operator",
+              "properties": {
+                "limits": {
+                  "additionalProperties": true,
+                  "description": "Maximum resources the container can use",
+                  "properties": {
+                    "cpu": {
+                      "default": "40m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "50Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": true,
+                  "description": "Minimum resources guaranteed",
+                  "properties": {
+                    "cpu": {
+                      "default": "20m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "30Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "prometheusOperator",
+          "type": "object"
+        },
+        "thanosRuler": {
+          "additionalProperties": true,
+          "description": "Thanos Ruler configuration (disabled by default)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable Thanos Ruler for long-term alerting",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "thanosRuler",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "prometheus",
+      "type": "object"
+    },
+    "rca": {
+      "additionalProperties": false,
+      "description": "AI-powered Root Cause Analysis agent configuration",
+      "properties": {
+        "controlPlaneNamespace": {
+          "default": "openchoreo-control-plane",
+          "description": "Control plane namespace for service auto-discovery",
+          "required": [],
+          "title": "controlPlaneNamespace",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable RCA agent deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/ai-rca-agent",
+              "description": "Container image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "llm": {
+          "additionalProperties": false,
+          "description": "LLM configuration for AI-powered analysis",
+          "properties": {
+            "apiKey": {
+              "default": "",
+              "description": "LLM API key (set via --set rca.llm.apiKey during install)",
+              "required": [],
+              "title": "apiKey",
+              "type": "string"
+            },
+            "modelName": {
+              "default": "",
+              "description": "LLM model name (e.g., claude-sonnet-4-5, gpt-5, gemini-2.0-flash-exp)",
+              "required": [],
+              "title": "modelName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "llm",
+          "type": "object"
+        },
+        "name": {
+          "default": "ai-rca-agent",
+          "description": "Name of the RCA agent deployment",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "oauth": {
+          "additionalProperties": false,
+          "description": "OAuth2 client credentials configuration for RCA agent authentication",
+          "properties": {
+            "clientId": {
+              "default": "openchoreo-rca-agent",
+              "description": "OAuth2 client ID registered with the IDP",
+              "required": [],
+              "title": "clientId",
+              "type": "string"
+            },
+            "clientSecret": {
+              "default": "openchoreo-rca-agent-secret",
+              "description": "OAuth2 client secret (override via --set rca.oauth.clientSecret)",
+              "required": [],
+              "title": "clientSecret",
+              "type": "string"
+            },
+            "tokenUrl": {
+              "default": "http://thunder.openchoreo.localhost:8080/oauth2/token",
+              "description": "Token URL for obtaining access tokens from IDP",
+              "required": [],
+              "title": "tokenUrl",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "oauth",
+          "type": "object"
+        },
+        "observerMcpUrl": {
+          "default": "",
+          "description": "Observer MCP endpoint URL (leave empty for auto-discovery)",
+          "required": [],
+          "title": "observerMcpUrl",
+          "type": "string"
+        },
+        "openchoreoMcpUrl": {
+          "default": "",
+          "description": "OpenChoreo API MCP endpoint URL (leave empty for auto-discovery)",
+          "required": [],
+          "title": "openchoreoMcpUrl",
+          "type": "string"
+        },
+        "opensearch": {
+          "additionalProperties": false,
+          "description": "OpenSearch connection configuration for RCA agent",
+          "properties": {
+            "address": {
+              "default": "https://opensearch:9200",
+              "description": "OpenSearch cluster address",
+              "required": [],
+              "title": "address",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "opensearch",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of RCA agent replicas",
+          "minimum": 0,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Maximum resources",
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "512Mi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Minimum resources guaranteed",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "port": {
+              "default": 8080,
+              "description": "Service port",
+              "maximum": 65535,
+              "minimum": 1,
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "rca",
+      "type": "object"
+    },
+    "security": {
+      "additionalProperties": false,
+      "description": "Common security configuration shared across all components",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Global security toggle - when disabled, authentication is turned off for all components",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "jwt": {
+          "additionalProperties": false,
+          "description": "JWT configuration",
+          "properties": {
+            "audience": {
+              "default": "",
+              "description": "Expected audience claim in JWT tokens",
+              "required": [],
+              "title": "audience",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "jwt",
+          "type": "object"
+        },
+        "oidc": {
+          "additionalProperties": false,
+          "description": "OIDC configuration",
+          "properties": {
+            "issuer": {
+              "default": "",
+              "description": "OIDC issuer URL",
+              "required": [],
+              "title": "issuer",
+              "type": "string"
+            },
+            "jwksUrl": {
+              "default": "",
+              "description": "JWKS URL for token verification",
+              "required": [],
+              "title": "jwksUrl",
+              "type": "string"
+            },
+            "jwksUrlTlsInsecureSkipVerify": {
+              "default": "false",
+              "description": "Skip TLS verification for JWKS URL",
+              "required": [],
+              "title": "jwksUrlTlsInsecureSkipVerify",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "oidc",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "security",
+      "type": "object"
+    },
+    "tls": {
+      "additionalProperties": false,
+      "description": "Global TLS certificate configuration using cert-manager",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable TLS certificate generation for the observability plane",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "tls",
+      "type": "object"
+    },
+    "waitJob": {
+      "additionalProperties": false,
+      "description": "Wait job configuration for post-install hooks",
+      "properties": {
+        "image": {
+          "default": "bitnamilegacy/kubectl:1.32.4",
+          "description": "Container image for kubectl-based wait jobs",
+          "required": [],
+          "title": "image",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "waitJob",
+      "type": "object"
+    }
+  },
+  "required": [],
+  "type": "object"
+}
