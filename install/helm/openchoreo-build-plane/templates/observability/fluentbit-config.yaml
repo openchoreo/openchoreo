@@ -46,7 +46,6 @@ data:
         HTTP_Passwd     {{ .Values.fluentBit.config.opensearch.authentication.basicauth.password }}
         tls             {{ if .Values.fluentBit.config.opensearch.tls }}On{{ else }}Off{{ end }}
         tls.verify      {{ if .Values.fluentBit.config.opensearch.tlsVerify }}On{{ else }}Off{{ end }}
-        Index           {{ .Values.fluentBit.config.output.index }}
         Type            {{ .Values.fluentBit.config.output.type }}
         Logstash_Format {{ if .Values.fluentBit.config.output.logstashFormat }}On{{ else }}Off{{ end }}
         Logstash_Prefix {{ .Values.fluentBit.config.output.logstashPrefix }}
