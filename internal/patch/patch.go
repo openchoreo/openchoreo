@@ -31,7 +31,7 @@ var filterPattern = regexp.MustCompile(`\[\?\(.*?\)\]`)
 //
 // Supported operations:
 //   - add, replace, remove: standard RFC 6902 JSON Patch operations
-//   - mergeShallow: custom operation that overlays map keys without deep merging
+//   - mergeShallow: custom operation that overlays map keys without deep merging (not exposed from CRDs yet)
 //
 // Path expressions support:
 //   - Array filters: /containers[?(@.name=='app')]/env

@@ -164,13 +164,12 @@ type PatchTarget struct {
 }
 
 // JSONPatchOperation defines a JSONPatch operation
-// Supports standard operations (add, replace, remove) plus mergeShallow for map overlays
+// Supports standard operations (add, replace, remove) for map overlays
 type JSONPatchOperation struct {
 	// Op is the operation type
 	// Standard operations: add, replace, remove (RFC 6902)
-	// OpenChoreo extension: mergeShallow (overlays top-level map keys)
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=add;replace;remove;mergeShallow
+	// +kubebuilder:validation:Enum=add;replace;remove
 	Op string `json:"op"`
 
 	// Path is the JSON Pointer to the field to modify (RFC 6901)
@@ -178,7 +177,7 @@ type JSONPatchOperation struct {
 	// +kubebuilder:validation:Required
 	Path string `json:"path"`
 
-	// Value is the value to set (for add/replace/mergeShallow operations)
+	// Value is the value to set (for add/replace operations)
 	// Not used for remove operations
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

@@ -112,18 +112,16 @@ spec:
                       items:
                         description: |-
                           JSONPatchOperation defines a JSONPatch operation
-                          Supports standard operations (add, replace, remove) plus mergeShallow for map overlays
+                          Supports standard operations (add, replace, remove) for map overlays
                         properties:
                           op:
                             description: |-
                               Op is the operation type
                               Standard operations: add, replace, remove (RFC 6902)
-                              OpenChoreo extension: mergeShallow (overlays top-level map keys)
                             enum:
                             - add
                             - replace
                             - remove
-                            - mergeShallow
                             type: string
                           path:
                             description: |-
@@ -132,7 +130,7 @@ spec:
                             type: string
                           value:
                             description: |-
-                              Value is the value to set (for add/replace/mergeShallow operations)
+                              Value is the value to set (for add/replace operations)
                               Not used for remove operations
                             type: object
                             x-kubernetes-preserve-unknown-fields: true
