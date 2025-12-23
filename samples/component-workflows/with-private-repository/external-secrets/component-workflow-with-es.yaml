@@ -44,11 +44,11 @@ spec:
           - name: image-tag
             value: v1
           - name: git-secret-name
-            value: ${metadata.workflowRunName}-git-clone-secret
+            value: git-clone-secret
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: google-cloud-buildpacks-private-repos
+        name: google-cloud-buildpacks-private-repo-with-es
 
   resources:
     - id: repo-secret

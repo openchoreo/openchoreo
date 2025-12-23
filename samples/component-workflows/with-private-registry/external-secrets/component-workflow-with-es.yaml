@@ -48,7 +48,7 @@ spec:
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: google-cloud-buildpacks-private-registry
+        name: google-cloud-buildpacks-private-registry-with-es
 
   resources:
     - id: registry-push-secret
