@@ -137,6 +137,7 @@ spec:
 
   creates:
     - targetPlane: observabilityplane
+      includeWhen: has(dataplane.observabilityPlaneRef)
       template:
         apiVersion: openchoreo.dev/v1alpha1
         kind: ObservabilityAlertRule
