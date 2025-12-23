@@ -67,12 +67,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 		ctx.Metadata.PodSelectors = make(map[string]string)
 	}
 
-	ctx.DataPlane = DataPlaneData{
-		PublicVirtualHost: input.DataPlane.Spec.Gateway.PublicVirtualHost,
-	}
-	if input.DataPlane.Spec.SecretStoreRef != nil {
-		ctx.DataPlane.SecretStore = input.DataPlane.Spec.SecretStoreRef.Name
-	}
+	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
 
 	return ctx, nil
 }
@@ -172,6 +167,18 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 	}
 
 	return params, nil
+}
+
+// extractDataPlaneData extracts DataPlaneData from a DataPlane resource.
+func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
+	data := DataPlaneData{
+		PublicVirtualHost:     dp.Spec.Gateway.PublicVirtualHost,
+		ObservabilityPlaneRef: dp.Spec.ObservabilityPlaneRef,
+	}
+	if dp.Spec.SecretStoreRef != nil {
+		data.SecretStore = dp.Spec.SecretStoreRef.Name
+	}
+	return data
 }
 
 // extractWorkloadData extracts relevant workload information for the rendering context.
