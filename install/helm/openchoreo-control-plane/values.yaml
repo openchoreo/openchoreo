@@ -1930,18 +1930,6 @@ backstage:
   auth:
     # @schema
     # type: string
-    # description: OAuth authorization endpoint URL. If empty, auto-derived from Thunder
-    # default: ""
-    # @schema
-    authorizationUrl: ""
-    # @schema
-    # type: string
-    # description: OAuth token endpoint URL. If empty, auto-derived from Thunder
-    # default: ""
-    # @schema
-    tokenUrl: ""
-    # @schema
-    # type: string
     # description: OAuth client ID
     # default: openchoreo-backstage-client
     # @schema
