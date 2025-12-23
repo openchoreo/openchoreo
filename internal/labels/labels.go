@@ -41,5 +41,9 @@ const (
 	// LabelKeyReleaseNamespace tracks the namespace of the release that manages a resource.
 	LabelKeyReleaseNamespace = "openchoreo.dev/release-namespace"
 
+	// LabelKeyNotificationChannelName identifies a notification channel resource (ConfigMap/Secret)
+	// created by the observabilityalertsnotificationchannel controller.
+	LabelKeyNotificationChannelName = "openchoreo.dev/notification-channel-name"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
 )

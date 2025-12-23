@@ -19,6 +19,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
@@ -283,6 +284,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Name).To(Equal(channel.Name))
 			Expect(configMap.Namespace).To(Equal(channel.Namespace))
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(configMap.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 			Expect(configMap.Data["type"]).To(Equal("email"))
 			Expect(configMap.Data["isEnvDefault"]).To(Equal("true"))
 			Expect(configMap.Data["from"]).To(Equal("test@example.com"))
@@ -299,6 +301,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Name).To(Equal(channel.Name))
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
+			Expect(secret.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 
 		It("should mark the first channel in an environment as default", func() {
@@ -558,6 +561,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Data["smtp.host"]).To(Equal("smtp.example.com"))
 			Expect(configMap.Data["smtp.port"]).To(Equal("465"))
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(configMap.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 	})
 
@@ -601,6 +605,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
 			Expect(secret.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(secret.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 	})
 

@@ -19,8 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
-	"github.com/openchoreo/openchoreo/internal/observer/labels"
+	observerlabels "github.com/openchoreo/openchoreo/internal/observer/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
@@ -1032,48 +1033,34 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
 
-	// Search for the ConfigMap for the notification channel in all namespaces
+	// Use label selector to find the ConfigMap for the notification channel
+	// The controller adds the openchoreo.dev/notification-channel-name label when creating resources
+	labelSelector := client.MatchingLabels{
+		labels.LabelKeyNotificationChannelName: channelName,
+	}
+
 	var configMap *corev1.ConfigMap
-	foundConfigMap := false
-
 	configMapList := &corev1.ConfigMapList{}
-	if err := s.k8sClient.List(ctx, configMapList); err != nil {
-		return nil, fmt.Errorf("failed to list ConfigMaps in all namespaces: %w", err)
+	if err := s.k8sClient.List(ctx, configMapList, labelSelector); err != nil {
+		return nil, fmt.Errorf("failed to list ConfigMaps with label selector: %w", err)
 	}
 
-	for _, cm := range configMapList.Items {
-		if cm.Name == channelName {
-			cmCopy := cm.DeepCopy()
-			configMap = cmCopy
-			foundConfigMap = true
-			break
-		}
+	if len(configMapList.Items) == 0 {
+		return nil, fmt.Errorf("failed to find notification channel ConfigMap with label %s=%s", labels.LabelKeyNotificationChannelName, channelName)
 	}
+	configMap = configMapList.Items[0].DeepCopy()
 
-	if !foundConfigMap {
-		return nil, fmt.Errorf("failed to find notification channel ConfigMap %s in any namespace", channelName)
-	}
-
-	// Search for the Secret for the notification channel in all namespaces
+	// Use label selector to find the Secret for the notification channel
 	var secret *corev1.Secret
-	secretFound := false
-
 	secretList := &corev1.SecretList{}
-	if err := s.k8sClient.List(ctx, secretList); err != nil {
-		return nil, fmt.Errorf("failed to list Secrets in all namespaces: %w", err)
+	if err := s.k8sClient.List(ctx, secretList, labelSelector); err != nil {
+		return nil, fmt.Errorf("failed to list Secrets with label selector: %w", err)
 	}
 
-	for _, sec := range secretList.Items {
-		if sec.Name == channelName {
-			secret = sec.DeepCopy()
-			secretFound = true
-			break
-		}
+	if len(secretList.Items) == 0 {
+		return nil, fmt.Errorf("failed to find notification channel Secret with label %s=%s", labels.LabelKeyNotificationChannelName, channelName)
 	}
-
-	if !secretFound {
-		return nil, fmt.Errorf("failed to find notification channel Secret %s in any namespace", channelName)
-	}
+	secret = secretList.Items[0].DeepCopy()
 
 	// Parse SMTP port from ConfigMap
 	smtpPort := 587 // default SMTP port
@@ -1204,9 +1191,9 @@ func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[st
 		"alert_rule_name": ruleName,
 		"alert_value":     requestBody["alertValue"],
 		"labels": map[string]interface{}{
-			labels.ComponentID:   requestBody["componentUid"],
-			labels.EnvironmentID: requestBody["environmentUid"],
-			labels.ProjectID:     requestBody["projectUid"],
+			observerlabels.ComponentID:   requestBody["componentUid"],
+			observerlabels.EnvironmentID: requestBody["environmentUid"],
+			observerlabels.ProjectID:     requestBody["projectUid"],
 		},
 		"enable_ai_rca": requestBody["enableAiRootCauseAnalysis"],
 	}

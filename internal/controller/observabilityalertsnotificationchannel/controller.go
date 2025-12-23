@@ -20,6 +20,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 const (
@@ -179,8 +180,9 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 			Name:      channel.Name,
 			Namespace: channel.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "observabilityalertsnotificationchannel-controller",
-				"app.kubernetes.io/name":       channel.Name,
+				"app.kubernetes.io/managed-by":         "observabilityalertsnotificationchannel-controller",
+				"app.kubernetes.io/name":               channel.Name,
+				labels.LabelKeyNotificationChannelName: channel.Name,
 			},
 		},
 		Data: map[string]string{
@@ -217,8 +219,9 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 			Name:      channel.Name,
 			Namespace: channel.Namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by": "observabilityalertsnotificationchannel-controller",
-				"app.kubernetes.io/name":       channel.Name,
+				"app.kubernetes.io/managed-by":         "observabilityalertsnotificationchannel-controller",
+				"app.kubernetes.io/name":               channel.Name,
+				labels.LabelKeyNotificationChannelName: channel.Name,
 			},
 		},
 		Type: corev1.SecretTypeOpaque,
