@@ -307,7 +307,7 @@ kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-def
 ```
 </details>
 
-### 8. Configure DataPlane to use default ObservabilityPlane
+### 8. Configure DataPlane to use default ObservabilityPlane (Optional)
 ```
 kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
