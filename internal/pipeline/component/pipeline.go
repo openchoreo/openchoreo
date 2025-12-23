@@ -13,7 +13,6 @@ package component
 
 import (
 	"fmt"
-	"maps"
 	"sort"
 
 	"github.com/go-playground/validator/v10"
@@ -28,20 +27,20 @@ import (
 
 var validate = validator.New(validator.WithRequiredStructEnabled())
 
+// Option is a function that configures a Pipeline.
+type Option func(*Pipeline)
+
 // NewPipeline creates a new component rendering pipeline.
 func NewPipeline(opts ...Option) *Pipeline {
-	p := &Pipeline{
-		templateEngine: template.NewEngineWithOptions(
-			template.WithCELExtensions(context.CELExtensions()...),
-		),
-		options: DefaultRenderOptions(),
-	}
-
-	// Apply options
+	p := &Pipeline{}
 	for _, opt := range opts {
 		opt(p)
 	}
-
+	if p.templateEngine == nil {
+		p.templateEngine = template.NewEngineWithOptions(
+			template.WithCELExtensions(context.CELExtensions()...),
+		)
+	}
 	return p
 }
 
@@ -140,31 +139,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		metadata.TraitResourceCount += len(renderedResources) - beforeCount
 	}
 
-	// Extract resources for post-processing
-	resources := make([]map[string]any, len(renderedResources))
-	for i, rr := range renderedResources {
-		resources[i] = rr.Resource
-	}
-
-	// Post-process resources
-	if err := p.postProcessResources(resources, input); err != nil {
+	if err := p.postProcessResources(renderedResources, input); err != nil {
 		return nil, fmt.Errorf("failed to post-process resources: %w", err)
 	}
 
-	// Validate if enabled
-	if p.options.EnableValidation {
-		if err := p.validateResources(resources); err != nil {
-			return nil, fmt.Errorf("validation failed: %w", err)
-		}
+	if err := p.validateResources(renderedResources); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
-	// Sort resources for deterministic output while keeping target plane metadata aligned.
 	sortRenderedResources(renderedResources)
-
-	// Update sorted resources back to resources slice after sorting.
-	for i := 0; i < len(renderedResources); i++ {
-		resources[i] = renderedResources[i].Resource
-	}
 
 	metadata.ResourceCount = len(renderedResources)
 
@@ -188,69 +171,42 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	return nil
 }
 
-// postProcessResources adds labels, annotations, and performs cleanup.
-func (p *Pipeline) postProcessResources(resources []map[string]any, input *RenderInput) error {
-	// Build common labels/annotations
-	commonLabels := make(map[string]string)
-	commonAnnotations := make(map[string]string)
-
-	// Add component metadata
-	commonLabels[labels.LabelKeyComponentName] = input.Metadata.ComponentName
-	commonLabels[labels.LabelKeyEnvironmentName] = input.Metadata.EnvironmentName
-	commonLabels[labels.LabelKeyProjectName] = input.Metadata.ProjectName
-
-	// Add configured labels/annotations
-	maps.Copy(commonLabels, p.options.ResourceLabels)
-	maps.Copy(commonAnnotations, p.options.ResourceAnnotations)
-
-	// Apply to all resources
-	for _, resource := range resources {
-		if err := addLabelsAndAnnotations(resource, commonLabels, commonAnnotations); err != nil {
-			return fmt.Errorf("failed to add labels/annotations: %w", err)
+// postProcessResources adds labels and performs cleanup.
+func (p *Pipeline) postProcessResources(resources []renderer.RenderedResource, input *RenderInput) error {
+	commonLabels := map[string]string{
+		labels.LabelKeyComponentName:   input.Metadata.ComponentName,
+		labels.LabelKeyEnvironmentName: input.Metadata.EnvironmentName,
+		labels.LabelKeyProjectName:     input.Metadata.ProjectName,
+	}
+	for _, rr := range resources {
+		if err := addLabels(rr.Resource, commonLabels); err != nil {
+			return fmt.Errorf("failed to add labels: %w", err)
 		}
 	}
-
 	return nil
 }
 
-// addLabelsAndAnnotations adds labels and annotations to a resource.
-func addLabelsAndAnnotations(resource map[string]any, labels, annotations map[string]string) error {
+// addLabels adds labels to a resource's metadata.
+func addLabels(resource map[string]any, labelsToAdd map[string]string) error {
 	metadata, ok := resource["metadata"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("resource missing metadata")
 	}
-
-	// Add labels
-	if len(labels) > 0 {
-		existingLabels, _ := metadata["labels"].(map[string]any)
-		if existingLabels == nil {
-			existingLabels = make(map[string]any)
-		}
-		for k, v := range labels {
-			existingLabels[k] = v
-		}
-		metadata["labels"] = existingLabels
+	existingLabels, _ := metadata["labels"].(map[string]any)
+	if existingLabels == nil {
+		existingLabels = make(map[string]any)
 	}
-
-	// Add annotations
-	if len(annotations) > 0 {
-		existingAnnotations, _ := metadata["annotations"].(map[string]any)
-		if existingAnnotations == nil {
-			existingAnnotations = make(map[string]any)
-		}
-		for k, v := range annotations {
-			existingAnnotations[k] = v
-		}
-		metadata["annotations"] = existingAnnotations
+	for k, v := range labelsToAdd {
+		existingLabels[k] = v
 	}
-
+	metadata["labels"] = existingLabels
 	return nil
 }
 
 // validateResources performs basic validation on rendered resources.
-func (p *Pipeline) validateResources(resources []map[string]any) error {
-	for i, resource := range resources {
-		// Try to extract resource identity for better error messages
+func (p *Pipeline) validateResources(resources []renderer.RenderedResource) error {
+	for i, rr := range resources {
+		resource := rr.Resource
 		kind, _ := resource["kind"].(string)
 		apiVersion, _ := resource["apiVersion"].(string)
 		var resourceID string
@@ -260,7 +216,6 @@ func (p *Pipeline) validateResources(resources []map[string]any) error {
 			resourceID = fmt.Sprintf("resource #%d", i)
 		}
 
-		// Check required fields
 		if apiVersion == "" {
 			return fmt.Errorf("%s missing apiVersion", resourceID)
 		}
@@ -279,14 +234,6 @@ func (p *Pipeline) validateResources(resources []map[string]any) error {
 		}
 	}
 	return nil
-}
-
-// sortResources sorts resources for deterministic output.
-// Sorts by: kind, apiVersion, metadata.namespace, metadata.name
-func sortResources(resources []map[string]any) {
-	sort.Slice(resources, func(i, j int) bool {
-		return compareResources(resources[i], resources[j])
-	})
 }
 
 func sortRenderedResources(renderedResources []renderer.RenderedResource) {

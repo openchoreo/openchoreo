@@ -15,6 +15,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
 )
 
 // testSnapshot is a test-only struct for parsing legacy ComponentEnvSnapshot YAML in tests
@@ -521,239 +522,22 @@ spec:
 	}
 }
 
-func TestPipeline_Options(t *testing.T) {
-	devEnvironmentYAML := `
-    apiVersion: openchoreo.dev/v1alpha1
-    kind: Environment
-    metadata:
-      name: dev
-      namespace: test-namespace
-    spec:
-      dataPlaneRef: dev-dataplane
-      isProduction: false
-      gateway:
-        dnsPrefix: dev
-        security:
-          remoteJwks:
-            uri: https://auth.example.com/.well-known/jwks.json`
-	devDataplaneYAML := `
-    apiVersion: openchoreo.dev/v1alpha1
-    kind: DataPlane
-    metadata:
-      name: dev-dataplane
-      namespace: test-namespace
-    spec:
-      kubernetesCluster:
-        name: development-cluster
-        credentials:
-          apiServerURL: https://k8s-api.example.com:6443
-          caCert: LS0tLS1CRUdJTi
-          clientCert: LS0tLS1CRUdJTi
-          clientKey: LS0tLS1CRUdJTi
-      registry:
-        prefix: docker.io/myorg
-        secretRef: registry-credentials
-      gateway:
-        publicVirtualHost: api.example.com
-        organizationVirtualHost: internal.example.com
-      observer:
-        url: https://observer.example.com
-        authentication:
-          basicAuth:
-            username: admin
-            password: secretpassword`
-	tests := []struct {
-		name             string
-		snapshotYAML     string
-		options          []Option
-		wantResourceYAML string
-		environmentYAML  string
-		dataplaneYAML    string
-	}{
-		{
-			name: "with custom labels",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters: {}
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: app
-  workload: {}
-`,
-			environmentYAML: devEnvironmentYAML,
-			dataplaneYAML:   devDataplaneYAML,
-			options: []Option{
-				WithResourceLabels(map[string]string{
-					"custom": "label",
-				}),
-			},
-			wantResourceYAML: `
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: app
-    labels:
-      custom: label
-      openchoreo.dev/component: test-app
-      openchoreo.dev/environment: dev
-      openchoreo.dev/project: test-project
-`,
-		},
-		{
-			name: "with custom annotations",
-			snapshotYAML: `
-apiVersion: core.choreo.dev/v1alpha1
-kind: ComponentEnvSnapshot
-spec:
-  environment: dev
-  component:
-    metadata:
-      name: test-app
-    spec:
-      parameters: {}
-  componentType:
-    spec:
-      resources:
-        - id: deployment
-          template:
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: app
-  workload: {}
-`,
-			environmentYAML: devEnvironmentYAML,
-			dataplaneYAML:   devDataplaneYAML,
-			options: []Option{
-				WithResourceAnnotations(map[string]string{
-					"custom": "annotation",
-				}),
-			},
-			wantResourceYAML: `
-- apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: app
-    labels:
-      openchoreo.dev/component: test-app
-      openchoreo.dev/environment: dev
-      openchoreo.dev/project: test-project
-    annotations:
-      custom: annotation
-`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Parse snapshot (using test-only struct for legacy YAML format)
-			snapshot := &testSnapshot{}
-			if err := yaml.Unmarshal([]byte(tt.snapshotYAML), snapshot); err != nil {
-				t.Fatalf("Failed to parse snapshot YAML: %v", err)
-			}
-
-			// Parse environment
-			var environment *v1alpha1.Environment
-			if tt.environmentYAML != "" {
-				environment = &v1alpha1.Environment{}
-				if err := yaml.Unmarshal([]byte(tt.environmentYAML), environment); err != nil {
-					t.Fatalf("Failed to parse environment YAML: %v", err)
-				}
-			}
-
-			// Parse dataplane
-			var dataplane *v1alpha1.DataPlane
-			if tt.dataplaneYAML != "" {
-				dataplane = &v1alpha1.DataPlane{}
-				if err := yaml.Unmarshal([]byte(tt.dataplaneYAML), dataplane); err != nil {
-					t.Fatalf("Failed to parse dataplane YAML: %v", err)
-				}
-			}
-
-			// Create input
-			input := &RenderInput{
-				ComponentType: &snapshot.Spec.ComponentType,
-				Component:     &snapshot.Spec.Component,
-				Traits:        snapshot.Spec.Traits,
-				Workload:      &snapshot.Spec.Workload,
-				Environment:   environment,
-				DataPlane:     dataplane,
-				Metadata: context.MetadataContext{
-					Name:            "test-component-dev-12345678",
-					Namespace:       "test-namespace",
-					ComponentName:   "test-app",
-					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-					ProjectName:     "test-project",
-					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
-					DataPlaneName:   "dev-dataplane",
-					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
-					EnvironmentName: "dev",
-					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
-					Labels: map[string]string{
-						"openchoreo.dev/component":   "test-component",
-						"openchoreo.dev/environment": "dev",
-					},
-					Annotations: map[string]string{},
-					PodSelectors: map[string]string{
-						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-					},
-				},
-			}
-
-			// Create pipeline with options
-			pipeline := NewPipeline(tt.options...)
-			output, err := pipeline.Render(input)
-			if err != nil {
-				t.Fatalf("Render() error = %v", err)
-			}
-
-			// Parse expected resources
-			var wantResources []map[string]any
-			if err := yaml.Unmarshal([]byte(tt.wantResourceYAML), &wantResources); err != nil {
-				t.Fatalf("Failed to parse wantResourceYAML: %v", err)
-			}
-
-			// Extract just the Resource field from RenderedResource
-			actualResources := make([]map[string]any, len(output.Resources))
-			for i, rr := range output.Resources {
-				actualResources[i] = rr.Resource
-			}
-
-			// Compare actual vs expected
-			if diff := cmp.Diff(wantResources, actualResources); diff != "" {
-				t.Errorf("Resources mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestValidateResources(t *testing.T) {
 	tests := []struct {
 		name      string
-		resources []map[string]any
+		resources []renderer.RenderedResource
 		wantErr   bool
 	}{
 		{
 			name: "valid resources",
-			resources: []map[string]any{
+			resources: []renderer.RenderedResource{
 				{
-					"apiVersion": "v1",
-					"kind":       "Pod",
-					"metadata": map[string]any{
-						"name": "test",
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata": map[string]any{
+							"name": "test",
+						},
 					},
 				},
 			},
@@ -761,11 +545,13 @@ func TestValidateResources(t *testing.T) {
 		},
 		{
 			name: "missing apiVersion",
-			resources: []map[string]any{
+			resources: []renderer.RenderedResource{
 				{
-					"kind": "Pod",
-					"metadata": map[string]any{
-						"name": "test",
+					Resource: map[string]any{
+						"kind": "Pod",
+						"metadata": map[string]any{
+							"name": "test",
+						},
 					},
 				},
 			},
@@ -773,11 +559,13 @@ func TestValidateResources(t *testing.T) {
 		},
 		{
 			name: "missing kind",
-			resources: []map[string]any{
+			resources: []renderer.RenderedResource{
 				{
-					"apiVersion": "v1",
-					"metadata": map[string]any{
-						"name": "test",
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"metadata": map[string]any{
+							"name": "test",
+						},
 					},
 				},
 			},
@@ -785,11 +573,13 @@ func TestValidateResources(t *testing.T) {
 		},
 		{
 			name: "missing metadata.name",
-			resources: []map[string]any{
+			resources: []renderer.RenderedResource{
 				{
-					"apiVersion": "v1",
-					"kind":       "Pod",
-					"metadata":   map[string]any{},
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata":   map[string]any{},
+					},
 				},
 			},
 			wantErr: true,
@@ -804,47 +594,6 @@ func TestValidateResources(t *testing.T) {
 				t.Errorf("validateResources() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestSortResources(t *testing.T) {
-	resources := []map[string]any{
-		{
-			"kind":       "Service",
-			"apiVersion": "v1",
-			"metadata": map[string]any{
-				"name": "svc-b",
-			},
-		},
-		{
-			"kind":       "Deployment",
-			"apiVersion": "apps/v1",
-			"metadata": map[string]any{
-				"name": "deploy-a",
-			},
-		},
-		{
-			"kind":       "Service",
-			"apiVersion": "v1",
-			"metadata": map[string]any{
-				"name": "svc-a",
-			},
-		},
-	}
-
-	sortResources(resources)
-
-	// Check sorted order: Deployment first, then Services sorted by name
-	if resources[0]["kind"] != "Deployment" {
-		t.Errorf("Expected Deployment first, got %v", resources[0]["kind"])
-	}
-	if resources[1]["kind"] != "Service" {
-		t.Errorf("Expected Service second, got %v", resources[1]["kind"])
-	}
-
-	metadata := resources[1]["metadata"].(map[string]any)
-	if metadata["name"] != "svc-a" {
-		t.Errorf("Expected svc-a second, got %v", metadata["name"])
 	}
 }
 
