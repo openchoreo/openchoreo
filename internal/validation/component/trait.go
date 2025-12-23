@@ -248,7 +248,7 @@ func ValidatePatchOperation(
 		"add":          true,
 		"replace":      true,
 		"remove":       true,
-		"mergeShallow": true,
+		"mergeShallow": false,
 	}
 
 	if !validOps[op.Op] {

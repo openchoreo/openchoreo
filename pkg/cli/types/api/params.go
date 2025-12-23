@@ -348,3 +348,15 @@ type GenerateComponentReleaseParams struct {
 	OutputPath    string // Optional: custom output directory
 	DryRun        bool   // Preview without writing files
 }
+
+// GenerateReleaseBindingParams defines parameters for generating release bindings
+type GenerateReleaseBindingParams struct {
+	All              bool   // Generate for all components
+	ProjectName      string // Generate for all components in this project
+	ComponentName    string // Generate for specific component
+	ComponentRelease string // Explicit component release name (only with project+component)
+	TargetEnv        string // Required: target environment name
+	UsePipeline      string // Required: deployment pipeline name
+	OutputPath       string // Optional: custom output directory
+	DryRun           bool   // Preview without writing files
+}

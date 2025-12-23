@@ -1,0 +1,11 @@
+{{- if .Values.rca.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-llm-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+data:
+  RCA_MODEL_NAME: {{ .Values.rca.llm.modelName | quote }}
+{{- end }}

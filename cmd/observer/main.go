@@ -18,12 +18,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
 	"github.com/openchoreo/openchoreo/internal/observer/mcp"
-	"github.com/openchoreo/openchoreo/internal/observer/middleware"
+	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
+	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
+	"github.com/openchoreo/openchoreo/internal/server/oauth"
 )
 
 func main() {
@@ -69,29 +72,29 @@ func main() {
 	// Initialize handlers
 	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
 
-	// Health check endpoint (no JWT authentication)
-	mux.HandleFunc("GET /health", handler.Health)
+	// ===== Initialize Middlewares =====
 
-	// API routes - Build Logs
-	mux.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
+	// Global middlewares - applies to all routes
+	loggerMiddleware := observermiddleware.Logger(logger)
+	recoveryMiddleware := observermiddleware.Recovery(logger)
 
-	// API routes - Logs
-	mux.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
-	mux.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
-	mux.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
-	mux.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+	// Create route builder with global middleware
+	routes := middleware.NewRouteBuilder(mux).With(loggerMiddleware, recoveryMiddleware)
 
-	// API routes - Traces
-	mux.HandleFunc("POST /api/traces", handler.GetTraces)
+	// ===== Public Routes (No Authentication Required) =====
 
-	// API routes - Metrics
-	mux.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
-	mux.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
+	// Health check endpoint
+	routes.HandleFunc("GET /health", handler.Health)
 
-	// API routes - Alerting
-	mux.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
-	mux.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
-	mux.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook) // Internal webhook for alerting
+	// OAuth Protected Resource Metadata endpoint
+	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
+
+	// ===== Protected API Routes (JWT Authentication Required) =====
+
+	// API routes - RCA Reports
+	// TODO: Remove temporary RCA service availability check middleware
+	mux.HandleFunc("POST /api/rca-reports/project/{projectUid}", requireRCAService(handler.GetRCAReportsByProject, logger))
+	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", requireRCAService(handler.GetRCAReportByAlert, logger))
 
 	// MCP endpoint
 	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
@@ -99,31 +102,40 @@ func main() {
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(logger)
 
-	// Create a custom middleware that applies JWT only to non-health endpoints
-	jwtForAPIOnly := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip JWT for health endpoint
-			if r.Method == "GET" && r.URL.Path == "/health" {
-				next.ServeHTTP(w, r)
-				return
-			}
-			// Apply JWT for all other endpoints
-			jwtAuth(next).ServeHTTP(w, r)
-		})
-	}
+	// Create protected route group with JWT auth
+	api := routes.With(jwtAuth)
 
-	// Apply middleware with selective JWT
-	handlerWithMiddleware := middleware.Chain(
-		middleware.Logger(logger),
-		middleware.Recovery(logger),
-		jwtForAPIOnly,
-	)(mux)
+	// API routes - Build Logs
+	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
+
+	// API routes - Logs
+	api.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
+	api.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
+	api.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
+	api.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+
+	// API routes - Traces
+	api.HandleFunc("POST /api/traces", handler.GetTraces)
+
+	// API routes - Metrics
+	api.HandleFunc("POST /api/metrics/component/http", handler.GetComponentHTTPMetrics)
+	api.HandleFunc("POST /api/metrics/component/usage", handler.GetComponentResourceMetrics)
+
+	// API routes - Alerting
+	api.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
+	api.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
+	api.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook) // Internal webhook for alerting
+
+	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
+	mcpMiddleware := initMCPMiddleware(logger)
+	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
+	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
 
 	// Create HTTP server
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	server := &http.Server{
 		Addr:         addr,
-		Handler:      handlerWithMiddleware,
+		Handler:      mux,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
@@ -215,4 +227,60 @@ func initJWTMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 
 	return jwt.Middleware(config)
+}
+
+// initMCPMiddleware initializes the MCP middleware that adds WWW-Authenticate header to 401 responses
+func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+	// Get observer base URL from environment variables
+	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")
+	if observerBaseURL == "" {
+		// Default to localhost for development
+		observerBaseURL = "http://localhost:9097"
+		logger.Warn("OBSERVER_BASE_URL not set, using default", "url", observerBaseURL)
+	}
+	resourceMetadataURL := observerBaseURL + "/.well-known/oauth-protected-resource"
+
+	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
+}
+
+// oauthProtectedResourceMetadata returns a handler for OAuth 2.0 protected resource metadata
+// as defined in RFC 9728 and related OAuth standards
+func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
+	// Get configuration from environment variables
+	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")
+	if observerBaseURL == "" {
+		// Default to localhost for development
+		observerBaseURL = "http://localhost:9097"
+		logger.Warn("OBSERVER_BASE_URL not set, using default", "url", observerBaseURL)
+	}
+
+	authServerBaseURL := os.Getenv(apiconfig.EnvAuthServerBaseURL)
+	if authServerBaseURL == "" {
+		authServerBaseURL = apiconfig.DefaultThunderBaseURL
+	}
+
+	// Create and return metadata handler
+	return oauth.NewMetadataHandler(oauth.MetadataHandlerConfig{
+		ResourceName: "OpenChoreo Observer MCP Server",
+		ResourceURL:  observerBaseURL + "/mcp",
+		AuthorizationServers: []string{
+			authServerBaseURL,
+		},
+		Logger: logger,
+	})
+}
+
+// requireRCAService wraps a handler and checks if the RCA service is available
+func requireRCAService(next http.HandlerFunc, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get("http://ai-rca-agent:8080/health")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			logger.Debug("RCA service not available", "endpoint", r.URL.Path)
+			http.Error(w, "RCA service not available", http.StatusServiceUnavailable)
+			return
+		}
+		resp.Body.Close()
+		next(w, r)
+	}
 }

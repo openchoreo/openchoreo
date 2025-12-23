@@ -1,0 +1,18 @@
+{{- if .Values.rca.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.rca.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+spec:
+  type: {{ .Values.rca.service.type }}
+  ports:
+  - port: {{ .Values.rca.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+{{- end }}

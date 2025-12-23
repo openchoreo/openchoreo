@@ -790,3 +790,138 @@ func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 		string(enableAiRootCauseAnalysis),
 	)
 }
+
+// BuildRCAReportsQuery builds a query for RCA reports by project with optional filtering
+func (qb *QueryBuilder) BuildRCAReportsQuery(params RCAReportQueryParams) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/project-uid": params.ProjectUID,
+			},
+		},
+	}
+
+	// Add environment filter if specified
+	if params.EnvironmentUID != "" {
+		mustConditions = append(mustConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"resource.openchoreo.dev/environment-uid": params.EnvironmentUID,
+			},
+		})
+	}
+
+	// Add status filter if specified
+	if params.Status != "" {
+		mustConditions = append(mustConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"status": params.Status,
+			},
+		})
+	}
+
+	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
+
+	// Set default sort order if not specified
+	sortOrder := params.SortOrder
+	if sortOrder == "" {
+		sortOrder = "desc" //nolint:goconst
+	}
+
+	query := map[string]interface{}{
+		"size": params.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": sortOrder,
+				},
+			},
+		},
+	}
+
+	// Add component UID filters as "should" conditions if specified
+	if len(params.ComponentUIDs) > 0 {
+		shouldConditions := []map[string]interface{}{}
+		for _, componentUID := range params.ComponentUIDs {
+			shouldConditions = append(shouldConditions, map[string]interface{}{
+				"term": map[string]interface{}{
+					"resource.openchoreo.dev/component-uids": componentUID,
+				},
+			})
+		}
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["should"] = shouldConditions
+		query["query"].(map[string]interface{})["bool"].(map[string]interface{})["minimum_should_match"] = 1
+	}
+
+	return query
+}
+
+// BuildRCAReportByAlertQuery builds a query for a single RCA report by alert ID with optional version
+func (qb *QueryBuilder) BuildRCAReportByAlertQuery(params RCAReportByAlertQueryParams) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				"alertId": params.AlertID,
+			},
+		},
+	}
+
+	// Add version filter if specified
+	if params.Version != nil {
+		mustConditions = append(mustConditions, map[string]interface{}{
+			"term": map[string]interface{}{
+				"version": *params.Version,
+			},
+		})
+	}
+
+	query := map[string]interface{}{
+		"size": 1, // We only expect one result
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": mustConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"version": map[string]interface{}{
+					"order": "desc", //nolint:goconst
+				},
+			},
+		},
+	}
+
+	return query
+}
+
+// BuildRCAReportVersionsQuery builds a query to get all available versions for an alert ID
+func (qb *QueryBuilder) BuildRCAReportVersionsQuery(alertID string) map[string]interface{} {
+	query := map[string]interface{}{
+		"size": 100, // Should be enough for version count
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []map[string]interface{}{
+					{
+						"term": map[string]interface{}{
+							"alertId": alertID,
+						},
+					},
+				},
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"version": map[string]interface{}{
+					"order": "desc", //nolint:goconst
+				},
+			},
+		},
+		"_source": []string{"version"}, // Only fetch version field
+	}
+
+	return query
+}

@@ -336,9 +336,9 @@ name: ${oc_generate_name("Hello World!")}
 
 OpenChoreo extends the templating system with special fields for dynamic resource generation:
 
-### includeWhen - Conditional Resource Inclusion (ComponentType only)
+### includeWhen - Conditional Resource Inclusion (ComponentType and Trait creates)
 
-The `includeWhen` field on ComponentType resources controls whether a resource is included in the output based on a CEL expression:
+The `includeWhen` field on ComponentType resources and Trait creates controls whether a resource is included in the output based on a CEL expression:
 
 ```yaml
 # In ComponentType
@@ -371,9 +371,9 @@ resources:
           matchLabels: ${metadata.podSelectors}
 ```
 
-### forEach - Dynamic Resource Generation (ComponentType and Trait patches)
+### forEach - Dynamic Resource Generation (ComponentType, Trait creates, and Trait patches)
 
-The `forEach` field generates multiple resources from a list or map. Available on ComponentType resources and Trait patches.
+The `forEach` field generates multiple resources from a list or map. Available on ComponentType resources, Trait creates, and Trait patches.
 
 - **Lists**: Each item is bound directly to the loop variable
 - **Maps**: Each item has `.key` and `.value` fields; keys are iterated in **alphabetical order** for deterministic output
@@ -468,7 +468,7 @@ resources:
 ```yaml
 resources:
   # includeWhen controls entire forEach block - not individual items
-  - includeWhen: ${parameters.createSecrets}  # Must not reference 'integration'
+  - includeWhen: ${parameters.createSecrets}
     forEach: ${parameters.integrations}
     var: integration
     resource:
@@ -549,8 +549,8 @@ metadata:
   name: monitoring
 spec:
   creates:
-    # Trait creates don't support includeWhen or forEach
-    # Use CEL expressions with oc_omit() if you need conditional fields
+    # Trait creates support includeWhen and forEach (same as ComponentType resources)
+    # Simple unconditional resource
     - template:
         apiVersion: monitoring.coreos.com/v1
         kind: ServiceMonitor
@@ -560,6 +560,44 @@ spec:
           selector:
             matchLabels: ${metadata.podSelectors}
 
+    # Use includeWhen for conditional resource creation
+    - includeWhen: ${parameters.alerting.enabled}
+      template:
+        apiVersion: monitoring.coreos.com/v1
+        kind: PrometheusRule
+        metadata:
+          name: ${metadata.name}-alerts
+        spec:
+          groups:
+            - name: ${metadata.name}
+              rules: ${parameters.alerting.rules}
+
+    # Use forEach for generating multiple resources
+    - forEach: ${parameters.volumes}
+      var: vol
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${oc_generate_name(metadata.name, vol.name)}
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: ${vol.size}
+
+    # Combine includeWhen and forEach - includeWhen controls the entire block
+    - includeWhen: ${parameters.createSecrets}
+      forEach: ${parameters.secrets}
+      var: secret
+      template:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ${oc_generate_name(metadata.name, secret.name)}
+        type: Opaque
+        stringData: ${secret.data}
+
   patches:
     # Use 'where' in target for conditional patching
     - target:
@@ -568,10 +606,9 @@ spec:
         kind: Deployment
         where: ${parameters.monitoring.enabled}
       operations:
-        - op: mergeShallow
-          path: /spec/template/metadata/annotations
-          value:
-            prometheus.io/scrape: "true"
+        - op: add
+          path: /spec/template/metadata/annotations/prometheus.io~1scrape
+          value: "true"
 
     # Use forEach for iterating over lists
     - forEach: ${parameters.extraPorts}

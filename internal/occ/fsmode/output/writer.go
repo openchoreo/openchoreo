@@ -302,7 +302,7 @@ func (w *Writer) resolveOutputPath(
 
 	// Priority 1: Check config file for component-specific or project-specific path
 	if opts.Config != nil {
-		if configDir := opts.Config.GetOutputDir(projectName, componentName); configDir != "" {
+		if configDir := opts.Config.GetReleaseOutputDir(projectName, componentName); configDir != "" {
 			// If config path is relative, resolve it against baseDir
 			if !filepath.IsAbs(configDir) {
 				configDir = filepath.Join(w.baseDir, configDir)
@@ -328,5 +328,185 @@ func (w *Writer) resolveOutputPath(
 		"components", componentName,
 		"releases",
 		releaseName+".yaml",
+	)
+}
+
+// BulkBindingWriteOptions configures bulk binding write operations
+type BulkBindingWriteOptions struct {
+	Config    *config.ReleaseConfig // Config for output directory resolution
+	OutputDir string                // Default output directory
+	DryRun    bool                  // If true, write to stdout
+	Stdout    io.Writer             // Writer for dry-run output
+}
+
+// WriteBinding writes a ReleaseBinding to a file or stdout
+// Returns the output path and a boolean (always false for bindings, kept for consistency)
+func (w *Writer) WriteBinding(binding *unstructured.Unstructured, opts WriteOptions) (string, bool, error) {
+	// If dry-run, write to stdout
+	if opts.DryRun {
+		data, err := yaml.Marshal(binding.Object)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to marshal binding to YAML: %w", err)
+		}
+		writer := opts.Stdout
+		if writer == nil {
+			writer = os.Stdout
+		}
+		fmt.Fprintf(writer, "---\n")
+		if _, err := writer.Write(data); err != nil {
+			return "", false, fmt.Errorf("failed to write to stdout: %w", err)
+		}
+		return "", false, nil
+	}
+
+	// Determine output path
+	outputPath := w.determineBindingOutputPath(binding, opts.OutputDir)
+
+	// Marshal to YAML
+	data, err := yaml.Marshal(binding.Object)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to marshal binding to YAML: %w", err)
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return "", false, fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Write file
+	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+		return "", false, fmt.Errorf("failed to write binding file: %w", err)
+	}
+
+	return outputPath, false, nil
+}
+
+// determineBindingOutputPath determines the output file path for a binding
+func (w *Writer) determineBindingOutputPath(binding *unstructured.Unstructured, outputDir string) string {
+	bindingName := binding.GetName()
+
+	if outputDir != "" {
+		return filepath.Join(outputDir, bindingName+".yaml")
+	}
+
+	// Default: projects/<project>/components/<component>/bindings/
+	projectName := getNestedString(binding.Object, "spec", "owner", "projectName")
+	componentName := getNestedString(binding.Object, "spec", "owner", "componentName")
+
+	return filepath.Join(
+		w.baseDir,
+		"projects", projectName,
+		"components", componentName,
+		"bindings",
+		bindingName+".yaml",
+	)
+}
+
+// WriteBulkBindings writes multiple bindings according to config
+func (w *Writer) WriteBulkBindings(
+	bindings []*unstructured.Unstructured,
+	opts BulkBindingWriteOptions,
+) (*BulkWriteResult, error) {
+	result := &BulkWriteResult{
+		OutputPaths: make([]string, 0, len(bindings)),
+		Skipped:     make([]string, 0),
+		Errors:      make([]error, 0),
+	}
+
+	// If dry-run, concatenate all bindings to stdout
+	if opts.DryRun {
+		writer := opts.Stdout
+		if writer == nil {
+			writer = os.Stdout
+		}
+
+		for i, binding := range bindings {
+			data, err := yaml.Marshal(binding.Object)
+			if err != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("failed to marshal binding %s: %w", binding.GetName(), err))
+				continue
+			}
+
+			if i > 0 {
+				fmt.Fprintf(writer, "\n")
+			}
+			fmt.Fprintf(writer, "---\n")
+			if _, err := writer.Write(data); err != nil {
+				result.Errors = append(result.Errors, fmt.Errorf("failed to write binding %s to stdout: %w", binding.GetName(), err))
+				continue
+			}
+		}
+		return result, nil
+	}
+
+	// Write each binding to its resolved output directory
+	for _, binding := range bindings {
+		projectName := getNestedString(binding.Object, "spec", "owner", "projectName")
+		componentName := getNestedString(binding.Object, "spec", "owner", "componentName")
+
+		outputPath := w.resolveBindingOutputPath(binding, projectName, componentName, opts)
+
+		// Marshal to YAML
+		data, err := yaml.Marshal(binding.Object)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to marshal binding %s: %w", binding.GetName(), err))
+			continue
+		}
+
+		// Ensure directory exists
+		if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to create directory for %s: %w", binding.GetName(), err))
+			continue
+		}
+
+		// Write file
+		if err := os.WriteFile(outputPath, data, 0600); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to write binding %s: %w", binding.GetName(), err))
+			continue
+		}
+
+		result.OutputPaths = append(result.OutputPaths, outputPath)
+	}
+
+	return result, nil
+}
+
+// resolveBindingOutputPath determines the output file path for a binding based on config and options
+func (w *Writer) resolveBindingOutputPath(
+	binding *unstructured.Unstructured,
+	projectName, componentName string,
+	opts BulkBindingWriteOptions,
+) string {
+	bindingName := binding.GetName()
+
+	// Priority 1: Check config file for component-specific or project-specific path
+	if opts.Config != nil {
+		if configDir := opts.Config.GetBindingOutputDir(projectName, componentName); configDir != "" {
+			// If config path is relative, resolve it against baseDir
+			if !filepath.IsAbs(configDir) {
+				configDir = filepath.Join(w.baseDir, configDir)
+			}
+			return filepath.Join(configDir, bindingName+".yaml")
+		}
+	}
+
+	// Priority 2: Use --output flag if provided
+	if opts.OutputDir != "" {
+		// If output dir is relative, resolve it against baseDir
+		outputDir := opts.OutputDir
+		if !filepath.IsAbs(outputDir) {
+			outputDir = filepath.Join(w.baseDir, outputDir)
+		}
+		return filepath.Join(outputDir, bindingName+".yaml")
+	}
+
+	// Priority 3: Use default path structure
+	// projects/<project>/components/<component>/bindings/<binding>.yaml
+	return filepath.Join(
+		w.baseDir,
+		"projects", projectName,
+		"components", componentName,
+		"bindings",
+		bindingName+".yaml",
 	)
 }

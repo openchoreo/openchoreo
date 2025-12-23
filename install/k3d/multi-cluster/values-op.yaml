@@ -6,10 +6,6 @@ kgateway:
 
 observer:
   extraEnvs:
-  - name: JWKS_URL
-    value: "https://thunder.openchoreo.localhost:8443/oauth2/jwks"
-  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
-    value: "false"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -71,5 +67,14 @@ clusterAgent:
 gateway:
   enabled: true
 
+security:
+  oidc:
+    jwksUrl: "https://thunder.openchoreo.localhost:8443/oauth2/jwks"
+
 tls:
   enabled: true
+
+rca:
+  openchoreoMcpUrl: "https://api.openchoreo.localhost:8080/mcp"
+  oauth:
+    tokenUrl: "https://thunder.openchoreo.localhost:8443/oauth2/token"

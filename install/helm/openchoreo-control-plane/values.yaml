@@ -226,6 +226,12 @@ openchoreoApi:
   mcp:
     toolsets: "organization,project,component,build,deployment,infrastructure"
   logLevel: info
+  # Base URL for the API server (used for OAuth metadata)
+  # If not set, defaults to: <protocol>://api.<baseDomain><port>
+  serverBaseUrl: ""
+  # Base URL for the authorization server (used for OAuth metadata)
+  # If not set, defaults to: <protocol>://thunder.<baseDomain><port>
+  authServerBaseUrl: ""
   database:
     path: "/var/lib/openchoreo/data/controlplane.db"
     persistence:
@@ -670,9 +676,8 @@ thunder:
     defaultApps:
       - clientId: "customer-portal-client"
         clientSecret: "supersecret"
-        redirectUrls:
-          - "http://localhost:3000/auth/callback"
-          - "http://localhost:3000/auth/handler"
+      # - clientId: "openchoreo-rca-agent"
+      #   clientSecret: "openchoreo-rca-agent-secret"
 
 # Cluster Gateway configuration
 # The gateway manages WebSocket connections from cluster agents

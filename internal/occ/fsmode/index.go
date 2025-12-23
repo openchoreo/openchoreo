@@ -19,9 +19,13 @@ type OwnerRef struct {
 
 // ExtractOwnerRef extracts owner reference information from a resource entry
 func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
-	if entry == nil {
+	if entry == nil || entry.Resource == nil {
 		return nil
 	}
+
+	// For Component resources, componentName is in metadata.name
+	// For ComponentRelease and ReleaseBinding, both are in spec.owner
+	kind := entry.Resource.GroupVersionKind().Kind
 
 	ownerMap := entry.GetNestedMap("spec", "owner")
 	if ownerMap == nil {
@@ -30,6 +34,11 @@ func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
 
 	projectName, _ := ownerMap["projectName"].(string)
 	componentName, _ := ownerMap["componentName"].(string)
+
+	// For Component resources, get componentName from metadata.name
+	if kind == "Component" {
+		componentName = entry.Name()
+	}
 
 	if projectName == "" && componentName == "" {
 		return nil
@@ -51,6 +60,9 @@ type Index struct {
 	workloadsByComponent map[string]*index.ResourceEntry   // "project/component" -> workload
 	componentTypes       map[string]*index.ResourceEntry   // typeName -> componentType
 	traits               map[string]*index.ResourceEntry   // traitName -> trait
+	releasesByComponent  map[string][]*index.ResourceEntry // "project/component" -> releases
+	releaseBindingsByEnv map[string][]*index.ResourceEntry // "project/component/env" -> bindings
+	deploymentPipelines  map[string]*index.ResourceEntry   // pipelineName -> pipeline
 }
 
 // WrapIndex wraps an existing generic index with OpenChoreo-specific functionality
@@ -61,6 +73,9 @@ func WrapIndex(idx *index.Index) *Index {
 		workloadsByComponent: make(map[string]*index.ResourceEntry),
 		componentTypes:       make(map[string]*index.ResourceEntry),
 		traits:               make(map[string]*index.ResourceEntry),
+		releasesByComponent:  make(map[string][]*index.ResourceEntry),
+		releaseBindingsByEnv: make(map[string][]*index.ResourceEntry),
+		deploymentPipelines:  make(map[string]*index.ResourceEntry),
 	}
 
 	// Build OpenChoreo-specific indexes from existing resources
@@ -102,6 +117,30 @@ func (idx *Index) addToSpecializedIndexesUnsafe(entry *index.ResourceEntry) {
 		if name != "" {
 			idx.traits[name] = entry
 		}
+
+	case ComponentReleaseGVK:
+		// Index by component
+		owner := ExtractOwnerRef(entry)
+		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" {
+			key := fmt.Sprintf("%s/%s", owner.ProjectName, owner.ComponentName)
+			idx.releasesByComponent[key] = append(idx.releasesByComponent[key], entry)
+		}
+
+	case ReleaseBindingGVK:
+		// Index by component and environment
+		owner := ExtractOwnerRef(entry)
+		envName := entry.GetNestedString("spec", "environment")
+		if owner != nil && owner.ProjectName != "" && owner.ComponentName != "" && envName != "" {
+			key := fmt.Sprintf("%s/%s/%s", owner.ProjectName, owner.ComponentName, envName)
+			idx.releaseBindingsByEnv[key] = append(idx.releaseBindingsByEnv[key], entry)
+		}
+
+	case DeploymentPipelineGVK:
+		// Index by pipeline name
+		name := entry.Name()
+		if name != "" {
+			idx.deploymentPipelines[name] = entry
+		}
 	}
 }
 
@@ -115,6 +154,9 @@ func (idx *Index) rebuildSpecializedIndexes() {
 	idx.workloadsByComponent = make(map[string]*index.ResourceEntry)
 	idx.componentTypes = make(map[string]*index.ResourceEntry)
 	idx.traits = make(map[string]*index.ResourceEntry)
+	idx.releasesByComponent = make(map[string][]*index.ResourceEntry)
+	idx.releaseBindingsByEnv = make(map[string][]*index.ResourceEntry)
+	idx.deploymentPipelines = make(map[string]*index.ResourceEntry)
 
 	// Rebuild from all resources (using unsafe version since we hold the lock)
 	for _, entry := range idx.Index.ListAll() {
@@ -207,4 +249,63 @@ func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string
 		return nil, fmt.Errorf("workload for component %q (project: %q) not found", componentName, projectName)
 	}
 	return typed2.NewWorkload(entry)
+}
+
+// ListReleasesForComponent returns all component releases for a specific component
+func (idx *Index) ListReleasesForComponent(projectName, componentName string) []*index.ResourceEntry {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	key := fmt.Sprintf("%s/%s", projectName, componentName)
+	return idx.releasesByComponent[key]
+}
+
+// GetLatestReleaseForComponent returns the latest component release for a specific component
+// Releases are sorted by name (which includes date and version), so the last one is the latest
+func (idx *Index) GetLatestReleaseForComponent(projectName, componentName string) (*index.ResourceEntry, error) {
+	releases := idx.ListReleasesForComponent(projectName, componentName)
+	if len(releases) == 0 {
+		return nil, fmt.Errorf("no releases found for component %s/%s", projectName, componentName)
+	}
+
+	// Since release names follow the format: <component>-<YYYYMMDD>-<version>
+	// they are lexicographically sortable, and the latest release is the one with the highest name
+	latestRelease := releases[0]
+	for _, release := range releases[1:] {
+		if release.Name() > latestRelease.Name() {
+			latestRelease = release
+		}
+	}
+
+	return latestRelease, nil
+}
+
+// GetDeploymentPipeline retrieves a deployment pipeline by name
+func (idx *Index) GetDeploymentPipeline(name string) (*index.ResourceEntry, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	entry, ok := idx.deploymentPipelines[name]
+	return entry, ok
+}
+
+// ListReleaseBindings returns all release bindings
+func (idx *Index) ListReleaseBindings() []*index.ResourceEntry {
+	return idx.Index.List(ReleaseBindingGVK)
+}
+
+// GetReleaseBindingForEnv retrieves a release binding for a specific component and environment
+// Returns the first binding found for the given component and environment
+func (idx *Index) GetReleaseBindingForEnv(projectName, componentName, envName string) (*index.ResourceEntry, bool) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+
+	key := fmt.Sprintf("%s/%s/%s", projectName, componentName, envName)
+	bindings := idx.releaseBindingsByEnv[key]
+	if len(bindings) == 0 {
+		return nil, false
+	}
+
+	// Return the first binding (there should typically be only one per environment)
+	return bindings[0], true
 }

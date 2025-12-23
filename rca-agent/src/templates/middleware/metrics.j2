@@ -1,0 +1,89 @@
+## Resource Metrics Analysis
+{% if stats.cpuUsage -%}
+Time Range: {{ stats.cpuUsage.start_time }} to {{ stats.cpuUsage.end_time }}
+{% endif -%}
+
+### CPU Metrics
+
+{% if stats.cpuUsage -%}
+**CPU Usage:**
+- Mean: {{ "%.4f"|format(stats.cpuUsage.mean) }} cores ({{ "%.2f"|format(stats.cpuUsage.mean * 1000) }}m)
+- Median: {{ "%.4f"|format(stats.cpuUsage.median) }} cores
+- Range: {{ "%.4f"|format(stats.cpuUsage.min) }} - {{ "%.4f"|format(stats.cpuUsage.max) }} cores
+- Std Dev: {{ "%.4f"|format(stats.cpuUsage.std_dev) }}, CV: {{ "%.2f"|format(stats.cpuUsage.coefficient_of_variation) }}
+- P90: {{ "%.4f"|format(stats.cpuUsage.p90) }} cores, P95: {{ "%.4f"|format(stats.cpuUsage.p95) }} cores
+
+{% if anomalies.cpuUsage.spike_count > 0 -%}
+- **Anomalies Detected:** {{ anomalies.cpuUsage.spike_count }} spike(s)
+  - Max spike magnitude: {{ "%.2f"|format(anomalies.cpuUsage.max_spike_magnitude) }} σ (standard deviations)
+{% endif -%}
+{% endif -%}
+
+{% if config_values.cpuRequests -%}
+**CPU Requests (configured):**
+- Value: {{ "%.4f"|format(config_values.cpuRequests) }} cores ({{ "%.2f"|format(config_values.cpuRequests * 1000) }}m)
+{% endif -%}
+
+{% if config_values.cpuLimits -%}
+**CPU Limits (configured):**
+- Value: {{ "%.4f"|format(config_values.cpuLimits) }} cores ({{ "%.2f"|format(config_values.cpuLimits * 1000) }}m)
+{% endif -%}
+
+{% if cpu_pressure -%}
+**CPU Resource Pressure:**
+- Usage to Request ratio: {{ "%.2f"|format(cpu_pressure.avg_usage_to_request_ratio * 100) }}%
+- Usage to Limit ratio: {{ "%.2f"|format(cpu_pressure.avg_usage_to_limit_ratio * 100) }}%
+{% if cpu_pressure.exceeded_requests -%}
+- **CPU usage exceeded requests at some point**
+{% endif -%}
+{% if cpu_pressure.exceeded_limits -%}
+- **CPU usage exceeded limits at some point (throttling likely occurred)**
+{% endif -%}
+{% endif -%}
+
+### Memory Metrics
+
+{% if stats.memory -%}
+**Memory Usage:**
+- Mean: {{ "%.0f"|format(stats.memory.mean) }} bytes ({{ "%.2f"|format(stats.memory.mean / 1024 / 1024) }} MB)
+- Median: {{ "%.0f"|format(stats.memory.median) }} bytes ({{ "%.2f"|format(stats.memory.median / 1024 / 1024) }} MB)
+- Range: {{ "%.0f"|format(stats.memory.min) }} - {{ "%.0f"|format(stats.memory.max) }} bytes ({{ "%.2f"|format(stats.memory.min / 1024 / 1024) }} - {{ "%.2f"|format(stats.memory.max / 1024 / 1024) }} MB)
+- Std Dev: {{ "%.0f"|format(stats.memory.std_dev) }} bytes, CV: {{ "%.2f"|format(stats.memory.coefficient_of_variation) }}
+- P90: {{ "%.2f"|format(stats.memory.p90 / 1024 / 1024) }} MB, P95: {{ "%.2f"|format(stats.memory.p95 / 1024 / 1024) }} MB
+
+{% if anomalies.memory.spike_count > 0 -%}
+- **Anomalies Detected:** {{ anomalies.memory.spike_count }} spike(s)
+  - Max spike magnitude: {{ "%.2f"|format(anomalies.memory.max_spike_magnitude) }} σ
+  {% if anomalies.memory.largest_drop < -1000000 -%}
+  - Largest drop: {{ "%.2f"|format(anomalies.memory.largest_drop / 1024 / 1024) }} MB
+  {% endif -%}
+{% endif -%}
+{% endif -%}
+
+{% if config_values.memoryRequests -%}
+**Memory Requests (configured):**
+- Value: {{ "%.0f"|format(config_values.memoryRequests) }} bytes ({{ "%.2f"|format(config_values.memoryRequests / 1024 / 1024) }} MB)
+{% endif -%}
+
+{% if config_values.memoryLimits -%}
+**Memory Limits (configured):**
+- Value: {{ "%.0f"|format(config_values.memoryLimits) }} bytes ({{ "%.2f"|format(config_values.memoryLimits / 1024 / 1024) }} MB)
+{% endif -%}
+
+{% if memory_pressure -%}
+**Memory Resource Pressure:**
+- Usage to Request ratio: {{ "%.2f"|format(memory_pressure.avg_usage_to_request_ratio * 100) }}%
+- Usage to Limit ratio: {{ "%.2f"|format(memory_pressure.avg_usage_to_limit_ratio * 100) }}%
+{% if memory_pressure.exceeded_requests -%}
+- **Memory usage exceeded requests at some point**
+{% endif -%}
+{% if memory_pressure.exceeded_limits -%}
+- **Memory usage exceeded limits at some point (OOM risk/occurred)**
+{% endif -%}
+{% endif -%}
+
+{% if correlations.cpu_memory is defined -%}
+### Correlations
+- CPU Usage vs Memory: {{ "%.3f"|format(correlations.cpu_memory) }}
+
+{% endif -%}

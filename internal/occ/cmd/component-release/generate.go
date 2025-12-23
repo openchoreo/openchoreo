@@ -187,7 +187,7 @@ func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenera
 	// Determine output directory using config if available
 	var componentOutputDir string
 	if releaseConfig != nil {
-		componentOutputDir = releaseConfig.GetOutputDir(project, component)
+		componentOutputDir = releaseConfig.GetReleaseOutputDir(project, component)
 	}
 	// If user provided --output-path, use it; otherwise use config or default
 	if componentOutputDir == "" && customOutputPath != "" {

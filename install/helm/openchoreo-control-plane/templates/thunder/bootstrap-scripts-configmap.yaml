@@ -248,14 +248,6 @@ data:
           "config": {
             "client_id": "{{ .clientId }}",
             "client_secret": "{{ .clientSecret }}",
-            {{- if .redirectUrls }}
-            "redirect_uris": [
-              {{- range $index, $url := .redirectUrls }}
-              {{- if $index }},{{ end }}
-              "{{ $url }}"
-              {{- end }}
-            ],
-            {{- end }}
             "grant_types": [
               "client_credentials"
             ],

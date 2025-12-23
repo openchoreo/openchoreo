@@ -495,3 +495,308 @@ func TestQueryBuilder_BuildTracesQuery(t *testing.T) {
 		}
 	})
 }
+
+// Helper function to verify a term condition exists in must conditions
+func verifyTermCondition(t *testing.T, conditions []map[string]interface{}, field string, expectedValue interface{}) bool {
+	t.Helper()
+	for _, condition := range conditions {
+		if term, ok := condition["term"].(map[string]interface{}); ok {
+			if value, exists := term[field]; exists && value == expectedValue {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Helper function to verify component UIDs in should conditions
+func verifyComponentUIDsInShould(t *testing.T, shouldConditions []map[string]interface{}, field string, expectedUIDs []string) bool {
+	t.Helper()
+	foundCount := 0
+	for _, shouldTerm := range shouldConditions {
+		if term, ok := shouldTerm["term"].(map[string]interface{}); ok {
+			if uid, exists := term[field]; exists {
+				for _, expectedUID := range expectedUIDs {
+					if uid == expectedUID {
+						foundCount++
+						break
+					}
+				}
+			}
+		}
+	}
+	return foundCount == len(expectedUIDs)
+}
+
+func TestQueryBuilder_BuildRCAReportsQuery(t *testing.T) {
+	qb := NewQueryBuilder("rca-reports-")
+
+	t.Run("Basic query with required fields only", func(t *testing.T) {
+		params := RCAReportQueryParams{
+			ProjectUID:     "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+			EnvironmentUID: "3e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b",
+			StartTime:      "2024-01-01T00:00:00Z",
+			EndTime:        "2024-01-01T23:59:59Z",
+			Limit:          50,
+		}
+
+		query := qb.BuildRCAReportsQuery(params)
+
+		if query["size"] != 50 {
+			t.Errorf("Expected size 50, got %v", query["size"])
+		}
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should have project UID, environment UID, and time range (3 conditions)
+		if len(mustConditions) != 3 {
+			t.Errorf("Expected 3 must conditions, got %d", len(mustConditions))
+		}
+
+		// Verify project UID filter
+		if !verifyTermCondition(t, mustConditions, "resource.openchoreo.dev/project-uid", "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d") {
+			t.Error("ProjectUID filter not found in must conditions")
+		}
+
+		// Verify environment UID filter
+		if !verifyTermCondition(t, mustConditions, "resource.openchoreo.dev/environment-uid", "3e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b") {
+			t.Error("EnvironmentUID filter not found in must conditions")
+		}
+
+		// Verify default sort order is desc
+		sortFields := query["sort"].([]map[string]interface{})
+		timestampSort := sortFields[0]["@timestamp"].(map[string]interface{})
+		if timestampSort["order"] != "desc" {
+			t.Errorf("Expected default sort order 'desc', got %v", timestampSort["order"])
+		}
+	})
+
+	t.Run("Query with Status filter and custom sort order", func(t *testing.T) {
+		params := RCAReportQueryParams{
+			ProjectUID:     "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+			EnvironmentUID: "4f5a6b7c-8d9e-0f1a-2b3c-4d5e6f7a8b9c",
+			Status:         "completed",
+			StartTime:      "2024-01-01T00:00:00Z",
+			EndTime:        "2024-01-01T23:59:59Z",
+			Limit:          100,
+			SortOrder:      "asc",
+		}
+
+		query := qb.BuildRCAReportsQuery(params)
+
+		if query["size"] != 100 {
+			t.Errorf("Expected size 100, got %v", query["size"])
+		}
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should have project, environment, status, and time range (4 conditions)
+		if len(mustConditions) != 4 {
+			t.Errorf("Expected 4 must conditions, got %d", len(mustConditions))
+		}
+
+		// Verify environment UID filter
+		if !verifyTermCondition(t, mustConditions, "resource.openchoreo.dev/environment-uid", "4f5a6b7c-8d9e-0f1a-2b3c-4d5e6f7a8b9c") {
+			t.Error("EnvironmentUID filter not found in must conditions")
+		}
+
+		// Verify status filter
+		if !verifyTermCondition(t, mustConditions, "status", "completed") {
+			t.Error("Status filter not found in must conditions")
+		}
+
+		// Verify sort order
+		sortFields := query["sort"].([]map[string]interface{})
+		timestampSort := sortFields[0]["@timestamp"].(map[string]interface{})
+		if timestampSort["order"] != "asc" {
+			t.Errorf("Expected sort order 'asc', got %v", timestampSort["order"])
+		}
+	})
+
+	t.Run("Query with ComponentUIDs array", func(t *testing.T) {
+		params := RCAReportQueryParams{
+			ProjectUID:     "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+			EnvironmentUID: "5a6b7c8d-9e0f-1a2b-3c4d-5e6f7a8b9c0d",
+			ComponentUIDs:  []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b"},
+			StartTime:      "2024-01-01T00:00:00Z",
+			EndTime:        "2024-01-01T23:59:59Z",
+			Limit:          50,
+		}
+
+		query := qb.BuildRCAReportsQuery(params)
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should have project UID, environment UID, and time range (3 conditions)
+		if len(mustConditions) != 3 {
+			t.Errorf("Expected 3 must conditions, got %d", len(mustConditions))
+		}
+
+		// Verify should conditions for component UIDs
+		shouldConditions := boolQuery["should"].([]map[string]interface{})
+		if len(shouldConditions) != 2 {
+			t.Errorf("Expected 2 should conditions for component UIDs, got %d", len(shouldConditions))
+		}
+
+		// Verify the component UIDs are present
+		expectedUIDs := []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b"}
+		if !verifyComponentUIDsInShould(t, shouldConditions, "resource.openchoreo.dev/component-uids", expectedUIDs) {
+			t.Error("ComponentUID values not found in should conditions")
+		}
+
+		// Verify minimum_should_match
+		if boolQuery["minimum_should_match"] != 1 {
+			t.Errorf("Expected minimum_should_match 1, got %v", boolQuery["minimum_should_match"])
+		}
+	})
+}
+
+func TestQueryBuilder_BuildRCAReportByAlertQuery(t *testing.T) {
+	qb := NewQueryBuilder("rca-reports-")
+
+	t.Run("Query without version", func(t *testing.T) {
+		params := RCAReportByAlertQueryParams{
+			AlertID: "alert-123",
+		}
+
+		query := qb.BuildRCAReportByAlertQuery(params)
+
+		if query["size"] != 1 {
+			t.Errorf("Expected size 1, got %v", query["size"])
+		}
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should only have alert ID condition
+		if len(mustConditions) != 1 {
+			t.Errorf("Expected 1 must condition, got %d", len(mustConditions))
+		}
+
+		// Verify alert ID filter
+		alertIDFound := false
+		for _, condition := range mustConditions {
+			if term, ok := condition["term"].(map[string]interface{}); ok {
+				if alertID, exists := term["alertId"]; exists && alertID == "alert-123" {
+					alertIDFound = true
+					break
+				}
+			}
+		}
+		if !alertIDFound {
+			t.Error("AlertID filter not found in must conditions")
+		}
+
+		// Verify sort by version desc
+		sortFields := query["sort"].([]map[string]interface{})
+		versionSort := sortFields[0]["version"].(map[string]interface{})
+		if versionSort["order"] != "desc" {
+			t.Errorf("Expected sort order 'desc' for version, got %v", versionSort["order"])
+		}
+	})
+
+	t.Run("Query with specific version", func(t *testing.T) {
+		version := 3
+		params := RCAReportByAlertQueryParams{
+			AlertID: "alert-456",
+			Version: &version,
+		}
+
+		query := qb.BuildRCAReportByAlertQuery(params)
+
+		if query["size"] != 1 {
+			t.Errorf("Expected size 1, got %v", query["size"])
+		}
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should have alert ID and version conditions
+		if len(mustConditions) != 2 {
+			t.Errorf("Expected 2 must conditions, got %d", len(mustConditions))
+		}
+
+		// Verify alert ID filter
+		alertIDFound := false
+		for _, condition := range mustConditions {
+			if term, ok := condition["term"].(map[string]interface{}); ok {
+				if alertID, exists := term["alertId"]; exists && alertID == "alert-456" {
+					alertIDFound = true
+					break
+				}
+			}
+		}
+		if !alertIDFound {
+			t.Error("AlertID filter not found in must conditions")
+		}
+
+		// Verify version filter
+		versionFound := false
+		for _, condition := range mustConditions {
+			if term, ok := condition["term"].(map[string]interface{}); ok {
+				if v, exists := term["version"]; exists && v == 3 {
+					versionFound = true
+					break
+				}
+			}
+		}
+		if !versionFound {
+			t.Error("Version filter not found in must conditions")
+		}
+	})
+}
+
+func TestQueryBuilder_BuildRCAReportVersionsQuery(t *testing.T) {
+	qb := NewQueryBuilder("rca-reports-")
+
+	t.Run("Query for alert versions", func(t *testing.T) {
+		alertID := "alert-789"
+		query := qb.BuildRCAReportVersionsQuery(alertID)
+
+		if query["size"] != 100 {
+			t.Errorf("Expected size 100, got %v", query["size"])
+		}
+
+		boolQuery := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		mustConditions := boolQuery["must"].([]map[string]interface{})
+
+		// Should only have alert ID condition
+		if len(mustConditions) != 1 {
+			t.Errorf("Expected 1 must condition, got %d", len(mustConditions))
+		}
+
+		// Verify alert ID filter
+		alertIDFound := false
+		for _, condition := range mustConditions {
+			if term, ok := condition["term"].(map[string]interface{}); ok {
+				if id, exists := term["alertId"]; exists && id == alertID {
+					alertIDFound = true
+					break
+				}
+			}
+		}
+		if !alertIDFound {
+			t.Error("AlertID filter not found in must conditions")
+		}
+
+		// Verify sort by version desc
+		sortFields := query["sort"].([]map[string]interface{})
+		if len(sortFields) == 0 {
+			t.Fatal("Expected sort configuration")
+		}
+
+		versionSort := sortFields[0]["version"].(map[string]interface{})
+		if versionSort["order"] != "desc" {
+			t.Errorf("Expected sort order 'desc' for version, got %v", versionSort["order"])
+		}
+
+		// Verify _source field to fetch only version
+		source := query["_source"].([]string)
+		if len(source) != 1 || source[0] != "version" {
+			t.Errorf("Expected _source to contain only 'version', got %v", source)
+		}
+	})
+}

@@ -357,3 +357,98 @@ type MonitorTriggerActionExecutionScope struct {
 type MonitorActionExecutionScopePerAlert struct {
 	ActionableAlerts []string `json:"actionable_alerts"`
 }
+
+// RCAReportQueryParams holds query parameters for RCA reports
+type RCAReportQueryParams struct {
+	ProjectUID     string   `json:"projectUid"`
+	ComponentUIDs  []string `json:"componentUids,omitempty"`
+	EnvironmentUID string   `json:"environmentUid,omitempty"`
+	StartTime      string   `json:"startTime"`
+	EndTime        string   `json:"endTime"`
+	Status         string   `json:"status,omitempty"`
+	Limit          int      `json:"limit,omitempty"`
+	SortOrder      string   `json:"sortOrder,omitempty"`
+}
+
+// RCAReportByAlertQueryParams holds query parameters for fetching a single RCA report by alert ID
+type RCAReportByAlertQueryParams struct {
+	AlertID string `json:"alertId"`
+	Version *int   `json:"version,omitempty"`
+}
+
+// ParseRCAReportSummary extracts summary fields from an RCA report hit for list view
+func ParseRCAReportSummary(hit Hit) map[string]interface{} {
+	source := hit.Source
+
+	// Handle nil source map
+	if source == nil {
+		return map[string]interface{}{}
+	}
+
+	report := map[string]interface{}{
+		"alertId":   getStringValue(source, "alertId"),
+		"reportId":  getStringValue(source, "reportId"),
+		"timestamp": getStringValue(source, "@timestamp"),
+		"summary":   getStringValue(source, "summary"),
+		"status":    getStringValue(source, "status"),
+	}
+
+	// Extract projectUid from resource
+	if resource, ok := source["resource"].(map[string]interface{}); ok {
+		if projectUID := getStringValue(resource, "openchoreo.dev/project-uid"); projectUID != "" {
+			report["projectUid"] = projectUID
+		}
+	}
+
+	return report
+}
+
+// ParseRCAReportDetailed extracts all fields from an RCA report hit including metadata
+func ParseRCAReportDetailed(hit Hit, availableVersions []int) map[string]interface{} {
+	source := hit.Source
+
+	// Handle nil source map
+	if source == nil {
+		return map[string]interface{}{}
+	}
+
+	// Build the result with all fields from source
+	result := make(map[string]interface{})
+
+	// Copy all fields from source
+	for key, value := range source {
+		result[key] = value
+	}
+
+	// Add/override metadata fields
+	result["alertId"] = getStringValue(source, "alertId")
+	result["reportId"] = getStringValue(source, "reportId")
+	result["timestamp"] = getStringValue(source, "@timestamp")
+	result["status"] = getStringValue(source, "status")
+	result["availableVersions"] = availableVersions
+
+	// Extract report version
+	if version, ok := source["version"].(float64); ok {
+		result["reportVersion"] = int(version)
+	}
+
+	// Extract projectUid from resource
+	if resource, ok := source["resource"].(map[string]interface{}); ok {
+		if projectUID := getStringValue(resource, "openchoreo.dev/project-uid"); projectUID != "" {
+			result["projectUid"] = projectUID
+		}
+	}
+
+	return result
+}
+
+// ExtractRCAReportVersion safely extracts the version number from an RCA report hit
+func ExtractRCAReportVersion(hit Hit) int {
+	if hit.Source == nil {
+		return 0
+	}
+	if version, ok := hit.Source["version"].(float64); ok {
+		return int(version)
+	}
+	return 0
+}

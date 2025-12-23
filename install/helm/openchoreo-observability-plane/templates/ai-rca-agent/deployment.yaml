@@ -1,0 +1,111 @@
+{{- if .Values.rca.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.rca.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" .Values.rca.name) | nindent 4 }}
+spec:
+  replicas: {{ .Values.rca.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Checksum annotations to trigger pod restart when config changes
+        checksum/llm-config: {{ .Values.rca.llm.modelName | sha256sum }}
+        checksum/llm-secret: {{ .Values.rca.llm.apiKey | sha256sum }}
+      labels:
+        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" .Values.rca.name) | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12000
+        runAsGroup: 12000
+        fsGroup: 12000
+      containers:
+      - name: {{ .Values.rca.name }}
+        image: "{{ .Values.rca.image.repository }}:{{ .Values.rca.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.rca.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.rca.service.port }}
+          protocol: TCP
+        env:
+        - name: OBSERVER_MCP_URL
+          value: {{ .Values.rca.observerMcpUrl | default (printf "http://observer.%s.svc.cluster.local:8080/mcp" .Release.Namespace) | quote }}
+
+        - name: OPENCHOREO_MCP_URL
+          value: {{ .Values.rca.openchoreoMcpUrl | default "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp" | quote }}
+
+        # LLM Configuration
+        - name: RCA_MODEL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-llm-config
+              key: RCA_MODEL_NAME
+
+        - name: RCA_LLM_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-llm-secret
+              key: RCA_LLM_API_KEY
+
+        # OpenSearch Configuration
+        - name: OPENSEARCH_ADDRESS
+          value: {{ .Values.rca.opensearch.address | default "https://opensearch:9200" | quote }}
+
+        - name: OPENSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-opensearch-secret
+              key: username
+
+        - name: OPENSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-opensearch-secret
+              key: password
+
+        # OAuth2 Client Credentials Configuration
+        - name: OAUTH_TOKEN_URL
+          value: {{ .Values.rca.oauth.tokenUrl | quote }}
+
+        - name: OAUTH_CLIENT_ID
+          value: {{ .Values.rca.oauth.clientId | quote }}
+
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-oauth-secret
+              key: client-secret
+
+        resources:
+          {{- toYaml .Values.rca.resources | nindent 10 }}
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 12000
+{{- end }}

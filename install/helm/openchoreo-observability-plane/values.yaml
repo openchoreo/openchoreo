@@ -223,6 +223,10 @@ observer:
   replicas: 1
 
   extraEnvs:
+  - name: OBSERVER_BASE_URL
+    value: "http://localhost:11080"
+  - name: AUTH_SERVER_BASE_URL
+    value: "http://thunder.openchoreo.localhost:8080"
   - name: JWKS_URL
     value: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
   - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
@@ -695,9 +699,77 @@ opentelemetryCollectorCustomizations:
       nonSampledCacheSize: 1000
     spansPerSecond: 10
 
+
+# Common security configuration shared across all components
+security:
+  # Global security toggle - when disabled, authentication is turned off for all components
+  enabled: true
+  oidc:
+    issuer: ""
+    jwksUrl: ""
+    jwksUrlTlsInsecureSkipVerify: "false"
+  jwt:
+    # Expected audience claim in JWT tokens
+    audience: ""
+
+
 tls:
   enabled: false
 
 # Wait job configuration for post-install hooks
 waitJob:
   image: bitnamilegacy/kubectl:1.32.4
+
+# RCA Agent configuration
+rca:
+  enabled: false
+  name: ai-rca-agent
+  replicas: 1
+
+  image:
+    repository: ghcr.io/openchoreo/ai-rca-agent
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Observer MCP endpoint (leave empty for auto-discovery)
+  observerMcpUrl: ""
+
+  # OpenChoreo API MCP endpoint (leave empty for auto-discovery)
+  openchoreoMcpUrl: ""
+
+  # Control plane namespace (required for auto-discovery)
+  controlPlaneNamespace: openchoreo-control-plane
+
+  # LLM Configuration for RCA agent
+  llm:
+    # Model name (e.g., claude-sonnet-4-5, gpt-5, gemini-2.0-flash-exp)
+    modelName: ""
+
+    # API key can be set via: --set rca.llm.apiKey="your-key" during helm install/upgrade
+    apiKey: ""
+
+  # OpenSearch Configuration for RCA agent
+  opensearch:
+    address: "https://opensearch:9200"
+
+  # OAuth2 Client Credentials Configuration for RCA agent authentication
+  # Works with any IDP that supports OAuth2 client_credentials grant (Thunder, Keycloak, Auth0, etc.)
+  oauth:
+    # Token URL for obtaining access tokens
+    tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
+    # Client ID registered with the IDP
+    clientId: "openchoreo-rca-agent"
+    # Client Secret - can be overridden via: --set rca.oauth.clientSecret="your-secret"
+    clientSecret: "openchoreo-rca-agent-secret"

@@ -1,0 +1,22 @@
+## Root Cause Analysis Request
+
+An alert has been triggered in OpenChoreo. Systematically investigate and identify the root cause(s) of this incident.
+
+### Alert Details
+
+**Alert Rule:** {{ rule_name }}
+**Alert ID:** {{ alert_id }}
+**Timestamp:** {{ timestamp }}
+
+### Alert Origin
+
+**Component UID:** {{ component_uid }}
+**Project UID:** {{ project_uid }}
+**Environment UID:** {{ environment_uid }}
+
+{% if meta -%}
+
+### Additional Context
+
+{{ meta | tojson(indent=2) }}
+{% endif -%}

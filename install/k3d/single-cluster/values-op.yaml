@@ -17,10 +17,6 @@ openSearchCluster:
 # Observer API - REST API for querying logs and metrics
 observer:
   extraEnvs:
-  - name: JWKS_URL
-    value: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
-  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
-    value: "false"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -41,3 +37,12 @@ external-secrets:
 
 fakeSecretStore:
   enabled: false
+
+rca:
+  oauth:
+    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+
+security:
+  oidc:
+    jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    jwksUrlTlsInsecureSkipVerify: true

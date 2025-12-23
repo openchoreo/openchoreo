@@ -1,0 +1,22 @@
+## Distributed Traces
+
+**Query Time:** {{ tookMs }} ms
+**Total Traces:** {{ traces|length }}
+
+{% for trace in traces -%}
+
+### Trace ID: {{ trace.traceId }}
+
+**Total Spans:** {{ trace.total_spans }}
+**Total Duration:** {{ "%.2f"|format(trace.total_duration_ms) }} ms
+
+{% for span in trace.span_tree -%}
+{{ "#" * (span.depth + 3) }} {{ span.name }}
+- **Duration:** {{ "%.2f"|format(span.durationNanoseconds / 1000000) }} ms ({{ span.durationNanoseconds }} ns)
+- **Span ID:** {{ span.spanId }}{% if span.parentSpanId %} | **Parent Span ID:** {{ span.parentSpanId }}{% endif %}
+- **Time:** {{ span.startTime }} → {{ span.endTime }}
+- **Component UID:** {{ span.openChoreoComponentUid }}
+- **Project UID:** {{ span.openChoreoProjectUid }}
+
+{% endfor -%}
+{% endfor -%}

@@ -627,6 +627,42 @@ This command allows you to:
 	}
 
 	// ------------------------------------------------------------------------
+	// Release Binding Commands (File-System Mode)
+	// ------------------------------------------------------------------------
+
+	ReleaseBindingRoot = Command{
+		Use:   "release-binding",
+		Short: "Manage release bindings",
+		Long:  "Commands for managing release bindings in file-system mode",
+	}
+
+	ReleaseBindingGenerate = Command{
+		Use:   "generate",
+		Short: "Generate release bindings for components",
+		Long:  "Generate ReleaseBinding resources that bind component releases to environments",
+		Example: fmt.Sprintf(`  # Generate bindings for all components in development environment
+  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all
+
+  # Generate bindings for all components in a specific project
+  %[1]s release-binding generate --target-env staging --use-pipeline default-pipeline --project demo-project
+
+  # Generate binding for a specific component
+  %[1]s release-binding generate --target-env production --use-pipeline default-pipeline \
+    --project demo-project --component greeter-service
+
+  # Generate binding with explicit component release
+  %[1]s release-binding generate --target-env production --use-pipeline default-pipeline \
+    --project demo-project --component greeter-service --component-release greeter-service-20251222-3
+
+  # Dry run (preview without writing)
+  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all --dry-run
+
+  # Custom output path
+  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all \
+    --output-path /custom/path`, messages.DefaultCLIName),
+	}
+
+	// ------------------------------------------------------------------------
 	// Flag Descriptions (Used in config commands)
 	// ------------------------------------------------------------------------
 
