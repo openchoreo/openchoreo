@@ -10,6 +10,24 @@ import (
 	"github.com/openchoreo/openchoreo/internal/clone"
 )
 
+// toAnySlice converts typed slices to []any.
+// Go's type system treats []T and []any as distinct types, so a type assertion
+// from []map[string]any to []any fails even though each element is assignable to any.
+func toAnySlice(v any) ([]any, bool) {
+	switch arr := v.(type) {
+	case []any:
+		return arr, true
+	case []map[string]any:
+		result := make([]any, len(arr))
+		for i, item := range arr {
+			result[i] = item
+		}
+		return result, true
+	default:
+		return nil, false
+	}
+}
+
 // applyJSONPatch applies a single RFC 6902 JSON Patch operation to the target document.
 //
 // This function uses direct in-memory manipulation instead of marshaling/unmarshaling,
@@ -76,10 +94,13 @@ func navigateForPatch(root map[string]any, segments []string) (container map[str
 			nextSeg := segments[i+1]
 			if _, isIndex := isArrayIndex(nextSeg); isIndex || nextSeg == "-" {
 				// Child should be an array, and we're about to index into it
-				arr, ok := child.([]any)
+				arr, ok := toAnySlice(child)
 				if !ok {
 					return nil, "", "", fmt.Errorf("expected array at %q, got %T", seg, child)
 				}
+
+				// Normalize the array to []any in the parent map for consistent handling
+				node[seg] = arr
 
 				// If this is the second-to-last segment, return here
 				// because we need to modify the array in the parent map
@@ -138,7 +159,7 @@ func addValue(container map[string]any, arrayKey string, segment string, value a
 
 	if arrayKey != "" {
 		// We're operating on an array element
-		arr, ok := container[arrayKey].([]any)
+		arr, ok := toAnySlice(container[arrayKey])
 		if !ok {
 			return fmt.Errorf("expected array at %q", arrayKey)
 		}
@@ -177,7 +198,7 @@ func replaceValue(container map[string]any, arrayKey string, segment string, val
 
 	if arrayKey != "" {
 		// Operating on array element
-		arr, ok := container[arrayKey].([]any)
+		arr, ok := toAnySlice(container[arrayKey])
 		if !ok {
 			return fmt.Errorf("expected array at %q", arrayKey)
 		}
@@ -195,6 +216,7 @@ func replaceValue(container map[string]any, arrayKey string, segment string, val
 		}
 
 		arr[index] = valueCopy
+		container[arrayKey] = arr
 		return nil
 	}
 
@@ -219,7 +241,7 @@ func replaceValue(container map[string]any, arrayKey string, segment string, val
 func removeValue(container map[string]any, arrayKey string, segment string) error {
 	if arrayKey != "" {
 		// Operating on array element
-		arr, ok := container[arrayKey].([]any)
+		arr, ok := toAnySlice(container[arrayKey])
 		if !ok {
 			return fmt.Errorf("expected array at %q", arrayKey)
 		}
@@ -281,39 +303,43 @@ func ensureParentExists(root map[string]any, pointer string) error {
 	for i := 0; i < len(segments)-1; i++ {
 		seg := segments[i]
 
-		switch node := current.(type) {
-		case map[string]any:
-			child, exists := node[seg]
-			if !exists || child == nil {
-				// Determine what type of container to create
-				next := segments[i+1]
-				if next == "-" {
-					// Next operation is append, create empty array
-					node[seg] = []any{}
-				} else if _, err := strconv.Atoi(next); err == nil {
-					// Next operation needs a specific array index, but we can't
-					// auto-create an array with that index - return error
-					return fmt.Errorf("array index %s out of bounds at segment %s", next, seg)
-				} else {
-					// Next operation needs an object key, create empty object
-					node[seg] = map[string]any{}
-				}
-				child = node[seg]
-			}
-			current = child
-		case []any:
-			// Current segment should be an array index
+		// Try to convert typed slices to []any
+		if arr, ok := toAnySlice(current); ok {
+			// Current is an array, segment should be an index
 			index, err := strconv.Atoi(seg)
 			if err != nil {
 				return fmt.Errorf("expected array index at segment %s", seg)
 			}
-			if index < 0 || index >= len(node) {
+			if index < 0 || index >= len(arr) {
 				return fmt.Errorf("array index %d out of bounds at segment %s", index, seg)
 			}
-			current = node[index]
-		default:
+			current = arr[index]
+			continue
+		}
+
+		node, ok := current.(map[string]any)
+		if !ok {
 			return fmt.Errorf("cannot traverse segment %s on type %T", seg, current)
 		}
+
+		child, exists := node[seg]
+		if !exists || child == nil {
+			// Determine what type of container to create
+			next := segments[i+1]
+			if next == "-" {
+				// Next operation is append, create empty array
+				node[seg] = []any{}
+			} else if _, err := strconv.Atoi(next); err == nil {
+				// Next operation needs a specific array index, but we can't
+				// auto-create an array with that index - return error
+				return fmt.Errorf("array index %s out of bounds at segment %s", next, seg)
+			} else {
+				// Next operation needs an object key, create empty object
+				node[seg] = map[string]any{}
+			}
+			child = node[seg]
+		}
+		current = child
 	}
 	return nil
 }

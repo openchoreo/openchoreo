@@ -196,7 +196,7 @@ func applyKey(states []pathState, key string) ([]pathState, error) {
 func applyIndex(states []pathState, index int) ([]pathState, error) {
 	next := make([]pathState, 0, len(states))
 	for _, st := range states {
-		arr, ok := st.value.([]any)
+		arr, ok := toAnySlice(st.value)
 		if !ok {
 			return nil, fmt.Errorf("path segment expects an array, got %T", st.value)
 		}
@@ -237,7 +237,7 @@ func applyDash(states []pathState) []pathState {
 func applyFilter(states []pathState, expr string) ([]pathState, error) {
 	next := []pathState{}
 	for _, st := range states {
-		arr, ok := st.value.([]any)
+		arr, ok := toAnySlice(st.value)
 		if !ok || len(arr) == 0 {
 			// Not an array or empty array; skip this state
 			continue
