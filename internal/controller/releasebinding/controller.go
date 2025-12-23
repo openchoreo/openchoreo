@@ -513,87 +513,28 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, err
 	}
 
-	// Create or update observability plane Release
-	// Release name format: {component}-{environment}-observability
-	observabilityReleaseName := fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
-	observabilityRelease := &openchoreov1alpha1.Release{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      observabilityReleaseName,
-			Namespace: releaseBinding.Namespace,
-		},
-	}
-
-	opOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, observabilityRelease, func() error {
-		// Check if we own this Release (only for existing releases)
-		if observabilityRelease.UID != "" {
-			hasOwner, err := controllerutil.HasOwnerReference(observabilityRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
-			if err != nil {
-				return fmt.Errorf("failed to check owner reference: %w", err)
-			}
-			if !hasOwner {
-				return fmt.Errorf("release exists but is not owned by this ReleaseBinding")
-			}
-		}
-
-		observabilityRelease.Labels = map[string]string{
-			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
-			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
-			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
-			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
-		}
-
-		observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{
-			Owner: openchoreov1alpha1.ReleaseOwner{
-				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
-				ComponentName: releaseBinding.Spec.Owner.ComponentName,
-			},
-			EnvironmentName: releaseBinding.Spec.Environment,
-			TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
-			Resources:       observabilityPlaneReleaseResources,
-		}
-
-		return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
-	})
-
+	// Reconcile observability plane Release (create, update, or cleanup)
+	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlane, observabilityPlaneReleaseResources)
 	if err != nil {
-		// Check for ownership conflict
-		if strings.Contains(err.Error(), "not owned by") {
-			msg := fmt.Sprintf("Release %q exists but is owned by another resource", observabilityRelease.Name)
-			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
-				ReasonReleaseOwnershipConflict, msg)
-			logger.Error(err, msg)
-			return ctrl.Result{}, nil
-		}
-
-		// Transient errors
-		msg := fmt.Sprintf("Failed to reconcile observability plane Release: %v", err)
-		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
-			ReasonReleaseUpdateFailed, msg)
-		logger.Error(err, "Failed to reconcile observability plane Release", "release", observabilityRelease.Name)
 		return ctrl.Result{}, err
+	}
+	// Check if we should return early due to ownership conflict
+	if obsResult.ownershipConflict {
+		return ctrl.Result{}, nil
 	}
 
 	// Set ReleaseSynced condition based on operation results.
-	// Prioritize dataplane operation result for readiness and requeue decisions.
-	switch dpOp {
-	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
-		msg := fmt.Sprintf("Dataplane Release %q %s with %d resources; observability Release %q %s with %d resources",
-			dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources),
-			observabilityRelease.Name, opOp, len(observabilityPlaneReleaseResources))
-		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
+	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
+	if dpOp == controllerutil.OperationResultCreated || dpOp == controllerutil.OperationResultUpdated {
 		logger.Info("Releases reconciled",
 			"dataplaneReleaseOp", dpOp,
 			"dataplaneRelease", dataPlaneRelease.Name,
 			"dataplaneResourceCount", len(dataPlaneReleaseResources),
-			"observabilityReleaseOp", opOp,
-			"observabilityRelease", observabilityRelease.Name,
-			"observabilityResourceCount", len(observabilityPlaneReleaseResources))
+			"observabilityReleaseOp", obsResult.operation,
+			"observabilityReleaseName", obsResult.releaseName,
+			"observabilityResourceCount", obsResult.resourceCount,
+			"observabilityReleaseManaged", obsResult.managed)
 		return ctrl.Result{Requeue: true}, nil
-
-	case controllerutil.OperationResultNone:
-		msg := fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
-			dataPlaneRelease.Name, observabilityRelease.Name, opOp)
-		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
 
 	// Evaluate resource readiness from dataplane Release status (with component for workload type)
@@ -605,6 +546,163 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	r.setReadyCondition(releaseBinding)
 
 	return ctrl.Result{}, nil
+}
+
+// observabilityReleaseResult holds the result of reconciling an observability Release.
+type observabilityReleaseResult struct {
+	releaseName       string
+	operation         controllerutil.OperationResult
+	resourceCount     int
+	managed           bool
+	ownershipConflict bool
+}
+
+// reconcileObservabilityRelease handles the creation, update, or cleanup of the observability plane Release.
+// It returns the result of the operation and any error encountered.
+func (r *Reconciler) reconcileObservabilityRelease(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	dataPlane *openchoreov1alpha1.DataPlane,
+	observabilityPlaneReleaseResources []openchoreov1alpha1.Resource,
+) (observabilityReleaseResult, error) {
+	logger := log.FromContext(ctx)
+
+	// Determine if we should create/manage an observability Release:
+	// 1. DataPlane must have ObservabilityPlaneRef configured
+	// 2. There must be observability plane resources to deploy
+	shouldManage := dataPlane.Spec.ObservabilityPlaneRef != "" && len(observabilityPlaneReleaseResources) > 0
+
+	// Observability Release name format: {component}-{environment}-observability
+	releaseName := fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+
+	result := observabilityReleaseResult{
+		releaseName:   releaseName,
+		resourceCount: len(observabilityPlaneReleaseResources),
+		managed:       shouldManage,
+	}
+
+	if shouldManage {
+		// Create or update observability plane Release
+		observabilityRelease := &openchoreov1alpha1.Release{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      releaseName,
+				Namespace: releaseBinding.Namespace,
+			},
+		}
+
+		opOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, observabilityRelease, func() error {
+			// Check if we own this Release (only for existing releases)
+			if observabilityRelease.UID != "" {
+				hasOwner, err := controllerutil.HasOwnerReference(observabilityRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+				if err != nil {
+					return fmt.Errorf("failed to check owner reference: %w", err)
+				}
+				if !hasOwner {
+					return fmt.Errorf("release exists but is not owned by this ReleaseBinding")
+				}
+			}
+
+			observabilityRelease.Labels = map[string]string{
+				labels.LabelKeyOrganizationName: releaseBinding.Namespace,
+				labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
+				labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
+				labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
+			}
+
+			observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{
+				Owner: openchoreov1alpha1.ReleaseOwner{
+					ProjectName:   releaseBinding.Spec.Owner.ProjectName,
+					ComponentName: releaseBinding.Spec.Owner.ComponentName,
+				},
+				EnvironmentName: releaseBinding.Spec.Environment,
+				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Resources:       observabilityPlaneReleaseResources,
+			}
+
+			return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
+		})
+
+		if err != nil {
+			// Check for ownership conflict
+			if strings.Contains(err.Error(), "not owned by") {
+				msg := fmt.Sprintf("Release %q exists but is owned by another resource", releaseName)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseOwnershipConflict, msg)
+				logger.Error(err, msg)
+				result.ownershipConflict = true
+				return result, nil
+			}
+
+			// Transient errors
+			msg := fmt.Sprintf("Failed to reconcile observability plane Release: %v", err)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonReleaseUpdateFailed, msg)
+			logger.Error(err, "Failed to reconcile observability plane Release", "release", releaseName)
+			return result, err
+		}
+
+		result.operation = opOp
+		return result, nil
+	}
+
+	// Clean up existing observability Release if it exists but we no longer need it
+	// (e.g., ObservabilityPlaneRef was removed or no more observability resources)
+	existingObsRelease := &openchoreov1alpha1.Release{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      releaseName,
+		Namespace: releaseBinding.Namespace,
+	}, existingObsRelease); err == nil {
+		// Check if we own this release before deleting
+		hasOwner, ownerErr := controllerutil.HasOwnerReference(existingObsRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+		if ownerErr == nil && hasOwner {
+			if deleteErr := r.Delete(ctx, existingObsRelease); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+				logger.Error(deleteErr, "Failed to delete stale observability Release", "release", releaseName)
+				return result, deleteErr
+			}
+			logger.Info("Deleted stale observability Release",
+				"release", releaseName,
+				"reason", "no ObservabilityPlaneRef configured or no observability resources")
+		}
+	}
+
+	// Mark as "skipped" for logging purposes
+	result.operation = controllerutil.OperationResultNone
+	return result, nil
+}
+
+// setReleaseSyncedCondition sets the ReleaseSynced condition based on operation results.
+func (r *Reconciler) setReleaseSyncedCondition(
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	dpReleaseName string,
+	dpOp controllerutil.OperationResult,
+	dpResourceCount int,
+	obsResult observabilityReleaseResult,
+) {
+	switch dpOp {
+	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
+		var msg string
+		if obsResult.managed {
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources; observability Release %q %s with %d resources",
+				dpReleaseName, dpOp, dpResourceCount,
+				obsResult.releaseName, obsResult.operation, obsResult.resourceCount)
+		} else {
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: no ObservabilityPlaneRef or no resources)",
+				dpReleaseName, dpOp, dpResourceCount)
+		}
+		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
+
+	case controllerutil.OperationResultNone:
+		var msg string
+		if obsResult.managed {
+			msg = fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
+				dpReleaseName, obsResult.releaseName, obsResult.operation)
+		} else {
+			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: no ObservabilityPlaneRef or no resources)",
+				dpReleaseName)
+		}
+		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
+	}
 }
 
 // Helper functions to build snapshot structures from ComponentRelease
