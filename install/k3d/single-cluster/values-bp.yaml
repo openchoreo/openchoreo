@@ -32,12 +32,3 @@ external-secrets:
 # including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
 fluentBit:
   enabled: false
-
-# Cluster Agent configuration for single-cluster setup
-clusterAgent:
-  enabled: true
-  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  # Logical plane identifier - can be shared across multiple BuildPlane CRs
-  # If not specified, defaults to Helm release name
-  planeID: ""
-  planeType: buildplane

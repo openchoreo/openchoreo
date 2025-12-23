@@ -531,7 +531,7 @@ clusterAgent:
   # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
   # If not specified, defaults to Helm release name
   # Example: "shared-obs" - all ObservabilityPlane CRs with planeID="shared-obs" share this agent
-  planeID: ""
+  planeID: default-observabilityplane
 
   # Type of plane (dataplane, buildplane, or observabilityplane)
   planeType: observabilityplane
