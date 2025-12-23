@@ -13,9 +13,13 @@ openSearchDashboards:
     type: LoadBalancer
 
 openSearch:
+  enabled: true
   # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
   service:
     type: LoadBalancer
+
+openSearchCluster:
+  enabled: false
 
 prometheus:
   enabled: true
