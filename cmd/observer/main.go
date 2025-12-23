@@ -111,9 +111,6 @@ func main() {
 	mux.HandleFunc("POST /api/rca-reports/project/{projectUid}", requireRCAService(handler.GetRCAReportsByProject, logger))
 	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", requireRCAService(handler.GetRCAReportByAlert, logger))
 
-	// MCP endpoint
-	mux.Handle("/mcp", mcp.NewHTTPServer(&mcp.MCPHandler{Service: loggingService}))
-
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(logger)
 
