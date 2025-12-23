@@ -1,63 +1,229 @@
-# Global values shared across all components
-global:
-  # Common labels to add to all resources
-  commonLabels: {}
-  # Base domain for external access (e.g., "apps.openchoreo.example.com")
+# yaml-language-server: $schema=values.schema.json
 
+# @schema.root
+# title: OpenChoreo Data Plane
+# description: Helm values for the OpenChoreo data plane chart. Deploys runtime infrastructure including API gateway, observability, and control plane connectivity.
+# @schema.root
+
+# @schema
+# type: object
+# description: Global values shared across all components in the data plane
+# additionalProperties: false
+# @schema
+global:
+  # @schema
+  # type: object
+  # description: Common labels applied to all resources deployed by this chart
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  commonLabels: {}
+
+# @schema
+# type: string
+# description: Kubernetes cluster DNS domain used for service discovery and certificate generation
+# default: cluster.local
+# @schema
 kubernetesClusterDomain: cluster.local
 
-# Prometheus configurations
+# @schema
+# type: object
+# additionalProperties: true
+# description: Prometheus stack configuration (kube-prometheus-stack sub-chart). Provides metrics collection for workload observability.
+# @schema
 kube-prometheus-stack:
+  # @schema
+  # type: boolean
+  # description: Enable the Prometheus monitoring stack for metrics collection
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of Prometheus stack resources
+  # default: openchoreo-observability
+  # @schema
   fullnameOverride: openchoreo-observability
 
-  ## Manages Prometheus and Alertmanager components
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus Operator manages Prometheus and Alertmanager components
+  # @schema
   prometheusOperator:
+    # @schema
+    # type: boolean
+    # description: Enable Prometheus Operator for managing Prometheus instances
+    # default: true
+    # @schema
     enabled: true
+
+    # @schema
+    # type: string
+    # description: Override the full name of Prometheus Operator resources
+    # default: prometheus-operator
+    # @schema
     fullnameOverride: prometheus-operator
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for Prometheus Operator
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the Prometheus Operator can consume
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: CPU limit for Prometheus Operator
+        # default: 40m
+        # @schema
         cpu: 40m
+        # @schema
+        # type: string
+        # description: Memory limit for Prometheus Operator
+        # default: 50Mi
+        # @schema
         memory: 50Mi
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed for Prometheus Operator
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: CPU request for Prometheus Operator
+        # default: 20m
+        # @schema
         cpu: 20m
+        # @schema
+        # type: string
+        # description: Memory request for Prometheus Operator
+        # default: 30Mi
+        # @schema
         memory: 30Mi
 
-  ## Install Prometheus Operator CRDs
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus Operator CRD installation configuration
+  # @schema
   crds:
+    # @schema
+    # type: boolean
+    # description: Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, etc.)
+    # default: true
+    # @schema
     enabled: true
 
-  ## Setting to produces cleaner resource names
+  # @schema
+  # type: boolean
+  # description: Produce cleaner resource names without redundant prefixes
+  # default: true
+  # @schema
   cleanPrometheusOperatorObjectNames: true
 
-  ## Deploy a Prometheus instance (Prometheus Operator needs to be enabled for this to work)
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Prometheus instance configuration for metrics scraping
+  # @schema
   prometheus:
-    enabled: true # This section needs to be further configured for Thanos backups, priorityClass etc.
+    # @schema
+    # type: boolean
+    # description: Deploy a Prometheus instance (requires Prometheus Operator)
+    # default: true
+    # @schema
+    enabled: true
+
+    # @schema
+    # type: boolean
+    # description: Run Prometheus in agent mode for lightweight remote-write only operation
+    # default: true
+    # @schema
     agentMode: true
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Prometheus instance specification
+    # @schema
     prometheusSpec:
+      # @schema
+      # type: array
+      # description: Remote write endpoints for forwarding metrics to external storage
+      # items:
+      #   type: object
+      #   properties:
+      #     url:
+      #       type: string
+      #       description: Remote write endpoint URL
+      # @schema
       remoteWrite:
       - url: ""
-      # serviceMonitorNamespaceSelector: {}
-      # serviceMonitorSelector: {}
-      # serviceMonitorSelectorNilUsesHelmValues: false
 
-  ## Configuration for alertmanager
-  ## ref: https://prometheus.io/docs/alerting/alertmanager/
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Alertmanager configuration for alert routing and notifications
+  # @schema
   alertmanager:
+    # @schema
+    # type: boolean
+    # description: Enable Alertmanager for alert management (not used by OpenChoreo)
+    # default: false
+    # @schema
     enabled: false
 
-  ## Configuration for grafana
-  # Values from https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Grafana configuration for metrics visualization
+  # @schema
   grafana:
+    # @schema
+    # type: boolean
+    # description: Enable Grafana dashboards (not used by OpenChoreo - use observability plane instead)
+    # default: false
+    # @schema
     enabled: false
 
-  ## Configuration for kube-state-metrics subchart
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kube-state-metrics configuration for Kubernetes object metrics
+  # @schema
   kube-state-metrics:
+    # @schema
+    # type: string
+    # description: Override the full name of kube-state-metrics resources
+    # default: kube-state-metrics
+    # @schema
     fullnameOverride: kube-state-metrics
+
+    # @schema
+    # type: array
+    # description: Kubernetes resource types to collect metrics from
+    # items:
+    #   type: string
+    # default: [pods]
+    # @schema
     collectors:
       - pods
-      # Jobs and Services to be added later
+
+    # @schema
+    # type: array
+    # description: Specific metrics to collect (allowlist filter)
+    # items:
+    #   type: string
+    # @schema
     metricAllowlist:
       - kube_pod_completion_time
       - kube_pod_container_resource_limits
@@ -68,132 +234,544 @@ kube-prometheus-stack:
       - kube_pod_labels
       - kube_pod_start_time
       - kube_pod_status_phase
-      # Jobs and Services to be added later
+
+    # @schema
+    # type: array
+    # description: Pod labels to include in metrics for filtering by OpenChoreo resources
+    # items:
+    #   type: string
+    # @schema
     metricLabelsAllowlist:
       - pods=[openchoreo.dev/component-uid,openchoreo.dev/project-uid,openchoreo.dev/environment-uid]
-      # Jobs and Services to be added later
 
-  ## Create default rules for monitoring the cluster
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Default Prometheus alerting rules configuration
+  # @schema
   defaultRules:
+    # @schema
+    # type: boolean
+    # description: Create default alerting rules (disabled - OpenChoreo uses custom rules)
+    # default: false
+    # @schema
     create: false
 
-  ## Openchoreo Observability is not meant for monitoring the kubernetes cluster
-  ## Hence, following kube components are disabled
+  # OpenChoreo Observability is not meant for monitoring the kubernetes cluster
+  # Hence, following kube components are disabled
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes API server monitoring (disabled for OpenChoreo)
+  # @schema
   kubeApiServer:
-    enabled: false
-  kubeControllerManager:
-    enabled: false
-  coreDns:
-    enabled: false
-  kubeEtcd:
-    enabled: false
-  kubeScheduler:
-    enabled: false
-  kubeProxy:
-    enabled: false
-  nodeExporter:
+    # @schema
+    # type: boolean
+    # description: Enable API server metrics collection
+    # default: false
+    # @schema
     enabled: false
 
-# Wait job configuration for post-install hooks
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes controller manager monitoring (disabled for OpenChoreo)
+  # @schema
+  kubeControllerManager:
+    # @schema
+    # type: boolean
+    # description: Enable controller manager metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: CoreDNS monitoring (disabled for OpenChoreo)
+  # @schema
+  coreDns:
+    # @schema
+    # type: boolean
+    # description: Enable CoreDNS metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: etcd monitoring (disabled for OpenChoreo)
+  # @schema
+  kubeEtcd:
+    # @schema
+    # type: boolean
+    # description: Enable etcd metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kubernetes scheduler monitoring (disabled for OpenChoreo)
+  # @schema
+  kubeScheduler:
+    # @schema
+    # type: boolean
+    # description: Enable scheduler metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Kube-proxy monitoring (disabled for OpenChoreo)
+  # @schema
+  kubeProxy:
+    # @schema
+    # type: boolean
+    # description: Enable kube-proxy metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Node exporter monitoring (disabled for OpenChoreo)
+  # @schema
+  nodeExporter:
+    # @schema
+    # type: boolean
+    # description: Enable node-level metrics collection
+    # default: false
+    # @schema
+    enabled: false
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Wait job configuration for post-install Helm hooks that wait for resources
+# @schema
 waitJob:
+  # @schema
+  # type: string
+  # description: Container image for kubectl-based wait jobs used in Helm hooks
+  # default: bitnamilegacy/kubectl:1.32.4
+  # @schema
   image: bitnamilegacy/kubectl:1.32.4
 
-# customizing the registry configurations
-# NOTE: Registry has been moved to Build Plane. This registry is deprecated.
+# @schema
+# type: object
+# description: "[DEPRECATED] Container registry configuration. Registry has been moved to Build Plane."
+# @schema
 registry:
+  # @schema
+  # type: boolean
+  # description: "[DEPRECATED] Enable the container registry. Use Build Plane registry instead."
+  # default: false
+  # @schema
   enabled: false
-  # -- Resource limits and requests for the registry
+
+  # @schema
+  # type: object
+  # description: Resource limits and requests for the registry container
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Maximum resources the registry can consume
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: Memory limit for the registry
+      # default: 256Mi
+      # @schema
       memory: 256Mi
+      # @schema
+      # type: string
+      # description: CPU limit for the registry
+      # default: 100m
+      # @schema
       cpu: 100m
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed for the registry
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: Memory request for the registry
+      # default: 128Mi
+      # @schema
       memory: 128Mi
+      # @schema
+      # type: string
+      # description: CPU request for the registry
+      # default: 50m
+      # @schema
       cpu: 50m
+
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration for the registry
+  # @schema
   service:
-    # -- NodePort for the registry service
+    # @schema
+    # type: integer
+    # description: NodePort for external access to the registry
+    # default: 30003
+    # minimum: 30000
+    # maximum: 32767
+    # @schema
     nodePort: 30003
-  # -- Persistent volume storage for the registry
+
+  # @schema
+  # type: object
+  # description: Persistent volume storage configuration for registry data
+  # @schema
   storage:
+    # @schema
+    # type: string
+    # description: Size of the persistent volume for storing container images
+    # default: 2Gi
+    # @schema
     size: 2Gi
 
-# customizing the gateway configurations
-# This follows the structure from https://github.com/kgateway-dev/kgateway/blob/main/install/helm/kgateway/values.yaml
-# with additional OpenChoreo-specific gateway configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: KGateway CRDs subchart configuration (values passed through to kgateway-crds)
+# @schema
+kgateway-crds: {}
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: KGateway API gateway configuration. Provides HTTP/HTTPS traffic routing using Kubernetes Gateway API and Envoy proxy.
+# @schema
 gateway:
-  # Enable KGateway (controls both kgateway and kgateway-crds installation)
+  # @schema
+  # type: boolean
+  # description: Enable KGateway installation (controls both kgateway and kgateway-crds sub-charts)
+  # default: true
+  # @schema
   enabled: true
 
-  # OpenChoreo gateway configuration
+  # @schema
+  # type: integer
+  # description: Port for the HTTP listener on the gateway
+  # default: 9080
+  # minimum: 1
+  # maximum: 65535
+  # @schema
   httpPort: 9080
+
+  # @schema
+  # type: integer
+  # description: Port for the HTTPS listener on the gateway
+  # default: 9443
+  # minimum: 1
+  # maximum: 65535
+  # @schema
   httpsPort: 9443
 
-  # TLS configuration for HTTPS listeners
-  # When cert-manager is available, HTTPS is automatically enabled with self-signed certificates
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: TLS configuration for HTTPS listeners. Requires cert-manager for automatic certificate generation.
+  # @schema
   tls:
-    # -- Cert-manager ClusterIssuer to use for certificate generation
-    # Defaults to openchoreo-selfsigned-issuer if not specified
+    # @schema
+    # type: string
+    # description: Cert-manager ClusterIssuer name for certificate generation. Defaults to openchoreo-selfsigned-issuer if empty.
+    # default: ""
+    # @schema
     clusterIssuer: ""
-    # -- Hostname for the HTTPS listener
-    # Defaults to *.openchoreoapis.localhost if not specified
+
+    # @schema
+    # type: string
+    # description: Hostname pattern for the HTTPS listener certificate
+    # default: "*.openchoreoapis.localhost"
+    # @schema
     hostname: "*.openchoreoapis.localhost"
-    # -- Secret name for the TLS certificate
-    # Defaults to openchoreo-gateway-tls if not specified
+
+    # @schema
+    # type: string
+    # description: Kubernetes Secret name for storing the TLS certificate
+    # default: openchoreo-gateway-tls
+    # @schema
     certName: "openchoreo-gateway-tls"
 
-  # KGateway controller configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: KGateway controller configuration for managing Gateway API resources
+  # @schema
   controller:
+    # @schema
+    # type: integer
+    # description: Number of gateway controller replicas
+    # default: 1
+    # minimum: 1
+    # @schema
     replicaCount: 1
+
+    # @schema
+    # description: Log level for the gateway controller
+    # enum: [trace, debug, info, warn, error]
+    # default: info
+    # @schema
     logLevel: info
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Container image configuration for the gateway controller
+    # @schema
     image:
+      # @schema
+      # type: string
+      # description: Container registry for the controller image. Empty uses default registry.
+      # default: ""
+      # @schema
       registry: ""
+
+      # @schema
+      # type: string
+      # description: Image repository name for the gateway controller
+      # default: kgateway
+      # @schema
       repository: kgateway
+
+      # @schema
+      # description: Image pull policy for the controller container
+      # enum: [Always, IfNotPresent, Never]
+      # default: IfNotPresent
+      # @schema
       pullPolicy: IfNotPresent
+
+      # @schema
+      # type: string
+      # description: Image tag. Empty uses Chart.AppVersion.
+      # default: ""
+      # @schema
       tag: ""
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Kubernetes service configuration for the gateway controller
+    # @schema
     service:
+      # @schema
+      # description: Service type for the gateway controller
+      # enum: [ClusterIP, NodePort, LoadBalancer]
+      # default: ClusterIP
+      # @schema
       type: ClusterIP
+
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Service port mappings for the gateway controller
+      # @schema
       ports:
+        # @schema
+        # type: integer
+        # description: gRPC port for xDS communication
+        # default: 9977
+        # @schema
         grpc: 9977
+
+        # @schema
+        # type: integer
+        # description: Agent gateway gRPC port
+        # default: 9978
+        # @schema
         agwGrpc: 9978
+
+        # @schema
+        # type: integer
+        # description: Health check endpoint port
+        # default: 9093
+        # @schema
         health: 9093
+
+        # @schema
+        # type: integer
+        # description: Metrics endpoint port
+        # default: 9092
+        # @schema
         metrics: 9092
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the gateway controller
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the controller can consume
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: CPU limit for the controller
+        # default: 200m
+        # @schema
         cpu: 200m
+        # @schema
+        # type: string
+        # description: Memory limit for the controller
+        # default: 256Mi
+        # @schema
         memory: 256Mi
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed for the controller
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: CPU request for the controller
+        # default: 100m
+        # @schema
         cpu: 100m
+        # @schema
+        # type: string
+        # description: Memory request for the controller
+        # default: 128Mi
+        # @schema
         memory: 128Mi
 
-  # Agent Gateway - disabled by default for MCP server and REST API connectivity
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Agent Gateway configuration for MCP server and REST API connectivity
+  # @schema
   agentgateway:
+    # @schema
+    # type: boolean
+    # description: Enable Agent Gateway for AI agent connectivity
+    # default: false
+    # @schema
     enabled: false
 
-  # Envoy - enabled by default for traffic routing
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Envoy proxy configuration for actual traffic routing
+  # @schema
   envoy:
+    # @schema
+    # type: boolean
+    # description: Enable Envoy proxy for traffic routing
+    # default: true
+    # @schema
     enabled: true
-    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
-    # Enable this if gateway pods crash with "Failed to create temporary file" errors
-    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+
+    # @schema
+    # type: boolean
+    # description: Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima
+    # default: false
+    # @schema
     mountTmpVolume: false
 
-  # Image configuration
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Default container image configuration for gateway components
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Container registry for gateway images
+    # default: cr.kgateway.dev/kgateway-dev
+    # @schema
     registry: cr.kgateway.dev/kgateway-dev
+
+    # @schema
+    # type: string
+    # description: Image tag. Empty uses Chart.AppVersion.
+    # default: ""
+    # @schema
     tag: ""
+
+    # @schema
+    # description: Image pull policy for gateway containers
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
 
-# customizing the external-secrets configurations
+# @schema
+# type: object
+# additionalProperties: true
+# description: External Secrets Operator configuration for syncing secrets from external secret stores (Vault, AWS Secrets Manager, etc.)
+# @schema
 external-secrets:
+  # @schema
+  # type: boolean
+  # description: Enable External Secrets Operator for production secret management
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of External Secrets resources
+  # default: external-secrets
+  # @schema
   fullnameOverride: external-secrets
+
+  # @schema
+  # type: string
+  # description: Override the name of External Secrets resources
+  # default: external-secrets
+  # @schema
   nameOverride: external-secrets
 
-# Fake Secret Store configuration for development
-# Users should override this with their own ClusterSecretStore
+# @schema
+# type: object
+# additionalProperties: true
+# description: Fake Secret Store for development and testing. Replace with a real ClusterSecretStore in production.
+# @schema
 fakeSecretStore:
+  # @schema
+  # type: boolean
+  # description: Enable the fake secret store (development only - disable in production)
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the fake ClusterSecretStore resource
+  # default: default
+  # @schema
   name: default
+
+  # @schema
+  # type: array
+  # description: List of fake secrets for development testing
+  # items:
+  #   type: object
+  #   properties:
+  #     key:
+  #       type: string
+  #       description: Secret key name
+  #     value:
+  #       type: string
+  #       description: Secret value (for development only)
+  # @schema
   secrets:
     - key: github-pat
       value: "fake-github-token-for-development"
@@ -204,107 +782,552 @@ fakeSecretStore:
     - key: RCA_LLM_API_KEY
       value: "fake-llm-api-key-for-development"
 
-# Customizing networking configurations
+# @schema
+# type: object
+# description: Network configuration for the data plane
+# @schema
 networking:
+  # @schema
+  # type: boolean
+  # description: Enable networking features (network policies, service mesh integration)
+  # default: true
+  # @schema
   enabled: true
 
-# Customizing security configurations
+# @schema
+# type: object
+# description: Security configuration for the data plane
+# @schema
 security:
+  # @schema
+  # type: boolean
+  # description: Enable security features (certificate issuers, TLS configuration)
+  # default: true
+  # @schema
   enabled: true
 
-# Customizing overall observability configurations
+# @schema
+# type: object
+# description: Observability configuration controlling metrics, logging, and tracing collection
+# @schema
 observability:
+  # @schema
+  # type: boolean
+  # description: Master switch for all observability features
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: URL of the observability plane for sending telemetry data (OTLP endpoint)
+  # default: ""
+  # @schema
   observabilityPlaneUrl: ""
-  # Master switch for all metrics collection (L7 visibility + ServiceMonitors)
+
+  # @schema
+  # type: object
+  # description: Metrics collection configuration (L7 visibility and ServiceMonitors)
+  # @schema
   metrics:
-    enabled: false  # Enable after observability-plane is installed
+    # @schema
+    # type: boolean
+    # description: Enable metrics collection. Set to true after observability plane is installed.
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # description: Logging configuration for container log collection
+  # @schema
   logging:
-    enabled: false  # Enable after observability-plane is installed
+    # @schema
+    # type: boolean
+    # description: Enable log collection. Set to true after observability plane is installed.
+    # default: false
+    # @schema
+    enabled: false
+
+    # @schema
+    # type: object
+    # description: Log publisher configurations
+    # @schema
     publishers:
+      # @schema
+      # type: object
+      # description: Fluent Bit log publisher configuration
+      # @schema
       fluentbit:
+        # @schema
+        # type: boolean
+        # description: Enable Fluent Bit as the log publisher
+        # default: true
+        # @schema
         enabled: true
 
-# Customizing Fluent Bit configurations
+# @schema
+# type: object
+# description: Fluent Bit log collector configuration for forwarding container logs to OpenSearch
+# @schema
 fluentBit:
+  # @schema
+  # type: boolean
+  # description: Enable Fluent Bit DaemonSet for log collection
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: object
+  # description: Container image configuration for Fluent Bit
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Fluent Bit image repository
+    # default: fluent/fluent-bit
+    # @schema
     repository: fluent/fluent-bit
+
+    # @schema
+    # type: string
+    # description: Fluent Bit image tag
+    # default: "2.1.10"
+    # @schema
     tag: "2.1.10"
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
 
+  # @schema
+  # type: object
+  # description: Fluent Bit pipeline configuration (service, input, filter, output)
+  # @schema
   config:
+    # @schema
+    # type: object
+    # description: Fluent Bit service configuration
+    # @schema
     service:
+      # @schema
+      # type: integer
+      # description: Flush interval in seconds for output plugins
+      # default: 1
+      # minimum: 1
+      # @schema
       flush: 1
-      logLevel: info
-      daemon: off
 
+      # @schema
+      # description: Log level for Fluent Bit service
+      # enum: [off, error, warn, info, debug, trace]
+      # default: info
+      # @schema
+      logLevel: info
+
+      # @schema
+      # description: Run Fluent Bit as a daemon (background process)
+      # enum: [on, off]
+      # default: off
+      # @schema
+      daemon: "off"
+
+    # @schema
+    # type: object
+    # description: Input plugin configuration for log collection
+    # @schema
     input:
+      # @schema
+      # type: string
+      # description: Input plugin name (tail for file-based log collection)
+      # default: tail
+      # @schema
       name: tail
+
+      # @schema
+      # type: string
+      # description: Tag pattern for collected logs
+      # default: "kube.*"
+      # @schema
       tag: "kube.*"
-      # TODO: The openchoreo-ci namespace should not be included in the Data Plane by default;
-      # it should be overridden in the single-cluster setup.
+
+      # @schema
+      # type: string
+      # description: Glob pattern for container log files to collect
+      # default: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
+      # @schema
       path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
+
+      # @schema
+      # type: string
+      # description: Glob pattern for log files to exclude from collection
+      # default: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
+      # @schema
       excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
+
+      # @schema
+      # type: string
+      # description: Parser to use for log entries
+      # default: docker
+      # @schema
       parser: docker
+
+      # @schema
+      # type: boolean
+      # description: Use inotify for file watching (disable on some systems)
+      # default: false
+      # @schema
       inotifyWatcher: false
+
+      # @schema
+      # type: string
+      # description: Database file path for tracking read positions
+      # default: "/var/log/flb_kube.db"
+      # @schema
       db: "/var/log/flb_kube.db"
+
+      # @schema
+      # type: string
+      # description: Memory buffer limit before backpressure
+      # default: "256MB"
+      # @schema
       memBufLimit: "256MB"
+
+      # @schema
+      # type: boolean
+      # description: Skip lines longer than buffer limit
+      # default: true
+      # @schema
       skipLongLines: true
+
+      # @schema
+      # type: integer
+      # description: File refresh interval in seconds
+      # default: 10
+      # minimum: 1
+      # @schema
       refreshInterval: 10
 
+    # @schema
+    # type: object
+    # description: Kubernetes filter configuration for enriching logs with pod metadata
+    # @schema
     filter:
+      # @schema
+      # type: string
+      # description: Filter plugin name
+      # default: kubernetes
+      # @schema
       name: kubernetes
+
+      # @schema
+      # type: string
+      # description: Tag pattern to match for filtering
+      # default: "kube.*"
+      # @schema
       match: "kube.*"
+
+      # @schema
+      # type: string
+      # description: Kubernetes API server URL
+      # default: "https://kubernetes.default.svc:443"
+      # @schema
       kubeURL: "https://kubernetes.default.svc:443"
+
+      # @schema
+      # type: string
+      # description: Path to Kubernetes CA certificate file
+      # default: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+      # @schema
       kubeCAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+
+      # @schema
+      # type: string
+      # description: Path to Kubernetes service account token file
+      # default: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+      # @schema
       kubeTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+
+      # @schema
+      # type: string
+      # description: Tag prefix for Kubernetes metadata enrichment
+      # default: "kube.var.log.containers."
+      # @schema
       kubeTagPrefix: "kube.var.log.containers."
+
+      # @schema
+      # type: boolean
+      # description: Merge log content into the main record
+      # default: true
+      # @schema
       mergeLog: true
+
+      # @schema
+      # type: string
+      # description: Key name for merged log content
+      # default: "log_processed"
+      # @schema
       mergeLogKey: "log_processed"
+
+      # @schema
+      # type: boolean
+      # description: Use Kubernetes logging parser annotations
+      # default: true
+      # @schema
       k8sLoggingParser: true
+
+      # @schema
+      # type: boolean
+      # description: Respect Kubernetes logging exclude annotations
+      # default: false
+      # @schema
       k8sLoggingExclude: false
 
+    # @schema
+    # type: object
+    # description: Output plugin configuration for sending logs to OpenSearch
+    # @schema
     output:
+      # @schema
+      # type: string
+      # description: Output plugin name
+      # default: opensearch
+      # @schema
       name: opensearch
+
+      # @schema
+      # type: string
+      # description: Tag pattern to match for output
+      # default: "kube.*"
+      # @schema
       match: "kube.*"
+
+      # @schema
+      # type: string
+      # description: Type field value in output records
+      # default: flb_type
+      # @schema
       type: flb_type
+
+      # @schema
+      # type: boolean
+      # description: Use Logstash-compatible index format
+      # default: true
+      # @schema
       logstashFormat: true
+
+      # @schema
+      # type: string
+      # description: Index prefix for Logstash format
+      # default: container-logs
+      # @schema
       logstashPrefix: container-logs
+
+      # @schema
+      # type: string
+      # description: Field name for timestamp in output records
+      # default: "@timestamp"
+      # @schema
       timeKey: "@timestamp"
+
+      # @schema
+      # type: boolean
+      # description: Enable trace-level error logging for debugging
+      # default: true
+      # @schema
       traceError: true
+
+      # @schema
+      # type: boolean
+      # description: Suppress type name in output (OpenSearch 2.x compatibility)
+      # default: true
+      # @schema
       suppressTypeName: true
 
-    # OpenSearch connection configuration
+    # @schema
+    # type: object
+    # description: OpenSearch connection configuration
+    # @schema
     opensearch:
+      # @schema
+      # type: string
+      # description: OpenSearch host address
+      # default: "opensearch.openchoreo-observability-plane.svc.cluster.local"
+      # @schema
       host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
+
+      # @schema
+      # type: string
+      # description: OpenSearch port
+      # default: "9200"
+      # @schema
       port: "9200"
+
+      # @schema
+      # type: object
+      # description: OpenSearch authentication configuration
+      # @schema
       authentication:
+        # @schema
+        # type: object
+        # description: Basic authentication credentials
+        # @schema
         basicauth:
+          # @schema
+          # type: string
+          # description: OpenSearch username
+          # default: "admin"
+          # @schema
           username: "admin"
+
+          # @schema
+          # type: string
+          # description: OpenSearch password
+          # default: "ThisIsTheOpenSearchPassword1"
+          # @schema
           password: "ThisIsTheOpenSearchPassword1"
+
+      # @schema
+      # type: boolean
+      # description: Enable TLS for OpenSearch connection
+      # default: true
+      # @schema
       tls: true
+
+      # @schema
+      # type: boolean
+      # description: Verify TLS certificate (disable for self-signed certs)
+      # default: false
+      # @schema
       tlsVerify: false
 
+    # @schema
+    # type: object
+    # description: Log parser configuration
+    # @schema
     parser:
+      # @schema
+      # type: string
+      # description: Parser name
+      # default: docker
+      # @schema
       name: docker
+
+      # @schema
+      # type: string
+      # description: Log format type
+      # default: json
+      # @schema
       format: json
+
+      # @schema
+      # type: string
+      # description: Field name containing timestamp
+      # default: time
+      # @schema
       timeKey: time
+
+      # @schema
+      # type: string
+      # description: strptime format string for parsing timestamps
+      # default: "%Y-%m-%dT%H:%M:%S.%L"
+      # @schema
       timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
+
+      # @schema
+      # type: boolean
+      # description: Keep the original time field in output
+      # default: true
+      # @schema
       timeKeep: true
 
+  # @schema
+  # type: object
+  # description: RBAC configuration for Fluent Bit
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources (ClusterRole, ClusterRoleBinding)
+    # default: true
+    # @schema
     create: true
+
+    # @schema
+    # type: string
+    # description: Service account name for Fluent Bit pods
+    # default: fluent-bit
+    # @schema
     serviceAccountName: fluent-bit
 
+  # @schema
+  # type: object
+  # description: Host path mounts for accessing container logs
+  # @schema
   hostPaths:
+    # @schema
+    # type: string
+    # description: Host path to /var/log directory
+    # default: /var/log
+    # @schema
     varLog: /var/log
+
+    # @schema
+    # type: string
+    # description: Host path to Docker containers directory
+    # default: /var/lib/docker/containers
+    # @schema
     dockerContainers: /var/lib/docker/containers
 
+# @schema
+# type: object
+# additionalProperties: true
+# description: OpenTelemetry Collector configuration for trace and metrics collection
+# @schema
 opentelemetry-collector:
+  # @schema
+  # type: boolean
+  # description: Enable OpenTelemetry Collector deployment
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: ClusterRole configuration for accessing Kubernetes resources
+  # @schema
   clusterRole:
+    # @schema
+    # type: boolean
+    # description: Create ClusterRole for OpenTelemetry Collector
+    # default: true
+    # @schema
     create: true
+
+    # @schema
+    # type: array
+    # description: RBAC rules for accessing Kubernetes API resources
+    # items:
+    #   type: object
+    #   properties:
+    #     apiGroups:
+    #       type: array
+    #       items:
+    #         type: string
+    #     resources:
+    #       type: array
+    #       items:
+    #         type: string
+    #     verbs:
+    #       type: array
+    #       items:
+    #         type: string
+    # @schema
     rules:
       - apiGroups: [""]
         resources: ["pods"]
@@ -313,127 +1336,583 @@ opentelemetry-collector:
         resources: ["replicasets"]
         verbs: ["list","watch"]
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: ConfigMap configuration for collector pipeline
+  # @schema
   configMap:
+    # @schema
+    # type: boolean
+    # description: Create a new ConfigMap (false to use existing)
+    # default: false
+    # @schema
     create: false
+
+    # @schema
+    # type: string
+    # description: Name of existing ConfigMap containing collector configuration
+    # default: "opentelemetry-collector-config"
+    # @schema
     existingName: "opentelemetry-collector-config"
 
+  # @schema
+  # type: string
+  # description: Override the full name of OpenTelemetry Collector resources
+  # default: "opentelemetry-collector"
+  # @schema
   fullnameOverride: "opentelemetry-collector"
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container image configuration for OpenTelemetry Collector
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: OpenTelemetry Collector image repository (contrib version includes extra receivers/exporters)
+    # default: otel/opentelemetry-collector-contrib
+    # @schema
     repository: otel/opentelemetry-collector-contrib
 
+  # @schema
+  # description: Deployment mode for the collector
+  # enum: [deployment, daemonset, statefulset, sidecar]
+  # default: deployment
+  # @schema
   mode: deployment
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Resource limits and requests for the collector
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the collector can consume
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for the collector
+      # default: 100m
+      # @schema
       cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory limit for the collector
+      # default: 200Mi
+      # @schema
       memory: 200Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed for the collector
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for the collector
+      # default: 50m
+      # @schema
       cpu: 50m
+      # @schema
+      # type: string
+      # description: Memory request for the collector
+      # default: 100Mi
+      # @schema
       memory: 100Mi
 
 
-# Cluster Agent configuration
-# The agent connects to the control plane cluster gateway via WebSocket
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Agent configuration for WebSocket connection to control plane cluster gateway
+# @schema
 clusterAgent:
+  # @schema
+  # type: boolean
+  # description: Enable the cluster agent deployment
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the cluster agent deployment
+  # default: cluster-agent-dataplane
+  # @schema
   name: cluster-agent-dataplane
+
+  # @schema
+  # type: integer
+  # description: Number of cluster agent replicas (typically 1 per data plane)
+  # default: 1
+  # minimum: 0
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # description: Container image configuration for cluster agent
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Cluster agent image repository
+    # default: ghcr.io/openchoreo/cluster-agent
+    # @schema
     repository: ghcr.io/openchoreo/cluster-agent
-    tag: "" # If no value is set, use Chart.AppVersion
+
+    # @schema
+    # type: string
+    # description: Image tag. Empty uses Chart.AppVersion.
+    # default: ""
+    # @schema
+    tag: ""
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
-  # Server URL of the cluster gateway in control plane
+
+  # @schema
+  # type: string
+  # description: WebSocket URL of the cluster gateway in control plane
+  # default: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # @schema
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
 
-  # Logical plane identifier - shared across multiple CRs connecting to the same physical plane
-  # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
-  # If not specified, defaults to Helm release name
-  # Example: "prod-cluster" - all DataPlane CRs with planeID="prod-cluster" share this agent
+  # @schema
+  # type: string
+  # description: Logical plane identifier shared across multiple CRs connecting to the same physical plane. Defaults to Helm release name if not specified.
+  # default: default-dataplane
+  # @schema
   planeID: default-dataplane
 
-  # Type of plane (dataplane, buildplane, or observabilityplane)
+  # @schema
+  # description: Type of plane this agent manages
+  # enum: [dataplane, buildplane, observabilityplane]
+  # default: dataplane
+  # @schema
   planeType: dataplane
-  # DNS rewrite configuration (for multi-cluster k3d setups)
-  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+
+  # @schema
+  # type: object
+  # description: DNS rewrite configuration for multi-cluster k3d setups
+  # @schema
   dnsRewrite:
+    # @schema
+    # type: boolean
+    # description: Enable CoreDNS rewrite of *.openchoreo.localhost to host.k3d.internal
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: string
+  # description: Interval between heartbeat messages to control plane
+  # default: 30s
+  # @schema
   heartbeatInterval: 30s
+
+  # @schema
+  # type: string
+  # description: Delay before attempting reconnection after disconnect
+  # default: 5s
+  # @schema
   reconnectDelay: 5s
+
+  # @schema
+  # description: Log level for cluster agent
+  # enum: [trace, debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
+
+  # @schema
+  # type: object
+  # description: Resource limits and requests for cluster agent
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed for the agent
+    # @schema
     requests:
+      # @schema
+      # type: string
+      # description: CPU request for the agent
+      # default: "50m"
+      # @schema
       cpu: "50m"
+      # @schema
+      # type: string
+      # description: Memory request for the agent
+      # default: "128Mi"
+      # @schema
       memory: "128Mi"
+    # @schema
+    # type: object
+    # description: Maximum resources the agent can consume
+    # @schema
     limits:
+      # @schema
+      # type: string
+      # description: CPU limit for the agent
+      # default: "100m"
+      # @schema
       cpu: "100m"
+      # @schema
+      # type: string
+      # description: Memory limit for the agent
+      # default: "256Mi"
+      # @schema
       memory: "256Mi"
+
+  # @schema
+  # type: object
+  # description: Service account configuration for cluster agent
+  # @schema
   serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a service account for the cluster agent
+    # default: true
+    # @schema
     create: true
+
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: cluster-agent-dataplane
+    # @schema
     name: cluster-agent-dataplane
+
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
+
+  # @schema
+  # type: object
+  # description: RBAC configuration for cluster agent
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources (ClusterRole, ClusterRoleBinding)
+    # default: true
+    # @schema
     create: true
+
+  # @schema
+  # type: object
+  # description: Priority class configuration for cluster agent pods
+  # @schema
   priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create a PriorityClass for cluster agent
+    # default: false
+    # @schema
     create: false
+
+    # @schema
+    # type: string
+    # description: PriorityClass name
+    # default: cluster-agent-dataplane
+    # @schema
     name: cluster-agent-dataplane
+
+    # @schema
+    # type: integer
+    # description: Priority value (higher = more important)
+    # default: 900000
+    # @schema
     value: 900000
+
+  # @schema
+  # type: object
+  # description: TLS configuration for secure agent-gateway communication
+  # @schema
   tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS for agent-gateway communication
+    # default: true
+    # @schema
     enabled: true
-    # Generate client certificates locally using cert-manager (multi-cluster setup)
-    # Set to true when the data plane is in a different cluster from control plane
-    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+
+    # @schema
+    # type: boolean
+    # description: Generate client certificates locally using cert-manager (for multi-cluster setups where data plane is in different cluster)
+    # default: false
+    # @schema
     generateCerts: false
-    # Secret containing client certificate and key
+
+    # @schema
+    # type: string
+    # description: Secret name for client certificate and key
+    # default: cluster-agent-tls
+    # @schema
     secretName: cluster-agent-tls
+
+    # @schema
+    # type: string
+    # description: Secret name for client certificate (typically same as secretName)
+    # default: cluster-agent-tls
+    # @schema
     clientSecretName: cluster-agent-tls
-    # ConfigMap containing server CA certificate for verifying gateway
+
+    # @schema
+    # type: string
+    # description: ConfigMap name containing server CA certificate for verifying gateway
+    # default: cluster-gateway-ca
+    # @schema
     serverCAConfigMap: cluster-gateway-ca
-    # Optional: Inline server CA certificate value (PEM format)
-    # For multi-cluster setup where agent needs to verify gateway server
-    # If provided, this value is used instead of copying from control plane
+
+    # @schema
+    # type: string
+    # description: Inline server CA certificate in PEM format (for multi-cluster setup). Takes precedence over copying from control plane.
+    # default: ""
+    # @schema
     serverCAValue: ""
-    # CA secret for signing agent client certificates
-    # Option 1: Reference existing secret (single-cluster setup)
-    # This should be the name of the cluster-gateway-ca secret created in control plane
+
+    # @schema
+    # type: string
+    # description: CA secret name for signing agent client certificates (single-cluster setup)
+    # default: cluster-gateway-ca
+    # @schema
     caSecretName: cluster-gateway-ca
-    # Namespace where the CA secret exists (control plane namespace)
+
+    # @schema
+    # type: string
+    # description: Namespace where CA secret exists (typically control plane namespace)
+    # default: openchoreo-control-plane
+    # @schema
     caSecretNamespace: openchoreo-control-plane
-    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
-    # If provided, this takes precedence over caSecretName/caSecretNamespace
-    # Use this when data plane is in a different cluster from control plane
+
+    # @schema
+    # type: string
+    # description: Inline CA certificate in PEM format (for multi-cluster setup). Takes precedence over caSecretName/caSecretNamespace.
+    # default: ""
+    # @schema
     caValue: ""
-    # Certificate duration and renewal
-    duration: 2160h # 90 days
-    renewBefore: 360h # 15 days
-  # Namespace where cluster-gateway CA exists (control plane namespace)
+
+    # @schema
+    # type: string
+    # description: Certificate validity duration
+    # default: 2160h
+    # @schema
+    duration: 2160h
+
+    # @schema
+    # type: string
+    # description: Time before expiry to renew certificate
+    # default: 360h
+    # @schema
+    renewBefore: 360h
+
+  # @schema
+  # type: string
+  # description: Namespace where cluster-gateway CA exists (control plane namespace)
+  # default: openchoreo-control-plane
+  # @schema
   serverCANamespace: openchoreo-control-plane
+
+  # @schema
+  # type: object
+  # description: Pod-level security context
+  # @schema
   podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
     runAsNonRoot: true
+
+    # @schema
+    # type: integer
+    # description: User ID to run container as
+    # default: 1000
+    # @schema
     runAsUser: 1000
+
+    # @schema
+    # type: integer
+    # description: Group ID for volume mounts
+    # default: 1000
+    # @schema
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # description: Container-level security context
+  # @schema
   securityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
     allowPrivilegeEscalation: false
+
+    # @schema
+    # type: object
+    # description: Linux capabilities configuration
+    # @schema
     capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop from container
+      # items:
+      #   type: string
+      # default: [ALL]
+      # @schema
       drop:
         - ALL
+
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
     readOnlyRootFilesystem: true
+
+  # @schema
+  # type: object
+  # description: Annotations to add to cluster agent pods
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   podAnnotations: {}
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  #   properties:
+  #     key:
+  #       type: string
+  #     operator:
+  #       type: string
+  #       enum: [Exists, Equal]
+  #     value:
+  #       type: string
+  #     effect:
+  #       type: string
+  #       enum: [NoSchedule, PreferNoSchedule, NoExecute]
+  # default: []
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
   affinity: {}
 
-# API Platform configuration
+# @schema
+# type: object
+# additionalProperties: true
+# description: WSO2 API Platform configuration for advanced API management capabilities
+# @schema
 api-platform:
+  # @schema
+  # type: boolean
+  # description: Enable WSO2 API Platform gateway operator
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Gateway configuration for API Platform
+  # @schema
   gateway:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Helm chart reference for gateway sub-chart
+    # @schema
     helm:
+      # @schema
+      # type: string
+      # description: OCI chart reference for the API Platform gateway
+      # default: "oci://ghcr.io/wso2/api-platform/helm-charts/gateway"
+      # @schema
       chartName: "oci://ghcr.io/wso2/api-platform/helm-charts/gateway"
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Values to pass to the gateway sub-chart
+    # @schema
     values:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Gateway-specific configuration
+      # @schema
       gateway:
+        # @schema
+        # type: object
+        # additionalProperties: true
+        # description: Gateway runtime configuration
+        # @schema
         config:
+          # @schema
+          # type: object
+          # additionalProperties: true
+          # description: Policy configurations for API security and management
+          # @schema
           policy_configurations:
+            # @schema
+            # type: object
+            # additionalProperties: true
+            # description: JWT authentication policy configuration (version 0.1.0)
+            # @schema
             JWTAuth_v010:
+              # @schema
+              # type: array
+              # description: List of key managers for JWT validation
+              # items:
+              #   type: object
+              #   properties:
+              #     name:
+              #       type: string
+              #       description: Key manager name
+              #     issuer:
+              #       type: string
+              #       description: JWT issuer identifier
+              #     jwks:
+              #       type: object
+              #       description: JWKS configuration
+              # @schema
               KeyManagers:
               - name: ThunderKeyManager
                 issuer: thunder
@@ -441,18 +1920,93 @@ api-platform:
                   remote:
                     uri: http://thunder-service.openchoreo-control-plane:8090/oauth2/jwks
                     skipTlsVerify: true
+
+              # @schema
+              # type: string
+              # description: Cache TTL for JWKS keys
+              # default: "5m"
+              # @schema
               JwksCacheTtl: "5m"
+
+              # @schema
+              # type: string
+              # description: Timeout for fetching JWKS
+              # default: "5s"
+              # @schema
               JwksFetchTimeout: "5s"
+
+              # @schema
+              # type: integer
+              # description: Number of retry attempts for JWKS fetch
+              # default: 3
+              # minimum: 1
+              # @schema
               JwksFetchRetryCount: 3
+
+              # @schema
+              # type: string
+              # description: Interval between JWKS fetch retries
+              # default: "2s"
+              # @schema
               JwksFetchRetryInterval: "2s"
+
+              # @schema
+              # type: array
+              # description: Allowed JWT signing algorithms
+              # items:
+              #   type: string
+              # default: [RS256, ES256]
+              # @schema
               AllowedAlgorithms:
                 - RS256
                 - ES256
+
+              # @schema
+              # type: string
+              # description: Clock skew tolerance for JWT validation
+              # default: "30s"
+              # @schema
               Leeway: "30s"
+
+              # @schema
+              # type: string
+              # description: Authorization header scheme prefix
+              # default: Bearer
+              # @schema
               AuthHeaderScheme: Bearer
+
+              # @schema
+              # type: string
+              # description: HTTP header name for JWT token
+              # default: Authorization
+              # @schema
               HeaderName: Authorization
+
+              # @schema
+              # type: integer
+              # description: HTTP status code returned on authentication failure
+              # default: 401
+              # @schema
               OnFailureStatusCode: 401
+
+              # @schema
+              # description: Format for error messages
+              # enum: [json, text]
+              # default: json
+              # @schema
               ErrorMessageFormat: json
+
+              # @schema
+              # type: string
+              # description: Error message returned on authentication failure
+              # default: "Authentication failed."
+              # @schema
               ErrorMessage: "Authentication failed."
-              ValidateIssuer: true  
+
+              # @schema
+              # type: boolean
+              # description: Validate the JWT issuer claim
+              # default: true
+              # @schema
+              ValidateIssuer: true
 

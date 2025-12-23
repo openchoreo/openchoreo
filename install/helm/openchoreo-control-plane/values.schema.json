@@ -1,0 +1,5006 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "properties": {
+    "backstage": {
+      "additionalProperties": false,
+      "description": "Backstage UI configuration",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "auth": {
+          "additionalProperties": false,
+          "description": "OAuth/OIDC authentication configuration",
+          "properties": {
+            "authorizationUrl": {
+              "default": "",
+              "description": "OAuth authorization endpoint URL. If empty, auto-derived from Thunder",
+              "required": [],
+              "title": "authorizationUrl",
+              "type": "string"
+            },
+            "clientId": {
+              "default": "openchoreo-backstage-client",
+              "description": "OAuth client ID",
+              "required": [],
+              "title": "clientId",
+              "type": "string"
+            },
+            "clientSecret": {
+              "default": "backstage-portal-secret",
+              "description": "OAuth client secret",
+              "required": [],
+              "title": "clientSecret",
+              "type": "string"
+            },
+            "redirectUrls": {
+              "default": [],
+              "description": "OAuth redirect URLs",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "redirectUrls",
+              "type": "array"
+            },
+            "tokenUrl": {
+              "default": "",
+              "description": "OAuth token endpoint URL. If empty, auto-derived from Thunder",
+              "required": [],
+              "title": "tokenUrl",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "auth",
+          "type": "object"
+        },
+        "autoscaling": {
+          "additionalProperties": false,
+          "description": "Horizontal Pod Autoscaler configuration",
+          "properties": {
+            "behavior": {
+              "additionalProperties": false,
+              "description": "HPA scaling behavior",
+              "properties": {
+                "scaleDown": {
+                  "additionalProperties": false,
+                  "description": "Scale-down behavior",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-down policies",
+                      "items": {
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 300,
+                      "description": "Stabilization window in seconds",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleDown",
+                  "type": "object"
+                },
+                "scaleUp": {
+                  "additionalProperties": false,
+                  "description": "Scale-up behavior",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-up policies",
+                      "items": {
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "selectPolicy": {
+                      "default": "Max",
+                      "description": "Policy selection strategy",
+                      "enum": [
+                        "Max",
+                        "Min",
+                        "Disabled"
+                      ],
+                      "required": [],
+                      "title": "selectPolicy"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 0,
+                      "description": "Stabilization window in seconds",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleUp",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "behavior",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable HPA",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "maxReplicas": {
+              "default": 3,
+              "description": "Maximum replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "maxReplicas",
+              "type": "integer"
+            },
+            "minReplicas": {
+              "default": 1,
+              "description": "Minimum replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "minReplicas",
+              "type": "integer"
+            },
+            "targetCPUUtilizationPercentage": {
+              "default": 70,
+              "description": "Target CPU utilization percentage",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetCPUUtilizationPercentage",
+              "type": "integer"
+            },
+            "targetMemoryUtilizationPercentage": {
+              "default": 80,
+              "description": "Target memory utilization percentage",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetMemoryUtilizationPercentage",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "autoscaling",
+          "type": "object"
+        },
+        "backendSecret": {
+          "default": "",
+          "description": "Backend secret for Backstage encryption. If empty, a random secret is generated",
+          "required": [],
+          "title": "backendSecret",
+          "type": "string"
+        },
+        "baseUrl": {
+          "default": "",
+          "description": "Backstage public base URL. If empty, auto-derived from global.baseDomain",
+          "required": [],
+          "title": "baseUrl",
+          "type": "string"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "description": "Container security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "appArmorProfile": {
+              "additionalProperties": false,
+              "description": "AppArmor profile",
+              "properties": {
+                "type": {
+                  "default": "Unconfined",
+                  "description": "AppArmor profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "appArmorProfile",
+              "type": "object"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": false,
+              "description": "Read-only root filesystem",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable Backstage UI deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "env": {
+          "description": "Environment variables for the Backstage container",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "env",
+          "type": "array"
+        },
+        "features": {
+          "additionalProperties": false,
+          "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
+          "properties": {
+            "observability": {
+              "additionalProperties": false,
+              "description": "Observability plane features (Metrics, Traces, Runtime Logs)",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Enable Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard in entity pages",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "observability",
+              "type": "object"
+            },
+            "workflows": {
+              "additionalProperties": false,
+              "description": "Build plane / Workflows functionality configuration",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Enable Workflows tab and WorkflowsOverviewCard in entity pages",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "workflows",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "features",
+          "type": "object"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/openchoreo-ui",
+              "description": "Docker image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. If empty, uses Chart.AppVersion",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "ingress": {
+          "additionalProperties": false,
+          "description": "Ingress configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Ingress annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable ingress",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Ingress hosts",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "Ingress class name",
+              "required": [],
+              "title": "ingressClassName",
+              "type": "string"
+            },
+            "tls": {
+              "default": [],
+              "description": "Ingress TLS configuration",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "tls",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": false,
+          "description": "Prometheus metrics configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Prometheus metrics",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "serviceMonitor": {
+              "additionalProperties": false,
+              "description": "ServiceMonitor configuration",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Create ServiceMonitor resource",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "interval": {
+                  "default": "30s",
+                  "description": "Scrape interval",
+                  "required": [],
+                  "title": "interval",
+                  "type": "string"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Labels for ServiceMonitor",
+                  "properties": {
+                    "prometheus": {
+                      "default": "kube-prometheus",
+                      "required": [],
+                      "title": "prometheus",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "prometheus"
+                  ],
+                  "title": "labels",
+                  "type": "object"
+                },
+                "namespace": {
+                  "default": "monitoring",
+                  "description": "Namespace for ServiceMonitor",
+                  "required": [],
+                  "title": "namespace",
+                  "type": "string"
+                },
+                "relabelings": {
+                  "default": [],
+                  "description": "Metric relabeling rules",
+                  "items": {
+                    "required": [],
+                    "type": "object"
+                  },
+                  "required": [],
+                  "title": "relabelings",
+                  "type": "array"
+                },
+                "scrapeTimeout": {
+                  "default": "10s",
+                  "description": "Scrape timeout",
+                  "required": [],
+                  "title": "scrapeTimeout",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "serviceMonitor",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "metrics",
+          "type": "object"
+        },
+        "networkPolicy": {
+          "additionalProperties": false,
+          "description": "Network policy configuration",
+          "properties": {
+            "egress": {
+              "default": [],
+              "description": "Egress rules",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "egress",
+              "type": "array"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable NetworkPolicy",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "ingress": {
+              "default": [],
+              "description": "Ingress rules",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "ingress",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "networkPolicy",
+          "type": "object"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "openchoreoApi": {
+          "additionalProperties": false,
+          "description": "OpenChoreo API connection configuration",
+          "properties": {
+            "url": {
+              "default": "",
+              "description": "OpenChoreo API URL. If empty, auto-derived from internal service",
+              "required": [],
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "openchoreoApi",
+          "type": "object"
+        },
+        "podDisruptionBudget": {
+          "additionalProperties": false,
+          "description": "Pod Disruption Budget configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable PDB",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "default": 1,
+              "description": "Minimum available pods",
+              "minimum": 0,
+              "required": [],
+              "title": "minAvailable",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podDisruptionBudget",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod security context",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Filesystem group",
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsGroup": {
+              "default": 1000,
+              "description": "Group ID",
+              "required": [],
+              "title": "runAsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID",
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "priorityClass": {
+          "additionalProperties": false,
+          "description": "Priority class configuration",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "openchoreo-backstage",
+              "description": "Priority class name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 800000,
+              "description": "Priority class value",
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of Backstage replicas",
+          "minimum": 1,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Resource limits",
+              "properties": {
+                "cpu": {
+                  "default": "2000m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "2Gi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Resource requests",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "nodePort": {
+              "default": "null",
+              "description": "NodePort (only used if service.type is NodePort)",
+              "required": [],
+              "title": "nodePort",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "port": {
+              "default": 7007,
+              "description": "Service port",
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Service account annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "name": {
+              "default": "openchoreo-backstage",
+              "description": "Service account name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "thunder": {
+          "additionalProperties": false,
+          "description": "Thunder identity provider connection configuration",
+          "properties": {
+            "baseUrl": {
+              "default": "",
+              "description": "Thunder public base URL. If empty, auto-derived from global.baseDomain",
+              "required": [],
+              "title": "baseUrl",
+              "type": "string"
+            },
+            "token": {
+              "default": "",
+              "description": "Thunder API token for authentication",
+              "required": [],
+              "title": "token",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "thunder",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "description": "Topology spread constraints",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "topologySpreadConstraints",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "backstage",
+      "type": "object"
+    },
+    "clusterGateway": {
+      "additionalProperties": true,
+      "description": "Cluster Gateway configuration - manages WebSocket connections from cluster agents",
+      "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable the cluster gateway",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "heartbeatInterval": {
+          "default": "30s",
+          "description": "Heartbeat interval for agent connections",
+          "required": [],
+          "title": "heartbeatInterval",
+          "type": "string"
+        },
+        "heartbeatTimeout": {
+          "default": "90s",
+          "description": "Heartbeat timeout for agent connections",
+          "required": [],
+          "title": "heartbeatTimeout",
+          "type": "string"
+        },
+        "image": {
+          "additionalProperties": true,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/cluster-gateway",
+              "description": "Docker image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. If empty, uses Chart.AppVersion",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "ingress": {
+          "additionalProperties": true,
+          "description": "Ingress configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Ingress annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable ingress",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Ingress hosts",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "Ingress class name",
+              "required": [],
+              "title": "ingressClassName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Log level",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "required": [],
+          "title": "logLevel"
+        },
+        "name": {
+          "default": "cluster-gateway",
+          "description": "Name of the cluster gateway deployment",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": true,
+          "description": "Pod security context",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Filesystem group",
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID",
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "port": {
+          "default": 8443,
+          "description": "WebSocket port for agent connections",
+          "required": [],
+          "title": "port",
+          "type": "integer"
+        },
+        "priorityClass": {
+          "additionalProperties": true,
+          "description": "Priority class configuration",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "cluster-gateway",
+              "description": "Priority class name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 900000,
+              "description": "Priority class value",
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of cluster gateway replicas",
+          "minimum": 1,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Resource limits",
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Resource requests",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "securityContext": {
+          "additionalProperties": true,
+          "description": "Container security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": true,
+              "description": "Linux capabilities",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "description": "Read-only root filesystem",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "securityContext",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": true,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "clusterIP": {
+              "default": "null",
+              "description": "Cluster IP (set to None for headless service)",
+              "required": [],
+              "title": "clusterIP",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "loadBalancerIP": {
+              "default": "null",
+              "description": "LoadBalancer IP (only used if service.type is LoadBalancer)",
+              "required": [],
+              "title": "loadBalancerIP",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "nodePort": {
+              "default": "null",
+              "description": "NodePort (only used if service.type is NodePort)",
+              "required": [],
+              "title": "nodePort",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "port": {
+              "default": 8443,
+              "description": "Service port",
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": true,
+          "description": "Service account configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Service account annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "description": "Create a service account",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "cluster-gateway",
+              "description": "Service account name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": true,
+          "description": "TLS configuration using cert-manager",
+          "properties": {
+            "dnsNames": {
+              "description": "DNS names for the certificate",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "dnsNames",
+              "type": "array"
+            },
+            "duration": {
+              "default": "2160h",
+              "description": "Certificate validity duration (90 days)",
+              "required": [],
+              "title": "duration",
+              "type": "string"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable TLS",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "issuerRef": {
+              "additionalProperties": true,
+              "description": "cert-manager issuer reference",
+              "properties": {
+                "kind": {
+                  "default": "Issuer",
+                  "description": "Issuer kind",
+                  "enum": [
+                    "Issuer",
+                    "ClusterIssuer"
+                  ],
+                  "required": [],
+                  "title": "kind"
+                },
+                "name": {
+                  "default": "cluster-gateway-selfsigned-issuer",
+                  "description": "Issuer name",
+                  "required": [],
+                  "title": "name",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "issuerRef",
+              "type": "object"
+            },
+            "renewBefore": {
+              "default": "360h",
+              "description": "Certificate renewal threshold (15 days before expiry)",
+              "required": [],
+              "title": "renewBefore",
+              "type": "string"
+            },
+            "secretName": {
+              "default": "cluster-gateway-tls",
+              "description": "TLS secret name",
+              "required": [],
+              "title": "secretName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tls",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "clusterGateway",
+      "type": "object"
+    },
+    "controllerManager": {
+      "additionalProperties": false,
+      "description": "Controller Manager configuration - the main controller for OpenChoreo CRDs",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "autoscaling": {
+          "additionalProperties": false,
+          "description": "Horizontal Pod Autoscaler configuration",
+          "properties": {
+            "behavior": {
+              "additionalProperties": false,
+              "description": "HPA scaling behavior configuration",
+              "properties": {
+                "scaleDown": {
+                  "additionalProperties": false,
+                  "description": "Scale-down behavior configuration",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-down policies",
+                      "items": {
+                        "properties": {
+                          "periodSeconds": {
+                            "required": [],
+                            "type": "integer"
+                          },
+                          "type": {
+                            "enum": [
+                              "Percent",
+                              "Pods"
+                            ],
+                            "required": [],
+                            "type": "string"
+                          },
+                          "value": {
+                            "required": [],
+                            "type": "integer"
+                          }
+                        },
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 300,
+                      "description": "Stabilization window in seconds before scaling down",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleDown",
+                  "type": "object"
+                },
+                "scaleUp": {
+                  "additionalProperties": false,
+                  "description": "Scale-up behavior configuration",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-up policies",
+                      "items": {
+                        "properties": {
+                          "periodSeconds": {
+                            "required": [],
+                            "type": "integer"
+                          },
+                          "type": {
+                            "enum": [
+                              "Percent",
+                              "Pods"
+                            ],
+                            "required": [],
+                            "type": "string"
+                          },
+                          "value": {
+                            "required": [],
+                            "type": "integer"
+                          }
+                        },
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "selectPolicy": {
+                      "default": "Max",
+                      "description": "Policy selection strategy",
+                      "enum": [
+                        "Max",
+                        "Min",
+                        "Disabled"
+                      ],
+                      "required": [],
+                      "title": "selectPolicy"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 0,
+                      "description": "Stabilization window in seconds before scaling up",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleUp",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "behavior",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable Horizontal Pod Autoscaler",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "maxReplicas": {
+              "default": 3,
+              "description": "Maximum number of replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "maxReplicas",
+              "type": "integer"
+            },
+            "minReplicas": {
+              "default": 1,
+              "description": "Minimum number of replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "minReplicas",
+              "type": "integer"
+            },
+            "targetCPUUtilizationPercentage": {
+              "default": 70,
+              "description": "Target CPU utilization percentage for scaling",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetCPUUtilizationPercentage",
+              "type": "integer"
+            },
+            "targetMemoryUtilizationPercentage": {
+              "default": 80,
+              "description": "Target memory utilization percentage for scaling",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetMemoryUtilizationPercentage",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "autoscaling",
+          "type": "object"
+        },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster Gateway configuration for agent-based data plane communication",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable cluster gateway integration for remote data plane communication",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS configuration for cluster gateway connection",
+              "properties": {
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path to the CA certificate file",
+                  "required": [],
+                  "title": "caPath",
+                  "type": "string"
+                },
+                "caSecret": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the secret containing the CA certificate",
+                  "required": [],
+                  "title": "caSecret",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "description": "Cluster gateway service URL",
+              "required": [],
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
+          "type": "object"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "description": "Container security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "appArmorProfile": {
+              "additionalProperties": false,
+              "description": "AppArmor profile configuration",
+              "properties": {
+                "type": {
+                  "default": "Unconfined",
+                  "description": "AppArmor profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "appArmorProfile",
+              "type": "object"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": false,
+              "description": "Mount root filesystem as read-only",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile for container",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "Always",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/controller",
+              "description": "Docker image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. If empty, uses Chart.AppVersion",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "manager": {
+          "additionalProperties": false,
+          "description": "Controller manager arguments and environment configuration",
+          "properties": {
+            "args": {
+              "description": "Command-line arguments for the controller-manager",
+              "items": {
+                "required": [],
+                "type": "string"
+              },
+              "required": [],
+              "title": "args",
+              "type": "array"
+            },
+            "env": {
+              "additionalProperties": false,
+              "description": "Environment variables for the controller-manager",
+              "properties": {
+                "enableWebhooks": {
+                  "default": "true",
+                  "description": "Enable admission webhooks",
+                  "enum": [
+                    "true",
+                    "false"
+                  ],
+                  "required": [],
+                  "title": "enableWebhooks"
+                }
+              },
+              "required": [],
+              "title": "env",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "manager",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": false,
+          "description": "Prometheus metrics configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Prometheus metrics endpoint",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "serviceMonitor": {
+              "additionalProperties": false,
+              "description": "ServiceMonitor configuration for Prometheus Operator",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Create a ServiceMonitor resource for Prometheus Operator",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "interval": {
+                  "default": "30s",
+                  "description": "Scrape interval",
+                  "required": [],
+                  "title": "interval",
+                  "type": "string"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Labels to add to the ServiceMonitor",
+                  "properties": {
+                    "prometheus": {
+                      "default": "kube-prometheus",
+                      "required": [],
+                      "title": "prometheus",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "prometheus"
+                  ],
+                  "title": "labels",
+                  "type": "object"
+                },
+                "namespace": {
+                  "default": "monitoring",
+                  "description": "Namespace where ServiceMonitor should be created",
+                  "required": [],
+                  "title": "namespace",
+                  "type": "string"
+                },
+                "relabelings": {
+                  "default": [],
+                  "description": "Metric relabeling rules",
+                  "items": {
+                    "required": [],
+                    "type": "object"
+                  },
+                  "required": [],
+                  "title": "relabelings",
+                  "type": "array"
+                },
+                "scrapeTimeout": {
+                  "default": "10s",
+                  "description": "Scrape timeout",
+                  "required": [],
+                  "title": "scrapeTimeout",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "serviceMonitor",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "metrics",
+          "type": "object"
+        },
+        "name": {
+          "default": "controller-manager",
+          "description": "Name of the controller-manager deployment",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "networkPolicy": {
+          "additionalProperties": false,
+          "description": "Network policy configuration",
+          "properties": {
+            "egress": {
+              "default": [],
+              "description": "Egress rules for the NetworkPolicy",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "egress",
+              "type": "array"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable NetworkPolicy",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "ingress": {
+              "default": [],
+              "description": "Ingress rules for the NetworkPolicy",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "ingress",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "networkPolicy",
+          "type": "object"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "podDisruptionBudget": {
+          "additionalProperties": false,
+          "description": "Pod Disruption Budget configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable PodDisruptionBudget",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "default": 1,
+              "description": "Minimum number of pods that must be available",
+              "minimum": 0,
+              "required": [],
+              "title": "minAvailable",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podDisruptionBudget",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod security context",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Filesystem group for volumes",
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsGroup": {
+              "default": 1000,
+              "description": "Group ID to run the container as",
+              "required": [],
+              "title": "runAsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run container as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID to run the container as",
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile configuration",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "priorityClass": {
+          "additionalProperties": false,
+          "description": "Priority class configuration for pod scheduling priority",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class for the controller-manager",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "openchoreo-controller-manager",
+              "description": "Priority class name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 1000000,
+              "description": "Priority class value (higher = more priority)",
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of controller-manager replicas",
+          "minimum": 1,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for the controller-manager container",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Resource limits",
+              "properties": {
+                "cpu": {
+                  "default": "1000m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "1Gi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Resource requests",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "nodePort": {
+              "default": "null",
+              "description": "NodePort (only used if service.type is NodePort)",
+              "required": [],
+              "title": "nodePort",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "port": {
+              "default": 8080,
+              "description": "Service port",
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "description": "Create a service account for the controller-manager",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "properties": {
+              "effect": {
+                "enum": [
+                  "NoSchedule",
+                  "PreferNoSchedule",
+                  "NoExecute"
+                ],
+                "required": [],
+                "type": "string"
+              },
+              "key": {
+                "required": [],
+                "type": "string"
+              },
+              "operator": {
+                "enum": [
+                  "Exists",
+                  "Equal"
+                ],
+                "required": [],
+                "type": "string"
+              },
+              "value": {
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "description": "Topology spread constraints for pod distribution across zones and nodes",
+          "items": {
+            "properties": {
+              "labelSelector": {
+                "properties": {
+                  "matchLabels": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "required": [],
+                    "type": "object"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "maxSkew": {
+                "description": "Maximum allowed difference in pod count",
+                "required": [],
+                "type": "integer"
+              },
+              "topologyKey": {
+                "description": "Node label key for topology",
+                "required": [],
+                "type": "string"
+              },
+              "whenUnsatisfiable": {
+                "enum": [
+                  "DoNotSchedule",
+                  "ScheduleAnyway"
+                ],
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "topologySpreadConstraints",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "controllerManager",
+      "type": "object"
+    },
+    "fullnameOverride": {
+      "default": "openchoreo",
+      "description": "Override the full name of the chart release",
+      "required": [],
+      "title": "fullnameOverride",
+      "type": "string"
+    },
+    "global": {
+      "additionalProperties": false,
+      "description": "Global values shared across all components",
+      "properties": {
+        "baseDomain": {
+          "default": "openchoreo.local",
+          "description": "Base domain for all services. Console will be at baseDomain, API at api.baseDomain",
+          "required": [],
+          "title": "baseDomain",
+          "type": "string"
+        },
+        "clusterName": {
+          "default": "openchoreo",
+          "description": "Kubernetes cluster name identifier",
+          "required": [],
+          "title": "clusterName",
+          "type": "string"
+        },
+        "commonLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels applied to all resources created by the chart",
+          "required": [],
+          "title": "commonLabels",
+          "type": "object"
+        },
+        "defaultResources": {
+          "additionalProperties": false,
+          "description": "Default OpenChoreo resources created during installation",
+          "properties": {
+            "deploymentPipeline": {
+              "additionalProperties": false,
+              "description": "Default deployment pipeline configuration",
+              "properties": {
+                "description": {
+                  "default": "Standard deployment pipeline with dev, staging, and prod environments",
+                  "description": "Description for the default pipeline",
+                  "required": [],
+                  "title": "description",
+                  "type": "string"
+                },
+                "displayName": {
+                  "default": "Default Pipeline",
+                  "description": "Display name for the default pipeline",
+                  "required": [],
+                  "title": "displayName",
+                  "type": "string"
+                },
+                "promotionOrder": {
+                  "description": "Promotion order defining how deployments flow between environments",
+                  "items": {
+                    "properties": {
+                      "sourceEnvironmentRef": {
+                        "description": "Source environment name",
+                        "required": [],
+                        "type": "string"
+                      },
+                      "targetEnvironmentRefs": {
+                        "items": {
+                          "properties": {
+                            "name": {
+                              "required": [],
+                              "type": "string"
+                            },
+                            "requiresApproval": {
+                              "required": [],
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [],
+                          "type": "object"
+                        },
+                        "required": [],
+                        "type": "array"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "required": [],
+                  "title": "promotionOrder",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "deploymentPipeline",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable creation of default resources (organization, project, environments, pipeline)",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "environments": {
+              "description": "Default environments to create",
+              "items": {
+                "properties": {
+                  "description": {
+                    "description": "Environment description",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "displayName": {
+                    "description": "Human-readable environment name",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "dnsPrefix": {
+                    "description": "DNS prefix for the environment",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "isCritical": {
+                    "description": "Whether this is a critical/production environment",
+                    "required": [],
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "Environment identifier (lowercase, no spaces)",
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "environments",
+              "type": "array"
+            },
+            "organization": {
+              "additionalProperties": false,
+              "description": "Default organization configuration",
+              "properties": {
+                "description": {
+                  "default": "Getting started with your first organization",
+                  "description": "Description for the default organization",
+                  "required": [],
+                  "title": "description",
+                  "type": "string"
+                },
+                "displayName": {
+                  "default": "Default Organization",
+                  "description": "Display name for the default organization",
+                  "required": [],
+                  "title": "displayName",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "organization",
+              "type": "object"
+            },
+            "project": {
+              "additionalProperties": false,
+              "description": "Default project configuration",
+              "properties": {
+                "description": {
+                  "default": "Your first project to get started",
+                  "description": "Description for the default project",
+                  "required": [],
+                  "title": "description",
+                  "type": "string"
+                },
+                "displayName": {
+                  "default": "Default Project",
+                  "description": "Display name for the default project",
+                  "required": [],
+                  "title": "displayName",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "project",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "defaultResources",
+          "type": "object"
+        },
+        "imagePullSecrets": {
+          "default": [],
+          "description": "Docker registry credentials for pulling images",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Name of the image pull secret",
+                "required": [],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "imagePullSecrets",
+          "type": "array"
+        },
+        "ingressClassName": {
+          "default": "openchoreo-traefik",
+          "description": "Ingress class for all services (uses Traefik by default)",
+          "required": [],
+          "title": "ingressClassName",
+          "type": "string"
+        },
+        "port": {
+          "default": "",
+          "description": "Port suffix for URLs (e.g., \":8080\" for non-standard ports). Include the colon. Leave empty for standard ports (80/443)",
+          "required": [],
+          "title": "port",
+          "type": "string"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration - enables HTTPS for all ingresses. When enabled, TLS hosts are auto-derived from baseDomain",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable TLS/HTTPS for all ingresses",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "secretName": {
+              "default": "control-plane-tls",
+              "description": "Secret containing TLS certificate (must have all hosts - baseDomain, api.baseDomain, thunder.baseDomain)",
+              "required": [],
+              "title": "secretName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tls",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "global",
+      "type": "object"
+    },
+    "kubernetesClusterDomain": {
+      "default": "cluster.local",
+      "description": "Kubernetes cluster domain suffix",
+      "required": [],
+      "title": "kubernetesClusterDomain",
+      "type": "string"
+    },
+    "metricsServer": {
+      "additionalProperties": false,
+      "description": "Kubernetes metrics server configuration",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable metrics server deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "kubeletInsecureTlsEnabled": {
+          "default": true,
+          "description": "Allow insecure TLS connections to kubelet",
+          "required": [],
+          "title": "kubeletInsecureTlsEnabled",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "metricsServer",
+      "type": "object"
+    },
+    "metricsService": {
+      "additionalProperties": false,
+      "description": "Metrics service configuration",
+      "properties": {
+        "ports": {
+          "description": "Ports exposed by the metrics service",
+          "items": {
+            "properties": {
+              "name": {
+                "required": [],
+                "type": "string"
+              },
+              "port": {
+                "required": [],
+                "type": "integer"
+              },
+              "protocol": {
+                "enum": [
+                  "TCP",
+                  "UDP"
+                ],
+                "required": [],
+                "type": "string"
+              },
+              "targetPort": {
+                "required": [],
+                "type": "integer"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "ports",
+          "type": "array"
+        },
+        "type": {
+          "default": "ClusterIP",
+          "description": "Service type",
+          "enum": [
+            "ClusterIP",
+            "NodePort",
+            "LoadBalancer"
+          ],
+          "required": [],
+          "title": "type"
+        }
+      },
+      "required": [],
+      "title": "metricsService",
+      "type": "object"
+    },
+    "openchoreoApi": {
+      "additionalProperties": false,
+      "description": "OpenChoreo API server configuration",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "authServerBaseUrl": {
+          "default": "",
+          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
+          "required": [],
+          "title": "authServerBaseUrl",
+          "type": "string"
+        },
+        "autoscaling": {
+          "additionalProperties": false,
+          "description": "Horizontal Pod Autoscaler configuration",
+          "properties": {
+            "behavior": {
+              "additionalProperties": false,
+              "description": "HPA scaling behavior",
+              "properties": {
+                "scaleDown": {
+                  "additionalProperties": false,
+                  "description": "Scale-down behavior",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-down policies",
+                      "items": {
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 300,
+                      "description": "Stabilization window in seconds",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleDown",
+                  "type": "object"
+                },
+                "scaleUp": {
+                  "additionalProperties": false,
+                  "description": "Scale-up behavior",
+                  "properties": {
+                    "policies": {
+                      "description": "Scale-up policies",
+                      "items": {
+                        "required": [],
+                        "type": "object"
+                      },
+                      "required": [],
+                      "title": "policies",
+                      "type": "array"
+                    },
+                    "selectPolicy": {
+                      "default": "Max",
+                      "description": "Policy selection strategy",
+                      "enum": [
+                        "Max",
+                        "Min",
+                        "Disabled"
+                      ],
+                      "required": [],
+                      "title": "selectPolicy"
+                    },
+                    "stabilizationWindowSeconds": {
+                      "default": 0,
+                      "description": "Stabilization window in seconds",
+                      "required": [],
+                      "title": "stabilizationWindowSeconds",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "scaleUp",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "behavior",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable Horizontal Pod Autoscaler",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "maxReplicas": {
+              "default": 3,
+              "description": "Maximum number of replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "maxReplicas",
+              "type": "integer"
+            },
+            "minReplicas": {
+              "default": 1,
+              "description": "Minimum number of replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "minReplicas",
+              "type": "integer"
+            },
+            "targetCPUUtilizationPercentage": {
+              "default": 70,
+              "description": "Target CPU utilization percentage",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetCPUUtilizationPercentage",
+              "type": "integer"
+            },
+            "targetMemoryUtilizationPercentage": {
+              "default": 80,
+              "description": "Target memory utilization percentage",
+              "maximum": 100,
+              "minimum": 1,
+              "required": [],
+              "title": "targetMemoryUtilizationPercentage",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "autoscaling",
+          "type": "object"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "description": "Container security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "appArmorProfile": {
+              "additionalProperties": false,
+              "description": "AppArmor profile",
+              "properties": {
+                "type": {
+                  "default": "Unconfined",
+                  "description": "AppArmor profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "appArmorProfile",
+              "type": "object"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": false,
+              "description": "Read-only root filesystem",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "database": {
+          "additionalProperties": false,
+          "description": "Database configuration",
+          "properties": {
+            "path": {
+              "default": "/var/lib/openchoreo/data/controlplane.db",
+              "description": "Path to the SQLite database file",
+              "required": [],
+              "title": "path",
+              "type": "string"
+            },
+            "persistence": {
+              "additionalProperties": false,
+              "description": "Persistent volume configuration for the database",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "Enable persistent storage for the database",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "size": {
+                  "default": "500Mi",
+                  "description": "Size of the persistent volume",
+                  "required": [],
+                  "title": "size",
+                  "type": "string"
+                },
+                "storageClassName": {
+                  "default": "",
+                  "description": "Storage class name. If empty, uses the default storage class",
+                  "required": [],
+                  "title": "storageClassName",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "persistence",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "database",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable the OpenChoreo API server",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/openchoreo-api",
+              "description": "Docker image repository",
+              "required": [],
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. If empty, uses Chart.AppVersion",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "ingress": {
+          "additionalProperties": false,
+          "description": "Ingress configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Ingress annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable ingress",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Ingress hosts. If empty, derives from global.baseDomain",
+              "items": {
+                "properties": {
+                  "host": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "paths": {
+                    "items": {
+                      "required": [],
+                      "type": "object"
+                    },
+                    "required": [],
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "Ingress class name. If empty, uses global.ingressClassName",
+              "required": [],
+              "title": "ingressClassName",
+              "type": "string"
+            },
+            "tls": {
+              "default": [],
+              "description": "Ingress TLS configuration",
+              "items": {
+                "properties": {
+                  "hosts": {
+                    "items": {
+                      "required": [],
+                      "type": "string"
+                    },
+                    "required": [],
+                    "type": "array"
+                  },
+                  "secretName": {
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "tls",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Log level for the API server",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "required": [],
+          "title": "logLevel"
+        },
+        "mcp": {
+          "additionalProperties": false,
+          "description": "MCP (Model Context Protocol) configuration",
+          "properties": {
+            "toolsets": {
+              "default": "organization,project,component,build,deployment,infrastructure",
+              "description": "Comma-separated list of enabled MCP toolsets",
+              "required": [],
+              "title": "toolsets",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "mcp",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": false,
+          "description": "Prometheus metrics configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Prometheus metrics",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "serviceMonitor": {
+              "additionalProperties": false,
+              "description": "ServiceMonitor configuration",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Create ServiceMonitor resource",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "interval": {
+                  "default": "30s",
+                  "description": "Scrape interval",
+                  "required": [],
+                  "title": "interval",
+                  "type": "string"
+                },
+                "labels": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "description": "Labels for ServiceMonitor",
+                  "properties": {
+                    "prometheus": {
+                      "default": "kube-prometheus",
+                      "required": [],
+                      "title": "prometheus",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "prometheus"
+                  ],
+                  "title": "labels",
+                  "type": "object"
+                },
+                "namespace": {
+                  "default": "monitoring",
+                  "description": "Namespace for ServiceMonitor",
+                  "required": [],
+                  "title": "namespace",
+                  "type": "string"
+                },
+                "relabelings": {
+                  "default": [],
+                  "description": "Metric relabeling rules",
+                  "items": {
+                    "required": [],
+                    "type": "object"
+                  },
+                  "required": [],
+                  "title": "relabelings",
+                  "type": "array"
+                },
+                "scrapeTimeout": {
+                  "default": "10s",
+                  "description": "Scrape timeout",
+                  "required": [],
+                  "title": "scrapeTimeout",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "serviceMonitor",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "metrics",
+          "type": "object"
+        },
+        "name": {
+          "default": "openchoreo-api",
+          "description": "Static name for all openchoreo-api resources (Service, Deployment, ClusterRole, etc.)",
+          "required": [],
+          "title": "name",
+          "type": "string"
+        },
+        "networkPolicy": {
+          "additionalProperties": false,
+          "description": "Network policy configuration",
+          "properties": {
+            "egress": {
+              "default": [],
+              "description": "Egress rules",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "egress",
+              "type": "array"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable NetworkPolicy",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "ingress": {
+              "default": [],
+              "description": "Ingress rules",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "ingress",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "networkPolicy",
+          "type": "object"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "podDisruptionBudget": {
+          "additionalProperties": false,
+          "description": "Pod Disruption Budget configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable PodDisruptionBudget",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "default": 1,
+              "description": "Minimum available pods",
+              "minimum": 0,
+              "required": [],
+              "title": "minAvailable",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podDisruptionBudget",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod security context",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "description": "Filesystem group",
+              "required": [],
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsGroup": {
+              "default": 1000,
+              "description": "Group ID",
+              "required": [],
+              "title": "runAsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "description": "User ID",
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            },
+            "seccompProfile": {
+              "additionalProperties": false,
+              "description": "Seccomp profile",
+              "properties": {
+                "type": {
+                  "default": "RuntimeDefault",
+                  "description": "Seccomp profile type",
+                  "enum": [
+                    "RuntimeDefault",
+                    "Localhost",
+                    "Unconfined"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "seccompProfile",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "priorityClass": {
+          "additionalProperties": false,
+          "description": "Priority class configuration",
+          "properties": {
+            "create": {
+              "default": false,
+              "description": "Create a priority class",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "openchoreo-api",
+              "description": "Priority class name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            },
+            "value": {
+              "default": 900000,
+              "description": "Priority class value",
+              "required": [],
+              "title": "value",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "priorityClass",
+          "type": "object"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of API server replicas",
+          "minimum": 1,
+          "required": [],
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Resource limits",
+              "properties": {
+                "cpu": {
+                  "default": "1000m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "1Gi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Resource requests",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "security": {
+          "additionalProperties": false,
+          "description": "Security configuration for authorization user types",
+          "properties": {
+            "userTypes": {
+              "description": "User type definitions for authorization",
+              "items": {
+                "properties": {
+                  "auth_mechanisms": {
+                    "items": {
+                      "properties": {
+                        "entitlement": {
+                          "properties": {
+                            "claim": {
+                              "required": [],
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "required": [],
+                              "type": "string"
+                            }
+                          },
+                          "required": [],
+                          "type": "object"
+                        },
+                        "type": {
+                          "required": [],
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    "required": [],
+                    "type": "array"
+                  },
+                  "display_name": {
+                    "description": "Human-readable name",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "priority": {
+                    "description": "Priority order",
+                    "required": [],
+                    "type": "integer"
+                  },
+                  "type": {
+                    "description": "User type identifier",
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "userTypes",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "security",
+          "type": "object"
+        },
+        "serverBaseUrl": {
+          "default": "",
+          "description": "Base URL for the API server (used for OAuth metadata). If not set, defaults to protocol://api.baseDomain:port",
+          "required": [],
+          "title": "serverBaseUrl",
+          "type": "string"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "nodePort": {
+              "default": "null",
+              "description": "NodePort (only used if service.type is NodePort)",
+              "required": [],
+              "title": "nodePort",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "port": {
+              "default": 8080,
+              "description": "Service port",
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "name": {
+              "default": "openchoreo-api",
+              "description": "Service account name (always created when openchoreoApi.enabled is true)",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "description": "Topology spread constraints",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "topologySpreadConstraints",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "openchoreoApi",
+      "type": "object"
+    },
+    "security": {
+      "additionalProperties": false,
+      "description": "Common security configuration shared across all components",
+      "properties": {
+        "authz": {
+          "additionalProperties": false,
+          "description": "Authorization (authz) configuration using Casbin",
+          "properties": {
+            "databasePath": {
+              "default": "/var/lib/openchoreo/data/casbin.db",
+              "description": "Path to the Casbin database file",
+              "required": [],
+              "title": "databasePath",
+              "type": "string"
+            },
+            "defaultAuthzDataFilePath": {
+              "default": "/etc/openchoreo/authz/default-roles-mappings.yaml",
+              "description": "Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap",
+              "required": [],
+              "title": "defaultAuthzDataFilePath",
+              "type": "string"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable authorization using Casbin",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "authz",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Global security toggle - when disabled, authentication is turned off for all components",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "jwt": {
+          "additionalProperties": false,
+          "description": "JWT token configuration",
+          "properties": {
+            "audience": {
+              "default": "",
+              "description": "Expected audience claim in JWT tokens",
+              "required": [],
+              "title": "audience",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "jwt",
+          "type": "object"
+        },
+        "oidc": {
+          "additionalProperties": false,
+          "description": "OpenID Connect (OIDC) configuration for authentication",
+          "properties": {
+            "authorizationUrl": {
+              "default": "",
+              "description": "OIDC authorization endpoint URL",
+              "required": [],
+              "title": "authorizationUrl",
+              "type": "string"
+            },
+            "issuer": {
+              "default": "",
+              "description": "OIDC provider issuer URL",
+              "required": [],
+              "title": "issuer",
+              "type": "string"
+            },
+            "jwksUrl": {
+              "default": "",
+              "description": "OIDC JWKS URL for token validation",
+              "required": [],
+              "title": "jwksUrl",
+              "type": "string"
+            },
+            "tokenUrl": {
+              "default": "",
+              "description": "OIDC token endpoint URL",
+              "required": [],
+              "title": "tokenUrl",
+              "type": "string"
+            },
+            "wellKnownEndpoint": {
+              "default": "",
+              "description": "OIDC well-known configuration endpoint URL",
+              "required": [],
+              "title": "wellKnownEndpoint",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "oidc",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "security",
+      "type": "object"
+    },
+    "thunder": {
+      "additionalProperties": true,
+      "description": "Asgardeo Thunder (Platform Identity Provider) configuration",
+      "properties": {
+        "bootstrap": {
+          "additionalProperties": true,
+          "description": "Bootstrap configuration for Backstage OAuth app and default users",
+          "properties": {
+            "configMap": {
+              "additionalProperties": true,
+              "description": "ConfigMap configuration for bootstrap scripts",
+              "properties": {
+                "files": {
+                  "description": "Bootstrap script files to run",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "files",
+                  "type": "array"
+                },
+                "name": {
+                  "default": "openchoreo-thunder-bootstrap",
+                  "description": "ConfigMap name containing bootstrap scripts",
+                  "required": [],
+                  "title": "name",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "configMap",
+              "type": "object"
+            },
+            "defaultApps": {
+              "description": "Default OAuth applications to create during bootstrap",
+              "items": {
+                "properties": {
+                  "clientId": {
+                    "description": "OAuth client ID",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "clientSecret": {
+                    "description": "OAuth client secret",
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "defaultApps",
+              "type": "array"
+            },
+            "defaultUsers": {
+              "description": "Default users to create during bootstrap",
+              "items": {
+                "properties": {
+                  "familyName": {
+                    "description": "User last name",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "givenName": {
+                    "description": "User first name",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "groups": {
+                    "description": "User group memberships",
+                    "items": {
+                      "required": [],
+                      "type": "string"
+                    },
+                    "required": [],
+                    "type": "array"
+                  },
+                  "password": {
+                    "description": "User password",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "username": {
+                    "description": "User email/username",
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "defaultUsers",
+              "type": "array"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable bootstrap scripts",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "bootstrap",
+          "type": "object"
+        },
+        "configuration": {
+          "additionalProperties": true,
+          "description": "Thunder application configuration",
+          "properties": {
+            "cache": {
+              "additionalProperties": true,
+              "description": "Cache configuration",
+              "properties": {
+                "cleanupInterval": {
+                  "default": 300,
+                  "description": "Cache cleanup interval in seconds",
+                  "required": [],
+                  "title": "cleanupInterval",
+                  "type": "integer"
+                },
+                "disabled": {
+                  "default": false,
+                  "description": "Disable caching",
+                  "required": [],
+                  "title": "disabled",
+                  "type": "boolean"
+                },
+                "evictionPolicy": {
+                  "default": "LRU",
+                  "description": "Cache eviction policy",
+                  "enum": [
+                    "LRU",
+                    "LFU"
+                  ],
+                  "required": [],
+                  "title": "evictionPolicy"
+                },
+                "size": {
+                  "default": 1000,
+                  "description": "Maximum cache size",
+                  "required": [],
+                  "title": "size",
+                  "type": "integer"
+                },
+                "ttl": {
+                  "default": 3600,
+                  "description": "Cache TTL in seconds",
+                  "required": [],
+                  "title": "ttl",
+                  "type": "integer"
+                },
+                "type": {
+                  "default": "inmemory",
+                  "description": "Cache type",
+                  "enum": [
+                    "inmemory",
+                    "redis"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "cache",
+              "type": "object"
+            },
+            "cors": {
+              "additionalProperties": true,
+              "description": "CORS configuration",
+              "properties": {
+                "allowedOrigins": {
+                  "description": "Allowed origins for CORS",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "allowedOrigins",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "cors",
+              "type": "object"
+            },
+            "database": {
+              "additionalProperties": true,
+              "description": "Database configuration using SQLite",
+              "properties": {
+                "identity": {
+                  "additionalProperties": true,
+                  "description": "Identity database configuration",
+                  "properties": {
+                    "sqliteOptions": {
+                      "default": "_journal_mode=WAL\u0026_busy_timeout=5000",
+                      "description": "SQLite connection options",
+                      "required": [],
+                      "title": "sqliteOptions",
+                      "type": "string"
+                    },
+                    "sqlitePath": {
+                      "default": "repository/database/thunderdb.db",
+                      "description": "SQLite database file path",
+                      "required": [],
+                      "title": "sqlitePath",
+                      "type": "string"
+                    },
+                    "type": {
+                      "default": "sqlite",
+                      "description": "Database type",
+                      "enum": [
+                        "sqlite",
+                        "mysql",
+                        "postgres"
+                      ],
+                      "required": [],
+                      "title": "type"
+                    }
+                  },
+                  "required": [],
+                  "title": "identity",
+                  "type": "object"
+                },
+                "runtime": {
+                  "additionalProperties": true,
+                  "description": "Runtime database configuration",
+                  "properties": {
+                    "sqliteOptions": {
+                      "default": "_journal_mode=WAL\u0026_busy_timeout=5000",
+                      "description": "SQLite connection options",
+                      "required": [],
+                      "title": "sqliteOptions",
+                      "type": "string"
+                    },
+                    "sqlitePath": {
+                      "default": "repository/database/runtimedb.db",
+                      "description": "SQLite database file path",
+                      "required": [],
+                      "title": "sqlitePath",
+                      "type": "string"
+                    },
+                    "type": {
+                      "default": "sqlite",
+                      "description": "Database type",
+                      "enum": [
+                        "sqlite",
+                        "mysql",
+                        "postgres"
+                      ],
+                      "required": [],
+                      "title": "type"
+                    }
+                  },
+                  "required": [],
+                  "title": "runtime",
+                  "type": "object"
+                },
+                "user": {
+                  "additionalProperties": true,
+                  "description": "User database configuration",
+                  "properties": {
+                    "sqliteOptions": {
+                      "default": "_journal_mode=WAL\u0026_busy_timeout=5000",
+                      "description": "SQLite connection options",
+                      "required": [],
+                      "title": "sqliteOptions",
+                      "type": "string"
+                    },
+                    "sqlitePath": {
+                      "default": "repository/database/userdb.db",
+                      "description": "SQLite database file path",
+                      "required": [],
+                      "title": "sqlitePath",
+                      "type": "string"
+                    },
+                    "type": {
+                      "default": "sqlite",
+                      "description": "Database type",
+                      "enum": [
+                        "sqlite",
+                        "mysql",
+                        "postgres"
+                      ],
+                      "required": [],
+                      "title": "type"
+                    }
+                  },
+                  "required": [],
+                  "title": "user",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "database",
+              "type": "object"
+            },
+            "flow": {
+              "additionalProperties": true,
+              "description": "Authentication flow configuration",
+              "properties": {
+                "authn": {
+                  "additionalProperties": true,
+                  "description": "Authentication flow settings",
+                  "properties": {
+                    "defaultFlow": {
+                      "default": "auth_flow_config_basic",
+                      "description": "Default authentication flow",
+                      "required": [],
+                      "title": "defaultFlow",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "authn",
+                  "type": "object"
+                },
+                "graphDirectory": {
+                  "default": "repository/resources/graphs/",
+                  "description": "Directory containing flow graph definitions",
+                  "required": [],
+                  "title": "graphDirectory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "flow",
+              "type": "object"
+            },
+            "gateClient": {
+              "additionalProperties": true,
+              "description": "Gate client configuration for API gateway integration",
+              "properties": {
+                "errorPath": {
+                  "default": "/gate/error",
+                  "description": "Error path",
+                  "required": [],
+                  "title": "errorPath",
+                  "type": "string"
+                },
+                "hostname": {
+                  "default": "",
+                  "description": "Gate client hostname",
+                  "required": [],
+                  "title": "hostname",
+                  "type": "string"
+                },
+                "loginPath": {
+                  "default": "/gate/signin",
+                  "description": "Login path",
+                  "required": [],
+                  "title": "loginPath",
+                  "type": "string"
+                },
+                "port": {
+                  "default": 8080,
+                  "description": "Gate client port",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                },
+                "scheme": {
+                  "default": "http",
+                  "description": "Protocol scheme",
+                  "enum": [
+                    "http",
+                    "https"
+                  ],
+                  "required": [],
+                  "title": "scheme"
+                }
+              },
+              "required": [],
+              "title": "gateClient",
+              "type": "object"
+            },
+            "jwt": {
+              "additionalProperties": true,
+              "description": "JWT token configuration",
+              "properties": {
+                "audience": {
+                  "default": "application",
+                  "description": "Token audience",
+                  "required": [],
+                  "title": "audience",
+                  "type": "string"
+                },
+                "issuer": {
+                  "default": "thunder",
+                  "description": "JWT issuer name",
+                  "required": [],
+                  "title": "issuer",
+                  "type": "string"
+                },
+                "validityPeriod": {
+                  "default": 3600,
+                  "description": "Token validity period in seconds",
+                  "required": [],
+                  "title": "validityPeriod",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "jwt",
+              "type": "object"
+            },
+            "oauth": {
+              "additionalProperties": true,
+              "description": "OAuth configuration",
+              "properties": {
+                "refreshToken": {
+                  "additionalProperties": true,
+                  "description": "Refresh token configuration",
+                  "properties": {
+                    "renewOnGrant": {
+                      "default": false,
+                      "description": "Renew refresh token on grant",
+                      "required": [],
+                      "title": "renewOnGrant",
+                      "type": "boolean"
+                    },
+                    "validityPeriod": {
+                      "default": 86400,
+                      "description": "Refresh token validity period in seconds",
+                      "required": [],
+                      "title": "validityPeriod",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "refreshToken",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "oauth",
+              "type": "object"
+            },
+            "security": {
+              "additionalProperties": true,
+              "description": "Security file paths",
+              "properties": {
+                "certFile": {
+                  "default": "repository/resources/security/server.cert",
+                  "description": "Server certificate file path",
+                  "required": [],
+                  "title": "certFile",
+                  "type": "string"
+                },
+                "cryptoFile": {
+                  "default": "repository/resources/security/crypto.key",
+                  "description": "Crypto key file path",
+                  "required": [],
+                  "title": "cryptoFile",
+                  "type": "string"
+                },
+                "keyFile": {
+                  "default": "repository/resources/security/server.key",
+                  "description": "Server private key file path",
+                  "required": [],
+                  "title": "keyFile",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "security",
+              "type": "object"
+            },
+            "server": {
+              "additionalProperties": true,
+              "description": "Server configuration",
+              "properties": {
+                "httpOnly": {
+                  "default": true,
+                  "description": "HTTP-only mode (no HTTPS termination at Thunder)",
+                  "required": [],
+                  "title": "httpOnly",
+                  "type": "boolean"
+                },
+                "port": {
+                  "default": 8090,
+                  "description": "Server port",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                },
+                "publicUrl": {
+                  "default": "",
+                  "description": "Public URL for Thunder. If empty, auto-derived from global.baseDomain",
+                  "required": [],
+                  "title": "publicUrl",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "server",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "configuration",
+          "type": "object"
+        },
+        "deployment": {
+          "additionalProperties": true,
+          "description": "Deployment configuration",
+          "properties": {
+            "container": {
+              "additionalProperties": true,
+              "description": "Container configuration",
+              "properties": {
+                "port": {
+                  "default": 8090,
+                  "description": "Container port",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "container",
+              "type": "object"
+            },
+            "image": {
+              "additionalProperties": true,
+              "description": "Container image configuration",
+              "properties": {
+                "pullPolicy": {
+                  "default": "IfNotPresent",
+                  "description": "Image pull policy",
+                  "enum": [
+                    "Always",
+                    "IfNotPresent",
+                    "Never"
+                  ],
+                  "required": [],
+                  "title": "pullPolicy"
+                },
+                "registry": {
+                  "default": "ghcr.io/asgardeo",
+                  "description": "Image registry",
+                  "required": [],
+                  "title": "registry",
+                  "type": "string"
+                },
+                "repository": {
+                  "default": "thunder",
+                  "description": "Image repository",
+                  "required": [],
+                  "title": "repository",
+                  "type": "string"
+                },
+                "tag": {
+                  "default": "0.15.0",
+                  "description": "Image tag",
+                  "required": [],
+                  "title": "tag",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "image",
+              "type": "object"
+            },
+            "replicaCount": {
+              "default": 1,
+              "description": "Number of Thunder replicas",
+              "minimum": 1,
+              "required": [],
+              "title": "replicaCount",
+              "type": "integer"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource requests and limits",
+              "properties": {
+                "limits": {
+                  "additionalProperties": true,
+                  "description": "Resource limits",
+                  "properties": {
+                    "cpu": {
+                      "default": "500m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "512Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": true,
+                  "description": "Resource requests",
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            },
+            "securityContext": {
+              "additionalProperties": true,
+              "description": "Security context for the pod",
+              "properties": {
+                "enableRunAsUser": {
+                  "default": true,
+                  "description": "Enable run as user",
+                  "required": [],
+                  "title": "enableRunAsUser",
+                  "type": "boolean"
+                },
+                "fsGroup": {
+                  "default": 802,
+                  "description": "Filesystem group",
+                  "required": [],
+                  "title": "fsGroup",
+                  "type": "integer"
+                },
+                "readOnlyRootFilesystem": {
+                  "default": false,
+                  "description": "Read-only root filesystem. Must be false for SQLite",
+                  "required": [],
+                  "title": "readOnlyRootFilesystem",
+                  "type": "boolean"
+                },
+                "runAsUser": {
+                  "default": 802,
+                  "description": "User ID",
+                  "required": [],
+                  "title": "runAsUser",
+                  "type": "integer"
+                },
+                "seccompProfile": {
+                  "additionalProperties": true,
+                  "description": "Seccomp profile configuration",
+                  "properties": {
+                    "enabled": {
+                      "default": true,
+                      "description": "Enable seccomp profile",
+                      "required": [],
+                      "title": "enabled",
+                      "type": "boolean"
+                    },
+                    "type": {
+                      "default": "RuntimeDefault",
+                      "description": "Seccomp profile type",
+                      "enum": [
+                        "RuntimeDefault",
+                        "Localhost",
+                        "Unconfined"
+                      ],
+                      "required": [],
+                      "title": "type"
+                    }
+                  },
+                  "required": [],
+                  "title": "seccompProfile",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "securityContext",
+              "type": "object"
+            },
+            "strategy": {
+              "additionalProperties": true,
+              "description": "Rolling update strategy",
+              "properties": {
+                "rollingUpdate": {
+                  "additionalProperties": true,
+                  "description": "Rolling update parameters",
+                  "properties": {
+                    "maxSurge": {
+                      "default": 1,
+                      "description": "Maximum surge pods during update",
+                      "required": [],
+                      "title": "maxSurge",
+                      "type": "integer"
+                    },
+                    "maxUnavailable": {
+                      "default": 0,
+                      "description": "Maximum unavailable pods during update",
+                      "required": [],
+                      "title": "maxUnavailable",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "rollingUpdate",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "strategy",
+              "type": "object"
+            },
+            "terminationGracePeriodSeconds": {
+              "default": 10,
+              "description": "Termination grace period in seconds",
+              "required": [],
+              "title": "terminationGracePeriodSeconds",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "deployment",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable Thunder identity provider deployment",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "thunder",
+          "description": "Override the Thunder release name",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "hpa": {
+          "additionalProperties": true,
+          "description": "Horizontal Pod Autoscaler configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable HPA",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "hpa",
+          "type": "object"
+        },
+        "ingress": {
+          "additionalProperties": true,
+          "description": "Standard ingress configuration (typically disabled in favor of ocIngress)",
+          "properties": {
+            "annotations": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Ingress annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Enable standard ingress",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Ingress hosts",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "Ingress class name",
+              "required": [],
+              "title": "ingressClassName",
+              "type": "string"
+            },
+            "tls": {
+              "default": [],
+              "description": "Ingress TLS configuration",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "tls",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
+        "ocIngress": {
+          "additionalProperties": true,
+          "description": "OpenChoreo-specific ingress configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Ingress annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable OpenChoreo ingress",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Ingress hosts. If empty, derives from global.baseDomain",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            },
+            "ingressClassName": {
+              "default": "",
+              "description": "Ingress class name. If empty, uses global.ingressClassName",
+              "required": [],
+              "title": "ingressClassName",
+              "type": "string"
+            },
+            "tls": {
+              "default": [],
+              "description": "Ingress TLS configuration",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "tls",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ocIngress",
+          "type": "object"
+        },
+        "pdb": {
+          "additionalProperties": true,
+          "description": "Pod Disruption Budget configuration",
+          "properties": {
+            "minAvailable": {
+              "default": "50%",
+              "description": "Minimum available pods (percentage or number)",
+              "required": [],
+              "title": "minAvailable",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "pdb",
+          "type": "object"
+        },
+        "persistence": {
+          "additionalProperties": true,
+          "description": "Persistent storage configuration",
+          "properties": {
+            "accessMode": {
+              "default": "ReadWriteOnce",
+              "description": "Access mode for the persistent volume",
+              "enum": [
+                "ReadWriteOnce",
+                "ReadWriteMany",
+                "ReadOnlyMany"
+              ],
+              "required": [],
+              "title": "accessMode"
+            },
+            "annotations": {
+              "additionalProperties": true,
+              "default": {},
+              "description": "Annotations for the PVC",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable persistent storage",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "size": {
+              "default": "1Gi",
+              "description": "Size of the persistent volume",
+              "required": [],
+              "title": "size",
+              "type": "string"
+            },
+            "storageClass": {
+              "default": "",
+              "description": "Storage class name. If empty, uses default storage class",
+              "required": [],
+              "title": "storageClass",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "persistence",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": true,
+          "description": "Service configuration",
+          "properties": {
+            "port": {
+              "default": 8090,
+              "description": "Service port",
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": true,
+          "description": "Service account configuration",
+          "properties": {
+            "create": {
+              "default": true,
+              "description": "Create service account",
+              "required": [],
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "thunder-service-account",
+              "description": "Service account name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "setup": {
+          "additionalProperties": true,
+          "description": "Setup job configuration for Thunder initialization",
+          "properties": {
+            "backoffLimit": {
+              "default": 3,
+              "description": "Job backoff limit (retry count)",
+              "required": [],
+              "title": "backoffLimit",
+              "type": "integer"
+            },
+            "debug": {
+              "default": false,
+              "description": "Enable debug mode for setup job",
+              "required": [],
+              "title": "debug",
+              "type": "boolean"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable the setup job",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "preserveJob": {
+              "default": true,
+              "description": "Preserve job after completion",
+              "required": [],
+              "title": "preserveJob",
+              "type": "boolean"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource requests and limits for setup job",
+              "properties": {
+                "limits": {
+                  "additionalProperties": true,
+                  "description": "Resource limits",
+                  "properties": {
+                    "cpu": {
+                      "default": "500m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": true,
+                  "description": "Resource requests",
+                  "properties": {
+                    "cpu": {
+                      "default": "250m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            },
+            "ttlSecondsAfterFinished": {
+              "default": 86400,
+              "description": "Job retention time in seconds after completion (24 hours)",
+              "required": [],
+              "title": "ttlSecondsAfterFinished",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "setup",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "thunder",
+      "type": "object"
+    },
+    "traefik": {
+      "additionalProperties": true,
+      "description": "Traefik ingress controller configuration (subchart)",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enable Traefik ingress controller",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "openchoreo-traefik",
+          "description": "Override the Traefik release name",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "ingressClass": {
+          "additionalProperties": true,
+          "description": "IngressClass configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Create IngressClass resource",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "isDefaultClass": {
+              "default": false,
+              "description": "Set as the default IngressClass",
+              "required": [],
+              "title": "isDefaultClass",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "openchoreo-traefik",
+              "description": "IngressClass name",
+              "required": [],
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "ingressClass",
+          "type": "object"
+        },
+        "ingressRoute": {
+          "additionalProperties": true,
+          "description": "IngressRoute configuration for Traefik dashboard",
+          "properties": {
+            "dashboard": {
+              "additionalProperties": true,
+              "description": "Dashboard configuration",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Enable Traefik dashboard",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "dashboard",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "ingressRoute",
+          "type": "object"
+        },
+        "logs": {
+          "additionalProperties": true,
+          "description": "Logging configuration",
+          "properties": {
+            "access": {
+              "additionalProperties": true,
+              "description": "Access log configuration",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Enable access logs",
+                  "required": [],
+                  "title": "enabled",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "access",
+              "type": "object"
+            },
+            "general": {
+              "additionalProperties": true,
+              "description": "General logging configuration",
+              "properties": {
+                "level": {
+                  "default": "INFO",
+                  "description": "Log level",
+                  "enum": [
+                    "DEBUG",
+                    "INFO",
+                    "WARN",
+                    "ERROR"
+                  ],
+                  "required": [],
+                  "title": "level"
+                }
+              },
+              "required": [],
+              "title": "general",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "logs",
+          "type": "object"
+        },
+        "ports": {
+          "additionalProperties": true,
+          "description": "Port configuration for Traefik LoadBalancer",
+          "properties": {
+            "web": {
+              "additionalProperties": true,
+              "description": "HTTP port configuration",
+              "properties": {
+                "expose": {
+                  "additionalProperties": true,
+                  "description": "Expose configuration",
+                  "properties": {
+                    "default": {
+                      "default": true,
+                      "description": "Expose port by default",
+                      "required": [],
+                      "title": "default",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "expose",
+                  "type": "object"
+                },
+                "exposedPort": {
+                  "default": 80,
+                  "description": "LoadBalancer exposed port for HTTP",
+                  "required": [],
+                  "title": "exposedPort",
+                  "type": "integer"
+                },
+                "port": {
+                  "default": 8000,
+                  "description": "Container port for HTTP",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "web",
+              "type": "object"
+            },
+            "websecure": {
+              "additionalProperties": true,
+              "description": "HTTPS port configuration",
+              "properties": {
+                "expose": {
+                  "additionalProperties": true,
+                  "description": "Expose configuration",
+                  "properties": {
+                    "default": {
+                      "default": true,
+                      "description": "Expose port by default",
+                      "required": [],
+                      "title": "default",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "expose",
+                  "type": "object"
+                },
+                "exposedPort": {
+                  "default": 443,
+                  "description": "LoadBalancer exposed port for HTTPS",
+                  "required": [],
+                  "title": "exposedPort",
+                  "type": "integer"
+                },
+                "port": {
+                  "default": 8443,
+                  "description": "Container port for HTTPS",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                },
+                "tls": {
+                  "additionalProperties": true,
+                  "description": "TLS configuration for websecure port",
+                  "properties": {
+                    "enabled": {
+                      "default": true,
+                      "description": "Enable TLS on websecure port",
+                      "required": [],
+                      "title": "enabled",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [],
+                  "title": "tls",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "websecure",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "ports",
+          "type": "object"
+        },
+        "providers": {
+          "additionalProperties": true,
+          "description": "Kubernetes provider configuration",
+          "properties": {
+            "kubernetesIngress": {
+              "additionalProperties": true,
+              "description": "Kubernetes Ingress provider configuration",
+              "properties": {
+                "ingressClass": {
+                  "default": "openchoreo-traefik",
+                  "description": "IngressClass to watch",
+                  "required": [],
+                  "title": "ingressClass",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "kubernetesIngress",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "providers",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Resource limits",
+              "properties": {
+                "cpu": {
+                  "default": "500m",
+                  "description": "CPU limit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory limit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Resource requests",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": true,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "type": {
+              "default": "LoadBalancer",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "traefik",
+      "type": "object"
+    },
+    "waitJob": {
+      "additionalProperties": false,
+      "description": "Wait job configuration for Helm hooks",
+      "properties": {
+        "image": {
+          "default": "bitnamilegacy/kubectl:1.32.4",
+          "description": "Container image for wait jobs",
+          "required": [],
+          "title": "image",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "waitJob",
+      "type": "object"
+    },
+    "webhookService": {
+      "additionalProperties": false,
+      "description": "Webhook service configuration",
+      "properties": {
+        "ports": {
+          "description": "Ports exposed by the webhook service",
+          "items": {
+            "properties": {
+              "port": {
+                "required": [],
+                "type": "integer"
+              },
+              "protocol": {
+                "enum": [
+                  "TCP",
+                  "UDP"
+                ],
+                "required": [],
+                "type": "string"
+              },
+              "targetPort": {
+                "required": [],
+                "type": "integer"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "ports",
+          "type": "array"
+        },
+        "type": {
+          "default": "ClusterIP",
+          "description": "Service type",
+          "enum": [
+            "ClusterIP",
+            "NodePort",
+            "LoadBalancer"
+          ],
+          "required": [],
+          "title": "type"
+        }
+      },
+      "required": [],
+      "title": "webhookService",
+      "type": "object"
+    }
+  },
+  "required": [],
+  "type": "object"
+}

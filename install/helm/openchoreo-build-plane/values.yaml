@@ -1,110 +1,415 @@
-# Global configuration
+# @schema
+# type: object
+# additionalProperties: false
+# required:
+#   - defaultResources
+# @schema
+
+# @schema
+# type: object
+# description: Global configuration values shared across all components
+# @schema
 global:
-  # -- Common labels to add to every resource.
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Common labels to add to every resource
+  # @schema
   commonLabels: {}
-  # -- Base domain for external access (e.g., "openchoreo.example.com")
-  # When set, registry will be accessible at registry.<baseDomain>
+
+  # @schema
+  # type: string
+  # description: Base domain for external access. When set, registry will be accessible at registry.<baseDomain>.
+  # examples:
+  #   - openchoreo.example.com
+  # @schema
   baseDomain: ""
-  # -- Ingress class name for registry ingress
+
+  # @schema
+  # type: string
+  # description: Ingress class name for registry ingress
+  # default: openchoreo-traefik
+  # @schema
   ingressClassName: openchoreo-traefik
-  # TLS configuration
-  # When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>)
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: TLS configuration. When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>).
+  # @schema
   tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS for registry ingress
+    # default: false
+    # @schema
     enabled: false
-    # Secret containing TLS certificate for registry
+
+    # @schema
+    # type: string
+    # description: Secret containing TLS certificate for registry
+    # default: registry-tls
+    # @schema
     secretName: "registry-tls"
-  # -- Configuration for the default workflow templates required for building container images.
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Configuration for the default workflow templates required for building container images
+  # @schema
   defaultResources:
-    # -- If true, applies the workflow templates.
+    # @schema
+    # type: boolean
+    # description: If true, applies the workflow templates
+    # default: true
+    # @schema
     enabled: true
-    # -- Container registry configuration
+
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Container registry configuration
+    # @schema
     registry:
-      # -- Registry endpoint for pushing and pulling images
-      # For local registry: "registry.openchoreo-build-plane.svc.cluster.local:5000"
-      # For external registry with baseDomain: automatically uses "registry.<baseDomain>"
+      # @schema
+      # type: string
+      # description: Registry endpoint for pushing and pulling images. For external registry with baseDomain, automatically uses registry.<baseDomain>.
+      # default: registry.openchoreo-build-plane.svc.cluster.local:5000
+      # @schema
       endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
 
-    # -- Podman build cache configuration for workflow templates
-    # Shared PersistentVolumeClaim across all workflow executions for faster builds
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Podman build cache configuration for workflow templates. Shared PersistentVolumeClaim across all workflow executions for faster builds.
+    # @schema
     podmanCache:
-      # -- Size of the persistent volume for podman image layer cache
+      # @schema
+      # type: string
+      # description: Size of the persistent volume for podman image layer cache
+      # default: 10Gi
+      # @schema
       size: 10Gi
-      # -- Storage class for the cache PVC (optional, uses cluster default if not set)
+
+      # @schema
+      # type: string
+      # description: Storage class for the cache PVC. Uses cluster default if not set.
+      # @schema
       storageClass: ""
 
-    # Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
+    # @schema
     buildpackCache:
-      # -- Enable buildpack image caching hook
+      # @schema
+      # type: boolean
+      # description: Enable buildpack image caching hook
+      # default: true
+      # @schema
       enabled: true
+
+      # @schema
+      # type: array
+      # description: List of buildpack images to cache
+      # items:
+      #   type: object
+      #   additionalProperties: false
+      #   required:
+      #     - source
+      #     - cacheName
+      #   properties:
+      #     source:
+      #       type: string
+      #       description: Source image to pull from remote registry
+      #     cacheName:
+      #       type: string
+      #       description: Local cache name for the image in the build plane registry
+      # @schema
       images:
-        # Google Cloud Buildpacks
         - source: "docker.io/buildpacksio/lifecycle:0.20.5"
           cacheName: "buildpacks-cache/lifecycle:0.20.5"
         - source: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
           cacheName: "buildpacks-cache/google-builder:latest"
         - source: "gcr.io/buildpacks/google-22/run:latest"
           cacheName: "buildpacks-cache/google-run:latest"
-        # Ballerina Buildpacks
         - source: "ghcr.io/openchoreo/buildpack/ballerina:18"
           cacheName: "buildpacks-cache/ballerina-builder:18"
         - source: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
           cacheName: "buildpacks-cache/ballerina-run:18"
 
-# customizing the argo workflows configurations
+# @schema
+# type: object
+# additionalProperties: true
+# description: Argo Workflows sub-chart configuration. See https://github.com/argoproj/argo-helm/tree/main/charts/argo-workflows for all options.
+# @schema
 argo-workflows:
+  # @schema
+  # type: string
+  # description: Override the full name of Argo Workflows resources
+  # default: argo
+  # @schema
   fullnameOverride: argo
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Argo Workflows controller configuration
+  # @schema
   controller:
-    # -- Resource limits and requests for the argo workflows controller
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the argo workflows controller
+    # @schema
     resources:
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Maximum resources the controller can consume
+      # @schema
       limits:
+        # @schema
+        # type: string
+        # description: Memory limit for the controller
+        # default: 64Mi
+        # @schema
         memory: 64Mi
+        # @schema
+        # type: string
+        # description: CPU limit for the controller
+        # default: 50m
+        # @schema
         cpu: 50m
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Minimum resources guaranteed for the controller
+      # @schema
       requests:
+        # @schema
+        # type: string
+        # description: Memory request for the controller
+        # default: 32Mi
+        # @schema
         memory: 32Mi
+        # @schema
+        # type: string
+        # description: CPU request for the controller
+        # default: 25m
+        # @schema
         cpu: 25m
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Argo Workflows server (UI) configuration
+  # @schema
   server:
+    # @schema
+    # type: boolean
+    # description: Enable the Argo Workflows server UI
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: CRD management configuration
+  # @schema
   crds:
+    # @schema
+    # type: boolean
+    # description: Keep CRDs on chart uninstall
+    # default: false
+    # @schema
     keep: false
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Workflow configuration
+  # @schema
   workflow:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Service account configuration for workflows
+    # @schema
     serviceAccount:
+      # @schema
+      # type: boolean
+      # description: Create service account for workflows
+      # default: true
+      # @schema
       create: true
+
+  # @schema
+  # type: array
+  # description: Namespaces where Argo Workflows can submit workflows
+  # items:
+  #   type: string
+  # @schema
   workflowNamespaces:
     - argo-build
 
-# Wait job configuration for post-install hooks
+# @schema
+# type: object
+# additionalProperties: false
+# description: Wait job configuration for post-install hooks
+# @schema
 waitJob:
+  # @schema
+  # type: string
+  # description: Container image used for wait jobs (must contain kubectl)
+  # default: bitnamilegacy/kubectl:1.32.4
+  # @schema
   image: bitnamilegacy/kubectl:1.32.4
 
-# External Secrets Operator configuration for secret management
-# Single cluster: Set to false to use data plane's ESO
-# Multi-cluster: Set to true to install dedicated ESO in build plane
+# @schema
+# type: object
+# additionalProperties: true
+# description: External Secrets Operator sub-chart configuration. See https://github.com/external-secrets/external-secrets for all options. Single cluster - set enabled to false to use data plane's ESO. Multi-cluster - set enabled to true to install dedicated ESO in build plane.
+# @schema
 external-secrets:
+  # @schema
+  # type: boolean
+  # description: Install External Secrets Operator in the build plane
+  # default: false
+  # @schema
   enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of External Secrets resources
+  # default: external-secrets
+  # @schema
   fullnameOverride: external-secrets
+
+  # @schema
+  # type: string
+  # description: Override the name of External Secrets resources
+  # default: external-secrets
+  # @schema
   nameOverride: external-secrets
 
-# Container Registry configuration using Twuni Docker Registry Helm Chart
-# Hosts container images built by Argo Workflows in the Build Plane
+# @schema
+# type: object
+# additionalProperties: true
+# description: Container Registry sub-chart configuration using Twuni Docker Registry Helm Chart. Hosts container images built by Argo Workflows in the Build Plane. See https://github.com/twuni/docker-registry.helm for all options.
+# @schema
 registry:
+  # @schema
+  # type: string
+  # description: Override the full name of registry resources
+  # default: registry
+  # @schema
   fullnameOverride: registry
-  # Enable persistence
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Persistence configuration for registry data
+  # @schema
   persistence:
+    # @schema
+    # type: boolean
+    # description: Enable persistent storage for registry
+    # default: true
+    # @schema
     enabled: true
+
+    # @schema
+    # type: string
+    # description: Size of the persistent volume for registry storage
+    # default: 10Gi
+    # @schema
     size: 10Gi
-  # Ingress for external registry access (auto-enabled when global.baseDomain is set)
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Ingress for external registry access. Auto-enabled when global.baseDomain is set.
+  # @schema
   ingress:
+    # @schema
+    # type: boolean
+    # description: Enable ingress for external registry access
+    # default: false
+    # @schema
     enabled: false
+
+    # @schema
+    # type: string
+    # description: Ingress class name. Falls back to global.ingressClassName if not set.
+    # @schema
     className: ""
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Annotations to add to the ingress resource
+    # @schema
     annotations: {}
+
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: TLS configuration for registry ingress
+    # @schema
     tls:
+      # @schema
+      # type: boolean
+      # description: Enable TLS for registry ingress
+      # default: false
+      # @schema
       enabled: false
+
+      # @schema
+      # type: string
+      # description: Secret containing TLS certificate
+      # @schema
       secretName: ""
 
-# Fake Secret Store configuration for local development
+# @schema
+# type: object
+# additionalProperties: false
+# description: Fake Secret Store configuration for local development. Creates a ClusterSecretStore with static secrets for testing purposes. Not for production use.
+# @schema
 fakeSecretStore:
+  # @schema
+  # type: boolean
+  # description: Enable the fake secret store for development
+  # default: true
+  # @schema
   enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the ClusterSecretStore resource
+  # default: default
+  # @schema
   name: default
+
+  # @schema
+  # type: array
+  # description: List of fake secrets to create for development
+  # items:
+  #   type: object
+  #   additionalProperties: false
+  #   required:
+  #     - key
+  #     - value
+  #   properties:
+  #     key:
+  #       type: string
+  #       description: Secret key name
+  #     value:
+  #       type: string
+  #       description: Secret value (fake/development only)
+  # @schema
   secrets:
     - key: github-pat
       value: "fake-github-token-for-development"
@@ -115,20 +420,67 @@ fakeSecretStore:
     - key: docker-password
       value: "dev-password"
 
+# @schema
+# type: object
+# additionalProperties: false
+# description: Fluent Bit configuration for log collection and forwarding to OpenSearch
+# @schema
 fluentBit:
+  # @schema
+  # type: boolean
+  # description: Enable Fluent Bit log collection
+  # default: false
+  # @schema
   enabled: false
 
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Fluent Bit container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Fluent Bit image repository
+    # default: fluent/fluent-bit
+    # @schema
     repository: fluent/fluent-bit
+
+    # @schema
+    # type: string
+    # description: Fluent Bit image tag
+    # default: "2.1.10"
+    # @schema
     tag: "2.1.10"
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Fluent Bit configuration sections
+  # @schema
   config:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Fluent Bit service configuration
+    # @schema
     service:
       flush: 1
       logLevel: info
-      daemon: off
+      daemon: "off"
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Fluent Bit input plugin configuration
+    # @schema
     input:
       name: tail
       tag: "kube.*"
@@ -141,6 +493,11 @@ fluentBit:
       skipLongLines: true
       refreshInterval: 10
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Fluent Bit filter plugin configuration
+    # @schema
     filter:
       name: kubernetes
       match: "kube.*"
@@ -153,6 +510,11 @@ fluentBit:
       k8sLoggingParser: true
       k8sLoggingExclude: false
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Fluent Bit output plugin configuration
+    # @schema
     output:
       name: opensearch
       match: "kube.*"
@@ -164,7 +526,11 @@ fluentBit:
       traceError: true
       suppressTypeName: true
 
-    # OpenSearch connection configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: OpenSearch connection configuration
+    # @schema
     opensearch:
       host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
       port: "9200"
@@ -175,6 +541,11 @@ fluentBit:
       tls: false
       tlsVerify: false
 
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Fluent Bit parser configuration
+    # @schema
     parser:
       name: docker
       format: json
@@ -182,99 +553,381 @@ fluentBit:
       timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
       timeKeep: true
 
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: RBAC configuration for Fluent Bit
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources
+    # default: true
+    # @schema
     create: true
+
+    # @schema
+    # type: string
+    # description: Service account name for Fluent Bit
+    # default: fluent-bit
+    # @schema
     serviceAccountName: fluent-bit
 
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Host paths for log access
+  # @schema
   hostPaths:
+    # @schema
+    # type: string
+    # description: Host path for /var/log
+    # default: /var/log
+    # @schema
     varLog: /var/log
+
+    # @schema
+    # type: string
+    # description: Host path for Docker containers
+    # default: /var/lib/docker/containers
+    # @schema
     dockerContainers: /var/lib/docker/containers
 
-# Cluster Agent configuration for agent-based communication with control plane
+# @schema
+# type: object
+# additionalProperties: true
+# description: Cluster Agent configuration for agent-based communication with control plane
+# @schema
 clusterAgent:
-  enabled: true  # Enabled by default for single-cluster setups
+  # @schema
+  # type: boolean
+  # description: Enable the cluster agent for control plane communication
+  # default: true
+  # @schema
+  enabled: true
+
+  # @schema
+  # type: string
+  # description: Name of the cluster agent deployment
+  # default: cluster-agent-buildplane
+  # @schema
   name: cluster-agent-buildplane
+
+  # @schema
+  # type: integer
+  # description: Number of cluster agent replicas
+  # default: 1
+  # minimum: 0
+  # @schema
   replicas: 1
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Cluster agent container image configuration
+  # @schema
   image:
+    # @schema
+    # type: string
+    # description: Image repository for cluster agent
+    # default: ghcr.io/openchoreo/cluster-agent
+    # @schema
     repository: ghcr.io/openchoreo/cluster-agent
-    tag: "" # If no value is set, use Chart.AppVersion
+
+    # @schema
+    # type: string
+    # description: Image tag. If empty, uses Chart.AppVersion.
+    # @schema
+    tag: ""
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
     pullPolicy: IfNotPresent
-  # Server URL of the cluster gateway in control plane
+
+  # @schema
+  # type: string
+  # description: WebSocket URL of the cluster gateway in control plane
+  # default: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
+  # @schema
   serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
 
-  # Logical plane identifier - shared across multiple CRs connecting to the same physical plane
-  # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
-  # If not specified, defaults to Helm release name
-  # Example: "shared-builder" - all BuildPlane CRs with planeID="shared-builder" share this agent
+  # @schema
+  # type: string
+  # description: Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.
+  # default: default-buildplane
+  # @schema
   planeID: default-buildplane
 
-  # Type of plane (dataplane, buildplane, or observabilityplane)
+  # @schema
+  # description: Type of plane
+  # enum: [dataplane, buildplane, observabilityplane]
+  # default: buildplane
+  # @schema
   planeType: buildplane
-  # DNS rewrite configuration (for multi-cluster k3d setups)
-  # When enabled, configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: DNS rewrite configuration for multi-cluster k3d setups. Configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal.
+  # @schema
   dnsRewrite:
+    # @schema
+    # type: boolean
+    # description: Enable DNS rewrite for k3d setups
+    # default: false
+    # @schema
     enabled: false
+
+  # @schema
+  # type: string
+  # description: Heartbeat interval for control plane connection
+  # default: 30s
+  # @schema
   heartbeatInterval: 30s
+
+  # @schema
+  # type: string
+  # description: Delay before reconnecting on disconnection
+  # default: 5s
+  # @schema
   reconnectDelay: 5s
+
+  # @schema
+  # description: Log level for cluster agent
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
   logLevel: info
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Resource requests and limits for cluster agent
+  # @schema
   resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed
+    # @schema
     requests:
       cpu: "50m"
       memory: "128Mi"
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the agent can consume
+    # @schema
     limits:
       cpu: "100m"
       memory: "256Mi"
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Service account configuration for cluster agent
+  # @schema
   serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create service account
+    # default: true
+    # @schema
     create: true
+
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: cluster-agent-buildplane
+    # @schema
     name: cluster-agent-buildplane
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Annotations to add to the service account
+    # @schema
     annotations: {}
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: RBAC configuration for cluster agent
+  # @schema
   rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources
+    # default: true
+    # @schema
     create: true
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Priority class configuration for cluster agent pods
+  # @schema
   priorityClass:
+    # @schema
+    # type: boolean
+    # description: Create priority class
+    # default: false
+    # @schema
     create: false
+
+    # @schema
+    # type: string
+    # description: Priority class name
+    # default: cluster-agent-buildplane
+    # @schema
     name: cluster-agent-buildplane
+
+    # @schema
+    # type: integer
+    # description: Priority value
+    # default: 900000
+    # @schema
     value: 900000
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: TLS configuration for secure control plane communication
+  # @schema
   tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS for agent communication
+    # default: true
+    # @schema
     enabled: true
-    # Generate client certificates locally using cert-manager (multi-cluster setup)
-    # Set to true when the build plane is in a different cluster from control plane
-    # When true, cert-manager will generate the client certificates instead of copying CA from control plane
+
+    # @schema
+    # type: boolean
+    # description: Generate client certificates locally using cert-manager. Set to true for multi-cluster setup.
+    # default: false
+    # @schema
     generateCerts: false
-    # Secret containing client certificate and key
+
+    # @schema
+    # type: string
+    # description: Secret containing client certificate and key
+    # default: cluster-agent-tls
+    # @schema
     secretName: cluster-agent-tls
+
+    # @schema
+    # type: string
+    # description: Client certificate secret name
+    # default: cluster-agent-tls
+    # @schema
     clientSecretName: cluster-agent-tls
-    # ConfigMap containing server CA certificate for verifying gateway
+
+    # @schema
+    # type: string
+    # description: ConfigMap containing server CA certificate for verifying gateway
+    # default: cluster-gateway-ca
+    # @schema
     serverCAConfigMap: cluster-gateway-ca
-    # Optional: Inline server CA certificate value (PEM format)
-    # For multi-cluster setup where agent needs to verify gateway server
-    # If provided, this value is used instead of copying from control plane
+
+    # @schema
+    # type: string
+    # description: Inline server CA certificate value (PEM format) for multi-cluster setup
+    # @schema
     serverCAValue: ""
-    # CA secret for signing agent client certificates
-    # Option 1: Reference existing secret (single-cluster setup)
-    # This should be the name of the cluster-gateway-ca secret created in control plane
+
+    # @schema
+    # type: string
+    # description: CA secret name for signing agent client certificates
+    # default: cluster-gateway-ca
+    # @schema
     caSecretName: cluster-gateway-ca
-    # Namespace where the CA secret exists (control plane namespace)
+
+    # @schema
+    # type: string
+    # description: Namespace where the CA secret exists
+    # default: openchoreo-control-plane
+    # @schema
     caSecretNamespace: openchoreo-control-plane
-    # Option 2: Inline CA certificate value (PEM format, multi-cluster setup)
-    # If provided, this takes precedence over caSecretName/caSecretNamespace
-    # Use this when build plane is in a different cluster from control plane
+
+    # @schema
+    # type: string
+    # description: Inline CA certificate value (PEM format) for multi-cluster setup
+    # @schema
     caValue: ""
-    # Certificate duration and renewal
-    duration: 2160h # 90 days
-    renewBefore: 360h # 15 days
-  # Namespace where cluster-gateway CA exists (control plane namespace)
+
+    # @schema
+    # type: string
+    # description: Certificate duration
+    # default: 2160h
+    # @schema
+    duration: 2160h
+
+    # @schema
+    # type: string
+    # description: Certificate renewal window
+    # default: 360h
+    # @schema
+    renewBefore: 360h
+
+  # @schema
+  # type: string
+  # description: Namespace where cluster-gateway CA exists
+  # default: openchoreo-control-plane
+  # @schema
   serverCANamespace: openchoreo-control-plane
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Pod security context for cluster agent
+  # @schema
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Container security context for cluster agent
+  # @schema
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
         - ALL
     readOnlyRootFilesystem: true
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Annotations to add to cluster agent pods
+  # @schema
   podAnnotations: {}
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Node selector for cluster agent pods
+  # @schema
   nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for cluster agent pods
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # @schema
   tolerations: []
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Affinity rules for cluster agent pods
+  # @schema
   affinity: {}
