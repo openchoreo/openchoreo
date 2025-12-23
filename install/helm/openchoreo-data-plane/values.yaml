@@ -350,7 +350,7 @@ clusterAgent:
   # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
   # If not specified, defaults to Helm release name
   # Example: "prod-cluster" - all DataPlane CRs with planeID="prod-cluster" share this agent
-  planeID: ""
+  planeID: default-dataplane
 
   # Type of plane (dataplane, buildplane, or observabilityplane)
   planeType: dataplane

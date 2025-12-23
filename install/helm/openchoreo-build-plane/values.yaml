@@ -206,7 +206,7 @@ clusterAgent:
   # One agent per physical plane handles all CRs with the same planeID (multi-tenancy)
   # If not specified, defaults to Helm release name
   # Example: "shared-builder" - all BuildPlane CRs with planeID="shared-builder" share this agent
-  planeID: ""
+  planeID: default-buildplane
 
   # Type of plane (dataplane, buildplane, or observabilityplane)
   planeType: buildplane

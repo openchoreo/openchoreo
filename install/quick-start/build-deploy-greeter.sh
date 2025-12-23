@@ -118,7 +118,7 @@ declare -A build_phases_seen
 elapsed=0
 while true; do
     # Get WorkflowRun namespace (where the Argo Workflow runs)
-    WORKFLOW_NS=$(kubectl get workflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.runReference.namespace' || echo "")
+    WORKFLOW_NS=$(kubectl get componentworkflowrun "$WORKFLOWRUN_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.runReference.namespace' || echo "")
 
     # Check build phase by looking at pods in the workflow namespace
     if [[ -n "$WORKFLOW_NS" ]] && [[ "$WORKFLOW_NS" != "null" ]]; then

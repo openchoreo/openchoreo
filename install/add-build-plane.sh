@@ -47,7 +47,7 @@ Options:
                                     Default: same as --namespace
 
   --plane-id ID                     (Optional) Logical plane identifier shared across multiple CRs
-                                    If not specified, each CR uses its own name as the effective planeID
+                                    Default: default-buildplane
                                     Use this for multi-tenant setups where multiple CRs share same physical plane
 
   --dry-run                         Preview the YAML without applying changes
@@ -92,7 +92,7 @@ CONTROL_PLANE_CONTEXT=""       # Control plane cluster (create resource here)
 BUILDPLANE_CONTEXT=""          # Build plane cluster for CA extraction
 BUILDPLANE_NAME="default"
 NAMESPACE="default"
-PLANE_ID=""                    # Optional logical plane identifier
+PLANE_ID="default-buildplane"  # Optional logical plane identifier
 DRY_RUN=false
 AGENT_CA_SECRET=""             # Empty by default - triggers auto-extract mode
 AGENT_CA_NAMESPACE=""

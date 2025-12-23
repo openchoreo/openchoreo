@@ -126,7 +126,7 @@ fi
 
 # Step 9: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
-    bash "${SCRIPT_DIR}/add-data-plane.sh" --name default --plane-id dataplane-default
+    bash "${SCRIPT_DIR}/add-data-plane.sh" --name default
 else
     log_warning "add-data-plane.sh not found, skipping dataplane configuration"
 fi
@@ -134,7 +134,7 @@ fi
 # Step 10: Add default buildplane (if build plane enabled)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/add-build-plane.sh" --name default --plane-id buildplane-default
+        bash "${SCRIPT_DIR}/add-build-plane.sh" --name default
     else
         log_warning "add-build-plane.sh not found, skipping buildplane configuration"
     fi
@@ -143,7 +143,7 @@ fi
 # Step 11: Add default observabilityplane (if observability plane enabled)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default --plane-id observabilityplane-default
+        bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
     else
         log_warning "add-observability-plane.sh not found, skipping observabilityplane configuration"
     fi
