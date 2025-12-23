@@ -841,7 +841,7 @@ clusterAgent:
 
     # @schema
     # type: string
-    # description: CA secret name for signing agent client certificates
+    # description: CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).
     # default: cluster-gateway-ca
     # @schema
     caSecretName: cluster-gateway-ca

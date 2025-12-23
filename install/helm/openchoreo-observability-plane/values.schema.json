@@ -379,7 +379,7 @@
           "properties": {
             "caSecretName": {
               "default": "cluster-gateway-ca",
-              "description": "Name of the CA secret for signing agent certificates (single-cluster)",
+              "description": "CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).",
               "required": [],
               "title": "caSecretName",
               "type": "string"
