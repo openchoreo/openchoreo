@@ -338,6 +338,22 @@ var (
 		Usage: "Preview changes without writing files",
 		Type:  "bool",
 	}
+
+	TargetEnv = Flag{
+		Name:      "target-env",
+		Shorthand: "e",
+		Usage:     "Target environment for the release binding",
+	}
+
+	UsePipeline = Flag{
+		Name:  "use-pipeline",
+		Usage: "Deployment pipeline name for environment validation",
+	}
+
+	ComponentRelease = Flag{
+		Name:  "component-release",
+		Usage: "Explicit component release name (only valid with --project and --component)",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.
