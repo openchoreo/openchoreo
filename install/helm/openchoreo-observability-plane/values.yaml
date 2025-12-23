@@ -695,6 +695,20 @@ opentelemetryCollectorCustomizations:
       nonSampledCacheSize: 1000
     spansPerSecond: 10
 
+
+# Common security configuration shared across all components
+security:
+  # Global security toggle - when disabled, authentication is turned off for all components
+  enabled: true
+  oidc:
+    issuer: ""
+    jwksUrl: ""
+    jwksUrlTlsInsecureSkipVerify: "false"
+  jwt:
+    # Expected audience claim in JWT tokens
+    audience: ""
+
+
 tls:
   enabled: false
 
