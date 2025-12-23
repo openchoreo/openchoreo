@@ -386,7 +386,7 @@
             },
             "caSecretNamespace": {
               "default": "openchoreo-control-plane",
-              "description": "Namespace where the CA secret exists",
+              "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
               "required": [],
               "title": "caSecretNamespace",
               "type": "string"
@@ -645,17 +645,6 @@
           "required": [],
           "title": "image",
           "type": "object"
-        },
-        "installationMode": {
-          "default": "singleCluster",
-          "description": "Installation mode determining feature set and multi-cluster behavior",
-          "enum": [
-            "singleCluster",
-            "multiCluster",
-            "quickStart"
-          ],
-          "required": [],
-          "title": "installationMode"
         },
         "manager": {
           "additionalProperties": false,
@@ -1531,7 +1520,7 @@
       "type": "object"
     },
     "global": {
-      "additionalProperties": false,
+      "additionalProperties": true,
       "description": "Global values shared across all components in the observability plane",
       "properties": {
         "baseDomain": {
@@ -1550,6 +1539,17 @@
           "required": [],
           "title": "commonLabels",
           "type": "object"
+        },
+        "installationMode": {
+          "default": "singleCluster",
+          "description": "Installation mode of OpenChoreo",
+          "enum": [
+            "singleCluster",
+            "multiCluster",
+            "quickStart"
+          ],
+          "required": [],
+          "title": "installationMode"
         }
       },
       "required": [],

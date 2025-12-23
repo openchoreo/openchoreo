@@ -595,7 +595,7 @@
             },
             "caSecretNamespace": {
               "default": "openchoreo-control-plane",
-              "description": "Namespace where CA secret exists (typically control plane namespace)",
+              "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
               "required": [],
               "title": "caSecretNamespace",
               "type": "string"

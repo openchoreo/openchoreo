@@ -13,6 +13,7 @@
 
 # @schema
 # type: object
+# additionalProperties: true
 # description: Global values shared across all components in the observability plane
 # @schema
 global:
@@ -2150,7 +2151,7 @@ clusterAgent:
     caSecretName: cluster-gateway-ca
     # @schema
     # type: string
-    # description: Namespace where the CA secret exists
+    # description: Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).
     # default: openchoreo-control-plane
     # @schema
     caSecretNamespace: openchoreo-control-plane
