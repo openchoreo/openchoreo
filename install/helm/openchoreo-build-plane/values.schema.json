@@ -942,12 +942,6 @@
               "additionalProperties": true,
               "description": "Fluent Bit output plugin configuration",
               "properties": {
-                "index": {
-                  "default": "kubernetes_cluster",
-                  "required": [],
-                  "title": "index",
-                  "type": "string"
-                },
                 "logstashFormat": {
                   "default": true,
                   "required": [],
@@ -955,7 +949,7 @@
                   "type": "boolean"
                 },
                 "logstashPrefix": {
-                  "default": "kubernetes",
+                  "default": "container-logs",
                   "required": [],
                   "title": "logstashPrefix",
                   "type": "string"
@@ -1000,7 +994,6 @@
               "required": [
                 "name",
                 "match",
-                "index",
                 "type",
                 "logstashFormat",
                 "logstashPrefix",

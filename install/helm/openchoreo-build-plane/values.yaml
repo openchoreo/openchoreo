@@ -518,10 +518,9 @@ fluentBit:
     output:
       name: opensearch
       match: "kube.*"
-      index: kubernetes_cluster
       type: flb_type
       logstashFormat: true
-      logstashPrefix: kubernetes
+      logstashPrefix: container-logs
       timeKey: "@timestamp"
       traceError: true
       suppressTypeName: true
