@@ -65,9 +65,9 @@ spec:
         - name: JWT_AUDIENCE
           value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
-          value: "{{ not .Values.security.enabled }}"
+          value: {{ not .Values.security.enabled | quote }}
         - name: AUTHZ_ENABLED
-          value: "{{ .Values.security.authz.enabled }}"
+          value: {{ .Values.security.authz.enabled | quote }}
         - name: AUTHZ_DATABASE_PATH
           value: {{ .Values.security.authz.databasePath | quote }}
         - name: AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH
