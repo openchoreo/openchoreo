@@ -15,7 +15,6 @@ import (
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine
-	options        RenderOptions
 }
 
 // RenderInput contains all inputs needed to render a component's resources.
@@ -110,26 +109,4 @@ type RenderMetadata struct {
 
 	// Warnings contains non-fatal issues encountered during rendering.
 	Warnings []string
-}
-
-// RenderOptions configures the rendering behavior.
-type RenderOptions struct {
-	// EnableValidation enables resource validation after rendering.
-	// When enabled, resources missing required fields (apiVersion, kind, metadata.name) will cause rendering to fail.
-	EnableValidation bool
-
-	// ResourceLabels are additional labels to add to all rendered resources.
-	ResourceLabels map[string]string
-
-	// ResourceAnnotations are additional annotations to add to all rendered resources.
-	ResourceAnnotations map[string]string
-}
-
-// DefaultRenderOptions returns the default rendering options.
-func DefaultRenderOptions() RenderOptions {
-	return RenderOptions{
-		EnableValidation:    true,
-		ResourceLabels:      map[string]string{},
-		ResourceAnnotations: map[string]string{},
-	}
 }
