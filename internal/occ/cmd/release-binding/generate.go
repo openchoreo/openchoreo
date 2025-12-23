@@ -1,0 +1,293 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package releasebinding
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
+
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
+	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
+)
+
+const releaseConfigFileName = "release-config.yaml"
+
+// ReleaseBindingImpl implements ReleaseBindingAPI
+type ReleaseBindingImpl struct{}
+
+// NewReleaseBindingImpl creates a new ReleaseBindingImpl
+func NewReleaseBindingImpl() *ReleaseBindingImpl {
+	return &ReleaseBindingImpl{}
+}
+
+// GenerateReleaseBinding implements the release-binding generate command
+func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
+	// 1. Load context and validate file-system mode
+	cfg, err := config.LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.CurrentContext == "" {
+		return fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var ctx *configContext.Context
+	for _, c := range cfg.Contexts {
+		if c.Name == cfg.CurrentContext {
+			ctxCopy := c
+			ctx = &ctxCopy
+			break
+		}
+	}
+
+	if ctx == nil {
+		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
+	}
+
+	if ctx.Mode != configContext.ModeFileSystem {
+		return fmt.Errorf("release-binding generate only supports file-system mode currently; current mode is %q", ctx.Mode)
+	}
+
+	repoPath := ctx.RootDirectoryPath
+	if repoPath == "" {
+		repoPath, _ = os.Getwd()
+	}
+
+	// 2. Load or build index
+	fmt.Println("Loading index...")
+	persistentIndex, err := cache.LoadOrBuild(repoPath)
+	if err != nil {
+		return fmt.Errorf("failed to build index: %w", err)
+	}
+
+	ocIndex := fsmode.WrapIndex(persistentIndex.Index)
+
+	// 3. Load release config (required for bulk operations)
+	requireConfig := params.All || (params.ProjectName != "" && params.ComponentName == "")
+	releaseConfig, err := r.loadReleaseConfig(repoPath, requireConfig)
+	if err != nil {
+		return err
+	}
+
+	// 4. Get and validate deployment pipeline
+	pipelineEntry, ok := ocIndex.GetDeploymentPipeline(params.UsePipeline)
+	if !ok {
+		return fmt.Errorf("deployment pipeline %q not found", params.UsePipeline)
+	}
+
+	pipelineInfo, err := pipeline.ParsePipeline(pipelineEntry.Resource)
+	if err != nil {
+		return fmt.Errorf("failed to parse deployment pipeline: %w", err)
+	}
+
+	// 5. Validate target environment exists in pipeline
+	if err := pipelineInfo.ValidateEnvironment(params.TargetEnv); err != nil {
+		return fmt.Errorf("invalid target environment: %w", err)
+	}
+
+	// 6. Get namespace from context
+	namespace := ctx.Organization
+	if namespace == "" {
+		return fmt.Errorf("organization is required in context")
+	}
+
+	// 7. Create generator
+	gen := generator.NewBindingGenerator(ocIndex)
+	baseDir := repoPath
+
+	// 8. Generate bindings based on scope
+	if params.All {
+		return r.generateAll(gen, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig)
+	}
+
+	if params.ComponentName != "" {
+		// Single component mode
+		return r.generateForComponent(gen, params, namespace, pipelineInfo, baseDir, releaseConfig)
+	}
+
+	// Project-only scope
+	if params.ProjectName != "" {
+		return r.generateForProject(gen, params.ProjectName, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig)
+	}
+
+	return nil
+}
+
+// loadReleaseConfig loads the release-config.yaml file
+func (r *ReleaseBindingImpl) loadReleaseConfig(repoPath string, requireForBulk bool) (*occonfig.ReleaseConfig, error) {
+	configPath := filepath.Join(repoPath, releaseConfigFileName)
+
+	// Check if file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		if requireForBulk {
+			return nil, fmt.Errorf("release-config.yaml not found in %s (required for --all or --project operations)", repoPath)
+		}
+		return nil, nil
+	}
+
+	// Load the config
+	releaseConfig, err := occonfig.LoadReleaseConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load release-config.yaml: %w", err)
+	}
+
+	return releaseConfig, nil
+}
+
+func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
+		All:          true,
+		TargetEnv:    targetEnv,
+		PipelineInfo: pipelineInfo,
+		Namespace:    namespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+}
+
+func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator, project, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
+		ProjectName:  project,
+		TargetEnv:    targetEnv,
+		PipelineInfo: pipelineInfo,
+		Namespace:    namespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+}
+
+func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerator, params api.GenerateReleaseBindingParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig) error {
+	binding, err := gen.GenerateBinding(generator.BindingOptions{
+		ProjectName:      params.ProjectName,
+		ComponentName:    params.ComponentName,
+		ComponentRelease: params.ComponentRelease,
+		TargetEnv:        params.TargetEnv,
+		PipelineInfo:     pipelineInfo,
+		Namespace:        namespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	if params.DryRun {
+		return r.printYAML(binding)
+	}
+
+	// Write to file
+	writer := output.NewWriter(baseDir)
+
+	// Determine output directory using config if available
+	var componentOutputDir string
+	if releaseConfig != nil {
+		componentOutputDir = releaseConfig.GetBindingOutputDir(params.ProjectName, params.ComponentName)
+	}
+	// If user provided --output-path, use it; otherwise use config or default
+	if componentOutputDir == "" && params.OutputPath != "" {
+		componentOutputDir = params.OutputPath
+	}
+
+	writeOpts := output.WriteOptions{
+		DryRun:    false,
+		OutputDir: componentOutputDir,
+	}
+
+	path, _, err := writer.WriteBinding(binding, writeOpts)
+	if err != nil {
+		return fmt.Errorf("failed to write binding: %w", err)
+	}
+
+	fmt.Printf("Generated: %s\n", path)
+	return nil
+}
+
+func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+	// Print errors first
+	for _, e := range result.Errors {
+		fmt.Fprintf(os.Stderr, "Error generating binding for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
+	}
+
+	// Write or print bindings
+	if dryRun {
+		// Dry-run mode: print all bindings to stdout
+		for _, info := range result.Bindings {
+			action := "Created"
+			if info.IsUpdate {
+				action = "Updated"
+			}
+			fmt.Printf("# %s binding: %s (project: %s, component: %s, release: %s)\n",
+				action, info.BindingName, info.ProjectName, info.ComponentName, info.ReleaseName)
+			if err := r.printYAML(info.Binding); err != nil {
+				return err
+			}
+			fmt.Println("---")
+		}
+	} else {
+		// Use bulk write with config for proper output directory resolution
+		bindings := make([]*unstructured.Unstructured, 0, len(result.Bindings))
+		for _, info := range result.Bindings {
+			bindings = append(bindings, info.Binding)
+		}
+
+		writer := output.NewWriter(baseDir)
+		writeResult, err := writer.WriteBulkBindings(bindings, output.BulkBindingWriteOptions{
+			Config:    releaseConfig,
+			OutputDir: customOutputPath,
+			DryRun:    false,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to write bindings: %w", err)
+		}
+
+		// Print results
+		for i, path := range writeResult.OutputPaths {
+			action := "Created"
+			if i < len(result.Bindings) && result.Bindings[i].IsUpdate {
+				action = "Updated"
+			}
+			fmt.Printf("%s: %s\n", action, path)
+		}
+		if len(writeResult.Errors) > 0 {
+			fmt.Fprintf(os.Stderr, "\nWrite errors:\n")
+			for _, err := range writeResult.Errors {
+				fmt.Fprintf(os.Stderr, "  - %v\n", err)
+			}
+		}
+
+		// Print summary
+		fmt.Printf("\nSummary: %d bindings generated, %d errors\n",
+			len(writeResult.OutputPaths), len(result.Errors)+len(writeResult.Errors))
+		return nil
+	}
+
+	fmt.Printf("\nSummary: %d bindings generated, %d errors\n", len(result.Bindings), len(result.Errors))
+	return nil
+}
+
+func (r *ReleaseBindingImpl) printYAML(resource interface{}) error {
+	data, err := yaml.Marshal(resource)
+	if err != nil {
+		return fmt.Errorf("failed to marshal to YAML: %w", err)
+	}
+	fmt.Print(string(data))
+	return nil
+}

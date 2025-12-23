@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logs"
+	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/release-binding"
 	scaffoldcomponent "github.com/openchoreo/openchoreo/internal/occ/cmd/scaffold/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -245,6 +246,6 @@ func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComp
 // Release Binding Operations (File-System Mode)
 
 func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
-	// TODO: Implement this
-	return fmt.Errorf("release-binding generate command is not yet implemented")
+	bindingImpl := releasebinding.NewReleaseBindingImpl()
+	return bindingImpl.GenerateReleaseBinding(params)
 }

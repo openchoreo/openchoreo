@@ -11,6 +11,7 @@ import (
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/create"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
+	releasebinding "github.com/openchoreo/openchoreo/pkg/cli/cmd/release-binding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/scaffold"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
@@ -38,6 +39,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		delete.NewDeleteCmd(impl),
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(impl),
+		releasebinding.NewReleaseBindingCmd(impl),
 	)
 
 	return rootCmd
