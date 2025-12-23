@@ -65,14 +65,20 @@ spec:
           containerPort: 8080
           protocol: TCP
         env:
+        {{- if .Values.security.oidc.issuer }}
         - name: JWT_ISSUER
           value: {{ .Values.security.oidc.issuer | quote }}
+        {{- end }}
+        {{- if .Values.security.oidc.jwksUrl }}
         - name: JWKS_URL
           value: {{ .Values.security.oidc.jwksUrl | quote }}
+        {{- end }}
         - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
           value: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}
+        {{- if .Values.security.jwt.audience }}
         - name: JWT_AUDIENCE
           value: {{ .Values.security.jwt.audience | quote }}
+        {{- end }}
         - name: JWT_DISABLED
           value: "{{ not .Values.security.enabled }}"
         - name: PORT

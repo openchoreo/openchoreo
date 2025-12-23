@@ -45,4 +45,3 @@ rca:
 security:
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
-    jwksUrlTlsInsecureSkipVerify: true

@@ -3630,9 +3630,35 @@
               "required": [],
               "title": "enabled",
               "type": "boolean"
+            },
+            "rcaAgentClient": {
+              "additionalProperties": false,
+              "description": "RCA Agent OAuth2 Client (client_credentials grant type)",
+              "properties": {
+                "clientId": {
+                  "default": "openchoreo-rca-agent",
+                  "required": [],
+                  "title": "clientId",
+                  "type": "string"
+                },
+                "clientSecret": {
+                  "default": "openchoreo-rca-agent-secret",
+                  "required": [],
+                  "title": "clientSecret",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "clientId",
+                "clientSecret"
+              ],
+              "title": "rcaAgentClient",
+              "type": "object"
             }
           },
-          "required": [],
+          "required": [
+            "rcaAgentClient"
+          ],
           "title": "bootstrap",
           "type": "object"
         },
