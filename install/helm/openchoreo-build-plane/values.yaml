@@ -537,8 +537,8 @@ fluentBit:
       authentication:
         basicauth:
           username: "admin"
-          password: "admin"
-      tls: false
+          password: "ThisIsTheOpenSearchPassword1"
+      tls: true
       tlsVerify: false
 
     # @schema
