@@ -19,9 +19,13 @@ type OwnerRef struct {
 
 // ExtractOwnerRef extracts owner reference information from a resource entry
 func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
-	if entry == nil {
+	if entry == nil || entry.Resource == nil {
 		return nil
 	}
+
+	// For Component resources, componentName is in metadata.name
+	// For ComponentRelease and ReleaseBinding, both are in spec.owner
+	kind := entry.Resource.GroupVersionKind().Kind
 
 	ownerMap := entry.GetNestedMap("spec", "owner")
 	if ownerMap == nil {
@@ -30,6 +34,11 @@ func ExtractOwnerRef(entry *index.ResourceEntry) *OwnerRef {
 
 	projectName, _ := ownerMap["projectName"].(string)
 	componentName, _ := ownerMap["componentName"].(string)
+
+	// For Component resources, get componentName from metadata.name
+	if kind == "Component" {
+		componentName = entry.Name()
+	}
 
 	if projectName == "" && componentName == "" {
 		return nil
