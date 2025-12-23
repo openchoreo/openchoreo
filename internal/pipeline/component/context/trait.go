@@ -65,6 +65,8 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
+	ctx.Workload = input.WorkloadData
+	ctx.Configurations = input.Configurations
 
 	return ctx, nil
 }

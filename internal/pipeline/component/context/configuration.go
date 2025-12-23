@@ -7,12 +7,12 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// extractConfigurationsFromWorkload extracts env and file configurations from all containers
+// ExtractConfigurationsFromWorkload extracts env and file configurations from all containers
 // and organizes them by container name with configs vs secrets separation.
 // Returns a map where each key is a container name, and the value contains configs and secrets.
 // Always initializes empty slices for envs and files to ensure they're never nil.
 // Example structure: {"app": {"configs": {"envs": [...], "files": [...]}, "secrets": {"envs": [...], "files": [...]}}}
-func extractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) ContainerConfigurationsMap {
+func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) ContainerConfigurationsMap {
 	result := make(ContainerConfigurationsMap)
 
 	// Process all containers in the workload

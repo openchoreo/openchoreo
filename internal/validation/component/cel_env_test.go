@@ -164,30 +164,20 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 	assert.Contains(t, issues.Err().Error(), "undefined field")
 }
 
-func TestBuildTraitCELEnv_NoWorkloadVariables(t *testing.T) {
-	// Traits should not have access to workload or configurations
+func TestBuildTraitCELEnv_AllVariables(t *testing.T) {
+	// Traits should have access to all variables including workload and configurations
 	env, err := BuildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
-	// These should fail to compile (variables don't exist)
-	invalidExprs := []string{
-		"workload.containers",
-		"configurations.app",
-	}
-
-	for _, expr := range invalidExprs {
-		t.Run(expr, func(t *testing.T) {
-			_, issues := env.Compile(expr)
-			assert.NotNil(t, issues.Err(), "Expression '%s' should fail (trait context doesn't have this variable)", expr)
-		})
-	}
-
-	// These should work (trait-specific variables)
+	// All trait context variables should be accessible
 	validExprs := []string{
 		"trait.instanceName",
 		"metadata.name",
 		"dataplane.secretStore",
+		"workload.containers",
+		"workload.endpoints",
+		"configurations.app",
 	}
 
 	for _, expr := range validExprs {
@@ -304,9 +294,13 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 		// Invalid dataplane access
 		{"invalid dataplane.badField", "dataplane.badField", true, "undefined field"},
 
-		// Trait should not have workload or configurations
-		{"trait no workload", "workload.containers", true, "undeclared reference"},
-		{"trait no configurations", "configurations", true, "undeclared reference"},
+		// Trait has access to workload
+		{"valid workload.containers", "workload.containers", false, ""},
+		{"valid workload.endpoints", "workload.endpoints", false, ""},
+
+		// Trait has access to configurations
+		{"valid configurations", "configurations", false, ""},
+		{"valid configurations.app", "configurations.app", false, ""},
 	}
 
 	for _, tt := range tests {

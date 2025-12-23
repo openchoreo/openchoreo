@@ -242,29 +242,19 @@ func TestCELValidator_IterableExpression_Invalid(t *testing.T) {
 	}
 }
 
-func TestCELValidator_TraitResource_NoWorkloadAccess(t *testing.T) {
-	// Trait validator should not allow access to workload-related variables
+func TestCELValidator_TraitResource_AllVariables(t *testing.T) {
+	// Trait validator should allow access to all variables including workload and configurations
 	validator, err := NewCELValidator(TraitResource, SchemaOptions{})
 	require.NoError(t, err)
 
-	// These should fail - trait context doesn't have these variables
-	invalidExprs := []string{
-		"workload.containers",
-		"configurations.app",
-	}
-
-	for _, expr := range invalidExprs {
-		t.Run(expr, func(t *testing.T) {
-			err := validator.ValidateExpression(expr)
-			assert.Error(t, err, "Trait should not have access to '%s'", expr)
-		})
-	}
-
-	// These should work - trait has access to these
+	// All trait context variables should be accessible
 	validExprs := []string{
 		"trait.instanceName",
 		"metadata.name",
 		"dataplane.secretStore",
+		"workload.containers",
+		"workload.endpoints",
+		"configurations.app",
 	}
 
 	for _, expr := range validExprs {
@@ -285,6 +275,7 @@ func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 		"metadata.name",
 		"metadata.namespace",
 		"workload.containers",
+		"workload.endpoints",
 		"configurations.app",
 		"dataplane.secretStore",
 	}

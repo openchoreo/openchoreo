@@ -65,15 +65,25 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
+	// Apply workload overrides from ReleaseBinding if present
+	workload := input.Workload
+	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
+		workload = context.MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+	}
+
+	// Pre-compute workload data and configurations once and share across all contexts
+	workloadData := context.ExtractWorkloadData(workload)
+	configurations := context.ExtractConfigurationsFromWorkload(input.SecretReferences, workload)
+
 	// Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
-		Component:        input.Component,
-		ComponentType:    input.ComponentType,
-		Workload:         input.Workload,
-		ReleaseBinding:   input.ReleaseBinding,
-		DataPlane:        input.DataPlane,
-		SecretReferences: input.SecretReferences,
-		Metadata:         input.Metadata,
+		Component:      input.Component,
+		ComponentType:  input.ComponentType,
+		ReleaseBinding: input.ReleaseBinding,
+		DataPlane:      input.DataPlane,
+		WorkloadData:   workloadData,
+		Configurations: configurations,
+		Metadata:       input.Metadata,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
@@ -118,6 +128,8 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Instance:       traitInstance,
 			Component:      input.Component,
 			ReleaseBinding: input.ReleaseBinding,
+			WorkloadData:   workloadData,
+			Configurations: configurations,
 			Metadata:       input.Metadata,
 			SchemaCache:    schemaCache,
 			DataPlane:      input.DataPlane,

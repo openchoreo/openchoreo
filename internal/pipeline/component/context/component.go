@@ -47,13 +47,9 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	ctx.Parameters = parameters
 	ctx.EnvOverrides = envOverrides
 
-	workload := input.Workload
-	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
-		workload = MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
-	}
-
-	ctx.Workload = extractWorkloadData(workload)
-	ctx.Configurations = extractConfigurationsFromWorkload(input.SecretReferences, workload)
+	// WorkloadData and Configurations should be pre-computed by the caller
+	ctx.Workload = input.WorkloadData
+	ctx.Configurations = input.Configurations
 
 	// Ensure metadata maps are always initialized
 	ctx.Metadata = input.Metadata
@@ -181,10 +177,13 @@ func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 	return data
 }
 
-// extractWorkloadData extracts relevant workload information for the rendering context.
-func extractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
+// ExtractWorkloadData extracts relevant workload information for the rendering context.
+// This function is exported so callers can pre-compute workload data once and share
+// it across multiple context builds (ComponentContext and TraitContexts).
+func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 	data := WorkloadData{
 		Containers: make(map[string]ContainerData),
+		Endpoints:  make(map[string]EndpointData),
 	}
 
 	if workload == nil {
@@ -197,6 +196,20 @@ func extractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			Command: container.Command,
 			Args:    container.Args,
 		}
+	}
+
+	for name, endpoint := range workload.Spec.Endpoints {
+		epData := EndpointData{
+			Type: string(endpoint.Type),
+			Port: endpoint.Port,
+		}
+		if endpoint.Schema != nil {
+			epData.Schema = &SchemaData{
+				Type:    endpoint.Schema.Type,
+				Content: endpoint.Schema.Content,
+			}
+		}
+		data.Endpoints[name] = epData
 	}
 
 	return data
