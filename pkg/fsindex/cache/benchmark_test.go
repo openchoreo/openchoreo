@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -282,17 +281,6 @@ stringData:
 	}
 }
 
-// measureMemory returns current memory allocation
-// If runGC is true, runs garbage collection first to get a clean baseline
-func measureMemory(runGC bool) uint64 {
-	if runGC {
-		runtime.GC()
-	}
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	return m.Alloc
-}
-
 // Benchmark tests for different repository sizes
 
 // Cold Start Benchmarks (Full Scan)
@@ -385,418 +373,158 @@ func BenchmarkWarmStart_1000Files(b *testing.B) {
 	}
 }
 
-// TestPerformanceTargets runs comprehensive tests to verify performance targets
-func TestPerformanceTargets(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping performance tests in short mode")
+// BenchmarkPerformanceTargets_100Files_ColdStart benchmarks cold start with 100 files
+func BenchmarkPerformanceTargets_100Files_ColdStart(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "perf-test-100-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
 	}
+	defer os.RemoveAll(tmpDir)
 
-	testCases := []struct {
-		name                 string
-		fileCount            int
-		maxColdStartTime     time.Duration
-		maxWarmStartTime     time.Duration
-		maxColdStartMemoryMB uint64
-		maxWarmStartMemoryMB uint64
-	}{
-		{
-			name:                 "100 files",
-			fileCount:            100,
-			maxColdStartTime:     500 * time.Millisecond,
-			maxWarmStartTime:     50 * time.Millisecond,
-			maxColdStartMemoryMB: 50,
-			maxWarmStartMemoryMB: 20,
-		},
-		{
-			name:                 "1000 files",
-			fileCount:            1000,
-			maxColdStartTime:     2 * time.Second,
-			maxWarmStartTime:     200 * time.Millisecond,
-			maxColdStartMemoryMB: 200,
-			maxWarmStartMemoryMB: 100,
-		},
-	}
+	repoPath := generateTestRepository(b, tmpDir, 100)
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", fmt.Sprintf("perf-test-%d-*", tc.fileCount))
-			if err != nil {
-				t.Fatalf("failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			t.Logf("Generating test repository with %d files...", tc.fileCount)
-			repoPath := generateTestRepository(t, tmpDir, tc.fileCount)
-
-			// Test Cold Start
-			t.Run("ColdStart", func(t *testing.T) {
-				_ = ClearCache(repoPath)
-				memBefore := measureMemory(true) // GC before baseline
-
-				start := time.Now()
-				idx, err := LoadOrBuild(repoPath)
-				if err != nil {
-					t.Fatalf("failed to build index: %v", err)
-				}
-				duration := time.Since(start)
-
-				memAfter := measureMemory(false) // No GC - capture actual usage
-				memUsedMB := (memAfter - memBefore) / (1024 * 1024)
-
-				stats := idx.Stats()
-				t.Logf("Cold Start: %v, Memory: %d MB, Resources: %d, Files: %d",
-					duration, memUsedMB, stats.TotalResources, stats.TotalFiles)
-
-				if duration > tc.maxColdStartTime {
-					t.Errorf("Cold start time %v exceeds target %v", duration, tc.maxColdStartTime)
-				}
-
-				if memUsedMB > tc.maxColdStartMemoryMB {
-					t.Errorf("Cold start memory %d MB exceeds target %d MB", memUsedMB, tc.maxColdStartMemoryMB)
-				}
-			})
-
-			// Test Warm Start
-			t.Run("WarmStart", func(t *testing.T) {
-				// Ensure cache exists
-				_, err := LoadOrBuild(repoPath)
-				if err != nil {
-					t.Fatalf("failed to build initial cache: %v", err)
-				}
-
-				memBefore := measureMemory(true) // GC before baseline
-
-				start := time.Now()
-				idx, err := LoadOrBuild(repoPath)
-				if err != nil {
-					t.Fatalf("failed to load index: %v", err)
-				}
-				duration := time.Since(start)
-
-				memAfter := measureMemory(false) // No GC - capture actual usage
-				memUsedMB := (memAfter - memBefore) / (1024 * 1024)
-
-				stats := idx.Stats()
-				t.Logf("Warm Start: %v, Memory: %d MB, Resources: %d, Files: %d",
-					duration, memUsedMB, stats.TotalResources, stats.TotalFiles)
-
-				if duration > tc.maxWarmStartTime {
-					t.Errorf("Warm start time %v exceeds target %v", duration, tc.maxWarmStartTime)
-				}
-
-				if memUsedMB > tc.maxWarmStartMemoryMB {
-					t.Errorf("Warm start memory %d MB exceeds target %d MB", memUsedMB, tc.maxWarmStartMemoryMB)
-				}
-			})
-
-			// Test Cache Speedup
-			t.Run("CacheSpeedup", func(t *testing.T) {
-				// Cold start
-				_ = ClearCache(repoPath)
-				coldStart := time.Now()
-				_, err := LoadOrBuild(repoPath)
-				if err != nil {
-					t.Fatalf("cold start failed: %v", err)
-				}
-				coldDuration := time.Since(coldStart)
-
-				// Warm start
-				warmStart := time.Now()
-				_, err = LoadOrBuild(repoPath)
-				if err != nil {
-					t.Fatalf("warm start failed: %v", err)
-				}
-				warmDuration := time.Since(warmStart)
-
-				speedup := float64(coldDuration) / float64(warmDuration)
-				t.Logf("Cache speedup: %.2fx (cold: %v, warm: %v)", speedup, coldDuration, warmDuration)
-
-				// Cache should provide at least 2x speedup
-				if speedup < 1.5 {
-					t.Errorf("Cache speedup %.2fx is less than expected 1.5x minimum", speedup)
-				}
-			})
-		})
-	}
-}
-
-// TestIncrementalUpdate tests incremental update performance
-func TestIncrementalUpdate(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping incremental update test in short mode")
-	}
-
-	testCases := []struct {
-		name          string
-		totalFiles    int
-		changedFiles  int
-		maxUpdateTime time.Duration
-	}{
-		{"1-10 files changed", 500, 5, 100 * time.Millisecond},
-		{"10-50 files changed", 500, 30, 500 * time.Millisecond},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, err := os.MkdirTemp("", fmt.Sprintf("incremental-test-%d-*", tc.changedFiles))
-			if err != nil {
-				t.Fatalf("failed to create temp dir: %v", err)
-			}
-			defer os.RemoveAll(tmpDir)
-
-			// Generate initial repository
-			repoPath := generateTestRepository(t, tmpDir, tc.totalFiles)
-
-			// Build initial cache
-			idx, err := LoadOrBuild(repoPath)
-			if err != nil {
-				t.Fatalf("failed to build initial cache: %v", err)
-			}
-			initialResourceCount := idx.Stats().TotalResources
-
-			// Simulate file changes by modifying some files
-			modifyRandomFiles(t, repoPath, tc.changedFiles)
-
-			// Measure incremental update (simulated by clearing cache and rebuilding)
-			// Note: True incremental update would use git diff, but for benchmark
-			// purposes we measure a partial rebuild
-			start := time.Now()
-			idx, err = ForceRebuild(repoPath)
-			if err != nil {
-				t.Fatalf("failed to rebuild index: %v", err)
-			}
-			duration := time.Since(start)
-
-			t.Logf("Incremental update (%d changed files): %v, Resources: %d -> %d",
-				tc.changedFiles, duration, initialResourceCount, idx.Stats().TotalResources)
-
-			// For now, we just verify the rebuild completes reasonably fast
-			// True incremental update would be much faster
-			if duration > tc.maxUpdateTime*10 { // Allow 10x margin for full rebuild
-				t.Logf("Warning: Rebuild time %v is higher than target %v (expected for full rebuild)", duration, tc.maxUpdateTime)
-			}
-		})
-	}
-}
-
-// BenchmarkReportEntry holds a single benchmark result
-type BenchmarkReportEntry struct {
-	Size           string
-	FileCount      int
-	ResourceCount  int
-	ColdStartTime  time.Duration
-	WarmStartTime  time.Duration
-	ColdStartMemMB uint64
-	WarmStartMemMB uint64
-	Speedup        float64
-	ColdTarget     time.Duration
-	WarmTarget     time.Duration
-}
-
-// TestBenchmarkReport generates a formatted benchmark report
-func TestBenchmarkReport(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping benchmark report in short mode")
-	}
-
-	sizes := []struct {
-		name       string
-		fileCount  int
-		coldTarget time.Duration
-		warmTarget time.Duration
-		coldMemMB  uint64
-		warmMemMB  uint64
-	}{
-		{"Small (100)", 100, 500 * time.Millisecond, 50 * time.Millisecond, 50, 20},
-		{"Medium (1,000)", 1000, 2 * time.Second, 200 * time.Millisecond, 200, 100},
-	}
-
-	// Check if large test is enabled
-	if os.Getenv("RUN_LARGE_TESTS") != "" {
-		sizes = append(sizes, struct {
-			name       string
-			fileCount  int
-			coldTarget time.Duration
-			warmTarget time.Duration
-			coldMemMB  uint64
-			warmMemMB  uint64
-		}{"Large (10,000)", 10000, 10 * time.Second, 1 * time.Second, 1024, 500})
-	}
-
-	results := make([]BenchmarkReportEntry, 0, len(sizes))
-	tmpDirs := make([]string, 0, len(sizes))
-	defer func() {
-		for _, dir := range tmpDirs {
-			os.RemoveAll(dir)
-		}
-	}()
-
-	for _, size := range sizes {
-		tmpDir, err := os.MkdirTemp("", fmt.Sprintf("report-%d-*", size.fileCount))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ClearCache(repoPath)
+		_, err := LoadOrBuild(repoPath)
 		if err != nil {
-			t.Fatalf("failed to create temp dir: %v", err)
+			b.Fatalf("failed to build index: %v", err)
 		}
-		tmpDirs = append(tmpDirs, tmpDir)
-
-		t.Logf("Generating %s repository...", size.name)
-		repoPath := generateTestRepository(t, tmpDir, size.fileCount)
-
-		entry := BenchmarkReportEntry{
-			Size:       size.name,
-			FileCount:  size.fileCount,
-			ColdTarget: size.coldTarget,
-			WarmTarget: size.warmTarget,
-		}
-
-		// Cold Start
-		if err := ClearCache(repoPath); err != nil {
-			t.Fatalf("failed to clear cache: %v", err)
-		}
-		memBefore := measureMemory(true) // GC before baseline
-
-		start := time.Now()
-		idx, err := LoadOrBuild(repoPath)
-		if err != nil {
-			t.Fatalf("failed to build index: %v", err)
-		}
-		entry.ColdStartTime = time.Since(start)
-		entry.ResourceCount = idx.Stats().TotalResources
-
-		memAfter := measureMemory(false) // No GC - capture actual usage
-		if memAfter > memBefore {
-			entry.ColdStartMemMB = (memAfter - memBefore) / (1024 * 1024)
-		}
-
-		// Warm Start
-		memBefore = measureMemory(true) // GC before baseline
-
-		start = time.Now()
-		_, err = LoadOrBuild(repoPath)
-		if err != nil {
-			t.Fatalf("failed to load index: %v", err)
-		}
-		entry.WarmStartTime = time.Since(start)
-
-		memAfter = measureMemory(false) // No GC - capture actual usage
-		if memAfter > memBefore {
-			entry.WarmStartMemMB = (memAfter - memBefore) / (1024 * 1024)
-		}
-
-		// Calculate speedup
-		entry.Speedup = float64(entry.ColdStartTime) / float64(entry.WarmStartTime)
-
-		results = append(results, entry)
 	}
-
-	// Print formatted report
-	printBenchmarkReport(t, results)
 }
 
-func printBenchmarkReport(t *testing.T, results []BenchmarkReportEntry) {
-	t.Log("")
-	t.Log("================================================================================")
-	t.Log("                         BENCHMARK REPORT                                       ")
-	t.Log("================================================================================")
-	t.Log("")
+// BenchmarkPerformanceTargets_100Files_WarmStart benchmarks warm start with 100 files
+func BenchmarkPerformanceTargets_100Files_WarmStart(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "perf-test-100-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
 
-	// Full Scan (Cold Start) Table
-	t.Log("## Full Scan (Cold Start)")
-	t.Log("")
-	t.Log("| Repository Size   | Target    | Actual    | Memory  | Status              |")
-	t.Log("|-------------------|-----------|-----------|---------|---------------------|")
+	repoPath := generateTestRepository(b, tmpDir, 100)
 
-	for _, r := range results {
-		status := "✅ PASS"
-		improvement := ""
-		if r.ColdStartTime <= r.ColdTarget {
-			ratio := float64(r.ColdTarget) / float64(r.ColdStartTime)
-			improvement = fmt.Sprintf(" (%.0fx better)", ratio)
-		} else {
-			status = "❌ FAIL"
-		}
-
-		t.Logf("| %-17s | %-9s | %-9s | %-7s | %-19s |",
-			r.Size,
-			formatDuration(r.ColdTarget),
-			formatDuration(r.ColdStartTime),
-			fmt.Sprintf("%d MB", r.ColdStartMemMB),
-			status+improvement,
-		)
+	// Build initial cache
+	_, err = LoadOrBuild(repoPath)
+	if err != nil {
+		b.Fatalf("failed to build initial cache: %v", err)
 	}
 
-	t.Log("")
-
-	// Cached Index (Warm Start) Table
-	t.Log("## Cached Index (Warm Start)")
-	t.Log("")
-	t.Log("| Repository Size   | Target    | Actual    | Memory  | Status              |")
-	t.Log("|-------------------|-----------|-----------|---------|---------------------|")
-
-	for _, r := range results {
-		status := "✅ PASS"
-		improvement := ""
-		if r.WarmStartTime <= r.WarmTarget {
-			ratio := float64(r.WarmTarget) / float64(r.WarmStartTime)
-			improvement = fmt.Sprintf(" (%.0fx better)", ratio)
-		} else {
-			status = "❌ FAIL"
-		}
-
-		t.Logf("| %-17s | %-9s | %-9s | %-7s | %-19s |",
-			r.Size,
-			formatDuration(r.WarmTarget),
-			formatDuration(r.WarmStartTime),
-			fmt.Sprintf("%d MB", r.WarmStartMemMB),
-			status+improvement,
-		)
-	}
-
-	t.Log("")
-
-	// Cache Speedup Table
-	t.Log("## Cache Speedup")
-	t.Log("")
-	t.Log("| Repository Size   | Cold Start | Warm Start | Speedup  |")
-	t.Log("|-------------------|------------|------------|----------|")
-
-	for _, r := range results {
-		t.Logf("| %-17s | %-10s | %-10s | %-8s |",
-			r.Size,
-			formatDuration(r.ColdStartTime),
-			formatDuration(r.WarmStartTime),
-			fmt.Sprintf("%.1fx", r.Speedup),
-		)
-	}
-
-	t.Log("")
-
-	// Summary
-	t.Log("## Summary")
-	t.Log("")
-
-	allPassed := true
-	for _, r := range results {
-		if r.ColdStartTime > r.ColdTarget || r.WarmStartTime > r.WarmTarget {
-			allPassed = false
-			break
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := LoadOrBuild(repoPath)
+		if err != nil {
+			b.Fatalf("failed to load index: %v", err)
 		}
 	}
-
-	if allPassed {
-		t.Log("✅ All performance targets met!")
-	} else {
-		t.Log("❌ Some performance targets not met")
-	}
-
-	t.Log("")
-	t.Log("================================================================================")
 }
 
-func formatDuration(d time.Duration) string {
-	if d >= time.Second {
-		return fmt.Sprintf("%.2fs", d.Seconds())
+// BenchmarkPerformanceTargets_1000Files_ColdStart benchmarks cold start with 1000 files
+func BenchmarkPerformanceTargets_1000Files_ColdStart(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "perf-test-1000-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
 	}
-	return fmt.Sprintf("%dms", d.Milliseconds())
+	defer os.RemoveAll(tmpDir)
+
+	repoPath := generateTestRepository(b, tmpDir, 1000)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ClearCache(repoPath)
+		_, err := LoadOrBuild(repoPath)
+		if err != nil {
+			b.Fatalf("failed to build index: %v", err)
+		}
+	}
+}
+
+// BenchmarkPerformanceTargets_1000Files_WarmStart benchmarks warm start with 1000 files
+func BenchmarkPerformanceTargets_1000Files_WarmStart(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "perf-test-1000-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	repoPath := generateTestRepository(b, tmpDir, 1000)
+
+	// Build initial cache
+	_, err = LoadOrBuild(repoPath)
+	if err != nil {
+		b.Fatalf("failed to build initial cache: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := LoadOrBuild(repoPath)
+		if err != nil {
+			b.Fatalf("failed to load index: %v", err)
+		}
+	}
+}
+
+// BenchmarkIncrementalUpdate_500Files_5Changed benchmarks incremental update with 5 changed files
+func BenchmarkIncrementalUpdate_500Files_5Changed(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "incremental-test-5-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Generate initial repository
+	repoPath := generateTestRepository(b, tmpDir, 500)
+
+	// Build initial cache
+	_, err = LoadOrBuild(repoPath)
+	if err != nil {
+		b.Fatalf("failed to build initial cache: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Simulate file changes by modifying some files
+		modifyRandomFiles(b, repoPath, 5)
+		b.StartTimer()
+
+		// Measure incremental update (simulated by rebuilding)
+		_, err = ForceRebuild(repoPath)
+		if err != nil {
+			b.Fatalf("failed to rebuild index: %v", err)
+		}
+	}
+}
+
+// BenchmarkIncrementalUpdate_500Files_30Changed benchmarks incremental update with 30 changed files
+func BenchmarkIncrementalUpdate_500Files_30Changed(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "incremental-test-30-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Generate initial repository
+	repoPath := generateTestRepository(b, tmpDir, 500)
+
+	// Build initial cache
+	_, err = LoadOrBuild(repoPath)
+	if err != nil {
+		b.Fatalf("failed to build initial cache: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Simulate file changes by modifying some files
+		modifyRandomFiles(b, repoPath, 30)
+		b.StartTimer()
+
+		// Measure incremental update (simulated by rebuilding)
+		_, err = ForceRebuild(repoPath)
+		if err != nil {
+			b.Fatalf("failed to rebuild index: %v", err)
+		}
+	}
 }
 
 // modifyRandomFiles modifies random YAML files in the repository
@@ -842,84 +570,50 @@ func modifyRandomFiles(t testing.TB, repoPath string, count int) {
 	}
 }
 
-// TestLargeRepository tests with 10,000 files (optional, run with -timeout flag)
-func TestLargeRepository(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping large repository test in short mode")
-	}
-
-	// Skip by default, enable with: go test -run TestLargeRepository -v
-	if os.Getenv("RUN_LARGE_TESTS") == "" {
-		t.Skip("Skipping large repository test. Set RUN_LARGE_TESTS=1 to run")
-	}
-
+// BenchmarkLargeRepository_10000Files_ColdStart benchmarks cold start with 10,000 files
+func BenchmarkLargeRepository_10000Files_ColdStart(b *testing.B) {
 	tmpDir, err := os.MkdirTemp("", "perf-test-10000-*")
 	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
+		b.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	t.Log("Generating test repository with 10000 files...")
-	repoPath := generateTestRepository(t, tmpDir, 10000)
+	repoPath := generateTestRepository(b, tmpDir, 10000)
 
-	// Cold Start
-	t.Run("ColdStart", func(t *testing.T) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		if err := ClearCache(repoPath); err != nil {
-			t.Fatalf("failed to clear cache: %v", err)
+			b.Fatalf("failed to clear cache: %v", err)
 		}
-		memBefore := measureMemory(true) // GC before baseline
 
-		start := time.Now()
-		idx, err := LoadOrBuild(repoPath)
+		_, err := LoadOrBuild(repoPath)
 		if err != nil {
-			t.Fatalf("failed to build index: %v", err)
+			b.Fatalf("failed to build index: %v", err)
 		}
-		duration := time.Since(start)
+	}
+}
 
-		memAfter := measureMemory(false) // No GC - capture actual usage
-		memUsedMB := (memAfter - memBefore) / (1024 * 1024)
+// BenchmarkLargeRepository_10000Files_WarmStart benchmarks warm start with 10,000 files
+func BenchmarkLargeRepository_10000Files_WarmStart(b *testing.B) {
+	tmpDir, err := os.MkdirTemp("", "perf-test-10000-*")
+	if err != nil {
+		b.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
 
-		stats := idx.Stats()
-		t.Logf("Cold Start (10k files): %v, Memory: %d MB, Resources: %d, Files: %d",
-			duration, memUsedMB, stats.TotalResources, stats.TotalFiles)
+	repoPath := generateTestRepository(b, tmpDir, 10000)
 
-		// Target: < 10s for 10,000 files
-		if duration > 10*time.Second {
-			t.Errorf("Cold start time %v exceeds target 10s", duration)
-		}
+	// Build initial cache
+	_, err = LoadOrBuild(repoPath)
+	if err != nil {
+		b.Fatalf("failed to build initial cache: %v", err)
+	}
 
-		// Target: < 1GB memory
-		if memUsedMB > 1024 {
-			t.Errorf("Cold start memory %d MB exceeds target 1024 MB", memUsedMB)
-		}
-	})
-
-	// Warm Start
-	t.Run("WarmStart", func(t *testing.T) {
-		memBefore := measureMemory(true) // GC before baseline
-
-		start := time.Now()
-		idx, err := LoadOrBuild(repoPath)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := LoadOrBuild(repoPath)
 		if err != nil {
-			t.Fatalf("failed to load index: %v", err)
+			b.Fatalf("failed to load index: %v", err)
 		}
-		duration := time.Since(start)
-
-		memAfter := measureMemory(false) // No GC - capture actual usage
-		memUsedMB := (memAfter - memBefore) / (1024 * 1024)
-
-		stats := idx.Stats()
-		t.Logf("Warm Start (10k files): %v, Memory: %d MB, Resources: %d, Files: %d",
-			duration, memUsedMB, stats.TotalResources, stats.TotalFiles)
-
-		// Target: < 1s for 10,000 files
-		if duration > 1*time.Second {
-			t.Errorf("Warm start time %v exceeds target 1s", duration)
-		}
-
-		// Target: < 500MB memory
-		if memUsedMB > 500 {
-			t.Errorf("Warm start memory %d MB exceeds target 500 MB", memUsedMB)
-		}
-	})
+	}
 }

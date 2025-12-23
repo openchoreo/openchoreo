@@ -170,8 +170,9 @@ type ComponentContext struct {
 
 // DataPlaneData provides data plane configuration in templates.
 type DataPlaneData struct {
-	SecretStore       string `json:"secretStore,omitempty"`
-	PublicVirtualHost string `json:"publicVirtualHost,omitempty"`
+	SecretStore           string `json:"secretStore,omitempty"`
+	PublicVirtualHost     string `json:"publicVirtualHost,omitempty"`
+	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
 }
 
 // WorkloadData contains workload information for templates.

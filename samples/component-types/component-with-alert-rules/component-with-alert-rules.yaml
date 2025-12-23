@@ -1,0 +1,291 @@
+# ComponentType without Alert Rules
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: http-service-with-alert-rules
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=80"
+
+    envOverrides:
+      resources:
+        $default: {}
+        requests:
+          $default: {}
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          $default: {}
+          cpu: "string | default=1000m"
+          memory: "string | default=1Gi"
+
+  resources:
+    # Kubernetes deployment for the HTTP service
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
+                    limits:
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
+
+    # Kubernetes service to expose the HTTP service deployment
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+
+    # Gateway API HTTPRoute to accept ingress traffic to the HTTP service
+    - id: httproute
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: gateway-default
+              namespace: openchoreo-data-plane
+          hostnames:
+            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
+          rules:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.componentName}
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /
+            backendRefs:
+            - name: ${metadata.componentName}
+              port: 80
+
+---
+# Addon for Alert Rules - reusable across any component type
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: observability-alertrule
+  namespace: default
+spec:
+  schema:
+    parameters:
+      # Developer-facing parameters - static across environments
+      description: "string"
+      severity: "string | default=warning"
+      source:
+        type: "string"
+        query: "string"
+      condition:
+        window: "string | default=5m"
+        interval: "string | default=1m"
+        operator: "string | default=gt"
+        threshold: "integer | default=10"
+
+    envOverrides:
+      # Platform engineers can override per environment
+      enabled: "boolean | default=true"
+      enableAiRootCauseAnalysis: "boolean | default=false"
+      notificationChannel: "string"
+
+  creates:
+    - targetPlane: observabilityplane
+      includeWhen: ${has(dataplane.observabilityPlaneRef)}
+      template:
+        apiVersion: openchoreo.dev/v1alpha1
+        kind: ObservabilityAlertRule
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels:
+            # Required for observability backends. Automatically populated by the controller.
+            openchoreo.dev/component-uid: ${metadata.componentUID}
+            openchoreo.dev/project-uid: ${metadata.projectUID}
+            openchoreo.dev/environment-uid: ${metadata.environmentUID}
+        spec:
+          name: ${trait.instanceName}
+          description: ${parameters.description}
+          severity: ${parameters.severity}
+          enabled: ${envOverrides.enabled}
+          enableAiRootCauseAnalysis: ${envOverrides.enableAiRootCauseAnalysis}
+          notificationChannel: ${envOverrides.notificationChannel}
+          source:
+            type: ${parameters.source.type}
+            query: ${parameters.source.query}
+          condition:
+            window: ${parameters.condition.window}
+            interval: ${parameters.condition.interval}
+            operator: ${parameters.condition.operator}
+            threshold: ${parameters.condition.threshold}
+
+---
+# Component using the ComponentType and the Alert Rules addon
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-alert-simulator-http-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType: deployment/http-service-with-alert-rules
+
+  # Parameters for the ComponentType
+  parameters:
+    replicas: 2
+    port: 8080
+
+  # Traits - Alert Rules is now added as a trait
+  traits:
+    - name: observability-alertrule
+      instanceName: error-logs-alert-rule
+      parameters:
+        description: "fires alert when 'ERROR: Critical failure detected' log message is received more than 10 times in 5 minutes"
+        severity: "critical"
+        source:
+          type: "log"
+          query: "ERROR: Critical failure detected"
+        condition:
+          window: "5m"
+          interval: "1m"
+          operator: "gt"
+          threshold: 10
+    # TODO: Add CPU/Memory usage based alert rules
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-alert-simulator-http-service-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-alert-simulator-http-service
+
+  containers:
+    app:
+      image: "akila99g/observability-alerts-simulator:v0.0.1" # TODO: Replace with OpenChoreo built image
+      args:
+        - --port
+        - "8080"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: demo-alert-simulator-http-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-alert-simulator-http-service
+
+  environment: development
+
+  # Override ComponentType envOverrides for this environment
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "80m"
+        memory: "96Mi"
+
+  # Override trait envOverrides for this environment (keyed by instanceName)
+  traitOverrides:
+    error-logs-alert-rule:
+      enabled: true
+      enableAiRootCauseAnalysis: false
+      notificationChannel: "default-notificationchannel"
+
+---
+# ALert Notification Channel - Include SMTP credentials for sending emails
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  name: default-notificationchannel
+spec:
+  environment: development
+  type: email
+  config:
+    from: notifications@openchoreo.dev # Replace with your SMTP sender email address
+    to:
+      - openchoreo-devops-group@acme.com # Replace with your recipients' email addresses
+    smtp:
+      host: mail.example.com # Replace with your SMTP host
+      port: 587 # Replace with your SMTP port
+      auth:
+        username:
+          secretKeyRef:
+            name: default-notificationchannel-smtp-auth
+            key: username
+        password:
+          secretKeyRef:
+            name: default-notificationchannel-smtp-auth
+            key: password
+      tls:
+        insecureSkipVerify: true
+    template:
+      subject: "Test OpenChoreo notification"
+      # Modify as needed with CEL expressions
+      body: "Alert triggered for your openchoreo observability alert rule"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: default-notificationchannel-smtp-auth
+type: Opaque
+stringData:
+  username: smtp-username # Replace with your SMTP username
+  password: smtp-password # Replace with your SMTP password

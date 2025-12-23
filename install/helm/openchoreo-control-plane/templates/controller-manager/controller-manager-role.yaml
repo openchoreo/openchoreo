@@ -28,6 +28,14 @@ rules:
     - create
     - patch
 - apiGroups:
+    - ""
+  resources:
+    - secrets
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
     - argoproj.io
   resources:
     - workflows

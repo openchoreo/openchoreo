@@ -11,6 +11,13 @@ global:
   # Common labels to add to all resources
   commonLabels: {}
 
+  # Installation mode of OpenChoreo
+  # Supported values:
+  # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster
+  # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
+  # quickStart: Limited set of features for quick-start setup
+  installationMode: singleCluster
+
 # Kubernetes cluster domain for controller manager defaults
 kubernetesClusterDomain: cluster.local
 
@@ -67,14 +74,6 @@ controllerManager:
     tls:
       caPath: /etc/cluster-gateway/ca.crt
       caConfigMap: cluster-gateway-ca
-
-  # Installation mode of OpenChoreo
-  # Supported values:
-  # singleCluster: When deploying all OpenChoreo planes in a single Kubernetes cluster
-  # multiCluster: When deploying OpenChoreo planes in multiple Kubernetes clusters (To be supported in the future)
-  # quickStart: Limited set of features for quick-start setup
-  installationMode: singleCluster
-
 
 ## Values for dependent charts
 data-prepper:

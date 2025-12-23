@@ -1,0 +1,15 @@
+# ClusterRoleBinding to bind observer ClusterRole to observer ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-observer
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Namespace }}-observer
+subjects:
+  - kind: ServiceAccount
+    name: observer
+    namespace: {{ .Release.Namespace }}

@@ -654,7 +654,7 @@ func (h *Handler) UpsertAlertingRule(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, resp)
 }
 
-// DeleteAlertingRule handles DELETE /api/alerting/rule/{ruleName}
+// DeleteAlertingRule handles DELETE /api/alerting/rule/{sourceType}/{ruleName}
 func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
 	sourceType := httputil.GetPathParam(r, "sourceType")
 	if sourceType == "" {
@@ -695,10 +695,6 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Implement full alerting support
-	// Receive triggered alerts from the observability backends
-	// Send the notification to the appropriate channels
-
 	// Read the request body
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -707,21 +703,58 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse and log the webhook payload
+	// Parse the webhook payload as JSON
 	if len(bodyBytes) == 0 {
 		h.logger.Warn("Alerting webhook received with empty request body")
-	} else {
-		var requestBody map[string]interface{}
-		if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
-			h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
-		} else {
-			// TEMP: Print the request body and return 200
-			h.logger.Debug("Alerting webhook received", "payload", requestBody)
-		}
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
+		return
 	}
 
-	h.writeJSON(w, http.StatusOK, map[string]string{
-		"message": "Alerting webhook received",
+	var requestBody map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+		h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to parse webhook payload as JSON")
+		return
+	}
+
+	/* Message format
+	{
+		"alertValue": 108, (value > threshold)
+		"componentUid": "41f02f7c-cead-477e-a4ca-3678523ab1d5",
+		"enableAiRootCauseAnalysis": false,
+		"notificationChannel": "default-smp-channel",
+		"environmentUid": "46ba778e-4e58-4557-8df4-654c8e1e92d1",
+		"prjectUid": "9ec65f73-c507-4f83-9894-fbc57366527a",
+		"ruleName": "requests-log-alert-rule",
+		"timestamp": "2025-12-21T14:51:08.592Z"
+	}
+	*/
+	h.logger.Debug("Successfully parsed webhook payload.")
+
+	ctx := r.Context()
+
+	// Send alert notification
+	if err := h.service.SendAlertNotification(ctx, requestBody); err != nil {
+		h.logger.Error("Failed to send alert notification", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to send alert notification")
+		return
+	}
+
+	// Store alert entry in logs backend
+	alertID, err := h.service.StoreAlertEntry(ctx, requestBody)
+	if err != nil {
+		h.logger.Error("Failed to store alert entry", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to store alert entry")
+		return
+	}
+
+	// TODO: if requestBody["enableAiRootCauseAnalysis"] is true
+	// send a request to the AI RCA service with the alertID
+
+	// Return the alertID
+	h.writeJSON(w, http.StatusOK, map[string]interface{}{
+		"message": "Alert notification sent",
+		"alertID": alertID,
 	})
 }
 

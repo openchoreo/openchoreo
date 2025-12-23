@@ -19,6 +19,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
@@ -283,6 +284,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Name).To(Equal(channel.Name))
 			Expect(configMap.Namespace).To(Equal(channel.Namespace))
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(configMap.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 			Expect(configMap.Data["type"]).To(Equal("email"))
 			Expect(configMap.Data["isEnvDefault"]).To(Equal("true"))
 			Expect(configMap.Data["from"]).To(Equal("test@example.com"))
@@ -299,6 +301,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Name).To(Equal(channel.Name))
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
+			Expect(secret.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 
 		It("should mark the first channel in an environment as default", func() {
@@ -344,9 +347,24 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			environment        *openchoreodevv1alpha1.Environment
 			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
 			opClient           client.Client
+			smtpAuthSecret     *corev1.Secret
 		)
 
 		BeforeEach(func() {
+			// Create the source secret that contains SMTP credentials
+			smtpAuthSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "smtp-auth-secret",
+					Namespace: namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"username": []byte("test-smtp-user"),
+					"password": []byte("test-smtp-password"),
+				},
+			}
+			Expect(k8sClient.Create(testCtx, smtpAuthSecret)).To(Succeed())
+
 			// Create ObservabilityPlane
 			observabilityPlane = &openchoreodevv1alpha1.ObservabilityPlane{
 				ObjectMeta: metav1.ObjectMeta{
@@ -442,6 +460,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				}
 				_ = k8sClient.Delete(testCtx, channel)
 			}
+			if smtpAuthSecret != nil {
+				_ = k8sClient.Delete(testCtx, smtpAuthSecret)
+			}
 			if environment != nil {
 				_ = k8sClient.Delete(testCtx, environment)
 			}
@@ -453,7 +474,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			}
 		})
 
-		It("should create Secret with SMTP auth references and ConfigMap with TLS config", func() {
+		It("should create Secret with resolved SMTP auth credentials and ConfigMap with TLS config", func() {
 			// Create a test client manager that returns our test client
 			clientMgr := kubernetesClient.NewManager()
 			key := "v2/observabilityplane/default/test-observability-plane-auth"
@@ -485,14 +506,14 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(configMap.Data["smtp.tls.insecureSkipVerify"]).To(Equal("true"))
 
-			// Verify Secret has auth references
+			// Verify Secret has resolved auth credentials (not references)
 			secret := &corev1.Secret{}
 			err = k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, secret)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(secret.Data).To(HaveKey("smtp.auth.username.secret"))
-			Expect(secret.Data).To(HaveKey("smtp.auth.password.secret"))
-			Expect(string(secret.Data["smtp.auth.username.secret"])).To(Equal("smtp-auth-secret/username"))
-			Expect(string(secret.Data["smtp.auth.password.secret"])).To(Equal("smtp-auth-secret/password"))
+			Expect(secret.Data).To(HaveKey("smtp.auth.username"))
+			Expect(secret.Data).To(HaveKey("smtp.auth.password"))
+			Expect(string(secret.Data["smtp.auth.username"])).To(Equal("test-smtp-user"))
+			Expect(string(secret.Data["smtp.auth.password"])).To(Equal("test-smtp-password"))
 		})
 	})
 
@@ -540,6 +561,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Data["smtp.host"]).To(Equal("smtp.example.com"))
 			Expect(configMap.Data["smtp.port"]).To(Equal("465"))
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(configMap.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 	})
 
@@ -576,12 +598,14 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Scheme: k8sClient.Scheme(),
 			}
 
-			secret := reconciler.createSecret(channel)
+			secret, err := reconciler.createSecret(context.Background(), channel)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(secret.Name).To(Equal(channel.Name))
 			Expect(secret.Namespace).To(Equal(channel.Namespace))
 			Expect(secret.Type).To(Equal(corev1.SecretTypeOpaque))
 			Expect(secret.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
+			Expect(secret.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 	})
 

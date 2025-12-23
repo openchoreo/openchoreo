@@ -71,6 +71,12 @@ spec:
         - name: THUNDER_TOKEN
           value: {{ .Values.backstage.thunder.token | quote }}
         {{- end }}
+        # OIDC Discovery URL (optional) - enables auto-discovery of OAuth endpoints
+        {{- if .Values.security.oidc.wellKnownEndpoint }}
+        - name: OPENCHOREO_AUTH_METADATA_URL
+          value: {{ .Values.security.oidc.wellKnownEndpoint | quote }}
+        {{- end }}
+        # Explicit OAuth2 endpoints (fallback if OIDC discovery not configured)
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
           value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL

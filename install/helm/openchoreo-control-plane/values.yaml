@@ -495,6 +495,7 @@ backstage:
       type: RuntimeDefault
     appArmorProfile:
       type: Unconfined
+
 # Asgardeo Thunder (Platform Identity Provider) configuration
 thunder:
   enabled: true
@@ -665,6 +666,7 @@ thunder:
         - 50-backstage-app.sh
         - 51-user-schema-and-users.sh
         - 52-default-apps.sh
+        - 53-rca-agent-client.sh
     # Default users to create during bootstrap
     defaultUsers:
       - username: "admin@openchoreo.dev"
@@ -676,8 +678,13 @@ thunder:
     defaultApps:
       - clientId: "customer-portal-client"
         clientSecret: "supersecret"
+      # TODO: Remove the custom script and use the below setup
       # - clientId: "openchoreo-rca-agent"
       #   clientSecret: "openchoreo-rca-agent-secret"
+    # RCA Agent OAuth2 Client (client_credentials grant type)
+    rcaAgentClient:
+      clientId: "openchoreo-rca-agent"
+      clientSecret: "openchoreo-rca-agent-secret"
 
 # Cluster Gateway configuration
 # The gateway manages WebSocket connections from cluster agents
