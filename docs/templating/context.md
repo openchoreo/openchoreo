@@ -192,8 +192,19 @@ DataPlane configuration for the target environment.
 # Access pattern: ${dataplane.<field>}
 
 dataplane:
-  secretStore: "my-secret-store"        # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
+  secretStore: "my-secret-store"              # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
+  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
+```
+
+**Optional fields:** `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional. If not configured on the DataPlane, the field will be absent from the context. Use `has()` to guard conditional logic:
+
+```yaml
+# Guard with has() for conditional inclusion
+includeWhen: ${has(dataplane.secretStore)}
+
+# Or use ternary for conditional values
+secretStoreRef: ${has(dataplane.secretStore) ? {"name": dataplane.secretStore} : oc_omit()}
 ```
 
 **Example usage:**
@@ -424,14 +435,15 @@ metadata:
 
 ### dataplane
 
-DataPlane configuration for the target environment. Same structure as ComponentContext.
+DataPlane configuration for the target environment. Same structure as ComponentContext. The fields `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional; use `has()` to guard conditional logic.
 
 ```yaml
 # Access pattern: ${dataplane.<field>}
 
 dataplane:
-  secretStore: "my-secret-store"        # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
+  secretStore: "my-secret-store"              # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
+  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
 ```
 
 ### parameters
