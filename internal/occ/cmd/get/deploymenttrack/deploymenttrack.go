@@ -43,7 +43,8 @@ func getDeploymentTracks(params api.GetDeploymentTrackParams, config constants.C
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

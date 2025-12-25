@@ -55,14 +55,37 @@ func (h *Handler) ListBuildPlanes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call service to list build planes
-	buildPlanes, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		log.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Call service to list build planes
+	result, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, orgName, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			log.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			log.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
 		log.Error("Failed to list build planes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list build planes", "INTERNAL_ERROR")
 		return
 	}
 
 	// Success response with build planes list
-	writeSuccessResponse(w, http.StatusOK, buildPlanes)
+	log.Debug("Listed build planes successfully", "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }

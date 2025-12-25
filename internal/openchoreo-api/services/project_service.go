@@ -71,17 +71,21 @@ func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req 
 }
 
 // ListProjects lists all projects in the given organization
-func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*models.ProjectResponse, error) {
-	s.logger.Debug("Listing projects", "org", orgName)
+func (s *ProjectService) ListProjects(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.ProjectResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing projects", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var projectList openchoreov1alpha1.ProjectList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {
-		s.logger.Error("Failed to list projects", "error", err)
-		return nil, fmt.Errorf("failed to list projects: %w", err)
+	if err := s.k8sClient.List(ctx, &projectList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "projects")
 	}
 
 	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
@@ -100,8 +104,15 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 		projects = append(projects, s.toProjectResponse(&item))
 	}
 
-	s.logger.Debug("Listed projects", "org", orgName, "count", len(projects))
-	return projects, nil
+	s.logger.Debug("Listed projects", "org", orgName, "count", len(projects), "hasMore", projectList.Continue != "")
+	return &models.ListResponse[*models.ProjectResponse]{
+		Items: projects,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: projectList.ResourceVersion,
+			Continue:        projectList.Continue,
+			HasMore:         projectList.Continue != "",
+		},
+	}, nil
 }
 
 // GetProject retrieves a specific project

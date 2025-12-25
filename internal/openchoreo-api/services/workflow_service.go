@@ -38,17 +38,21 @@ func NewWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP a
 }
 
 // ListWorkflows lists all Workflows in the given organization
-func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string) ([]*models.WorkflowResponse, error) {
-	s.logger.Debug("Listing Workflows", "org", orgName)
+func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.WorkflowResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing Workflows", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var wfList openchoreov1alpha1.WorkflowList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &wfList, listOpts...); err != nil {
-		s.logger.Error("Failed to list Workflows", "error", err)
-		return nil, fmt.Errorf("failed to list Workflows: %w", err)
+	if err := s.k8sClient.List(ctx, &wfList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "workflows")
 	}
 
 	wfs := make([]*models.WorkflowResponse, 0, len(wfList.Items))
@@ -65,8 +69,15 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string) ([]
 		wfs = append(wfs, s.toWorkflowResponse(&wfList.Items[i]))
 	}
 
-	s.logger.Debug("Listed Workflows", "org", orgName, "count", len(wfs))
-	return wfs, nil
+	s.logger.Debug("Listed Workflows", "org", orgName, "count", len(wfs), "hasMore", wfList.Continue != "")
+	return &models.ListResponse[*models.WorkflowResponse]{
+		Items: wfs,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: wfList.ResourceVersion,
+			Continue:        wfList.Continue,
+			HasMore:         wfList.Continue != "",
+		},
+	}, nil
 }
 
 // GetWorkflow retrieves a specific Workflow

@@ -38,7 +38,8 @@ func getDataPlanes(params api.GetDataPlaneParams, config constants.CRDConfig) er
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

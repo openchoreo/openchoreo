@@ -96,6 +96,10 @@ func (base *ResourceBase) SetNamespace(namespace string) {
 	base.namespace = namespace
 }
 
+func (base *ResourceBase) GetLabels() map[string]string {
+	return base.labels
+}
+
 // GetAPIClient returns the API client for use by resource implementations
 func (base *ResourceBase) GetAPIClient() *occClient.APIClient {
 	return base.apiClient

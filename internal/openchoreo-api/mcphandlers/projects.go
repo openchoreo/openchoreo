@@ -14,13 +14,33 @@ type ListProjectsResponse struct {
 }
 
 func (h *MCPHandler) ListProjects(ctx context.Context, orgName string) (any, error) {
-	projects, err := h.Services.ProjectService.ListProjects(ctx, orgName)
-	if err != nil {
-		return ListProjectsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ProjectResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ProjectService.ListProjects(ctx, orgName, opts)
+		if err != nil {
+			return ListProjectsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
 
+	// Warn if result may be truncated
+	h.warnIfTruncated("projects", len(allItems))
+
 	return ListProjectsResponse{
-		Projects: projects,
+		Projects: allItems,
 	}, nil
 }
 

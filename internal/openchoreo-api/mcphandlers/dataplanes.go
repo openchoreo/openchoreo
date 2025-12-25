@@ -14,12 +14,33 @@ type ListDataPlanesResponse struct {
 }
 
 func (h *MCPHandler) ListDataPlanes(ctx context.Context, orgName string) (any, error) {
-	dataplanes, err := h.Services.DataPlaneService.ListDataPlanes(ctx, orgName)
-	if err != nil {
-		return ListDataPlanesResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.DataPlaneResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.DataPlaneService.ListDataPlanes(ctx, orgName, opts)
+		if err != nil {
+			return ListDataPlanesResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("dataplanes", len(allItems))
+
 	return ListDataPlanesResponse{
-		DataPlanes: dataplanes,
+		DataPlanes: allItems,
 	}, nil
 }
 

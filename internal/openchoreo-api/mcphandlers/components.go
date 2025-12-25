@@ -25,7 +25,7 @@ type ListReleaseBindingsResponse struct {
 }
 
 type ListComponentWorkflowRunsResponse struct {
-	WorkflowRuns []models.ComponentWorkflowResponse `json:"workflowRuns"`
+	WorkflowRuns []*models.ComponentWorkflowResponse `json:"workflowRuns"`
 }
 
 type ListComponentWorkflowsResponse struct {
@@ -37,12 +37,33 @@ func (h *MCPHandler) CreateComponent(ctx context.Context, orgName, projectName s
 }
 
 func (h *MCPHandler) ListComponents(ctx context.Context, orgName, projectName string) (any, error) {
-	components, err := h.Services.ComponentService.ListComponents(ctx, orgName, projectName)
-	if err != nil {
-		return ListComponentsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ComponentResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentService.ListComponents(ctx, orgName, projectName, opts)
+		if err != nil {
+			return ListComponentsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("components", len(allItems))
+
 	return ListComponentsResponse{
-		Components: components,
+		Components: allItems,
 	}, nil
 }
 
@@ -63,16 +84,59 @@ func (h *MCPHandler) GetBuildObserverURL(ctx context.Context, orgName, projectNa
 }
 
 func (h *MCPHandler) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (any, error) {
-	return h.Services.ComponentService.GetComponentWorkloads(ctx, orgName, projectName, componentName)
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*openchoreov1alpha1.WorkloadSpec
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentService.GetComponentWorkloads(ctx, orgName, projectName, componentName, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
+	}
+
+	return allItems, nil
 }
 
 func (h *MCPHandler) ListComponentReleases(ctx context.Context, orgName, projectName, componentName string) (any, error) {
-	releases, err := h.Services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName)
-	if err != nil {
-		return ListComponentReleasesResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ComponentReleaseResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName, opts)
+		if err != nil {
+			return ListComponentReleasesResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_releases", len(allItems))
+
 	return ListComponentReleasesResponse{
-		Releases: releases,
+		Releases: allItems,
 	}, nil
 }
 
@@ -85,12 +149,33 @@ func (h *MCPHandler) GetComponentRelease(ctx context.Context, orgName, projectNa
 }
 
 func (h *MCPHandler) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) (any, error) {
-	bindings, err := h.Services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments)
-	if err != nil {
-		return ListReleaseBindingsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ReleaseBindingResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments, opts)
+		if err != nil {
+			return ListReleaseBindingsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("release_bindings", len(allItems))
+
 	return ListReleaseBindingsResponse{
-		Bindings: bindings,
+		Bindings: allItems,
 	}, nil
 }
 
@@ -152,12 +237,33 @@ func (h *MCPHandler) PatchComponent(ctx context.Context, orgName, projectName, c
 }
 
 func (h *MCPHandler) ListComponentWorkflows(ctx context.Context, orgName string) (any, error) {
-	workflows, err := h.Services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName)
-	if err != nil {
-		return ListComponentWorkflowsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.WorkflowResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName, opts)
+		if err != nil {
+			return ListComponentWorkflowsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_workflows", len(allItems))
+
 	return ListComponentWorkflowsResponse{
-		Workflows: workflows,
+		Workflows: allItems,
 	}, nil
 }
 
@@ -170,12 +276,33 @@ func (h *MCPHandler) TriggerComponentWorkflow(ctx context.Context, orgName, proj
 }
 
 func (h *MCPHandler) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error) {
-	workflowRuns, err := h.Services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
-	if err != nil {
-		return ListComponentWorkflowRunsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.ComponentWorkflowResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName, opts)
+		if err != nil {
+			return ListComponentWorkflowRunsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_workflow_runs", len(allItems))
+
 	return ListComponentWorkflowRunsResponse{
-		WorkflowRuns: workflowRuns,
+		WorkflowRuns: allItems,
 	}, nil
 }
 

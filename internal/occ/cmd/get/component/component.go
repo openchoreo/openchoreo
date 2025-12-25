@@ -38,7 +38,8 @@ func getComponents(params api.GetComponentParams, config constants.CRDConfig) er
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable

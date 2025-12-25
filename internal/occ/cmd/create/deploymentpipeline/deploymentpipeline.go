@@ -43,7 +43,7 @@ func createDeploymentPipeline(params api.CreateDeploymentPipelineParams, config 
 			return fmt.Errorf("failed to create Environment resource: %w", err)
 		}
 
-		envs, err := envResource.List()
+		envs, err := envResource.List(0)
 		if err != nil {
 			return fmt.Errorf("failed to list environments: %w", err)
 		}

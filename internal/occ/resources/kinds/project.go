@@ -96,8 +96,13 @@ func (p *ProjectResource) PrintTableItems(projects []resources.ResourceWrapper[*
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (p *ProjectResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	// List resources
-	projects, err := p.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	projects, err := p.List(limit)
 	if err != nil {
 		return err
 	}

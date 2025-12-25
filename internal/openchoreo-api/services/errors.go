@@ -3,7 +3,15 @@
 
 package services
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // Common service errors
 var (
@@ -35,6 +43,10 @@ var (
 	ErrForbidden                    = errors.New("insufficient permissions to perform this action")
 	ErrDuplicateTraitInstanceName   = errors.New("duplicate trait instance name")
 	ErrInvalidTraitInstance         = errors.New("invalid trait instance")
+
+	// Continue token errors
+	ErrContinueTokenExpired = errors.New("continue token has expired - please restart the list operation from the beginning")
+	ErrInvalidContinueToken = errors.New("invalid continue token - please check if the token is malformed or from a different resource")
 )
 
 // Error codes for API responses
@@ -72,4 +84,63 @@ const (
 	CodeInvalidParams                = "INVALID_PARAMS"
 	CodeDuplicateTraitInstanceName   = "DUPLICATE_TRAIT_INSTANCE_NAME"
 	CodeInvalidTraitInstance         = "INVALID_TRAIT_INSTANCE"
+
+	// Continue token error codes
+	CodeContinueTokenExpired = "CONTINUE_TOKEN_EXPIRED" // HTTP 410
+	CodeInvalidContinueToken = "INVALID_CONTINUE_TOKEN" // HTTP 400
 )
+
+// HandleListError handles common errors from Kubernetes list operations,
+// specifically handling pagination-related errors (expired/invalid continue tokens).
+// This function centralizes error handling to reduce duplication across service methods.
+//
+// Parameters:
+//   - err: the error returned from the k8sClient.List call
+//   - logger: the service logger for logging warnings/errors
+//   - continueToken: the continue token that was used in the request (for logging)
+//   - resourceType: a human-readable name of the resource being listed (e.g., "projects", "components")
+//
+// Returns:
+//   - A standardized error (ErrContinueTokenExpired, ErrInvalidContinueToken, or wrapped error)
+func HandleListError(err error, logger *slog.Logger, continueToken, resourceType string) error {
+	// Truncate token for logging to avoid polluting logs with large tokens
+	logToken := continueToken
+	if len(logToken) > 20 {
+		logToken = logToken[:10] + "..." + logToken[len(logToken)-5:]
+	}
+
+	// Handle expired continue token (410 Gone)
+	if apierrors.IsResourceExpired(err) {
+		logger.Warn("Continue token expired", "continue", logToken)
+		return ErrContinueTokenExpired
+	}
+	// Handle invalid continue token. Prefer structured inspection of an APIStatus
+	// (Status.Details.Causes) if available. This handles cases where the apiserver
+	// explicitly marks the continue field as invalid.
+	if statusErr, ok := err.(apierrors.APIStatus); ok {
+		status := statusErr.Status()
+		if status.Details != nil {
+			for _, cause := range status.Details.Causes {
+				if strings.EqualFold(cause.Field, "continue") || strings.Contains(strings.ToLower(cause.Message), "continue") {
+					logger.Warn("Invalid continue token", "continue", logToken)
+					return ErrInvalidContinueToken
+				}
+			}
+		}
+		if status.Reason == metav1.StatusReasonInvalid && strings.Contains(strings.ToLower(status.Message), "continue") {
+			logger.Warn("Invalid continue token", "continue", logToken)
+			return ErrInvalidContinueToken
+		}
+	}
+
+	// As a conservative fallback, inspect the error message for an explicit
+	// mention of the continue token when the error is a BadRequest.
+	if apierrors.IsBadRequest(err) {
+		if strings.Contains(strings.ToLower(err.Error()), "invalid value for continue") || strings.Contains(strings.ToLower(err.Error()), "invalid continue") || strings.Contains(strings.ToLower(err.Error()), "continue token") {
+			logger.Warn("Invalid continue token", "continue", logToken)
+			return ErrInvalidContinueToken
+		}
+	}
+	logger.Error("Failed to list "+resourceType, "error", err)
+	return fmt.Errorf("failed to list %s: %w", resourceType, err)
+}

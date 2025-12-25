@@ -99,8 +99,13 @@ func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceW
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (e *EnvironmentResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	// List resources
-	environments, err := e.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	environments, err := e.List(limit)
 	if err != nil {
 		return err
 	}
@@ -165,7 +170,7 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 // GetEnvironmentsForOrganization returns environments filtered by organization
 func (e *EnvironmentResource) GetEnvironmentsForOrganization(orgName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Environment], error) {
 	// List all environments in the namespace
-	allEnvironments, err := e.List()
+	allEnvironments, err := e.List(0)
 	if err != nil {
 		return nil, err
 	}

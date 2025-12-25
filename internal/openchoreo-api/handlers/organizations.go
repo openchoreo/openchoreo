@@ -14,14 +14,37 @@ import (
 func (h *Handler) ListOrganizations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	organizations, err := h.services.OrganizationService.ListOrganizations(ctx)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		h.logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.OrganizationService.ListOrganizations(ctx, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			h.logger.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			h.logger.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
 		h.logger.Error("Failed to list organizations", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list organizations", services.CodeInternalError)
 		return
 	}
 
-	writeListResponse(w, organizations, len(organizations), 1, len(organizations))
+	h.logger.Debug("Listed organizations successfully", "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 // GetOrganization handles GET /api/v1/orgs/{orgName}

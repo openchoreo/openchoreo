@@ -73,8 +73,13 @@ func (o *OrganizationResource) PrintTableItems(orgs []resources.ResourceWrapper[
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (o *OrganizationResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	// List resources
-	orgs, err := o.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	orgs, err := o.List(limit)
 	if err != nil {
 		return err
 	}

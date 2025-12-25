@@ -14,12 +14,33 @@ type ListEnvironmentsResponse struct {
 }
 
 func (h *MCPHandler) ListEnvironments(ctx context.Context, orgName string) (any, error) {
-	environments, err := h.Services.EnvironmentService.ListEnvironments(ctx, orgName)
-	if err != nil {
-		return ListEnvironmentsResponse{}, err
+	// For MCP handlers, return all items by paginating through all pages
+	var allItems []*models.EnvironmentResponse
+	continueToken := ""
+
+	for {
+		opts := &models.ListOptions{
+			Limit:    models.MaxPageLimit,
+			Continue: continueToken,
+		}
+		result, err := h.Services.EnvironmentService.ListEnvironments(ctx, orgName, opts)
+		if err != nil {
+			return ListEnvironmentsResponse{}, err
+		}
+
+		allItems = append(allItems, result.Items...)
+
+		if !result.Metadata.HasMore {
+			break
+		}
+		continueToken = result.Metadata.Continue
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("environments", len(allItems))
+
 	return ListEnvironmentsResponse{
-		Environments: environments,
+		Environments: allItems,
 	}, nil
 }
 

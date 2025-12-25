@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -25,21 +24,28 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Call service to list ComponentTypes
-	cts, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Call service to list ComponentTypes
+	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName, opts)
+	if err != nil {
+		if handlePaginationError(w, err, logger) {
+			return
+		}
 		logger.Error("Failed to list ComponentTypes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	// Convert to slice of values for the list response
-	ctValues := make([]*models.ComponentTypeResponse, len(cts))
-	copy(ctValues, cts)
-
-	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(cts))
-	writeListResponse(w, ctValues, len(cts), 1, len(cts))
+	// Success response
+	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request) {

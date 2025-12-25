@@ -106,7 +106,13 @@ func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapp
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (c *ComponentResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	components, err := c.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	components, err := c.List(limit)
 	if err != nil {
 		return err
 	}
@@ -210,7 +216,7 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 
 // GetComponentsForProject returns components filtered by project
 func (c *ComponentResource) GetComponentsForProject(projectName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Component], error) {
-	allComponents, err := c.List()
+	allComponents, err := c.List(0)
 	if err != nil {
 		return nil, err
 	}

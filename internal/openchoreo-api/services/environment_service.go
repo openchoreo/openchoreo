@@ -36,17 +36,21 @@ func NewEnvironmentService(k8sClient client.Client, logger *slog.Logger, authzPD
 }
 
 // ListEnvironments lists all environments in the specified organization
-func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName string) ([]*models.EnvironmentResponse, error) {
-	s.logger.Debug("Listing environments", "org", orgName)
+func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.EnvironmentResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing environments", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var envList openchoreov1alpha1.EnvironmentList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &envList, listOpts...); err != nil {
-		s.logger.Error("Failed to list environments", "error", err, "org", orgName)
-		return nil, fmt.Errorf("failed to list environments: %w", err)
+	if err := s.k8sClient.List(ctx, &envList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "environments")
 	}
 
 	// Check authorization for each environment
@@ -64,8 +68,15 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 		environments = append(environments, s.toEnvironmentResponse(&envList.Items[i]))
 	}
 
-	s.logger.Debug("Listed environments", "count", len(environments), "org", orgName)
-	return environments, nil
+	s.logger.Debug("Listed environments", "count", len(environments), "org", orgName, "hasMore", envList.Continue != "")
+	return &models.ListResponse[*models.EnvironmentResponse]{
+		Items: environments,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: envList.ResourceVersion,
+			Continue:        envList.Continue,
+			HasMore:         envList.Continue != "",
+		},
+	}, nil
 }
 
 // getEnvironment is the internal helper without authorization (INTERNAL USE ONLY)

@@ -29,7 +29,8 @@ func (i *GetOrgImpl) GetOrganization(params api.GetParams) error {
 	}
 
 	filter := &resources.ResourceFilter{
-		Name: params.Name,
+		Name:  params.Name,
+		Limit: params.Limit,
 	}
 
 	format := resources.OutputFormatTable
