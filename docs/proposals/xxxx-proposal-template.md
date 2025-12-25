@@ -12,8 +12,8 @@ _YYYY-MM-DD_
 **Status**:  
 _Submitted / Accepted / Rejected / Implemented_
 
-**Related Issues/PRs**:  
-_Linked GitHub issues or pull requests_
+**Related Issues/Discussions**:  
+_Linked GitHub issues or discussions_
 
 ---
 
