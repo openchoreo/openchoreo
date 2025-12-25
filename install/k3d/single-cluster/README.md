@@ -190,7 +190,6 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 ### Observability Plane (if installed)
 
 - Observer API: http://localhost:11080
-- OpenSearch Dashboard: http://localhost:11081
 - OpenSearch API: http://localhost:11082 (for Fluent Bit and direct API access)
 
 ## Verification

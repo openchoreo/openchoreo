@@ -94,6 +94,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}/observer-url", h.GetEnvironmentObserverURL)
 
 	// BuildPlane management
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)

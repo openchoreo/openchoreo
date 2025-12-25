@@ -16,13 +16,6 @@ openSearchCluster:
 
 # Observer API - REST API for querying logs and metrics
 observer:
-  extraEnvs:
-  - name: OPENSEARCH_ADDRESS
-    value: "https://opensearch:9200"
-  - name: PROMETHEUS_ADDRESS
-    value: "http://openchoreo-observability-prometheus:9091"
-  - name: PROMETHEUS_TIMEOUT
-    value: "30s"
   service:
     type: LoadBalancer
 
@@ -45,4 +38,3 @@ rca:
 security:
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
-    jwksUrlTlsInsecureSkipVerify: true

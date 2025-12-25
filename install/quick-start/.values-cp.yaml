@@ -4,7 +4,6 @@
 global:
   baseDomain: openchoreo.localhost
   port: ":8080"
-  devMode: true
   # Use k3d's built-in Traefik ingress class
   ingressClassName: traefik
 

@@ -64,9 +64,7 @@ class LogEvidenceItem(BaseEvidenceItem):
     type: Literal[EvidenceType.LOG] = EvidenceType.LOG
     log_level: LogLevel = Field(..., description="Severity level of the log")
     timestamp: str = Field(..., description="ISO 8601 timestamp when log occurred")
-    log_message: str = Field(
-        ..., description="The significant log message implying root cause"
-    )
+    log_message: str = Field(..., description="The significant log message implying root cause")
 
 
 class MetricEvidenceItem(BaseEvidenceItem):
@@ -80,26 +78,25 @@ class MetricEvidenceItem(BaseEvidenceItem):
 
     metric_name: str = Field(
         ...,
-        description="Human-readable name of the metric (e.g., 'RAM usage', 'CPU utilization', 'Request latency p99')"
+        description="Human-readable name of the metric (e.g., 'RAM usage', 'CPU utilization', 'Request latency p99')",
     )
 
     value: str = Field(
         ...,
-        description="Formatted metric value with unit (e.g., '95.5%', '1.2 cores', '64 req/s', '2.5 GB/s')"
+        description="Formatted metric value with unit (e.g., '95.5%', '1.2 cores', '64 req/s', '2.5 GB/s')",
     )
 
     description: str = Field(
         ...,
-        description="Self-contained explanation of the anomaly and its RCA relevance (e.g., 'RAM usage at 95.5% exceeds 90% threshold, causing OOM kills')"
+        description="Self-contained explanation of the anomaly and its RCA relevance (e.g., 'RAM usage at 95.5% exceeds 90% threshold, causing OOM kills')",
     )
 
     severity: MetricSeverity = Field(
         ..., description="Severity level: CRITICAL (red), WARNING (yellow), NORMAL (green)"
     )
 
-    time_range: TimeRange  = Field(
-        ...,
-        description="Time range for aggregated metrics. Use timestamp OR time_range, not both."
+    time_range: TimeRange = Field(
+        ..., description="Time range for aggregated metrics. Use timestamp OR time_range, not both."
     )
 
 
@@ -130,9 +127,7 @@ class TraceEvidenceItem(BaseEvidenceItem):
 
     type: Literal[EvidenceType.TRACE] = EvidenceType.TRACE
     trace_id: str = Field(..., description="Unique trace identifier for reference")
-    total_duration_ms: float = Field(
-        ..., description="Total trace duration in milliseconds"
-    )
+    total_duration_ms: float = Field(..., description="Total trace duration in milliseconds")
     significant_spans: list[SpanInfo] = Field(
         default_factory=list,
         description="Key spans that are significant for RCA (e.g., slowest spans, error spans, bottlenecks). Include 3-5 most relevant spans.",
@@ -163,7 +158,6 @@ class RootCause(BaseModel):
         default=None,
         description="Explains how the evidences correlate with each other and collectively support this root cause determination",
     )
-
 
 
 class TimelineEvent(BaseModel):
@@ -201,9 +195,7 @@ class ExcludedCause(BaseModel):
     description: str = Field(
         ..., description="The potential cause that was investigated and excluded"
     )
-    reason: str = Field(
-        ..., description="Why this was ruled out as a root cause based on evidence"
-    )
+    reason: str = Field(..., description="Why this was ruled out as a root cause based on evidence")
 
 
 class Action(BaseModel):

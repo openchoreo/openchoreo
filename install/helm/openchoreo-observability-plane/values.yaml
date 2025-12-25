@@ -935,7 +935,7 @@ openSearchDashboards:
   # description: URL of the OpenSearch cluster to connect to
   # default: http://opensearch:9200
   # @schema
-  opensearchHosts: "http://opensearch:9200"
+  opensearchHosts: "https://opensearch:9200"
 
   # @schema
   # type: integer
@@ -977,10 +977,6 @@ observer:
     value: "http://localhost:11080"
   - name: AUTH_SERVER_BASE_URL
     value: "http://thunder.openchoreo.localhost:8080"
-  - name: JWKS_URL
-    value: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
-  - name: JWKS_URL_TLS_INSECURE_SKIP_VERIFY
-    value: "false"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -2830,9 +2826,9 @@ rca:
       # @schema
       # type: string
       # description: Memory request
-      # default: 128Mi
+      # default: 1024Mi
       # @schema
-      memory: 128Mi
+      memory: 1024Mi
     # @schema
     # type: object
     # description: Maximum resources
@@ -2841,15 +2837,15 @@ rca:
       # @schema
       # type: string
       # description: CPU limit
-      # default: 500m
+      # default: 250m
       # @schema
-      cpu: 500m
+      cpu: 250m
       # @schema
       # type: string
       # description: Memory limit
-      # default: 512Mi
+      # default: 1536Mi
       # @schema
-      memory: 512Mi
+      memory: 1536Mi
 
   # @schema
   # type: string

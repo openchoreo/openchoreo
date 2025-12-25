@@ -473,6 +473,164 @@ spec:
 	}
 }
 
+func TestAppendToArrayTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("append to []any array", func(t *testing.T) {
+		t.Parallel()
+
+		// Programmatically construct resource with []any array
+		resource := map[string]any{
+			"spec": map[string]any{
+				"items": []any{
+					"item1",
+					"item2",
+				},
+			},
+		}
+
+		operations := []JSONPatchOperation{
+			{
+				Op:    "add",
+				Path:  "/spec/items/-",
+				Value: "item3",
+			},
+		}
+
+		err := ApplyPatches(resource, operations)
+		if err != nil {
+			t.Fatalf("ApplyPatches error = %v", err)
+		}
+
+		items := resource["spec"].(map[string]any)["items"].([]any)
+		if len(items) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(items))
+		}
+		if items[2] != "item3" {
+			t.Fatalf("expected last item to be 'item3', got %v", items[2])
+		}
+	})
+
+	t.Run("append map to []any array", func(t *testing.T) {
+		t.Parallel()
+
+		// Programmatically construct resource with []any array containing maps
+		resource := map[string]any{
+			"spec": map[string]any{
+				"containers": []any{
+					map[string]any{"name": "app", "image": "app:v1"},
+				},
+			},
+		}
+
+		operations := []JSONPatchOperation{
+			{
+				Op:   "add",
+				Path: "/spec/containers/-",
+				Value: map[string]any{
+					"name":  "sidecar",
+					"image": "sidecar:v1",
+				},
+			},
+		}
+
+		err := ApplyPatches(resource, operations)
+		if err != nil {
+			t.Fatalf("ApplyPatches error = %v", err)
+		}
+
+		containers := resource["spec"].(map[string]any)["containers"].([]any)
+		if len(containers) != 2 {
+			t.Fatalf("expected 2 containers, got %d", len(containers))
+		}
+		lastContainer := containers[1].(map[string]any)
+		if lastContainer["name"] != "sidecar" {
+			t.Fatalf("expected last container name to be 'sidecar', got %v", lastContainer["name"])
+		}
+	})
+
+	t.Run("append to []map[string]any array", func(t *testing.T) {
+		t.Parallel()
+
+		// Programmatically construct resource with []map[string]any array
+		// This is a different type than []any, even though it contains maps
+		resource := map[string]any{
+			"spec": map[string]any{
+				"containers": []map[string]any{
+					{"name": "app", "image": "app:v1"},
+				},
+			},
+		}
+
+		operations := []JSONPatchOperation{
+			{
+				Op:   "add",
+				Path: "/spec/containers/-",
+				Value: map[string]any{
+					"name":  "sidecar",
+					"image": "sidecar:v1",
+				},
+			},
+		}
+
+		err := ApplyPatches(resource, operations)
+		if err != nil {
+			t.Fatalf("ApplyPatches error = %v", err)
+		}
+
+		containers := resource["spec"].(map[string]any)["containers"].([]any)
+		if len(containers) != 2 {
+			t.Fatalf("expected 2 containers, got %d", len(containers))
+		}
+		lastContainer := containers[1].(map[string]any)
+		if lastContainer["name"] != "sidecar" {
+			t.Fatalf("expected last container name to be 'sidecar', got %v", lastContainer["name"])
+		}
+	})
+
+	t.Run("navigate through []map[string]any and append to nested array", func(t *testing.T) {
+		t.Parallel()
+
+		// Test deep navigation: containers is []map[string]any, env inside is []any
+		resource := map[string]any{
+			"spec": map[string]any{
+				"containers": []map[string]any{
+					{
+						"name":  "app",
+						"image": "app:v1",
+						"env":   []any{},
+					},
+				},
+			},
+		}
+
+		operations := []JSONPatchOperation{
+			{
+				Op:   "add",
+				Path: "/spec/containers/0/env/-",
+				Value: map[string]any{
+					"name":  "FOO",
+					"value": "bar",
+				},
+			},
+		}
+
+		err := ApplyPatches(resource, operations)
+		if err != nil {
+			t.Fatalf("ApplyPatches error = %v", err)
+		}
+
+		containers := resource["spec"].(map[string]any)["containers"].([]any)
+		env := containers[0].(map[string]any)["env"].([]any)
+		if len(env) != 1 {
+			t.Fatalf("expected 1 env var, got %d", len(env))
+		}
+		if env[0].(map[string]any)["name"] != "FOO" {
+			t.Fatalf("expected env name 'FOO', got %v", env[0].(map[string]any)["name"])
+		}
+	})
+}
+
 func cmpDiff(expected, actual map[string]any) string {
 	wantJSON, _ := json.Marshal(expected)
 	gotJSON, _ := json.Marshal(actual)

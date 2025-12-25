@@ -132,3 +132,39 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 
 	writeSuccessResponse(w, http.StatusCreated, environment)
 }
+
+// GetEnvironmentObserverURL handles GET /api/v1/orgs/{orgName}/environments/{envName}/observer-url
+func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	orgName := r.PathValue("orgName")
+	envName := r.PathValue("envName")
+
+	if orgName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+		return
+	}
+
+	if envName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Environment name is required", services.CodeInvalidInput)
+		return
+	}
+
+	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, orgName, envName)
+	if err != nil {
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			h.logger.Warn("Environment not found", "org", orgName, "env", envName)
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrDataPlaneNotFound) {
+			h.logger.Warn("DataPlane not found", "org", orgName, "env", envName)
+			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
+			return
+		}
+		h.logger.Error("Failed to get environment observer URL", "error", err, "org", orgName, "env", envName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get environment observer URL", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, observerResponse)
+}

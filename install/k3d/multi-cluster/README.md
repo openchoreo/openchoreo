@@ -41,6 +41,17 @@ kubectl --context k3d-openchoreo-cp wait --for=condition=complete job \
 # Verify IngressRouteTCP CRD is available
 kubectl --context k3d-openchoreo-cp get crd ingressroutetcps.traefik.io
 
+# Install Cert Manager (required for TLS certificates)
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true \
+    --kube-context k3d-openchoreo-cp
+
+# Wait for Cert Manager to be available
+kubectl --context k3d-openchoreo-cp wait --for=condition=available deployment/cert-manager \
+  -n cert-manager --timeout=120s
+
 # Install Control Plane Helm chart
 helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --dependency-update \
@@ -69,6 +80,17 @@ Create cluster and install components:
 # Create Data Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-dp.yaml
 
+# Install Cert Manager (required for TLS certificates)
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true \
+    --kube-context k3d-openchoreo-dp
+
+# Wait for Cert Manager to be available
+kubectl --context k3d-openchoreo-dp wait --for=condition=available deployment/cert-manager \
+  -n cert-manager --timeout=120s
+
 # Install Data Plane Helm chart
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --dependency-update \
@@ -93,6 +115,17 @@ Create cluster and install components:
 ```bash
 # Create Build Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-bp.yaml
+
+# Install Cert Manager (required for TLS certificates)
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true \
+    --kube-context k3d-openchoreo-bp
+
+# Wait for Cert Manager to be available
+kubectl --context k3d-openchoreo-bp wait --for=condition=available deployment/cert-manager \
+  -n cert-manager --timeout=120s
 
 # Install Build Plane Helm chart
 helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
@@ -119,6 +152,17 @@ Create cluster and install components:
 # Create Observability Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-op.yaml
 
+# Install Cert Manager (required for TLS certificates)
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --namespace cert-manager \
+    --create-namespace \
+    --set crds.enabled=true \
+    --kube-context k3d-openchoreo-op
+
+# Wait for Cert Manager to be available
+kubectl --context k3d-openchoreo-op wait --for=condition=available deployment/cert-manager \
+  -n cert-manager --timeout=120s
+
 # Install OpenSearch Kubernetes Operator (Prerequisite)
 helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
 
@@ -137,6 +181,9 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --create-namespace \
   --values install/k3d/multi-cluster/values-op.yaml
 ```
+
+> [!NOTE]
+> The agent will try to connect but won't succeed until you create the ObservabilityPlane resource in Step 7.
 
 ### 5. Create DataPlane Resource
 
@@ -228,7 +275,7 @@ Similar to the DataPlane and BuildPlane, use `add-observability-plane.sh` to aut
   --control-plane-context k3d-openchoreo-cp \
   --observabilityplane-context k3d-openchoreo-op \
   --name default \
-  --observer-url http://host.k3d.internal:11080/observer
+  --observer-url http://host.k3d.internal:11080
 
 # Verify the ObservabilityPlane resource was created
 kubectl --context k3d-openchoreo-cp get observabilityplane default -n default
@@ -256,16 +303,16 @@ kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-def
   --control-plane-context k3d-openchoreo-cp \
   --agent-ca-secret observabilityplane-default-ca \
   --name default \
-  --observer-url http://host.k3d.internal:11080/observer
+  --observer-url http://host.k3d.internal:11080
 ```
 </details>
 
-Configure DataPlane to use default ObservabilityPlane
+### 8. Configure DataPlane to use default ObservabilityPlane (Optional)
 ```
 kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
 
-Configure BuildPlane (if installed) to use default ObservabilityPlane
+### 9. Configure BuildPlane (if installed) to use default ObservabilityPlane
 ```
 kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
@@ -304,8 +351,8 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 ### Observability Plane (if installed)
 
 - Observer API: http://localhost:11080
-- OpenSearch Dashboard: http://localhost:11081
 - OpenSearch API: http://localhost:11082 (for Fluent Bit and direct API access)
+- Prometheus: http://localhost:11083 (for metrics)
 
 ## Verification
 
@@ -329,6 +376,9 @@ kubectl --context k3d-openchoreo-cp get dataplane -n default
 
 # Verify BuildPlane resource in Control Plane (if created)
 kubectl --context k3d-openchoreo-cp get buildplane -n default
+
+# Verify ObservabilityPlane resource in Control Plane (if created)
+kubectl --context k3d-openchoreo-cp get observabilityplane -n default
 ```
 
 ### Verify Agent Connections
@@ -361,6 +411,16 @@ kubectl --context k3d-openchoreo-bp logs -n openchoreo-build-plane \
 kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane \
   -l app.kubernetes.io/component=cluster-gateway
 kubectl --context k3d-openchoreo-dp get pods -n openchoreo-data-plane \
+  -l app.kubernetes.io/component=cluster-agent
+
+# Check observability plane agent logs (if installed)
+kubectl --context k3d-openchoreo-op logs -n openchoreo-observability-plane \
+  -l app.kubernetes.io/component=cluster-agent --tail=20
+
+# Verify agent is maintaining connection
+kubectl --context k3d-openchoreo-cp get pods -n openchoreo-control-plane \
+  -l app.kubernetes.io/component=cluster-gateway
+kubectl --context k3d-openchoreo-op get pods -n openchoreo-observability-plane \
   -l app.kubernetes.io/component=cluster-agent
 ```
 

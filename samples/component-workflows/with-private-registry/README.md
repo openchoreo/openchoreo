@@ -130,14 +130,94 @@ spec:
 
 This sample covers **pushing** images to a private registry (Build Plane). **Pulling** images from a private registry at runtime is a separate concern handled in the Data Plane.
 
-To pull images from private registries in your deployments:
+To pull images from private registries, you need to add `imagePullSecrets` to the Deployment template in your ComponentType's `resources` field.
 
-1. **Using External Secrets (Recommended)**: Configure an ExternalSecret in your component type class to automatically sync pull credentials to the Data Plane namespace.
-2. **Manual Secret Creation**: Create an `imagePullSecret` directly in the target namespace on the Data Plane.
 
-In both cases, reference the secret name in your deployment spec via `imagePullSecrets`.
+### Option 1: Using External Secrets (Recommended)
 
-> **Note**: Push and pull credentials are independent since they operate in different planes (Build Plane vs Data Plane) and may use different secrets.
+Add an ExternalSecret resource to your ComponentType that syncs pull credentials from your secrets manager:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: my-service-type
+spec:
+  resources:
+    # ExternalSecret to sync pull credentials
+    - id: registry-pull-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: registry-pull-secret
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: registry-pull-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+          data:
+            - secretKey: .dockerconfigjson
+              remoteRef:
+                key: registry-credentials
+                property: dockerconfigjson
+
+    # Deployment that uses the pull secret
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        spec:
+          template:
+            spec:
+              imagePullSecrets:
+                - name: registry-pull-secret
+              containers:
+                - name: main
+                  image: ${workload.containers[parameters.containerName].image}
+```
+
+### Option 2: Manual Secret Creation
+
+1. Create the docker-registry secret in the Data Plane namespace:
+
+```bash
+kubectl create secret docker-registry registry-pull-secret \
+  --docker-server=<registry-url> \
+  --docker-username=<username> \
+  --docker-password=<password> \
+  -n openchoreo-data-plane
+```
+
+2. Add the `imagePullSecrets` field to your ComponentType's Deployment template:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: my-service-type
+spec:
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        spec:
+          template:
+            spec:
+              # Add imagePullSecrets here
+              imagePullSecrets:
+                - name: registry-pull-secret
+              containers:
+                - name: main
+                  image: ${workload.containers[parameters.containerName].image}
+```
 
 ## See Also
 

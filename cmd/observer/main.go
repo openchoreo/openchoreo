@@ -79,7 +79,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret)
+	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL)
 
 	// ===== Initialize Middlewares =====
 
@@ -106,10 +106,9 @@ func main() {
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
-	// API routes - RCA Reports
-	// TODO: Remove temporary RCA service availability check middleware
-	mux.HandleFunc("POST /api/rca-reports/project/{projectUid}", requireRCAService(handler.GetRCAReportsByProject, logger))
-	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", requireRCAService(handler.GetRCAReportByAlert, logger))
+	// API routes - RCA Reports (require AI RCA to be enabled)
+	mux.HandleFunc("POST /api/rca-reports/project/{projectUid}", handlers.RequireRCA(handler.GetRCAReportsByProject))
+	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", handlers.RequireRCA(handler.GetRCAReportByAlert))
 
 	// Initialize JWT middleware
 	jwtAuth := initJWTMiddleware(logger)
@@ -275,19 +274,4 @@ func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
 		},
 		Logger: logger,
 	})
-}
-
-// requireRCAService wraps a handler and checks if the RCA service is available
-func requireRCAService(next http.HandlerFunc, logger *slog.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		client := &http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get("http://ai-rca-agent:8080/health")
-		if err != nil || resp.StatusCode != http.StatusOK {
-			logger.Debug("RCA service not available", "endpoint", r.URL.Path)
-			http.Error(w, "RCA service not available", http.StatusServiceUnavailable)
-			return
-		}
-		resp.Body.Close()
-		next(w, r)
-	}
 }
