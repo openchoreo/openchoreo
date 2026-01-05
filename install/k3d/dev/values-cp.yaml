@@ -12,6 +12,12 @@ global:
 traefik:
   enabled: false
 
+# Gateway controller configuration
+# In single cluster mode, enable the controller in control-plane
+# This single controller will manage both control-plane and data-plane Gateway CRs
+gatewayController:
+  enabled: true
+
 security:
   enabled: false
 
