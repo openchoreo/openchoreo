@@ -76,6 +76,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create ComponentWorkflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
 
+	// Create GitHub webhook service (simplified - no git provider needed)
+	githubWebhookService := NewGitHubWebhookService(k8sClient, componentWorkflowService)
+
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
