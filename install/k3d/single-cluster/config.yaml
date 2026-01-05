@@ -65,6 +65,10 @@ options:
       - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
         nodeFilters:
           - server:*
+      # Disable Traefik to avoid conflicts with OpenChoreo Gateway controller
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
 # Configure insecure registries for HTTP access
 # Allows kubelet to pull images from Build Plane registry via HTTP
 registries:

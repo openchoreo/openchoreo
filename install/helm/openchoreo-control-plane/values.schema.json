@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "backstage": {
       "additionalProperties": false,
@@ -99,11 +99,7 @@
                     "selectPolicy": {
                       "default": "Max",
                       "description": "Policy selection strategy",
-                      "enum": [
-                        "Max",
-                        "Min",
-                        "Disabled"
-                      ],
+                      "enum": ["Max", "Min", "Disabled"],
                       "required": [],
                       "title": "selectPolicy"
                     },
@@ -202,11 +198,7 @@
                 "type": {
                   "default": "Unconfined",
                   "description": "AppArmor profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -248,11 +240,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -343,11 +331,7 @@
             "pullPolicy": {
               "default": "IfNotPresent",
               "description": "Image pull policy",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
+              "enum": ["Always", "IfNotPresent", "Never"],
               "required": [],
               "title": "pullPolicy"
             },
@@ -467,9 +451,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "prometheus"
-                  ],
+                  "required": ["prometheus"],
                   "title": "labels",
                   "type": "object"
                 },
@@ -635,11 +617,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -755,10 +733,7 @@
               "description": "NodePort (only used if service.type is NodePort)",
               "required": [],
               "title": "nodePort",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": ["integer", "null"]
             },
             "port": {
               "default": 7007,
@@ -770,11 +745,7 @@
             "type": {
               "default": "ClusterIP",
               "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
               "required": [],
               "title": "type"
             }
@@ -898,11 +869,7 @@
             "pullPolicy": {
               "default": "IfNotPresent",
               "description": "Image pull policy",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
+              "enum": ["Always", "IfNotPresent", "Never"],
               "required": [],
               "title": "pullPolicy"
             },
@@ -972,12 +939,7 @@
         "logLevel": {
           "default": "info",
           "description": "Log level",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
+          "enum": ["debug", "info", "warn", "error"],
           "required": [],
           "title": "logLevel"
         },
@@ -1179,30 +1141,21 @@
               "description": "Cluster IP (set to None for headless service)",
               "required": [],
               "title": "clusterIP",
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             },
             "loadBalancerIP": {
               "default": "null",
               "description": "LoadBalancer IP (only used if service.type is LoadBalancer)",
               "required": [],
               "title": "loadBalancerIP",
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             },
             "nodePort": {
               "default": "null",
               "description": "NodePort (only used if service.type is NodePort)",
               "required": [],
               "title": "nodePort",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": ["integer", "null"]
             },
             "port": {
               "default": 8443,
@@ -1214,11 +1167,7 @@
             "type": {
               "default": "ClusterIP",
               "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
               "required": [],
               "title": "type"
             }
@@ -1295,10 +1244,7 @@
                 "kind": {
                   "default": "Issuer",
                   "description": "Issuer kind",
-                  "enum": [
-                    "Issuer",
-                    "ClusterIssuer"
-                  ],
+                  "enum": ["Issuer", "ClusterIssuer"],
                   "required": [],
                   "title": "kind"
                 },
@@ -1382,10 +1328,7 @@
                             "type": "integer"
                           },
                           "type": {
-                            "enum": [
-                              "Percent",
-                              "Pods"
-                            ],
+                            "enum": ["Percent", "Pods"],
                             "required": [],
                             "type": "string"
                           },
@@ -1426,10 +1369,7 @@
                             "type": "integer"
                           },
                           "type": {
-                            "enum": [
-                              "Percent",
-                              "Pods"
-                            ],
+                            "enum": ["Percent", "Pods"],
                             "required": [],
                             "type": "string"
                           },
@@ -1448,11 +1388,7 @@
                     "selectPolicy": {
                       "default": "Max",
                       "description": "Policy selection strategy",
-                      "enum": [
-                        "Max",
-                        "Min",
-                        "Disabled"
-                      ],
+                      "enum": ["Max", "Min", "Disabled"],
                       "required": [],
                       "title": "selectPolicy"
                     },
@@ -1583,11 +1519,7 @@
                 "type": {
                   "default": "Unconfined",
                   "description": "AppArmor profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -1629,11 +1561,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -1654,11 +1582,7 @@
             "pullPolicy": {
               "default": "Always",
               "description": "Image pull policy",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
+              "enum": ["Always", "IfNotPresent", "Never"],
               "required": [],
               "title": "pullPolicy"
             },
@@ -1702,10 +1626,7 @@
                 "enableWebhooks": {
                   "default": "true",
                   "description": "Enable admission webhooks",
-                  "enum": [
-                    "true",
-                    "false"
-                  ],
+                  "enum": ["true", "false"],
                   "required": [],
                   "title": "enableWebhooks"
                 }
@@ -1761,9 +1682,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "prometheus"
-                  ],
+                  "required": ["prometheus"],
                   "title": "labels",
                   "type": "object"
                 },
@@ -1920,11 +1839,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -2040,10 +1955,7 @@
               "description": "NodePort (only used if service.type is NodePort)",
               "required": [],
               "title": "nodePort",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": ["integer", "null"]
             },
             "port": {
               "default": 8080,
@@ -2055,11 +1967,7 @@
             "type": {
               "default": "ClusterIP",
               "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
               "required": [],
               "title": "type"
             }
@@ -2100,11 +2008,7 @@
           "items": {
             "properties": {
               "effect": {
-                "enum": [
-                  "NoSchedule",
-                  "PreferNoSchedule",
-                  "NoExecute"
-                ],
+                "enum": ["NoSchedule", "PreferNoSchedule", "NoExecute"],
                 "required": [],
                 "type": "string"
               },
@@ -2113,10 +2017,7 @@
                 "type": "string"
               },
               "operator": {
-                "enum": [
-                  "Exists",
-                  "Equal"
-                ],
+                "enum": ["Exists", "Equal"],
                 "required": [],
                 "type": "string"
               },
@@ -2160,10 +2061,7 @@
                 "type": "string"
               },
               "whenUnsatisfiable": {
-                "enum": [
-                  "DoNotSchedule",
-                  "ScheduleAnyway"
-                ],
+                "enum": ["DoNotSchedule", "ScheduleAnyway"],
                 "required": [],
                 "type": "string"
               }
@@ -2186,6 +2084,303 @@
       "required": [],
       "title": "fullnameOverride",
       "type": "string"
+    },
+    "gateway": {
+      "additionalProperties": true,
+      "description": "KGateway (Gateway API) configuration (subchart)",
+      "properties": {
+        "agentgateway": {
+          "additionalProperties": false,
+          "description": "Agent gateway configuration (for MCP and REST API connectivity)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable agent gateway",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "agentgateway",
+          "type": "object"
+        },
+        "controller": {
+          "additionalProperties": true,
+          "description": "Gateway controller configuration",
+          "properties": {
+            "image": {
+              "additionalProperties": false,
+              "description": "Controller image configuration",
+              "properties": {
+                "pullPolicy": {
+                  "default": "IfNotPresent",
+                  "description": "Image pull policy",
+                  "enum": ["Always", "IfNotPresent", "Never"],
+                  "required": [],
+                  "title": "pullPolicy"
+                },
+                "registry": {
+                  "default": "",
+                  "description": "Image registry",
+                  "required": [],
+                  "title": "registry",
+                  "type": "string"
+                },
+                "repository": {
+                  "default": "kgateway",
+                  "description": "Image repository",
+                  "required": [],
+                  "title": "repository",
+                  "type": "string"
+                },
+                "tag": {
+                  "default": "",
+                  "description": "Image tag (defaults to chart appVersion)",
+                  "required": [],
+                  "title": "tag",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "image",
+              "type": "object"
+            },
+            "logLevel": {
+              "default": "info",
+              "description": "Controller log level",
+              "enum": ["debug", "info", "warn", "error"],
+              "required": [],
+              "title": "logLevel"
+            },
+            "replicaCount": {
+              "default": 1,
+              "description": "Number of controller replicas",
+              "required": [],
+              "title": "replicaCount",
+              "type": "integer"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Controller resource requests and limits",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "description": "Resource limits",
+                  "properties": {
+                    "cpu": {
+                      "default": "200m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "description": "Resource requests",
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            },
+            "service": {
+              "additionalProperties": false,
+              "description": "Controller service configuration",
+              "properties": {
+                "ports": {
+                  "additionalProperties": false,
+                  "description": "Service ports",
+                  "properties": {
+                    "agwGrpc": {
+                      "default": 9978,
+                      "description": "Agent gateway gRPC port",
+                      "required": [],
+                      "title": "agwGrpc",
+                      "type": "integer"
+                    },
+                    "grpc": {
+                      "default": 9977,
+                      "description": "gRPC port",
+                      "required": [],
+                      "title": "grpc",
+                      "type": "integer"
+                    },
+                    "health": {
+                      "default": 9093,
+                      "description": "Health check port",
+                      "required": [],
+                      "title": "health",
+                      "type": "integer"
+                    },
+                    "metrics": {
+                      "default": 9092,
+                      "description": "Metrics port",
+                      "required": [],
+                      "title": "metrics",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "ports",
+                  "type": "object"
+                },
+                "type": {
+                  "default": "ClusterIP",
+                  "description": "Service type",
+                  "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "service",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "controller",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable kgateway ingress controller",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "envoy": {
+          "additionalProperties": false,
+          "description": "Envoy proxy configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Envoy proxy",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "mountTmpVolume": {
+              "default": false,
+              "description": "Mount /tmp as emptyDir volume (required for macOS Docker Desktop/Colima)",
+              "required": [],
+              "title": "mountTmpVolume",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "envoy",
+          "type": "object"
+        },
+        "httpPort": {
+          "default": 80,
+          "description": "HTTP listener port",
+          "required": [],
+          "title": "httpPort",
+          "type": "integer"
+        },
+        "httpsPort": {
+          "default": 443,
+          "description": "HTTPS listener port",
+          "required": [],
+          "title": "httpsPort",
+          "type": "integer"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Default image settings for all gateway components",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Default image pull policy",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "registry": {
+              "default": "cr.kgateway.dev/kgateway-dev",
+              "description": "Default registry for gateway images",
+              "required": [],
+              "title": "registry",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Default image tag (defaults to chart appVersion)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration for gateway",
+          "properties": {
+            "certName": {
+              "default": "{{ .Values.global.tls.secretName }}",
+              "description": "Certificate secret name",
+              "required": [],
+              "title": "certName",
+              "type": "string"
+            },
+            "clusterIssuer": {
+              "default": "",
+              "description": "ClusterIssuer for certificate generation (empty uses default self-signed issuer)",
+              "required": [],
+              "title": "clusterIssuer",
+              "type": "string"
+            },
+            "hostname": {
+              "default": "*.{{ .Values.global.baseDomain }}",
+              "description": "Hostname pattern for TLS certificate",
+              "required": [],
+              "title": "hostname",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tls",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "gateway",
+      "type": "object"
     },
     "global": {
       "additionalProperties": false,
@@ -2391,8 +2586,8 @@
           "type": "array"
         },
         "ingressClassName": {
-          "default": "openchoreo-traefik",
-          "description": "Ingress class for all services (uses Traefik by default)",
+          "default": "kgateway",
+          "description": "Ingress class for all services (uses kgateway by default)",
           "required": [],
           "title": "ingressClassName",
           "type": "string"
@@ -2479,10 +2674,7 @@
                 "type": "integer"
               },
               "protocol": {
-                "enum": [
-                  "TCP",
-                  "UDP"
-                ],
+                "enum": ["TCP", "UDP"],
                 "required": [],
                 "type": "string"
               },
@@ -2501,11 +2693,7 @@
         "type": {
           "default": "ClusterIP",
           "description": "Service type",
-          "enum": [
-            "ClusterIP",
-            "NodePort",
-            "LoadBalancer"
-          ],
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
           "required": [],
           "title": "type"
         }
@@ -2584,11 +2772,7 @@
                     "selectPolicy": {
                       "default": "Max",
                       "description": "Policy selection strategy",
-                      "enum": [
-                        "Max",
-                        "Min",
-                        "Disabled"
-                      ],
+                      "enum": ["Max", "Min", "Disabled"],
                       "required": [],
                       "title": "selectPolicy"
                     },
@@ -2673,11 +2857,7 @@
                 "type": {
                   "default": "Unconfined",
                   "description": "AppArmor profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -2719,11 +2899,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -2797,11 +2973,7 @@
             "pullPolicy": {
               "default": "IfNotPresent",
               "description": "Image pull policy",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
+              "enum": ["Always", "IfNotPresent", "Never"],
               "required": [],
               "title": "pullPolicy"
             },
@@ -2910,12 +3082,7 @@
         "logLevel": {
           "default": "info",
           "description": "Log level for the API server",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
+          "enum": ["debug", "info", "warn", "error"],
           "required": [],
           "title": "logLevel"
         },
@@ -2977,9 +3144,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "prometheus"
-                  ],
+                  "required": ["prometheus"],
                   "title": "labels",
                   "type": "object"
                 },
@@ -3136,11 +3301,7 @@
                 "type": {
                   "default": "RuntimeDefault",
                   "description": "Seccomp profile type",
-                  "enum": [
-                    "RuntimeDefault",
-                    "Localhost",
-                    "Unconfined"
-                  ],
+                  "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                   "required": [],
                   "title": "type"
                 }
@@ -3327,10 +3488,7 @@
               "description": "NodePort (only used if service.type is NodePort)",
               "required": [],
               "title": "nodePort",
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": ["integer", "null"]
             },
             "port": {
               "default": 8080,
@@ -3342,11 +3500,7 @@
             "type": {
               "default": "ClusterIP",
               "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
+              "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
               "required": [],
               "title": "type"
             }
@@ -3634,17 +3788,12 @@
                   "type": "string"
                 }
               },
-              "required": [
-                "clientId",
-                "clientSecret"
-              ],
+              "required": ["clientId", "clientSecret"],
               "title": "rcaAgentClient",
               "type": "object"
             }
           },
-          "required": [
-            "rcaAgentClient"
-          ],
+          "required": ["rcaAgentClient"],
           "title": "bootstrap",
           "type": "object"
         },
@@ -3673,10 +3822,7 @@
                 "evictionPolicy": {
                   "default": "LRU",
                   "description": "Cache eviction policy",
-                  "enum": [
-                    "LRU",
-                    "LFU"
-                  ],
+                  "enum": ["LRU", "LFU"],
                   "required": [],
                   "title": "evictionPolicy"
                 },
@@ -3697,10 +3843,7 @@
                 "type": {
                   "default": "inmemory",
                   "description": "Cache type",
-                  "enum": [
-                    "inmemory",
-                    "redis"
-                  ],
+                  "enum": ["inmemory", "redis"],
                   "required": [],
                   "title": "type"
                 }
@@ -3753,11 +3896,7 @@
                     "type": {
                       "default": "sqlite",
                       "description": "Database type",
-                      "enum": [
-                        "sqlite",
-                        "mysql",
-                        "postgres"
-                      ],
+                      "enum": ["sqlite", "mysql", "postgres"],
                       "required": [],
                       "title": "type"
                     }
@@ -3787,11 +3926,7 @@
                     "type": {
                       "default": "sqlite",
                       "description": "Database type",
-                      "enum": [
-                        "sqlite",
-                        "mysql",
-                        "postgres"
-                      ],
+                      "enum": ["sqlite", "mysql", "postgres"],
                       "required": [],
                       "title": "type"
                     }
@@ -3821,11 +3956,7 @@
                     "type": {
                       "default": "sqlite",
                       "description": "Database type",
-                      "enum": [
-                        "sqlite",
-                        "mysql",
-                        "postgres"
-                      ],
+                      "enum": ["sqlite", "mysql", "postgres"],
                       "required": [],
                       "title": "type"
                     }
@@ -3906,10 +4037,7 @@
                 "scheme": {
                   "default": "http",
                   "description": "Protocol scheme",
-                  "enum": [
-                    "http",
-                    "https"
-                  ],
+                  "enum": ["http", "https"],
                   "required": [],
                   "title": "scheme"
                 }
@@ -4072,11 +4200,7 @@
                 "pullPolicy": {
                   "default": "IfNotPresent",
                   "description": "Image pull policy",
-                  "enum": [
-                    "Always",
-                    "IfNotPresent",
-                    "Never"
-                  ],
+                  "enum": ["Always", "IfNotPresent", "Never"],
                   "required": [],
                   "title": "pullPolicy"
                 },
@@ -4215,11 +4339,7 @@
                     "type": {
                       "default": "RuntimeDefault",
                       "description": "Seccomp profile type",
-                      "enum": [
-                        "RuntimeDefault",
-                        "Localhost",
-                        "Unconfined"
-                      ],
+                      "enum": ["RuntimeDefault", "Localhost", "Unconfined"],
                       "required": [],
                       "title": "type"
                     }
@@ -4436,11 +4556,7 @@
             "accessMode": {
               "default": "ReadWriteOnce",
               "description": "Access mode for the persistent volume",
-              "enum": [
-                "ReadWriteOnce",
-                "ReadWriteMany",
-                "ReadOnlyMany"
-              ],
+              "enum": ["ReadWriteOnce", "ReadWriteMany", "ReadOnlyMany"],
               "required": [],
               "title": "accessMode"
             },
@@ -4621,333 +4737,6 @@
       "title": "thunder",
       "type": "object"
     },
-    "traefik": {
-      "additionalProperties": true,
-      "description": "Traefik ingress controller configuration (subchart)",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable Traefik ingress controller",
-          "required": [],
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "fullnameOverride": {
-          "default": "openchoreo-traefik",
-          "description": "Override the Traefik release name",
-          "required": [],
-          "title": "fullnameOverride",
-          "type": "string"
-        },
-        "ingressClass": {
-          "additionalProperties": true,
-          "description": "IngressClass configuration",
-          "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Create IngressClass resource",
-              "required": [],
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "isDefaultClass": {
-              "default": false,
-              "description": "Set as the default IngressClass",
-              "required": [],
-              "title": "isDefaultClass",
-              "type": "boolean"
-            },
-            "name": {
-              "default": "openchoreo-traefik",
-              "description": "IngressClass name",
-              "required": [],
-              "title": "name",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "ingressClass",
-          "type": "object"
-        },
-        "ingressRoute": {
-          "additionalProperties": true,
-          "description": "IngressRoute configuration for Traefik dashboard",
-          "properties": {
-            "dashboard": {
-              "additionalProperties": true,
-              "description": "Dashboard configuration",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable Traefik dashboard",
-                  "required": [],
-                  "title": "enabled",
-                  "type": "boolean"
-                }
-              },
-              "required": [],
-              "title": "dashboard",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "ingressRoute",
-          "type": "object"
-        },
-        "logs": {
-          "additionalProperties": true,
-          "description": "Logging configuration",
-          "properties": {
-            "access": {
-              "additionalProperties": true,
-              "description": "Access log configuration",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable access logs",
-                  "required": [],
-                  "title": "enabled",
-                  "type": "boolean"
-                }
-              },
-              "required": [],
-              "title": "access",
-              "type": "object"
-            },
-            "general": {
-              "additionalProperties": true,
-              "description": "General logging configuration",
-              "properties": {
-                "level": {
-                  "default": "INFO",
-                  "description": "Log level",
-                  "enum": [
-                    "DEBUG",
-                    "INFO",
-                    "WARN",
-                    "ERROR"
-                  ],
-                  "required": [],
-                  "title": "level"
-                }
-              },
-              "required": [],
-              "title": "general",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "logs",
-          "type": "object"
-        },
-        "ports": {
-          "additionalProperties": true,
-          "description": "Port configuration for Traefik LoadBalancer",
-          "properties": {
-            "web": {
-              "additionalProperties": true,
-              "description": "HTTP port configuration",
-              "properties": {
-                "expose": {
-                  "additionalProperties": true,
-                  "description": "Expose configuration",
-                  "properties": {
-                    "default": {
-                      "default": true,
-                      "description": "Expose port by default",
-                      "required": [],
-                      "title": "default",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "expose",
-                  "type": "object"
-                },
-                "exposedPort": {
-                  "default": 80,
-                  "description": "LoadBalancer exposed port for HTTP",
-                  "required": [],
-                  "title": "exposedPort",
-                  "type": "integer"
-                },
-                "port": {
-                  "default": 8000,
-                  "description": "Container port for HTTP",
-                  "required": [],
-                  "title": "port",
-                  "type": "integer"
-                }
-              },
-              "required": [],
-              "title": "web",
-              "type": "object"
-            },
-            "websecure": {
-              "additionalProperties": true,
-              "description": "HTTPS port configuration",
-              "properties": {
-                "expose": {
-                  "additionalProperties": true,
-                  "description": "Expose configuration",
-                  "properties": {
-                    "default": {
-                      "default": true,
-                      "description": "Expose port by default",
-                      "required": [],
-                      "title": "default",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "expose",
-                  "type": "object"
-                },
-                "exposedPort": {
-                  "default": 443,
-                  "description": "LoadBalancer exposed port for HTTPS",
-                  "required": [],
-                  "title": "exposedPort",
-                  "type": "integer"
-                },
-                "port": {
-                  "default": 8443,
-                  "description": "Container port for HTTPS",
-                  "required": [],
-                  "title": "port",
-                  "type": "integer"
-                },
-                "tls": {
-                  "additionalProperties": true,
-                  "description": "TLS configuration for websecure port",
-                  "properties": {
-                    "enabled": {
-                      "default": true,
-                      "description": "Enable TLS on websecure port",
-                      "required": [],
-                      "title": "enabled",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "tls",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "websecure",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "ports",
-          "type": "object"
-        },
-        "providers": {
-          "additionalProperties": true,
-          "description": "Kubernetes provider configuration",
-          "properties": {
-            "kubernetesIngress": {
-              "additionalProperties": true,
-              "description": "Kubernetes Ingress provider configuration",
-              "properties": {
-                "ingressClass": {
-                  "default": "openchoreo-traefik",
-                  "description": "IngressClass to watch",
-                  "required": [],
-                  "title": "ingressClass",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "kubernetesIngress",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "providers",
-          "type": "object"
-        },
-        "resources": {
-          "additionalProperties": true,
-          "description": "Resource requests and limits",
-          "properties": {
-            "limits": {
-              "additionalProperties": true,
-              "description": "Resource limits",
-              "properties": {
-                "cpu": {
-                  "default": "500m",
-                  "description": "CPU limit",
-                  "required": [],
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "256Mi",
-                  "description": "Memory limit",
-                  "required": [],
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "limits",
-              "type": "object"
-            },
-            "requests": {
-              "additionalProperties": true,
-              "description": "Resource requests",
-              "properties": {
-                "cpu": {
-                  "default": "100m",
-                  "description": "CPU request",
-                  "required": [],
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "128Mi",
-                  "description": "Memory request",
-                  "required": [],
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "requests",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "resources",
-          "type": "object"
-        },
-        "service": {
-          "additionalProperties": true,
-          "description": "Kubernetes service configuration",
-          "properties": {
-            "type": {
-              "default": "LoadBalancer",
-              "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
-              "required": [],
-              "title": "type"
-            }
-          },
-          "required": [],
-          "title": "service",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "traefik",
-      "type": "object"
-    },
     "waitJob": {
       "additionalProperties": false,
       "description": "Wait job configuration for Helm hooks",
@@ -4977,10 +4766,7 @@
                 "type": "integer"
               },
               "protocol": {
-                "enum": [
-                  "TCP",
-                  "UDP"
-                ],
+                "enum": ["TCP", "UDP"],
                 "required": [],
                 "type": "string"
               },
@@ -4999,11 +4785,7 @@
         "type": {
           "default": "ClusterIP",
           "description": "Service type",
-          "enum": [
-            "ClusterIP",
-            "NodePort",
-            "LoadBalancer"
-          ],
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
           "required": [],
           "title": "type"
         }

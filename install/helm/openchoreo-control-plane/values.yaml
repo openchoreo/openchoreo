@@ -44,10 +44,10 @@ global:
 
   # @schema
   # type: string
-  # description: Ingress class for all services (uses Traefik by default)
-  # default: openchoreo-traefik
+  # description: Ingress class for all services (uses kgateway by default)
+  # default: kgateway
   # @schema
-  ingressClassName: openchoreo-traefik
+  ingressClassName: kgateway
 
   # @schema
   # type: string
@@ -4154,370 +4154,252 @@ clusterGateway:
   # @schema
   affinity: {}
 
-# type: object
-# description: Traefik ingress controller configuration (subchart)
 # @schema
 # type: object
 # additionalProperties: true
-# description: Traefik ingress controller configuration (subchart)
+# description: KGateway (Gateway API) configuration (subchart)
 # @schema
-traefik:
-  # type: boolean
-  # description: Enable Traefik ingress controller
-  # default: true
+gateway:
   # @schema
   # type: boolean
-  # description: Enable Traefik ingress controller
+  # description: Enable kgateway ingress controller
   # default: true
   # @schema
   enabled: true
 
-  # type: string
-  # description: Override the Traefik release name
-  # default: openchoreo-traefik
   # @schema
-  # type: string
-  # description: Override the Traefik release name
-  # default: openchoreo-traefik
+  # type: integer
+  # description: HTTP listener port
+  # default: 80
   # @schema
-  fullnameOverride: openchoreo-traefik
+  httpPort: 80
 
-  # type: object
-  # additionalProperties: true
-  # description: IngressClass configuration
+  # @schema
+  # type: integer
+  # description: HTTPS listener port
+  # default: 443
+  # @schema
+  httpsPort: 443
+
   # @schema
   # type: object
-  # additionalProperties: true
-  # description: IngressClass configuration
+  # description: TLS configuration for gateway
   # @schema
-  ingressClass:
-    # type: boolean
-    # description: Create IngressClass resource
-    # default: true
+  tls:
+    # @schema
+    # type: string
+    # description: ClusterIssuer for certificate generation (empty uses default self-signed issuer)
+    # default: ""
+    # @schema
+    clusterIssuer: ""
+
+    # @schema
+    # type: string
+    # description: Hostname pattern for TLS certificate
+    # default: "*.{{ .Values.global.baseDomain }}"
+    # @schema
+    hostname: ""
+
+    # @schema
+    # type: string
+    # description: Certificate secret name
+    # default: "{{ .Values.global.tls.secretName }}"
+    # @schema
+    certName: ""
+
+  # @schema
+  # type: object
+  # description: Gateway controller configuration
+  # @schema
+  controller:
+    # @schema
+    # type: integer
+    # description: Number of controller replicas
+    # default: 1
+    # @schema
+    replicaCount: 1
+
+    # @schema
+    # description: Controller log level
+    # enum: [debug, info, warn, error]
+    # default: info
+    # @schema
+    logLevel: info
+
+    # @schema
+    # type: object
+    # description: Controller image configuration
+    # @schema
+    image:
+      # @schema
+      # type: string
+      # description: Image registry
+      # default: ""
+      # @schema
+      registry: ""
+
+      # @schema
+      # type: string
+      # description: Image repository
+      # default: kgateway
+      # @schema
+      repository: kgateway
+
+      # @schema
+      # description: Image pull policy
+      # enum: [Always, IfNotPresent, Never]
+      # default: IfNotPresent
+      # @schema
+      pullPolicy: IfNotPresent
+
+      # @schema
+      # type: string
+      # description: Image tag (defaults to chart appVersion)
+      # default: ""
+      # @schema
+      tag: ""
+
+    # @schema
+    # type: object
+    # description: Controller service configuration
+    # @schema
+    service:
+      # @schema
+      # description: Service type
+      # enum: [ClusterIP, NodePort, LoadBalancer]
+      # default: ClusterIP
+      # @schema
+      type: ClusterIP
+
+      # @schema
+      # type: object
+      # description: Service ports
+      # @schema
+      ports:
+        # @schema
+        # type: integer
+        # description: gRPC port
+        # default: 9977
+        # @schema
+        grpc: 9977
+
+        # @schema
+        # type: integer
+        # description: Agent gateway gRPC port
+        # default: 9978
+        # @schema
+        agwGrpc: 9978
+
+        # @schema
+        # type: integer
+        # description: Health check port
+        # default: 9093
+        # @schema
+        health: 9093
+
+        # @schema
+        # type: integer
+        # description: Metrics port
+        # default: 9092
+        # @schema
+        metrics: 9092
+
+    # @schema
+    # type: object
+    # description: Controller resource requests and limits
+    # @schema
+    resources:
+      # @schema
+      # type: object
+      # description: Resource limits
+      # @schema
+      limits:
+        # @schema
+        # type: string
+        # description: CPU limit
+        # default: 200m
+        # @schema
+        cpu: 200m
+
+        # @schema
+        # type: string
+        # description: Memory limit
+        # default: 256Mi
+        # @schema
+        memory: 256Mi
+
+      # @schema
+      # type: object
+      # description: Resource requests
+      # @schema
+      requests:
+        # @schema
+        # type: string
+        # description: CPU request
+        # default: 100m
+        # @schema
+        cpu: 100m
+
+        # @schema
+        # type: string
+        # description: Memory request
+        # default: 128Mi
+        # @schema
+        memory: 128Mi
+
+  # @schema
+  # type: object
+  # description: Agent gateway configuration (for MCP and REST API connectivity)
+  # @schema
+  agentgateway:
     # @schema
     # type: boolean
-    # description: Create IngressClass resource
+    # description: Enable agent gateway
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: object
+  # description: Envoy proxy configuration
+  # @schema
+  envoy:
+    # @schema
+    # type: boolean
+    # description: Enable Envoy proxy
     # default: true
     # @schema
     enabled: true
-    # type: boolean
-    # description: Set as the default IngressClass
-    # default: false
+
     # @schema
     # type: boolean
-    # description: Set as the default IngressClass
+    # description: Mount /tmp as emptyDir volume (required for macOS Docker Desktop/Colima)
     # default: false
     # @schema
-    isDefaultClass: false
+    mountTmpVolume: false
+
+  # @schema
+  # type: object
+  # description: Default image settings for all gateway components
+  # @schema
+  image:
+    # @schema
     # type: string
-    # description: IngressClass name
-    # default: openchoreo-traefik
+    # description: Default registry for gateway images
+    # default: cr.kgateway.dev/kgateway-dev
+    # @schema
+    registry: cr.kgateway.dev/kgateway-dev
+
     # @schema
     # type: string
-    # description: IngressClass name
-    # default: openchoreo-traefik
+    # description: Default image tag (defaults to chart appVersion)
+    # default: ""
     # @schema
-    name: openchoreo-traefik
+    tag: ""
 
-  # type: object
-  # additionalProperties: true
-  # description: Kubernetes service configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Kubernetes service configuration
-  # @schema
-  service:
-    # description: Service type
-    # enum: [ClusterIP, NodePort, LoadBalancer]
-    # default: LoadBalancer
     # @schema
-    # description: Service type
-    # enum: [ClusterIP, NodePort, LoadBalancer]
-    # default: LoadBalancer
+    # description: Default image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
     # @schema
-    type: LoadBalancer
-
-  # type: object
-  # additionalProperties: true
-  # description: Port configuration for Traefik LoadBalancer
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Port configuration for Traefik LoadBalancer
-  # @schema
-  ports:
-    # type: object
-    # additionalProperties: true
-    # description: HTTP port configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: HTTP port configuration
-    # @schema
-    web:
-      # type: integer
-      # description: Container port for HTTP
-      # default: 8000
-      # @schema
-      # type: integer
-      # description: Container port for HTTP
-      # default: 8000
-      # @schema
-      port: 8000
-      # type: integer
-      # description: LoadBalancer exposed port for HTTP
-      # default: 80
-      # @schema
-      # type: integer
-      # description: LoadBalancer exposed port for HTTP
-      # default: 80
-      # @schema
-      exposedPort: 80
-      # type: object
-      # additionalProperties: true
-      # description: Expose configuration
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Expose configuration
-      # @schema
-      expose:
-        # type: boolean
-        # description: Expose port by default
-        # default: true
-        # @schema
-        # type: boolean
-        # description: Expose port by default
-        # default: true
-        # @schema
-        default: true
-    # type: object
-    # additionalProperties: true
-    # description: HTTPS port configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: HTTPS port configuration
-    # @schema
-    websecure:
-      # type: integer
-      # description: Container port for HTTPS
-      # default: 8443
-      # @schema
-      # type: integer
-      # description: Container port for HTTPS
-      # default: 8443
-      # @schema
-      port: 8443
-      # type: integer
-      # description: LoadBalancer exposed port for HTTPS
-      # default: 443
-      # @schema
-      # type: integer
-      # description: LoadBalancer exposed port for HTTPS
-      # default: 443
-      # @schema
-      exposedPort: 443
-      # type: object
-      # additionalProperties: true
-      # description: Expose configuration
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Expose configuration
-      # @schema
-      expose:
-        # type: boolean
-        # description: Expose port by default
-        # default: true
-        # @schema
-        # type: boolean
-        # description: Expose port by default
-        # default: true
-        # @schema
-        default: true
-      # type: object
-      # additionalProperties: true
-      # description: TLS configuration for websecure port
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: TLS configuration for websecure port
-      # @schema
-      tls:
-        # type: boolean
-        # description: Enable TLS on websecure port
-        # default: true
-        # @schema
-        # type: boolean
-        # description: Enable TLS on websecure port
-        # default: true
-        # @schema
-        enabled: true
-
-  # type: object
-  # additionalProperties: true
-  # description: Resource requests and limits
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Resource requests and limits
-  # @schema
-  resources:
-    # type: object
-    # additionalProperties: true
-    # description: Resource requests
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Resource requests
-    # @schema
-    requests:
-      # type: string
-      # description: CPU request
-      # default: 100m
-      # @schema
-      # type: string
-      # description: CPU request
-      # default: 100m
-      # @schema
-      cpu: 100m
-      # type: string
-      # description: Memory request
-      # default: 128Mi
-      # @schema
-      # type: string
-      # description: Memory request
-      # default: 128Mi
-      # @schema
-      memory: 128Mi
-    # type: object
-    # additionalProperties: true
-    # description: Resource limits
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Resource limits
-    # @schema
-    limits:
-      # type: string
-      # description: CPU limit
-      # default: 500m
-      # @schema
-      # type: string
-      # description: CPU limit
-      # default: 500m
-      # @schema
-      cpu: 500m
-      # type: string
-      # description: Memory limit
-      # default: 256Mi
-      # @schema
-      # type: string
-      # description: Memory limit
-      # default: 256Mi
-      # @schema
-      memory: 256Mi
-
-  # type: object
-  # additionalProperties: true
-  # description: IngressRoute configuration for Traefik dashboard
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: IngressRoute configuration for Traefik dashboard
-  # @schema
-  ingressRoute:
-    # type: object
-    # additionalProperties: true
-    # description: Dashboard configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Dashboard configuration
-    # @schema
-    dashboard:
-      # type: boolean
-      # description: Enable Traefik dashboard
-      # default: false
-      # @schema
-      # type: boolean
-      # description: Enable Traefik dashboard
-      # default: false
-      # @schema
-      enabled: false
-
-  # type: object
-  # additionalProperties: true
-  # description: Kubernetes provider configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Kubernetes provider configuration
-  # @schema
-  providers:
-    # type: object
-    # additionalProperties: true
-    # description: Kubernetes Ingress provider configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Kubernetes Ingress provider configuration
-    # @schema
-    kubernetesIngress:
-      # type: string
-      # description: IngressClass to watch
-      # default: openchoreo-traefik
-      # @schema
-      # type: string
-      # description: IngressClass to watch
-      # default: openchoreo-traefik
-      # @schema
-      ingressClass: openchoreo-traefik
-
-  # type: object
-  # additionalProperties: true
-  # description: Logging configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Logging configuration
-  # @schema
-  logs:
-    # type: object
-    # additionalProperties: true
-    # description: General logging configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: General logging configuration
-    # @schema
-    general:
-      # description: Log level
-      # enum: [DEBUG, INFO, WARN, ERROR]
-      # default: INFO
-      # @schema
-      # description: Log level
-      # enum: [DEBUG, INFO, WARN, ERROR]
-      # default: INFO
-      # @schema
-      level: INFO
-    # type: object
-    # additionalProperties: true
-    # description: Access log configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Access log configuration
-    # @schema
-    access:
-      # type: boolean
-      # description: Enable access logs
-      # default: false
-      # @schema
-      # type: boolean
-      # description: Enable access logs
-      # default: false
-      # @schema
-      enabled: false
+    pullPolicy: IfNotPresent

@@ -1,0 +1,28 @@
+{{- if .Values.clusterGateway.enabled }}
+{{- if and .Values.clusterGateway.ingress.enabled .Values.gateway.enabled }}
+---
+# TLSRoute for TLS passthrough
+# Required for end-to-end mTLS with cluster agents
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+spec:
+  parentRefs:
+    - name: gateway-default
+      namespace: {{ .Release.Namespace }}
+      sectionName: tls-passthrough
+  hostnames:
+    {{- range .Values.clusterGateway.ingress.hosts }}
+    - {{ .host | quote }}
+    {{- end }}
+  rules:
+    - backendRefs:
+        - name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+          port: {{ .Values.clusterGateway.service.port }}
+{{- end }}
+{{- end }}
