@@ -104,7 +104,7 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request, provider
 func (h *Handler) getWebhookSecret(ctx context.Context, secretKey string) (string, error) {
 	// Get the Secret
 	secret := &corev1.Secret{}
-	if err := h.k8sClient.Get(ctx, client.ObjectKey{
+	if err := h.services.GetKubernetesClient().Get(ctx, client.ObjectKey{
 		Name:      WebhookSecretName,
 		Namespace: WebhookSecretNamespace,
 	}, secret); err != nil {
