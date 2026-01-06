@@ -430,13 +430,6 @@ field: "[]string | maxItems=xyz"
 			expectError: "invalid maxItems",
 		},
 		{
-			name: "invalid uniqueItems value",
-			schemaYAML: `
-field: "[]string | uniqueItems=notabool"
-`,
-			expectError: "invalid uniqueItems",
-		},
-		{
 			name: "invalid exclusiveMinimum value",
 			schemaYAML: `
 field: "number | exclusiveMinimum=notabool"

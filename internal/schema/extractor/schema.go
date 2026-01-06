@@ -224,7 +224,7 @@ func (c *converter) applyObjectDefault(schema *apiextensions.JSONSchemaProps, de
 //   - Type constraints
 //   - Numeric constraints (minimum, maximum, multipleOf)
 //   - String constraints (minLength, maxLength, pattern)
-//   - Array constraints (minItems, maxItems, uniqueItems)
+//   - Array constraints (minItems, maxItems)
 //   - Enum values
 //
 // For complex types (objects, arrays), this performs deep validation of nested structures.
@@ -548,14 +548,6 @@ func (c *converter) buildConstraintHandlers(schema *apiextensions.JSONSchemaProp
 				return fmt.Errorf("invalid maxItems %q: %w", value, err)
 			}
 			schema.MaxItems = &intVal
-			return nil
-		},
-		"uniqueItems": func(value string) error {
-			boolVal, err := strconv.ParseBool(value)
-			if err != nil {
-				return fmt.Errorf("invalid uniqueItems %q: %w", value, err)
-			}
-			schema.UniqueItems = boolVal
 			return nil
 		},
 		"minLength": func(value string) error {

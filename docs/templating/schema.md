@@ -330,7 +330,7 @@ age: "integer | minimum=0 maximum=150"
 price: "number | minimum=0 exclusiveMinimum=true multipleOf=0.01"
 
 # Arrays
-tags: "[]string | minItems=1 maxItems=10 uniqueItems=true"
+tags: "[]string | minItems=1 maxItems=10"
 ```
 
 ### Enumerations
