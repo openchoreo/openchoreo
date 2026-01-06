@@ -3896,52 +3896,30 @@ clusterGateway:
     clusterIP: null
 
   # type: object
-  # description: Ingress configuration
+  # description: TLSRoute configuration for Gateway API
   # @schema
   # type: object
   # additionalProperties: true
-  # description: Ingress configuration
+  # description: TLSRoute configuration for Gateway API
   # @schema
-  ingress:
+  tlsRoute:
     # type: boolean
-    # description: Enable ingress
+    # description: Enable TLSRoute for cluster gateway
     # default: false
     # @schema
     # type: boolean
-    # description: Enable ingress
+    # description: Enable TLSRoute for cluster gateway
     # default: false
     # @schema
     enabled: false
-    # type: string
-    # description: Ingress class name
-    # default: ""
-    # @schema
-    # type: string
-    # description: Ingress class name
-    # default: ""
-    # @schema
-    ingressClassName: ""
-    # type: object
-    # description: Ingress annotations
-    # additionalProperties:
-    #   type: string
-    # default: {}
-    # @schema
-    # type: object
-    # description: Ingress annotations
-    # additionalProperties:
-    #   type: string
-    # default: {}
-    # @schema
-    annotations: {}
     # type: array
-    # description: Ingress hosts
+    # description: Hostnames for TLSRoute
     # items:
     #   type: object
     # default: []
     # @schema
     # type: array
-    # description: Ingress hosts
+    # description: Hostnames for TLSRoute
     # items:
     #   type: object
     # default: []

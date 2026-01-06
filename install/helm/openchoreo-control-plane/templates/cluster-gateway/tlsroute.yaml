@@ -1,5 +1,5 @@
 {{- if .Values.clusterGateway.enabled }}
-{{- if and .Values.clusterGateway.ingress.enabled .Values.gateway.enabled }}
+{{- if and .Values.clusterGateway.tlsRoute.enabled .Values.gateway.enabled }}
 ---
 # TLSRoute for TLS passthrough
 # Required for end-to-end mTLS with cluster agents
@@ -17,7 +17,7 @@ spec:
       namespace: {{ .Release.Namespace }}
       sectionName: tls-passthrough
   hostnames:
-    {{- range .Values.clusterGateway.ingress.hosts }}
+    {{- range .Values.clusterGateway.tlsRoute.hosts }}
     - {{ .host | quote }}
     {{- end }}
   rules:

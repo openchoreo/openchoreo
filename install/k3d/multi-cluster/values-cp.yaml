@@ -21,9 +21,8 @@ clusterGateway:
   service:
     type: ClusterIP
     port: 8443
-  ingress:
+  tlsRoute:
     enabled: true
-    ingressClassName: traefik
     hosts:
       - host: cluster-gateway.openchoreo.localhost
         paths:

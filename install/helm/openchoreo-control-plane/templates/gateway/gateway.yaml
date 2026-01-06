@@ -28,11 +28,11 @@ spec:
           - kind: Secret
             name: {{ .Values.gateway.tls.certName | default .Values.global.tls.secretName }}
             namespace: {{ .Release.Namespace }}
-{{- if and .Values.clusterGateway.enabled .Values.clusterGateway.ingress.enabled }}
+{{- if and .Values.clusterGateway.enabled .Values.clusterGateway.tlsRoute.enabled }}
     - name: tls-passthrough
       protocol: TLS
-      port: 8443
-      hostname: {{ (index .Values.clusterGateway.ingress.hosts 0).host | quote }}
+      port: 443
+      hostname: {{ (index .Values.clusterGateway.tlsRoute.hosts 0).host | quote }}
       allowedRoutes:
         namespaces:
           from: Same
