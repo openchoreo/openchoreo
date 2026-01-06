@@ -287,7 +287,7 @@ graph TB
             K8sAPI["K8s API Server<br/>:6443"]
 
             subgraph "Control Plane Namespace"
-                CP_IntLB["Traefik<br/>LoadBalancer :80/:443"]
+                CP_IntLB["Kgateway<br/>LoadBalancer :80/:443"]
                 CP["Controller Manager"]
                 API["OpenChoreo API :8080"]
                 UI["OpenChoreo UI :7007"]

@@ -8,7 +8,7 @@ global:
 
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
-# Note: For k3d, we use Traefik IngressRouteTCP for TLS passthrough on shared port 8443
+# Note: For k3d, we use Kgateway TLSRoute for TLS passthrough on shared port 8443
 # Alternative: Add dedicated port mapping in k3d config (requires cluster recreation)
 clusterGateway:
   enabled: true
