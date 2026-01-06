@@ -463,117 +463,8 @@ func main() {
 			setupLog.Error(err, "unable to setup observability plane controllers")
 			os.Exit(1)
 		}
-		if err = (&environment.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Environment")
-			os.Exit(1)
-		}
-		if err = (&dataplane.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DataPlane")
-			os.Exit(1)
-		}
-		if err = (&deploymentpipeline.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeploymentPipeline")
-			os.Exit(1)
-		}
-		if err = (&deploymenttrack.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
-			os.Exit(1)
-		}
-		if err = (&workload.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Workload")
-			os.Exit(1)
-		}
-	}
-
-	if err = (&component.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Component")
-		os.Exit(1)
-	}
-
-	// ComponentType controller
-	if err = (&componenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentType")
-		os.Exit(1)
-	}
-
-	if err = (&trait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Trait")
-		os.Exit(1)
-	}
-
-	// ComponentRelease controller
-	if err = (&componentrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentRelease")
-		os.Exit(1)
-	}
-
-	// ReleaseBinding controller
-	if err = (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ReleaseBinding")
-		os.Exit(1)
-	}
-
-	if err = (&gitcommitrequest.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
-		os.Exit(1)
-	}
-
-	if err = (&release.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Release")
-		os.Exit(1)
-	}
-
-	if err := (&workflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Workflow")
-		os.Exit(1)
-	}
-
-	if err := (&workflowrun.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WorkflowRun")
+	default:
+		setupLog.Error(nil, "invalid deployment plane", "deploymentPlane", deploymentPlane)
 		os.Exit(1)
 	}
 
@@ -643,6 +534,7 @@ func main() {
 	}
 }
 
+// getEnv retrieves an environment variable value, returning a default if not set
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

@@ -355,6 +355,14 @@ type RemoteReferenceInfo struct {
 	Version  string `json:"version,omitempty"`
 }
 
+// WebhookEventResponse represents the response after processing a webhook event
+type WebhookEventResponse struct {
+	Success            bool     `json:"success"`
+	Message            string   `json:"message"`
+	AffectedComponents []string `json:"affectedComponents,omitempty"`
+	TriggeredBuilds    int      `json:"triggeredBuilds"`
+}
+
 // ObservabilityPlaneResponse represents an observability plane in API responses
 type ObservabilityPlaneResponse struct {
 	Name        string    `json:"name"`
@@ -363,27 +371,4 @@ type ObservabilityPlaneResponse struct {
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Status      string    `json:"status,omitempty"`
-}
-
-// WebhookStatus represents the webhook registration status
-type WebhookStatus struct {
-	Registered bool      `json:"registered"`
-	WebhookID  string    `json:"webhookID,omitempty"`
-	Provider   string    `json:"provider"`
-	CreatedAt  time.Time `json:"createdAt,omitempty"`
-}
-
-// WebhookResponse represents a webhook operation response
-type WebhookResponse struct {
-	Success   bool   `json:"success"`
-	Message   string `json:"message"`
-	WebhookID string `json:"webhookID,omitempty"`
-}
-
-// WebhookEventResponse represents the response after processing a webhook event
-type WebhookEventResponse struct {
-	Success            bool     `json:"success"`
-	Message            string   `json:"message"`
-	AffectedComponents []string `json:"affectedComponents,omitempty"`
-	TriggeredBuilds    int      `json:"triggeredBuilds"`
 }

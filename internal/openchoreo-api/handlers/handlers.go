@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
@@ -24,19 +22,17 @@ import (
 
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
-	services  *services.Services
-	config    *config.Config
-	logger    *slog.Logger
-	k8sClient client.Client
+	services *services.Services
+	config   *config.Config
+	logger   *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.Config, k8sClient client.Client, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
-		services:  services,
-		config:    cfg,
-		k8sClient: k8sClient,
-		logger:    logger,
+		services: services,
+		config:   cfg,
+		logger:   logger,
 	}
 }
 

@@ -78,7 +78,7 @@ func main() {
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, baseLogger)
 
 	// Initialize HTTP handlers with config for user type management
-	handler := handlers.New(services, cfg, k8sClient, baseLogger.With("component", "handlers"))
+	handler := handlers.New(services, cfg, baseLogger.With("component", "handlers"))
 
 	srv := &http.Server{
 		Addr:         ":" + strconv.Itoa(*port),

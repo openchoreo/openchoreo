@@ -27,11 +27,7 @@ import (
 // Reconciler reconciles a Component object
 type Reconciler struct {
 	client.Client
-	// IsGitOpsMode indicates whether the controller is running in GitOps mode
-	// In GitOps mode, the controller will not create or update resources directly in the cluster,
-	// but will instead generate the necessary manifests and creates GitCommitRequests to update the Git repository.
-	IsGitOpsMode bool
-	Scheme       *runtime.Scheme
+	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete

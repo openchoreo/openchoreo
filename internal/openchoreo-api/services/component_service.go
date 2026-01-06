@@ -2723,13 +2723,13 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	// Get the component
+	// Get component
 	componentKey := client.ObjectKey{
-		Name:      componentName,
 		Namespace: orgName,
+		Name:      componentName,
 	}
-	component := &openchoreov1alpha1.Component{}
-	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
@@ -2738,59 +2738,68 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
-	// Verify component belongs to the project
+	// Verify component belongs to project
 	if component.Spec.Owner.ProjectName != projectName {
 		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
-	// Convert request traits to component traits
-	traits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
-	for _, reqTrait := range req.Traits {
-		trait := openchoreov1alpha1.ComponentTrait{
-			Name:         reqTrait.Name,
-			InstanceName: reqTrait.InstanceName,
+	// Validate that all referenced traits exist in the organization
+	for _, traitReq := range req.Traits {
+		traitKey := client.ObjectKey{
+			Namespace: orgName,
+			Name:      traitReq.Name,
 		}
-
-		// Convert parameters to runtime.RawExtension if provided
-		if reqTrait.Parameters != nil {
-			paramsJSON, err := json.Marshal(reqTrait.Parameters)
-			if err != nil {
-				s.logger.Error("Failed to marshal trait parameters", "trait", reqTrait.Name, "error", err)
-				return nil, fmt.Errorf("failed to marshal trait parameters: %w", err)
+		var trait openchoreov1alpha1.Trait
+		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("Trait not found", "org", orgName, "trait", traitReq.Name)
+				return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
 			}
-			trait.Parameters = &runtime.RawExtension{Raw: paramsJSON}
+			s.logger.Error("Failed to get trait", "error", err)
+			return nil, fmt.Errorf("failed to get trait %s: %w", traitReq.Name, err)
+		}
+	}
+
+	// Convert request traits to component traits
+	componentTraits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
+	for _, traitReq := range req.Traits {
+		componentTrait := openchoreov1alpha1.ComponentTrait{
+			Name:         traitReq.Name,
+			InstanceName: traitReq.InstanceName,
 		}
 
-		traits = append(traits, trait)
+		// Convert parameters map to runtime.RawExtension
+		if len(traitReq.Parameters) > 0 {
+			paramsBytes, err := json.Marshal(traitReq.Parameters)
+			if err != nil {
+				s.logger.Error("Failed to marshal trait parameters", "trait", traitReq.Name, "error", err)
+				return nil, fmt.Errorf("failed to marshal trait parameters for %s: %w", traitReq.Name, err)
+			}
+			componentTrait.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+		}
+
+		componentTraits = append(componentTraits, componentTrait)
 	}
 
-	// Update the component's traits
-	component.Spec.Traits = traits
+	// Create a patch base
+	patchBase := component.DeepCopy()
 
-	// Update the component in Kubernetes
-	if err := s.k8sClient.Update(ctx, component); err != nil {
-		s.logger.Error("Failed to update component", "error", err)
-		return nil, fmt.Errorf("failed to update component: %w", err)
+	// Update the traits
+	component.Spec.Traits = componentTraits
+
+	// Only patch if there are actual changes
+	if !reflect.DeepEqual(patchBase.Spec.Traits, component.Spec.Traits) {
+		patch := client.MergeFrom(patchBase)
+		if err := s.k8sClient.Patch(ctx, &component, patch); err != nil {
+			s.logger.Error("Failed to patch component traits", "error", err)
+			return nil, fmt.Errorf("failed to patch component traits: %w", err)
+		}
+		s.logger.Debug("Component traits updated successfully", "org", orgName, "project", projectName, "component", componentName)
+	} else {
+		s.logger.Debug("No trait changes detected", "org", orgName, "project", projectName, "component", componentName)
 	}
-
-	s.logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
 
 	// Return the updated traits
 	return s.ListComponentTraits(ctx, orgName, projectName, componentName)
-}
-
-// extractRepoURLFromComponent extracts the repository URL from component workflow system parameters
-func (s *ComponentService) extractRepoURLFromComponent(comp *openchoreov1alpha1.Component) (string, error) {
-	if comp.Spec.Workflow == nil {
-		return "", fmt.Errorf("component has no workflow configuration")
-	}
-
-	// Extract repository URL from system parameters
-	repoURL := comp.Spec.Workflow.SystemParameters.Repository.URL
-	if repoURL == "" {
-		return "", fmt.Errorf("repository URL not found in workflow system parameters")
-	}
-
-	return repoURL, nil
 }
