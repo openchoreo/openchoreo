@@ -29,7 +29,6 @@ type Services struct {
 	WebhookService            *WebhookService
 	AuthzService              *AuthzService
 	ObservabilityPlaneService *ObservabilityPlaneService
-	GitHubWebhookService      *GitHubWebhookService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
 }
 
@@ -37,18 +36,6 @@ type Services struct {
 func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
-
-	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"))
-
-	// Create component workflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "component-workflow"))
-
-	// Create GitHub webhook service (simplified - no git provider needed)
-	githubWebhookService := NewGitHubWebhookService(k8sClient, componentWorkflowService)
-
-	// Create component service (depends on project service and git provider)
-	componentService := NewComponentService(k8sClient, projectService, gitProvider, webhookBaseURL, logger.With("service", "component"), authzPDP)
 
 	// Create organization service
 	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"), authzPDP)
@@ -76,6 +63,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 
 	// Create ComponentWorkflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
+
+	// Create component service (depends on project service)
+	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
 
 	// Create webhook service (handles all git providers)
 	webhookService := NewWebhookService(k8sClient, componentWorkflowService)
@@ -109,7 +99,6 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		WebhookService:            webhookService,
 		AuthzService:              authzService,
 		ObservabilityPlaneService: observabilityPlaneService,
-		GitHubWebhookService:      githubWebhookService,
 		k8sClient:                 k8sClient,
 	}
 }

@@ -42,6 +42,7 @@ type ComponentService struct {
 	projectService      *ProjectService
 	specFetcherRegistry *ComponentSpecFetcherRegistry
 	logger              *slog.Logger
+	authzPDP            authz.PDP
 }
 
 // parseComponentTypeName extracts the ComponentType name from the ComponentType string
@@ -2722,7 +2723,61 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
-	return structural, nil
+	// Get the component
+	componentKey := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+	component := &openchoreov1alpha1.Component{}
+	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return nil, ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return nil, ErrComponentNotFound
+	}
+
+	// Convert request traits to component traits
+	traits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
+	for _, reqTrait := range req.Traits {
+		trait := openchoreov1alpha1.ComponentTrait{
+			Name:         reqTrait.Name,
+			InstanceName: reqTrait.InstanceName,
+		}
+
+		// Convert parameters to runtime.RawExtension if provided
+		if reqTrait.Parameters != nil {
+			paramsJSON, err := json.Marshal(reqTrait.Parameters)
+			if err != nil {
+				s.logger.Error("Failed to marshal trait parameters", "trait", reqTrait.Name, "error", err)
+				return nil, fmt.Errorf("failed to marshal trait parameters: %w", err)
+			}
+			trait.Parameters = &runtime.RawExtension{Raw: paramsJSON}
+		}
+
+		traits = append(traits, trait)
+	}
+
+	// Update the component's traits
+	component.Spec.Traits = traits
+
+	// Update the component in Kubernetes
+	if err := s.k8sClient.Update(ctx, component); err != nil {
+		s.logger.Error("Failed to update component", "error", err)
+		return nil, fmt.Errorf("failed to update component: %w", err)
+	}
+
+	s.logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+
+	// Return the updated traits
+	return s.ListComponentTraits(ctx, orgName, projectName, componentName)
 }
 
 // extractRepoURLFromComponent extracts the repository URL from component workflow system parameters

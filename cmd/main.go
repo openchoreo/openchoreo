@@ -12,7 +12,6 @@ import (
 
 	// +kubebuilder:scaffold:imports
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -32,8 +31,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
-	"github.com/openchoreo/openchoreo/internal/controller/componentdeployment"
-	"github.com/openchoreo/openchoreo/internal/controller/componentenvsnapshot"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/componentworkflowrun"
@@ -494,27 +491,6 @@ func main() {
 			setupLog.Error(err, "unable to create controller", "controller", "DeploymentTrack")
 			os.Exit(1)
 		}
-		if err = (&deployableartifact.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "DeployableArtifact")
-			os.Exit(1)
-		}
-		if err = (&deployment.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Deployment")
-			os.Exit(1)
-		}
-		if err = (&endpoint.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
-			os.Exit(1)
-		}
 		if err = (&workload.Reconciler{
 			Client: mgr.GetClient(),
 			Scheme: mgr.GetScheme(),
@@ -549,27 +525,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// ComponentDeployment controller
-	// Create a single pipeline instance shared across all reconciliations.
-	// This enables CEL environment caching for better performance (~4x faster after first render).
-	if err = (&componentdeployment.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentDeployment")
-		os.Exit(1)
-	}
-
-	// ComponentEnvSnapshot controller
-	if err = (&componentenvsnapshot.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ComponentEnvSnapshot")
-		os.Exit(1)
-	}
-
 	// ComponentRelease controller
 	if err = (&componentrelease.Reconciler{
 		Client: mgr.GetClient(),
@@ -594,98 +549,6 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GitCommitRequest")
-		os.Exit(1)
-	}
-
-	// API controllers
-	if err = (&api.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "API")
-		os.Exit(1)
-	}
-	if err = (&apiclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIClass")
-		os.Exit(1)
-	}
-	if err = (&apibinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "APIBinding")
-		os.Exit(1)
-	}
-
-	// Service controllers
-	if err := (&service.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
-		os.Exit(1)
-	}
-	if err := (&serviceclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceClass")
-		os.Exit(1)
-	}
-	if err := (&servicebinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ServiceBinding")
-		os.Exit(1)
-	}
-
-	// WebApplication controllers
-	if err := (&webapplication.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplication")
-		os.Exit(1)
-	}
-	if err := (&webapplicationclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationClass")
-		os.Exit(1)
-	}
-	if err := (&webapplicationbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "WebApplicationBinding")
-		os.Exit(1)
-	}
-
-	// ScheduledTask controllers
-	if err := (&scheduledtask.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTask")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskclass.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskClass")
-		os.Exit(1)
-	}
-	if err := (&scheduledtaskbinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ScheduledTaskBinding")
 		os.Exit(1)
 	}
 
@@ -780,31 +643,9 @@ func main() {
 	}
 }
 
-// initializeGitProvider initializes the git provider for webhook management
-func initializeGitProvider(logger logr.Logger) git.Provider {
-	gitProviderType := os.Getenv("GIT_PROVIDER")
-	if gitProviderType == "" {
-		gitProviderType = "github"
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
 	}
-
-	gitToken := os.Getenv("GIT_TOKEN")
-	if gitToken == "" {
-		logger.Info("GIT_TOKEN not set, git provider will not be able to create webhooks")
-	}
-
-	gitBaseURL := os.Getenv("GIT_BASE_URL")
-
-	config := git.ProviderConfig{
-		Token:   gitToken,
-		BaseURL: gitBaseURL,
-	}
-
-	provider, err := git.GetProvider(git.ProviderType(gitProviderType), config)
-	if err != nil {
-		logger.Error(err, "Failed to initialize git provider", "type", gitProviderType)
-		return nil
-	}
-
-	logger.Info("Git provider initialized", "type", gitProviderType)
-	return provider
+	return defaultValue
 }

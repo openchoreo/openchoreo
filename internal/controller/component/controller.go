@@ -76,13 +76,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Handle autoBuild webhook registration
-	if err := r.reconcileWebhook(ctx, comp); err != nil {
-		logger.Error(err, "Failed to reconcile webhook", "component", comp.Name)
-		// Don't fail the entire reconciliation, just log the error
-		// The webhook registration will be retried in the next reconciliation
-	}
-
 	// Detect mode based on which fields are set
 	// Note: API-level validation ensures at least one of type or componentType is set
 	if comp.Spec.ComponentType != "" {
