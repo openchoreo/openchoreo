@@ -364,3 +364,14 @@ type ObservabilityPlaneResponse struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Status      string    `json:"status,omitempty"`
 }
+
+// VersionResponse represents the server version information in API responses.
+type VersionResponse struct {
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	GitRevision string `json:"gitRevision"`
+	BuildTime   string `json:"buildTime"`
+	GoOS        string `json:"goOS"`
+	GoArch      string `json:"goArch"`
+	GoVersion   string `json:"goVersion"`
+}
