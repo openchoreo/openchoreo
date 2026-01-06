@@ -316,31 +316,59 @@ monitoring:
 
 ## Constraint Markers
 
-Constraints are specified after the pipe (`|`) separator, space-separated. Beyond defaults (covered in the [Defaults](#defaults) section), you can specify validation constraints:
+Constraints are specified after the pipe (`|`) separator, space-separated. Beyond defaults (covered in the [Defaults](#defaults) section), you can specify validation constraints.
 
-### Validation Constraints
+### String Constraints
+
+- `minLength` - Minimum length
+- `maxLength` - Maximum length
+- `pattern` - Regex pattern to match
+- `enum` - Allowed values
 
 ```yaml
-# Strings
 username: "string | minLength=3 maxLength=20 pattern=^[a-z][a-z0-9_]*$"
-email: "string | format=email"
+environment: "string | enum=development,staging,production"
+```
 
-# Numbers
+### Numeric Constraints (integer, number)
+
+- `minimum` - Minimum value (inclusive)
+- `maximum` - Maximum value (inclusive)
+- `exclusiveMinimum` - When true, minimum is exclusive
+- `exclusiveMaximum` - When true, maximum is exclusive
+- `multipleOf` - Value must be a multiple of this
+- `enum` - Allowed values
+
+```yaml
 age: "integer | minimum=0 maximum=150"
 price: "number | minimum=0 exclusiveMinimum=true multipleOf=0.01"
+temperature: "number | maximum=100 exclusiveMaximum=true"
+statusCode: "integer | enum=200,201,204,400,404,500"
+```
 
-# Arrays
+### Array Constraints
+
+- `minItems` - Minimum number of items
+- `maxItems` - Maximum number of items
+
+```yaml
 tags: "[]string | minItems=1 maxItems=10"
 ```
 
-### Enumerations
+### Map Constraints
+
+- `minProperties` - Minimum number of properties
+- `maxProperties` - Maximum number of properties
 
 ```yaml
-environment: "string | enum=development,staging,production"
-logLevel: "string | enum=debug,info,warning,error default=info"
+metadata: "map<string> | minProperties=1 maxProperties=10"
 ```
 
-### Documentation
+### Documentation Markers
+
+- `title` - Human-readable title
+- `description` - Detailed description
+- `example` - Example value
 
 ```yaml
 apiKey: "string | title='API Key' description='Authentication key for external service' example=sk-abc123"
