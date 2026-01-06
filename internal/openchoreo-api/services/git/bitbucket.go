@@ -23,7 +23,7 @@ func NewBitbucketProvider() *BitbucketProvider {
 func (p *BitbucketProvider) ValidateWebhookPayload(payload []byte, token, secret string) error {
 	// For MVP: Simple token validation
 	// Bitbucket doesn't use HMAC signatures like GitHub
-	// You can configure a secret in Bitbucket webhook settings
+	// Can configure a secret in Bitbucket webhook settings
 	if secret != "" && token != secret {
 		return fmt.Errorf("invalid webhook token")
 	}

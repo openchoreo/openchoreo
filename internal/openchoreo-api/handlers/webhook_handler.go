@@ -76,7 +76,7 @@ func (h *Handler) handleWebhook(w http.ResponseWriter, r *http.Request, provider
 	}
 
 	// Process webhook through service
-	affectedComponents, err := h.services.GitHubWebhookService.ProcessWebhook(
+	affectedComponents, err := h.services.WebhookService.ProcessWebhook(
 		r.Context(),
 		provider,
 		payload,

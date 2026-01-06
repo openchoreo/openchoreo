@@ -15,22 +15,22 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
-// GitHubWebhookService handles webhook processing for all git providers
-type GitHubWebhookService struct {
+// WebhookService handles webhook processing for all git providers
+type WebhookService struct {
 	k8sClient       client.Client
 	workflowService *ComponentWorkflowService
 }
 
-// NewGitHubWebhookService creates a new GitHubWebhookService
-func NewGitHubWebhookService(k8sClient client.Client, workflowService *ComponentWorkflowService) *GitHubWebhookService {
-	return &GitHubWebhookService{
+// NewWebhookService creates a new WebhookService
+func NewWebhookService(k8sClient client.Client, workflowService *ComponentWorkflowService) *WebhookService {
+	return &WebhookService{
 		k8sClient:       k8sClient,
 		workflowService: workflowService,
 	}
 }
 
 // ProcessWebhook processes an incoming webhook payload from any git provider
-func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
+func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provider, payload []byte) ([]string, error) {
 	logger := log.FromContext(ctx)
 
 	// Parse payload using the provider
@@ -94,7 +94,7 @@ func (s *GitHubWebhookService) ProcessWebhook(ctx context.Context, provider git.
 }
 
 // findAffectedComponents finds all components that should be built based on the webhook event
-func (s *GitHubWebhookService) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
+func (s *WebhookService) findAffectedComponents(ctx context.Context, event *git.WebhookEvent) ([]*v1alpha1.Component, error) {
 	logger := log.FromContext(ctx)
 
 	// List all components
@@ -141,7 +141,7 @@ func (s *GitHubWebhookService) findAffectedComponents(ctx context.Context, event
 }
 
 // extractRepoInfoFromComponent extracts repository URL and appPath from component workflow system parameters
-func (s *GitHubWebhookService) extractRepoInfoFromComponent(comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
+func (s *WebhookService) extractRepoInfoFromComponent(comp *v1alpha1.Component) (repoURL string, appPath string, err error) {
 	if comp.Spec.Workflow == nil {
 		return "", "", fmt.Errorf("component has no workflow configuration")
 	}
@@ -159,7 +159,7 @@ func (s *GitHubWebhookService) extractRepoInfoFromComponent(comp *v1alpha1.Compo
 }
 
 // matchesRepository checks if component's repository matches the webhook repository
-func (s *GitHubWebhookService) matchesRepository(componentRepoURL, webhookRepoURL string) bool {
+func (s *WebhookService) matchesRepository(componentRepoURL, webhookRepoURL string) bool {
 	// Normalize both URLs for comparison
 	componentRepoURL = normalizeRepoURL(componentRepoURL)
 	webhookRepoURL = normalizeRepoURL(webhookRepoURL)
@@ -168,7 +168,7 @@ func (s *GitHubWebhookService) matchesRepository(componentRepoURL, webhookRepoUR
 }
 
 // isComponentAffected checks if any modified path affects the component
-func (s *GitHubWebhookService) isComponentAffected(appPath string, modifiedPaths []string) bool {
+func (s *WebhookService) isComponentAffected(appPath string, modifiedPaths []string) bool {
 	// If no specific path filter, component is always affected
 	if appPath == "" {
 		return true
