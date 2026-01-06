@@ -679,10 +679,10 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 	return wrappedSchema, nil
 }
 
-// GetEnvironmentRelease retrieves the Release spec and status for a given component and environment
-// Returns the full Release spec and status including resources, owner, environment information, and conditions
-func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (*models.ReleaseResponse, error) {
-	s.logger.Debug("Getting release", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+// GetEnvironmentRenderedRelease retrieves the RenderedRelease spec and status for a given component and environment
+// Returns the full RenderedRelease spec and status including resources, owner, environment information, and conditions
+func (s *ComponentService) GetEnvironmentRenderedRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (*models.RenderedReleaseResponse, error) {
+	s.logger.Debug("Getting rendered release", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
 
 	componentKey := client.ObjectKey{
 		Namespace: orgName,
@@ -703,7 +703,7 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 		return nil, ErrComponentNotFound
 	}
 
-	var releaseList openchoreov1alpha1.ReleaseList
+	var renderedReleaseList openchoreov1alpha1.RenderedReleaseList
 	listOpts := []client.ListOption{
 		client.InNamespace(orgName),
 		client.MatchingLabels{
@@ -714,23 +714,23 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 		},
 	}
 
-	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
-		s.logger.Error("Failed to list releases", "error", err)
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+	if err := s.k8sClient.List(ctx, &renderedReleaseList, listOpts...); err != nil {
+		s.logger.Error("Failed to list rendered releases", "error", err)
+		return nil, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
-	if len(releaseList.Items) == 0 {
-		s.logger.Warn("No release found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+	if len(renderedReleaseList.Items) == 0 {
+		s.logger.Warn("No rendered release found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
 		return nil, ErrReleaseNotFound
 	}
 
-	// Get the first matching Release (there should only be one per component/environment)
-	release := &releaseList.Items[0]
+	// Get the first matching RenderedRelease (there should only be one per component/environment)
+	renderedRelease := &renderedReleaseList.Items[0]
 
-	s.logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
-	return &models.ReleaseResponse{
-		Spec:   release.Spec,
-		Status: release.Status,
+	s.logger.Debug("Retrieved rendered release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(renderedRelease.Spec.Resources))
+	return &models.RenderedReleaseResponse{
+		Spec:   renderedRelease.Spec,
+		Status: renderedRelease.Status,
 	}, nil
 }
 

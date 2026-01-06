@@ -818,7 +818,7 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
-func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetEnvironmentRenderedRelease(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetReleaseResources handler called")
@@ -833,7 +833,7 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+	release, err := h.services.ComponentService.GetEnvironmentRenderedRelease(ctx, orgName, projectName, componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)

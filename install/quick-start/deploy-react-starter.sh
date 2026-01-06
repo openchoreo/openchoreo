@@ -119,7 +119,7 @@ done
 log_info "Waiting for Deployment to be available..."
 elapsed=0
 while true; do
-    DEPLOYMENT_AVAILABLE=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
+    DEPLOYMENT_AVAILABLE=$(kubectl get renderedrelease "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
 
     if [[ "$DEPLOYMENT_AVAILABLE" == "True" ]]; then
         log_success "Deployment is available"
@@ -139,7 +139,7 @@ done
 log_info "Waiting for HTTPRoute to be ready..."
 elapsed=0
 while true; do
-    ROUTE_ACCEPTED=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="HTTPRoute") | .status.parents[]?.conditions[]? | select(.type=="Accepted") | .status' || echo "")
+    ROUTE_ACCEPTED=$(kubectl get renderedrelease "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="HTTPRoute") | .status.parents[]?.conditions[]? | select(.type=="Accepted") | .status' || echo "")
 
     if [[ "$ROUTE_ACCEPTED" == "True" ]]; then
         log_success "HTTPRoute is ready"
@@ -156,7 +156,7 @@ while true; do
 done
 
 # Get the public URL from HTTPRoute
-HOSTNAME=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
+HOSTNAME=$(kubectl get renderedrelease "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
 
 if [[ -z "$HOSTNAME" ]] || [[ "$HOSTNAME" == "null" ]]; then
     log_error "Failed to retrieve hostname from HTTPRoute"

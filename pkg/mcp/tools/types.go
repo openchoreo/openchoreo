@@ -92,8 +92,9 @@ type ComponentToolsetHandler interface {
 	UpdateComponentTraits(
 		ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
 	) (any, error)
-	// Release operations
-	GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error)
+	// RenderedRelease operations
+	GetEnvironmentRenderedRelease(ctx context.Context, orgName, projectName, componentName,
+		environmentName string) (any, error)
 	// Component patch operations
 	PatchComponent(
 		ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest,

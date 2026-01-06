@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package release
+package renderedrelease
 
 import (
 	"context"
@@ -25,14 +25,14 @@ import (
 )
 
 const (
-	// ControllerName is the name of the controller managing Release resources
-	ControllerName = "release-controller"
+	// ControllerName is the name of the controller managing RenderedRelease resources
+	ControllerName = "renderedrelease-controller"
 
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 )
 
-// Reconciler reconciles a Release object
+// Reconciler reconciles a RenderedRelease object
 type Reconciler struct {
 	client.Client
 	K8sClientMgr *kubernetesClient.KubeMultiClientManager
@@ -43,9 +43,9 @@ type Reconciler struct {
 // TODO: Optimize to apply resource only if spec has changed
 // TODO: Add events and conditions
 
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -55,33 +55,33 @@ type Reconciler struct {
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	// Fetch the Release instance
-	release := &openchoreov1alpha1.Release{}
-	if err := r.Get(ctx, req.NamespacedName, release); err != nil {
+	// Fetch the RenderedRelease instance
+	renderedRelease := &openchoreov1alpha1.RenderedRelease{}
+	if err := r.Get(ctx, req.NamespacedName, renderedRelease); err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Info("Release resource not found. Ignoring since it must be deleted.")
+			logger.Info("RenderedRelease resource not found. Ignoring since it must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get Release")
+		logger.Error(err, "Failed to get RenderedRelease")
 		return ctrl.Result{}, err
 	}
 
-	old := release.DeepCopy()
+	old := renderedRelease.DeepCopy()
 
-	// Handle the deletion of the Release
-	if !release.DeletionTimestamp.IsZero() {
-		logger.Info("Finalizing Release")
-		return r.finalize(ctx, old, release)
+	// Handle the deletion of the RenderedRelease
+	if !renderedRelease.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing RenderedRelease")
+		return r.finalize(ctx, old, renderedRelease)
 	}
 
-	// Ensure the finalizer is added to the Release
-	if finalizerAdded, err := r.ensureFinalizer(ctx, release); err != nil || finalizerAdded {
+	// Ensure the finalizer is added to the RenderedRelease
+	if finalizerAdded, err := r.ensureFinalizer(ctx, renderedRelease); err != nil || finalizerAdded {
 		// Return after adding the finalizer to ensure the finalizer is persisted
 		return ctrl.Result{}, err
 	}
 
 	// Get plane client (dataplane or observabilityplane) for the environment based on targetPlane
-	targetPlane := release.Spec.TargetPlane
+	targetPlane := renderedRelease.Spec.TargetPlane
 	if targetPlane == "" {
 		targetPlane = targetPlaneDataPlane // Default to dataplane if not specified (avoid breaking change)
 	}
@@ -90,7 +90,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	var err error
 	switch targetPlane {
 	case targetPlaneObservabilityPlane:
-		planeClient, err = r.getOPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		planeClient, err = r.getOPClient(ctx, renderedRelease.Namespace, renderedRelease.Spec.EnvironmentName)
 		if err != nil {
 			logger.Error(err, "Failed to get observability plane client")
 			return ctrl.Result{}, err
@@ -98,7 +98,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	case targetPlaneDataPlane:
 		fallthrough
 	default:
-		planeClient, err = r.getDPClient(ctx, release.Namespace, release.Spec.EnvironmentName)
+		planeClient, err = r.getDPClient(ctx, renderedRelease.Namespace, renderedRelease.Spec.EnvironmentName)
 		if err != nil {
 			logger.Error(err, "Failed to get dataplane client")
 			return ctrl.Result{}, err
@@ -106,14 +106,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Get desired resources from spec
-	desiredResources, err := r.makeDesiredResources(release)
+	desiredResources, err := r.makeDesiredResources(renderedRelease)
 	if err != nil {
 		logger.Error(err, "Failed to make desired resources")
 		return ctrl.Result{}, err
 	}
 
 	// Ensure namespaces exist before applying resources
-	desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
+	desiredNamespaces := r.makeDesiredNamespaces(renderedRelease, desiredResources)
 	if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
 		logger.Error(err, "Failed to ensure namespaces")
 		return ctrl.Result{}, err
@@ -129,8 +129,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)
 	// to ensure we find all resources that might need cleanup, preventing resource leaks
-	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources)
-	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
+	gvks := findAllKnownGVKs(desiredResources, renderedRelease.Status.Resources)
+	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, renderedRelease, gvks)
 	if err != nil {
 		logger.Error(err, "Failed to list live resources from target plane", "targetPlane", targetPlane)
 		return ctrl.Result{}, err
@@ -147,7 +147,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if statusUpdated, err := r.updateStatus(ctx, old, release, desiredResources, liveResources); err != nil || statusUpdated {
+	if statusUpdated, err := r.updateStatus(ctx, old, renderedRelease, desiredResources, liveResources); err != nil || statusUpdated {
 		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}
@@ -155,15 +155,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Check if resources are transitioning to determine the appropriate requeue interval:
 	// - Transitioning resources: more frequent requeue to reflect changes quickly
 	// - Stable resources: longer requeue interval to avoid excessive load
-	if r.hasTransitioningResources(release.Status.Resources) {
-		requeueAfter := getProgressingRequeueInterval(release)
+	if r.hasTransitioningResources(renderedRelease.Status.Resources) {
+		requeueAfter := getProgressingRequeueInterval(renderedRelease)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
 			"requeueAfter", requeueAfter)
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
-	requeueAfter := getStableRequeueInterval(release)
-	logger.Info("Successfully applied the Release resources to the target plane",
+	requeueAfter := getStableRequeueInterval(renderedRelease)
+	logger.Info("Successfully applied the RenderedRelease resources to the target plane",
 		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
@@ -237,7 +237,7 @@ func (r *Reconciler) getOPClient(ctx context.Context, orgName string, environmen
 // applyResources applies the given resources to the target plane
 func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []*unstructured.Unstructured) error {
 	for _, obj := range resources {
-		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
+		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 
 		// Apply the resource using server-side apply
 		if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
@@ -248,11 +248,11 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 	return nil
 }
 
-// makeDesiredResources creates the desired resources from the Release spec
-func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.Release) ([]*unstructured.Unstructured, error) {
-	desiredObjects := make([]*unstructured.Unstructured, 0, len(release.Spec.Resources))
+// makeDesiredResources creates the desired resources from the RenderedRelease spec
+func (r *Reconciler) makeDesiredResources(renderedRelease *openchoreov1alpha1.RenderedRelease) ([]*unstructured.Unstructured, error) {
+	desiredObjects := make([]*unstructured.Unstructured, 0, len(renderedRelease.Spec.Resources))
 
-	for _, resource := range release.Spec.Resources {
+	for _, resource := range renderedRelease.Spec.Resources {
 		// Convert RawExtension to Unstructured
 		obj := &unstructured.Unstructured{}
 		if err := obj.UnmarshalJSON(resource.Object.Raw); err != nil {
@@ -265,10 +265,10 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.Release) (
 			resourceLabels = make(map[string]string)
 		}
 		resourceLabels[labels.LabelKeyManagedBy] = ControllerName
-		resourceLabels[labels.LabelKeyReleaseResourceID] = resource.ID
-		resourceLabels[labels.LabelKeyReleaseUID] = string(release.UID)
-		resourceLabels[labels.LabelKeyReleaseName] = release.Name
-		resourceLabels[labels.LabelKeyReleaseNamespace] = release.Namespace
+		resourceLabels[labels.LabelKeyRenderedReleaseResourceID] = resource.ID
+		resourceLabels[labels.LabelKeyRenderedReleaseUID] = string(renderedRelease.UID)
+		resourceLabels[labels.LabelKeyRenderedReleaseName] = renderedRelease.Name
+		resourceLabels[labels.LabelKeyRenderedReleaseNamespace] = renderedRelease.Namespace
 
 		obj.SetLabels(resourceLabels)
 
@@ -279,7 +279,7 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.Release) (
 }
 
 // makeDesiredNamespaces creates namespace objects from the desired resources with proper labels
-func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.Release, resources []*unstructured.Unstructured) []*corev1.Namespace {
+func (r *Reconciler) makeDesiredNamespaces(renderedRelease *openchoreov1alpha1.RenderedRelease, resources []*unstructured.Unstructured) []*corev1.Namespace {
 	namespaceMap := make(map[string]*corev1.Namespace)
 
 	for _, obj := range resources {
@@ -290,15 +290,15 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.Release, 
 					ObjectMeta: metav1.ObjectMeta{
 						Name: namespaceName,
 						Labels: map[string]string{
-							// Audit labels - track which release created this namespace
-							labels.LabelKeyCreatedBy:        ControllerName,
-							labels.LabelKeyReleaseName:      release.Name,
-							labels.LabelKeyReleaseNamespace: release.Namespace,
-							labels.LabelKeyReleaseUID:       string(release.UID),
+							// Audit labels - track which rendered release created this namespace
+							labels.LabelKeyCreatedBy:                ControllerName,
+							labels.LabelKeyRenderedReleaseName:      renderedRelease.Name,
+							labels.LabelKeyRenderedReleaseNamespace: renderedRelease.Namespace,
+							labels.LabelKeyRenderedReleaseUID:       string(renderedRelease.UID),
 
 							// Identification labels - track where this namespace belongs
-							labels.LabelKeyEnvironmentName: release.Spec.EnvironmentName,
-							labels.LabelKeyProjectName:     release.Spec.Owner.ProjectName,
+							labels.LabelKeyEnvironmentName: renderedRelease.Spec.EnvironmentName,
+							labels.LabelKeyProjectName:     renderedRelease.Spec.Owner.ProjectName,
 						},
 					},
 				}
@@ -341,7 +341,7 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 		}
 
 		// TODO: Emit a Kubernetes event when namespace is created
-		// Example: r.Recorder.Event(release, corev1.EventTypeNormal, "NamespaceCreated",
+		// Example: r.Recorder.Event(renderedRelease, corev1.EventTypeNormal, "NamespaceCreated",
 		//          fmt.Sprintf("Created namespace %s in target plane", namespace.Name))
 	}
 
@@ -353,7 +353,7 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 	// Build a set of desired resource IDs for fast lookup
 	desiredResourceIDs := make(map[string]bool)
 	for _, obj := range desiredResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
+		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 		if resourceID != "" {
 			desiredResourceIDs[resourceID] = true
 		}
@@ -362,7 +362,7 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 	// Find live resources that are not in the desired set
 	var staleResources []*unstructured.Unstructured
 	for _, liveObj := range liveResources {
-		liveResourceID := liveObj.GetLabels()[labels.LabelKeyReleaseResourceID]
+		liveResourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 		if liveResourceID != "" {
 			// If this live resource ID is not in the desired set, it's stale
 			if !desiredResourceIDs[liveResourceID] {
@@ -377,7 +377,7 @@ func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstr
 // deleteResources deletes the given stale resources from the target plane
 func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Client, staleResources []*unstructured.Unstructured) error {
 	for _, obj := range staleResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyReleaseResourceID]
+		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 
 		// Delete the resource from the target plane
 		if err := planeClient.Delete(ctx, obj); err != nil {
@@ -493,7 +493,7 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 }
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
-func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.Release, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
+func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient client.Client, renderedRelease *openchoreov1alpha1.RenderedRelease, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
 	logger := log.FromContext(ctx)
 
 	var allLiveResources []*unstructured.Unstructured
@@ -511,8 +511,8 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 		// Build label selector
 		labelSelector := metav1.LabelSelector{
 			MatchLabels: map[string]string{
-				labels.LabelKeyManagedBy:  ControllerName,
-				labels.LabelKeyReleaseUID: string(release.UID),
+				labels.LabelKeyManagedBy:          ControllerName,
+				labels.LabelKeyRenderedReleaseUID: string(renderedRelease.UID),
 			},
 		}
 		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
@@ -539,11 +539,11 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 
 // getStableRequeueInterval returns the requeue interval for stable resources
 // Returns zero duration if interval is set to 0 (no requeue)
-func getStableRequeueInterval(release *openchoreov1alpha1.Release) time.Duration {
+func getStableRequeueInterval(renderedRelease *openchoreov1alpha1.RenderedRelease) time.Duration {
 	// Use configured interval or default to 5m
 	baseInterval := 5 * time.Minute
-	if release.Spec.Interval != nil {
-		baseInterval = release.Spec.Interval.Duration
+	if renderedRelease.Spec.Interval != nil {
+		baseInterval = renderedRelease.Spec.Interval.Duration
 		// If set to 0, don't requeue
 		if baseInterval == 0 {
 			return 0
@@ -557,11 +557,11 @@ func getStableRequeueInterval(release *openchoreov1alpha1.Release) time.Duration
 
 // getProgressingRequeueInterval returns the requeue interval for transitioning resources
 // Returns zero duration if progressingInterval is set to 0 (no requeue)
-func getProgressingRequeueInterval(release *openchoreov1alpha1.Release) time.Duration {
+func getProgressingRequeueInterval(renderedRelease *openchoreov1alpha1.RenderedRelease) time.Duration {
 	// Use configured progressingInterval or default to 10s
 	baseInterval := 10 * time.Second
-	if release.Spec.ProgressingInterval != nil {
-		baseInterval = release.Spec.ProgressingInterval.Duration
+	if renderedRelease.Spec.ProgressingInterval != nil {
+		baseInterval = renderedRelease.Spec.ProgressingInterval.Duration
 		// If set to 0, don't requeue
 		if baseInterval == 0 {
 			return 0
@@ -590,7 +590,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.Release{}).
-		Named("release").
+		For(&openchoreov1alpha1.RenderedRelease{}).
+		Named("renderedrelease").
 		Complete(r)
 }

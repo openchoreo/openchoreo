@@ -5,6 +5,8 @@ package models
 
 import (
 	"testing"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 func TestDeployReleaseRequest_Sanitize(t *testing.T) {
@@ -133,23 +135,23 @@ func TestCreateComponentReleaseRequest_Sanitize(t *testing.T) {
 func TestUpdateBindingRequest_Validate(t *testing.T) {
 	tests := []struct {
 		name         string
-		releaseState BindingReleaseState
+		releaseState openchoreov1alpha1.RenderedReleaseState
 		wantErr      bool
 		errMsg       string
 	}{
 		{
 			name:         "Valid state - Active",
-			releaseState: ReleaseStateActive,
+			releaseState: openchoreov1alpha1.RenderedReleaseStateActive,
 			wantErr:      false,
 		},
 		{
 			name:         "Valid state - Suspend",
-			releaseState: ReleaseStateSuspend,
+			releaseState: openchoreov1alpha1.RenderedReleaseStateSuspend,
 			wantErr:      false,
 		},
 		{
 			name:         "Valid state - Undeploy",
-			releaseState: ReleaseStateUndeploy,
+			releaseState: openchoreov1alpha1.RenderedReleaseStateUndeploy,
 			wantErr:      false,
 		},
 		{

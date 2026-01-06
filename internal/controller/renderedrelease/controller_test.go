@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package release
+package renderedrelease
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-var _ = Describe("Release Controller", func() {
+var _ = Describe("RenderedRelease Controller", func() {
 	Context("When reconciling a resource", func() {
 		const resourceName = "test-resource"
 
@@ -26,19 +26,19 @@ var _ = Describe("Release Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		release := &openchoreov1alpha1.Release{}
+		renderedRelease := &openchoreov1alpha1.RenderedRelease{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind Release")
-			err := k8sClient.Get(ctx, typeNamespacedName, release)
+			By("creating the custom resource for the Kind RenderedRelease")
+			err := k8sClient.Get(ctx, typeNamespacedName, renderedRelease)
 			if err != nil && errors.IsNotFound(err) {
-				resource := &openchoreov1alpha1.Release{
+				resource := &openchoreov1alpha1.RenderedRelease{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					Spec: openchoreov1alpha1.ReleaseSpec{
-						Owner: openchoreov1alpha1.ReleaseOwner{
+					Spec: openchoreov1alpha1.RenderedReleaseSpec{
+						Owner: openchoreov1alpha1.RenderedReleaseOwner{
 							ProjectName:   "test-project",
 							ComponentName: "test-component",
 						},
@@ -51,11 +51,11 @@ var _ = Describe("Release Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &openchoreov1alpha1.Release{}
+			resource := &openchoreov1alpha1.RenderedRelease{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Cleanup the specific resource instance Release")
+			By("Cleanup the specific resource instance RenderedRelease")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {

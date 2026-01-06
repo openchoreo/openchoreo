@@ -66,23 +66,23 @@ const (
 	EndpointExposeLevelPublic EndpointExposeLevel = "Public"
 )
 
-// ReleaseState defines the desired state of the Release created by a binding
-type ReleaseState string
+// RenderedReleaseState defines the desired state of the RenderedRelease created by a binding
+type RenderedReleaseState string
 
 const (
-	// ReleaseStateActive indicates the Release should be actively deployed.
+	// RenderedReleaseStateActive indicates the RenderedRelease should be actively deployed.
 	// Resources are deployed normally to the data plane.
-	ReleaseStateActive ReleaseState = "Active"
+	RenderedReleaseStateActive RenderedReleaseState = "Active"
 
-	// ReleaseStateSuspend indicates the Release should be suspended.
+	// RenderedReleaseStateSuspend indicates the RenderedRelease should be suspended.
 	// Resources are scaled to zero or paused but not deleted.
 	// - Deployments/StatefulSets: replicas set to 0
 	// - Jobs: spec.suspend set to true
 	// - CronJobs: spec.suspend set to true
 	// - HPA: minReplicas and maxReplicas set to 0
-	ReleaseStateSuspend ReleaseState = "Suspend"
+	RenderedReleaseStateSuspend RenderedReleaseState = "Suspend"
 
-	// ReleaseStateUndeploy indicates the Release should be removed from the data plane.
-	// The Release resource is deleted, triggering cleanup of all data plane resources.
-	ReleaseStateUndeploy ReleaseState = "Undeploy"
+	// RenderedReleaseStateUndeploy indicates the RenderedRelease should be removed from the data plane.
+	// The RenderedRelease resource is deleted, triggering cleanup of all data plane resources.
+	RenderedReleaseStateUndeploy RenderedReleaseState = "Undeploy"
 )

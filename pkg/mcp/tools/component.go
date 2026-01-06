@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -483,7 +484,7 @@ func (t *Toolsets) RegisterUpdateComponentBinding(s *mcp.Server) {
 		ReleaseState  string `json:"release_state"`
 	}) (*mcp.CallToolResult, any, error) {
 		updateReq := &models.UpdateBindingRequest{
-			ReleaseState: models.BindingReleaseState(args.ReleaseState),
+			ReleaseState: openchoreov1alpha1.RenderedReleaseState(args.ReleaseState),
 		}
 		result, err := t.ComponentToolset.UpdateComponentBinding(
 			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.BindingName, updateReq)
@@ -601,7 +602,7 @@ func (t *Toolsets) RegisterGetEnvironmentRelease(s *mcp.Server) {
 		ComponentName   string `json:"component_name"`
 		EnvironmentName string `json:"environment_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetEnvironmentRelease(
+		result, err := t.ComponentToolset.GetEnvironmentRenderedRelease(
 			ctx, args.OrgName, args.ProjectName, args.ComponentName, args.EnvironmentName)
 		return handleToolResult(result, err)
 	})

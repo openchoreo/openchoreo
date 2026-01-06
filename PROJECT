@@ -83,7 +83,7 @@ resources:
     namespaced: true
   controller: true
   domain: openchoreo.dev
-  kind: Release
+  kind: RenderedRelease
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
 - api:

@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package release
+package renderedrelease
 
 import (
 	"context"
@@ -23,25 +23,25 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// updateStatus updates the Release status with applied resources
+// updateStatus updates the RenderedRelease status with applied resources
 // Returns true if the status was updated, false if unchanged
-func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.Release, appliedResources, liveResources []*unstructured.Unstructured) (bool, error) {
+func (r *Reconciler) updateStatus(ctx context.Context, old, renderedRelease *openchoreov1alpha1.RenderedRelease, appliedResources, liveResources []*unstructured.Unstructured) (bool, error) {
 	logger := log.FromContext(ctx)
 
 	// Build resource status from applied and live resources
 	resourceStatuses := r.buildResourceStatus(ctx, old, appliedResources, liveResources)
 
 	// Update the status
-	release.Status.Resources = resourceStatuses
+	renderedRelease.Status.Resources = resourceStatuses
 
 	// Check if the entire status actually changed and skip update if not
-	if apiequality.Semantic.DeepEqual(old.Status, release.Status) {
+	if apiequality.Semantic.DeepEqual(old.Status, renderedRelease.Status) {
 		return false, nil
 	}
 
-	// Update the Release status
-	if err := r.Status().Update(ctx, release); err != nil {
-		logger.Error(err, "Failed to update Release status")
+	// Update the RenderedRelease status
+	if err := r.Status().Update(ctx, renderedRelease); err != nil {
+		logger.Error(err, "Failed to update RenderedRelease status")
 		return false, fmt.Errorf("failed to update status: %w", err)
 	}
 
@@ -49,12 +49,12 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 }
 
 // buildResourceStatus converts applied unstructured objects to ResourceStatus entries using live resources
-func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.Release, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.ResourceStatus {
+func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.RenderedRelease, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.ResourceStatus {
 	logger := log.FromContext(ctx)
 	// Build a map of live resources for quick lookup by resource ID
 	liveResourceMap := make(map[string]*unstructured.Unstructured)
 	for _, liveObj := range liveResources {
-		if resourceID := liveObj.GetLabels()[labels.LabelKeyReleaseResourceID]; resourceID != "" {
+		if resourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]; resourceID != "" {
 			liveResourceMap[resourceID] = liveObj
 		}
 	}
@@ -69,7 +69,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 
 	for _, desiredObj := range desiredResources {
 		gvk := desiredObj.GroupVersionKind()
-		resourceID := desiredObj.GetLabels()[labels.LabelKeyReleaseResourceID]
+		resourceID := desiredObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 
 		var resourceStatus *runtime.RawExtension
 		var lastObservedTime *metav1.Time
