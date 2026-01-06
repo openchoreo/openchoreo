@@ -108,6 +108,7 @@ func (h *Handler) writeErrorResponse(w http.ResponseWriter, status int, errorTyp
 // BuildLogsRequest represents the request body for build logs
 type BuildLogsRequest struct {
 	ComponentName string `json:"componentName,omitempty"`
+	OrgName       string `json:"orgName,omitempty"`
 	ProjectName   string `json:"projectName,omitempty"`
 	StartTime     string `json:"startTime" validate:"required"`
 	EndTime       string `json:"endTime" validate:"required"`
@@ -118,6 +119,7 @@ type BuildLogsRequest struct {
 // ComponentLogsRequest represents the request body for component logs
 type ComponentLogsRequest struct {
 	ComponentName   string   `json:"componentName,omitempty"`
+	OrgName         string   `json:"orgName,omitempty"`
 	StartTime       string   `json:"startTime" validate:"required"`
 	EndTime         string   `json:"endTime" validate:"required"`
 	EnvironmentName string   `json:"environmentName,omitempty"`
@@ -167,6 +169,7 @@ type MetricsRequest struct {
 	EndTime         string `json:"endTime,omitempty"`
 	EnvironmentName string `json:"environmentName,omitempty"`
 	EnvironmentID   string `json:"environmentId" validate:"required"`
+	OrgName         string `json:"orgName,omitempty"`
 	StartTime       string `json:"startTime,omitempty"`
 	ProjectName     string `json:"projectName,omitempty"`
 	ProjectID       string `json:"projectId" validate:"required"`

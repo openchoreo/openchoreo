@@ -252,6 +252,7 @@ type TracesRequestParams struct {
 	EnvironmentName string   `json:"environmentName,omitempty"`
 	EnvironmentUID  string   `json:"environmentUid,omitempty"`
 	Limit           int      `json:"limit,omitempty"`
+	OrgName         string   `json:"orgName,omitempty"`
 	ProjectName     string   `json:"projectName,omitempty"`
 	ProjectUID      string   `json:"projectUid"`
 	SortOrder       string   `json:"sortOrder,omitempty"`
