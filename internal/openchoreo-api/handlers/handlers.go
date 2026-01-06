@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,10 +13,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
+	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
@@ -55,8 +58,16 @@ func (h *Handler) Routes() http.Handler {
 	routes.HandleFunc("GET /health", h.Health)
 	routes.HandleFunc("GET /ready", h.Ready)
 
+	// Version endpoint
+	routes.HandleFunc("GET /version", h.Version)
+
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
+
+	// Webhook endpoints (public - called by Git providers)
+	routes.HandleFunc("POST "+v1+"/webhooks/github", h.HandleGitHubWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/gitlab", h.HandleGitLabWebhook)
+	routes.HandleFunc("POST "+v1+"/webhooks/bitbucket", h.HandleBitbucketWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
@@ -250,6 +261,23 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	// Add readiness checks (K8s connections, etc.)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("Ready")) // Ignore write errors for health checks
+}
+
+// Version handles version information requests
+func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
+	v := version.Get()
+	response := models.VersionResponse{
+		Name:        v.Name,
+		Version:     v.Version,
+		GitRevision: v.GitRevision,
+		BuildTime:   v.BuildTime,
+		GoOS:        v.GoOS,
+		GoArch:      v.GoArch,
+		GoVersion:   v.GoVersion,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func getMCPServerToolsets(h *Handler) *tools.Toolsets {

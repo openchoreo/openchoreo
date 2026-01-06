@@ -543,6 +543,11 @@ func (in *ComponentSource) DeepCopy() *ComponentSource {
 func (in *ComponentSpec) DeepCopyInto(out *ComponentSpec) {
 	*out = *in
 	out.Owner = in.Owner
+	if in.AutoBuild != nil {
+		in, out := &in.AutoBuild, &out.AutoBuild
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Parameters != nil {
 		in, out := &in.Parameters, &out.Parameters
 		*out = new(runtime.RawExtension)

@@ -363,6 +363,14 @@ type RemoteReferenceInfo struct {
 	Version  string `json:"version,omitempty"`
 }
 
+// WebhookEventResponse represents the response after processing a webhook event
+type WebhookEventResponse struct {
+	Success            bool     `json:"success"`
+	Message            string   `json:"message"`
+	AffectedComponents []string `json:"affectedComponents,omitempty"`
+	TriggeredBuilds    int      `json:"triggeredBuilds"`
+}
+
 // ObservabilityPlaneResponse represents an observability plane in API responses
 type ObservabilityPlaneResponse struct {
 	Name        string    `json:"name"`
@@ -371,4 +379,15 @@ type ObservabilityPlaneResponse struct {
 	Description string    `json:"description,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Status      string    `json:"status,omitempty"`
+}
+
+// VersionResponse represents the server version information in API responses.
+type VersionResponse struct {
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	GitRevision string `json:"gitRevision"`
+	BuildTime   string `json:"buildTime"`
+	GoOS        string `json:"goOS"`
+	GoArch      string `json:"goArch"`
+	GoVersion   string `json:"goVersion"`
 }

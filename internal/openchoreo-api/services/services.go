@@ -26,6 +26,7 @@ type Services struct {
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
+	WebhookService            *WebhookService
 	AuthzService              *AuthzService
 	ObservabilityPlaneService *ObservabilityPlaneService
 	k8sClient                 client.Client // Direct access to K8s client for apply operations
@@ -66,6 +67,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create ComponentWorkflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
 
+	// Create webhook service (handles all git providers)
+	webhookService := NewWebhookService(k8sClient, componentWorkflowService)
+
 	// Create Schema service
 	schemaService := NewSchemaService(k8sClient, logger.With("service", "schema"))
 
@@ -92,6 +96,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
+		WebhookService:            webhookService,
 		AuthzService:              authzService,
 		ObservabilityPlaneService: observabilityPlaneService,
 		k8sClient:                 k8sClient,

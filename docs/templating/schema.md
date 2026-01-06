@@ -316,31 +316,59 @@ monitoring:
 
 ## Constraint Markers
 
-Constraints are specified after the pipe (`|`) separator, space-separated. Beyond defaults (covered in the [Defaults](#defaults) section), you can specify validation constraints:
+Constraints are specified after the pipe (`|`) separator, space-separated. Beyond defaults (covered in the [Defaults](#defaults) section), you can specify validation constraints.
 
-### Validation Constraints
+### String Constraints
+
+- `minLength` - Minimum length
+- `maxLength` - Maximum length
+- `pattern` - Regex pattern to match
+- `enum` - Allowed values
 
 ```yaml
-# Strings
 username: "string | minLength=3 maxLength=20 pattern=^[a-z][a-z0-9_]*$"
-email: "string | format=email"
+environment: "string | enum=development,staging,production"
+```
 
-# Numbers
+### Numeric Constraints (integer, number)
+
+- `minimum` - Minimum value (inclusive)
+- `maximum` - Maximum value (inclusive)
+- `exclusiveMinimum` - When true, minimum is exclusive
+- `exclusiveMaximum` - When true, maximum is exclusive
+- `multipleOf` - Value must be a multiple of this
+- `enum` - Allowed values
+
+```yaml
 age: "integer | minimum=0 maximum=150"
 price: "number | minimum=0 exclusiveMinimum=true multipleOf=0.01"
-
-# Arrays
-tags: "[]string | minItems=1 maxItems=10 uniqueItems=true"
+temperature: "number | maximum=100 exclusiveMaximum=true"
+statusCode: "integer | enum=200,201,204,400,404,500"
 ```
 
-### Enumerations
+### Array Constraints
+
+- `minItems` - Minimum number of items
+- `maxItems` - Maximum number of items
 
 ```yaml
-environment: "string | enum=development,staging,production"
-logLevel: "string | enum=debug,info,warning,error default=info"
+tags: "[]string | minItems=1 maxItems=10"
 ```
 
-### Documentation
+### Map Constraints
+
+- `minProperties` - Minimum number of properties
+- `maxProperties` - Maximum number of properties
+
+```yaml
+metadata: "map<string> | minProperties=1 maxProperties=10"
+```
+
+### Documentation Markers
+
+- `title` - Human-readable title
+- `description` - Detailed description
+- `example` - Example value
 
 ```yaml
 apiKey: "string | title='API Key' description='Authentication key for external service' example=sk-abc123"
@@ -499,6 +527,8 @@ JSON Schema:
 
 ### Overriding Type Defaults
 
+When a field references a type that has a default, the field can override that default with its own. This behavior mirrors how JSON Schema handles defaults with `$ref`, where the referencing schema's default takes precedence over the referenced schema's default.
+
 OpenChoreo:
 ```yaml
 types:
@@ -511,7 +541,32 @@ parameters:
   resources: "Resources | default={\"cpu\": \"500m\", \"memory\": \"256Mi\"}"
 ```
 
-JSON Schema:
+This is conceptually equivalent to the following JSON Schema with `$ref`:
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "resources": {
+      "default": {"cpu": "500m", "memory": "256Mi"},
+      "$ref": "#/$defs/Resources"
+    }
+  },
+  "$defs": {
+    "Resources": {
+      "type": "object",
+      "default": {"cpu": "100m", "memory": "128Mi"},
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": {"type": "string"},
+        "memory": {"type": "string"}
+      }
+    }
+  }
+}
+```
+
+OpenChoreo resolves the type reference and produces the following simplified JSON Schema, where the field-level default takes precedence:
 ```json
 {
   "type": "object",
@@ -532,7 +587,7 @@ JSON Schema:
 }
 ```
 
-The field-level default (`default={...}`) overrides the type-level default.
+The field-level default (`default={...}`) overrides the type-level default (`$default`), just as a `default` adjacent to a `$ref` overrides the referenced schema's default.
 
 ### Arrays and Maps
 

@@ -4,27 +4,102 @@
 package version
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 )
 
-// NewVersionCmd creates the login command.
+// serverVersionResponse represents the server version response from the API.
+type serverVersionResponse struct {
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	GitRevision string `json:"gitRevision"`
+	BuildTime   string `json:"buildTime"`
+	GoOS        string `json:"goOS"`
+	GoArch      string `json:"goArch"`
+	GoVersion   string `json:"goVersion"`
+}
+
+// NewVersionCmd creates the version command.
 func NewVersionCmd() *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.Version,
 		RunE: func(fg *builder.FlagGetter) error {
+			// Print client version
 			v := version.Get()
-			fmt.Printf("%s %s\n", v.Name, v.Version)
-			fmt.Printf("Git revision: %s\n", v.GitRevision)
-			fmt.Printf("Build time:   %s\n", v.BuildTime)
-			fmt.Printf("Go version:   %s %s/%s\n",
-				v.GoVersion, v.GoOS, v.GoArch)
+			fmt.Println("Client:")
+			fmt.Printf("  Version:      %s\n", v.Version)
+			fmt.Printf("  Git Revision: %s\n", v.GitRevision)
+			fmt.Printf("  Build Time:   %s\n", v.BuildTime)
+			fmt.Printf("  Go Version:   %s %s/%s\n", v.GoVersion, v.GoOS, v.GoArch)
+
+			// Try to fetch server version if control plane is configured
+			serverVersion, err := fetchServerVersion()
+			if err != nil {
+				fmt.Printf("\nServer: <not connected>\n")
+				return nil
+			}
+
+			fmt.Println("\nServer:")
+			fmt.Printf("  Version:      %s\n", serverVersion.Version)
+			fmt.Printf("  Git Revision: %s\n", serverVersion.GitRevision)
+			fmt.Printf("  Build Time:   %s\n", serverVersion.BuildTime)
+			fmt.Printf("  Go Version:   %s %s/%s\n",
+				serverVersion.GoVersion, serverVersion.GoOS, serverVersion.GoArch)
+
 			return nil
 		},
 	}).Build()
+}
+
+// fetchServerVersion fetches the version information from the configured control plane.
+func fetchServerVersion() (*serverVersionResponse, error) {
+	// Load stored config to get control plane endpoint
+	storedConfig, err := config.LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if storedConfig.ControlPlane == nil || storedConfig.ControlPlane.Endpoint == "" {
+		return nil, fmt.Errorf("control plane not configured")
+	}
+
+	// Create HTTP request with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	url := storedConfig.ControlPlane.Endpoint + "/version"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Execute request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch server version: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var serverVersion serverVersionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&serverVersion); err != nil {
+		return nil, fmt.Errorf("failed to parse server version: %w", err)
+	}
+
+	return &serverVersion, nil
 }
