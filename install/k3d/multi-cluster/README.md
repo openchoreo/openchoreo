@@ -60,6 +60,22 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-cp.yaml
 
+# Create TLS Certificate for Control Plane Gateway
+kubectl apply -f - <<EOF                                            
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: control-plane-tls
+  namespace: openchoreo-control-plane
+spec:
+  secretName: control-plane-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreo.localhost"
+EOF
+
 # Extract cluster-gateway server CA certificate (needed for agent configuration)
 ./install/extract-agent-cas.sh --control-plane-context k3d-openchoreo-cp server-ca
 ```

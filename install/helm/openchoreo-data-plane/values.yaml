@@ -462,6 +462,9 @@ gatewayController:
   # @schema
   enabled: true
 
+# @schema
+# type: object
+# additionalProperties: true
 # description: KGateway API gateway configuration. Provides HTTP/HTTPS traffic routing using Kubernetes Gateway API and Envoy proxy.
 # @schema
 gateway:

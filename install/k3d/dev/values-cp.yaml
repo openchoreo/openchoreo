@@ -5,12 +5,6 @@ global:
   baseDomain: openchoreo.localhost
   # Port suffix for URLs (k3d maps host:8080 -> container:80)
   port: ":8080"
-  # Use k3d's built-in Traefik ingress class
-  ingressClassName: traefik
-
-# Disable helm chart's Traefik (use k3d's built-in Traefik instead)
-traefik:
-  enabled: false
 
 # Gateway controller configuration
 # In single cluster mode, enable the controller in control-plane

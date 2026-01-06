@@ -44,13 +44,6 @@ global:
 
   # @schema
   # type: string
-  # description: Ingress class for all services (uses kgateway by default)
-  # default: kgateway
-  # @schema
-  ingressClassName: kgateway
-
-  # @schema
-  # type: string
   # description: Kubernetes cluster name identifier
   # default: openchoreo
   # @schema
@@ -4145,6 +4138,9 @@ gatewayController:
   # @schema
   enabled: true
 
+# @schema
+# type: object
+# additionalProperties: true
 # description: KGateway (Gateway API) configuration (subchart)
 # @schema
 gateway:
@@ -4209,6 +4205,7 @@ gateway:
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: Gateway controller configuration
   # @schema
   controller:
@@ -4403,3 +4400,10 @@ gateway:
     # default: IfNotPresent
     # @schema
     pullPolicy: IfNotPresent
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: KGateway CRDs subchart configuration (Helm dependency)
+# @schema
+kgateway-crds: {}
