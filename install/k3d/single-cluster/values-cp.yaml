@@ -24,3 +24,16 @@ thunder:
       hostname: "thunder.openchoreo.localhost"
       port: 8080
       scheme: "http"
+
+gateway:
+  # Enable gateway
+  enabled: true
+
+  # Envoy - enabled by default for traffic routing
+  envoy:
+    enabled: true
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true
