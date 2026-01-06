@@ -65,6 +65,9 @@ options:
       - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
         nodeFilters:
           - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
 # Configure insecure registries for HTTP access
 registries:
   config: |
