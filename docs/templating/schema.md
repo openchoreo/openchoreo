@@ -499,6 +499,8 @@ JSON Schema:
 
 ### Overriding Type Defaults
 
+When a field references a type that has a default, the field can override that default with its own. This behavior mirrors how JSON Schema handles defaults with `$ref`, where the referencing schema's default takes precedence over the referenced schema's default.
+
 OpenChoreo:
 ```yaml
 types:
@@ -511,7 +513,32 @@ parameters:
   resources: "Resources | default={\"cpu\": \"500m\", \"memory\": \"256Mi\"}"
 ```
 
-JSON Schema:
+This is conceptually equivalent to the following JSON Schema with `$ref`:
+```json
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "resources": {
+      "default": {"cpu": "500m", "memory": "256Mi"},
+      "$ref": "#/$defs/Resources"
+    }
+  },
+  "$defs": {
+    "Resources": {
+      "type": "object",
+      "default": {"cpu": "100m", "memory": "128Mi"},
+      "required": ["cpu", "memory"],
+      "properties": {
+        "cpu": {"type": "string"},
+        "memory": {"type": "string"}
+      }
+    }
+  }
+}
+```
+
+OpenChoreo resolves the type reference and produces the following simplified JSON Schema, where the field-level default takes precedence:
 ```json
 {
   "type": "object",
@@ -532,7 +559,7 @@ JSON Schema:
 }
 ```
 
-The field-level default (`default={...}`) overrides the type-level default.
+The field-level default (`default={...}`) overrides the type-level default (`$default`), just as a `default` adjacent to a `$ref` overrides the referenced schema's default.
 
 ### Arrays and Maps
 
