@@ -31,7 +31,7 @@ spec:
 {{- if and .Values.clusterGateway.enabled .Values.clusterGateway.tlsRoute.enabled }}
     - name: tls-passthrough
       protocol: TLS
-      port: 443
+      port: {{ .Values.gateway.httpsPort | default 443 }}
       hostname: {{ (index .Values.clusterGateway.tlsRoute.hosts 0).host | quote }}
       allowedRoutes:
         namespaces:
