@@ -175,6 +175,10 @@ type DataPlaneResponse struct {
 	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
 	PublicVirtualHost       string    `json:"publicVirtualHost"`
 	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
+	PublicHTTPPort          int32     `json:"publicHTTPPort"`
+	PublicHTTPSPort         int32     `json:"publicHTTPSPort"`
+	OrganizationHTTPPort    int32     `json:"organizationHTTPPort"`
+	OrganizationHTTPSPort   int32     `json:"organizationHTTPSPort"`
 	ObservabilityPlaneRef   string    `json:"observabilityPlaneRef,omitempty"`
 	CreatedAt               time.Time `json:"createdAt"`
 	Status                  string    `json:"status,omitempty"`
