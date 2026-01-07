@@ -960,6 +960,62 @@ observer:
   replicas: 1
 
   # @schema
+  # type: object
+  # description: Security configuration for Observer authentication
+  # @schema
+  security:
+    # @schema
+    # type: array
+    # description: User type configurations for JWT subject resolution
+    # items:
+    #   type: object
+    #   properties:
+    #     type:
+    #       type: string
+    #       description: User type identifier (user, service_account, etc.)
+    #     display_name:
+    #       type: string
+    #       description: Human-readable name for the user type
+    #     priority:
+    #       type: integer
+    #       description: Detection priority (lower = higher priority)
+    #     auth_mechanisms:
+    #       type: array
+    #       items:
+    #         type: object
+    #         properties:
+    #           type:
+    #             type: string
+    #             description: Authentication mechanism type (oauth2, etc.)
+    #           entitlement:
+    #             type: object
+    #             properties:
+    #               claim:
+    #                 type: string
+    #                 description: JWT claim name for entitlement
+    #               display_name:
+    #                 type: string
+    #                 description: Human-readable name for the claim
+    # @schema
+    userTypes:
+      - type: "user"
+        display_name: "User"
+        priority: 1
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "groups"
+              display_name: "User Group"
+      - type: "service_account"
+        display_name: "Service Account"
+        priority: 2
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "sub"
+              display_name: "Client ID"
+
+  # @schema
   # type: array
   # description: Extra environment variables for the Observer container
   # items:

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observer-auth-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "observer") | nindent 4 }}
+data:
+  auth-config.yaml: |
+    auth:
+      user_types:
+        {{- toYaml .Values.observer.security.userTypes | nindent 8 }}
