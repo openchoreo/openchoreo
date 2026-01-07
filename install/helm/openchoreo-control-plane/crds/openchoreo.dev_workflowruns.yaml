@@ -40,22 +40,6 @@ spec:
           spec:
             description: spec defines the desired state of WorkflowRun
             properties:
-              owner:
-                description: |-
-                  Owner identifies the Component that owns this WorkflowRun.
-                  This is optional for generic workflows not bound to components.
-                properties:
-                  componentName:
-                    description: ComponentName is the name of the owning Component
-                    minLength: 1
-                    type: string
-                  projectName:
-                    minLength: 1
-                    type: string
-                required:
-                - componentName
-                - projectName
-                type: object
               workflow:
                 description: Workflow configuration referencing the Workflow CR and
                   providing schema values.
@@ -66,12 +50,12 @@ spec:
                       The Workflow CR contains the schema definition and resource template.
                     minLength: 1
                     type: string
-                  schema:
+                  parameters:
                     description: |-
-                      Schema contains the developer-provided values that conform to the schema
-                      defined in the referenced Workflow CR.
+                      Parameters contains the developer-provided values for the flexible parameter schema
+                      defined in the referenced ComponentWorkflow CR.
 
-                      These values are merged with context variables when rendering the final workflow resource.
+                      These values are validated against the ComponentWorkflow's parameter schema.
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 required:
@@ -144,15 +128,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              imageStatus:
-                description: |-
-                  ImageStatus contains information about the built container image from the workflow execution.
-                  This is populated when the workflow produces a container image.
-                properties:
-                  image:
-                    description: Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
-                    type: string
-                type: object
               resources:
                 description: |-
                   Resources contains references to additional resources applied to the cluster.

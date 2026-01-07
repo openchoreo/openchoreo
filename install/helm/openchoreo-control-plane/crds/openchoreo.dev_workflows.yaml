@@ -100,6 +100,35 @@ spec:
                       credentialsRef: string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
                     version: integer | default=1 description="Build version number"
                     testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
+                properties:
+                  parameters:
+                    description: |-
+                      Parameters defines the flexible PE-defined schema for additional build configuration.
+                      Platform Engineers have complete freedom to define any structure, types, and validation rules.
+
+                      This is a nested map structure where keys are field names and values are type definitions.
+                      Type definition format: "type | default=value enum=val1,val2 minimum=N maximum=N"
+
+                      Supported types: string, integer, boolean, array<type>, object
+
+                      Example:
+                        parameters:
+                          version: 'integer | default=1 description="Build version"'
+                          testMode: "string | enum=unit,integration,none default=unit"
+                          resources:
+                            cpuCores: "integer | default=1 minimum=1 maximum=8"
+                            memoryGb: "integer | default=2 minimum=1 maximum=32"
+                          cache:
+                            enabled: "boolean | default=true"
+                            paths: "array<string> | default=["/root/.cache"]"
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  types:
+                    description: |-
+                      Types defines reusable type definitions that can be referenced in schema fields.
+                      This is a nested map structure where keys are type names and values are type definitions.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
             required:

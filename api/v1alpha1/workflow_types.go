@@ -38,7 +38,7 @@ type WorkflowSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
-	Schema *runtime.RawExtension `json:"schema,omitempty"`
+	Schema *WorkflowSchema `json:"schema,omitempty"`
 
 	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
 	// Template variables are substituted with context and parameter values.
@@ -61,6 +61,40 @@ type WorkflowSpec struct {
 	// Template variables are substituted with context and parameter values using CEL expressions.
 	// +optional
 	Resources []WorkflowResource `json:"resources,omitempty"`
+}
+
+// WorkflowSchema defines the parameter schemas for workflows.
+type WorkflowSchema struct {
+	// Types defines reusable type definitions that can be referenced in schema fields.
+	// This is a nested map structure where keys are type names and values are type definitions.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Types *runtime.RawExtension `json:"types,omitempty"`
+
+	// Parameters defines the flexible PE-defined schema for additional build configuration.
+	// Platform Engineers have complete freedom to define any structure, types, and validation rules.
+	//
+	// This is a nested map structure where keys are field names and values are type definitions.
+	// Type definition format: "type | default=value enum=val1,val2 minimum=N maximum=N"
+	//
+	// Supported types: string, integer, boolean, array<type>, object
+	//
+	// Example:
+	//   parameters:
+	//     version: 'integer | default=1 description="Build version"'
+	//     testMode: "string | enum=unit,integration,none default=unit"
+	//     resources:
+	//       cpuCores: "integer | default=1 minimum=1 maximum=8"
+	//       memoryGb: "integer | default=2 minimum=1 maximum=32"
+	//     cache:
+	//       enabled: "boolean | default=true"
+	//       paths: "array<string> | default=["/root/.cache"]"
+	//
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // WorkflowResource defines a template for generating Kubernetes resources
