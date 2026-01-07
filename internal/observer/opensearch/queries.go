@@ -112,11 +112,26 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 	}
 	mustConditions = addTimeRangeFilter(mustConditions, params.QueryParams.StartTime, params.QueryParams.EndTime)
 
+	// Logs from init and wait containers are not relevant to the build logs. Hence, excluded.
+	mustNotConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "init",
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "wait",
+			},
+		},
+	}
+
 	query := map[string]interface{}{
 		"size": params.QueryParams.Limit,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": mustConditions,
+				"must":     mustConditions,
+				"must_not": mustNotConditions,
 			},
 		},
 		"sort": []map[string]interface{}{

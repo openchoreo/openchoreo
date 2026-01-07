@@ -73,9 +73,10 @@ const (
 // OpenSearch field paths for querying Kubernetes labels in log documents
 const (
 	// KubernetesLabelsPrefix is the base path for all Kubernetes labels in OpenSearch documents
-	KubernetesPrefix       = "kubernetes"
-	KubernetesLabelsPrefix = KubernetesPrefix + ".labels"
-	KubernetesPodName      = KubernetesPrefix + ".pod_name"
+	KubernetesPrefix        = "kubernetes"
+	KubernetesLabelsPrefix  = KubernetesPrefix + ".labels"
+	KubernetesPodName       = KubernetesPrefix + ".pod_name"
+	KubernetesContainerName = KubernetesPrefix + ".container_name"
 
 	// Full field paths for OpenSearch queries
 	OSComponentID      = KubernetesLabelsPrefix + "." + ComponentID
