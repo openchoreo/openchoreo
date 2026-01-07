@@ -1,6 +1,28 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 # This file contains overrides specific to running the observability plane in a k3d environment
 
+
+fluent-bit:
+  enabled: true
+
+  config:
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Replace_Dots On
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
 kgateway:
   enabled: true
 
@@ -13,13 +35,13 @@ openSearchDashboards:
     type: LoadBalancer
 
 openSearch:
-  enabled: true
+  enabled: false
   # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
   service:
     type: LoadBalancer
 
 openSearchCluster:
-  enabled: false
+  enabled: true
 
 prometheus:
   enabled: true

@@ -58,9 +58,19 @@ spec:
         name: opensearch-admin-credentials-secret
       securityConfigSecret:
         name: opensearch-security-config
+      adminSecret:
+        name: opensearch-admin
     tls:
       http:
-        generate: true
+        generate: false
+        secret:
+          name: opensearch-http
       transport:
-        generate: true
+        generate: false
+        nodesDn:
+          - "CN=opensearch,OU=openchoreo"
+        adminDn:
+          - "CN=admin,OU=openchoreo"
+        secret:
+          name: opensearch-transport
 {{- end }}

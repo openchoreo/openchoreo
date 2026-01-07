@@ -28,6 +28,10 @@ ports:
   - port: 11084:9091
     nodeFilters:
       - loadbalancer
+  # KGateway
+  - port: 11085:443
+    nodeFilters:
+      - loadbalancer
     
 options:
   k3s:

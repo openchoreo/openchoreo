@@ -1,0 +1,17 @@
+{{- if and .Values.gateway.enabled .Values.openSearchCluster.enabled }}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: opensearch
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+    - name: kgateway-envoy
+      namespace: {{ .Release.Namespace }}
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: opensearch
+          port: 9200
+{{- end }}

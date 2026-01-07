@@ -1,0 +1,73 @@
+{{- if and .Values.gateway.enabled .Values.openSearchCluster.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-admin
+  namespace: {{ .Release.Namespace }}
+spec:
+  privateKey:
+    encoding: PKCS8
+  secretName: opensearch-admin
+  issuerRef:
+    name: openchoreo-observability-plane-ca-issuer
+    kind: Issuer
+  commonName: "admin"
+  subject:
+    organizationalUnits:
+      - "openchoreo"
+  duration: 8760h # 1 year
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-http
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: opensearch-http
+  issuerRef:
+    name: openchoreo-observability-plane-ca-issuer
+    kind: Issuer
+  commonName: "opensearch"
+  subject:
+    organizationalUnits:
+      - "openchoreo"
+  duration: 8760h # 1 year
+  usages:
+    - digital signature
+    - client auth
+    - server auth
+  dnsNames:
+  - "opensearch"
+  - "opensearch-discovery"
+  - "opensearch.{{ .Release.Namespace }}"
+  - "opensearch.{{ .Release.Namespace }}.svc"
+  - "opensearch.{{ .Release.Namespace }}.svc.cluster.local"
+  - "opensearch.observability.openchoreo.localhost"
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: opensearch-transport
+  namespace: {{ .Release.Namespace }}
+spec:
+  secretName: opensearch-transport
+  issuerRef:
+    name: openchoreo-observability-plane-ca-issuer
+    kind: Issuer
+  commonName: "opensearch"
+  subject:
+    organizationalUnits:
+      - "openchoreo"
+  duration: 8760h # 1 year
+  usages:
+    - digital signature
+    - client auth
+    - server auth
+  dnsNames:
+  - "opensearch"
+  - "opensearch.{{ .Release.Namespace }}"
+  - "opensearch.{{ .Release.Namespace }}.svc"
+  - "opensearch.{{ .Release.Namespace }}.svc.cluster.local"
+{{- end }}

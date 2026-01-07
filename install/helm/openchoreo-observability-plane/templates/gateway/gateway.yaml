@@ -7,16 +7,13 @@ metadata:
 spec:
   gatewayClassName: kgateway
   listeners:
-    - name: https
-      protocol: HTTPS
-      port: {{ .Values.gateway.httpsPort | default 443 }}
+    - name: tls
+      protocol: TLS
+      hostname: opensearch.{{ .Values.global.baseDomain }}
+      tls:
+        mode: Passthrough
+      port: 443
       allowedRoutes:
         namespaces:
           from: All
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: openchoreo-observability-plane-wildcard
-            namespace: {{ .Release.Namespace }}
 {{- end }}

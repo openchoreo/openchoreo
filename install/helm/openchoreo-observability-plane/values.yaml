@@ -1114,7 +1114,7 @@ observer:
 # additionalProperties: true
 # description: Fluent Bit subchart configuration for log collection and forwarding to OpenSearch
 # @schema
-fluentBit:
+fluent-bit:
   # @schema
   # type: boolean
   # description: Enable Fluent Bit log collector deployment
@@ -1185,7 +1185,7 @@ fluentBit:
           Name opensearch
           Host opensearch
           Generate_ID On
-          HTTP_Passwd admin
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
           HTTP_User admin
           Logstash_Format On
           Logstash_DateFormat %Y-%m-%d
@@ -1203,6 +1203,13 @@ fluentBit:
   # default: ClusterFirstWithHostNet
   # @schema
   dnsPolicy: ClusterFirstWithHostNet
+
+  # @schema
+  # type: string
+  # description: Override the full name of Fluent Bit resources
+  # default: fluent-bit
+  # @schema
+  fullnameOverride: "fluent-bit"
 
   # @schema
   # type: boolean
@@ -2280,15 +2287,6 @@ gateway:
   # default: false
   # @schema
   enabled: false
-
-  # @schema
-  # type: integer
-  # description: HTTPS port for the gateway listener
-  # minimum: 1
-  # maximum: 65535
-  # default: 443
-  # @schema
-  httpsPort: 443
 
 # @schema
 # type: object

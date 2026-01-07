@@ -37,10 +37,9 @@ dependencies:
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
   - name: fluent-bit
-    alias: fluentBit
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0
-    condition: fluentBit.enabled
+    condition: fluent-bit.enabled
   - name: kgateway
     repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
     version: v2.1.2
