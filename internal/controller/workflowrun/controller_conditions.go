@@ -16,16 +16,13 @@ const (
 	ConditionWorkflowFailed    controller.ConditionType = "WorkflowFailed"
 	ConditionWorkflowSucceeded controller.ConditionType = "WorkflowSucceeded"
 	ConditionWorkflowCompleted controller.ConditionType = "WorkflowCompleted"
-	ConditionWorkloadUpdated   controller.ConditionType = "WorkloadUpdated"
 )
 
 const (
-	ReasonWorkflowPending      controller.ConditionReason = "WorkflowPending"
-	ReasonWorkflowRunning      controller.ConditionReason = "WorkflowRunning"
-	ReasonWorkflowSucceeded    controller.ConditionReason = "WorkflowSucceeded"
-	ReasonWorkflowFailed       controller.ConditionReason = "WorkflowFailed"
-	ReasonWorkloadUpdated      controller.ConditionReason = "WorkloadUpdated"
-	ReasonWorkloadUpdateFailed controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonWorkflowPending   controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowRunning   controller.ConditionReason = "WorkflowRunning"
+	ReasonWorkflowSucceeded controller.ConditionReason = "WorkflowSucceeded"
+	ReasonWorkflowFailed    controller.ConditionReason = "WorkflowFailed"
 )
 
 func setWorkflowPendingCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
@@ -113,26 +110,6 @@ func setWorkflowNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 	})
 }
 
-func setWorkloadUpdatedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
-	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
-		Type:               string(ConditionWorkloadUpdated),
-		Status:             metav1.ConditionTrue,
-		Reason:             string(ReasonWorkloadUpdated),
-		Message:            "Workload CR created/updated successfully",
-		ObservedGeneration: workflowRun.Generation,
-	})
-}
-
-func setWorkloadUpdateFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
-	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
-		Type:               string(ConditionWorkloadUpdated),
-		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonWorkloadUpdateFailed),
-		Message:            "Failed to create/update workload CR",
-		ObservedGeneration: workflowRun.Generation,
-	})
-}
-
 func isWorkflowInitiated(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 	return meta.FindStatusCondition(workflowRun.Status.Conditions, string(ConditionWorkflowCompleted)) != nil
 }
@@ -143,8 +120,4 @@ func isWorkflowCompleted(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 
 func isWorkflowSucceeded(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkflowSucceeded))
-}
-
-func isWorkloadUpdated(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
-	return meta.IsStatusConditionTrue(workflowRun.Status.Conditions, string(ConditionWorkloadUpdated))
 }
