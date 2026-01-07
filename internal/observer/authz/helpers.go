@@ -28,7 +28,14 @@ func CheckAuthorization(
 	}
 
 	// Extract SubjectContext from context (set by JWT middleware)
-	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
+	authSubjectCtx, ok := auth.GetSubjectContextFromContext(ctx)
+	if !ok || authSubjectCtx == nil {
+		logger.Warn("No subject context found in request - authentication required",
+			"action", action,
+			"resource_type", resourceType,
+			"resource_id", resourceID)
+		return ErrAuthzUnauthorized
+	}
 
 	// Convert auth.SubjectContext to authz.SubjectContext
 	authzSubjectCtx := authzcore.GetAuthzSubjectContext(authSubjectCtx)

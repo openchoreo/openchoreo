@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
@@ -61,25 +63,27 @@ const (
 	ErrorCodeAuthUnauthorized = "OBS-AUTH-04"
 
 	// Error messages
-	ErrorMsgBuildIDRequired         = "Build ID is required"
-	ErrorMsgComponentIDRequired     = "Component ID is required"
-	ErrorMsgProjectIDRequired       = "Project ID is required"
-	ErrorMsgOrganizationIDRequired  = "Organization ID is required"
-	ErrorMsgEnvironmentIDRequired   = "Environment ID is required"
-	ErrorMsgRuleNameRequired        = "Rule name is required"
-	ErrorMsgSourceTypeRequired      = "Source type is required"
-	ErrorMsgAlertIDRequired         = "Alert ID is required"
-	ErrorMsgTimeRequired            = "Start time and end time are required"
-	ErrorMsgInvalidRequestFormat    = "Invalid request format"
-	ErrorMsgFailedToRetrieveLogs    = "Failed to retrieve logs"
-	ErrorMsgFailedToRetrieveMetrics = "Failed to retrieve metrics"
-	ErrorMsgFailedToRetrieveReports = "Failed to retrieve RCA reports"
-	ErrorMsgReportNotFound          = "RCA report not found"
-	ErrorMsgInvalidTimeFormat       = "Invalid time format"
-	ErrorMsgAccessDenied            = "Access denied"
-	ErrorMsgAuthServiceUnavailable  = "Authorization service temporarily unavailable"
-	ErrorMsgUnauthorized            = "Unauthorized request"
-	ErrorMsgMissingAuthHierarchy    = "Organization, Project, and Component IDs required for authorization"
+	ErrorMsgBuildIDRequired           = "Build ID is required"
+	ErrorMsgComponentIDRequired       = "Component ID is required"
+	ErrorMsgProjectIDRequired         = "Project ID is required"
+	ErrorMsgOrganizationIDRequired    = "Organization ID is required"
+	ErrorMsgEnvironmentIDRequired     = "Environment ID is required"
+	ErrorMsgRuleNameRequired          = "Rule name is required"
+	ErrorMsgSourceTypeRequired        = "Source type is required"
+	ErrorMsgAlertIDRequired           = "Alert ID is required"
+	ErrorMsgTimeRequired              = "Start time and end time are required"
+	ErrorMsgInvalidRequestFormat      = "Invalid request format"
+	ErrorMsgFailedToRetrieveLogs      = "Failed to retrieve logs"
+	ErrorMsgFailedToRetrieveMetrics   = "Failed to retrieve metrics"
+	ErrorMsgFailedToRetrieveReports   = "Failed to retrieve RCA reports"
+	ErrorMsgReportNotFound            = "RCA report not found"
+	ErrorMsgInvalidTimeFormat         = "Invalid time format"
+	ErrorMsgAccessDenied              = "access denied due to insufficient permissions"
+	ErrorMsgAuthServiceUnavailable    = "Authorization service temporarily unavailable"
+	ErrorMsgFailedToAuthorize         = "Failed to authorize request"
+	ErrorMsgUnauthorized              = "Unauthorized request"
+	ErrorMsgMissingAuthHierarchy      = "missing required fields for authorization"
+	LogMsgAuthServiceUnavailableError = "Authorization service unavailable or timed out"
 )
 
 // Handler contains the HTTP handlers for the logging API
@@ -249,6 +253,50 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeComponentWorkflowRun,
+		buildID,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+			Component:    req.ComponentName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+		return
+	}
+
 	// Validate times
 	if err := validateTimes(req.StartTime, req.EndTime); err != nil {
 		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
@@ -299,6 +347,50 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeComponent,
+		req.ComponentName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+			Component:    req.ComponentName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
 		return
 	}
 
@@ -354,6 +446,49 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, "Organization and Project names required for authorization")
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeProject,
+		req.ProjectName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
 		return
 	}
 
@@ -451,6 +586,48 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, "Organization name required for authorization")
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeOrg,
+		req.OrgName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+		return
+	}
+
 	// Set defaults
 	if req.Limit == 0 {
 		req.Limit = 100
@@ -493,6 +670,49 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, "Organization and Project names required for authorization")
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewTraces,
+		observerAuthz.ResourceTypeProject,
+		req.ProjectName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
 		return
 	}
 
@@ -576,6 +796,50 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewMetrics,
+		observerAuthz.ResourceTypeComponent,
+		req.ComponentName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+			Component:    req.ComponentName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+		return
+	}
+
 	var startTime, endTime time.Time
 	var err error
 
@@ -621,6 +885,50 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind metrics request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewMetrics,
+		observerAuthz.ResourceTypeComponent,
+		req.ComponentName,
+		authzcore.ResourceHierarchy{
+			Organization: req.OrgName,
+			Project:      req.ProjectName,
+			Component:    req.ComponentName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
 		return
 	}
 

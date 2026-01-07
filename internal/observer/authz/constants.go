@@ -14,7 +14,8 @@ const (
 type ResourceType string
 
 const (
-	ResourceTypeComponent ResourceType = "component"
-	ResourceTypeProject   ResourceType = "project"
-	ResourceTypeOrg       ResourceType = "organization"
+	ResourceTypeComponent            ResourceType = "component"
+	ResourceTypeProject              ResourceType = "project"
+	ResourceTypeOrg                  ResourceType = "organization"
+	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
 )

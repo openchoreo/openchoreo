@@ -93,7 +93,9 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger, authzPDP, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL)
+	handler := handlers.NewHandler(
+		loggingService, logger, authzPDP, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL,
+	)
 
 	// ===== Initialize Middlewares =====
 

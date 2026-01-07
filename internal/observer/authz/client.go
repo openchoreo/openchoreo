@@ -9,11 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 )
 
 type Client struct {
@@ -21,6 +23,18 @@ type Client struct {
 	baseURL    string
 	logger     *slog.Logger
 	disabled   bool
+}
+
+// AuthzResponse represents the wrapped response from the authz service
+type AuthzResponse struct {
+	Success bool               `json:"success"`
+	Data    authzcore.Decision `json:"data"`
+}
+
+// BatchAuthzResponse represents the wrapped response from the authz service for batch evaluate
+type BatchAuthzResponse struct {
+	Success bool                            `json:"success"`
+	Data    authzcore.BatchEvaluateResponse `json:"data"`
 }
 
 // NewClient creates a new authz HTTP client
@@ -69,14 +83,20 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 		return nil, fmt.Errorf("failed to marshal evaluate request: %w", err)
 	}
 
+	c.logger.Debug("Authz Request Body", "json", string(body))
+
 	url := c.baseURL + "/api/v1/authz/evaluate"
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		c.logger.Error("failed to create HTTP request", "error", err)
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
-	// TODO: Add auth header
 	req.Header.Set("Content-Type", "application/json")
+
+	// Extract and forward the authentication token from the incoming request context
+	if token := jwt.GetTokenFromContext(ctx); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -96,13 +116,19 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Error("Authz service returned error", "status", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		c.logger.Error("Authz service returned error", "status", resp.StatusCode, "response_body", string(bodyBytes))
 		return nil, fmt.Errorf("authz service returned %d", resp.StatusCode)
 	}
 
-	var decision authzcore.Decision
-	if err := json.NewDecoder(resp.Body).Decode(&decision); err != nil {
-		c.logger.Error("Failed to decode authz response", "error", err)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.logger.Error("Failed to read authz response body", "error", err)
+		return nil, ErrAuthzInvalidResponse
+	}
+	var response AuthzResponse
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		c.logger.Error("Failed to decode authz response", "error", err, "body", string(bodyBytes))
 		return nil, ErrAuthzInvalidResponse
 	}
 
@@ -110,9 +136,10 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 		"action", request.Action,
 		"resource_type", request.Resource.Type,
 		"resource_id", request.Resource.ID,
-		"decision", decision.Decision)
+		"decision", response.Data.Decision,
+		"reason", response.Data.Context)
 
-	return &decision, nil
+	return &response.Data, nil
 }
 
 // BatchEvaluate evaluates multiple authorization requests
@@ -137,8 +164,12 @@ func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEval
 		c.logger.Error("Failed to create HTTP request", "error", err)
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	// TODO: Add auth header
 	req.Header.Set("Content-Type", "application/json")
+
+	// Extract and forward the authentication token from the incoming request context
+	if token := jwt.GetTokenFromContext(ctx); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -153,19 +184,26 @@ func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEval
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		c.logger.Error("Authz service returned error", "status", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		c.logger.Error("Authz service returned error", "status", resp.StatusCode, "response_body", string(bodyBytes))
 		return nil, fmt.Errorf("authz service returned %d", resp.StatusCode)
 	}
 
-	var response authzcore.BatchEvaluateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		c.logger.Error("Failed to decode batch authz response", "error", err)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.logger.Error("Failed to read batch authz response body", "error", err)
+		return nil, ErrAuthzInvalidResponse
+	}
+
+	var response BatchAuthzResponse
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		c.logger.Error("Failed to decode batch authz response", "error", err, "body", string(bodyBytes))
 		return nil, ErrAuthzInvalidResponse
 	}
 
 	c.logger.Debug("Batch authorization evaluated", "request_count", len(request.Requests))
 
-	return &response, nil
+	return &response.Data, nil
 }
 
 // GetSubjectProfile is not implemented for observer API
