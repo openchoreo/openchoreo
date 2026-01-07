@@ -546,6 +546,9 @@ components:
       required:
         - startTime
         - endTime
+        - componentName
+        - projectName
+        - orgName
       properties:
         startTime:
           type: string
@@ -570,6 +573,18 @@ components:
           enum: [asc, desc]
           default: asc
           example: "asc"
+        componentName:
+          type: string
+          description: Component name
+          example: "my-component"
+        projectName:
+          type: string
+          description: Project name
+          example: "my-project"
+        orgName:
+          type: string
+          description: Organization name
+          example: "my-org"
 
     ComponentLogsRequest:
       type: object
@@ -577,7 +592,10 @@ components:
         - startTime
         - endTime
         - environmentId
-        - namespace
+        - componentName
+        - projectName
+        - orgName
+        - environmentName
       properties:
         startTime:
           type: string
@@ -645,6 +663,22 @@ components:
           type: string
           description: Build UUID for build logs
           example: "550e8400-e29b-41d4-a716-446655440000"
+        componentName:
+          type: string
+          description: Component name
+          example: "my-component"
+        projectName:
+          type: string
+          description: Project name
+          example: "my-project"
+        environmentName:
+          type: string
+          description: Environment name
+          example: "my-environment"
+        orgName:
+          type: string
+          description: Organization name
+          example: "my-org"
 
     ProjectLogsRequest:
       allOf:
@@ -736,6 +770,10 @@ components:
         - projectUid
         - startTime
         - endTime
+        - componentNames
+        - projectName
+        - orgName
+        - environmentName
       properties:
         projectUid:
           type: string
@@ -791,6 +829,24 @@ components:
           enum: [asc, desc]
           default: desc
           example: "desc"
+        componentNames:
+          type: array
+          items:
+            type: string
+          description: Component names to filter traces
+          example: ["my-component", "my-component-2"]
+        projectName:
+          type: string
+          description: Project name
+          example: "my-project"
+        environmentName:
+          type: string
+          description: Environment name
+          example: "my-environment"
+        orgName:
+          type: string
+          description: Organization name
+          example: "my-org"
 
     MetricsRequest:
       type: object
@@ -798,6 +854,10 @@ components:
         - componentId
         - environmentId
         - projectId
+        - componentName
+        - projectName
+        - orgName
+        - environmentName
       properties:
         componentId:
           type: string
@@ -821,6 +881,22 @@ components:
           format: date-time
           description: End time for metrics query in RFC3339 format
           example: "2025-01-10T23:59:59Z"
+        componentName:
+          type: string
+          description: Component name
+          example: "my-component"
+        projectName:
+          type: string
+          description: Project name
+          example: "my-project"
+        environmentName:
+          type: string
+          description: Environment name
+          example: "my-environment"
+        orgName:
+          type: string
+          description: Organization name
+          example: "my-org"
 
     LogEntry:
       type: object
@@ -1263,13 +1339,6 @@ components:
           format: date-time
           description: Timestamp when the rule was last synced in RFC3339 format
           example: "2025-01-10T12:34:56Z"
-
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: JWT token for authentication. Include the token in the Authorization header as 'Bearer <token>'.
 
     ProjectRCAReportsRequest:
       type: object
@@ -1836,3 +1905,10 @@ components:
           nullable: true
           description: Why this action is recommended
           example: 'Will prevent connection pool exhaustion from recurring'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication. Include the token in the Authorization header as 'Bearer <token>'.
