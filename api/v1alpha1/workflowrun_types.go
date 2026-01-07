@@ -57,39 +57,33 @@ type WorkflowOwner struct {
 
 // WorkflowRunStatus defines the observed state of WorkflowRun.
 type WorkflowRunStatus struct {
-	// conditions represent the current state of the WorkflowRun resource.
+	// Conditions represent the current state of the WorkflowRun resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// ImageStatus contains information about the built image from the workflow
+	// ImageStatus contains information about the built container image from the workflow execution.
+	// This is populated when the workflow produces a container image.
 	// +optional
 	ImageStatus WorkflowImage `json:"imageStatus,omitempty"`
 
 	// RunReference contains a reference to the workflow run resource that was applied to the cluster.
-	// This tracks the actual workflow execution instance in the target cluster.
+	// This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
 	// +optional
-	RunReference WorkflowRunReference `json:"runReference,omitempty"`
+	RunReference *ResourceReference `json:"runReference,omitempty"`
+
+	// Resources contains references to additional resources applied to the cluster.
+	// These are tracked for cleanup when the WorkflowRun is deleted.
+	// +optional
+	Resources *[]ResourceReference `json:"resources,omitempty"`
 }
 
-// WorkflowImage contains information about a container image produced by a workflow
+// WorkflowImage contains information about a container image produced by a workflow execution.
 type WorkflowImage struct {
 	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
 	// +optional
 	Image string `json:"image,omitempty"`
-}
-
-// WorkflowRunReference contains a reference to the workflow run resource applied to the cluster.
-// This allows tracking the actual workflow execution instance that was created in the target cluster.
-type WorkflowRunReference struct {
-	// Name is the name of the workflow run resource in the target cluster
-	// +optional
-	Name string `json:"name,omitempty"`
-
-	// Namespace is the namespace of the workflow run resource in the target cluster
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true

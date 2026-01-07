@@ -41,21 +41,44 @@ spec:
           spec:
             description: spec defines the desired state of Workflow
             properties:
-              resource:
+              resources:
                 description: |-
-                  Resource contains the Kubernetes resource (typically an Argo Workflow)
-                  with CEL expressions enclosed in ${...} that will be evaluated at runtime.
+                  Resources are additional templates that generate Kubernetes resources dynamically
+                  to be deployed alongside the workflow run (e.g., secrets, configmaps).
+                  Template variables are substituted with context and parameter values using CEL expressions.
+                items:
+                  description: |-
+                    WorkflowResource defines a template for generating Kubernetes resources
+                    to be deployed alongside the workflow run.
+                  properties:
+                    id:
+                      description: ID uniquely identifies this resource within the
+                        workflow.
+                      minLength: 1
+                      type: string
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with CEL expressions.
+                        CEL expressions are enclosed in ${...} and will be evaluated at runtime.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - template
+                  type: object
+                type: array
+              runTemplate:
+                description: |-
+                  RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
+                  Template variables are substituted with context and parameter values.
+                  Supported template variables:
+                    - ${metadata.workflowRunName} - WorkflowRun name (the execution instance)
+                    - ${metadata.componentName} - Component name (if workflow is component-bound)
+                    - ${metadata.projectName} - Project name (if workflow is component-bound)
+                    - ${metadata.orgName} - Organization name
+                    - ${parameters.*} - Developer-provided parameter values
 
-                  Available CEL variables:
-                    - ${ctx.workflowRunName} - WorkflowRun name (the execution instance)
-                    - ${ctx.componentName} - Component name (if workflow is component-bound)
-                    - ${ctx.projectName} - Project name (if workflow is component-bound)
-                    - ${ctx.orgName} - Organization name
-                    - ${ctx.timestamp} - Unix timestamp
-                    - ${ctx.uuid} - Short UUID (8 chars)
-                    - ${schema.*} - Developer-provided values from schema
-
-                  Note: PE-controlled parameters should be hardcoded directly in the resource.
+                  Note: PE-controlled parameters should be hardcoded directly in the template.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               schema:
@@ -80,15 +103,8 @@ spec:
                     testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              secrets:
-                description: |-
-                  Secrets lists the secret references that should be synchronized to the build plane.
-                  Can reference fields from the schema using CEL expressions like ${schema.repository.credentialsRef}.
-                items:
-                  type: string
-                type: array
             required:
-            - resource
+            - runTemplate
             type: object
           status:
             description: status defines the observed state of Workflow
