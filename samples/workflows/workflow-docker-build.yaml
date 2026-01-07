@@ -1,0 +1,56 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: generic-workflow-docker-build
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Generic Docker workflow for containerized workflows using Dockerfile"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.orgName}          - Organization name (namespace)
+  # ${parameters.*}              - Developer-provided values from parameters schema
+
+  # Schema definition for workflows
+  schema:
+    parameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+      docker:
+        context: string | default=. description="Docker build context path relative to the repository root"
+        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+
+  # Rendered workflow resource for WorkflowRun executions
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: git-repo
+            value: ${parameters.repository.url}
+          - name: branch
+            value: ${parameters.repository.revision.branch}
+          - name: commit
+            value: ${parameters.repository.revision.commit}
+          - name: app-path
+            value: ${parameters.repository.appPath}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          - name: image-name
+            value: generic-workflow-image
+          - name: image-tag
+            value: v1
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: generic-workflow-docker-build
