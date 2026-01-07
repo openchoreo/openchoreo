@@ -14,14 +14,14 @@ spec:
       port: {{ .Values.gateway.httpPort | default 80 }}
       allowedRoutes:
         namespaces:
-          from: All
+          from: Same
     - name: https
       protocol: HTTPS
       port: {{ .Values.gateway.httpsPort | default 443 }}
       hostname: {{ .Values.gateway.tls.hostname | default (printf "*.%s" .Values.global.baseDomain) | quote }}
       allowedRoutes:
         namespaces:
-          from: All
+          from: Same
       tls:
         mode: Terminate
         certificateRefs:

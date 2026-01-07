@@ -107,6 +107,22 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --namespace openchoreo-data-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-dp.yaml
+
+# Create TLS Certificate for Data plane gateway
+kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-gateway-tls
+  namespace: openchoreo-data-plane
+spec:
+  secretName: openchoreo-gateway-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreoapis.localhost"
+EOF
 ```
 
 > [!NOTE]
