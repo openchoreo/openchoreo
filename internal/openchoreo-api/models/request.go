@@ -155,6 +155,10 @@ type CreateDataPlaneRequest struct {
 	ClusterAgentClientCA    string `json:"clusterAgentClientCA"`
 	PublicVirtualHost       string `json:"publicVirtualHost"`
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+	PublicHTTPPort          *int32 `json:"publicHTTPPort,omitempty"`
+	PublicHTTPSPort         *int32 `json:"publicHTTPSPort,omitempty"`
+	OrganizationHTTPPort    *int32 `json:"organizationHTTPPort,omitempty"`
+	OrganizationHTTPSPort   *int32 `json:"organizationHTTPSPort,omitempty"`
 	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
 }
 

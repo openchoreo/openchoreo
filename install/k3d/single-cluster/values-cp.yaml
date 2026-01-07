@@ -5,12 +5,6 @@ global:
   baseDomain: openchoreo.localhost
   # Port suffix for URLs (k3d maps host:8080 -> container:80)
   port: ":8080"
-  # Use k3d's built-in Traefik ingress class
-  ingressClassName: traefik
-
-# Disable helm chart's Traefik (use k3d's built-in Traefik instead)
-traefik:
-  enabled: false
 
 # Enable cluster gateway for agent-based data plane communication
 clusterGateway:
@@ -30,3 +24,16 @@ thunder:
       hostname: "thunder.openchoreo.localhost"
       port: 8080
       scheme: "http"
+
+gateway:
+  # Enable gateway
+  enabled: true
+
+  # Envoy - enabled by default for traffic routing
+  envoy:
+    enabled: true
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true

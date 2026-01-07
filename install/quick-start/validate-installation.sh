@@ -123,11 +123,11 @@ validate_services() {
 }
 
 validate_ingress() {
-    log_info "Validating Traefik ingress..."
-    
-    # Check if Traefik deployment exists
-    if ! kubectl get deployment -n kube-system traefik >/dev/null 2>&1; then
-        log_warning "Traefik deployment not found - ingress may not be active"
+    log_info "Validating Kgateway ingress..."
+
+    # Check if Kgateway deployment exists
+    if ! kubectl get deployment -n openchoreo-control-plane gateway-default >/dev/null 2>&1; then
+        log_warning "Kgateway deployment not found - gateway may not be active"
         return 0
     fi
     
@@ -137,9 +137,9 @@ validate_ingress() {
     netstat_output=$(netstat -ln 2>/dev/null | grep "0.0.0.0:${port}" || true)
 
     if [[ -n "$netstat_output" ]]; then
-        log_success "Traefik ingress validation passed"
+        log_success "Kgateway ingress validation passed"
     else
-        log_warning "Port $port not listening - Traefik ingress may not be exposed"
+        log_warning "Port $port not listening - Kgateway ingress may not be exposed"
     fi
 
     return 0

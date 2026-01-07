@@ -10,11 +10,11 @@ kubeAPI:
 # Single cluster mode exposes all plane port ranges for consistency with multi-cluster setup
 ports:
   # Control Plane uses port range 8xxx
-  # HTTP traffic to OpenChoreo UI and API (Traefik LoadBalancer on port 80)
+  # HTTP traffic to OpenChoreo UI and API (Kgateway LoadBalancer on port 80)
   - port: 8080:80
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to OpenChoreo UI and API (Traefik LoadBalancer on port 443)
+  # HTTPS traffic to OpenChoreo UI and API (Kgateway LoadBalancer on port 443)
   - port: 8443:443
     nodeFilters:
       - loadbalancer
@@ -63,6 +63,10 @@ options:
         nodeFilters:
           - server:*
       - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      # Disable Traefik to avoid conflicts with OpenChoreo Gateway controller
+      - arg: "--disable=traefik"
         nodeFilters:
           - server:*
 # Configure insecure registries for HTTP access

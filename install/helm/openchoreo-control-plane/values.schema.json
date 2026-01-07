@@ -925,50 +925,6 @@
           "title": "image",
           "type": "object"
         },
-        "ingress": {
-          "additionalProperties": true,
-          "description": "Ingress configuration",
-          "properties": {
-            "annotations": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "default": {},
-              "description": "Ingress annotations",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "enabled": {
-              "default": false,
-              "description": "Enable ingress",
-              "required": [],
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "hosts": {
-              "default": [],
-              "description": "Ingress hosts",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "required": [],
-              "title": "hosts",
-              "type": "array"
-            },
-            "ingressClassName": {
-              "default": "",
-              "description": "Ingress class name",
-              "required": [],
-              "title": "ingressClassName",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "ingress",
-          "type": "object"
-        },
         "logLevel": {
           "default": "info",
           "description": "Log level",
@@ -1331,6 +1287,33 @@
           },
           "required": [],
           "title": "tls",
+          "type": "object"
+        },
+        "tlsRoute": {
+          "additionalProperties": true,
+          "description": "TLSRoute configuration for Gateway API",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable TLSRoute for cluster gateway",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hosts": {
+              "default": [],
+              "description": "Hostnames for TLSRoute",
+              "items": {
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "hosts",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "tlsRoute",
           "type": "object"
         },
         "tolerations": {
@@ -2187,6 +2170,352 @@
       "title": "fullnameOverride",
       "type": "string"
     },
+    "gateway": {
+      "additionalProperties": true,
+      "description": "KGateway (Gateway API) configuration (subchart)",
+      "properties": {
+        "agentgateway": {
+          "additionalProperties": false,
+          "description": "Agent gateway configuration (for MCP and REST API connectivity)",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable agent gateway",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "agentgateway",
+          "type": "object"
+        },
+        "controller": {
+          "additionalProperties": true,
+          "description": "Gateway controller configuration",
+          "properties": {
+            "image": {
+              "additionalProperties": false,
+              "description": "Controller image configuration",
+              "properties": {
+                "pullPolicy": {
+                  "default": "IfNotPresent",
+                  "description": "Image pull policy",
+                  "enum": [
+                    "Always",
+                    "IfNotPresent",
+                    "Never"
+                  ],
+                  "required": [],
+                  "title": "pullPolicy"
+                },
+                "registry": {
+                  "default": "",
+                  "description": "Image registry",
+                  "required": [],
+                  "title": "registry",
+                  "type": "string"
+                },
+                "repository": {
+                  "default": "kgateway",
+                  "description": "Image repository",
+                  "required": [],
+                  "title": "repository",
+                  "type": "string"
+                },
+                "tag": {
+                  "default": "",
+                  "description": "Image tag (defaults to chart appVersion)",
+                  "required": [],
+                  "title": "tag",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "image",
+              "type": "object"
+            },
+            "logLevel": {
+              "default": "info",
+              "description": "Controller log level",
+              "enum": [
+                "debug",
+                "info",
+                "warn",
+                "error"
+              ],
+              "required": [],
+              "title": "logLevel"
+            },
+            "replicaCount": {
+              "default": 1,
+              "description": "Number of controller replicas",
+              "required": [],
+              "title": "replicaCount",
+              "type": "integer"
+            },
+            "resources": {
+              "additionalProperties": false,
+              "description": "Controller resource requests and limits",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "description": "Resource limits",
+                  "properties": {
+                    "cpu": {
+                      "default": "200m",
+                      "description": "CPU limit",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "256Mi",
+                      "description": "Memory limit",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "description": "Resource requests",
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU request",
+                      "required": [],
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory request",
+                      "required": [],
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            },
+            "service": {
+              "additionalProperties": false,
+              "description": "Controller service configuration",
+              "properties": {
+                "ports": {
+                  "additionalProperties": false,
+                  "description": "Service ports",
+                  "properties": {
+                    "agwGrpc": {
+                      "default": 9978,
+                      "description": "Agent gateway gRPC port",
+                      "required": [],
+                      "title": "agwGrpc",
+                      "type": "integer"
+                    },
+                    "grpc": {
+                      "default": 9977,
+                      "description": "gRPC port",
+                      "required": [],
+                      "title": "grpc",
+                      "type": "integer"
+                    },
+                    "health": {
+                      "default": 9093,
+                      "description": "Health check port",
+                      "required": [],
+                      "title": "health",
+                      "type": "integer"
+                    },
+                    "metrics": {
+                      "default": 9092,
+                      "description": "Metrics port",
+                      "required": [],
+                      "title": "metrics",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "ports",
+                  "type": "object"
+                },
+                "type": {
+                  "default": "ClusterIP",
+                  "description": "Service type",
+                  "enum": [
+                    "ClusterIP",
+                    "NodePort",
+                    "LoadBalancer"
+                  ],
+                  "required": [],
+                  "title": "type"
+                }
+              },
+              "required": [],
+              "title": "service",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "controller",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable Gateway CR creation",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "envoy": {
+          "additionalProperties": false,
+          "description": "Envoy proxy configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable Envoy proxy",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "mountTmpVolume": {
+              "default": false,
+              "description": "Mount /tmp as emptyDir volume (required for macOS Docker Desktop/Colima)",
+              "required": [],
+              "title": "mountTmpVolume",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "envoy",
+          "type": "object"
+        },
+        "httpPort": {
+          "default": 80,
+          "description": "HTTP listener port",
+          "required": [],
+          "title": "httpPort",
+          "type": "integer"
+        },
+        "httpsPort": {
+          "default": 443,
+          "description": "HTTPS listener port",
+          "required": [],
+          "title": "httpsPort",
+          "type": "integer"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Default image settings for all gateway components",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Default image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "registry": {
+              "default": "cr.kgateway.dev/kgateway-dev",
+              "description": "Default registry for gateway images",
+              "required": [],
+              "title": "registry",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Default image tag (defaults to chart appVersion)",
+              "required": [],
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "selfSignedIssuer": {
+          "additionalProperties": false,
+          "description": "Self-signed ClusterIssuer configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Create self-signed ClusterIssuer (set to false in single cluster mode for data-plane)",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "selfSignedIssuer",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration for gateway",
+          "properties": {
+            "certName": {
+              "default": "{{ .Values.global.tls.secretName }}",
+              "description": "Certificate secret name",
+              "required": [],
+              "title": "certName",
+              "type": "string"
+            },
+            "clusterIssuer": {
+              "default": "",
+              "description": "ClusterIssuer for certificate generation (empty uses default self-signed issuer)",
+              "required": [],
+              "title": "clusterIssuer",
+              "type": "string"
+            },
+            "hostname": {
+              "default": "*.{{ .Values.global.baseDomain }}",
+              "description": "Hostname pattern for TLS certificate",
+              "required": [],
+              "title": "hostname",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "tls",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "gateway",
+      "type": "object"
+    },
+    "gatewayController": {
+      "additionalProperties": true,
+      "description": "KGateway controller configuration",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enable kgateway controller installation (set to false in single cluster mode for data-plane)",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "gatewayController",
+      "type": "object"
+    },
     "global": {
       "additionalProperties": false,
       "description": "Global values shared across all components",
@@ -2390,13 +2719,6 @@
           "title": "imagePullSecrets",
           "type": "array"
         },
-        "ingressClassName": {
-          "default": "openchoreo-traefik",
-          "description": "Ingress class for all services (uses Traefik by default)",
-          "required": [],
-          "title": "ingressClassName",
-          "type": "string"
-        },
         "port": {
           "default": "",
           "description": "Port suffix for URLs (e.g., \":8080\" for non-standard ports). Include the colon. Leave empty for standard ports (80/443)",
@@ -2430,6 +2752,13 @@
       },
       "required": [],
       "title": "global",
+      "type": "object"
+    },
+    "kgateway-crds": {
+      "additionalProperties": true,
+      "description": "KGateway CRDs subchart configuration (Helm dependency)",
+      "required": [],
+      "title": "kgateway-crds",
       "type": "object"
     },
     "kubernetesClusterDomain": {
@@ -4619,333 +4948,6 @@
       },
       "required": [],
       "title": "thunder",
-      "type": "object"
-    },
-    "traefik": {
-      "additionalProperties": true,
-      "description": "Traefik ingress controller configuration (subchart)",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable Traefik ingress controller",
-          "required": [],
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "fullnameOverride": {
-          "default": "openchoreo-traefik",
-          "description": "Override the Traefik release name",
-          "required": [],
-          "title": "fullnameOverride",
-          "type": "string"
-        },
-        "ingressClass": {
-          "additionalProperties": true,
-          "description": "IngressClass configuration",
-          "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Create IngressClass resource",
-              "required": [],
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "isDefaultClass": {
-              "default": false,
-              "description": "Set as the default IngressClass",
-              "required": [],
-              "title": "isDefaultClass",
-              "type": "boolean"
-            },
-            "name": {
-              "default": "openchoreo-traefik",
-              "description": "IngressClass name",
-              "required": [],
-              "title": "name",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "ingressClass",
-          "type": "object"
-        },
-        "ingressRoute": {
-          "additionalProperties": true,
-          "description": "IngressRoute configuration for Traefik dashboard",
-          "properties": {
-            "dashboard": {
-              "additionalProperties": true,
-              "description": "Dashboard configuration",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable Traefik dashboard",
-                  "required": [],
-                  "title": "enabled",
-                  "type": "boolean"
-                }
-              },
-              "required": [],
-              "title": "dashboard",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "ingressRoute",
-          "type": "object"
-        },
-        "logs": {
-          "additionalProperties": true,
-          "description": "Logging configuration",
-          "properties": {
-            "access": {
-              "additionalProperties": true,
-              "description": "Access log configuration",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable access logs",
-                  "required": [],
-                  "title": "enabled",
-                  "type": "boolean"
-                }
-              },
-              "required": [],
-              "title": "access",
-              "type": "object"
-            },
-            "general": {
-              "additionalProperties": true,
-              "description": "General logging configuration",
-              "properties": {
-                "level": {
-                  "default": "INFO",
-                  "description": "Log level",
-                  "enum": [
-                    "DEBUG",
-                    "INFO",
-                    "WARN",
-                    "ERROR"
-                  ],
-                  "required": [],
-                  "title": "level"
-                }
-              },
-              "required": [],
-              "title": "general",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "logs",
-          "type": "object"
-        },
-        "ports": {
-          "additionalProperties": true,
-          "description": "Port configuration for Traefik LoadBalancer",
-          "properties": {
-            "web": {
-              "additionalProperties": true,
-              "description": "HTTP port configuration",
-              "properties": {
-                "expose": {
-                  "additionalProperties": true,
-                  "description": "Expose configuration",
-                  "properties": {
-                    "default": {
-                      "default": true,
-                      "description": "Expose port by default",
-                      "required": [],
-                      "title": "default",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "expose",
-                  "type": "object"
-                },
-                "exposedPort": {
-                  "default": 80,
-                  "description": "LoadBalancer exposed port for HTTP",
-                  "required": [],
-                  "title": "exposedPort",
-                  "type": "integer"
-                },
-                "port": {
-                  "default": 8000,
-                  "description": "Container port for HTTP",
-                  "required": [],
-                  "title": "port",
-                  "type": "integer"
-                }
-              },
-              "required": [],
-              "title": "web",
-              "type": "object"
-            },
-            "websecure": {
-              "additionalProperties": true,
-              "description": "HTTPS port configuration",
-              "properties": {
-                "expose": {
-                  "additionalProperties": true,
-                  "description": "Expose configuration",
-                  "properties": {
-                    "default": {
-                      "default": true,
-                      "description": "Expose port by default",
-                      "required": [],
-                      "title": "default",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "expose",
-                  "type": "object"
-                },
-                "exposedPort": {
-                  "default": 443,
-                  "description": "LoadBalancer exposed port for HTTPS",
-                  "required": [],
-                  "title": "exposedPort",
-                  "type": "integer"
-                },
-                "port": {
-                  "default": 8443,
-                  "description": "Container port for HTTPS",
-                  "required": [],
-                  "title": "port",
-                  "type": "integer"
-                },
-                "tls": {
-                  "additionalProperties": true,
-                  "description": "TLS configuration for websecure port",
-                  "properties": {
-                    "enabled": {
-                      "default": true,
-                      "description": "Enable TLS on websecure port",
-                      "required": [],
-                      "title": "enabled",
-                      "type": "boolean"
-                    }
-                  },
-                  "required": [],
-                  "title": "tls",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "websecure",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "ports",
-          "type": "object"
-        },
-        "providers": {
-          "additionalProperties": true,
-          "description": "Kubernetes provider configuration",
-          "properties": {
-            "kubernetesIngress": {
-              "additionalProperties": true,
-              "description": "Kubernetes Ingress provider configuration",
-              "properties": {
-                "ingressClass": {
-                  "default": "openchoreo-traefik",
-                  "description": "IngressClass to watch",
-                  "required": [],
-                  "title": "ingressClass",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "kubernetesIngress",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "providers",
-          "type": "object"
-        },
-        "resources": {
-          "additionalProperties": true,
-          "description": "Resource requests and limits",
-          "properties": {
-            "limits": {
-              "additionalProperties": true,
-              "description": "Resource limits",
-              "properties": {
-                "cpu": {
-                  "default": "500m",
-                  "description": "CPU limit",
-                  "required": [],
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "256Mi",
-                  "description": "Memory limit",
-                  "required": [],
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "limits",
-              "type": "object"
-            },
-            "requests": {
-              "additionalProperties": true,
-              "description": "Resource requests",
-              "properties": {
-                "cpu": {
-                  "default": "100m",
-                  "description": "CPU request",
-                  "required": [],
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "128Mi",
-                  "description": "Memory request",
-                  "required": [],
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "requests",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "resources",
-          "type": "object"
-        },
-        "service": {
-          "additionalProperties": true,
-          "description": "Kubernetes service configuration",
-          "properties": {
-            "type": {
-              "default": "LoadBalancer",
-              "description": "Service type",
-              "enum": [
-                "ClusterIP",
-                "NodePort",
-                "LoadBalancer"
-              ],
-              "required": [],
-              "title": "type"
-            }
-          },
-          "required": [],
-          "title": "service",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "traefik",
       "type": "object"
     },
     "waitJob": {

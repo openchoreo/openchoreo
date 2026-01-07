@@ -81,9 +81,29 @@ spec:
                 description: Gateway specifies the configuration for the API gateway
                   in this DataPlane.
                 properties:
+                  organizationHTTPPort:
+                    default: 19081
+                    description: Organization HTTP port for the gateway
+                    format: int32
+                    type: integer
+                  organizationHTTPSPort:
+                    default: 19444
+                    description: Organization HTTPS port for the gateway
+                    format: int32
+                    type: integer
                   organizationVirtualHost:
                     description: Organization-specific virtual host for the gateway
                     type: string
+                  publicHTTPPort:
+                    default: 19080
+                    description: Public HTTP port for the gateway
+                    format: int32
+                    type: integer
+                  publicHTTPSPort:
+                    default: 19443
+                    description: Public HTTPS port for the gateway
+                    format: int32
+                    type: integer
                   publicVirtualHost:
                     description: Public virtual host for the gateway
                     type: string

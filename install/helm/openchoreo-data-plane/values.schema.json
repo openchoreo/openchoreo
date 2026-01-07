@@ -1474,7 +1474,7 @@
         },
         "enabled": {
           "default": true,
-          "description": "Enable KGateway installation (controls both kgateway and kgateway-crds sub-charts)",
+          "description": "Enable Gateway CR creation",
           "required": [],
           "title": "enabled",
           "type": "boolean"
@@ -1554,6 +1554,22 @@
           "title": "image",
           "type": "object"
         },
+        "selfSignedIssuer": {
+          "additionalProperties": false,
+          "description": "Self-signed ClusterIssuer configuration",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Create self-signed ClusterIssuer (set to false in single cluster mode)",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "selfSignedIssuer",
+          "type": "object"
+        },
         "tls": {
           "additionalProperties": true,
           "description": "TLS configuration for HTTPS listeners. Requires cert-manager for automatic certificate generation.",
@@ -1587,6 +1603,22 @@
       },
       "required": [],
       "title": "gateway",
+      "type": "object"
+    },
+    "gatewayController": {
+      "additionalProperties": true,
+      "description": "KGateway controller configuration",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enable kgateway controller installation (set to false in single cluster mode for data-plane)",
+          "required": [],
+          "title": "enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "gatewayController",
       "type": "object"
     },
     "global": {

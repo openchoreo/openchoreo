@@ -110,7 +110,43 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --values install/k3d/single-cluster/values-op.yaml
 ```
 
-### 4. Create DataPlane Resource
+### 4. Create TLS Certificates for Gateways
+
+```bash
+# Control plane gateway TLS Certificate
+kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: control-plane-tls
+  namespace: openchoreo-control-plane
+spec:
+  secretName: control-plane-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreo.localhost"
+EOF
+
+# Data plane gateway TLS Certificate
+kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-gateway-tls
+  namespace: openchoreo-data-plane
+spec:
+  secretName: openchoreo-gateway-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreoapis.localhost"
+EOF
+```
+
+### 5. Create DataPlane Resource
 
 Create a DataPlane resource to enable workload deployment. All DataPlanes use cluster agent for secure communication.
 
@@ -122,7 +158,7 @@ Create a DataPlane resource to enable workload deployment. All DataPlanes use cl
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
-### 5. Create BuildPlane Resource (optional)
+### 6. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
@@ -134,7 +170,7 @@ Create a BuildPlane resource to enable building from source. All BuildPlanes use
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-### 6. Create ObservabilityPlane Resource (optional)
+### 7. Create ObservabilityPlane Resource (optional)
 
 Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 
@@ -251,7 +287,7 @@ graph TB
             K8sAPI["K8s API Server<br/>:6443"]
 
             subgraph "Control Plane Namespace"
-                CP_IntLB["Traefik<br/>LoadBalancer :80/:443"]
+                CP_IntLB["Kgateway<br/>LoadBalancer :80/:443"]
                 CP["Controller Manager"]
                 API["OpenChoreo API :8080"]
                 UI["OpenChoreo UI :7007"]

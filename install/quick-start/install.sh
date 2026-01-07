@@ -109,29 +109,33 @@ install_control_plane
 # Step 5: Install OpenChoreo Data Plane
 install_data_plane
 
-# Step 6: Install OpenChoreo Build Plane (optional)
+# Step 6: Create TLS certificates for gateways
+create_control_plane_certificate
+create_data_plane_certificate
+
+# Step 7: Install OpenChoreo Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     install_build_plane
 fi
 
-# Step 7: Install OpenChoreo Observability Plane (optional)
+# Step 8: Install OpenChoreo Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
 fi
 
-# Step 8: Check installation status
+# Step 9: Check installation status
 if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
     bash "${SCRIPT_DIR}/check-status.sh"
 fi
 
-# Step 9: Add default dataplane
+# Step 10: Add default dataplane
 if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
     bash "${SCRIPT_DIR}/add-data-plane.sh" --name default
 else
     log_warning "add-data-plane.sh not found, skipping dataplane configuration"
 fi
 
-# Step 10: Add default buildplane (if build plane enabled)
+# Step 11: Add default buildplane (if build plane enabled)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-build-plane.sh" --name default
@@ -140,7 +144,7 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     fi
 fi
 
-# Step 11: Add default observabilityplane (if observability plane enabled)
+# Step 12: Add default observabilityplane (if observability plane enabled)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
@@ -149,7 +153,7 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     fi
 fi
 
-# Step 12: Configure the dataplane and buildplane with observabilityplane reference
+# Step 13: Configure the dataplane and buildplane with observabilityplane reference
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     configure_observabilityplane_reference
 fi

@@ -9,12 +9,18 @@ kubeAPI:
   hostPort: "6550"
 # Control Plane uses port range 8xxx
 ports:
-  # HTTP traffic to OpenChoreo UI, API (Traefik LoadBalancer on port 80)
+  # HTTP traffic to OpenChoreo UI, API (Kgateway LoadBalancer on port 80)
   - port: 8080:80
     nodeFilters:
       - loadbalancer
-  # HTTPS traffic to OpenChoreo UI, API, and Cluster Gateway (via ingress, Traefik on port 443)
+  # HTTPS traffic to OpenChoreo UI, API, and Cluster Gateway (via ingress, Kgateway on port 443)
   - port: 8443:443
     nodeFilters:
       - loadbalancer
+options:
+  k3s:
+    extraArgs:
+    - arg: "--disable=traefik"
+      nodeFilters:
+        - server:*
 

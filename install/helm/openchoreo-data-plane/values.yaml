@@ -452,15 +452,40 @@ kgateway-crds: {}
 # @schema
 # type: object
 # additionalProperties: true
+# description: KGateway controller configuration
+# @schema
+gatewayController:
+  # @schema
+  # type: boolean
+  # description: Enable kgateway controller installation (set to false in single cluster mode for data-plane)
+  # default: true
+  # @schema
+  enabled: true
+
+# @schema
+# type: object
+# additionalProperties: true
 # description: KGateway API gateway configuration. Provides HTTP/HTTPS traffic routing using Kubernetes Gateway API and Envoy proxy.
 # @schema
 gateway:
   # @schema
   # type: boolean
-  # description: Enable KGateway installation (controls both kgateway and kgateway-crds sub-charts)
+  # description: Enable Gateway CR creation
   # default: true
   # @schema
   enabled: true
+
+  # @schema
+  # type: object
+  # description: Self-signed ClusterIssuer configuration
+  # @schema
+  selfSignedIssuer:
+    # @schema
+    # type: boolean
+    # description: Create self-signed ClusterIssuer (set to false in single cluster mode)
+    # default: true
+    # @schema
+    enabled: true
 
   # @schema
   # type: integer

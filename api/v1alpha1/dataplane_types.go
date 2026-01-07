@@ -42,6 +42,22 @@ type GatewaySpec struct {
 	PublicVirtualHost string `json:"publicVirtualHost"`
 	// Organization-specific virtual host for the gateway
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+	// Public HTTP port for the gateway
+	// +optional
+	// +kubebuilder:default=19080
+	PublicHTTPPort int32 `json:"publicHTTPPort,omitempty"`
+	// Public HTTPS port for the gateway
+	// +optional
+	// +kubebuilder:default=19443
+	PublicHTTPSPort int32 `json:"publicHTTPSPort,omitempty"`
+	// Organization HTTP port for the gateway
+	// +optional
+	// +kubebuilder:default=19081
+	OrganizationHTTPPort int32 `json:"organizationHTTPPort,omitempty"`
+	// Organization HTTPS port for the gateway
+	// +optional
+	// +kubebuilder:default=19444
+	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort,omitempty"`
 }
 
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore

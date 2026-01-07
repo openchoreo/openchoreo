@@ -34,13 +34,6 @@ Create cluster and install components:
 # Create Control Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 
-# Wait for Traefik CRDs to be installed (required for cluster gateway)
-kubectl --context k3d-openchoreo-cp wait --for=condition=complete job \
-  -l helmcharts.helm.cattle.io/chart=traefik-crd -n kube-system --timeout=120s
-
-# Verify IngressRouteTCP CRD is available
-kubectl --context k3d-openchoreo-cp get crd ingressroutetcps.traefik.io
-
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
     --namespace cert-manager \
@@ -59,6 +52,22 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-cp.yaml
+
+# Create TLS Certificate for Control Plane Gateway
+kubectl apply -f - <<EOF                                            
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: control-plane-tls
+  namespace: openchoreo-control-plane
+spec:
+  secretName: control-plane-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreo.localhost"
+EOF
 
 # Extract cluster-gateway server CA certificate (needed for agent configuration)
 ./install/extract-agent-cas.sh --control-plane-context k3d-openchoreo-cp server-ca
@@ -98,6 +107,22 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --namespace openchoreo-data-plane \
   --create-namespace \
   --values install/k3d/multi-cluster/values-dp.yaml
+
+# Create TLS Certificate for Data plane gateway
+kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-gateway-tls
+  namespace: openchoreo-data-plane
+spec:
+  secretName: openchoreo-gateway-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreoapis.localhost"
+EOF
 ```
 
 > [!NOTE]
@@ -328,7 +353,7 @@ kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabi
 
 > [!NOTE]
 > - Port ranges (e.g., 8xxx) indicate the ports exposed to your host machine for accessing services from that plane. Each range uses ports like 8080 (HTTP) and 8443 (HTTPS) on localhost.
-> - **Cluster Gateway**: Control Plane's cluster-gateway is accessible at `wss://cluster-gateway.openchoreo.localhost:8443/ws` from other k3d clusters (routed through the same Traefik ingress)
+> - **Cluster Gateway**: Control Plane's cluster-gateway is accessible at `wss://cluster-gateway.openchoreo.localhost:8443/ws` from other k3d clusters (routed through the same Kgateway)
 
 ## Access Services
 
@@ -432,7 +457,7 @@ graph TB
         subgraph "Control Plane Network (k3d-openchoreo-cp) - Ports: 8xxx"
             CP_ExtLB["k3d-serverlb<br/>localhost:8080/8443/6550<br/>(host.k3d.internal for pods)"]
             CP_K8sAPI["K8s API Server<br/>:6443"]
-            CP_IntLB["Traefik<br/>LoadBalancer :80/:443"]
+            CP_IntLB["Kgateway<br/>LoadBalancer :80/:443"]
             CP["Controller Manager"]
             API["OpenChoreo API :8080"]
             UI["OpenChoreo UI :7007"]
@@ -566,21 +591,6 @@ kubectl --context k3d-openchoreo-dp run test-dns --image=busybox --rm -it --rest
 
 # If DNS is not working, restart CoreDNS
 kubectl --context k3d-openchoreo-dp rollout restart deployment coredns -n kube-system
-```
-
-### Traefik CRD Not Found
-
-If Helm installation fails with `IngressRouteTCP CRD not found`:
-
-```bash
-# Wait for Traefik CRDs to be installed
-kubectl --context k3d-openchoreo-cp wait --for=condition=complete job \
-  -l helmcharts.helm.cattle.io/chart=traefik-crd -n kube-system --timeout=120s
-
-# Verify CRD exists
-kubectl --context k3d-openchoreo-cp get crd ingressroutetcps.traefik.io
-
-# Then retry Helm installation
 ```
 
 ## Cleanup

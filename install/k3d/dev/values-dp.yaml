@@ -1,7 +1,16 @@
 # Data Plane values for k3d dev environment
 
+# Gateway controller configuration
+# In single cluster mode, disable the controller in data-plane to avoid duplicate controllers
+# The control-plane's gateway controller will manage both Gateway CRs
+gatewayController:
+  enabled: false
+
 # Gateway configuration for k3d dev environment
 gateway:
+  # In single cluster mode, control-plane creates the self-signed issuer
+  selfSignedIssuer:
+    enabled: false
   httpPort: 19080
   httpsPort: 19443
   # Envoy - enabled by default for traffic routing

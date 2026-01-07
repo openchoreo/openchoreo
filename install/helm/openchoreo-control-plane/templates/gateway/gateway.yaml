@@ -1,0 +1,42 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-default
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
+spec:
+  gatewayClassName: kgateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.gateway.httpPort | default 80 }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      hostname: {{ .Values.gateway.tls.hostname | default (printf "*.%s" .Values.global.baseDomain) | quote }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: {{ .Values.gateway.tls.certName | default .Values.global.tls.secretName }}
+            namespace: {{ .Release.Namespace }}
+{{- if and .Values.clusterGateway.enabled .Values.clusterGateway.tlsRoute.enabled }}
+    - name: tls-passthrough
+      protocol: TLS
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      hostname: {{ (index .Values.clusterGateway.tlsRoute.hosts 0).host | quote }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Passthrough
+{{- end }}
+{{- end }}

@@ -107,27 +107,34 @@ func (h *Handler) writeErrorResponse(w http.ResponseWriter, status int, errorTyp
 
 // BuildLogsRequest represents the request body for build logs
 type BuildLogsRequest struct {
-	StartTime string `json:"startTime" validate:"required"`
-	EndTime   string `json:"endTime" validate:"required"`
-	Limit     int    `json:"limit,omitempty"`
-	SortOrder string `json:"sortOrder,omitempty"`
+	ComponentName string `json:"componentName,omitempty"`
+	OrgName       string `json:"orgName,omitempty"`
+	ProjectName   string `json:"projectName,omitempty"`
+	StartTime     string `json:"startTime" validate:"required"`
+	EndTime       string `json:"endTime" validate:"required"`
+	Limit         int    `json:"limit,omitempty"`
+	SortOrder     string `json:"sortOrder,omitempty"`
 }
 
 // ComponentLogsRequest represents the request body for component logs
 type ComponentLogsRequest struct {
-	StartTime     string   `json:"startTime" validate:"required"`
-	EndTime       string   `json:"endTime" validate:"required"`
-	EnvironmentID string   `json:"environmentId" validate:"required"`
-	Namespace     string   `json:"namespace" validate:"required"`
-	SearchPhrase  string   `json:"searchPhrase,omitempty"`
-	LogLevels     []string `json:"logLevels,omitempty"`
-	Versions      []string `json:"versions,omitempty"`
-	VersionIDs    []string `json:"versionIds,omitempty"`
-	Limit         int      `json:"limit,omitempty"`
-	SortOrder     string   `json:"sortOrder,omitempty"`
-	LogType       string   `json:"logType,omitempty"`
-	BuildID       string   `json:"buildId,omitempty"`
-	BuildUUID     string   `json:"buildUuid,omitempty"`
+	ComponentName   string   `json:"componentName,omitempty"`
+	OrgName         string   `json:"orgName,omitempty"`
+	StartTime       string   `json:"startTime" validate:"required"`
+	EndTime         string   `json:"endTime" validate:"required"`
+	EnvironmentName string   `json:"environmentName,omitempty"`
+	EnvironmentID   string   `json:"environmentId" validate:"required"`
+	Namespace       string   `json:"namespace" validate:"required"`
+	ProjectName     string   `json:"projectName,omitempty"`
+	SearchPhrase    string   `json:"searchPhrase,omitempty"`
+	LogLevels       []string `json:"logLevels,omitempty"`
+	Versions        []string `json:"versions,omitempty"`
+	VersionIDs      []string `json:"versionIds,omitempty"`
+	Limit           int      `json:"limit,omitempty"`
+	SortOrder       string   `json:"sortOrder,omitempty"`
+	LogType         string   `json:"logType,omitempty"`
+	BuildID         string   `json:"buildId,omitempty"`
+	BuildUUID       string   `json:"buildUuid,omitempty"`
 }
 
 // ProjectLogsRequest represents the request body for project logs
@@ -157,11 +164,15 @@ type OrganizationLogsRequest struct {
 
 // MetricsRequest represents the request body for POST /api/metrics/component/usage API
 type MetricsRequest struct {
-	ComponentID   string `json:"componentId,omitempty"`
-	EndTime       string `json:"endTime,omitempty"`
-	EnvironmentID string `json:"environmentId" validate:"required"`
-	StartTime     string `json:"startTime,omitempty"`
-	ProjectID     string `json:"projectId" validate:"required"`
+	ComponentName   string `json:"componentName" validate:"required"`
+	ComponentID     string `json:"componentId,omitempty"`
+	EndTime         string `json:"endTime,omitempty"`
+	EnvironmentName string `json:"environmentName,omitempty"`
+	EnvironmentID   string `json:"environmentId" validate:"required"`
+	OrgName         string `json:"orgName,omitempty"`
+	StartTime       string `json:"startTime,omitempty"`
+	ProjectName     string `json:"projectName,omitempty"`
+	ProjectID       string `json:"projectId" validate:"required"`
 }
 
 // ProjectRCAReportsRequest represents the request body for getting RCA reports by project

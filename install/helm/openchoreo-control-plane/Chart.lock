@@ -1,9 +1,12 @@
 dependencies:
-- name: traefik
-  repository: https://traefik.github.io/charts
-  version: 34.4.1
+- name: kgateway-crds
+  repository: oci://cr.kgateway.dev/kgateway-dev/charts
+  version: v2.1.1
+- name: kgateway
+  repository: oci://cr.kgateway.dev/kgateway-dev/charts
+  version: v2.1.1
 - name: thunder
   repository: oci://ghcr.io/asgardeo/helm-charts
   version: 0.15.0
-digest: sha256:b702e96e007b1aaeaed8c14b98b080e2e963e35ff3a8ae839ec46a48a58f2a7c
-generated: "2025-12-14T11:47:28.833208+05:30"
+digest: sha256:6e6e3be2e9f9deb53c8f1b5130bce713489f8d9d6e83637d93a981171bb368f3
+generated: "2026-01-06T14:55:22.88726+05:30"

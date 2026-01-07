@@ -3,12 +3,22 @@
 # Port mapping: k3d maps host ports 19080:19080 (HTTP) and 19443:19443 (HTTPS) for KGateway
 
 # Gateway configuration for quick-start setup
+# Reuse the existing control plane's cluster gateway controller
+gatewayController:
+  enabled: false
+
 # The gateway will be accessible on port 19080 (HTTP) and 19443 (HTTPS) by default
 gateway:
   enabled: true
   # Envoy - enabled by default for traffic routing
   httpPort: 19080
   httpsPort: 19443
+
+  # Use self-signed issuer in control plane for TLS certs
+  selfSignedIssuer:
+    enabled: false
+
+  # Envoy configuration
   envoy:
     enabled: true
     # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues

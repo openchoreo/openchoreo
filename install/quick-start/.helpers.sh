@@ -588,6 +588,72 @@ install_data_plane() {
         "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
+# Create TLS certificate for control plane gateway
+create_control_plane_certificate() {
+    log_info "Creating control plane gateway TLS certificate..."
+
+    # Check if control plane certificate already exists
+    if kubectl get certificate control-plane-tls -n "$CONTROL_PLANE_NS" >/dev/null 2>&1; then
+        log_warning "Control plane TLS certificate already exists, skipping creation"
+        return 0
+    fi
+
+    kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: control-plane-tls
+  namespace: $CONTROL_PLANE_NS
+spec:
+  secretName: control-plane-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreo.localhost"
+EOF
+
+    if [[ $? -eq 0 ]]; then
+        log_success "Control plane TLS certificate created"
+    else
+        log_error "Failed to create control plane TLS certificate"
+        return 1
+    fi
+}
+
+# Create TLS certificate for data plane gateway
+create_data_plane_certificate() {
+    log_info "Creating data plane gateway TLS certificate..."
+
+    # Check if data plane certificate already exists
+    if kubectl get certificate openchoreo-gateway-tls -n "$DATA_PLANE_NS" >/dev/null 2>&1; then
+        log_warning "Data plane TLS certificate already exists, skipping creation"
+        return 0
+    fi
+
+    kubectl apply -f - <<EOF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-gateway-tls
+  namespace: $DATA_PLANE_NS
+spec:
+  secretName: openchoreo-gateway-tls
+  issuerRef:
+    name: openchoreo-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.openchoreoapis.localhost"
+EOF
+
+    if [[ $? -eq 0 ]]; then
+        log_success "Data plane TLS certificate created"
+    else
+        log_error "Failed to create data plane TLS certificate"
+        return 1
+    fi
+}
+
 # Configure the dataplane and buildplane with observabilityplane reference
 configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
