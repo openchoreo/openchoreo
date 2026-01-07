@@ -44,8 +44,6 @@ type WorkflowSpec struct {
 	// Template variables are substituted with context and parameter values.
 	// Supported template variables:
 	//   - ${metadata.workflowRunName} - WorkflowRun name (the execution instance)
-	//   - ${metadata.componentName} - Component name (if workflow is component-bound)
-	//   - ${metadata.projectName} - Project name (if workflow is component-bound)
 	//   - ${metadata.orgName} - Organization name
 	//   - ${parameters.*} - Developer-provided parameter values
 	//
