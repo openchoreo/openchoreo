@@ -224,15 +224,29 @@ spec:
             #####################################################################
             # 3. Create workload CR and export to output
             #####################################################################
-            podman run --rm --network=none \
-            -v $DESCRIPTOR_PATH:/app:rw -w /app \
-            ghcr.io/openchoreo/openchoreo-cli:{{ .Chart.AppVersion }} \
-              create workload \
-              --project "${PROJECT_NAME}" \
-              --component "${COMPONENT_NAME}" \
-              --image "${IMAGE}" \
-              --descriptor "workload.yaml" \
-              -o "workload-cr.yaml"
+            # Check if workload.yaml exists and build the command accordingly
+            if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              echo "Found workload.yaml descriptor, using it for workload creation"
+              podman run --rm --network=none \
+              -v $DESCRIPTOR_PATH:/app:rw -w /app \
+              ghcr.io/openchoreo/openchoreo-cli:{{ .Chart.AppVersion }} \
+                create workload \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                --descriptor "workload.yaml" \
+                -o "workload-cr.yaml"
+            else
+              echo "No workload.yaml descriptor found, creating workload without descriptor"
+              podman run --rm --network=none \
+              -v $DESCRIPTOR_PATH:/app:rw -w /app \
+              ghcr.io/openchoreo/openchoreo-cli:{{ .Chart.AppVersion }} \
+                create workload \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                -o "workload-cr.yaml"
+            fi
 
             # Copy output CR to the shared volume
             cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
