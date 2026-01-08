@@ -6,6 +6,7 @@
 ALL_GO_FILES := $(shell \
 	find . -type f -name '*.go' \
 		! -path './internal/dataplane/kubernetes/types/*' \
+		! -path './internal/openchoreo-api/api/gen/*' \
 		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
 	| sort)
 

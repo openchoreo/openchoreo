@@ -17,6 +17,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	newhandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
@@ -24,7 +26,8 @@ import (
 )
 
 var (
-	port = flag.Int("port", 8080, "port http server runs on")
+	port       = flag.Int("port", 8080, "port http server runs on")
+	newAPIPort = flag.Int("new-api-port", 0, "port for new OpenAPI-generated server (0 = disabled)")
 )
 
 func main() {
@@ -97,6 +100,26 @@ func main() {
 		}
 	}()
 
+	// Optionally start new OpenAPI-generated server on separate port for testing
+	var newSrv *http.Server
+	if *newAPIPort > 0 {
+		newHandler := newhandlers.New(services, baseLogger.With("component", "new-handlers"))
+		strictHandler := gen.NewStrictHandler(newHandler, nil)
+		newSrv = &http.Server{
+			Addr:         ":" + strconv.Itoa(*newAPIPort),
+			Handler:      gen.Handler(strictHandler),
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+			IdleTimeout:  60 * time.Second,
+		}
+		go func() {
+			baseLogger.Info("New OpenAPI server listening on", slog.String("address", newSrv.Addr))
+			if err := newSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				baseLogger.Error("New server error", slog.Any("error", err))
+			}
+		}()
+	}
+
 	// Wait for shutdown signal
 	<-ctx.Done()
 
@@ -106,6 +129,12 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		baseLogger.Error("Server shutdown error", slog.Any("error", err))
+	}
+
+	if newSrv != nil {
+		if err := newSrv.Shutdown(shutdownCtx); err != nil {
+			baseLogger.Error("New server shutdown error", slog.Any("error", err))
+		}
 	}
 
 	// Close authorization database connection

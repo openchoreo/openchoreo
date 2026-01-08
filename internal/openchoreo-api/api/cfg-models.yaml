@@ -1,0 +1,12 @@
+# Copyright 2025 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating model types only
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: gen
+output: internal/openchoreo-api/api/gen/models.gen.go
+generate:
+  models: true
+output-options:
+  skip-prune: true

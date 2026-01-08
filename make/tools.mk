@@ -31,6 +31,7 @@ ENVTEST ?= $(TOOL_BIN)/setup-envtest
 GOLANGCI_LINT ?= $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
 YQ ?= $(TOOL_BIN)/yq
+OAPI_CODEGEN ?= $(TOOL_BIN)/oapi-codegen
 KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 
 ## Tool Versions
@@ -40,6 +41,7 @@ ENVTEST_VERSION ?= release-0.19
 GOLANGCI_LINT_VERSION ?= v1.64.8
 HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
+OAPI_CODEGEN_VERSION ?= v2.5.1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -70,4 +72,9 @@ $(HELMIFY): $(TOOL_BIN)
 yq: $(YQ) ## Download yq locally if necessary.
 $(YQ): $(TOOL_BIN)
 	$(call go_install_tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
+
+.PHONY: oapi-codegen
+oapi-codegen: $(OAPI_CODEGEN) ## Download oapi-codegen locally if necessary.
+$(OAPI_CODEGEN): $(TOOL_BIN)
+	$(call go_install_tool,$(OAPI_CODEGEN),github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen,$(OAPI_CODEGEN_VERSION))
 
