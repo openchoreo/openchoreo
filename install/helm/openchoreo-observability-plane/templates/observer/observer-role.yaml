@@ -14,3 +14,7 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
+  # Allow listing ObservabilityAlertRules
+  - apiGroups: ["openchoreo.dev"]
+    resources: ["observabilityalertrules"]
+    verbs: ["get", "list", "watch"]
