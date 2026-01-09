@@ -434,13 +434,13 @@ func (qb *QueryBuilder) GenerateIndices(startTime, endTime string) ([]string, er
 	current := start
 
 	for current.Before(end) || current.Equal(end) {
-		indexName := qb.indexPrefix + current.Format("2006.01.02")
+		indexName := qb.indexPrefix + current.Format("2006-01-02")
 		indices = append(indices, indexName)
 		current = current.AddDate(0, 0, 1) // Add 1 day
 	}
 
 	// Handle edge case where end date might need its own index
-	endIndexName := qb.indexPrefix + end.Format("2006.01.02")
+	endIndexName := qb.indexPrefix + end.Format("2006-01-02")
 	if !contains(indices, endIndexName) {
 		indices = append(indices, endIndexName)
 	}
