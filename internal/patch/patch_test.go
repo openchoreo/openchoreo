@@ -437,6 +437,83 @@ spec:
 			},
 			wantErr: true,
 		},
+		{
+			name: "add with out-of-bounds array index should error",
+			initial: `
+spec:
+  containers:
+    - name: app
+      image: app:v1
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "add",
+					Path: "/spec/containers/5",
+					Value: map[string]any{
+						"name":  "sidecar",
+						"image": "sidecar:v1",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "replace with out-of-bounds array index should error",
+			initial: `
+spec:
+  containers:
+    - name: app
+      image: app:v1
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "replace",
+					Path: "/spec/containers/5",
+					Value: map[string]any{
+						"name":  "sidecar",
+						"image": "sidecar:v1",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "remove with out-of-bounds array index should error",
+			initial: `
+spec:
+  containers:
+    - name: app
+      image: app:v1
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "remove",
+					Path: "/spec/containers/5",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "out-of-bounds index in parent path should error",
+			initial: `
+spec:
+  containers:
+    - name: app
+      image: app:v1
+      env: []
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "add",
+					Path: "/spec/containers/5/env/-",
+					Value: map[string]any{
+						"name":  "FOO",
+						"value": "bar",
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
