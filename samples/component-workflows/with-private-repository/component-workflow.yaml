@@ -46,4 +46,4 @@ spec:
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
-        name: google-cloud-buildpacks-private-repos
+        name: google-cloud-buildpacks-private-repo
