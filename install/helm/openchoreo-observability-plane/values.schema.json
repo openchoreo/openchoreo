@@ -1504,6 +1504,22 @@
           "required": [],
           "title": "enabled",
           "type": "boolean"
+        },
+        "envoy": {
+          "additionalProperties": true,
+          "description": "Envoy proxy configuration for actual traffic routing",
+          "properties": {
+            "mountTmpVolume": {
+              "default": false,
+              "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
+              "required": [],
+              "title": "mountTmpVolume",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "envoy",
+          "type": "object"
         }
       },
       "required": [],

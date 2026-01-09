@@ -2342,6 +2342,19 @@ gateway:
   # @schema
   enabled: false
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Envoy proxy configuration for actual traffic routing
+  # @schema
+  envoy:
+    # @schema
+    # type: boolean
+    # description: Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima
+    # default: false
+    # @schema
+    mountTmpVolume: false
+
 # @schema
 # type: object
 # description: OpenSearch Operator-based cluster configuration (preferred over openSearch Helm chart)

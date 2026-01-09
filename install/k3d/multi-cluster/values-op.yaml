@@ -108,6 +108,13 @@ clusterAgent:
 gateway:
   enabled: true
 
+  envoy:
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true
+
 security:
   oidc:
     jwksUrl: "https://thunder.openchoreo.localhost:8443/oauth2/jwks"
