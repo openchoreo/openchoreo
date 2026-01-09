@@ -2,9 +2,6 @@
 # This file contains overrides for running the data plane in the quick-start k3d environment
 # Port mapping: k3d maps host ports 19080:19080 (HTTP) and 19443:19443 (HTTPS) for KGateway
 
-fluent-bit:
-  enabled: true
-
 # Gateway configuration for quick-start setup
 # Reuse the existing control plane's cluster gateway controller
 gatewayController:

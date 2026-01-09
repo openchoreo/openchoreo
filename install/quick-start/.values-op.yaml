@@ -6,6 +6,8 @@ global:
   commonLabels: {}
   installationMode: quickStart
 
+fluent-bit:
+  enabled: true
 
 opentelemetry-collector:
   enabled: false
