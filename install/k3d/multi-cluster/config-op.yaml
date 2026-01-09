@@ -32,6 +32,10 @@ ports:
   - port: 11085:443
     nodeFilters:
       - loadbalancer
+  # OpenTelemetry Collector
+  - port: 11086:4317
+    nodeFilters:
+      - loadbalancer
     
 options:
   k3s:

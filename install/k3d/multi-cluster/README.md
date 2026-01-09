@@ -89,7 +89,7 @@ Create cluster and install components:
 # Create Data Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-dp.yaml
 
-# Generate a machine-id (Required for Fluent Bit when running k3d on macOS)
+# Generate a machine-id (Required for Fluent Bit when running k3d)
 docker exec k3d-openchoreo-dp-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
 # Install Cert Manager (required for TLS certificates)
@@ -144,7 +144,7 @@ Create cluster and install components:
 # Create Build Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-bp.yaml
 
-# Generate a machine-id (Required for Fluent Bit when running k3d on macOS)
+# Generate a machine-id (Required for Fluent Bit when running k3d)
 docker exec k3d-openchoreo-bp-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
 # Install Cert Manager (required for TLS certificates)
@@ -183,7 +183,7 @@ Create cluster and install components:
 # Create Observability Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-op.yaml
 
-# Generate a machine-id (Required for Fluent Bit when running k3d on macOS)
+# Generate a machine-id (Required for Fluent Bit when running k3d)
 docker exec k3d-openchoreo-op-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
 # Install Cert Manager (required for TLS certificates)

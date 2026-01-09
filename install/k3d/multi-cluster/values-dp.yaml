@@ -82,3 +82,6 @@ kube-prometheus-stack:
 # External Secrets Operator configuration
 external-secrets:
   enabled: true
+
+observability:
+  observabilityPlaneUrl: "http://host.k3d.internal:11086"

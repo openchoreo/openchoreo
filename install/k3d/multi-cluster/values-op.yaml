@@ -62,6 +62,10 @@ openSearch:
 openSearchCluster:
   enabled: true
 
+opentelemetry-collector:
+  service:
+    type: LoadBalancer
+
 prometheus:
   enabled: true
   prometheus:
