@@ -674,6 +674,11 @@ install_build_plane() {
 # Install OpenChoreo Observability Plane (optional)
 install_observability_plane() {
     log_info "Installing OpenChoreo Observability Plane..."
+
+    # Generate machine-id for fluent-bit
+    log_info "Generating machine-id for observability..."
+    docker exec "k3d-${CLUSTER_NAME}-server-0" sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
+    
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
