@@ -29,7 +29,7 @@ external-secrets:
 # Fluent Bit logging
 # Disabled because Data Plane's FluentBit DaemonSet already collects logs
 # from ALL namespaces including openchoreo-build-plane and openchoreo-ci-*
-fluentBit:
+fluent-bit:
   enabled: false
 
 # Cluster Agent configuration for single-cluster setup

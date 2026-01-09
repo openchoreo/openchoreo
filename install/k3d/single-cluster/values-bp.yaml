@@ -30,5 +30,5 @@ external-secrets:
 # Disable Fluent Bit for Build Plane in single-cluster mode
 # Reason: Data Plane FluentBit (DaemonSet on all nodes) already collects logs from ALL namespaces,
 # including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
-fluentBit:
+fluent-bit:
   enabled: false
