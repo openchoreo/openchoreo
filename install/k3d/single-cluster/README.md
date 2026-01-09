@@ -24,7 +24,7 @@ lower resource requirements.
 k3d cluster create --config install/k3d/single-cluster/config.yaml
 
 # Generate a machine-id (Required for Fluent Bit when running k3d)
-docker exec k3d-openchoreo-cp-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
+docker exec k3d-openchoreo-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 ```
 
 ### 2. Install cert-manager (Prerequisite)
