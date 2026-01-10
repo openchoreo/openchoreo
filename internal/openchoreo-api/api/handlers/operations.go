@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/version"
@@ -33,4 +34,31 @@ func (h *Handler) GetVersion(
 		GoArch:      info.GoArch,
 		GoVersion:   info.GoVersion,
 	}, nil
+}
+
+// GetOpenAPISpec returns the OpenAPI specification in JSON format
+func (h *Handler) GetOpenAPISpec(
+	ctx context.Context,
+	request gen.GetOpenAPISpecRequestObject,
+) (gen.GetOpenAPISpecResponseObject, error) {
+	swagger, err := gen.GetSwagger()
+	if err != nil {
+		h.logger.Error("Failed to get OpenAPI spec", "error", err)
+		return nil, err
+	}
+
+	// Convert to map for JSON response
+	data, err := swagger.MarshalJSON()
+	if err != nil {
+		h.logger.Error("Failed to marshal OpenAPI spec", "error", err)
+		return nil, err
+	}
+
+	var spec map[string]interface{}
+	if err := json.Unmarshal(data, &spec); err != nil {
+		h.logger.Error("Failed to unmarshal OpenAPI spec", "error", err)
+		return nil, err
+	}
+
+	return gen.GetOpenAPISpec200JSONResponse(spec), nil
 }

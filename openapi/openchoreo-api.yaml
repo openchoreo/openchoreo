@@ -72,6 +72,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/VersionResponse'
 
+  /openapi.json:
+    get:
+      operationId: getOpenAPISpec
+      summary: Get OpenAPI specification
+      description: Returns the OpenAPI 3.0 specification for this API in JSON format.
+      tags: [Operations]
+      security: []
+      responses:
+        '200':
+          description: OpenAPI specification
+          content:
+            application/json:
+              schema:
+                type: object
+                description: OpenAPI 3.0 specification document
+
   # =============================================================================
   # Organization Endpoints
   # =============================================================================
