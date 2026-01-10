@@ -810,6 +810,11 @@ components:
           description: Component description
           example: Main REST API service
           maxLength: 1024
+        type:
+          type: string
+          description: "DEPRECATED: Use componentType instead. Legacy component type field."
+          example: service/go-service
+          deprecated: true
         componentType:
           type: string
           description: "Component type reference (format: {workloadType}/{componentTypeName})"

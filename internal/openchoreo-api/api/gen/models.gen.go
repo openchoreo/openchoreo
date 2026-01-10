@@ -160,6 +160,10 @@ type CreateComponentRequest struct {
 	// Traits Trait instances to attach to the component
 	Traits *[]ComponentTraitInput `json:"traits,omitempty"`
 
+	// Type DEPRECATED: Use componentType instead. Legacy component type field.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Type *string `json:"type,omitempty"`
+
 	// Workflow Workflow configuration for component creation
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }

@@ -181,8 +181,8 @@ go.mod.lint: go.mod.tidy ## Lint go.mod file.
 # OpenAPI Code Generation
 #-----------------------------------------------------------------------------
 
-.PHONY: generate-openapi
-generate-openapi: oapi-codegen ## Generate OpenAPI server code from spec.
+.PHONY: openapi-codegen
+openapi-codegen: oapi-codegen ## Generate Go server code from OpenAPI spec.
 	@$(call log, "Generating OpenAPI models")
 	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-models.yaml openapi/openchoreo-api.yaml
 	@$(call log, "Generating OpenAPI server interface")

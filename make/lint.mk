@@ -75,7 +75,7 @@ lint: golangci-lint-check license-check newline-check ## Run golangci-lint linte
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
 .PHONY: code.gen
-code.gen: manifests generate go.mod.lint helm-generate ## Generate code and fix the code with linter
+code.gen: manifests generate openapi-codegen go.mod.lint helm-generate ## Generate code and fix the code with linter
 
 .PHONY: code.gen-check
 code.gen-check: code.gen ## Verify the clean Git status after code generation

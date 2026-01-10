@@ -23,11 +23,10 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
+	apilogger "github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
-
-	apilogger "github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 )
 
 var (
