@@ -7,12 +7,13 @@ import (
 	"context"
 	"flag"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -23,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server"
 )
 
 var (
@@ -83,58 +85,37 @@ func main() {
 	// Initialize HTTP handlers with config for user type management
 	handler := handlers.New(services, cfg, baseLogger.With("component", "handlers"))
 
-	srv := &http.Server{
-		Addr:         ":" + strconv.Itoa(*port),
-		Handler:      handler.Routes(),
-		ReadTimeout:  15 * time.Second, // TODO: Make these configurable
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	// Server configuration
+	serverCfg := server.Config{
+		Addr:            ":" + strconv.Itoa(*port),
+		ReadTimeout:     15 * time.Second,
+		WriteTimeout:    15 * time.Second,
+		IdleTimeout:     60 * time.Second,
+		ShutdownTimeout: 30 * time.Second,
 	}
+	srv := server.New(serverCfg, handler.Routes(), baseLogger.With("component", "server"))
 
-	// Start server
-	go func() {
-		baseLogger.Info("OpenChoreo API server listening on", slog.String("address", srv.Addr))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			baseLogger.Error("Server error", slog.Any("error", err))
-			os.Exit(1)
-		}
-	}()
+	// Start servers
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return srv.Run(ctx) })
 
-	// Optionally start new OpenAPI-generated server on separate port for testing
-	var newSrv *http.Server
+	// Optionally start new OpenAPI-generated server on separate port
 	if *newAPIPort > 0 {
 		newHandler := newhandlers.New(services, baseLogger.With("component", "new-handlers"))
 		strictHandler := gen.NewStrictHandler(newHandler, nil)
-		newSrv = &http.Server{
-			Addr:         ":" + strconv.Itoa(*newAPIPort),
-			Handler:      gen.Handler(strictHandler),
-			ReadTimeout:  15 * time.Second,
-			WriteTimeout: 15 * time.Second,
-			IdleTimeout:  60 * time.Second,
+		newServerCfg := server.Config{
+			Addr:            ":" + strconv.Itoa(*newAPIPort),
+			ReadTimeout:     15 * time.Second,
+			WriteTimeout:    15 * time.Second,
+			IdleTimeout:     60 * time.Second,
+			ShutdownTimeout: 30 * time.Second,
 		}
-		go func() {
-			baseLogger.Info("New OpenAPI server listening on", slog.String("address", newSrv.Addr))
-			if err := newSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				baseLogger.Error("New server error", slog.Any("error", err))
-			}
-		}()
+		newSrv := server.New(newServerCfg, gen.Handler(strictHandler), baseLogger.With("component", "new-server"))
+		g.Go(func() error { return newSrv.Run(ctx) })
 	}
 
-	// Wait for shutdown signal
-	<-ctx.Done()
-
-	// Graceful shutdown
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		baseLogger.Error("Server shutdown error", slog.Any("error", err))
-	}
-
-	if newSrv != nil {
-		if err := newSrv.Shutdown(shutdownCtx); err != nil {
-			baseLogger.Error("New server shutdown error", slog.Any("error", err))
-		}
+	if err := g.Wait(); err != nil {
+		baseLogger.Error("Server error", slog.Any("error", err))
 	}
 
 	// Close authorization database connection
