@@ -25,6 +25,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+
+	apilogger "github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 )
 
 var (
@@ -103,6 +106,17 @@ func main() {
 	if *newAPIPort > 0 {
 		newHandler := newhandlers.New(services, baseLogger.With("component", "new-handlers"))
 		strictHandler := gen.NewStrictHandler(newHandler, nil)
+
+		// Initialize middlewares
+		loggerMiddleware := apilogger.LoggerMiddleware(baseLogger.With("component", "new-api"))
+		jwtMiddleware := handler.InitJWTMiddleware()
+		authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
+
+		// Create handler with middleware chain (order: logger → auth → handler)
+		apiHandler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
+			Middlewares: []gen.MiddlewareFunc{loggerMiddleware, authMiddleware},
+		})
+
 		newServerCfg := server.Config{
 			Addr:            ":" + strconv.Itoa(*newAPIPort),
 			ReadTimeout:     15 * time.Second,
@@ -110,7 +124,7 @@ func main() {
 			IdleTimeout:     60 * time.Second,
 			ShutdownTimeout: 30 * time.Second,
 		}
-		newSrv := server.New(newServerCfg, gen.Handler(strictHandler), baseLogger.With("component", "new-server"))
+		newSrv := server.New(newServerCfg, apiHandler, baseLogger.With("component", "new-server"))
 		g.Go(func() error { return newSrv.Run(ctx) })
 	}
 
