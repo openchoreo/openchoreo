@@ -178,3 +178,147 @@ func mapToRawExtension(m *map[string]interface{}) *runtime.RawExtension {
 
 	return &runtime.RawExtension{Raw: data}
 }
+
+// GetComponent returns details of a specific component
+func (h *Handler) GetComponent(
+	ctx context.Context,
+	request gen.GetComponentRequestObject,
+) (gen.GetComponentResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// PatchComponent updates a component with partial data
+func (h *Handler) PatchComponent(
+	ctx context.Context,
+	request gen.PatchComponentRequestObject,
+) (gen.PatchComponentResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetComponentSchema returns the combined parameter schema for a component
+func (h *Handler) GetComponentSchema(
+	ctx context.Context,
+	request gen.GetComponentSchemaRequestObject,
+) (gen.GetComponentSchemaResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// ListComponentTraits returns the traits attached to a component
+func (h *Handler) ListComponentTraits(
+	ctx context.Context,
+	request gen.ListComponentTraitsRequestObject,
+) (gen.ListComponentTraitsResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// UpdateComponentTraits replaces the traits attached to a component
+func (h *Handler) UpdateComponentTraits(
+	ctx context.Context,
+	request gen.UpdateComponentTraitsRequestObject,
+) (gen.UpdateComponentTraitsResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// ListComponentBindings returns deployment bindings for a component
+func (h *Handler) ListComponentBindings(
+	ctx context.Context,
+	request gen.ListComponentBindingsRequestObject,
+) (gen.ListComponentBindingsResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// UpdateComponentBinding updates a component's deployment binding
+func (h *Handler) UpdateComponentBinding(
+	ctx context.Context,
+	request gen.UpdateComponentBindingRequestObject,
+) (gen.UpdateComponentBindingResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// ListComponentReleases returns immutable release snapshots for a component
+func (h *Handler) ListComponentReleases(
+	ctx context.Context,
+	request gen.ListComponentReleasesRequestObject,
+) (gen.ListComponentReleasesResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// CreateComponentRelease creates an immutable release snapshot
+func (h *Handler) CreateComponentRelease(
+	ctx context.Context,
+	request gen.CreateComponentReleaseRequestObject,
+) (gen.CreateComponentReleaseResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetComponentRelease returns details of a specific component release
+func (h *Handler) GetComponentRelease(
+	ctx context.Context,
+	request gen.GetComponentReleaseRequestObject,
+) (gen.GetComponentReleaseResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetComponentReleaseSchema returns the parameter schema for a component release
+func (h *Handler) GetComponentReleaseSchema(
+	ctx context.Context,
+	request gen.GetComponentReleaseSchemaRequestObject,
+) (gen.GetComponentReleaseSchemaResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// ListReleaseBindings returns environment-specific release bindings
+func (h *Handler) ListReleaseBindings(
+	ctx context.Context,
+	request gen.ListReleaseBindingsRequestObject,
+) (gen.ListReleaseBindingsResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// PatchReleaseBinding updates a release binding with environment-specific overrides
+func (h *Handler) PatchReleaseBinding(
+	ctx context.Context,
+	request gen.PatchReleaseBindingRequestObject,
+) (gen.PatchReleaseBindingResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetEnvironmentRelease returns the deployed release for a component in an environment
+func (h *Handler) GetEnvironmentRelease(
+	ctx context.Context,
+	request gen.GetEnvironmentReleaseRequestObject,
+) (gen.GetEnvironmentReleaseResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// DeployRelease deploys a component release to an environment
+func (h *Handler) DeployRelease(
+	ctx context.Context,
+	request gen.DeployReleaseRequestObject,
+) (gen.DeployReleaseResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// PromoteComponent promotes a component release from one environment to another
+func (h *Handler) PromoteComponent(
+	ctx context.Context,
+	request gen.PromoteComponentRequestObject,
+) (gen.PromoteComponentResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetComponentObserverURL returns the observer URL for component logs and metrics
+func (h *Handler) GetComponentObserverURL(
+	ctx context.Context,
+	request gen.GetComponentObserverURLRequestObject,
+) (gen.GetComponentObserverURLResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetBuildObserverURL returns the observer URL for component build logs
+func (h *Handler) GetBuildObserverURL(
+	ctx context.Context,
+	request gen.GetBuildObserverURLRequestObject,
+) (gen.GetBuildObserverURLResponseObject, error) {
+	return nil, errNotImplemented
+}

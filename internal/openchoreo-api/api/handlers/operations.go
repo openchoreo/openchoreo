@@ -62,3 +62,11 @@ func (h *Handler) GetOpenAPISpec(
 
 	return gen.GetOpenAPISpec200JSONResponse(spec), nil
 }
+
+// GetReady returns Ready if the server is ready to accept requests
+func (h *Handler) GetReady(
+	ctx context.Context,
+	request gen.GetReadyRequestObject,
+) (gen.GetReadyResponseObject, error) {
+	return nil, errNotImplemented
+}
