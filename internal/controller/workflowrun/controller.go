@@ -9,11 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
-	"github.com/openchoreo/openchoreo/internal/controller"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
-	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,6 +18,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
+	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 )
 
 // Reconciler reconciles a WorkflowRun object

@@ -35,6 +35,7 @@ func TestPipeline_Render(t *testing.T) {
 							Parameters: mustRawExtension(t, map[string]interface{}{
 								"version":  1,
 								"testMode": "unit",
+								"gitRepo":  "https://github.com/test/repo",
 							}),
 						},
 					},
@@ -57,7 +58,7 @@ func TestPipeline_Render(t *testing.T) {
 									"parameters": []interface{}{
 										map[string]interface{}{
 											"name":  "git-repo",
-											"value": "${systemParameters.repository.url}",
+											"value": "${parameters.gitRepo}",
 										},
 										map[string]interface{}{
 											"name":  "version",
@@ -125,7 +126,7 @@ func TestPipeline_Render(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "component workflow run is nil",
+			errMsg:  "workflow run is nil",
 		},
 		{
 			name: "nil Workflow",
@@ -137,7 +138,7 @@ func TestPipeline_Render(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "component workflow is nil",
+			errMsg:  "workflow is nil",
 		},
 		{
 			name: "missing runTemplate",
@@ -153,7 +154,7 @@ func TestPipeline_Render(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "component workflow has no runTemplate",
+			errMsg:  "workflow has no runTemplate",
 		},
 		{
 			name: "missing context orgName",
@@ -175,7 +176,7 @@ func TestPipeline_Render(t *testing.T) {
 			errMsg:  "context.orgName is required",
 		},
 		{
-			name: "missing context projectName",
+			name: "missing context workflowRunName",
 			input: &RenderInput{
 				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
@@ -183,15 +184,19 @@ func TestPipeline_Render(t *testing.T) {
 						RunTemplate: mustRawExtension(t, map[string]interface{}{
 							"apiVersion": "v1",
 							"kind":       "Pod",
+							"metadata": map[string]interface{}{
+								"name": "test",
+							},
 						}),
 					},
 				},
 				Context: WorkflowContext{
-					OrgName: "test",
+					OrgName:         "test",
+					WorkflowRunName: "",
 				},
 			},
 			wantErr: true,
-			errMsg:  "context.projectName is required",
+			errMsg:  "context.workflowRunName is required",
 		},
 	}
 
@@ -971,7 +976,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 		check   func(*testing.T, *RenderOutput)
 	}{
 		{
-			name: "all context variables rendered correctly",
+			name: "metadata context variables rendered correctly",
 			input: &RenderInput{
 				WorkflowRun: &v1alpha1.WorkflowRun{
 					Spec: v1alpha1.WorkflowRunSpec{
@@ -989,8 +994,8 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 								"name":      "${metadata.workflowRunName}",
 								"namespace": "ci-${metadata.orgName}",
 								"labels": map[string]interface{}{
-									"project":   "${metadata.projectName}",
-									"component": "${metadata.componentName}",
+									"workflow-run": "${metadata.workflowRunName}",
+									"org":          "${metadata.orgName}",
 								},
 							},
 						}),
@@ -1014,12 +1019,12 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 				}
 
 				labels := metadata["labels"].(map[string]interface{})
-				if labels["project"] != "my-project" {
-					t.Errorf("expected project 'my-project', got %v", labels["project"])
+				if labels["workflow-run"] != "run-12345" {
+					t.Errorf("expected workflow-run 'run-12345', got %v", labels["workflow-run"])
 				}
 
-				if labels["component"] != "my-component" {
-					t.Errorf("expected component 'my-component', got %v", labels["component"])
+				if labels["org"] != "my-org" {
+					t.Errorf("expected org 'my-org', got %v", labels["org"])
 				}
 			},
 		},
@@ -1120,7 +1125,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "missing context componentName",
+			name: "missing resource metadata",
 			input: &RenderInput{
 				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
@@ -1137,7 +1142,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "context.componentName is required",
+			errMsg:  "missing metadata",
 		},
 		{
 			name: "invalid runTemplate JSON",
@@ -1189,37 +1194,6 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "failed to unmarshal parameters",
-		},
-		{
-			name: "empty system parameters",
-			input: &RenderInput{
-				WorkflowRun: &v1alpha1.WorkflowRun{
-					Spec: v1alpha1.WorkflowRunSpec{
-						Workflow: v1alpha1.WorkflowRunConfig{
-							Name: "test-workflow",
-						},
-					},
-				},
-				Workflow: &v1alpha1.Workflow{
-					Spec: v1alpha1.WorkflowSpec{
-						RunTemplate: mustRawExtension(t, map[string]interface{}{
-							"apiVersion": "v1",
-							"kind":       "ConfigMap",
-							"metadata": map[string]interface{}{
-								"name": "test",
-							},
-							"data": map[string]interface{}{
-								"url": "${systemParameters.repository.url}",
-							},
-						}),
-					},
-				},
-				Context: WorkflowContext{
-					OrgName:         "test-org",
-					WorkflowRunName: "test-run",
-				},
-			},
-			wantErr: false, // Should not error, just use empty values
 		},
 	}
 

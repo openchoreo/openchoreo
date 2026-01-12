@@ -47,10 +47,6 @@ var _ = Describe("WorkflowRun Finalizer", func() {
 					Namespace: "default",
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
 					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 					},
@@ -81,10 +77,6 @@ var _ = Describe("WorkflowRun Finalizer", func() {
 					Finalizers: []string{WorkflowRunCleanupFinalizer},
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
 					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 					},
@@ -138,10 +130,6 @@ var _ = Describe("WorkflowRun Finalizer", func() {
 					Namespace: "default",
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
 					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 					},
@@ -176,10 +164,6 @@ var _ = Describe("WorkflowRun Finalizer", func() {
 					Namespace: "default",
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
 					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
 						Name: "test-workflow",
 					},
@@ -214,39 +198,6 @@ var _ = Describe("WorkflowRun Finalizer", func() {
 			Expect(*resource.Status.Resources).To(HaveLen(2))
 			Expect((*resource.Status.Resources)[0].Kind).To(Equal("Secret"))
 			Expect((*resource.Status.Resources)[1].Kind).To(Equal("ConfigMap"))
-		})
-
-		It("should persist ImageStatus in status", func() {
-			By("Creating a WorkflowRun")
-			cwf := &openchoreodevv1alpha1.WorkflowRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      resourceName,
-					Namespace: "default",
-				},
-				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
-					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
-						Name: "test-workflow",
-					},
-				},
-			}
-			Expect(k8sClient.Create(ctx, cwf)).To(Succeed())
-
-			By("Updating status with ImageStatus")
-			resource := &openchoreodevv1alpha1.WorkflowRun{}
-			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-
-			resource.Status.ImageStatus = openchoreodevv1alpha1.WorkflowImage{
-				Image: "registry.example.com/myapp:v1.0.0",
-			}
-			Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
-
-			By("Verifying the ImageStatus was persisted")
-			Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
-			Expect(resource.Status.ImageStatus.Image).To(Equal("registry.example.com/myapp:v1.0.0"))
 		})
 	})
 })

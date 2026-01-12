@@ -15,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 var _ = Describe("WorkflowRun Controller", func() {
@@ -38,10 +37,6 @@ var _ = Describe("WorkflowRun Controller", func() {
 					Namespace: "default",
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
-					Owner: openchoreodevv1alpha1.WorkflowOwner{
-						ProjectName:   "test-project",
-						ComponentName: "test-component",
-					},
 					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
 						Name: workflowName,
 					},
@@ -98,7 +93,6 @@ var _ = Describe("WorkflowRun Controller", func() {
 			Expect(resource.Status.Conditions).To(BeEmpty())
 			Expect(resource.Status.RunReference).To(BeNil())
 			Expect(resource.Status.Resources).To(BeNil())
-			Expect(resource.Status.ImageStatus.Image).To(BeEmpty())
 		})
 	})
 
@@ -159,181 +153,11 @@ var _ = Describe("WorkflowRun Controller", func() {
 			Expect((*cwf.Status.Resources)[1].Kind).To(Equal("ConfigMap"))
 			Expect((*cwf.Status.Resources)[1].Name).To(Equal("build-config"))
 		})
-
-		It("should correctly set and retrieve ImageStatus", func() {
-			cwf := &openchoreodevv1alpha1.WorkflowRun{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-image-status",
-					Namespace: "default",
-				},
-				Status: openchoreodevv1alpha1.WorkflowRunStatus{
-					ImageStatus: openchoreodevv1alpha1.WorkflowImage{
-						Image: "registry.example.com/myapp:v1.0.0",
-					},
-				},
-			}
-
-			Expect(cwf.Status.ImageStatus.Image).To(Equal("registry.example.com/myapp:v1.0.0"))
-		})
 	})
 })
 
 // Unit tests for helper functions
 var _ = Describe("Helper Functions", func() {
-	Describe("getStepByTemplateName", func() {
-		It("should find a node by template name", func() {
-			nodes := argoproj.Nodes{
-				"node-1": {
-					Name:         "node-1",
-					TemplateName: "build-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-				"node-2": {
-					Name:         "node-2",
-					TemplateName: "push-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-			}
-
-			result := getStepByTemplateName(nodes, "push-step")
-			Expect(result).NotTo(BeNil())
-			Expect(result.TemplateName).To(Equal("push-step"))
-			Expect(result.Name).To(Equal("node-2"))
-		})
-
-		It("should return nil when template not found", func() {
-			nodes := argoproj.Nodes{
-				"node-1": {
-					Name:         "node-1",
-					TemplateName: "build-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-			}
-
-			result := getStepByTemplateName(nodes, "non-existent")
-			Expect(result).To(BeNil())
-		})
-
-		It("should handle empty nodes", func() {
-			nodes := argoproj.Nodes{}
-			result := getStepByTemplateName(nodes, "any-step")
-			Expect(result).To(BeNil())
-		})
-	})
-
-	Describe("getImageNameFromRunResource", func() {
-		It("should extract image name from outputs", func() {
-			imageName := argoproj.AnyString("my-registry/my-image:v1.0.0")
-			outputs := argoproj.Outputs{
-				Parameters: []argoproj.Parameter{
-					{
-						Name:  "image",
-						Value: &imageName,
-					},
-				},
-			}
-
-			result := getImageNameFromRunResource(outputs)
-			Expect(result).To(Equal(imageName))
-		})
-
-		It("should return empty string when image parameter not found", func() {
-			outputs := argoproj.Outputs{
-				Parameters: []argoproj.Parameter{
-					{
-						Name:  "other-param",
-						Value: nil,
-					},
-				},
-			}
-
-			result := getImageNameFromRunResource(outputs)
-			Expect(result).To(Equal(argoproj.AnyString("")))
-		})
-
-		It("should handle empty outputs", func() {
-			outputs := argoproj.Outputs{
-				Parameters: []argoproj.Parameter{},
-			}
-
-			result := getImageNameFromRunResource(outputs)
-			Expect(result).To(Equal(argoproj.AnyString("")))
-		})
-	})
-
-	Describe("extractWorkloadCRFromRunResource", func() {
-		It("should extract workload CR from run resource", func() {
-			workloadYAML := argoproj.AnyString(`apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
-metadata:
-  name: test-workload`)
-
-			workflow := &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"workload-node": {
-							TemplateName: "workload-create-step",
-							Phase:        argoproj.NodeSucceeded,
-							Outputs: &argoproj.Outputs{
-								Parameters: []argoproj.Parameter{
-									{
-										Name:  "workload-cr",
-										Value: &workloadYAML,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			result := extractWorkloadCRFromRunResource(workflow)
-			Expect(result).To(ContainSubstring("kind: Workload"))
-			Expect(result).To(ContainSubstring("test-workload"))
-		})
-
-		It("should return empty string when workload CR not found", func() {
-			workflow := &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"other-node": {
-							TemplateName: "other-step",
-							Phase:        argoproj.NodeSucceeded,
-						},
-					},
-				},
-			}
-
-			result := extractWorkloadCRFromRunResource(workflow)
-			Expect(result).To(Equal(""))
-		})
-
-		It("should return empty string when node phase is not succeeded", func() {
-			workloadYAML := argoproj.AnyString("workload-content")
-			workflow := &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"workload-node": {
-							TemplateName: "workload-create-step",
-							Phase:        argoproj.NodeFailed,
-							Outputs: &argoproj.Outputs{
-								Parameters: []argoproj.Parameter{
-									{
-										Name:  "workload-cr",
-										Value: &workloadYAML,
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			result := extractWorkloadCRFromRunResource(workflow)
-			Expect(result).To(Equal(""))
-		})
-	})
-
 	Describe("extractServiceAccountName", func() {
 		It("should extract service account name from resource", func() {
 			resource := map[string]any{

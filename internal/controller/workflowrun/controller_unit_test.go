@@ -10,214 +10,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 // Unit tests for helper functions that don't require k8s test environment
-
-func TestGetStepByTemplateName(t *testing.T) {
-	tests := []struct {
-		name         string
-		nodes        argoproj.Nodes
-		templateName string
-		wantNil      bool
-		wantName     string
-	}{
-		{
-			name: "should find node by template name",
-			nodes: argoproj.Nodes{
-				"node-1": {
-					Name:         "node-1",
-					TemplateName: "build-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-				"node-2": {
-					Name:         "node-2",
-					TemplateName: "push-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-			},
-			templateName: "push-step",
-			wantNil:      false,
-			wantName:     "node-2",
-		},
-		{
-			name: "should return nil when template not found",
-			nodes: argoproj.Nodes{
-				"node-1": {
-					Name:         "node-1",
-					TemplateName: "build-step",
-					Phase:        argoproj.NodeSucceeded,
-				},
-			},
-			templateName: "non-existent",
-			wantNil:      true,
-		},
-		{
-			name:         "should handle empty nodes",
-			nodes:        argoproj.Nodes{},
-			templateName: "any-step",
-			wantNil:      true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getStepByTemplateName(tt.nodes, tt.templateName)
-			if tt.wantNil {
-				if result != nil {
-					t.Errorf("expected nil, got %v", result)
-				}
-			} else {
-				if result == nil {
-					t.Error("expected non-nil result")
-					return
-				}
-				if result.Name != tt.wantName {
-					t.Errorf("expected name %s, got %s", tt.wantName, result.Name)
-				}
-			}
-		})
-	}
-}
-
-func TestGetImageNameFromRunResource(t *testing.T) {
-	tests := []struct {
-		name    string
-		outputs argoproj.Outputs
-		want    argoproj.AnyString
-	}{
-		{
-			name: "should extract image name from outputs",
-			outputs: argoproj.Outputs{
-				Parameters: []argoproj.Parameter{
-					{
-						Name:  "image",
-						Value: func() *argoproj.AnyString { v := argoproj.AnyString("my-registry/my-image:v1.0.0"); return &v }(),
-					},
-				},
-			},
-			want: "my-registry/my-image:v1.0.0",
-		},
-		{
-			name: "should return empty string when image parameter not found",
-			outputs: argoproj.Outputs{
-				Parameters: []argoproj.Parameter{
-					{
-						Name:  "other-param",
-						Value: nil,
-					},
-				},
-			},
-			want: "",
-		},
-		{
-			name: "should handle empty outputs",
-			outputs: argoproj.Outputs{
-				Parameters: []argoproj.Parameter{},
-			},
-			want: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getImageNameFromRunResource(tt.outputs)
-			if result != tt.want {
-				t.Errorf("expected %s, got %s", tt.want, result)
-			}
-		})
-	}
-}
-
-func TestExtractWorkloadCRFromRunResource(t *testing.T) {
-	tests := []struct {
-		name      string
-		workflow  *argoproj.Workflow
-		wantEmpty bool
-		contains  []string
-	}{
-		{
-			name: "should extract workload CR from run resource",
-			workflow: &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"workload-node": {
-							TemplateName: "workload-create-step",
-							Phase:        argoproj.NodeSucceeded,
-							Outputs: &argoproj.Outputs{
-								Parameters: []argoproj.Parameter{
-									{
-										Name: "workload-cr",
-										Value: func() *argoproj.AnyString {
-											v := argoproj.AnyString("apiVersion: openchoreo.dev/v1alpha1\nkind: Workload\nmetadata:\n  name: test-workload")
-											return &v
-										}(),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantEmpty: false,
-			contains:  []string{"kind: Workload", "test-workload"},
-		},
-		{
-			name: "should return empty string when workload CR not found",
-			workflow: &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"other-node": {
-							TemplateName: "other-step",
-							Phase:        argoproj.NodeSucceeded,
-						},
-					},
-				},
-			},
-			wantEmpty: true,
-		},
-		{
-			name: "should return empty string when node phase is not succeeded",
-			workflow: &argoproj.Workflow{
-				Status: argoproj.WorkflowStatus{
-					Nodes: argoproj.Nodes{
-						"workload-node": {
-							TemplateName: "workload-create-step",
-							Phase:        argoproj.NodeFailed,
-							Outputs: &argoproj.Outputs{
-								Parameters: []argoproj.Parameter{
-									{
-										Name:  "workload-cr",
-										Value: func() *argoproj.AnyString { v := argoproj.AnyString("workload-content"); return &v }(),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantEmpty: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractWorkloadCRFromRunResource(tt.workflow)
-			if tt.wantEmpty {
-				if result != "" {
-					t.Errorf("expected empty string, got %s", result)
-				}
-			} else {
-				for _, substr := range tt.contains {
-					if !contains(result, substr) {
-						t.Errorf("expected result to contain %s", substr)
-					}
-				}
-			}
-		})
-	}
-}
 
 func TestExtractServiceAccountName(t *testing.T) {
 	tests := []struct {
@@ -531,23 +326,6 @@ func TestResourceReference(t *testing.T) {
 		}
 	})
 
-	t.Run("should correctly store ImageStatus in status", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-run",
-				Namespace: "default",
-			},
-		}
-
-		cwf.Status.ImageStatus = openchoreodevv1alpha1.WorkflowImage{
-			Image: "registry.example.com/myapp:v1.0.0",
-		}
-
-		if cwf.Status.ImageStatus.Image != "registry.example.com/myapp:v1.0.0" {
-			t.Errorf("expected Image registry.example.com/myapp:v1.0.0, got %s", cwf.Status.ImageStatus.Image)
-		}
-	})
-
 	t.Run("should handle nil RunReference", func(t *testing.T) {
 		cwf := &openchoreodevv1alpha1.WorkflowRun{
 			ObjectMeta: metav1.ObjectMeta{
@@ -595,9 +373,9 @@ func TestResourceReference(t *testing.T) {
 }
 
 // Finalizer constant test
-func TestComponentWorkflowRunCleanupFinalizer(t *testing.T) {
+func TestWorkflowRunCleanupFinalizer(t *testing.T) {
 	t.Run("should have correct finalizer value", func(t *testing.T) {
-		expected := "openchoreo.dev/componentworkflowrun-cleanup"
+		expected := "openchoreo.dev/workflowrun-cleanup"
 		if WorkflowRunCleanupFinalizer != expected {
 			t.Errorf("expected finalizer %s, got %s", expected, WorkflowRunCleanupFinalizer)
 		}
@@ -717,18 +495,6 @@ func TestConditionFunctions(t *testing.T) {
 		setWorkflowSucceededCondition(cwf2)
 		if !isWorkflowSucceeded(cwf2) {
 			t.Error("expected true for succeeded workflow")
-		}
-	})
-
-	t.Run("isWorkloadUpdated", func(t *testing.T) {
-		cwf := &openchoreodevv1alpha1.WorkflowRun{}
-		if isWorkloadUpdated(cwf) {
-			t.Error("expected false for non-updated workload")
-		}
-
-		setWorkloadUpdatedCondition(cwf)
-		if !isWorkloadUpdated(cwf) {
-			t.Error("expected true after setting updated condition")
 		}
 	})
 }
