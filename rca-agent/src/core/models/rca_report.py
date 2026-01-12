@@ -58,7 +58,7 @@ class BaseEvidenceItem(BaseModel):
 class LogEvidenceItem(BaseEvidenceItem):
     """Evidence from application logs showing significant issues
 
-    Contains the actual log message that implies a root cause
+    Contains the actual log message that implies a root cause. Do not include unrelated or duplicate log entries.
     """
 
     type: Literal[EvidenceType.LOG] = EvidenceType.LOG
@@ -83,7 +83,7 @@ class MetricEvidenceItem(BaseEvidenceItem):
 
     value: str = Field(
         ...,
-        description="Formatted metric value with unit (e.g., '95.5%', '1.2 cores', '64 req/s', '2.5 GB/s')",
+        description="Short formatted metric value with unit (e.g., '95.5%', '1.2 cores', '64 req/s', '2.5 GB/s'). Do not include timestamps and long text here.",
     )
 
     description: str = Field(
@@ -145,18 +145,18 @@ class RootCause(BaseModel):
 
     description: str = Field(
         ...,
-        description="Detailed description of the root cause. Be specific about what failed and why.",
+        description="Concise description of the root cause, in one sentence.",
     )
     confidence: ConfidenceLevel = Field(
         ..., description="AI confidence level in this root cause determination"
     )
     evidences: list[EvidenceItem] = Field(
         default_factory=list,
-        description="Specific evidence supporting this root cause (logs, metrics, traces). Each entry should be significant for RCA",
+        description="Evidence supporting this root cause from logs, metrics, or traces. DO NOT include unrelated evidences or duplicate evidences(eg: repeating redundant log entries).",
     )
-    analysis: str | None = Field(
-        default=None,
-        description="Explains how the evidences correlate with each other and collectively support this root cause determination",
+    analysis: str = Field(
+        ...,
+        description="Explain the root cause, and how the evidences correlate with each other and support this root cause determination",
     )
 
 
@@ -210,7 +210,7 @@ class Recommendations(BaseModel):
 
     actions: list[Action] = Field(
         default_factory=list,
-        description="Prioritized actions sorted by priority",
+        description="Prioritized actions sorted by priority.",
     )
     monitoring_improvements: list[str] = Field(
         default_factory=list,
@@ -236,7 +236,7 @@ class IssueIdentified(BaseModel):
         description="Potential causes that were investigated and ruled out with reasoning, helping narrow down the actual root cause.",
     )
     recommendations: Recommendations = Field(
-        ..., description="Actionable recommendations to prevent recurrence of this issue"
+        ..., description="Actionable recommendations to prevent recurrence of this issue. Do not include vague or non-actionable suggestions. Provide at most two actions each unless absolutely necessary."
     )
 
 
@@ -250,7 +250,7 @@ class RCANotPerformed(BaseModel):
     )
     recommendations: Recommendations | None = Field(
         default=None,
-        description="Recommendations for improving tracing, observability, monitoring, or alerting to enable better RCA in the future",
+        description="Recommendations for improving tracing, observability, monitoring, or alerting to enable better RCA in the future. Do not include vague or non-actionable suggestions. Provide at most two actions unless absolutely necessary.",
     )
 
 
@@ -263,7 +263,7 @@ class RCAReport(BaseModel):
 
     summary: str = Field(
         ...,
-        description="Concise summary of the investigation and outcome",
+        description="Concise summary of the investigation and outcome. Maximum 1 short sentence on what happened and what went wrong.",
     )
 
     result: RCAResult = Field(

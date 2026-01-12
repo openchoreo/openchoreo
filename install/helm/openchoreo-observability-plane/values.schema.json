@@ -1214,7 +1214,7 @@
       "title": "fakeSecretStore",
       "type": "object"
     },
-    "fluentBit": {
+    "fluent-bit": {
       "additionalProperties": true,
       "description": "Fluent Bit subchart configuration for log collection and forwarding to OpenSearch",
       "properties": {
@@ -1244,7 +1244,7 @@
               "type": "string"
             },
             "outputs": {
-              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd admin\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
               "required": [],
               "title": "outputs",
@@ -1491,7 +1491,7 @@
         }
       },
       "required": [],
-      "title": "fluentBit",
+      "title": "fluent-bit",
       "type": "object"
     },
     "gateway": {
@@ -1505,14 +1505,21 @@
           "title": "enabled",
           "type": "boolean"
         },
-        "httpsPort": {
-          "default": 443,
-          "description": "HTTPS port for the gateway listener",
-          "maximum": 65535,
-          "minimum": 1,
+        "envoy": {
+          "additionalProperties": true,
+          "description": "Envoy proxy configuration for actual traffic routing",
+          "properties": {
+            "mountTmpVolume": {
+              "default": false,
+              "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
+              "required": [],
+              "title": "mountTmpVolume",
+              "type": "boolean"
+            }
+          },
           "required": [],
-          "title": "httpsPort",
-          "type": "integer"
+          "title": "envoy",
+          "type": "object"
         }
       },
       "required": [],
@@ -3546,14 +3553,14 @@
               "description": "Maximum resources",
               "properties": {
                 "cpu": {
-                  "default": "500m",
+                  "default": "250m",
                   "description": "CPU limit",
                   "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
-                  "default": "512Mi",
+                  "default": "1536Mi",
                   "description": "Memory limit",
                   "required": [],
                   "title": "memory",
@@ -3576,7 +3583,7 @@
                   "type": "string"
                 },
                 "memory": {
-                  "default": "128Mi",
+                  "default": "1024Mi",
                   "description": "Memory request",
                   "required": [],
                   "title": "memory",

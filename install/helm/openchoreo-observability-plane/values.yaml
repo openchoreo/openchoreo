@@ -960,6 +960,62 @@ observer:
   replicas: 1
 
   # @schema
+  # type: object
+  # description: Security configuration for Observer authentication
+  # @schema
+  security:
+    # @schema
+    # type: array
+    # description: User type configurations for JWT subject resolution
+    # items:
+    #   type: object
+    #   properties:
+    #     type:
+    #       type: string
+    #       description: User type identifier (user, service_account, etc.)
+    #     display_name:
+    #       type: string
+    #       description: Human-readable name for the user type
+    #     priority:
+    #       type: integer
+    #       description: Detection priority (lower = higher priority)
+    #     auth_mechanisms:
+    #       type: array
+    #       items:
+    #         type: object
+    #         properties:
+    #           type:
+    #             type: string
+    #             description: Authentication mechanism type (oauth2, etc.)
+    #           entitlement:
+    #             type: object
+    #             properties:
+    #               claim:
+    #                 type: string
+    #                 description: JWT claim name for entitlement
+    #               display_name:
+    #                 type: string
+    #                 description: Human-readable name for the claim
+    # @schema
+    userTypes:
+      - type: "user"
+        display_name: "User"
+        priority: 1
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "groups"
+              display_name: "User Group"
+      - type: "service_account"
+        display_name: "Service Account"
+        priority: 2
+        auth_mechanisms:
+          - type: "oauth2"
+            entitlement:
+              claim: "sub"
+              display_name: "Client ID"
+
+  # @schema
   # type: array
   # description: Extra environment variables for the Observer container
   # items:
@@ -985,6 +1041,12 @@ observer:
     value: "30s"
   - name: ALERTING_WEBHOOK_SECRET
     value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
+  - name: AUTHZ_ENABLED
+    value: "false"
+  - name: AUTHZ_SERVICE_URL
+    value: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  - name: AUTHZ_TIMEOUT
+    value: "30s"
 
   # @schema
   # type: object
@@ -1114,7 +1176,7 @@ observer:
 # additionalProperties: true
 # description: Fluent Bit subchart configuration for log collection and forwarding to OpenSearch
 # @schema
-fluentBit:
+fluent-bit:
   # @schema
   # type: boolean
   # description: Enable Fluent Bit log collector deployment
@@ -1185,14 +1247,13 @@ fluentBit:
           Name opensearch
           Host opensearch
           Generate_ID On
-          HTTP_Passwd admin
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
           HTTP_User admin
           Logstash_Format On
           Logstash_DateFormat %Y-%m-%d
           Logstash_Prefix container-logs
           Match kube.*
           Port 9200
-          Replace_Dots On
           Suppress_Type_Name On
           tls On
           tls.verify Off
@@ -1203,6 +1264,13 @@ fluentBit:
   # default: ClusterFirstWithHostNet
   # @schema
   dnsPolicy: ClusterFirstWithHostNet
+
+  # @schema
+  # type: string
+  # description: Override the full name of Fluent Bit resources
+  # default: fluent-bit
+  # @schema
+  fullnameOverride: "fluent-bit"
 
   # @schema
   # type: boolean
@@ -1233,13 +1301,6 @@ fluentBit:
       hostPath:
         path: /var/lib/fluent-bit/db
         type: DirectoryOrCreate
-
-  # @schema
-  # type: string
-  # description: Override the full name of Fluent Bit resources
-  # default: fluent-bit
-  # @schema
-  fullnameOverride: "fluent-bit"
 
   # @schema
   # type: integer
@@ -2282,13 +2343,17 @@ gateway:
   enabled: false
 
   # @schema
-  # type: integer
-  # description: HTTPS port for the gateway listener
-  # minimum: 1
-  # maximum: 65535
-  # default: 443
+  # type: object
+  # additionalProperties: true
+  # description: Envoy proxy configuration for actual traffic routing
   # @schema
-  httpsPort: 443
+  envoy:
+    # @schema
+    # type: boolean
+    # description: Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima
+    # default: false
+    # @schema
+    mountTmpVolume: false
 
 # @schema
 # type: object
@@ -2907,9 +2972,9 @@ rca:
     # @schema
     # type: string
     # description: Token URL for obtaining access tokens from IDP
-    # default: http://thunder.openchoreo.localhost:8080/oauth2/token
+    # default: http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token
     # @schema
-    tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
+    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
     # @schema
     # type: string
     # description: OAuth2 client ID registered with the IDP

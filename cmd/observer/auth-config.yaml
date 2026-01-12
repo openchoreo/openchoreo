@@ -1,0 +1,20 @@
+# Observer Service Authentication Configuration
+
+auth:
+  user_types:
+    - type: "user"
+      display_name: "User"
+      priority: 1
+      auth_mechanisms:
+        - type: "oauth2"
+          entitlement:
+            claim: "groups"
+            display_name: "User Group"
+    - type: "service_account"
+      display_name: "Service Account"
+      priority: 2
+      auth_mechanisms:
+        - type: "oauth2"
+          entitlement:
+            claim: "sub"
+            display_name: "Client ID"

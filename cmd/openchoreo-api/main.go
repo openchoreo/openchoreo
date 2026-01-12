@@ -7,7 +7,6 @@ import (
 	"context"
 	"flag"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -17,10 +16,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/authz"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	openapihandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
+	apilogger "github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/router"
 )
 
 var (
@@ -77,35 +82,42 @@ func main() {
 	// Initialize services with PAP and PDP
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, baseLogger)
 
-	// Initialize HTTP handlers with config for user type management
-	handler := handlers.New(services, cfg, baseLogger.With("component", "handlers"))
+	// Initialize legacy HTTP handlers with config for user type management
+	legacyHandler := handlers.New(services, cfg, baseLogger.With("component", "legacy-handlers"))
+	legacyRoutes := legacyHandler.Routes()
 
-	srv := &http.Server{
-		Addr:         ":" + strconv.Itoa(*port),
-		Handler:      handler.Routes(),
-		ReadTimeout:  15 * time.Second, // TODO: Make these configurable
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	// Initialize OpenAPI handlers
+	openapiHandler := openapihandlers.New(services, baseLogger.With("component", "openapi-handlers"))
+	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
+
+	// Initialize middlewares for OpenAPI handler
+	loggerMiddleware := apilogger.LoggerMiddleware(baseLogger.With("component", "openapi"))
+	jwtMiddleware := legacyHandler.InitJWTMiddleware()
+	authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
+
+	// Create OpenAPI handler with middleware chain (order: logger → auth → handler)
+	openapiRoutes := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
+		Middlewares: []gen.MiddlewareFunc{loggerMiddleware, authMiddleware},
+	})
+
+	// Create migration router that routes based on X-Use-OpenAPI header
+	// - X-Use-OpenAPI: true → OpenAPI handlers (new spec-first implementation)
+	// - Header absent → Legacy handlers (existing implementation)
+	migrationRouter := router.OpenAPIMigrationRouter(openapiRoutes, legacyRoutes)
+
+	// Server configuration
+	serverCfg := server.Config{
+		Addr:            ":" + strconv.Itoa(*port),
+		ReadTimeout:     15 * time.Second,
+		WriteTimeout:    15 * time.Second,
+		IdleTimeout:     60 * time.Second,
+		ShutdownTimeout: 30 * time.Second,
 	}
+	srv := server.New(serverCfg, migrationRouter, baseLogger.With("component", "server"))
 
 	// Start server
-	go func() {
-		baseLogger.Info("OpenChoreo API server listening on", slog.String("address", srv.Addr))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			baseLogger.Error("Server error", slog.Any("error", err))
-			os.Exit(1)
-		}
-	}()
-
-	// Wait for shutdown signal
-	<-ctx.Done()
-
-	// Graceful shutdown
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		baseLogger.Error("Server shutdown error", slog.Any("error", err))
+	if err := srv.Run(ctx); err != nil {
+		baseLogger.Error("Server error", slog.Any("error", err))
 	}
 
 	// Close authorization database connection

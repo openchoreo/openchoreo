@@ -1,0 +1,14 @@
+# Copyright 2025 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating server interface and embedded spec
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: gen
+output: internal/openchoreo-api/api/gen/server.gen.go
+generate:
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true

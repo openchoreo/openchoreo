@@ -893,420 +893,301 @@ observability:
 
 # @schema
 # type: object
-# description: Fluent Bit log collector configuration for forwarding container logs to OpenSearch
+# additionalProperties: true
+# description: Fluent Bit subchart configuration for log collection and forwarding to OpenSearch
 # @schema
-fluentBit:
+fluent-bit:
   # @schema
   # type: boolean
-  # description: Enable Fluent Bit DaemonSet for log collection
-  # default: true
+  # description: Enable Fluent Bit log collector deployment
+  # default: false
   # @schema
-  enabled: true
+  enabled: false
 
   # @schema
   # type: object
-  # description: Container image configuration for Fluent Bit
-  # @schema
-  image:
-    # @schema
-    # type: string
-    # description: Fluent Bit image repository
-    # default: fluent/fluent-bit
-    # @schema
-    repository: fluent/fluent-bit
-
-    # @schema
-    # type: string
-    # description: Fluent Bit image tag
-    # default: "2.1.10"
-    # @schema
-    tag: "2.1.10"
-
-    # @schema
-    # description: Image pull policy
-    # enum: [Always, IfNotPresent, Never]
-    # default: IfNotPresent
-    # @schema
-    pullPolicy: IfNotPresent
-
-  # @schema
-  # type: object
-  # description: Fluent Bit pipeline configuration (service, input, filter, output)
+  # additionalProperties: true
+  # description: Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)
   # @schema
   config:
     # @schema
-    # type: object
-    # description: Fluent Bit service configuration
+    # type: string
+    # description: Custom parser definitions in Fluent Bit configuration format
     # @schema
-    service:
-      # @schema
-      # type: integer
-      # description: Flush interval in seconds for output plugins
-      # default: 1
-      # minimum: 1
-      # @schema
-      flush: 1
-
-      # @schema
-      # description: Log level for Fluent Bit service
-      # enum: [off, error, warn, info, debug, trace]
-      # default: info
-      # @schema
-      logLevel: info
-
-      # @schema
-      # description: Run Fluent Bit as a daemon (background process)
-      # enum: [on, off]
-      # default: off
-      # @schema
-      daemon: "off"
+    customParsers: |
+      [PARSER]
+          Name docker_no_time
+          Format json
+          Time_Keep Off
+          Time_Key time
+          Time_Format %Y-%m-%dT%H:%M:%S.%L
 
     # @schema
-    # type: object
+    # type: string
     # description: Input plugin configuration for log collection
     # @schema
-    input:
-      # @schema
-      # type: string
-      # description: Input plugin name (tail for file-based log collection)
-      # default: tail
-      # @schema
-      name: tail
-
-      # @schema
-      # type: string
-      # description: Tag pattern for collected logs
-      # default: "kube.*"
-      # @schema
-      tag: "kube.*"
-
-      # @schema
-      # type: string
-      # description: Glob pattern for container log files to collect
-      # default: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
-      # @schema
-      path: "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log"
-
-      # @schema
-      # type: string
-      # description: Glob pattern for log files to exclude from collection
-      # default: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
-      # @schema
-      excludePath: "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log"
-
-      # @schema
-      # type: string
-      # description: Parser to use for log entries
-      # default: docker
-      # @schema
-      parser: docker
-
-      # @schema
-      # type: boolean
-      # description: Use inotify for file watching (disable on some systems)
-      # default: false
-      # @schema
-      inotifyWatcher: false
-
-      # @schema
-      # type: string
-      # description: Database file path for tracking read positions
-      # default: "/var/log/flb_kube.db"
-      # @schema
-      db: "/var/log/flb_kube.db"
-
-      # @schema
-      # type: string
-      # description: Memory buffer limit before backpressure
-      # default: "256MB"
-      # @schema
-      memBufLimit: "256MB"
-
-      # @schema
-      # type: boolean
-      # description: Skip lines longer than buffer limit
-      # default: true
-      # @schema
-      skipLongLines: true
-
-      # @schema
-      # type: integer
-      # description: File refresh interval in seconds
-      # default: 10
-      # minimum: 1
-      # @schema
-      refreshInterval: 10
+    inputs: |
+      [INPUT]
+          Name tail
+          Buffer_Chunk_Size 32KB
+          Buffer_Max_Size 2MB
+          DB /var/lib/fluent-bit/db/tail-container-logs.db
+          Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-data-plane_*.log
+          Inotify_Watcher false
+          Mem_Buf_Limit 256MB
+          Path /var/log/containers/*.log
+          multiline.parser docker, cri
+          Read_from_Head On
+          Refresh_Interval 5
+          Skip_Long_Lines On
+          Tag kube.*
 
     # @schema
-    # type: object
-    # description: Kubernetes filter configuration for enriching logs with pod metadata
+    # type: string
+    # description: Filter plugin configuration for log processing
     # @schema
-    filter:
-      # @schema
-      # type: string
-      # description: Filter plugin name
-      # default: kubernetes
-      # @schema
-      name: kubernetes
-
-      # @schema
-      # type: string
-      # description: Tag pattern to match for filtering
-      # default: "kube.*"
-      # @schema
-      match: "kube.*"
-
-      # @schema
-      # type: string
-      # description: Kubernetes API server URL
-      # default: "https://kubernetes.default.svc:443"
-      # @schema
-      kubeURL: "https://kubernetes.default.svc:443"
-
-      # @schema
-      # type: string
-      # description: Path to Kubernetes CA certificate file
-      # default: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-      # @schema
-      kubeCAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-
-      # @schema
-      # type: string
-      # description: Path to Kubernetes service account token file
-      # default: "/var/run/secrets/kubernetes.io/serviceaccount/token"
-      # @schema
-      kubeTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
-
-      # @schema
-      # type: string
-      # description: Tag prefix for Kubernetes metadata enrichment
-      # default: "kube.var.log.containers."
-      # @schema
-      kubeTagPrefix: "kube.var.log.containers."
-
-      # @schema
-      # type: boolean
-      # description: Merge log content into the main record
-      # default: true
-      # @schema
-      mergeLog: true
-
-      # @schema
-      # type: string
-      # description: Key name for merged log content
-      # default: "log_processed"
-      # @schema
-      mergeLogKey: "log_processed"
-
-      # @schema
-      # type: boolean
-      # description: Use Kubernetes logging parser annotations
-      # default: true
-      # @schema
-      k8sLoggingParser: true
-
-      # @schema
-      # type: boolean
-      # description: Respect Kubernetes logging exclude annotations
-      # default: false
-      # @schema
-      k8sLoggingExclude: false
+    filters: |
+      [FILTER]
+          Name kubernetes
+          Buffer_Size 32MB
+          K8S-Logging.Parser On
+          K8S-Logging.Exclude On
+          Keep_Log On
+          Match kube.*
+          Merge_Log Off
+          tls.verify Off
+          Use_Kubelet true
 
     # @schema
-    # type: object
-    # description: Output plugin configuration for sending logs to OpenSearch
+    # type: string
+    # description: Output plugin configuration for log forwarding to OpenSearch
     # @schema
-    output:
-      # @schema
-      # type: string
-      # description: Output plugin name
-      # default: opensearch
-      # @schema
-      name: opensearch
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
 
-      # @schema
-      # type: string
-      # description: Tag pattern to match for output
-      # default: "kube.*"
-      # @schema
-      match: "kube.*"
+  # @schema
+  # description: DNS policy for Fluent Bit pods
+  # enum: [ClusterFirst, ClusterFirstWithHostNet, Default, None]
+  # default: ClusterFirstWithHostNet
+  # @schema
+  dnsPolicy: ClusterFirstWithHostNet
 
-      # @schema
-      # type: string
-      # description: Type field value in output records
-      # default: flb_type
-      # @schema
-      type: flb_type
+  # @schema
+  # type: string
+  # description: Override the full name of Fluent Bit resources
+  # default: fluent-bit
+  # @schema
+  fullnameOverride: "fluent-bit"
 
-      # @schema
-      # type: boolean
-      # description: Use Logstash-compatible index format
-      # default: true
-      # @schema
-      logstashFormat: true
+  # @schema
+  # type: boolean
+  # description: Use host network for Fluent Bit pods (required for node log access)
+  # default: true
+  # @schema
+  hostNetwork: true
 
-      # @schema
-      # type: string
-      # description: Index prefix for Logstash format
-      # default: container-logs
-      # @schema
-      logstashPrefix: container-logs
+  # @schema
+  # type: array
+  # description: Extra volume mounts for the Fluent Bit container
+  # items:
+  #   type: object
+  # @schema
+  extraVolumeMounts:
+  - name: db
+    mountPath: "/var/lib/fluent-bit/db"
+    readOnly: false
 
-      # @schema
-      # type: string
-      # description: Field name for timestamp in output records
-      # default: "@timestamp"
-      # @schema
-      timeKey: "@timestamp"
+  # @schema
+  # type: array
+  # description: Extra volumes for the Fluent Bit pod
+  # items:
+  #   type: object
+  # @schema
+  extraVolumes:
+    - name: db
+      hostPath:
+        path: /var/lib/fluent-bit/db
+        type: DirectoryOrCreate
 
-      # @schema
-      # type: boolean
-      # description: Enable trace-level error logging for debugging
-      # default: true
-      # @schema
-      traceError: true
-
-      # @schema
-      # type: boolean
-      # description: Suppress type name in output (OpenSearch 2.x compatibility)
-      # default: true
-      # @schema
-      suppressTypeName: true
-
-    # @schema
-    # type: object
-    # description: OpenSearch connection configuration
-    # @schema
-    opensearch:
-      # @schema
-      # type: string
-      # description: OpenSearch host address
-      # default: "opensearch.openchoreo-observability-plane.svc.cluster.local"
-      # @schema
-      host: "opensearch.openchoreo-observability-plane.svc.cluster.local"
-
-      # @schema
-      # type: string
-      # description: OpenSearch port
-      # default: "9200"
-      # @schema
-      port: "9200"
-
-      # @schema
-      # type: object
-      # description: OpenSearch authentication configuration
-      # @schema
-      authentication:
-        # @schema
-        # type: object
-        # description: Basic authentication credentials
-        # @schema
-        basicauth:
-          # @schema
-          # type: string
-          # description: OpenSearch username
-          # default: "admin"
-          # @schema
-          username: "admin"
-
-          # @schema
-          # type: string
-          # description: OpenSearch password
-          # default: "ThisIsTheOpenSearchPassword1"
-          # @schema
-          password: "ThisIsTheOpenSearchPassword1"
-
-      # @schema
-      # type: boolean
-      # description: Enable TLS for OpenSearch connection
-      # default: true
-      # @schema
-      tls: true
-
-      # @schema
-      # type: boolean
-      # description: Verify TLS certificate (disable for self-signed certs)
-      # default: false
-      # @schema
-      tlsVerify: false
-
-    # @schema
-    # type: object
-    # description: Log parser configuration
-    # @schema
-    parser:
-      # @schema
-      # type: string
-      # description: Parser name
-      # default: docker
-      # @schema
-      name: docker
-
-      # @schema
-      # type: string
-      # description: Log format type
-      # default: json
-      # @schema
-      format: json
-
-      # @schema
-      # type: string
-      # description: Field name containing timestamp
-      # default: time
-      # @schema
-      timeKey: time
-
-      # @schema
-      # type: string
-      # description: strptime format string for parsing timestamps
-      # default: "%Y-%m-%dT%H:%M:%S.%L"
-      # @schema
-      timeFormat: "%Y-%m-%dT%H:%M:%S.%L"
-
-      # @schema
-      # type: boolean
-      # description: Keep the original time field in output
-      # default: true
-      # @schema
-      timeKeep: true
+  # @schema
+  # type: integer
+  # description: Port for Fluent Bit metrics endpoint
+  # minimum: 1
+  # maximum: 65535
+  # default: 2021
+  # @schema
+  metricsPort: 2021
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: RBAC configuration for Fluent Bit
   # @schema
   rbac:
     # @schema
     # type: boolean
-    # description: Create RBAC resources (ClusterRole, ClusterRoleBinding)
+    # description: Enable node-level access for reading container logs
     # default: true
     # @schema
-    create: true
-
-    # @schema
-    # type: string
-    # description: Service account name for Fluent Bit pods
-    # default: fluent-bit
-    # @schema
-    serviceAccountName: fluent-bit
+    nodeAccess: true
 
   # @schema
   # type: object
-  # description: Host path mounts for accessing container logs
+  # additionalProperties: true
+  # description: Resource requests and limits for Fluent Bit
   # @schema
-  hostPaths:
+  resources:
     # @schema
-    # type: string
-    # description: Host path to /var/log directory
-    # default: /var/log
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
     # @schema
-    varLog: /var/log
+    limits:
+      # @schema
+      # type: string
+      # description: CPU limit for Fluent Bit
+      # default: 200m
+      # @schema
+      cpu: 200m
+      # @schema
+      # type: string
+      # description: Memory limit for Fluent Bit
+      # default: 256Mi
+      # @schema
+      memory: 256Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
+    requests:
+      # @schema
+      # type: string
+      # description: CPU request for Fluent Bit
+      # default: 100m
+      # @schema
+      cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request for Fluent Bit
+      # default: 128Mi
+      # @schema
+      memory: 128Mi
 
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Security context for the Fluent Bit container
+  # @schema
+  securityContext:
     # @schema
-    # type: string
-    # description: Host path to Docker containers directory
-    # default: /var/lib/docker/containers
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
     # @schema
-    dockerContainers: /var/lib/docker/containers
+    allowPrivilegeEscalation: false
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Linux capabilities configuration
+    # @schema
+    capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop
+      # items:
+      #   type: string
+      # @schema
+      drop:
+      - ALL
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
+    readOnlyRootFilesystem: true
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
+    runAsNonRoot: true
+    # @schema
+    # type: integer
+    # description: User ID to run the container
+    # minimum: 0
+    # default: 10000
+    # @schema
+    runAsUser: 10000
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Service configuration for Fluent Bit
+  # @schema
+  service:
+    # @schema
+    # type: integer
+    # description: Service port for Fluent Bit metrics
+    # minimum: 1
+    # maximum: 65535
+    # default: 2021
+    # @schema
+    port: 2021
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Test framework configuration
+  # @schema
+  testFramework:
+    # @schema
+    # type: boolean
+    # description: Enable Fluent Bit test framework
+    # default: false
+    # @schema
+    enabled: false
+
+  # @schema
+  # type: array
+  # description: Init containers for the Fluent Bit pod (used to set volume ownership)
+  # items:
+  #   type: object
+  # @schema
+  initContainers:
+  - name: set-volume-ownership
+    image: busybox
+    command: ["sh", "-c", "chown -R 10000:10000 /var/lib/fluent-bit/db"]
+    resources:
+      limits:
+        cpu: 15m
+        memory: "32Mi"
+      requests:
+        cpu: 10m
+        memory: "24Mi"
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+      privileged: true
+      readOnlyRootFilesystem: true
+      runAsUser: 0
+    volumeMounts:
+    - name: db
+      mountPath: /var/lib/fluent-bit/db
 
 # @schema
 # type: object
@@ -2034,4 +1915,3 @@ api-platform:
               # default: true
               # @schema
               ValidateIssuer: true
-

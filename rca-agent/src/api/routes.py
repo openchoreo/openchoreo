@@ -21,14 +21,39 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class AlertRuleSource(BaseModel):
+    type: str
+    query: str | None = None
+
+
+class AlertRuleCondition(BaseModel):
+    window: str
+    interval: str
+    operator: str
+    threshold: int
+
+
+class AlertRuleInfo(BaseModel):
+    name: str
+    namespace: str | None = None
+    description: str | None = None
+    severity: str | None = None
+    source: AlertRuleSource | None = None
+    condition: AlertRuleCondition | None = None
+
+
+class AlertContext(BaseModel):
+    id: str
+    value: int
+    timestamp: str
+    rule: AlertRuleInfo
+
+
 class AnalyzeRequest(BaseModel):
-    rule_name: str = Field(alias="ruleName")
     component_uid: UUID = Field(alias="componentUid")
     project_uid: UUID = Field(alias="projectUid")
     environment_uid: UUID = Field(alias="environmentUid")
-    alert_value: int = Field(alias="alertValue")
-    timestamp: str
-    alert_id: str = Field(alias="alertId")
+    alert: AlertContext
     meta: dict[str, Any] | None = None
 
 
@@ -39,10 +64,6 @@ async def health():
         if not opensearch_client.check_connection():
             raise Exception("OpenSearch connection check failed")
 
-        mcp_client = MCPClient()
-        tools = await mcp_client.get_tools()
-        logger.debug("MCP health check successful: loaded %d tools", len(tools))
-
         return {"status": "healthy"}
     except Exception as e:
         logger.error("Health check failed: %s", e)
@@ -52,14 +73,14 @@ async def health():
 @router.post("/analyze")
 async def analyze(request: AnalyzeRequest):
     timestamp = int(get_current_utc().timestamp())
-    report_id = f"{request.alert_id}_{timestamp}"
+    report_id = f"{request.alert.id}_{timestamp}"
     opensearch_client = get_opensearch_client()
 
     try:
         # Create initial pending record
         opensearch_client.upsert_rca_report(
             report_id=report_id,
-            alert_id=request.alert_id,
+            alert_id=request.alert.id,
             status="pending",
             environment_uid=str(request.environment_uid),
             project_uid=str(request.project_uid),
@@ -76,13 +97,10 @@ async def analyze(request: AnalyzeRequest):
         content = render(
             "api/rca_request.j2",
             {
-                "rule_name": request.rule_name,
                 "component_uid": request.component_uid,
                 "project_uid": request.project_uid,
                 "environment_uid": request.environment_uid,
-                "alert_value": request.alert_value,
-                "timestamp": request.timestamp,
-                "alert_id": request.alert_id,
+                "alert": request.alert,
                 "meta": request.meta,
             },
         )
@@ -106,7 +124,7 @@ async def analyze(request: AnalyzeRequest):
         try:
             response = opensearch_client.upsert_rca_report(
                 report_id=report_id,
-                alert_id=request.alert_id,
+                alert_id=request.alert.id,
                 status="completed",
                 report=rca_report,
                 environment_uid=str(request.environment_uid),
@@ -126,12 +144,13 @@ async def analyze(request: AnalyzeRequest):
     except Exception as e:
         logger.error("Analysis failed: %s", e, exc_info=True)
 
-        # Update status to failed
+        # Update status to failed with error summary
         try:
             opensearch_client.upsert_rca_report(
                 report_id=report_id,
-                alert_id=request.alert_id,
+                alert_id=request.alert.id,
                 status="failed",
+                summary=f"Analysis failed: {str(e)}",
                 environment_uid=str(request.environment_uid),
                 project_uid=str(request.project_uid),
                 component_uids=[str(request.component_uid)],

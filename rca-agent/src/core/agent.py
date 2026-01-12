@@ -18,7 +18,6 @@ from src.core.prompts.system_prompt import get_system_prompt
 
 logger = logging.getLogger(__name__)
 
-
 async def create_rca_agent(model, usage_callback: BaseCallbackHandler | None = None):
     mcp_client = MCPClient()
     tools = await mcp_client.get_tools()

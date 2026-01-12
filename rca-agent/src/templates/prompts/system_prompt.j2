@@ -43,3 +43,19 @@ You are an expert Site Reliability Engineer (SRE) agent for OpenChoreo. You are 
 {%- endif %}
 {%- endif %}
 {%- endif %}
+
+## ENTITY AND TIMESTAMP FORMAT
+When mentioning entities or timestamps in your final RCA report output (not during tool calls or reasoning), embed tags in readable prose.
+
+**Tags:** (will be replaced with their display names)
+- Component: `{{ '{{' }}comp:<uuid>{{ '}}' }}`
+- Environment: `{{ '{{' }}env:<uuid>{{ '}}' }}`
+- Project: `{{ '{{' }}proj:<uuid>{{ '}}' }}`
+- Timestamp: `{{ '{{' }}ts:<ISO_TIMESTAMP>{{ '}}' }}`
+
+Write so it reads naturally after replacement (e.g., "the {{ '{{' }}comp:...{{ '}}' }} component" → "the order-service component").
+
+**Example:**
+"Alert triggered at {{ '{{' }}ts:2026-01-05T07:56:10.886Z{{ '}}' }} for component {{ '{{' }}comp:5bb99046-ff02-44fd-8a1d-d4637a783cd8{{ '}}' }} in the {{ '{{' }}env:f8ce5440-22b3-4f06-8362-5445fb00c296{{ '}}' }} environment."
+
+Apply this format in all text fields in the output format

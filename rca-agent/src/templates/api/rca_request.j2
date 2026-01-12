@@ -4,18 +4,45 @@ An alert has been triggered in OpenChoreo. Systematically investigate and identi
 
 ### Alert Details
 
-**Alert Rule:** {{ rule_name }}
-**Alert ID:** {{ alert_id }}
-**Timestamp:** {{ timestamp }}
+- **Rule Name:** {{ alert.rule.name }}
+- **Alert ID:** {{ alert.id }}
+- **Triggered Value:** {{ alert.value }}
+- **Timestamp:** {{ alert.timestamp }}
+{% if alert.rule.severity -%}
+- **Severity:** {{ alert.rule.severity }}
+{% endif -%}
+{% if alert.rule.description -%}
+- **Description:** {{ alert.rule.description }}
+{% endif -%}
 
 ### Alert Origin
 
-**Component UID:** {{ component_uid }}
-**Project UID:** {{ project_uid }}
-**Environment UID:** {{ environment_uid }}
+- **Component UID:** {{ component_uid }}
+- **Project UID:** {{ project_uid }}
+- **Environment UID:** {{ environment_uid }}
+{% if alert.rule.namespace -%}
+- **Rule Namespace:** {{ alert.rule.namespace }}
+{% endif -%}
 
+{% if alert.rule.source -%}
+### Alert Rule Source
+
+- **Type:** {{ alert.rule.source.type }}
+{% if alert.rule.source.query -%}
+- **Query:** `{{ alert.rule.source.query }}`
+{% endif -%}
+
+{% endif -%}
+{% if alert.rule.condition -%}
+### Alert Rule Condition
+
+- **Window:** {{ alert.rule.condition.window }}
+- **Interval:** {{ alert.rule.condition.interval }}
+- **Operator:** {{ alert.rule.condition.operator }}
+- **Threshold:** {{ alert.rule.condition.threshold }}
+
+{% endif -%}
 {% if meta -%}
-
 ### Additional Context
 
 {{ meta | tojson(indent=2) }}

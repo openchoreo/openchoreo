@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observerlabels "github.com/openchoreo/openchoreo/internal/observer/labels"
@@ -963,13 +965,7 @@ func (s *LoggingService) GetRCAReportByAlert(ctx context.Context, params opensea
 }
 
 // SendAlertNotification sends an alert notification via the configured notification channel
-func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody map[string]interface{}) error {
-	// Extract metadata from the webhook payload
-	ruleName := "unknown-rule"
-	if name, ok := requestBody["ruleName"].(string); ok && name != "" {
-		ruleName = name
-	}
-
+func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody map[string]interface{}, ruleName string) error {
 	notificationChannelName := ""
 	if channel, ok := requestBody["notificationChannel"].(string); ok && channel != "" {
 		notificationChannelName = channel
@@ -1180,12 +1176,7 @@ func getStringFromAny(v interface{}) string {
 }
 
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
-func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[string]interface{}) (string, error) {
-	ruleName := "unknown-rule"
-	if name, ok := requestBody["ruleName"].(string); ok && name != "" {
-		ruleName = name
-	}
-
+func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[string]interface{}, ruleName string) (string, error) {
 	alertEntry := map[string]interface{}{
 		"@timestamp":      requestBody["timestamp"],
 		"alert_rule_name": ruleName,
@@ -1205,4 +1196,99 @@ func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[st
 	}
 
 	return alertID, nil
+}
+
+// GetObservabilityAlertRuleByName retrieves an ObservabilityAlertRule by metadata.name
+func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ruleName, componentUID, projectUID, environmentUID string) (*choreoapis.ObservabilityAlertRule, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// TODO: Remove label selectors and use direct Get by NamespacedName
+	alertRuleList := &choreoapis.ObservabilityAlertRuleList{}
+	if err := s.k8sClient.List(ctx, alertRuleList, client.MatchingLabels{
+		labels.LabelKeyComponentUID:   componentUID,
+		labels.LabelKeyProjectUID:     projectUID,
+		labels.LabelKeyEnvironmentUID: environmentUID,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list ObservabilityAlertRules: %w", err)
+	}
+
+	for i := range alertRuleList.Items {
+		if alertRuleList.Items[i].Name == ruleName {
+			return &alertRuleList.Items[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("ObservabilityAlertRule %q not found", ruleName)
+}
+
+// TriggerRCAAnalysis triggers an AI RCA analysis for the given alert.
+// It enriches the payload with CRD data and sends an async request to the RCA service.
+func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL string, alertID string, requestBody map[string]interface{}, alertRule *choreoapis.ObservabilityAlertRule) {
+	ruleName, _ := requestBody["ruleName"].(string)
+
+	// Build the rule info with basic name
+	ruleInfo := map[string]interface{}{
+		"name": ruleName,
+	}
+
+	// Enrich with CRD data if available
+	if alertRule != nil {
+		ruleInfo["namespace"] = alertRule.Namespace
+
+		if alertRule.Spec.Description != "" {
+			ruleInfo["description"] = alertRule.Spec.Description
+		}
+		if alertRule.Spec.Severity != "" {
+			ruleInfo["severity"] = string(alertRule.Spec.Severity)
+		}
+
+		ruleInfo["source"] = map[string]interface{}{
+			"type":  string(alertRule.Spec.Source.Type),
+			"query": alertRule.Spec.Source.Query,
+		}
+
+		ruleInfo["condition"] = map[string]interface{}{
+			"window":    alertRule.Spec.Condition.Window.Duration.String(),
+			"interval":  alertRule.Spec.Condition.Interval.Duration.String(),
+			"operator":  alertRule.Spec.Condition.Operator,
+			"threshold": alertRule.Spec.Condition.Threshold,
+		}
+
+		s.logger.Debug("Enriched RCA payload with ObservabilityAlertRule data", "ruleName", ruleName)
+	}
+
+	// Build the RCA service request payload
+	rcaPayload := map[string]interface{}{
+		"componentUid":   requestBody["componentUid"],
+		"projectUid":     requestBody["projectUid"],
+		"environmentUid": requestBody["environmentUid"],
+		"alert": map[string]interface{}{
+			"id":        alertID,
+			"value":     requestBody["alertValue"],
+			"timestamp": requestBody["timestamp"],
+			"rule":      ruleInfo,
+		},
+	}
+
+	// Fire-and-forget request to AI RCA service
+	go func() {
+		payloadBytes, err := json.Marshal(rcaPayload)
+		if err != nil {
+			s.logger.Error("Failed to marshal RCA request payload", "error", err)
+			return
+		}
+
+		resp, err := http.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
+		if err != nil {
+			s.logger.Error("Failed to send RCA analysis request", "error", err)
+			return
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+
+		s.logger.Debug("AI RCA analysis triggered", "alertID", alertID)
+	}()
 }

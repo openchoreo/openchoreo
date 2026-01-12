@@ -20,6 +20,8 @@ def setup_logging(level: str = "INFO"):
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("mcp.client.streamable_http").setLevel(logging.WARNING)
+    logging.getLogger("opensearch").setLevel(logging.WARNING)
 
     uvicorn_access = logging.getLogger("uvicorn.access")
     uvicorn_access.addFilter(HealthcheckFilter())

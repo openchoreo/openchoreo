@@ -176,3 +176,14 @@ go.mod.tidy: ## Run go mod tidy to clean up go.mod file.
 
 .PHONY: go.mod.lint
 go.mod.lint: go.mod.tidy ## Lint go.mod file.
+
+#-----------------------------------------------------------------------------
+# OpenAPI Code Generation
+#-----------------------------------------------------------------------------
+
+.PHONY: openapi-codegen
+openapi-codegen: oapi-codegen ## Generate Go server code from OpenAPI spec.
+	@$(call log, "Generating OpenAPI models")
+	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-models.yaml openapi/openchoreo-api.yaml
+	@$(call log, "Generating OpenAPI server interface")
+	$(OAPI_CODEGEN) -config internal/openchoreo-api/api/cfg-server.yaml openapi/openchoreo-api.yaml

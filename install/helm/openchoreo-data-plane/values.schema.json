@@ -786,487 +786,284 @@
       "title": "fakeSecretStore",
       "type": "object"
     },
-    "fluentBit": {
-      "additionalProperties": false,
-      "description": "Fluent Bit log collector configuration for forwarding container logs to OpenSearch",
+    "fluent-bit": {
+      "additionalProperties": true,
+      "description": "Fluent Bit subchart configuration for log collection and forwarding to OpenSearch",
       "properties": {
         "config": {
-          "additionalProperties": false,
-          "description": "Fluent Bit pipeline configuration (service, input, filter, output)",
+          "additionalProperties": true,
+          "description": "Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)",
           "properties": {
-            "filter": {
-              "additionalProperties": false,
-              "description": "Kubernetes filter configuration for enriching logs with pod metadata",
-              "properties": {
-                "k8sLoggingExclude": {
-                  "default": false,
-                  "description": "Respect Kubernetes logging exclude annotations",
-                  "required": [],
-                  "title": "k8sLoggingExclude",
-                  "type": "boolean"
-                },
-                "k8sLoggingParser": {
-                  "default": true,
-                  "description": "Use Kubernetes logging parser annotations",
-                  "required": [],
-                  "title": "k8sLoggingParser",
-                  "type": "boolean"
-                },
-                "kubeCAFile": {
-                  "default": "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
-                  "description": "Path to Kubernetes CA certificate file",
-                  "required": [],
-                  "title": "kubeCAFile",
-                  "type": "string"
-                },
-                "kubeTagPrefix": {
-                  "default": "kube.var.log.containers.",
-                  "description": "Tag prefix for Kubernetes metadata enrichment",
-                  "required": [],
-                  "title": "kubeTagPrefix",
-                  "type": "string"
-                },
-                "kubeTokenFile": {
-                  "default": "/var/run/secrets/kubernetes.io/serviceaccount/token",
-                  "description": "Path to Kubernetes service account token file",
-                  "required": [],
-                  "title": "kubeTokenFile",
-                  "type": "string"
-                },
-                "kubeURL": {
-                  "default": "https://kubernetes.default.svc:443",
-                  "description": "Kubernetes API server URL",
-                  "required": [],
-                  "title": "kubeURL",
-                  "type": "string"
-                },
-                "match": {
-                  "default": "kube.*",
-                  "description": "Tag pattern to match for filtering",
-                  "required": [],
-                  "title": "match",
-                  "type": "string"
-                },
-                "mergeLog": {
-                  "default": true,
-                  "description": "Merge log content into the main record",
-                  "required": [],
-                  "title": "mergeLog",
-                  "type": "boolean"
-                },
-                "mergeLogKey": {
-                  "default": "log_processed",
-                  "description": "Key name for merged log content",
-                  "required": [],
-                  "title": "mergeLogKey",
-                  "type": "string"
-                },
-                "name": {
-                  "default": "kubernetes",
-                  "description": "Filter plugin name",
-                  "required": [],
-                  "title": "name",
-                  "type": "string"
-                }
-              },
+            "customParsers": {
+              "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
+              "description": "Custom parser definitions in Fluent Bit configuration format",
               "required": [],
-              "title": "filter",
-              "type": "object"
+              "title": "customParsers",
+              "type": "string"
             },
-            "input": {
-              "additionalProperties": false,
+            "filters": {
+              "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
+              "description": "Filter plugin configuration for log processing",
+              "required": [],
+              "title": "filters",
+              "type": "string"
+            },
+            "inputs": {
+              "default": "[INPUT]\n    Name tail\n    Buffer_Chunk_Size 32KB\n    Buffer_Max_Size 2MB\n    DB /var/lib/fluent-bit/db/tail-container-logs.db\n    Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-data-plane_*.log\n    Inotify_Watcher false\n    Mem_Buf_Limit 256MB\n    Path /var/log/containers/*.log\n    multiline.parser docker, cri\n    Read_from_Head On\n    Refresh_Interval 5\n    Skip_Long_Lines On\n    Tag kube.*\n",
               "description": "Input plugin configuration for log collection",
-              "properties": {
-                "db": {
-                  "default": "/var/log/flb_kube.db",
-                  "description": "Database file path for tracking read positions",
-                  "required": [],
-                  "title": "db",
-                  "type": "string"
-                },
-                "excludePath": {
-                  "default": "/var/log/containers/*opensearch*_openchoreo-observability-plane_*.log,/var/log/containers/*fluent-bit*_openchoreo-data-plane_*.log",
-                  "description": "Glob pattern for log files to exclude from collection",
-                  "required": [],
-                  "title": "excludePath",
-                  "type": "string"
-                },
-                "inotifyWatcher": {
-                  "default": false,
-                  "description": "Use inotify for file watching (disable on some systems)",
-                  "required": [],
-                  "title": "inotifyWatcher",
-                  "type": "boolean"
-                },
-                "memBufLimit": {
-                  "default": "256MB",
-                  "description": "Memory buffer limit before backpressure",
-                  "required": [],
-                  "title": "memBufLimit",
-                  "type": "string"
-                },
-                "name": {
-                  "default": "tail",
-                  "description": "Input plugin name (tail for file-based log collection)",
-                  "required": [],
-                  "title": "name",
-                  "type": "string"
-                },
-                "parser": {
-                  "default": "docker",
-                  "description": "Parser to use for log entries",
-                  "required": [],
-                  "title": "parser",
-                  "type": "string"
-                },
-                "path": {
-                  "default": "/var/log/containers/*_openchoreo-*_*.log,/var/log/containers/*_dp-*_*.log,/var/log/containers/*_openchoreo-ci-*_*.log",
-                  "description": "Glob pattern for container log files to collect",
-                  "required": [],
-                  "title": "path",
-                  "type": "string"
-                },
-                "refreshInterval": {
-                  "default": 10,
-                  "description": "File refresh interval in seconds",
-                  "minimum": 1,
-                  "required": [],
-                  "title": "refreshInterval",
-                  "type": "integer"
-                },
-                "skipLongLines": {
-                  "default": true,
-                  "description": "Skip lines longer than buffer limit",
-                  "required": [],
-                  "title": "skipLongLines",
-                  "type": "boolean"
-                },
-                "tag": {
-                  "default": "kube.*",
-                  "description": "Tag pattern for collected logs",
-                  "required": [],
-                  "title": "tag",
-                  "type": "string"
-                }
-              },
               "required": [],
-              "title": "input",
-              "type": "object"
+              "title": "inputs",
+              "type": "string"
             },
-            "opensearch": {
-              "additionalProperties": false,
-              "description": "OpenSearch connection configuration",
-              "properties": {
-                "authentication": {
-                  "additionalProperties": false,
-                  "description": "OpenSearch authentication configuration",
-                  "properties": {
-                    "basicauth": {
-                      "additionalProperties": false,
-                      "description": "Basic authentication credentials",
-                      "properties": {
-                        "password": {
-                          "default": "ThisIsTheOpenSearchPassword1",
-                          "description": "OpenSearch password",
-                          "required": [],
-                          "title": "password",
-                          "type": "string"
-                        },
-                        "username": {
-                          "default": "admin",
-                          "description": "OpenSearch username",
-                          "required": [],
-                          "title": "username",
-                          "type": "string"
-                        }
-                      },
-                      "required": [],
-                      "title": "basicauth",
-                      "type": "object"
-                    }
-                  },
-                  "required": [],
-                  "title": "authentication",
-                  "type": "object"
-                },
-                "host": {
-                  "default": "opensearch.openchoreo-observability-plane.svc.cluster.local",
-                  "description": "OpenSearch host address",
-                  "required": [],
-                  "title": "host",
-                  "type": "string"
-                },
-                "port": {
-                  "default": "9200",
-                  "description": "OpenSearch port",
-                  "required": [],
-                  "title": "port",
-                  "type": "string"
-                },
-                "tls": {
-                  "default": true,
-                  "description": "Enable TLS for OpenSearch connection",
-                  "required": [],
-                  "title": "tls",
-                  "type": "boolean"
-                },
-                "tlsVerify": {
-                  "default": false,
-                  "description": "Verify TLS certificate (disable for self-signed certs)",
-                  "required": [],
-                  "title": "tlsVerify",
-                  "type": "boolean"
-                }
-              },
+            "outputs": {
+              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "description": "Output plugin configuration for log forwarding to OpenSearch",
               "required": [],
-              "title": "opensearch",
-              "type": "object"
-            },
-            "output": {
-              "additionalProperties": false,
-              "description": "Output plugin configuration for sending logs to OpenSearch",
-              "properties": {
-                "logstashFormat": {
-                  "default": true,
-                  "description": "Use Logstash-compatible index format",
-                  "required": [],
-                  "title": "logstashFormat",
-                  "type": "boolean"
-                },
-                "logstashPrefix": {
-                  "default": "container-logs",
-                  "description": "Index prefix for Logstash format",
-                  "required": [],
-                  "title": "logstashPrefix",
-                  "type": "string"
-                },
-                "match": {
-                  "default": "kube.*",
-                  "description": "Tag pattern to match for output",
-                  "required": [],
-                  "title": "match",
-                  "type": "string"
-                },
-                "name": {
-                  "default": "opensearch",
-                  "description": "Output plugin name",
-                  "required": [],
-                  "title": "name",
-                  "type": "string"
-                },
-                "suppressTypeName": {
-                  "default": true,
-                  "description": "Suppress type name in output (OpenSearch 2.x compatibility)",
-                  "required": [],
-                  "title": "suppressTypeName",
-                  "type": "boolean"
-                },
-                "timeKey": {
-                  "default": "@timestamp",
-                  "description": "Field name for timestamp in output records",
-                  "required": [],
-                  "title": "timeKey",
-                  "type": "string"
-                },
-                "traceError": {
-                  "default": true,
-                  "description": "Enable trace-level error logging for debugging",
-                  "required": [],
-                  "title": "traceError",
-                  "type": "boolean"
-                },
-                "type": {
-                  "default": "flb_type",
-                  "description": "Type field value in output records",
-                  "required": [],
-                  "title": "type",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "output",
-              "type": "object"
-            },
-            "parser": {
-              "additionalProperties": false,
-              "description": "Log parser configuration",
-              "properties": {
-                "format": {
-                  "default": "json",
-                  "description": "Log format type",
-                  "required": [],
-                  "title": "format",
-                  "type": "string"
-                },
-                "name": {
-                  "default": "docker",
-                  "description": "Parser name",
-                  "required": [],
-                  "title": "name",
-                  "type": "string"
-                },
-                "timeFormat": {
-                  "default": "%Y-%m-%dT%H:%M:%S.%L",
-                  "description": "strptime format string for parsing timestamps",
-                  "required": [],
-                  "title": "timeFormat",
-                  "type": "string"
-                },
-                "timeKeep": {
-                  "default": true,
-                  "description": "Keep the original time field in output",
-                  "required": [],
-                  "title": "timeKeep",
-                  "type": "boolean"
-                },
-                "timeKey": {
-                  "default": "time",
-                  "description": "Field name containing timestamp",
-                  "required": [],
-                  "title": "timeKey",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "parser",
-              "type": "object"
-            },
-            "service": {
-              "additionalProperties": false,
-              "description": "Fluent Bit service configuration",
-              "properties": {
-                "daemon": {
-                  "default": "off",
-                  "description": "Run Fluent Bit as a daemon (background process)",
-                  "enum": [
-                    "on",
-                    "off"
-                  ],
-                  "required": [],
-                  "title": "daemon"
-                },
-                "flush": {
-                  "default": 1,
-                  "description": "Flush interval in seconds for output plugins",
-                  "minimum": 1,
-                  "required": [],
-                  "title": "flush",
-                  "type": "integer"
-                },
-                "logLevel": {
-                  "default": "info",
-                  "description": "Log level for Fluent Bit service",
-                  "enum": [
-                    "off",
-                    "error",
-                    "warn",
-                    "info",
-                    "debug",
-                    "trace"
-                  ],
-                  "required": [],
-                  "title": "logLevel"
-                }
-              },
-              "required": [],
-              "title": "service",
-              "type": "object"
+              "title": "outputs",
+              "type": "string"
             }
           },
           "required": [],
           "title": "config",
           "type": "object"
         },
+        "dnsPolicy": {
+          "default": "ClusterFirstWithHostNet",
+          "description": "DNS policy for Fluent Bit pods",
+          "enum": [
+            "ClusterFirst",
+            "ClusterFirstWithHostNet",
+            "Default",
+            "None"
+          ],
+          "required": [],
+          "title": "dnsPolicy"
+        },
         "enabled": {
-          "default": true,
-          "description": "Enable Fluent Bit DaemonSet for log collection",
+          "default": false,
+          "description": "Enable Fluent Bit log collector deployment",
           "required": [],
           "title": "enabled",
           "type": "boolean"
         },
-        "hostPaths": {
-          "additionalProperties": false,
-          "description": "Host path mounts for accessing container logs",
-          "properties": {
-            "dockerContainers": {
-              "default": "/var/lib/docker/containers",
-              "description": "Host path to Docker containers directory",
-              "required": [],
-              "title": "dockerContainers",
-              "type": "string"
-            },
-            "varLog": {
-              "default": "/var/log",
-              "description": "Host path to /var/log directory",
-              "required": [],
-              "title": "varLog",
-              "type": "string"
-            }
+        "extraVolumeMounts": {
+          "description": "Extra volume mounts for the Fluent Bit container",
+          "items": {
+            "required": [],
+            "type": "object"
           },
           "required": [],
-          "title": "hostPaths",
-          "type": "object"
+          "title": "extraVolumeMounts",
+          "type": "array"
         },
-        "image": {
-          "additionalProperties": false,
-          "description": "Container image configuration for Fluent Bit",
-          "properties": {
-            "pullPolicy": {
-              "default": "IfNotPresent",
-              "description": "Image pull policy",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
-              "required": [],
-              "title": "pullPolicy"
-            },
-            "repository": {
-              "default": "fluent/fluent-bit",
-              "description": "Fluent Bit image repository",
-              "required": [],
-              "title": "repository",
-              "type": "string"
-            },
-            "tag": {
-              "default": "2.1.10",
-              "description": "Fluent Bit image tag",
-              "required": [],
-              "title": "tag",
-              "type": "string"
-            }
+        "extraVolumes": {
+          "description": "Extra volumes for the Fluent Bit pod",
+          "items": {
+            "required": [],
+            "type": "object"
           },
           "required": [],
-          "title": "image",
-          "type": "object"
+          "title": "extraVolumes",
+          "type": "array"
+        },
+        "fullnameOverride": {
+          "default": "fluent-bit",
+          "description": "Override the full name of Fluent Bit resources",
+          "required": [],
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "hostNetwork": {
+          "default": true,
+          "description": "Use host network for Fluent Bit pods (required for node log access)",
+          "required": [],
+          "title": "hostNetwork",
+          "type": "boolean"
+        },
+        "initContainers": {
+          "description": "Init containers for the Fluent Bit pod (used to set volume ownership)",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "required": [],
+          "title": "initContainers",
+          "type": "array"
+        },
+        "metricsPort": {
+          "default": 2021,
+          "description": "Port for Fluent Bit metrics endpoint",
+          "maximum": 65535,
+          "minimum": 1,
+          "required": [],
+          "title": "metricsPort",
+          "type": "integer"
         },
         "rbac": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "description": "RBAC configuration for Fluent Bit",
           "properties": {
-            "create": {
+            "nodeAccess": {
               "default": true,
-              "description": "Create RBAC resources (ClusterRole, ClusterRoleBinding)",
+              "description": "Enable node-level access for reading container logs",
               "required": [],
-              "title": "create",
+              "title": "nodeAccess",
               "type": "boolean"
-            },
-            "serviceAccountName": {
-              "default": "fluent-bit",
-              "description": "Service account name for Fluent Bit pods",
-              "required": [],
-              "title": "serviceAccountName",
-              "type": "string"
             }
           },
           "required": [],
           "title": "rbac",
           "type": "object"
+        },
+        "resources": {
+          "additionalProperties": true,
+          "description": "Resource requests and limits for Fluent Bit",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "description": "CPU limit for Fluent Bit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "description": "Memory limit for Fluent Bit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request for Fluent Bit",
+                  "required": [],
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory request for Fluent Bit",
+                  "required": [],
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "securityContext": {
+          "additionalProperties": true,
+          "description": "Security context for the Fluent Bit container",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "required": [],
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": true,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "description": "Capabilities to drop",
+                  "items": {
+                    "required": [],
+                    "type": "string"
+                  },
+                  "required": [],
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "description": "Mount root filesystem as read-only",
+              "required": [],
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run container as non-root user",
+              "required": [],
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 10000,
+              "description": "User ID to run the container",
+              "minimum": 0,
+              "required": [],
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "securityContext",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": true,
+          "description": "Service configuration for Fluent Bit",
+          "properties": {
+            "port": {
+              "default": 2021,
+              "description": "Service port for Fluent Bit metrics",
+              "maximum": 65535,
+              "minimum": 1,
+              "required": [],
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "testFramework": {
+          "additionalProperties": true,
+          "description": "Test framework configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable Fluent Bit test framework",
+              "required": [],
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "testFramework",
+          "type": "object"
         }
       },
       "required": [],
-      "title": "fluentBit",
+      "title": "fluent-bit",
       "type": "object"
     },
     "gateway": {

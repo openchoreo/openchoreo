@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/handlers"
@@ -75,11 +77,25 @@ func main() {
 	// Initialize logging service
 	loggingService := service.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger)
 
+	// Initialize authz client
+	var authzPDP authzcore.PDP
+	if cfg.Authz.Enabled {
+		authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
+		if err != nil {
+			logger.Error("Failed to create authz client", "error", err)
+			os.Exit(1)
+		}
+		authzPDP = authzClient
+		logger.Info("Authorization client initialized")
+	}
+
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
 	// Initialize handlers
-	handler := handlers.NewHandler(loggingService, logger, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL)
+	handler := handlers.NewHandler(
+		loggingService, logger, authzPDP, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL,
+	)
 
 	// ===== Initialize Middlewares =====
 
@@ -111,7 +127,7 @@ func main() {
 	mux.HandleFunc("GET /api/rca-reports/alert/{alertId}", handlers.RequireRCA(handler.GetRCAReportByAlert))
 
 	// Initialize JWT middleware
-	jwtAuth := initJWTMiddleware(logger)
+	jwtAuth := initJWTMiddleware(cfg, logger)
 
 	// Create protected route group with JWT auth
 	api := routes.With(jwtAuth)
@@ -215,24 +231,37 @@ func createBootstrapLogger() *slog.Logger {
 }
 
 // initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
-func initJWTMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handler) http.Handler {
 	jwtDisabled := os.Getenv(apiconfig.EnvJWTDisabled) == "true"
 	jwksURL := os.Getenv(apiconfig.EnvJWKSURL)
 	jwtIssuer := os.Getenv(apiconfig.EnvJWTIssuer)
 	jwtAudience := os.Getenv(apiconfig.EnvJWTAudience)
 	jwksURLTLSInsecureSkipVerify := os.Getenv(apiconfig.EnvJWKSURLTLSInsecureSkipVerify) == "true"
 
+	// Create OAuth2 user type detector from configuration
+	var detector *jwt.Resolver
+	if len(cfg.Auth.UserTypes) > 0 {
+		var err error
+		detector, err = jwt.NewResolver(cfg.Auth.UserTypes)
+		if err != nil {
+			logger.Error("Failed to create JWT subject resolver", "error", err)
+		} else {
+			logger.Info("JWT subject resolver initialized", "user_types_count", len(cfg.Auth.UserTypes))
+		}
+	}
+
 	// Configure JWT middleware
-	config := jwt.Config{
+	jwtConfig := jwt.Config{
 		Disabled:                     jwtDisabled,
 		JWKSURL:                      jwksURL,
 		ValidateIssuer:               jwtIssuer,
 		ValidateAudience:             jwtAudience,
 		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
+		Detector:                     detector,
 		Logger:                       logger,
 	}
 
-	return jwt.Middleware(config)
+	return jwt.Middleware(jwtConfig)
 }
 
 // initMCPMiddleware initializes the MCP middleware that adds WWW-Authenticate header to 401 responses

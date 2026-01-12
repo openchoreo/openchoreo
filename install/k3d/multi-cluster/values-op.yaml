@@ -1,25 +1,69 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 # This file contains overrides specific to running the observability plane in a k3d environment
 
+
+fluent-bit:
+  enabled: true
+
+  config:
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 9200
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+
 kgateway:
   enabled: true
 
 observer:
   service:
     type: LoadBalancer
+  extraEnvs:
+  - name: OBSERVER_BASE_URL
+    value: "http://localhost:11080"
+  - name: AUTH_SERVER_BASE_URL
+    value: "http://thunder.openchoreo.localhost:8080"
+  - name: OPENSEARCH_ADDRESS
+    value: "https://opensearch:9200"
+  - name: PROMETHEUS_ADDRESS
+    value: "http://openchoreo-observability-prometheus:9091"
+  - name: PROMETHEUS_TIMEOUT
+    value: "30s"
+  - name: ALERTING_WEBHOOK_SECRET
+    value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
+  - name: AUTHZ_ENABLED
+    value: "false"
+  - name: AUTHZ_SERVICE_URL
+    value: "http://api.openchoreo.localhost:8080"
+  - name: AUTHZ_TIMEOUT
+    value: "30s"
 
 openSearchDashboards:
   service:
     type: LoadBalancer
 
 openSearch:
-  enabled: true
+  enabled: false
   # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
   service:
     type: LoadBalancer
 
 openSearchCluster:
-  enabled: false
+  enabled: true
+
+opentelemetry-collector:
+  service:
+    type: LoadBalancer
 
 prometheus:
   enabled: true
@@ -63,6 +107,13 @@ clusterAgent:
 
 gateway:
   enabled: true
+
+  envoy:
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true
 
 security:
   oidc:

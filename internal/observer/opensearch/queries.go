@@ -112,11 +112,26 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 	}
 	mustConditions = addTimeRangeFilter(mustConditions, params.QueryParams.StartTime, params.QueryParams.EndTime)
 
+	// Logs from init and wait containers are not relevant to the build logs. Hence, excluded.
+	mustNotConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "init",
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "wait",
+			},
+		},
+	}
+
 	query := map[string]interface{}{
 		"size": params.QueryParams.Limit,
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must": mustConditions,
+				"must":     mustConditions,
+				"must_not": mustNotConditions,
 			},
 		},
 		"sort": []map[string]interface{}{
@@ -419,13 +434,13 @@ func (qb *QueryBuilder) GenerateIndices(startTime, endTime string) ([]string, er
 	current := start
 
 	for current.Before(end) || current.Equal(end) {
-		indexName := qb.indexPrefix + current.Format("2006.01.02")
+		indexName := qb.indexPrefix + current.Format("2006-01-02")
 		indices = append(indices, indexName)
 		current = current.AddDate(0, 0, 1) // Add 1 day
 	}
 
 	// Handle edge case where end date might need its own index
-	endIndexName := qb.indexPrefix + end.Format("2006.01.02")
+	endIndexName := qb.indexPrefix + end.Format("2006-01-02")
 	if !contains(indices, endIndexName) {
 		indices = append(indices, endIndexName)
 	}

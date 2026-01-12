@@ -97,9 +97,15 @@ spec:
               key: password
         - name: AI_RCA_ENABLED
           value: {{ .Values.rca.enabled | default false | quote }}
+        - name: OBSERVER_AUTH_CONFIG_PATH
+          value: /etc/openchoreo/auth-config.yaml
         {{- if .Values.observer.extraEnvs }}
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}
+        volumeMounts:
+        - name: auth-config
+          mountPath: /etc/openchoreo
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
@@ -135,3 +141,7 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 65532
+      volumes:
+      - name: auth-config
+        configMap:
+          name: observer-auth-config

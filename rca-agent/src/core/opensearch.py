@@ -45,6 +45,7 @@ class OpenSearchClient:
         alert_id: str,
         status: str = "pending",
         report: RCAReport | None = None,
+        summary: str | None = None,
         timestamp: datetime | None = None,
         environment_uid: str | None = None,
         organization_uid: str | None = None,
@@ -72,6 +73,8 @@ class OpenSearchClient:
         if report is not None:
             document["summary"] = report.summary
             document["report"] = report.model_dump()
+        elif summary is not None:
+            document["summary"] = summary
 
         try:
             response = self.client.index(index=index_name, body=document, id=report_id)
@@ -86,7 +89,7 @@ class OpenSearchClient:
     def check_connection(self) -> bool:
         try:
             info = self.client.info()
-            logger.info(f"Successfully connected to OpenSearch: {info['version']['number']}")
+            logger.debug(f"Successfully connected to OpenSearch: {info['version']['number']}")
             return True
         except OpenSearchException as e:
             logger.error(f"Failed to connect to OpenSearch: {e}")

@@ -222,7 +222,7 @@ func buildAlertingRuleRequest(rule *openchoreov1alpha1.ObservabilityAlertRule) (
 
 	req := &AlertingRuleRequest{
 		Metadata: AlertingRuleMetadata{
-			Name:                      spec.Name,
+			Name:                      rule.Name,
 			ComponentUID:              componentUID,
 			ProjectUID:                projectUID,
 			EnvironmentUID:            environmentUID,

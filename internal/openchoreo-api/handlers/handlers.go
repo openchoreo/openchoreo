@@ -72,7 +72,7 @@ func (h *Handler) Routes() http.Handler {
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
 	// JWT authentication middleware - applies to protected routes only
-	jwtAuth := h.initJWTMiddleware()
+	jwtAuth := h.InitJWTMiddleware()
 
 	// MCP endpoint
 	toolsets := getMCPServerToolsets(h)
@@ -205,8 +205,13 @@ func (h *Handler) listUserTypes(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, userTypes)
 }
 
-// initJWTMiddleware initializes the JWT authentication middleware with configuration from environment
-func (h *Handler) initJWTMiddleware() func(http.Handler) http.Handler {
+// InitJWTMiddleware initializes the JWT authentication middleware with configuration from environment.
+// Exported for reuse by the new OpenAPI-generated server.
+//
+// TODO: Refactor to move JWT configuration to the config package. Reading environment variables
+// should not be the responsibility of the handlers package. Consider creating a config.JWTConfig
+// struct and a config.NewJWTMiddleware() function instead.
+func (h *Handler) InitJWTMiddleware() func(http.Handler) http.Handler {
 	// Get JWT configuration from environment variables
 	jwtDisabled := os.Getenv(config.EnvJWTDisabled) == "true"
 	jwksURL := os.Getenv(config.EnvJWKSURL)

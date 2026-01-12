@@ -11,6 +11,9 @@ import (
 
 	"github.com/knadh/koanf/providers/confmap"
 	"github.com/knadh/koanf/v2"
+	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
 // Config holds all configuration for the logging service
@@ -19,6 +22,7 @@ type Config struct {
 	OpenSearch OpenSearchConfig `koanf:"opensearch"`
 	Prometheus PrometheusConfig `koanf:"prometheus"`
 	Auth       AuthConfig       `koanf:"auth"`
+	Authz      AuthzConfig      `koanf:"authz"`
 	Logging    LoggingConfig    `koanf:"logging"`
 	Alerting   AlertingConfig   `koanf:"alerting"`
 	LogLevel   string           `koanf:"loglevel"`
@@ -52,9 +56,17 @@ type PrometheusConfig struct {
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
-	JWTSecret    string `koanf:"jwt.secret"`
-	EnableAuth   bool   `koanf:"enable.auth"`
-	RequiredRole string `koanf:"required.role"`
+	JWTSecret    string                   `koanf:"jwt.secret"`
+	EnableAuth   bool                     `koanf:"enable.auth"`
+	RequiredRole string                   `koanf:"required.role"`
+	UserTypes    []subject.UserTypeConfig `koanf:"user_types"`
+}
+
+// AuthzConfig holds authorization configuration
+type AuthzConfig struct {
+	Enabled    bool          `koanf:"enabled"`
+	ServiceURL string        `koanf:"service.url"`
+	Timeout    time.Duration `koanf:"timeout"`
 }
 
 // LoggingConfig holds application logging configuration
@@ -85,6 +97,27 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to load defaults: %w", err)
 	}
 
+	// Load auth config file for JWT subject resolution
+	authConfigPath := os.Getenv("OBSERVER_AUTH_CONFIG_PATH")
+	if authConfigPath == "" {
+		authConfigPath = "auth-config.yaml"
+	}
+
+	var authCfg struct {
+		Auth struct {
+			UserTypes []subject.UserTypeConfig `yaml:"user_types"`
+		} `yaml:"auth"`
+	}
+	if _, err := os.Stat(authConfigPath); err == nil {
+		data, err := os.ReadFile(authConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read auth config file: %w", err)
+		}
+		if err := yaml.Unmarshal(data, &authCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse auth config file: %w", err)
+		}
+	}
+
 	// Load environment variables for specific keys we care about
 	envOverrides := make(map[string]interface{})
 
@@ -107,6 +140,9 @@ func Load() (*Config, error) {
 		"AUTH_JWT_SECRET":                 "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":              "auth.required.role",
+		"AUTHZ_ENABLED":                   "authz.enabled",
+		"AUTHZ_SERVICE_URL":               "authz.service.url",
+		"AUTHZ_TIMEOUT":                   "authz.timeout",
 		"LOGGING_MAX_LOG_LIMIT":           "logging.max.log.limit",
 		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
@@ -160,6 +196,17 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Assign user types from separately loaded auth config
+	cfg.Auth.UserTypes = authCfg.Auth.UserTypes
+
+	// Validate and sort user types configuration
+	if len(cfg.Auth.UserTypes) > 0 {
+		if err := subject.ValidateConfig(cfg.Auth.UserTypes); err != nil {
+			return nil, fmt.Errorf("invalid user type config: %w", err)
+		}
+		subject.SortByPriority(cfg.Auth.UserTypes)
+	}
+
 	// Validate configuration
 	if err := cfg.validate(); err != nil {
 		return nil, fmt.Errorf("invalid configuration: %w", err)
@@ -195,6 +242,11 @@ func getDefaults() map[string]interface{} {
 			"enable.auth":   false,
 			"jwt.secret":    "default-secret",
 			"required.role": "user",
+		},
+		"authz": map[string]interface{}{
+			"enabled":     false,
+			"service.url": "http://localhost:8080",
+			"timeout":     "30s",
 		},
 		"logging": map[string]interface{}{
 			"max.log.limit":           10000,
@@ -235,6 +287,15 @@ func (c *Config) validate() error {
 
 	if c.Logging.MaxLogLimit <= 0 {
 		return fmt.Errorf("max log limit must be positive")
+	}
+
+	if c.Authz.Enabled {
+		if c.Authz.ServiceURL == "" {
+			return fmt.Errorf("authz service URL is required when authz is enabled")
+		}
+		if c.Authz.Timeout <= 0 {
+			return fmt.Errorf("authz timeout must be positive")
+		}
 	}
 
 	return nil

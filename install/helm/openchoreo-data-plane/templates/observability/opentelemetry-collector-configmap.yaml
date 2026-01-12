@@ -21,7 +21,7 @@ data:
 
     exporters:
       otlp:
-        endpoint: {{ .Values.observability.observabilityPlaneUrl }}:4317
+        endpoint: {{ .Values.observability.observabilityPlaneUrl }}
         tls:
           insecure: true # TODO: Enable mTLS between collectors
 

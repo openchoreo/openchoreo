@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     rca_llm_api_key: str = ""
 
     # URLs configurable via environment
-    mcp_observability_url: str = "http://observer:8080/mcp"
-    mcp_openchoreo_url: str = (
+    observer_mcp_url: str = "http://observer:8080/mcp"
+    openchoreo_mcp_url: str = (
         "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp"
     )
 

@@ -34,14 +34,26 @@ clusterAgent:
   rbac:
     create: true
 
-fluentBit:
+fluent-bit:
+  enabled: true
+
   config:
-    # OpenSearch connection for multi-cluster setup
-    # Points to OpenSearch in the observability plane via host.k3d.internal
-    # Routed though the host machine to reach the Observability Plane
-    opensearch:
-      host: "host.k3d.internal"
-      port: "11082"
+    outputs: |
+      [OUTPUT]
+          Name opensearch
+          Host host.k3d.internal
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix container-logs
+          Match kube.*
+          Port 11085
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+          tls.vhost opensearch.observability.openchoreo.localhost
 
 gateway:
   # Enable gateway
@@ -69,3 +81,6 @@ kube-prometheus-stack:
 # External Secrets Operator configuration
 external-secrets:
   enabled: true
+
+observability:
+  observabilityPlaneUrl: "http://host.k3d.internal:11086"

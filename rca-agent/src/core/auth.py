@@ -70,7 +70,7 @@ def get_oauth2_auth() -> OAuth2ClientCredentialsAuth | None:
         logger.debug("OAuth2 credentials not configured")
         return None
 
-    logger.info("OAuth2 authentication enabled: %s", settings.oauth_token_url)
+    logger.debug("OAuth2 authentication enabled: %s", settings.oauth_token_url)
     return OAuth2ClientCredentialsAuth(
         token_url=settings.oauth_token_url,
         client_id=settings.oauth_client_id,

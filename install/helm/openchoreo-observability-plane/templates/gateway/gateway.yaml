@@ -2,21 +2,15 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: kgateway-envoy
+  name: gateway-default
   namespace: {{ .Release.Namespace }}
 spec:
   gatewayClassName: kgateway
   listeners:
-    - name: https
-      protocol: HTTPS
-      port: {{ .Values.gateway.httpsPort | default 443 }}
-      allowedRoutes:
-        namespaces:
-          from: All
+    - name: tls
+      protocol: TLS
+      hostname: opensearch.{{ .Values.global.baseDomain }}
       tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: openchoreo-observability-plane-wildcard
-            namespace: {{ .Release.Namespace }}
+        mode: Passthrough
+      port: 443
 {{- end }}

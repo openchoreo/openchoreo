@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # MCP Server registry and configuration
 MCP_CONFIG: dict[str, dict] = {
     "observability": {
-        "env_url_key": "mcp_observability_url",
+        "env_url_key": "observer_mcp_url",
         "allowed_tools": [
             obs_tools.GET_TRACES,
             obs_tools.GET_COMPONENT_LOGS,
@@ -25,7 +25,7 @@ MCP_CONFIG: dict[str, dict] = {
         "requires_auth": True,
     },
     "openchoreo": {
-        "env_url_key": "mcp_openchoreo_url",
+        "env_url_key": "openchoreo_mcp_url",
         "allowed_tools": [
             oc_tools.LIST_ENVIRONMENTS,
             oc_tools.LIST_ORGANIZATIONS,
@@ -52,7 +52,7 @@ class MCPClient:
             mcp_config[name] = connection
 
         self._client = MultiServerMCPClient(mcp_config)
-        logger.info("Initialized MCP client with servers: %s", list(mcp_config.keys()))
+        logger.debug("Initialized MCP client with servers: %s", list(mcp_config.keys()))
 
     async def get_tools(self) -> list[BaseTool]:
         try:
@@ -64,7 +64,7 @@ class MCPClient:
         allowed_tools = [tool for config in MCP_CONFIG.values() for tool in config["allowed_tools"]]
         filtered_tools = [tool for tool in available_tools if tool.name in allowed_tools]
 
-        logger.info(
+        logger.debug(
             "Filtered to %d allowed tools: %s",
             len(filtered_tools),
             [tool.name for tool in filtered_tools],
