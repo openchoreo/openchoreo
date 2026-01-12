@@ -16,21 +16,32 @@ import (
 
 // StoredConfig is the structure to store configuration contexts.
 type StoredConfig struct {
-	CurrentContext string        `yaml:"currentContext"`
-	ControlPlane   *ControlPlane `yaml:"controlPlane,omitempty"`
-	Contexts       []Context     `yaml:"contexts"`
+	CurrentContext string         `yaml:"currentContext"`
+	ControlPlanes  []ControlPlane `yaml:"controlplanes"`
+	Credentials    []Credential   `yaml:"credentials,omitempty"`
+	Contexts       []Context      `yaml:"contexts"`
 }
 
 // ControlPlane defines OpenChoreo API server configuration
 type ControlPlane struct {
-	Type     string `yaml:"type"`            // "local" or "remote"
-	Endpoint string `yaml:"endpoint"`        // API server URL
-	Token    string `yaml:"token,omitempty"` // Optional auth token
+	Name          string `yaml:"name"`
+	URL           string `yaml:"url"`
+	TokenEndpoint string `yaml:"tokenEndpoint,omitempty"` // OAuth2 token endpoint
+}
+
+// Credential represents authentication credentials
+type Credential struct {
+	Name         string `yaml:"name"`
+	ClientID     string `yaml:"clientId,omitempty"`
+	ClientSecret string `yaml:"clientSecret,omitempty"`
+	Token        string `yaml:"token,omitempty"`
 }
 
 // Context represents a single named configuration context.
 type Context struct {
 	Name              string `yaml:"name"`
+	ControlPlane      string `yaml:"controlplane"`            // Reference to controlplanes[].name
+	Credentials       string `yaml:"credentials,omitempty"`   // Reference to credentials[].name
 	Organization      string `yaml:"organization,omitempty"`
 	Project           string `yaml:"project,omitempty"`
 	Component         string `yaml:"component,omitempty"`

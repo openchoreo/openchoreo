@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -104,20 +103,30 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 		return err
 	}
 
-	// Print control plane info if available and in kubernetes mode
-	if cfg.ControlPlane != nil && currentCtx.Mode != configContext.ModeFileSystem {
-		fmt.Println("\nControl Plane:")
-		cpHeaders := []string{"PROPERTY", "VALUE"}
-		tokenDisplay := "-"
-		if cfg.ControlPlane.Token != "" {
-			tokenDisplay = maskToken(cfg.ControlPlane.Token)
+	// Print control plane info if available and in API server mode
+	if currentCtx.ControlPlane != "" && currentCtx.Mode != configContext.ModeFileSystem {
+		// Find the control plane by name
+		for _, cp := range cfg.ControlPlanes {
+			if cp.Name == currentCtx.ControlPlane {
+				fmt.Println("\nControl Plane:")
+				cpHeaders := []string{"PROPERTY", "VALUE"}
+				tokenDisplay := "-"
+				// Find credential to check if token exists
+				for _, cred := range cfg.Credentials {
+					if cred.Name == currentCtx.Credentials && cred.Token != "" {
+						tokenDisplay = maskToken(cred.Token)
+						break
+					}
+				}
+				cpRows := [][]string{
+					{"Name", cp.Name},
+					{"URL", cp.URL},
+					{"Token Endpoint", formatValueOrPlaceholder(cp.TokenEndpoint)},
+					{"Token", tokenDisplay},
+				}
+				return printTable(cpHeaders, cpRows)
+			}
 		}
-		cpRows := [][]string{
-			{"Type", cfg.ControlPlane.Type},
-			{"Endpoint", cfg.ControlPlane.Endpoint},
-			{"Token", tokenDisplay},
-		}
-		return printTable(cpHeaders, cpRows)
 	}
 
 	return nil
@@ -361,14 +370,17 @@ func EnsureContext() error {
 			// Set as current context
 			cfg.CurrentContext = defaultContext.Name
 
-			// Set default control plane configuration
-			if cfg.ControlPlane == nil {
-				endpoint, token := getDefaultControlPlaneValues()
-				cfg.ControlPlane = &configContext.ControlPlane{
-					Type:     "local",
-					Endpoint: endpoint,
-					Token:    token,
+			// Set default control plane configuration if not exists
+			if len(cfg.ControlPlanes) == 0 {
+				endpoint, _ := getDefaultControlPlaneValues()
+				cfg.ControlPlanes = []configContext.ControlPlane{
+					{
+						Name: "default",
+						URL:  endpoint,
+					},
 				}
+				// Update context to reference the default control plane
+				cfg.Contexts[len(cfg.Contexts)-1].ControlPlane = "default"
 			}
 
 			// Save the config file
@@ -388,17 +400,67 @@ func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) er
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Determine control plane type based on endpoint
-	cpType := "remote"
-	if strings.HasPrefix(params.Endpoint, "http://localhost") || strings.HasPrefix(params.Endpoint, "http://127.0.0.1") {
-		cpType = "local"
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
 	}
 
-	// Create or update control plane configuration
-	cfg.ControlPlane = &configContext.ControlPlane{
-		Type:     cpType,
-		Endpoint: params.Endpoint,
-		Token:    params.Token,
+	if currentContext == nil {
+		return fmt.Errorf("no current context set")
+	}
+
+	// Update or create control plane
+	cpName := currentContext.ControlPlane
+	if cpName == "" {
+		cpName = "default"
+		currentContext.ControlPlane = cpName
+	}
+
+	// Find and update existing control plane or create new one
+	found := false
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == cpName {
+			cfg.ControlPlanes[idx].URL = params.Endpoint
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+			Name: cpName,
+			URL:  params.Endpoint,
+		})
+	}
+
+	// If token provided, create/update credential
+	if params.Token != "" {
+		credName := currentContext.Credentials
+		if credName == "" {
+			credName = "default"
+			currentContext.Credentials = credName
+		}
+
+		// Find and update existing credential or create new one
+		credFound := false
+		for idx := range cfg.Credentials {
+			if cfg.Credentials[idx].Name == credName {
+				cfg.Credentials[idx].Token = params.Token
+				credFound = true
+				break
+			}
+		}
+
+		if !credFound {
+			cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+				Name:  credName,
+				Token: params.Token,
+			})
+		}
 	}
 
 	if err := SaveStoredConfig(cfg); err != nil {
@@ -406,7 +468,7 @@ func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) er
 	}
 
 	fmt.Printf("Control plane configured successfully:\n")
-	fmt.Printf("  Type: %s\n", cpType)
+	fmt.Printf("  Name: %s\n", cpName)
 	fmt.Printf("  Endpoint: %s\n", params.Endpoint)
 	if params.Token != "" {
 		fmt.Printf("  Token: %s\n", maskToken(params.Token))

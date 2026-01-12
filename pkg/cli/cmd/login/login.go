@@ -17,13 +17,21 @@ func NewLoginCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return (&builder.CommandBuilder{
 		Command: constants.Login,
 		Flags: []flags.Flag{
+			flags.ClientCredentials,
+			flags.ClientID,
+			flags.ClientSecret,
+			flags.CredentialName,
 			flags.Kubeconfig,
 			flags.KubeContext,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.Login(api.LoginParams{
-				KubeconfigPath: fg.GetString(flags.Kubeconfig),
-				Kubecontext:    fg.GetString(flags.KubeContext),
+				ClientCredentials: fg.GetBool(flags.ClientCredentials),
+				ClientID:          fg.GetString(flags.ClientID),
+				ClientSecret:      fg.GetString(flags.ClientSecret),
+				CredentialName:    fg.GetString(flags.CredentialName),
+				KubeconfigPath:    fg.GetString(flags.Kubeconfig),
+				Kubecontext:       fg.GetString(flags.KubeContext),
 			})
 		},
 	}).Build()

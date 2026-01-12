@@ -354,6 +354,29 @@ var (
 		Name:  "component-release",
 		Usage: "Explicit component release name (only valid with --project and --component)",
 	}
+
+	// Authentication flags
+
+	ClientCredentials = Flag{
+		Name:  "client-credentials",
+		Usage: "Use OAuth2 client credentials flow for authentication",
+		Type:  "bool",
+	}
+
+	ClientID = Flag{
+		Name:  "client-id",
+		Usage: "OAuth2 client ID for service account authentication",
+	}
+
+	ClientSecret = Flag{
+		Name:  "client-secret",
+		Usage: "OAuth2 client secret for service account authentication",
+	}
+
+	CredentialName = Flag{
+		Name:  "credential",
+		Usage: "Name to save the credential as in config",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

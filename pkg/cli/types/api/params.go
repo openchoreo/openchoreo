@@ -78,8 +78,15 @@ type DeleteParams struct {
 
 // LoginParams defines parameters for login
 type LoginParams struct {
+	// Existing fields (keep for backward compatibility)
 	KubeconfigPath string
 	Kubecontext    string
+
+	// New fields for client credentials
+	ClientCredentials bool   // Flag to use client credentials flow
+	ClientID          string
+	ClientSecret      string
+	CredentialName    string // Name to save credential as
 }
 
 type LogParams struct {

@@ -6,12 +6,15 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
@@ -126,14 +129,55 @@ type ListComponentsResponse struct {
 
 // NewAPIClient creates a new API client with control plane auto-detection
 func NewAPIClient() (*APIClient, error) {
-	cfg, err := getStoredControlPlaneConfig()
+	storedCfg, err := config.LoadStoredConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect control plane: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if storedCfg.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range storedCfg.Contexts {
+		if storedCfg.Contexts[idx].Name == storedCfg.CurrentContext {
+			currentContext = &storedCfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil {
+		return nil, fmt.Errorf("current context '%s' not found", storedCfg.CurrentContext)
+	}
+
+	// Find control plane
+	var controlPlane *configContext.ControlPlane
+	for idx := range storedCfg.ControlPlanes {
+		if storedCfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			controlPlane = &storedCfg.ControlPlanes[idx]
+			break
+		}
+	}
+
+	if controlPlane == nil {
+		return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
+	}
+
+	// Find credential and get token
+	token := ""
+	if currentContext.Credentials != "" {
+		for idx := range storedCfg.Credentials {
+			if storedCfg.Credentials[idx].Name == currentContext.Credentials {
+				token = storedCfg.Credentials[idx].Token
+				break
+			}
+		}
 	}
 
 	return &APIClient{
-		baseURL:    cfg.Endpoint,
-		token:      cfg.Token,
+		baseURL:    controlPlane.URL,
+		token:      token,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
@@ -355,6 +399,13 @@ func (c *APIClient) delete(ctx context.Context, path string, body interface{}) (
 }
 
 func (c *APIClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	// Check if token needs refresh before making request
+	if c.token != "" && c.isTokenExpired() {
+		if err := c.refreshToken(); err != nil {
+			return nil, fmt.Errorf("failed to refresh token: %w", err)
+		}
+	}
+
 	url := c.baseURL + path
 
 	var bodyReader io.Reader
@@ -387,6 +438,116 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body int
 	return resp, nil
 }
 
+// isTokenExpired checks if the JWT token is expired or will expire soon (within 1 minute)
+func (c *APIClient) isTokenExpired() bool {
+	if c.token == "" {
+		return false
+	}
+
+	// Parse JWT token (format: header.payload.signature)
+	parts := strings.Split(c.token, ".")
+	if len(parts) != 3 {
+		return true // Invalid token format
+	}
+
+	// Decode payload (base64url)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return true // Failed to decode
+	}
+
+	// Parse payload JSON
+	var claims struct {
+		Exp int64 `json:"exp"` // Expiry time as Unix timestamp
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return true // Failed to parse
+	}
+
+	// Check if token is expired or will expire within 1 minute
+	expiryTime := time.Unix(claims.Exp, 0)
+	return time.Now().Add(1 * time.Minute).After(expiryTime)
+}
+
+// refreshToken refreshes the access token using client credentials
+func (c *APIClient) refreshToken() error {
+	// Load config to get credentials
+	cfg, err := config.LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.CurrentContext == "" {
+		return fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil || currentContext.Credentials == "" {
+		return fmt.Errorf("no credentials associated with current context")
+	}
+
+	// Find credential
+	var credential *configContext.Credential
+	for idx := range cfg.Credentials {
+		if cfg.Credentials[idx].Name == currentContext.Credentials {
+			credential = &cfg.Credentials[idx]
+			break
+		}
+	}
+
+	if credential == nil {
+		return fmt.Errorf("credential '%s' not found", currentContext.Credentials)
+	}
+
+	if credential.ClientID == "" || credential.ClientSecret == "" {
+		return fmt.Errorf("credential does not have client credentials for refresh")
+	}
+
+	// Find control plane
+	var controlPlane *configContext.ControlPlane
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			controlPlane = &cfg.ControlPlanes[idx]
+			break
+		}
+	}
+
+	if controlPlane == nil || controlPlane.TokenEndpoint == "" {
+		return fmt.Errorf("token endpoint not configured")
+	}
+
+	// Request new token
+	authClient := &auth.ClientCredentialsAuth{
+		TokenEndpoint: controlPlane.TokenEndpoint,
+		ClientID:      credential.ClientID,
+		ClientSecret:  credential.ClientSecret,
+	}
+
+	tokenResp, err := authClient.GetToken()
+	if err != nil {
+		return fmt.Errorf("failed to get new access token: %w", err)
+	}
+
+	// Update token in memory
+	c.token = tokenResp.AccessToken
+
+	// Update token in config
+	credential.Token = tokenResp.AccessToken
+	if err := config.SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save updated token: %w", err)
+	}
+
+	return nil
+}
+
 // getStoredControlPlaneConfig reads control plane config from stored configuration
 func getStoredControlPlaneConfig() (*configContext.ControlPlane, error) {
 	cfg, err := config.LoadStoredConfig()
@@ -394,9 +555,29 @@ func getStoredControlPlaneConfig() (*configContext.ControlPlane, error) {
 		return nil, err
 	}
 
-	if cfg.ControlPlane == nil {
-		return nil, fmt.Errorf("no control plane configured")
+	if cfg.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
 	}
 
-	return cfg.ControlPlane, nil
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil {
+		return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
+	}
+
+	// Find control plane for this context
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			return &cfg.ControlPlanes[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
 }

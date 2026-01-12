@@ -16,6 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // serverVersionResponse represents the server version response from the API.
@@ -69,7 +70,33 @@ func fetchServerVersion() (*serverVersionResponse, error) {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if storedConfig.ControlPlane == nil || storedConfig.ControlPlane.Endpoint == "" {
+	if storedConfig.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range storedConfig.Contexts {
+		if storedConfig.Contexts[idx].Name == storedConfig.CurrentContext {
+			currentContext = &storedConfig.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil {
+		return nil, fmt.Errorf("current context '%s' not found", storedConfig.CurrentContext)
+	}
+
+	// Find control plane
+	var controlPlane *configContext.ControlPlane
+	for idx := range storedConfig.ControlPlanes {
+		if storedConfig.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			controlPlane = &storedConfig.ControlPlanes[idx]
+			break
+		}
+	}
+
+	if controlPlane == nil || controlPlane.URL == "" {
 		return nil, fmt.Errorf("control plane not configured")
 	}
 
@@ -77,7 +104,7 @@ func fetchServerVersion() (*serverVersionResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	url := storedConfig.ControlPlane.Endpoint + "/version"
+	url := controlPlane.URL + "/version"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
