@@ -29,7 +29,8 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func LoggerMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
+// Middleware returns an HTTP middleware that logs access logs and enriches context with request ID
+func Middleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -44,6 +45,9 @@ func LoggerMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
 					requestID = uuid.New().String()
 				}
 			}
+
+			// Set X-Request-ID header for downstream middleware
+			r.Header.Set("X-Request-ID", requestID)
 
 			// Wrap response writer to capture status and bytes
 			rw := &responseWriter{
@@ -74,4 +78,9 @@ func LoggerMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
 			)
 		})
 	}
+}
+
+// LoggerMiddleware is an alias for Middleware for backward compatibility
+func LoggerMiddleware(baseLogger *slog.Logger) func(http.Handler) http.Handler {
+	return Middleware(baseLogger)
 }
