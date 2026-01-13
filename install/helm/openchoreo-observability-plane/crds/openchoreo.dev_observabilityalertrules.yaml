@@ -113,7 +113,7 @@ spec:
                   metric:
                     description: |-
                       Metric specifies the metric to alert on.
-                      This is required for metrics-based alerting.
+                      This is required for metric-based alerting.
                     type: string
                   query:
                     description: |-
@@ -121,10 +121,10 @@ spec:
                       This is required for log-based alerting.
                     type: string
                   type:
-                    description: Type specifies the telemetry source type (log, metrics).
+                    description: Type specifies the telemetry source type (log, metric).
                     enum:
                     - log
-                    - metrics
+                    - metric
                     type: string
                 required:
                 - type

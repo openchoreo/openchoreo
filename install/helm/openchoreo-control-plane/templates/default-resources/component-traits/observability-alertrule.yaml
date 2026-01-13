@@ -12,7 +12,8 @@ spec:
       severity: "string | default=warning"
       source:
         type: "string"
-        query: "string"
+        query: "string | default="    # Required for log-based alerts, optional for metric alerts
+        metric: "string | default="   # Required for metric-based alerts, optional for log alerts
       condition:
         window: "string | default=5m"
         interval: "string | default=1m"
@@ -49,6 +50,7 @@ spec:
           source:
             type: ${parameters.source.type}
             query: ${parameters.source.query}
+            metric: ${parameters.source.metric}
           condition:
             window: ${parameters.condition.window}
             interval: ${parameters.condition.interval}
