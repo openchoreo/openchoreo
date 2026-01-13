@@ -19,6 +19,7 @@ const (
 	testEntitlementType  = "group"
 	testEntitlementValue = "test-group"
 	user                 = "user"
+	serviceAccount       = "service_account"
 )
 
 // setupTestEnforcer creates a test CasbinEnforcer with temporary database
@@ -61,7 +62,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		t.Fatalf("failed to add multi-role: %v", err)
 	}
 
-	orgMapping := &authzcore.RoleEntitlementMapping{
+	multiRoleMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
 			Claim: "groups",
 			Value: "test-group",
@@ -72,12 +73,170 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
-	if err := enforcer.AddRoleEntitlementMapping(ctx, orgMapping); err != nil {
+	if err := enforcer.AddRoleEntitlementMapping(ctx, multiRoleMapping); err != nil {
 		t.Fatalf("failed to add org mapping: %v", err)
+	}
+
+	globalRole := &authzcore.Role{
+		Name:    "global-admin",
+		Actions: []string{"*"},
+	}
+	if err := enforcer.AddRole(ctx, globalRole); err != nil {
+		t.Fatalf("failed to add global-admin role: %v", err)
+	}
+	globalMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "global-admin-group",
+		},
+		RoleName:  "global-admin",
+		Hierarchy: authzcore.ResourceHierarchy{
+			// Empty hierarchy = global wildcard "*"
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, globalMapping); err != nil {
+		t.Fatalf("failed to add global mapping: %v", err)
+	}
+
+	componentLevelRole := &authzcore.Role{
+		Name:    "component-specific",
+		Actions: []string{"component:deploy"},
+	}
+	if err := enforcer.AddRole(ctx, componentLevelRole); err != nil {
+		t.Fatalf("failed to add component-specific role: %v", err)
+	}
+	componentMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "component-group",
+		},
+		RoleName: "component-specific",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+			Project:      "p1",
+			Component:    "c1",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, componentMapping); err != nil {
+		t.Fatalf("failed to add component mapping: %v", err)
+	}
+
+	projectLevelRole := &authzcore.Role{
+		Name:    "project-specific",
+		Actions: []string{"project:create", "component:create"},
+	}
+	if err := enforcer.AddRole(ctx, projectLevelRole); err != nil {
+		t.Fatalf("failed to add project-specific role: %v", err)
+	}
+	projectMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "project-group",
+		},
+		RoleName: "project-specific",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+			Project:      "p2",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, projectMapping); err != nil {
+		t.Fatalf("failed to add project mapping: %v", err)
+	}
+
+	readerRole := &authzcore.Role{
+		Name:    "reader",
+		Actions: []string{"component:view", "project:view"},
+	}
+	if err := enforcer.AddRole(ctx, readerRole); err != nil {
+		t.Fatalf("failed to add reader role: %v", err)
+	}
+	writerRole := &authzcore.Role{
+		Name:    "writer",
+		Actions: []string{"component:create", "project:create"},
+	}
+	if err := enforcer.AddRole(ctx, writerRole); err != nil {
+		t.Fatalf("failed to add writer role: %v", err)
+	}
+	readerMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "multi-role-group",
+		},
+		RoleName: "reader",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, readerMapping); err != nil {
+		t.Fatalf("failed to add reader mapping: %v", err)
+	}
+	writerMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "multi-role-group",
+		},
+		RoleName: "writer",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, writerMapping); err != nil {
+		t.Fatalf("failed to add writer mapping: %v", err)
+	}
+
+	roleForSubClaim := &authzcore.Role{
+		Name:    "sub-claim-role",
+		Actions: []string{"component:view"},
+	}
+	if err := enforcer.AddRole(ctx, roleForSubClaim); err != nil {
+		t.Fatalf("failed to add sub-claim-role: %v", err)
+	}
+	subClaimMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "sub",
+			Value: "user-123",
+		},
+		RoleName: "sub-claim-role",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, subClaimMapping); err != nil {
+		t.Fatalf("failed to add sub claim mapping: %v", err)
+	}
+
+	serviceAccountRole := &authzcore.Role{
+		Name:    "service-role",
+		Actions: []string{"component:deploy", "component:view"},
+	}
+	if err := enforcer.AddRole(ctx, serviceAccountRole); err != nil {
+		t.Fatalf("failed to add service-role: %v", err)
+	}
+	serviceAccountMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "service-account-group",
+		},
+		RoleName: "service-role",
+		Hierarchy: authzcore.ResourceHierarchy{
+			Organization: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, serviceAccountMapping); err != nil {
+		t.Fatalf("failed to add service account mapping: %v", err)
 	}
 
 	tests := []struct {
 		name              string
+		subjectType       string
+		entitlementClaim  string
 		entitlementValues []string
 		resource          authzcore.ResourceHierarchy
 		action            string
@@ -86,6 +245,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 	}{
 		{
 			name:              "basic evaluate check",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
@@ -96,6 +257,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		},
 		{
 			name:              "evaluate with hierarchical resource matching",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
@@ -108,28 +271,35 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		},
 		{
 			name:              "wildcard action match",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
+				Project:      "p1",
 				Component:    "c1",
 			},
-			action: "component:read",
+			action: "component:view",
 			want:   true,
-			reason: "component:* should match component:read",
+			reason: "component:* should match component:view",
 		},
 		{
 			name:              "multiple claims - access via at least one group",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"other-group", "test-group", "another-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Component:    "c1",
 			},
-			action: "component:read",
+			action: "component:view",
 			want:   true,
 			reason: "should grant access if ANY group in array has permission (test-group does)",
 		},
 		{
 			name:              "access denied - action not permitted",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
@@ -141,12 +311,14 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		},
 		{
 			name:              "access denied - no matching group",
+			subjectType:       user,
+			entitlementClaim:  "groups",
 			entitlementValues: []string{"group1", "group2", "group3"},
 			resource: authzcore.ResourceHierarchy{
 				Organization: "acme",
 				Component:    "c1",
 			},
-			action: "component:read",
+			action: "component:view",
 			want:   false,
 			reason: "should deny if NO group in array has permission",
 		},
@@ -158,18 +330,199 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 				Project:      "p2",
 				Component:    "c1",
 			},
-			action: "component:read",
+			action: "component:view",
 			want:   false,
 			reason: "project-writer role only applies to p1, NOT p2",
+		},
+		{
+			name:              "service account authorization",
+			subjectType:       serviceAccount,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"service-account-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p1",
+				Component:    "c1",
+			},
+			action: "component:deploy",
+			want:   true,
+			reason: "service account should be able to deploy components",
+		},
+		{
+			name:              "authorization with 'sub' claim",
+			subjectType:       user,
+			entitlementClaim:  "sub",
+			entitlementValues: []string{"user-123"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Component:    "c1",
+			},
+			action: "component:view",
+			want:   true,
+			reason: "sub claim should work for authorization",
+		},
+		{
+			name:              "authorization with 'sub' claim - denied",
+			subjectType:       user,
+			entitlementClaim:  "sub",
+			entitlementValues: []string{"user-456"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Component:    "c1",
+			},
+			action: "component:view",
+			want:   false,
+			reason: "different sub value should be denied",
+		},
+		{
+			name:              "global wildcard - access any organization",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"global-admin-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "any-org",
+				Project:      "any-project",
+			},
+			action: "project:delete",
+			want:   true,
+			reason: "global wildcard policy should grant access to any resource",
+		},
+		{
+			name:              "component-level policy - exact match",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"component-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p1",
+				Component:    "c1",
+			},
+			action: "component:deploy",
+			want:   true,
+			reason: "component-level policy should grant access to exact component",
+		},
+		{
+			name:              "component-level policy - different component denied",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"component-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p1",
+				Component:    "c2",
+			},
+			action: "component:deploy",
+			want:   false,
+			reason: "component-level policy should not apply to different component",
+		},
+		{
+			name:              "project-level policy - applies to child components",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"project-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p2",
+				Component:    "c1",
+			},
+			action: "component:create",
+			want:   true,
+			reason: "project-level policy should apply to resources within project",
+		},
+		{
+			name:              "multiple roles - read permission",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"multi-role-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Component:    "c1",
+			},
+			action: "component:view",
+			want:   true,
+			reason: "user should have read permission from reader role",
+		},
+		{
+			name:              "multiple roles - write permission",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"multi-role-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Component:    "c1",
+			},
+			action: "component:create",
+			want:   true,
+			reason: "user should have write permission from writer role",
+		},
+		{
+			name:              "multiple roles - combined permissions for project",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"multi-role-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p1",
+			},
+			action: "project:create",
+			want:   true,
+			reason: "user should have combined permissions from both roles",
+		},
+		{
+			name:              "path matching - no false positive for similar org names",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"test-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme2",
+			},
+			action: "organization:view",
+			want:   false,
+			reason: "policy for 'acme' should not match 'acme2'",
+		},
+		{
+			name:              "path matching - no false positive for similar project names",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"project-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "p22",
+			},
+			action: "project:view",
+			want:   false,
+			reason: "policy for project 'p2' should not match 'p22'",
+		},
+		{
+			name:              "path matching - exact org match works",
+			subjectType:       user,
+			entitlementClaim:  "groups",
+			entitlementValues: []string{"test-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+			},
+			action: "component:view",
+			want:   true,
+			reason: "exact org match should work",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Use default values if not specified
+			subjectType := tt.subjectType
+			if subjectType == "" {
+				subjectType = user
+			}
+			entitlementClaim := tt.entitlementClaim
+			if entitlementClaim == "" {
+				entitlementClaim = "groups"
+			}
+
 			request := &authzcore.EvaluateRequest{
 				SubjectContext: &authzcore.SubjectContext{
-					Type:              "user",
-					EntitlementClaim:  "groups",
+					Type:              subjectType,
+					EntitlementClaim:  entitlementClaim,
 					EntitlementValues: tt.entitlementValues,
 				},
 				Resource: authzcore.Resource{
@@ -271,6 +624,30 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			want:   false,
 			reason: "deny policy at project level overrides allow policy at org level",
 		},
+		{
+			name:              "deny in secret project - component:deploy also denied",
+			entitlementValues: []string{"user-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "secret",
+				Component:    "c1",
+			},
+			action: "component:deploy",
+			want:   false,
+			reason: "deny policy should apply to all component:* actions including deploy",
+		},
+		{
+			name:              "allow in public project - component:create allowed",
+			entitlementValues: []string{"user-group"},
+			resource: authzcore.ResourceHierarchy{
+				Organization: "acme",
+				Project:      "public",
+				Component:    "c1",
+			},
+			action: "component:create",
+			want:   true,
+			reason: "allow policy at org level permits component:create in non-denied projects",
+		},
 	}
 
 	for _, tt := range tests {
@@ -308,11 +685,11 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 
 	role1 := &authzcore.Role{
 		Name:    "reader",
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 	role2 := &authzcore.Role{
 		Name:    "writer",
-		Actions: []string{"component:write"},
+		Actions: []string{"component:create"},
 	}
 
 	if err := enforcer.AddRole(ctx, role1); err != nil {
@@ -368,7 +745,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 						Project:      "p1",
 					},
 				},
-				Action: "component:read",
+				Action: "component:view",
 			},
 			{
 				SubjectContext: &authzcore.SubjectContext{
@@ -383,7 +760,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 						Project:      "p1",
 					},
 				},
-				Action: "component:write",
+				Action: "component:create",
 			},
 			{
 				SubjectContext: &authzcore.SubjectContext{
@@ -398,7 +775,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 						Project:      "p2",
 					},
 				},
-				Action: "component:write",
+				Action: "component:create",
 			},
 		},
 	}
@@ -433,7 +810,7 @@ func TestCasbinEnforcer_AddRole(t *testing.T) {
 
 	role := &authzcore.Role{
 		Name:    testRoleName,
-		Actions: []string{"component:read", "component:write"},
+		Actions: []string{"component:view", "component:create"},
 	}
 	err := enforcer.AddRole(ctx, role)
 	if err != nil {
@@ -460,7 +837,7 @@ func TestCasbinEnforcer_AddRole_Duplicate(t *testing.T) {
 
 	role := &authzcore.Role{
 		Name:    "duplicate-role",
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 
 	// Add role first time
@@ -482,7 +859,7 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 	t.Run("success - remove role with no mappings", func(t *testing.T) {
 		role := &authzcore.Role{
 			Name:    "removable-role",
-			Actions: []string{"component:read"},
+			Actions: []string{"component:view"},
 		}
 
 		// Add role
@@ -514,7 +891,7 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 		// Create a role
 		role := &authzcore.Role{
 			Name:    "in-use-role",
-			Actions: []string{"component:read", "component:write"},
+			Actions: []string{"component:view", "component:create"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
 			t.Fatalf("AddRole() error = %v", err)
@@ -551,7 +928,7 @@ func TestCasbinEnforcer_GetRole(t *testing.T) {
 	// Create a test role
 	testRole := &authzcore.Role{
 		Name:    "test-admin",
-		Actions: []string{"*", "organization:view", "component:read"},
+		Actions: []string{"*", "organization:view", "component:view"},
 	}
 	if err := enforcer.AddRole(ctx, testRole); err != nil {
 		t.Fatalf("AddRole() error = %v", err)
@@ -633,7 +1010,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 
 	role := &authzcore.Role{
 		Name:    testRoleName,
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
 		t.Fatalf("AddRole() error = %v", err)
@@ -680,7 +1057,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 	// Add role and mapping
 	role := &authzcore.Role{
 		Name:    testRoleName,
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
 		t.Fatalf("AddRole() error = %v", err)
@@ -761,7 +1138,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 	// Setup: Create role and mappings
 	role := &authzcore.Role{
 		Name:    "viewer",
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
 		t.Fatalf("AddRole() error = %v", err)
@@ -1252,7 +1629,7 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 		// Setup: Create role
 		role := &authzcore.Role{
 			Name:    "force-removable",
-			Actions: []string{"component:read"},
+			Actions: []string{"component:view"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
 			t.Fatalf("AddRole() error = %v", err)
@@ -1309,7 +1686,7 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 		// Setup: Create role without mappings
 		role := &authzcore.Role{
 			Name:    "no-mappings-role",
-			Actions: []string{"component:read"},
+			Actions: []string{"component:view"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
 			t.Fatalf("AddRole() error = %v", err)
@@ -1338,16 +1715,16 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 		// Setup: Create role
 		role := &authzcore.Role{
 			Name:    "mixed-update-role",
-			Actions: []string{"component:read", "component:write", "project:view"},
+			Actions: []string{"component:view", "component:create", "project:view"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
 			t.Fatalf("AddRole() error = %v", err)
 		}
 
-		// Update: remove component:write, keep component:read, add component:delete
+		// Update: remove component:create, keep component:view, add component:delete
 		updatedRole := &authzcore.Role{
 			Name:    "mixed-update-role",
-			Actions: []string{"component:read", "component:delete"},
+			Actions: []string{"component:view", "component:delete"},
 		}
 		err := enforcer.UpdateRole(ctx, updatedRole)
 		if err != nil {
@@ -1365,7 +1742,7 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 		}
 
 		expectedActions := map[string]bool{
-			"component:read":   true,
+			"component:view":   true,
 			"component:delete": true,
 		}
 		for _, action := range retrieved.Actions {
@@ -1379,7 +1756,7 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 		// Setup: Create role
 		role := &authzcore.Role{
 			Name:    "removable-actions-role",
-			Actions: []string{"component:read", "component:write"},
+			Actions: []string{"component:view", "component:create"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
 			t.Fatalf("AddRole() error = %v", err)
@@ -1409,7 +1786,7 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 	t.Run("update non-existent role", func(t *testing.T) {
 		nonExistentRole := &authzcore.Role{
 			Name:    "does-not-exist",
-			Actions: []string{"component:read"},
+			Actions: []string{"component:view"},
 		}
 		err := enforcer.UpdateRole(ctx, nonExistentRole)
 		if !errors.Is(err, authzcore.ErrRoleNotFound) {
@@ -1426,7 +1803,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 	// Setup: Create role
 	role := &authzcore.Role{
 		Name:    "update-test-role",
-		Actions: []string{"component:read"},
+		Actions: []string{"component:view"},
 	}
 	if err := enforcer.AddRole(ctx, role); err != nil {
 		t.Fatalf("AddRole() error = %v", err)
@@ -1546,31 +1923,31 @@ func TestComputeActionsDiff(t *testing.T) {
 	}{
 		{
 			name:            "completely different action sets",
-			existingActions: []string{"component:read", "component:write"},
+			existingActions: []string{"component:view", "component:create"},
 			newActions:      []string{"project:view", "project:create"},
 			wantAdded:       []string{"project:view", "project:create"},
-			wantRemoved:     []string{"component:read", "component:write"},
+			wantRemoved:     []string{"component:view", "component:create"},
 		},
 		{
 			name:            "identical action sets",
-			existingActions: []string{"component:read", "component:write"},
-			newActions:      []string{"component:read", "component:write"},
+			existingActions: []string{"component:view", "component:create"},
+			newActions:      []string{"component:view", "component:create"},
 			wantAdded:       []string{},
 			wantRemoved:     []string{},
 		},
 		{
 			name:            "only additions",
-			existingActions: []string{"component:read"},
-			newActions:      []string{"component:read", "component:write", "component:delete"},
-			wantAdded:       []string{"component:write", "component:delete"},
+			existingActions: []string{"component:view"},
+			newActions:      []string{"component:view", "component:create", "component:delete"},
+			wantAdded:       []string{"component:create", "component:delete"},
 			wantRemoved:     []string{},
 		},
 		{
 			name:            "only removals",
-			existingActions: []string{"component:read", "component:write", "component:delete"},
-			newActions:      []string{"component:read"},
+			existingActions: []string{"component:view", "component:create", "component:delete"},
+			newActions:      []string{"component:view"},
 			wantAdded:       []string{},
-			wantRemoved:     []string{"component:write", "component:delete"},
+			wantRemoved:     []string{"component:create", "component:delete"},
 		},
 	}
 
