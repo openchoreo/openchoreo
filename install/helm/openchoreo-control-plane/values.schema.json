@@ -266,6 +266,125 @@
           "title": "containerSecurityContext",
           "type": "object"
         },
+        "database": {
+          "additionalProperties": false,
+          "description": "Database configuration for Backstage",
+          "properties": {
+            "postgresql": {
+              "additionalProperties": false,
+              "description": "PostgreSQL settings (only used when type is postgresql)",
+              "properties": {
+                "database": {
+                  "default": "backstage",
+                  "description": "PostgreSQL database name",
+                  "required": [],
+                  "title": "database",
+                  "type": "string"
+                },
+                "host": {
+                  "default": "",
+                  "description": "PostgreSQL host",
+                  "required": [],
+                  "title": "host",
+                  "type": "string"
+                },
+                "password": {
+                  "default": "",
+                  "description": "PostgreSQL password",
+                  "required": [],
+                  "title": "password",
+                  "type": "string"
+                },
+                "port": {
+                  "default": 5432,
+                  "description": "PostgreSQL port",
+                  "required": [],
+                  "title": "port",
+                  "type": "integer"
+                },
+                "user": {
+                  "default": "backstage",
+                  "description": "PostgreSQL username",
+                  "required": [],
+                  "title": "user",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "postgresql",
+              "type": "object"
+            },
+            "sqlite": {
+              "additionalProperties": false,
+              "description": "SQLite settings (only used when type is sqlite)",
+              "properties": {
+                "mountPath": {
+                  "default": "/app/.config/backstage",
+                  "description": "Mount path for database directory inside container",
+                  "required": [],
+                  "title": "mountPath",
+                  "type": "string"
+                },
+                "persistence": {
+                  "additionalProperties": false,
+                  "description": "Persistence settings for SQLite database",
+                  "properties": {
+                    "accessMode": {
+                      "default": "ReadWriteOnce",
+                      "description": "PVC access mode",
+                      "enum": [
+                        "ReadWriteOnce",
+                        "ReadWriteMany"
+                      ],
+                      "required": [],
+                      "title": "accessMode"
+                    },
+                    "enabled": {
+                      "default": false,
+                      "description": "Enable PVC for persistence (false = emptyDir)",
+                      "required": [],
+                      "title": "enabled",
+                      "type": "boolean"
+                    },
+                    "size": {
+                      "default": "1Gi",
+                      "description": "PVC storage size",
+                      "required": [],
+                      "title": "size",
+                      "type": "string"
+                    },
+                    "storageClassName": {
+                      "default": "",
+                      "description": "Storage class name (empty = default storage class)",
+                      "required": [],
+                      "title": "storageClassName",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "persistence",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "sqlite",
+              "type": "object"
+            },
+            "type": {
+              "default": "sqlite",
+              "description": "Database type",
+              "enum": [
+                "sqlite",
+                "postgresql"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "database",
+          "type": "object"
+        },
         "enabled": {
           "default": true,
           "description": "Enable Backstage UI deployment",
@@ -297,15 +416,15 @@
         },
         "features": {
           "additionalProperties": false,
-          "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
+          "description": "Feature flags for OpenChoreo functionality",
           "properties": {
             "observability": {
               "additionalProperties": false,
-              "description": "Observability plane features (Metrics, Traces, Runtime Logs)",
+              "description": "Observability feature configuration",
               "properties": {
                 "enabled": {
                   "default": true,
-                  "description": "Enable Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard in entity pages",
+                  "description": "Enable observability feature",
                   "required": [],
                   "title": "enabled",
                   "type": "boolean"
@@ -317,11 +436,11 @@
             },
             "workflows": {
               "additionalProperties": false,
-              "description": "Build plane / Workflows functionality configuration",
+              "description": "Workflow feature configuration",
               "properties": {
                 "enabled": {
                   "default": true,
-                  "description": "Enable Workflows tab and WorkflowsOverviewCard in entity pages",
+                  "description": "Enable workflows feature",
                   "required": [],
                   "title": "enabled",
                   "type": "boolean"

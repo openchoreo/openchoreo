@@ -2445,9 +2445,12 @@ backstage:
 # @schema
 # type: object
 # additionalProperties: true
-# description: Thunder (Platform Identity Provider) configuration
+# description: Asgardeo Thunder (Platform Identity Provider) configuration
 # @schema
 thunder:
+  # type: boolean
+  # description: Enable Thunder identity provider deployment
+  # default: true
   # @schema
   # type: boolean
   # description: Enable Thunder identity provider deployment
