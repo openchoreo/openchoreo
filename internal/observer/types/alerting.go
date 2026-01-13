@@ -24,9 +24,9 @@ type AlertingRuleMetadata struct {
 
 // AlertingRuleSource defines the source of data for the alerting rule
 type AlertingRuleSource struct {
-	Type  string `json:"type"`
-	Query string `json:"query"` // For log-based alert rules
-	// TODO: Add Metric field for metric-based alert rules
+	Type   string `json:"type"`
+	Query  string `json:"query"`  // For log-based alert rules
+	Metric string `json:"metric"` // For metric-based alert rules (e.g., "cpu_usage", "memory_usage")
 }
 
 // AlertingRuleCondition defines the condition that triggers the alert

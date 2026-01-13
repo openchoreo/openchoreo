@@ -17,7 +17,9 @@ import (
 	"sync"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -31,7 +33,10 @@ import (
 )
 
 const (
-	logLevelDebug = "debug"
+	logLevelDebug            = "debug"
+	alertRuleActionCreated   = "created"
+	alertRuleActionUpdated   = "updated"
+	alertRuleActionUnchanged = "unchanged"
 )
 
 // OpenSearchClient interface for testing
@@ -367,8 +372,8 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string,
 	switch sourceType {
 	case "log":
 		return s.UpsertOpenSearchAlertRule(ctx, rule)
-	// case "metric": (not implemented yet)
-	// 	return s.UpsertMetricAlertRule(ctx, rule)
+	case "metric":
+		return s.UpsertPrometheusAlertRule(ctx, rule)
 	default:
 		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
 	}
@@ -404,7 +409,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
 	}
 
-	action := "created"
+	action := alertRuleActionCreated
 	backendID := monitorID
 	lastUpdateTime := int64(0)
 
@@ -424,7 +429,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 			s.logger.Debug("Alert rule unchanged, skipping update.",
 				"rule_name", rule.Metadata.Name,
 				"monitor_id", backendID)
-			action = "unchanged"
+			action = alertRuleActionUnchanged
 			// Use current time since we're not updating
 			lastUpdateTime = time.Now().UnixMilli()
 		} else {
@@ -437,7 +442,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 			if err != nil {
 				return nil, fmt.Errorf("failed to update alert rule: %w", err)
 			}
-			action = "updated"
+			action = alertRuleActionUpdated
 		}
 	} else {
 		s.logger.Debug("Alert rule does not exist. Creating the alert rule.",
@@ -521,8 +526,8 @@ func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string,
 	switch sourceType {
 	case "log":
 		return s.DeleteOpenSearchAlertRule(ctx, ruleName)
-	// case "metric": (not implemented yet)
-	// 	return s.DeleteMetricAlertRule(ctx, ruleName)
+	case "metric":
+		return s.DeleteMetricAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
 	}
@@ -562,6 +567,173 @@ func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName
 		Status:     "deleted",
 		LogicalID:  ruleName,
 		BackendID:  monitorID,
+		Action:     "deleted",
+		LastSynced: now,
+	}, nil
+}
+
+// UpsertPrometheusAlertRule creates or updates a metric-based alert rule as a PrometheusRule CR
+func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Create the alert rule builder
+	alertRuleBuilder := prometheus.NewAlertRuleBuilder(s.config.Alerting.ObservabilityNamespace)
+
+	// Build the PrometheusRule CR
+	prometheusRule, err := alertRuleBuilder.BuildPrometheusRule(rule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build PrometheusRule: %w", err)
+	}
+
+	// Log the generated rule for debugging
+	if len(prometheusRule.Spec.Groups) > 0 && len(prometheusRule.Spec.Groups[0].Rules) > 0 {
+		group := prometheusRule.Spec.Groups[0]
+		rule := group.Rules[0]
+		s.logger.Debug("Generated PrometheusRule",
+			"name", prometheusRule.Name,
+			"namespace", prometheusRule.Namespace,
+			"groupName", group.Name,
+			"interval", group.Interval,
+			"alertName", rule.Alert,
+			"expression", rule.Expr.String(),
+			"for", rule.For,
+			"labels", rule.Labels)
+	}
+
+	// Check if the PrometheusRule already exists
+	existingRule := &monitoringv1.PrometheusRule{}
+	err = s.k8sClient.Get(ctx, client.ObjectKey{
+		Namespace: s.config.Alerting.ObservabilityNamespace,
+		Name:      rule.Metadata.Name,
+	}, existingRule)
+
+	action := alertRuleActionCreated
+	now := time.Now()
+
+	if err == nil {
+		// Rule exists, check if update is needed
+		if s.prometheusRulesAreEqual(existingRule, prometheusRule) {
+			s.logger.Debug("PrometheusRule unchanged, skipping update",
+				"rule_name", rule.Metadata.Name,
+				"namespace", s.config.Alerting.ObservabilityNamespace)
+			return &types.AlertingRuleSyncResponse{
+				Status:     "synced",
+				LogicalID:  rule.Metadata.Name,
+				BackendID:  string(existingRule.UID),
+				Action:     alertRuleActionUnchanged,
+				LastSynced: now.UTC().Format(time.RFC3339),
+			}, nil
+		}
+
+		// Update the existing rule
+		existingRule.Spec = prometheusRule.Spec
+		existingRule.Labels = prometheusRule.Labels
+		if err := s.k8sClient.Update(ctx, existingRule); err != nil {
+			return nil, fmt.Errorf("failed to update PrometheusRule: %w", err)
+		}
+		action = alertRuleActionUpdated
+		s.logger.Debug("PrometheusRule updated",
+			"rule_name", rule.Metadata.Name,
+			"namespace", s.config.Alerting.ObservabilityNamespace)
+	} else if apierrors.IsNotFound(err) {
+		// Create new rule
+		if err := s.k8sClient.Create(ctx, prometheusRule); err != nil {
+			return nil, fmt.Errorf("failed to create PrometheusRule: %w", err)
+		}
+		s.logger.Debug("PrometheusRule created",
+			"rule_name", rule.Metadata.Name,
+			"namespace", s.config.Alerting.ObservabilityNamespace)
+	} else {
+		return nil, fmt.Errorf("failed to get existing PrometheusRule: %w", err)
+	}
+
+	// Get the UID of the created/updated rule
+	if action == alertRuleActionCreated {
+		// Re-fetch to get the UID
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Namespace: s.config.Alerting.ObservabilityNamespace,
+			Name:      rule.Metadata.Name,
+		}, prometheusRule); err != nil {
+			s.logger.Warn("Failed to re-fetch PrometheusRule for UID", "error", err)
+		}
+	}
+
+	backendID := string(prometheusRule.UID)
+	if action == alertRuleActionUpdated {
+		backendID = string(existingRule.UID)
+	}
+
+	return &types.AlertingRuleSyncResponse{
+		Status:     "synced",
+		LogicalID:  rule.Metadata.Name,
+		BackendID:  backendID,
+		Action:     action,
+		LastSynced: now.UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// prometheusRulesAreEqual compares two PrometheusRule specs to determine if they are equal
+func (s *LoggingService) prometheusRulesAreEqual(existing, new *monitoringv1.PrometheusRule) bool {
+	// Compare specs using JSON marshaling for deep comparison
+	existingJSON, err := json.Marshal(existing.Spec)
+	if err != nil {
+		s.logger.Warn("Failed to marshal existing PrometheusRule spec", "error", err)
+		return false
+	}
+
+	newJSON, err := json.Marshal(new.Spec)
+	if err != nil {
+		s.logger.Warn("Failed to marshal new PrometheusRule spec", "error", err)
+		return false
+	}
+
+	return string(existingJSON) == string(newJSON)
+}
+
+// DeleteMetricAlertRule deletes a metric-based alert rule (PrometheusRule CR)
+func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Try to get the existing PrometheusRule
+	existingRule := &monitoringv1.PrometheusRule{}
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Namespace: s.config.Alerting.ObservabilityNamespace,
+		Name:      ruleName,
+	}, existingRule)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if apierrors.IsNotFound(err) {
+		// Rule doesn't exist
+		return &types.AlertingRuleSyncResponse{
+			Status:     "not_found",
+			LogicalID:  ruleName,
+			BackendID:  "",
+			Action:     "not_found",
+			LastSynced: now,
+		}, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get PrometheusRule: %w", err)
+	}
+
+	// Delete the PrometheusRule
+	backendID := string(existingRule.UID)
+	if err := s.k8sClient.Delete(ctx, existingRule); err != nil {
+		return nil, fmt.Errorf("failed to delete PrometheusRule: %w", err)
+	}
+
+	s.logger.Debug("PrometheusRule deleted successfully",
+		"rule_name", ruleName,
+		"namespace", s.config.Alerting.ObservabilityNamespace)
+
+	return &types.AlertingRuleSyncResponse{
+		Status:     "deleted",
+		LogicalID:  ruleName,
+		BackendID:  backendID,
 		Action:     "deleted",
 		LastSynced: now,
 	}, nil
@@ -1306,6 +1478,45 @@ func (s *LoggingService) ParseOpenSearchAlertPayload(requestBody map[string]inte
 	}
 	if ruleNamespace == "" {
 		return "", "", "", "", fmt.Errorf("ruleNamespace is required in OpenSearch alert payload")
+	}
+
+	return ruleName, ruleNamespace, alertValue, timestamp, nil
+}
+
+// ParsePrometheusAlertPayload parses the Prometheus Alertmanager webhook payload
+// Returns: ruleName, ruleNamespace, alertValue, timestamp, error
+func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]interface{}) (string, string, string, string, error) {
+	// Alertmanager sends alerts in an array
+	alerts, ok := requestBody["alerts"].([]interface{})
+	if !ok || len(alerts) == 0 {
+		return "", "", "", "", fmt.Errorf("no alerts found in Prometheus payload")
+	}
+
+	// Get the first alert
+	alert, ok := alerts[0].(map[string]interface{})
+	if !ok {
+		return "", "", "", "", fmt.Errorf("invalid alert format in Prometheus payload")
+	}
+	// Ignore alert if not in "firing" state
+	status, _ := alert["status"].(string)
+	if status != "firing" {
+		return "", "", "", "", fmt.Errorf("alert is not in firing state")
+	}
+
+	// Extract from annotations (where we put rule_name, rule_namespace, alert_value)
+	annotations, _ := alert["annotations"].(map[string]interface{})
+	ruleName, _ := annotations["rule_name"].(string)
+	ruleNamespace, _ := annotations["rule_namespace"].(string)
+	alertValue, _ := annotations["alert_value"].(string)
+
+	// Extract timestamp from startsAt
+	timestamp, _ := alert["startsAt"].(string)
+
+	if ruleName == "" {
+		return "", "", "", "", fmt.Errorf("rule_name is required in Prometheus alert annotations")
+	}
+	if ruleNamespace == "" {
+		return "", "", "", "", fmt.Errorf("rule_namespace is required in Prometheus alert annotations")
 	}
 
 	return ruleName, ruleNamespace, alertValue, timestamp, nil

@@ -1042,6 +1042,14 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	// Parse the webhook payload according to the alerting vendor and retrieve alert details
 	ruleName, ruleNamespace, alertValue, timestamp, err := h.parseWebhookPayload(w, r)
 	if err != nil {
+		// Check if alert is not in firing state (ignore 'resolved' alerts from Prometheus)
+		if errors.Is(err, fmt.Errorf("alert is not in firing state")) {
+			h.logger.Info("Ignoring non-firing alert")
+			h.writeJSON(w, http.StatusOK, map[string]interface{}{
+				"message": "Alert ignored (not in firing state)",
+			})
+			return
+		}
 		h.logger.Error("Failed to parse webhook payload", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
 		return
@@ -1113,6 +1121,9 @@ func (h *Handler) parseWebhookPayload(w http.ResponseWriter, r *http.Request) (r
 		return "", "", "", "", err
 	}
 
+	// Debug log the request body for troubleshooting
+	h.logger.Debug("Alert webhook received", "requestBody", string(bodyBytes))
+
 	alertSource := httputil.GetPathParam(r, "alertSource")
 	if alertSource == "" { // TODO: Add supported alert sources (e.g. opensearch, prometheus)
 		h.logger.Error("Alert source is required")
@@ -1123,8 +1134,8 @@ func (h *Handler) parseWebhookPayload(w http.ResponseWriter, r *http.Request) (r
 	switch alertSource {
 	case "opensearch":
 		return h.service.ParseOpenSearchAlertPayload(requestBody)
-	// case "prometheus":
-	// return h.service.ParsePrometheusAlertPayload(requestBody)
+	case "prometheus":
+		return h.service.ParsePrometheusAlertPayload(requestBody)
 	default:
 		h.logger.Error("Unsupported alert source", "alertSource", alertSource)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Unsupported alert source")

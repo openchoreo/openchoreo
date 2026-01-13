@@ -1607,6 +1607,26 @@ prometheus:
       # default: false
       # @schema
       serviceMonitorSelectorNilUsesHelmValues: false
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Namespace selector for PrometheusRules (empty = all namespaces)
+      # default: {}
+      # @schema
+      ruleNamespaceSelector: {}
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Label selector for PrometheusRules (empty = all PrometheusRules)
+      # default: {}
+      # @schema
+      ruleSelector: {}
+      # @schema
+      # type: boolean
+      # description: Use Helm values for PrometheusRule selection when selector is nil
+      # default: false
+      # @schema
+      ruleSelectorNilUsesHelmValues: false
     # @schema
     # type: object
     # additionalProperties: true
@@ -1633,15 +1653,15 @@ prometheus:
   # @schema
   # type: object
   # additionalProperties: true
-  # description: Alertmanager configuration (disabled by default in OpenChoreo)
+  # description: Alertmanager configuration for metric-based alerts
   # @schema
   alertmanager:
     # @schema
     # type: boolean
     # description: Enable Alertmanager deployment
-    # default: false
+    # default: true
     # @schema
-    enabled: false
+    enabled: true
     # @schema
     # type: object
     # additionalProperties: true
@@ -1660,6 +1680,42 @@ prometheus:
         # default: alertmanager
         # @schema
         name: alertmanager
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Resource requests and limits for Alertmanager
+      # @schema
+      resources:
+        requests:
+          memory: '100Mi'
+          cpu: '50m'
+        limits:
+          memory: '200Mi'
+          cpu: '100m'
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Alertmanager routing and receiver configuration
+    # @schema
+    config:
+      global:
+        resolve_timeout: 5m
+      route:
+        group_by: ['alertname']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: 'null' # Default receiver for unmatched alerts
+        routes:
+          - receiver: 'openchoreo-user-alerts'
+            matchers:
+              - openchoreo_alert = true
+      receivers:
+        - name: 'openchoreo-user-alerts'
+          webhook_configs:
+            - url: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus'
+              send_resolved: true
+        - name: 'null'
 
   # @schema
   # type: object
@@ -1741,6 +1797,9 @@ prometheus:
             access: proxy
             url: http://openchoreo-observability-prometheus:9091
             isDefault: true
+    grafana.ini:
+      unified_alerting:
+        enabled: true # Vizualize user created alert rules in Grafana
 
   # @schema
   # type: object

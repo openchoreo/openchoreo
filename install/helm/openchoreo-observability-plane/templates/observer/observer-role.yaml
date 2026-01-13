@@ -18,3 +18,7 @@ rules:
   - apiGroups: ["openchoreo.dev"]
     resources: ["observabilityalertrules"]
     verbs: ["get", "list", "watch"]
+  # Allow managing PrometheusRules for metric-based alerting
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["prometheusrules"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

@@ -82,6 +82,9 @@ type AlertingConfig struct {
 	// RCAServiceURL is the base URL for the AI RCA (Root Cause Analysis) service.
 	// Used for health checks and triggering RCA analysis.
 	RCAServiceURL string `koanf:"rca.service.url"`
+	// ObservabilityNamespace is the Kubernetes namespace where openchoreo-observability-plane is deployed.
+	// Used for creating/listing PrometheusRule CRs for metric-based alerting.
+	ObservabilityNamespace string `koanf:"observability.namespace"`
 }
 
 // Load loads configuration from environment variables and defaults
@@ -144,6 +147,7 @@ func Load() (*Config, error) {
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
 		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
 		"RCA_SERVICE_URL":                 "alerting.rca.service.url",
+		"OBSERVABILITY_NAMESPACE":         "alerting.observability.namespace",
 		"LOG_LEVEL":                       "loglevel",
 		"PORT":                            "server.port",           // Common alias
 		"JWT_SECRET":                      "auth.jwt.secret",       // Common alias
@@ -250,7 +254,8 @@ func getDefaults() map[string]interface{} {
 			"max.log.lines.per.file":  600000,
 		},
 		"alerting": map[string]interface{}{
-			"rca.service.url": "http://ai-rca-agent:8080",
+			"rca.service.url":         "http://ai-rca-agent:8080",
+			"observability.namespace": "openchoreo-observability-plane",
 		},
 		"loglevel": "info",
 	}
