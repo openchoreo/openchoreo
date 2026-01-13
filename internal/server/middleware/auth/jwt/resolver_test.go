@@ -8,8 +8,12 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
+)
+
+const (
+	user           = "user"
+	serviceAccount = "service_account"
 )
 
 func createTestJWT(claims jwt.MapClaims) string {
@@ -21,7 +25,7 @@ func createTestJWT(claims jwt.MapClaims) string {
 func TestJWTDetectorUserTypeDetection(t *testing.T) {
 	userTypes := []subject.UserTypeConfig{
 		{
-			Type:        auth.SubjectTypeUser,
+			Type:        user,
 			DisplayName: "Human User",
 			Priority:    1,
 			AuthMechanisms: []subject.AuthMechanismConfig{
@@ -35,7 +39,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			},
 		},
 		{
-			Type:        auth.SubjectTypeServiceAccount,
+			Type:        serviceAccount,
 			DisplayName: "Service Account",
 			Priority:    2,
 			AuthMechanisms: []subject.AuthMechanismConfig{
@@ -58,7 +62,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 	tests := []struct {
 		name           string
 		claims         jwt.MapClaims
-		expectedType   auth.SubjectType
+		expectedType   string
 		expectedClaim  string
 		expectedValues []string
 		wantErr        bool
@@ -68,7 +72,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"group": "admin",
 			},
-			expectedType:   auth.SubjectTypeUser,
+			expectedType:   "user",
 			expectedClaim:  "group",
 			expectedValues: []string{"admin"},
 			wantErr:        false,
@@ -78,7 +82,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"group": []interface{}{"admin", "developer"},
 			},
-			expectedType:   auth.SubjectTypeUser,
+			expectedType:   "user",
 			expectedClaim:  "group",
 			expectedValues: []string{"admin", "developer"},
 			wantErr:        false,
@@ -88,7 +92,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"service_account": "api-service",
 			},
-			expectedType:   auth.SubjectTypeServiceAccount,
+			expectedType:   "service_account",
 			expectedClaim:  "service_account",
 			expectedValues: []string{"api-service"},
 			wantErr:        false,
@@ -99,7 +103,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 				"group":           "admin",
 				"service_account": "api-service",
 			},
-			expectedType:   auth.SubjectTypeUser,
+			expectedType:   "user",
 			expectedClaim:  "group",
 			expectedValues: []string{"admin"},
 			wantErr:        false,
@@ -116,7 +120,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			claims: jwt.MapClaims{
 				"group": "",
 			},
-			expectedType:   auth.SubjectTypeUser,
+			expectedType:   "user",
 			expectedClaim:  "group",
 			expectedValues: []string{},
 			wantErr:        false,
@@ -158,7 +162,7 @@ func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
 	// User type without OAuth2 mechanism (using API key instead)
 	userTypes := []subject.UserTypeConfig{
 		{
-			Type:        auth.SubjectTypeUser,
+			Type:        "user",
 			DisplayName: "API Key User",
 			Priority:    1,
 			AuthMechanisms: []subject.AuthMechanismConfig{
@@ -186,7 +190,7 @@ func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
 	// Mix of OAuth2 and non-OAuth2 user types
 	userTypes := []subject.UserTypeConfig{
 		{
-			Type:        auth.SubjectTypeUser,
+			Type:        "user",
 			DisplayName: "OAuth2 User",
 			Priority:    1,
 			AuthMechanisms: []subject.AuthMechanismConfig{
@@ -227,7 +231,7 @@ func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
 		t.Fatalf("DetectUserType() error = %v", err)
 	}
 
-	if result.Type != auth.SubjectTypeUser {
-		t.Errorf("Type = %v, want %v", result.Type, auth.SubjectTypeUser)
+	if result.Type != "user" {
+		t.Errorf("Type = %v, want %v", result.Type, "user")
 	}
 }

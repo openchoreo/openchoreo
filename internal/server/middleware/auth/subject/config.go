@@ -6,13 +6,11 @@ package subject
 import (
 	"fmt"
 	"sort"
-
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 // UserTypeConfig represents configuration for a single user type
 type UserTypeConfig struct {
-	Type           auth.SubjectType      `yaml:"type" json:"type"`                      // "user" or "service_account"
+	Type           string                `yaml:"type" json:"type"`                      // "user" or "service_account"
 	DisplayName    string                `yaml:"display_name" json:"displayName"`       // Human-readable name for user type
 	Priority       int                   `yaml:"priority" json:"priority"`              // Check order (lower = higher priority)
 	AuthMechanisms []AuthMechanismConfig `yaml:"auth_mechanisms" json:"authMechanisms"` // Supported authentication mechanisms
@@ -36,7 +34,7 @@ func ValidateConfig(userTypes []UserTypeConfig) error {
 		return fmt.Errorf("at least one user type must be configured")
 	}
 
-	typesSeen := make(map[auth.SubjectType]bool)
+	typesSeen := make(map[string]bool)
 	prioritiesSeen := make(map[int]bool)
 
 	for i, ut := range userTypes {

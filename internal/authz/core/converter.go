@@ -14,7 +14,7 @@ func GetAuthzSubjectContext(authCtx *auth.SubjectContext) *SubjectContext {
 	}
 
 	return &SubjectContext{
-		Type:              SubjectType(authCtx.Type),
+		Type:              authCtx.Type,
 		EntitlementClaim:  authCtx.EntitlementClaim,
 		EntitlementValues: authCtx.EntitlementValues,
 	}

@@ -18,6 +18,7 @@ const (
 	testRoleName         = "test-role"
 	testEntitlementType  = "group"
 	testEntitlementValue = "test-group"
+	user                 = "user"
 )
 
 // setupTestEnforcer creates a test CasbinEnforcer with temporary database
@@ -151,13 +152,13 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		},
 		{
 			name:              "access denied - hierarchy out of scope",
-			entitlementValues: []string{"project-group"},
+			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Organization: "acme-v2",
 				Project:      "p2",
 				Component:    "c1",
 			},
-			action: "component:write",
+			action: "component:read",
 			want:   false,
 			reason: "project-writer role only applies to p1, NOT p2",
 		},
@@ -820,7 +821,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		{
 			name: "filter policies within scope",
 			subjectCtx: &authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"group1"},
 			},
@@ -830,7 +831,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		{
 			name: "filter policies within project scope",
 			subjectCtx: &authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"group1"},
 			},
@@ -840,7 +841,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		{
 			name: "no matching entitlements",
 			subjectCtx: &authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"nonexistent-group"},
 			},
@@ -945,7 +946,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			name: "get profile with org scope",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
-					Type:              authzcore.SubjectTypeUser,
+					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"dev-group"},
 				},
@@ -955,7 +956,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			},
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"dev-group"},
 			},
@@ -972,7 +973,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			name: "get profile for scope within an organization",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
-					Type:              authzcore.SubjectTypeUser,
+					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"dev-group"},
 				},
@@ -983,7 +984,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			},
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"dev-group"},
 			},
@@ -1000,7 +1001,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			name: "get profile for user with no permissions",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
-					Type:              authzcore.SubjectTypeUser,
+					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"no-permissions-group"},
 				},
@@ -1011,7 +1012,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			wantErr:             false,
 			wantEmptyCapability: true,
 			expectedUser: authzcore.SubjectContext{
-				Type:              authzcore.SubjectTypeUser,
+				Type:              user,
 				EntitlementClaim:  "groups",
 				EntitlementValues: []string{"no-permissions-group"},
 			},
