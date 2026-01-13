@@ -978,6 +978,15 @@ type ObserverURLResponse struct {
 	ObserverUrl *string `json:"observerUrl,omitempty"`
 }
 
+// OidcConfig OIDC configuration for CLI authentication
+type OidcConfig struct {
+	// AuthorizationEndpoint OAuth2 authorization endpoint URL
+	AuthorizationEndpoint *string `json:"authorization_endpoint,omitempty"`
+
+	// TokenEndpoint OAuth2 token endpoint URL
+	TokenEndpoint string `json:"token_endpoint"`
+}
+
 // Organization Organization resource
 type Organization struct {
 	// CreatedAt Creation timestamp

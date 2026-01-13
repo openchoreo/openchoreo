@@ -149,6 +149,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
+  /api/v1/oidc-config:
+    get:
+      operationId: getOidcConfig
+      summary: Get OIDC configuration for CLI authentication
+      description: |
+        Returns OIDC configuration for CLI clients to discover authorization
+        and token endpoints. Used during initial CLI authentication setup.
+      tags: [Operations]
+      security: []
+      responses:
+        '200':
+          description: OIDC configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OidcConfig'
+
   # =============================================================================
   # Organization Endpoints
   # =============================================================================
@@ -2543,6 +2560,24 @@ components:
           description: Supported OAuth scopes
           items:
             type: string
+
+    # -------------------------------------------------------------------------
+    # OIDC Configuration
+    # -------------------------------------------------------------------------
+    OidcConfig:
+      type: object
+      description: OIDC configuration for CLI authentication
+      required:
+        - token_endpoint
+      properties:
+        authorization_endpoint:
+          type: string
+          description: OAuth2 authorization endpoint URL
+          example: https://auth.openchoreo.dev/authorize
+        token_endpoint:
+          type: string
+          description: OAuth2 token endpoint URL
+          example: https://auth.openchoreo.dev/oauth2/token
 
     # -------------------------------------------------------------------------
     # User Type Configuration

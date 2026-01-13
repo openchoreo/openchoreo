@@ -4,7 +4,9 @@
 package login
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
@@ -26,6 +28,46 @@ func (i *AuthImpl) Login(params api.LoginParams) error {
 		return i.loginWithClientCredentials(params)
 	}
 	return fmt.Errorf("interactive login not yet implemented, use --client-credentials")
+}
+
+// getTokenEndpointFromAPI fetches the OIDC configuration from the API server
+func (i *AuthImpl) getTokenEndpointFromAPI(apiURL string) (string, error) {
+	req, err := http.NewRequest(
+		http.MethodGet,
+		apiURL+"/api/v1/oidc-config",
+		nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add the header here
+	req.Header.Set("X-Use-OpenAPI", "true")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch OIDC config: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("OIDC config request failed with status: %d", resp.StatusCode)
+	}
+
+	var oidcConfig struct {
+		TokenEndpoint string `json:"token_endpoint"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
+		return "", fmt.Errorf("failed to decode OIDC config: %w", err)
+	}
+
+	if oidcConfig.TokenEndpoint == "" {
+		return "", fmt.Errorf("token endpoint not found in OIDC config response")
+	}
+
+	return oidcConfig.TokenEndpoint, nil
 }
 
 func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
@@ -84,13 +126,30 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("control plane '%s' not found in config", currentContext.ControlPlane)
 	}
 
-	if controlPlane.TokenEndpoint == "" {
-		return fmt.Errorf("token endpoint not configured for control plane '%s'", controlPlane.Name)
+	// Get token endpoint: try config first, fall back to API discovery
+	tokenEndpoint := controlPlane.TokenEndpoint
+	if tokenEndpoint == "" {
+		fmt.Printf("Token endpoint not configured, fetching from API...\n")
+		var err error
+		tokenEndpoint, err = i.getTokenEndpointFromAPI(controlPlane.URL)
+		if err != nil {
+			return fmt.Errorf("token endpoint not configured and failed to fetch from API: %w", err)
+		}
+		fmt.Printf("✓ Token endpoint discovered: %s\n", tokenEndpoint)
+
+		// Update control plane config with discovered token endpoint
+		for idx := range cfg.ControlPlanes {
+			if cfg.ControlPlanes[idx].Name == controlPlane.Name {
+				cfg.ControlPlanes[idx].TokenEndpoint = tokenEndpoint
+				controlPlane = &cfg.ControlPlanes[idx]
+				break
+			}
+		}
 	}
 
 	// 3. Exchange credentials for token
 	authClient := &auth.ClientCredentialsAuth{
-		TokenEndpoint: controlPlane.TokenEndpoint,
+		TokenEndpoint: tokenEndpoint,
 		ClientID:      clientID,
 		ClientSecret:  clientSecret,
 	}

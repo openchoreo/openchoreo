@@ -66,6 +66,10 @@ spec:
           value: {{ .Values.security.jwt.audience | quote }}
         - name: JWT_DISABLED
           value: {{ not .Values.security.enabled | quote }}
+        - name: OIDC_AUTHORIZATION_URL
+          value: {{ .Values.security.oidc.authorizationUrl |  default (printf "%s/oauth2/authorize" (.Values.openchoreoApi.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)))) | quote }}
+        - name: OIDC_TOKEN_URL
+          value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (.Values.openchoreoApi.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)))) | quote }}
         - name: AUTHZ_ENABLED
           value: {{ .Values.security.authz.enabled | quote }}
         - name: AUTHZ_DATABASE_PATH
