@@ -100,6 +100,29 @@ spec:
           value: {{ .Values.security.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTHZ_ENABLED
           value: {{ .Values.security.authz.enabled | quote }}
+        # Database configuration
+        {{- if eq .Values.backstage.database.type "sqlite" }}
+        - name: DATABASE_CLIENT
+          value: "better-sqlite3"
+        - name: SQLITE_STORAGE_DIR
+          value: {{ .Values.backstage.database.sqlite.mountPath | quote }}
+        {{- else if eq .Values.backstage.database.type "postgresql" }}
+        - name: DATABASE_CLIENT
+          value: "pg"
+        - name: POSTGRES_HOST
+          value: {{ .Values.backstage.database.postgresql.host | quote }}
+        - name: POSTGRES_PORT
+          value: {{ .Values.backstage.database.postgresql.port | quote }}
+        - name: POSTGRES_USER
+          value: {{ .Values.backstage.database.postgresql.user | quote }}
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              key: postgres-password
+        - name: POSTGRES_DB
+          value: {{ .Values.backstage.database.postgresql.database | quote }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthcheck
@@ -118,4 +141,19 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        {{- if eq .Values.backstage.database.type "sqlite" }}
+        volumeMounts:
+        - name: backstage-db
+          mountPath: {{ .Values.backstage.database.sqlite.mountPath }}
+        {{- end }}
+      {{- if eq .Values.backstage.database.type "sqlite" }}
+      volumes:
+      - name: backstage-db
+        {{- if .Values.backstage.database.sqlite.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "openchoreo-control-plane.fullname" . }}-backstage-db
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      {{- end }}
 {{- end }}
