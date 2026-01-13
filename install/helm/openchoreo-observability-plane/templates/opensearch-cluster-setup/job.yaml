@@ -27,7 +27,7 @@ spec:
               name: observer-opensearch
               key: password
         - name: OBSERVER_ALERTING_WEBHOOK_URL
-          value: "{{ .Values.openSearchClusterSetup.observerAddress }}/api/alerting/webhook/{{ .Values.openSearchClusterSetup.observerAlertingWebhookSecret }}"
+          value: "{{ .Values.openSearchClusterSetup.alertingWebhookUrl }}"
         image: "{{ .Values.openSearchClusterSetup.image.repository }}:{{ .Values.openSearchClusterSetup.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openSearchClusterSetup.image.pullPolicy | default "IfNotPresent" }}
         resources:

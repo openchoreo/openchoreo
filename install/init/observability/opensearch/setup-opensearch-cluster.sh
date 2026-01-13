@@ -218,7 +218,7 @@ echo -e "Index template creation complete\n"
 #       value configured in the observer service
 #       (see internal/observer/config/config.go -> alerting.webhook.secret).
 webhookName="openchoreo-observer-alerting-webhook"
-webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/openchoreo-observer-alert-secret}"
+webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET}"
 
 # Desired webhook configuration payload (used for both create and update operations).
 webhookConfig="{

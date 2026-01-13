@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"time"
 
-	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/httputil"
@@ -84,6 +83,7 @@ const (
 	ErrorMsgUnauthorized              = "Unauthorized request"
 	ErrorMsgMissingAuthHierarchy      = "missing required fields for authorization"
 	LogMsgAuthServiceUnavailableError = "Authorization service unavailable or timed out"
+	ErrorMsgAlertSourceRequired       = "Alert source is required"
 )
 
 // Handler contains the HTTP handlers for the logging API
@@ -998,9 +998,9 @@ func (h *Handler) UpsertAlertingRule(w http.ResponseWriter, r *http.Request) {
 
 	// Upsert the alerting rule
 	ctx := r.Context()
-	resp, err := h.service.UpsertAlertRule(ctx, sourceType, ruleName, req)
+	resp, err := h.service.UpsertAlertRule(ctx, sourceType, req)
 	if err != nil {
-		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", req.Metadata.Name)
+		h.logger.Error("Failed to upsert alerting rule", "error", err, "ruleName", ruleName)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to upsert alerting rule")
 		return
 	}
@@ -1039,7 +1039,7 @@ func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, resp)
 }
 
-// AlertingWebhook handles POST /api/alerting/webhook/{secret}
+// AlertingWebhook handles POST /api/alerting/webhook/{alertSource}/{secret}
 func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	// Validate the shared webhook secret to ensure the request originates from a trusted source.
 	secret := httputil.GetPathParam(r, "secret")
@@ -1049,71 +1049,38 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read the request body
-	bodyBytes, err := io.ReadAll(r.Body)
+	// Parse the webhook payload according to the alerting vendor and retrieve alert details
+	ruleName, ruleNamespace, alertValue, timestamp, err := h.parseWebhookPayload(w, r)
 	if err != nil {
-		h.logger.Error("Failed to read request body", "error", err)
+		h.logger.Error("Failed to parse webhook payload", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
 		return
 	}
 
-	// Parse the webhook payload as JSON
-	if len(bodyBytes) == 0 {
-		h.logger.Warn("Alerting webhook received with empty request body")
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
+	// Retrieve ObservabilityAlertRule CR details
+	alertRule, err := h.service.GetObservabilityAlertRuleByName(r.Context(), ruleName, ruleNamespace)
+	if err != nil {
+		h.logger.Error("Failed to get ObservabilityAlertRule", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to get ObservabilityAlertRule")
 		return
 	}
 
-	var requestBody map[string]interface{}
-	if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
-		h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to parse webhook payload as JSON")
+	// Enrich alert details with ObservabilityAlertRule CR details
+	alertDetails, err := h.service.EnrichAlertDetails(alertRule, alertValue, timestamp)
+	if err != nil {
+		h.logger.Error("Failed to enrich alert details", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to enrich alert details")
 		return
 	}
 
-	/* Message format
-	{
-		"alertValue": 108, (value > threshold)
-		"componentUid": "41f02f7c-cead-477e-a4ca-3678523ab1d5",
-		"enableAiRootCauseAnalysis": false,
-		"notificationChannel": "default-smp-channel",
-		"environmentUid": "46ba778e-4e58-4557-8df4-654c8e1e92d1",
-		"projectUid": "9ec65f73-c507-4f83-9894-fbc57366527a",
-		"ruleName": "requests-log-alert-rule",
-		"timestamp": "2025-12-21T14:51:08.592Z"
-	}
-	*/
-	h.logger.Debug("Successfully parsed webhook payload.")
-
-	ctx := r.Context()
-
-	var alertRule *choreoapis.ObservabilityAlertRule
-	ruleName, _ := requestBody["ruleName"].(string)
-	componentUID, _ := requestBody["componentUid"].(string)
-	projectUID, _ := requestBody["projectUid"].(string)
-	environmentUID, _ := requestBody["environmentUid"].(string)
-
-	// TODO: Remove label selectors and use direct Get by NamespacedName
-	if ruleName != "" && componentUID != "" && projectUID != "" && environmentUID != "" {
-		var err error
-		alertRule, err = h.service.GetObservabilityAlertRuleByName(ctx, ruleName, componentUID, projectUID, environmentUID)
-		if err != nil {
-			h.logger.Warn("Failed to fetch ObservabilityAlertRule", "ruleName", ruleName, "error", err)
-		}
-	}
-
-	specRuleName := ruleName
-	if alertRule != nil {
-		specRuleName = alertRule.Spec.Name
-	}
-
-	// Send alert notification
-	if err := h.service.SendAlertNotification(ctx, requestBody, specRuleName); err != nil {
-		h.logger.Error("Failed to send alert notification", "error", err)
+	// Send Notification
+	err = h.service.SendAlertNotification(r.Context(), alertDetails, alertRule.Spec.Name)
+	if err != nil {
+		h.logger.Warn("Failed to send alert notification", "error", err)
 	}
 
 	// Store alert entry in logs backend
-	alertID, err := h.service.StoreAlertEntry(ctx, requestBody, specRuleName)
+	alertID, err := h.service.StoreAlertEntry(r.Context(), alertDetails, alertRule.Spec.Name)
 	if err != nil {
 		h.logger.Error("Failed to store alert entry", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to store alert entry")
@@ -1121,17 +1088,58 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trigger AI RCA analysis if enabled
-	if enableRCA, ok := requestBody["enableAiRootCauseAnalysis"].(bool); ok && enableRCA {
+	if enableRCA, ok := alertDetails["enableAiRootCauseAnalysis"].(bool); ok && enableRCA {
 		if isAIRCAEnabled() {
-			h.service.TriggerRCAAnalysis(ctx, h.rcaServiceURL, alertID, requestBody, alertRule)
+			h.service.TriggerRCAAnalysis(r.Context(), h.rcaServiceURL, alertID, alertDetails, alertRule)
 		}
 	}
 
-	// Return the alertID
+	// Return success response
 	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Alert notification sent",
+		"message": "Alert processed successfully",
 		"alertID": alertID,
 	})
+}
+
+// parseWebhookPayload reads and parses the JSON webhook payload
+func (h *Handler) parseWebhookPayload(w http.ResponseWriter, r *http.Request) (ruleName string, ruleNamespace string, alertValue string, timestamp string, err error) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.logger.Error("Failed to read request body", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
+		return "", "", "", "", err
+	}
+
+	if len(bodyBytes) == 0 {
+		h.logger.Error("Alerting webhook received with empty request body")
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Empty request body")
+		return "", "", "", "", fmt.Errorf("empty request body")
+	}
+
+	var requestBody map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &requestBody); err != nil {
+		h.logger.Warn("Failed to parse webhook payload as JSON", "error", err, "body", string(bodyBytes))
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to parse webhook payload as JSON")
+		return "", "", "", "", err
+	}
+
+	alertSource := httputil.GetPathParam(r, "alertSource")
+	if alertSource == "" { // TODO: Add supported alert sources (e.g. opensearch, prometheus)
+		h.logger.Error("Alert source is required")
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgAlertSourceRequired)
+		return "", "", "", "", fmt.Errorf("alert source is required")
+	}
+
+	switch alertSource {
+	case "opensearch":
+		return h.service.ParseOpenSearchAlertPayload(requestBody)
+	// case "prometheus":
+	// return h.service.ParsePrometheusAlertPayload(requestBody)
+	default:
+		h.logger.Error("Unsupported alert source", "alertSource", alertSource)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Unsupported alert source")
+		return "", "", "", "", fmt.Errorf("unsupported alert source")
+	}
 }
 
 // GetRCAReportsByProject handles POST /api/rca/project/{projectUid}

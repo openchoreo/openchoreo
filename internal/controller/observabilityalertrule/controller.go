@@ -34,6 +34,7 @@ const (
 // AlertingRuleMetadata represents the metadata section of the observer alerting rule API.
 type AlertingRuleMetadata struct {
 	Name                      string `json:"name"`
+	Namespace                 string `json:"namespace,omitempty"`
 	ComponentUID              string `json:"component-uid,omitempty"`
 	ProjectUID                string `json:"project-uid,omitempty"`
 	EnvironmentUID            string `json:"environment-uid,omitempty"`
@@ -223,6 +224,7 @@ func buildAlertingRuleRequest(rule *openchoreov1alpha1.ObservabilityAlertRule) (
 	req := &AlertingRuleRequest{
 		Metadata: AlertingRuleMetadata{
 			Name:                      rule.Name,
+			Namespace:                 rule.Namespace,
 			ComponentUID:              componentUID,
 			ProjectUID:                projectUID,
 			EnvironmentUID:            environmentUID,

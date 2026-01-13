@@ -2633,17 +2633,10 @@ openSearchClusterSetup:
 
   # @schema
   # type: string
-  # description: Observer service address for setup configuration
-  # default: http://observer.openchoreo-observability-plane:8080
+  # description: Alerting webhook URL for setup configuration
+  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET
   # @schema
-  observerAddress: "http://observer.openchoreo-observability-plane:8080"
-
-  # @schema
-  # type: string
-  # description: Webhook secret for alerting integration
-  # default: qxbfqk3yjiejrlelolvh
-  # @schema
-  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh
+  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/qxbfqk3yjiejrlelolvh"
 
 
 # @schema

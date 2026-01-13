@@ -118,7 +118,10 @@ func main() {
 	// TODO: Expose through a separate route group
 	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
 	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
-	routes.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook)
+
+	// ===== Vendor-specific Alerting Webhook Endpoint =====
+	// No JWT authentication. Uses the secret from the URL path to authenticate the webhook.
+	routes.HandleFunc("POST /api/alerting/webhook/{alertSource}/{secret}", handler.AlertingWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 

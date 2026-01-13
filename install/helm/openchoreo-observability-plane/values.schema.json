@@ -2368,18 +2368,11 @@
           "title": "image",
           "type": "object"
         },
-        "observerAddress": {
-          "default": "http://observer.openchoreo-observability-plane:8080",
-          "description": "Observer service address for setup configuration",
+        "alertingWebhookUrl": {
+          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET",
+          "description": "Alerting webhook URL for setup configuration",
           "required": [],
-          "title": "observerAddress",
-          "type": "string"
-        },
-        "observerAlertingWebhookSecret": {
-          "default": "qxbfqk3yjiejrlelolvh",
-          "description": "Webhook secret for alerting integration",
-          "required": [],
-          "title": "observerAlertingWebhookSecret",
+          "title": "alertingWebhookUrl",
           "type": "string"
         }
       },
