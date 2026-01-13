@@ -1,0 +1,5 @@
+server:
+  port: 9090
+  read_timeout: 30s
+logging:
+  level: debug
