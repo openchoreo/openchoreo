@@ -8,7 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -107,41 +106,6 @@ func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command
 	}).Build()
 }
 
-//nolint:unused // Temporarily disabled
-func newCreateComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	componentFlags := append(getProjectLevelFlags(),
-		flags.DisplayName,
-		flags.GitRepositoryURL,
-		flags.ComponentType,
-		flags.DockerContext,
-		flags.DockerfilePath,
-		flags.Branch,
-		flags.BuildpackName,
-		flags.BuildpackVersion,
-		flags.Path,
-	)
-	return (&builder.CommandBuilder{
-		Command: constants.CreateComponent,
-		Flags:   componentFlags,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateComponent(api.CreateComponentParams{
-				Name:             fg.GetString(flags.Name),
-				Organization:     fg.GetString(flags.Organization),
-				Project:          fg.GetString(flags.Project),
-				DisplayName:      fg.GetString(flags.DisplayName),
-				GitRepositoryURL: fg.GetString(flags.GitRepositoryURL),
-				// Type:             openchoreov1alpha1.DefinedComponentType(fg.GetString(flags.ComponentType)),
-				Branch:           fg.GetString(flags.Branch),
-				Path:             fg.GetString(flags.Path),
-				DockerFile:       fg.GetString(flags.DockerfilePath),
-				DockerContext:    fg.GetString(flags.DockerContext),
-				BuildpackName:    fg.GetString(flags.BuildpackName),
-				BuildpackVersion: fg.GetString(flags.BuildpackVersion),
-			})
-		},
-	}).Build()
-}
-
 func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	workloadFlags := append(getComponentLevelFlags(),
 		flags.Image,
@@ -160,71 +124,6 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 				ComponentName:    fg.GetString(flags.Component),
 				ImageURL:         fg.GetString(flags.Image),
 				OutputPath:       fg.GetString(flags.Output),
-			})
-		},
-	}).Build()
-}
-
-//nolint:unused // Temporarily disabled
-func newCreateBuildCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	buildFlags := append(getComponentLevelFlags(),
-		flags.DockerContext,
-		flags.DockerfilePath,
-		flags.BuildpackName,
-		flags.BuildpackVersion,
-		flags.Branch,
-		flags.Path,
-		flags.Revision,
-		flags.AutoBuild,
-		flags.DeploymentTrack,
-	)
-
-	return (&builder.CommandBuilder{
-		Command: constants.CreateBuild,
-		Flags:   buildFlags,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateBuild(api.CreateBuildParams{
-				Name:         fg.GetString(flags.Name),
-				Organization: fg.GetString(flags.Organization),
-				Project:      fg.GetString(flags.Project),
-				Component:    fg.GetString(flags.Component),
-				Branch:       fg.GetString(flags.Branch),
-				Path:         fg.GetString(flags.Path),
-				Revision:     fg.GetString(flags.Revision),
-				AutoBuild:    fg.GetBool(flags.AutoBuild),
-				Docker: &openchoreov1alpha1.DockerConfiguration{
-					Context:        fg.GetString(flags.DockerContext),
-					DockerfilePath: fg.GetString(flags.DockerfilePath),
-				},
-				Buildpack: &openchoreov1alpha1.BuildpackConfiguration{
-					Name:    openchoreov1alpha1.BuildpackName(fg.GetString(flags.BuildpackName)),
-					Version: fg.GetString(flags.BuildpackVersion),
-				},
-				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
-			})
-		},
-	}).Build()
-}
-
-//nolint:unused // Temporarily disabled
-func newCreateDeploymentCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	deployFlags := append(getComponentLevelFlags(),
-		flags.Environment,
-		flags.DeploymentTrack,
-		flags.DeployableArtifact,
-	)
-	return (&builder.CommandBuilder{
-		Command: constants.CreateDeployment,
-		Flags:   deployFlags,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateDeployment(api.CreateDeploymentParams{
-				Name:               fg.GetString(flags.Name),
-				Organization:       fg.GetString(flags.Organization),
-				Project:            fg.GetString(flags.Project),
-				Component:          fg.GetString(flags.Component),
-				Environment:        fg.GetString(flags.Environment),
-				DeploymentTrack:    fg.GetString(flags.DeploymentTrack),
-				DeployableArtifact: fg.GetString(flags.DeployableArtifact),
 			})
 		},
 	}).Build()
@@ -256,28 +155,6 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 }
 
 //nolint:unused // Temporarily disabled
-func newCreateDeploymentTrackCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	trackFlags := append(getComponentLevelFlags(),
-		flags.APIVersion,
-		flags.AutoDeploy,
-	)
-	return (&builder.CommandBuilder{
-		Command: constants.CreateDeploymentTrack,
-		Flags:   trackFlags,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateDeploymentTrack(api.CreateDeploymentTrackParams{
-				Name:         fg.GetString(flags.Name),
-				Organization: fg.GetString(flags.Organization),
-				Project:      fg.GetString(flags.Project),
-				Component:    fg.GetString(flags.Component),
-				APIVersion:   fg.GetString(flags.APIVersion),
-				AutoDeploy:   fg.GetBool(flags.AutoDeploy),
-			})
-		},
-	}).Build()
-}
-
-//nolint:unused // Temporarily disabled
 func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	envFlags := append(getOrgScopedFlags(),
 		flags.DisplayName,
@@ -298,27 +175,6 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 				DataPlaneRef: fg.GetString(flags.DataPlaneRef),
 				IsProduction: fg.GetBool(flags.IsProduction),
 				DNSPrefix:    fg.GetString(flags.DNSPrefix),
-			})
-		},
-	}).Build()
-}
-
-//nolint:unused // Temporarily disabled
-func newCreateDeployableArtifactCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	artifactFlags := append(getComponentLevelFlags(),
-		flags.DeploymentTrack,
-		flags.Build,
-	)
-	return (&builder.CommandBuilder{
-		Command: constants.CreateDeployableArtifact,
-		Flags:   artifactFlags,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateDeployableArtifact(api.CreateDeployableArtifactParams{
-				Name:            fg.GetString(flags.Name),
-				Organization:    fg.GetString(flags.Organization),
-				Project:         fg.GetString(flags.Project),
-				Component:       fg.GetString(flags.Component),
-				DeploymentTrack: fg.GetString(flags.DeploymentTrack),
 			})
 		},
 	}).Build()

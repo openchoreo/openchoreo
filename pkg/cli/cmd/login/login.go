@@ -22,8 +22,6 @@ func NewLoginCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.ClientSecret,
 			flags.CredentialName,
 			flags.URL,
-			flags.Kubeconfig,
-			flags.KubeContext,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.Login(api.LoginParams{
@@ -32,8 +30,6 @@ func NewLoginCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				ClientSecret:      fg.GetString(flags.ClientSecret),
 				CredentialName:    fg.GetString(flags.CredentialName),
 				URL:               fg.GetString(flags.URL),
-				KubeconfigPath:    fg.GetString(flags.Kubeconfig),
-				Kubecontext:       fg.GetString(flags.KubeContext),
 			})
 		},
 	}).Build()
