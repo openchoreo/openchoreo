@@ -2369,7 +2369,7 @@
           "type": "object"
         },
         "alertingWebhookUrl": {
-          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET",
+          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch",
           "description": "Alerting webhook URL for setup configuration",
           "required": [],
           "title": "alertingWebhookUrl",

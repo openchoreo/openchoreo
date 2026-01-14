@@ -1039,8 +1039,6 @@ observer:
     value: "http://openchoreo-observability-prometheus:9091"
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
-  - name: ALERTING_WEBHOOK_SECRET
-    value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
   - name: AUTHZ_ENABLED
     value: "false"
   - name: AUTHZ_SERVICE_URL
@@ -2634,9 +2632,9 @@ openSearchClusterSetup:
   # @schema
   # type: string
   # description: Alerting webhook URL for setup configuration
-  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET
+  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch
   # @schema
-  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/qxbfqk3yjiejrlelolvh"
+  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch"
 
 
 # @schema

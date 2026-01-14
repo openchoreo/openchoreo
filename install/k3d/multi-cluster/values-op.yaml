@@ -39,8 +39,6 @@ observer:
     value: "http://openchoreo-observability-prometheus:9091"
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
-  - name: ALERTING_WEBHOOK_SECRET
-    value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
   - name: AUTHZ_ENABLED
     value: "false"
   - name: AUTHZ_SERVICE_URL

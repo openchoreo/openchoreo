@@ -88,21 +88,19 @@ const (
 
 // Handler contains the HTTP handlers for the logging API
 type Handler struct {
-	service               *service.LoggingService
-	logger                *slog.Logger
-	authzPDP              authzcore.PDP
-	alertingWebhookSecret string
-	rcaServiceURL         string
+	service       *service.LoggingService
+	logger        *slog.Logger
+	authzPDP      authzcore.PDP
+	rcaServiceURL string
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, alertingWebhookSecret, rcaServiceURL string) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, rcaServiceURL string) *Handler {
 	return &Handler{
-		service:               service,
-		logger:                logger,
-		authzPDP:              authzPDP,
-		alertingWebhookSecret: alertingWebhookSecret,
-		rcaServiceURL:         rcaServiceURL,
+		service:       service,
+		logger:        logger,
+		authzPDP:      authzPDP,
+		rcaServiceURL: rcaServiceURL,
 	}
 }
 
@@ -1039,16 +1037,8 @@ func (h *Handler) DeleteAlertingRule(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, resp)
 }
 
-// AlertingWebhook handles POST /api/alerting/webhook/{alertSource}/{secret}
+// AlertingWebhook handles POST /api/alerting/webhook/{alertSource}
 func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
-	// Validate the shared webhook secret to ensure the request originates from a trusted source.
-	secret := httputil.GetPathParam(r, "secret")
-	if secret == "" || secret != h.alertingWebhookSecret {
-		h.logger.Warn("Received alerting webhook with invalid or missing secret")
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
 	// Parse the webhook payload according to the alerting vendor and retrieve alert details
 	ruleName, ruleNamespace, alertValue, timestamp, err := h.parseWebhookPayload(w, r)
 	if err != nil {

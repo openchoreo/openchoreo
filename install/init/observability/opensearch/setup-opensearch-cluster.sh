@@ -214,11 +214,8 @@ echo -e "Index template creation complete\n"
 
 # 3. Add Channel for Notifications
 # Reference: https://opensearch.org/docs/latest/observing-your-data/notifications/api
-# NOTE: The secret query parameter value must be kept in sync with the
-#       value configured in the observer service
-#       (see internal/observer/config/config.go -> alerting.webhook.secret).
 webhookName="openchoreo-observer-alerting-webhook"
-webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch/WEBHOOK_SECRET}"
+webhookUrl="${OBSERVER_ALERTING_WEBHOOK_URL:-http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch}"
 
 # Desired webhook configuration payload (used for both create and update operations).
 webhookConfig="{
