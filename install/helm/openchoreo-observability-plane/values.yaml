@@ -2636,6 +2636,30 @@ openSearchClusterSetup:
   # @schema
   alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch"
 
+  # @schema
+  # type: object
+  # description: Data retention time configuration for indices
+  # @schema
+  dataRetentionTime:
+    # @schema
+    # type: string
+    # description: Retention period for container logs
+    # default: "30d"
+    # @schema
+    containerLogs: "30d"
+    # @schema
+    # type: string
+    # description: Retention period for traces
+    # default: "30d"
+    # @schema
+    traces: "30d"
+    # @schema
+    # type: string
+    # description: Retention period for RCA reports
+    # default: "90d"
+    # @schema
+    rcaReports: "90d"
+
 
 # @schema
 # type: object

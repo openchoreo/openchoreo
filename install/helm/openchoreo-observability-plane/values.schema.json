@@ -1244,7 +1244,7 @@
               "type": "string"
             },
             "outputs": {
-              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
               "required": [],
               "title": "outputs",
@@ -1887,6 +1887,73 @@
           "title": "resources",
           "type": "object"
         },
+        "security": {
+          "additionalProperties": false,
+          "description": "Security configuration for Observer authentication",
+          "properties": {
+            "userTypes": {
+              "description": "User type configurations for JWT subject resolution",
+              "items": {
+                "properties": {
+                  "auth_mechanisms": {
+                    "items": {
+                      "properties": {
+                        "entitlement": {
+                          "properties": {
+                            "claim": {
+                              "description": "JWT claim name for entitlement",
+                              "required": [],
+                              "type": "string"
+                            },
+                            "display_name": {
+                              "description": "Human-readable name for the claim",
+                              "required": [],
+                              "type": "string"
+                            }
+                          },
+                          "required": [],
+                          "type": "object"
+                        },
+                        "type": {
+                          "description": "Authentication mechanism type (oauth2, etc.)",
+                          "required": [],
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    "required": [],
+                    "type": "array"
+                  },
+                  "display_name": {
+                    "description": "Human-readable name for the user type",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "priority": {
+                    "description": "Detection priority (lower = higher priority)",
+                    "required": [],
+                    "type": "integer"
+                  },
+                  "type": {
+                    "description": "User type identifier (user, service_account, etc.)",
+                    "required": [],
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "userTypes",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "security",
+          "type": "object"
+        },
         "service": {
           "additionalProperties": false,
           "description": "Kubernetes service configuration for the Observer",
@@ -2345,6 +2412,36 @@
       "additionalProperties": false,
       "description": "OpenSearch cluster post-install setup job configuration",
       "properties": {
+        "dataRetentionTime": {
+          "additionalProperties": false,
+          "description": "Data retention time configuration for indices",
+          "properties": {
+            "containerLogs": {
+              "default": "30d",
+              "description": "Retention period for container logs",
+              "required": [],
+              "title": "containerLogs",
+              "type": "string"
+            },
+            "rcaReports": {
+              "default": "90d",
+              "description": "Retention period for RCA reports",
+              "required": [],
+              "title": "rcaReports",
+              "type": "string"
+            },
+            "traces": {
+              "default": "30d",
+              "description": "Retention period for traces",
+              "required": [],
+              "title": "traces",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "dataRetentionTime",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image for the setup job",
@@ -3492,6 +3589,13 @@
               "description": "OAuth2 client secret (override via --set rca.oauth.clientSecret)",
               "required": [],
               "title": "clientSecret",
+              "type": "string"
+            },
+            "tokenUrl": {
+              "default": "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token",
+              "description": "Token URL for obtaining access tokens from IDP",
+              "required": [],
+              "title": "tokenUrl",
               "type": "string"
             }
           },
