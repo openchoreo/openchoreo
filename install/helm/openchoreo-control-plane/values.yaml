@@ -293,6 +293,12 @@ security:
     # default: /etc/openchoreo/authz/default-roles-mappings.yaml
     # @schema
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
+  # @schema
+  # type: string
+  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
+  # default: ""
+  # @schema
+  authServerBaseUrl: ""
 
 # @schema
 # type: object
@@ -1070,13 +1076,6 @@ openchoreoApi:
   # default: ""
   # @schema
   serverBaseUrl: ""
-
-  # @schema
-  # type: string
-  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
-  # default: ""
-  # @schema
-  authServerBaseUrl: ""
 
   # @schema
   # type: object

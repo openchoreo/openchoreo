@@ -2974,13 +2974,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "authServerBaseUrl": {
-          "default": "",
-          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
-          "required": [],
-          "title": "authServerBaseUrl",
-          "type": "string"
-        },
         "autoscaling": {
           "additionalProperties": false,
           "description": "Horizontal Pod Autoscaler configuration",
@@ -3955,6 +3948,13 @@
           "required": [],
           "title": "oidc",
           "type": "object"
+        },
+        "authServerBaseUrl": {
+          "default": "",
+          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
+          "required": [],
+          "title": "authServerBaseUrl",
+          "type": "string"
         }
       },
       "required": [],

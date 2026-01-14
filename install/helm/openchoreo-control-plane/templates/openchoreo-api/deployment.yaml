@@ -57,7 +57,7 @@ spec:
         - name: SERVER_BASE_URL
           value: {{ .Values.openchoreoApi.serverBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.apiHost" .) (include "openchoreo.port" .)) | quote }}
         - name: AUTH_SERVER_BASE_URL
-          value: {{ .Values.openchoreoApi.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) | quote }}
+          value: {{ .Values.security.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) | quote }}
         - name: JWT_ISSUER
           value: {{ .Values.security.oidc.issuer | quote }}
         - name: JWKS_URL
