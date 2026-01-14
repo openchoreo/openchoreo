@@ -13,6 +13,7 @@ import (
 type CommandBuilder struct {
 	Command constants.Command
 	Flags   []flags.Flag
+	PreRunE func(cmd *cobra.Command, args []string) error
 	RunE    func(fg *FlagGetter) error
 }
 
@@ -51,6 +52,7 @@ func (b *CommandBuilder) Build() *cobra.Command {
 		Short:   b.Command.Short,
 		Long:    b.Command.Long,
 		Example: b.Command.Example,
+		PreRunE: b.PreRunE,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fg := &FlagGetter{cmd: cmd, args: args}
 			return b.RunE(fg)

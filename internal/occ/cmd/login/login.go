@@ -193,9 +193,53 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 }
 
 func (i *AuthImpl) IsLoggedIn() bool {
+	// Load config from ~/.openchoreo/config
+	cfg, err := config.LoadStoredConfig()
+	if err != nil {
+		return false
+	}
+
+	// Check if current context exists
+	if cfg.CurrentContext == "" {
+		return false
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil {
+		return false
+	}
+
+	// Check if context references a credential with a valid token
+	if currentContext.Credentials == "" {
+		return false
+	}
+
+	// Find credential and check for valid token
+	for idx := range cfg.Credentials {
+		if cfg.Credentials[idx].Name == currentContext.Credentials {
+			return cfg.Credentials[idx].Token != ""
+		}
+	}
+
 	return false
 }
 
 func (i *AuthImpl) GetLoginPrompt() string {
-	return "login functionality is not supported"
+	return `Authentication required. Please login first using following commands:
+   occ login --client-credentials --client-id <client-id> --client-secret <client-secret>
+
+   Or set environment variables:
+   export OCC_CLIENT_ID=<client-id>
+   export OCC_CLIENT_SECRET=<client-secret>
+   occ login --client-credentials
+
+For more information, run: occ login --help`
 }
