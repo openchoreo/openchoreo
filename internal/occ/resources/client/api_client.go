@@ -520,13 +520,19 @@ func (c *APIClient) refreshToken() error {
 		}
 	}
 
-	if controlPlane == nil || controlPlane.TokenEndpoint == "" {
-		return fmt.Errorf("token endpoint not configured")
+	if controlPlane == nil {
+		return fmt.Errorf("control plane not found")
+	}
+
+	// Fetch token endpoint from API
+	tokenEndpoint, err := getTokenEndpointFromAPI(controlPlane.URL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch token endpoint: %w", err)
 	}
 
 	// Request new token
 	authClient := &auth.ClientCredentialsAuth{
-		TokenEndpoint: controlPlane.TokenEndpoint,
+		TokenEndpoint: tokenEndpoint,
 		ClientID:      credential.ClientID,
 		ClientSecret:  credential.ClientSecret,
 	}
@@ -546,6 +552,46 @@ func (c *APIClient) refreshToken() error {
 	}
 
 	return nil
+}
+
+// getTokenEndpointFromAPI fetches the OIDC configuration from the API server
+func getTokenEndpointFromAPI(apiURL string) (string, error) {
+	req, err := http.NewRequest(
+		http.MethodGet,
+		apiURL+"/api/v1/oidc-config",
+		nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add the header for OpenAPI routing
+	req.Header.Set("X-Use-OpenAPI", "true")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch OIDC config: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("OIDC config request failed with status: %d", resp.StatusCode)
+	}
+
+	var oidcConfig struct {
+		TokenEndpoint string `json:"token_endpoint"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
+		return "", fmt.Errorf("failed to decode OIDC config: %w", err)
+	}
+
+	if oidcConfig.TokenEndpoint == "" {
+		return "", fmt.Errorf("token endpoint not found in OIDC config")
+	}
+
+	return oidcConfig.TokenEndpoint, nil
 }
 
 // getStoredControlPlaneConfig reads control plane config from stored configuration

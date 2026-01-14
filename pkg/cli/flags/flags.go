@@ -377,6 +377,11 @@ var (
 		Name:  "credential",
 		Usage: "Name to save the credential as in config",
 	}
+
+	URL = Flag{
+		Name:  "url",
+		Usage: "Control plane URL to update in the current context",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.

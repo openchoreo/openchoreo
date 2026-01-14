@@ -126,26 +126,24 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("control plane '%s' not found in config", currentContext.ControlPlane)
 	}
 
-	// Get token endpoint: try config first, fall back to API discovery
-	tokenEndpoint := controlPlane.TokenEndpoint
-	if tokenEndpoint == "" {
-		fmt.Printf("Token endpoint not configured, fetching from API...\n")
-		var err error
-		tokenEndpoint, err = i.getTokenEndpointFromAPI(controlPlane.URL)
-		if err != nil {
-			return fmt.Errorf("token endpoint not configured and failed to fetch from API: %w", err)
-		}
-		fmt.Printf("✓ Token endpoint discovered: %s\n", tokenEndpoint)
-
-		// Update control plane config with discovered token endpoint
+	// Update control plane URL if specified in params
+	if params.URL != "" {
+		fmt.Printf("Updating control plane URL to: %s\n", params.URL)
 		for idx := range cfg.ControlPlanes {
 			if cfg.ControlPlanes[idx].Name == controlPlane.Name {
-				cfg.ControlPlanes[idx].TokenEndpoint = tokenEndpoint
+				cfg.ControlPlanes[idx].URL = params.URL
 				controlPlane = &cfg.ControlPlanes[idx]
 				break
 			}
 		}
 	}
+
+	// Always fetch token endpoint from API
+	tokenEndpoint, err := i.getTokenEndpointFromAPI(controlPlane.URL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch token endpoint from API: %w", err)
+	}
+	fmt.Printf("✓ Token endpoint discovered: %s\n", tokenEndpoint)
 
 	// 3. Exchange credentials for token
 	authClient := &auth.ClientCredentialsAuth{

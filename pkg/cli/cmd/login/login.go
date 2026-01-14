@@ -21,6 +21,7 @@ func NewLoginCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.ClientID,
 			flags.ClientSecret,
 			flags.CredentialName,
+			flags.URL,
 			flags.Kubeconfig,
 			flags.KubeContext,
 		},
@@ -30,6 +31,7 @@ func NewLoginCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				ClientID:          fg.GetString(flags.ClientID),
 				ClientSecret:      fg.GetString(flags.ClientSecret),
 				CredentialName:    fg.GetString(flags.CredentialName),
+				URL:               fg.GetString(flags.URL),
 				KubeconfigPath:    fg.GetString(flags.Kubeconfig),
 				Kubecontext:       fg.GetString(flags.KubeContext),
 			})

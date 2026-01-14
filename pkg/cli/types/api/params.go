@@ -87,6 +87,7 @@ type LoginParams struct {
 	ClientID          string
 	ClientSecret      string
 	CredentialName    string // Name to save credential as
+	URL               string // Control plane URL to update
 }
 
 type LogParams struct {

@@ -24,9 +24,8 @@ type StoredConfig struct {
 
 // ControlPlane defines OpenChoreo API server configuration
 type ControlPlane struct {
-	Name          string `yaml:"name"`
-	URL           string `yaml:"url"`
-	TokenEndpoint string `yaml:"tokenEndpoint,omitempty"` // OAuth2 token endpoint
+	Name string `yaml:"name"`
+	URL  string `yaml:"url"`
 }
 
 // Credential represents authentication credentials

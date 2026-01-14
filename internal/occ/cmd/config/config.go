@@ -121,7 +121,6 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 				cpRows := [][]string{
 					{"Name", cp.Name},
 					{"URL", cp.URL},
-					{"Token Endpoint", formatValueOrPlaceholder(cp.TokenEndpoint)},
 					{"Token", tokenDisplay},
 				}
 				return printTable(cpHeaders, cpRows)
