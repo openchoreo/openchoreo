@@ -4,10 +4,12 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // writeSuccessResponse writes a successful API response
@@ -35,4 +37,18 @@ func writeListResponse[T any](w http.ResponseWriter, items []T, total, page, pag
 
 	response := models.ListSuccessResponse(items, total, page, pageSize)
 	_ = json.NewEncoder(w).Encode(response) // Ignore encoding errors for response
+}
+
+// setAuditResource sets resource information for audit logging
+func setAuditResource(ctx context.Context, resourceType, resourceID, resourceName string) {
+	audit.SetResource(ctx, &audit.Resource{
+		Type: resourceType,
+		ID:   resourceID,
+		Name: resourceName,
+	})
+}
+
+// addAuditMetadata adds a single metadata key-value pair for audit logging
+func addAuditMetadata(ctx context.Context, key string, value any) {
+	audit.AddMetadata(ctx, key, value)
 }

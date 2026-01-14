@@ -7,8 +7,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) ListWorkflows(w http.ResponseWriter, r *http.Request) {

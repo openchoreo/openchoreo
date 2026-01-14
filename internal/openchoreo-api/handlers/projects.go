@@ -8,9 +8,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +52,10 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
+
+	// Set audit context for successful creation
+	setAuditResource(ctx, "project", project.Name, project.Name)
+	addAuditMetadata(ctx, "organization", orgName)
 
 	// Success response
 	logger.Info("Project created successfully", "org", orgName, "project", project.Name)

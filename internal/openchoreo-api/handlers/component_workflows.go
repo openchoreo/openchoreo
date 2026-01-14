@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 // ListComponentWorkflows lists ComponentWorkflow templates in an organization
@@ -101,7 +101,13 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadata(ctx, "component", componentName)
+	addAuditMetadata(ctx, "commit", commit)
+
 	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
+	setAuditResource(ctx, "component_workflow_run", workflowRun.Name, workflowRun.Name)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			log.Warn("Unauthorized to trigger component workflow", "org", orgName, "project", projectName, "component", componentName)

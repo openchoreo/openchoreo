@@ -9,14 +9,13 @@ import (
 	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
-	log.Info("GetWorkloads handler called")
 
 	// Extract parameters from URL path
 	orgName := r.PathValue("orgName")
@@ -71,7 +70,6 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
-	log.Info("CreateWorkload handler called")
 
 	// Extract parameters from URL path
 	orgName := r.PathValue("orgName")
@@ -103,6 +101,11 @@ func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_REQUEST_BODY")
 		return
 	}
+
+	setAuditResource(ctx, "workload", "", "")
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadata(ctx, "component", componentName)
 
 	// Call service to create/update workload
 	createdWorkload, err := h.services.ComponentService.CreateComponentWorkload(ctx, orgName, projectName, componentName, &workloadSpec)

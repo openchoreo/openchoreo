@@ -7,9 +7,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {

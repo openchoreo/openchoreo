@@ -88,6 +88,7 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 		// Check if claims match this user type with the OAuth2 mechanism's entitlement config
 		if matches, entitlements := detectUserTypeFromClaims(claims, oauth2Mechanism.Entitlement); matches {
 			return &auth.SubjectContext{
+				ID:                fmt.Sprintf("%v", claims["sub"]),
 				Type:              userTypeConfig.Type,
 				EntitlementClaim:  oauth2Mechanism.Entitlement.Claim,
 				EntitlementValues: entitlements,

@@ -91,6 +91,9 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setAuditResource(ctx, "environment", req.Name, req.Name)
+	addAuditMetadata(ctx, "organization", orgName)
+
 	environment, err := h.services.EnvironmentService.CreateEnvironment(ctx, orgName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {

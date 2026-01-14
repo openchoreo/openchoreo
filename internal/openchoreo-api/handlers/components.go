@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +36,10 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	setAuditResource(ctx, "component", req.Name, req.Name)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
 
 	// Call service to create component
 	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
@@ -173,6 +177,10 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
+
 	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -261,6 +269,10 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
+
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
 
 	// Call service to update workflow parameters
 	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, orgName, projectName, componentName, &req)
@@ -361,6 +373,12 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	// Sanitize input
 	req.Sanitize()
 
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadata(ctx, "source_environment", req.SourceEnvironment)
+	addAuditMetadata(ctx, "target_environment", req.TargetEnvironment)
+
 	promoteReq := &services.PromoteComponentPayload{
 		PromoteComponentRequest: req,
 		ComponentName:           componentName,
@@ -442,6 +460,11 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "INVALID_REQUEST")
 		return
 	}
+
+	setAuditResource(ctx, "component_binding", bindingName, bindingName)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadata(ctx, "component", componentName)
 
 	// Call service to update component binding
 	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, orgName, projectName, componentName, bindingName, &req)
@@ -1009,6 +1032,10 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "project", projectName)
 
 	// Call service to update component traits
 	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)

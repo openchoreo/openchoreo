@@ -82,7 +82,10 @@ func (h *Handler) AddRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.services.AuthzService.AddRole(r.Context(), role); err != nil {
+	ctx := r.Context()
+	setAuditResource(ctx, "role", role.Name, role.Name)
+
+	if err := h.services.AuthzService.AddRole(ctx, role); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to create role", "role", role.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -111,6 +114,9 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	setAuditResource(ctx, "role", roleName, roleName)
+
 	var req UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
@@ -122,7 +128,7 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		Actions: req.Actions,
 	}
 
-	if err := h.services.AuthzService.UpdateRole(r.Context(), role); err != nil {
+	if err := h.services.AuthzService.UpdateRole(ctx, role); err != nil {
 		h.logger.Error("Failed to update role", "error", err, "role", roleName)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -140,6 +146,8 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	addAuditMetadata(ctx, "actions", req.Actions)
+
 	writeSuccessResponse(w, http.StatusOK, map[string]string{"message": "Role updated successfully"})
 }
 
@@ -152,9 +160,12 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	setAuditResource(ctx, "role", roleName, roleName)
+
 	force := r.URL.Query().Get("force") == "true" // nolint:goconst
 
-	if err := h.services.AuthzService.RemoveRole(r.Context(), roleName, force); err != nil {
+	if err := h.services.AuthzService.RemoveRole(ctx, roleName, force); err != nil {
 		h.logger.Error("Failed to remove role", "error", err, "role", roleName, "force", force)
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to delete role", "role", roleName)
@@ -221,7 +232,15 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.services.AuthzService.AddRoleMapping(r.Context(), mapping); err != nil {
+	ctx := r.Context()
+	setAuditResource(ctx, "role_mapping", strconv.FormatUint(uint64(mapping.ID), 10), strconv.FormatUint(uint64(mapping.ID), 10))
+	addAuditMetadata(ctx, "role", mapping.RoleName)
+	addAuditMetadata(ctx, "entitlement", mapping.Entitlement)
+	addAuditMetadata(ctx, "hierarchy", mapping.Hierarchy)
+	addAuditMetadata(ctx, "effect", mapping.Effect)
+	addAuditMetadata(ctx, "context", mapping.Context)
+
+	if err := h.services.AuthzService.AddRoleMapping(ctx, mapping); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to create role mapping")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -244,6 +263,7 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 // UpdateRoleMapping handles PUT /api/v1/authz/role-mappings/{mappingId}
 func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	idStr := r.PathValue("mappingId")
 	if idStr == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Mapping ID is required", services.CodeInvalidInput)
@@ -261,6 +281,13 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "role_mapping", idStr, idStr)
+	addAuditMetadata(ctx, "role", req.RoleName)
+	addAuditMetadata(ctx, "entitlement", req.Entitlement)
+	addAuditMetadata(ctx, "hierarchy", req.Hierarchy)
+	addAuditMetadata(ctx, "effect", req.Effect)
+	addAuditMetadata(ctx, "context", req.Context)
 
 	// Map DTO to domain model
 	mapping := &authz.RoleEntitlementMapping{
@@ -303,6 +330,7 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 // RemoveRoleMapping handles DELETE /api/v1/authz/role-mappings/{mappingId}
 func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	idStr := r.PathValue("mappingId")
 	if idStr == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Mapping ID is required", services.CodeInvalidInput)
@@ -314,6 +342,8 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid mapping ID", services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "role_mapping", idStr, idStr)
 
 	if err := h.services.AuthzService.RemoveRoleMappingByID(r.Context(), uint(id)); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
