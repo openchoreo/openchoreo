@@ -47,7 +47,7 @@ get_component_config() {
         "cert_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=cert-manager" ;;
         "controller_manager") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=controller-manager" ;;
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
-        "gateway_controller") echo "$DATA_PLANE_NS:app.kubernetes.io/name=gateway" ;;
+        "gateway_controller") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=gateway" ;;
         "argo_workflow_controller") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
         "registry") echo "$BUILD_PLANE_NS:app=registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
