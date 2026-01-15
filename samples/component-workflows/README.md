@@ -518,7 +518,7 @@ kubectl patch clustersecretstore default --type='json' -p='[
     "path": "/spec/provider/fake/data/-",
     "value": {
       "key": "git-token",
-      "value": "ghp_YourGitHubPersonalAccessToken"
+      "value": "YourGitAccessToken"
     }
   }
 ]'
