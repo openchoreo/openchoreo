@@ -1085,6 +1085,13 @@
                   "required": [],
                   "title": "endpoint",
                   "type": "string"
+                },
+                "tlsVerify": {
+                  "default": false,
+                  "description": "Enable TLS verification when pushing images to the registry. Set to false for self-signed certificates or local development.",
+                  "required": [],
+                  "title": "tlsVerify",
+                  "type": "boolean"
                 }
               },
               "required": [],
