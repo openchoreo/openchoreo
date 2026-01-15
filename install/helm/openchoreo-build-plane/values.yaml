@@ -78,6 +78,13 @@ global:
       # @schema
       endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
 
+      # @schema
+      # type: boolean
+      # description: Enable TLS verification when pushing images to the registry. Set to false for self-signed certificates or local development.
+      # default: false
+      # @schema
+      tlsVerify: false
+
     # @schema
     # type: object
     # additionalProperties: false

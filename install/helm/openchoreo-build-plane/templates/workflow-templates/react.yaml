@@ -247,7 +247,7 @@ spec:
             podman load -i /mnt/vol/app-image.tar
 
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
-            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)

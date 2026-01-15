@@ -167,13 +167,13 @@ spec:
             LIFECYCLE_IMG="${REGISTRY_ENDPOINT}/buildpacks-cache/lifecycle:0.20.5"
 
             echo "Pulling cached builder: $BUILDER"
-            podman pull --tls-verify=false "$BUILDER"
+            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
 
             echo "Pulling cached run image: $RUN_IMG"
-            podman pull --tls-verify=false "$RUN_IMG"
+            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMG"
 
             echo "Pulling cached lifecycle: $LIFECYCLE_IMG"
-            podman pull --tls-verify=false "$LIFECYCLE_IMG"
+            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$LIFECYCLE_IMG"
 
             # Tag lifecycle image to expected name (referenced by builder image metadata)
             podman tag "$LIFECYCLE_IMG" "docker.io/buildpacksio/lifecycle:0.20.5"
@@ -244,7 +244,7 @@ spec:
             podman load -i /mnt/vol/app-image.tar
 
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
-            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)
