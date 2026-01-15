@@ -370,16 +370,9 @@ data:
         {
           "type": "oauth2",
           "config": {
-            "client_id": "{{ .Values.security.oidc.cli.clientId }}",
+            "client_id": "{{ .Values.cli.clientId }}",
             "redirect_uris": [
-              {{- if .Values.thunder.bootstrap.cliAppRedirectUrls }}
-              {{- range $index, $url := .Values.thunder.bootstrap.cliAppRedirectUrls }}
-              {{- if $index }},{{ end }}
-              "{{ $url }}"
-              {{- end }}
-              {{- else }}
-              "http://localhost:8080/callback"
-              {{- end }}
+              "http://127.0.0.1:55152/auth-callback"
             ],
             "grant_types": [
               "authorization_code"

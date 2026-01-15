@@ -977,6 +977,22 @@
       "title": "backstage",
       "type": "object"
     },
+    "cli": {
+      "additionalProperties": false,
+      "description": "CLI (Command Line Interface) configuration",
+      "properties": {
+        "clientId": {
+          "default": "openchoreo-cli",
+          "description": "OAuth2 client ID for CLI PKCE authentication",
+          "required": [],
+          "title": "clientId",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "title": "cli",
+      "type": "object"
+    },
     "clusterGateway": {
       "additionalProperties": true,
       "description": "Cluster Gateway configuration - manages WebSocket connections from cluster agents",
@@ -3950,22 +3966,6 @@
               "required": [],
               "title": "wellKnownEndpoint",
               "type": "string"
-            },
-            "cli": {
-              "additionalProperties": false,
-              "description": "CLI-specific OIDC configuration",
-              "properties": {
-                "clientId": {
-                  "default": "",
-                  "description": "OAuth2 client ID for CLI PKCE authentication",
-                  "required": [],
-                  "title": "clientId",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "cli",
-              "type": "object"
             }
           },
           "required": [],

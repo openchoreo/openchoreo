@@ -257,17 +257,6 @@ security:
     # default: ""
     # @schema
     tokenUrl: ""
-    # @schema
-    # type: object
-    # description: CLI-specific OIDC configuration
-    # @schema
-    cli:
-      # @schema
-      # type: string
-      # description: OAuth2 client ID for CLI PKCE authentication
-      # default: ""
-      # @schema
-      clientId: "openchoreo-cli"
 
   # @schema
   # type: object
@@ -310,6 +299,18 @@ security:
   # default: ""
   # @schema
   authServerBaseUrl: ""
+
+# @schema
+# type: object
+# description: CLI (Command Line Interface) configuration
+# @schema
+cli:
+  # @schema
+  # type: string
+  # description: OAuth2 client ID for CLI PKCE authentication
+  # default: openchoreo-cli
+  # @schema
+  clientId: "openchoreo-cli"
 
 # @schema
 # type: object
