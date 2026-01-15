@@ -54,13 +54,11 @@ func NewPKCEAuth(oidcConfig *OIDCConfig, redirectURI string) (*PKCEAuth, error) 
 
 // GeneratePKCE generates a new PKCE code verifier, challenge, and state
 func (p *PKCEAuth) GeneratePKCE() error {
-	// Generate 32 bytes of random data for verifier
 	verifierBytes := make([]byte, 32)
 	if _, err := rand.Read(verifierBytes); err != nil {
 		return fmt.Errorf("failed to generate random bytes for verifier: %w", err)
 	}
 
-	// URL-safe base64 encode (no padding)
 	p.CodeVerifier = base64.RawURLEncoding.EncodeToString(verifierBytes)
 
 	// SHA256 hash the verifier for S256 challenge

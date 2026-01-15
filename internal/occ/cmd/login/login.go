@@ -31,7 +31,7 @@ func (i *AuthImpl) Login(params api.LoginParams) error {
 }
 
 func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
-	// 1. Get client ID/secret from params or environment variables
+	// Get client ID/secret from params or environment variables
 	clientID := params.ClientID
 	if clientID == "" {
 		clientID = os.Getenv("OCC_CLIENT_ID")
@@ -46,44 +46,26 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 	}
 
 	credentialName := params.CredentialName
+	currentContext, err := config.GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("failed to get current context: %w", err)
+	}
+	// Use existing credential name if none specified
+	credentialName = currentContext.Credentials
+
 	if credentialName == "" {
-		credentialName = "default"
+		fmt.Println("No credential name specified")
+		return fmt.Errorf("credential name must be specified when no existing credential is associated with the current context")
 	}
 
-	// 2. Load config to get current context's control plane
+	controlPlane, err := config.GetCurrentControlPlane()
+	if err != nil {
+		return fmt.Errorf("failed to get control plane: %w", err)
+	}
+
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set, please set a context first using 'occ config set-context'")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return fmt.Errorf("current context '%s' not found in config", cfg.CurrentContext)
-	}
-
-	// Find control plane for this context
-	var controlPlane *configContext.ControlPlane
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &cfg.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil {
-		return fmt.Errorf("control plane '%s' not found in config", currentContext.ControlPlane)
 	}
 
 	// Update control plane URL if specified in params
@@ -98,13 +80,11 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		}
 	}
 
-	// Always fetch OIDC config from API
 	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch OIDC config from API: %w", err)
 	}
 
-	// 3. Exchange credentials for token
 	authClient := &auth.ClientCredentialsAuth{
 		TokenEndpoint: oidcConfig.TokenEndpoint,
 		ClientID:      clientID,
@@ -116,7 +96,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("failed to get access token: %w", err)
 	}
 
-	// 4. Save/update credential in config file
+	// Save/update credential in config file
 	credentialExists := false
 	for idx := range cfg.Credentials {
 		if cfg.Credentials[idx].Name == credentialName {
@@ -138,8 +118,6 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 			AuthMethod:   "client_credentials",
 		})
 	}
-
-	// 5. Associate credential with current context
 	currentContext.Credentials = credentialName
 
 	// Save updated config
@@ -155,44 +133,26 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 
 func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	credentialName := params.CredentialName
-	if credentialName == "" {
-		credentialName = "default"
+	currentContext, err := config.GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("failed to get current context: %w", err)
 	}
 
-	// 1. Load config to get current context's control plane
+	// Use existing credential name if none specified
+	credentialName = currentContext.Credentials
+	if credentialName == "" {
+		fmt.Printf("No credential name specified")
+		return fmt.Errorf("credential name must be specified when no existing credential is associated with the current context")
+	}
+
+	controlPlane, err := config.GetCurrentControlPlane()
+	if err != nil {
+		return fmt.Errorf("failed to get control plane: %w", err)
+	}
+
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set, please set a context first using 'occ config set-context'")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return fmt.Errorf("current context '%s' not found in config", cfg.CurrentContext)
-	}
-
-	// Find control plane for this context
-	var controlPlane *configContext.ControlPlane
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &cfg.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil {
-		return fmt.Errorf("control plane '%s' not found in config", currentContext.ControlPlane)
 	}
 
 	// Update control plane URL if specified in params
@@ -207,7 +167,6 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 		}
 	}
 
-	// 2. Fetch OIDC configuration (both auth and token endpoints, plus client ID)
 	fmt.Println("Fetching OIDC configuration...")
 	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
 	if err != nil {
@@ -215,22 +174,18 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	}
 	fmt.Printf("✓ OIDC configuration retrieved\n")
 
-	// 3. Construct redirect URI using fixed callback port
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d%s", auth.CallbackPort, auth.CallbackPath)
 
-	// 4. Create PKCE auth handler and generate challenge
 	pkceAuth, err := auth.NewPKCEAuth(oidcConfig, redirectURI)
 	if err != nil {
 		return fmt.Errorf("failed to initialize PKCE auth: %w", err)
 	}
 
-	// 5. Get authorization URL
 	authURL, err := pkceAuth.GetAuthorizationURL()
 	if err != nil {
 		return fmt.Errorf("failed to generate authorization URL: %w", err)
 	}
 
-	// 6. Open browser
 	fmt.Println("\nOpening browser for authentication...")
 	fmt.Printf("If the browser doesn't open, visit:\n%s\n\n", authURL)
 
@@ -239,21 +194,18 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 		fmt.Println("Please open the URL above manually.")
 	}
 
-	// 7. Wait for callback with auth code
 	fmt.Println("Waiting for authentication (timeout: 5 minutes)...")
 	authCode, err := auth.ListenForAuthCode(pkceAuth.State, auth.AuthTimeout)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	// 8. Exchange auth code for tokens
 	fmt.Println("Exchanging authorization code for tokens...")
 	tokenResp, err := pkceAuth.ExchangeAuthCode(authCode)
 	if err != nil {
 		return fmt.Errorf("failed to exchange auth code: %w", err)
 	}
 
-	// 9. Save tokens to config
 	credentialExists := false
 	for idx := range cfg.Credentials {
 		if cfg.Credentials[idx].Name == credentialName {
@@ -261,7 +213,7 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 			cfg.Credentials[idx].RefreshToken = tokenResp.RefreshToken
 			cfg.Credentials[idx].AuthMethod = "pkce"
 			cfg.Credentials[idx].ClientID = oidcConfig.CLIClientID
-			cfg.Credentials[idx].ClientSecret = "" // Clear any existing secret
+			cfg.Credentials[idx].ClientSecret = ""
 			credentialExists = true
 			break
 		}
@@ -277,7 +229,6 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 		})
 	}
 
-	// Associate credential with current context
 	currentContext.Credentials = credentialName
 
 	if err := config.SaveStoredConfig(cfg); err != nil {
@@ -292,97 +243,21 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 }
 
 func (i *AuthImpl) IsLoggedIn() bool {
-	cfg, err := config.LoadStoredConfig()
+	credential, err := config.GetCurrentCredential()
 	if err != nil {
 		return false
 	}
 
-	if cfg.CurrentContext == "" {
+	if credential.Token == "" {
 		return false
 	}
 
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil || currentContext.Credentials == "" {
-		return false
-	}
-
-	// Find credential
-	var credential *configContext.Credential
-	for idx := range cfg.Credentials {
-		if cfg.Credentials[idx].Name == currentContext.Credentials {
-			credential = &cfg.Credentials[idx]
-			break
-		}
-	}
-
-	if credential == nil || credential.Token == "" {
-		return false
-	}
-
-	// Check token expiry using JWT parsing
 	if auth.IsTokenExpired(credential.Token) {
-		// Token expired or expiring soon - attempt refresh for PKCE
-		if credential.RefreshToken != "" && credential.AuthMethod == "pkce" {
-			if err := i.refreshPKCEToken(cfg, credential, currentContext); err != nil {
-				return false
-			}
-			return true
+		if _, err := auth.RefreshToken(); err != nil {
+			return false
 		}
-		// For client credentials, the API client handles refresh on demand
-		if credential.ClientID != "" && credential.ClientSecret != "" {
-			return true
-		}
-		return false
 	}
-
 	return true
-}
-
-func (i *AuthImpl) refreshPKCEToken(cfg *configContext.StoredConfig, credential *configContext.Credential, currentContext *configContext.Context) error {
-	// Find control plane for token endpoint
-	var controlPlane *configContext.ControlPlane
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &cfg.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil {
-		return fmt.Errorf("control plane not found")
-	}
-
-	// Fetch OIDC config to get token endpoint
-	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch OIDC config: %w", err)
-	}
-
-	// Refresh the token
-	tokenResp, err := auth.RefreshAccessToken(
-		oidcConfig.TokenEndpoint,
-		credential.ClientID,
-		credential.RefreshToken,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to refresh token: %w", err)
-	}
-
-	// Update credential
-	credential.Token = tokenResp.AccessToken
-	if tokenResp.RefreshToken != "" {
-		credential.RefreshToken = tokenResp.RefreshToken
-	}
-
-	return config.SaveStoredConfig(cfg)
 }
 
 func (i *AuthImpl) GetLoginPrompt() string {

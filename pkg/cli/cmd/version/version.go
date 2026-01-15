@@ -16,7 +16,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // serverVersionResponse represents the server version response from the API.
@@ -64,40 +63,14 @@ func NewVersionCmd() *cobra.Command {
 
 // fetchServerVersion fetches the version information from the configured control plane.
 func fetchServerVersion() (*serverVersionResponse, error) {
-	// Load stored config to get control plane endpoint
-	storedConfig, err := config.LoadStoredConfig()
+	// Get control plane
+	controlPlane, err := config.GetCurrentControlPlane()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to get control plane: %w", err)
 	}
 
-	if storedConfig.CurrentContext == "" {
-		return nil, fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range storedConfig.Contexts {
-		if storedConfig.Contexts[idx].Name == storedConfig.CurrentContext {
-			currentContext = &storedConfig.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return nil, fmt.Errorf("current context '%s' not found", storedConfig.CurrentContext)
-	}
-
-	// Find control plane
-	var controlPlane *configContext.ControlPlane
-	for idx := range storedConfig.ControlPlanes {
-		if storedConfig.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &storedConfig.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil || controlPlane.URL == "" {
-		return nil, fmt.Errorf("control plane not configured")
+	if controlPlane.URL == "" {
+		return nil, fmt.Errorf("control plane URL not configured")
 	}
 
 	// Create HTTP request with timeout

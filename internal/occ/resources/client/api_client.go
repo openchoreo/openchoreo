@@ -14,7 +14,6 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 // APIClient provides HTTP client for OpenChoreo API server
@@ -127,50 +126,17 @@ type ListComponentsResponse struct {
 
 // NewAPIClient creates a new API client with control plane auto-detection
 func NewAPIClient() (*APIClient, error) {
-	storedCfg, err := config.LoadStoredConfig()
+	// Get control plane
+	controlPlane, err := config.GetCurrentControlPlane()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to get control plane: %w", err)
 	}
 
-	if storedCfg.CurrentContext == "" {
-		return nil, fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range storedCfg.Contexts {
-		if storedCfg.Contexts[idx].Name == storedCfg.CurrentContext {
-			currentContext = &storedCfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return nil, fmt.Errorf("current context '%s' not found", storedCfg.CurrentContext)
-	}
-
-	// Find control plane
-	var controlPlane *configContext.ControlPlane
-	for idx := range storedCfg.ControlPlanes {
-		if storedCfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &storedCfg.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil {
-		return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
-	}
-
-	// Find credential and get token
+	// Get credential and token (may not exist yet if not logged in)
 	token := ""
-	if currentContext.Credentials != "" {
-		for idx := range storedCfg.Credentials {
-			if storedCfg.Credentials[idx].Name == currentContext.Credentials {
-				token = storedCfg.Credentials[idx].Token
-				break
-			}
-		}
+	credential, err := config.GetCurrentCredential()
+	if err == nil && credential != nil {
+		token = credential.Token
 	}
 
 	return &APIClient{
@@ -399,7 +365,7 @@ func (c *APIClient) delete(ctx context.Context, path string, body interface{}) (
 func (c *APIClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	// Check if token needs refresh before making request
 	if c.token != "" && auth.IsTokenExpired(c.token) {
-		newToken, err := auth.RefreshToken(c.token)
+		newToken, err := auth.RefreshToken()
 		if err != nil {
 			return nil, fmt.Errorf("failed to refresh token: %w", err)
 		}

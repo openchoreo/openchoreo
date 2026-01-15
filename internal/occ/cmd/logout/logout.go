@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 )
 
 type LogoutImpl struct{}
@@ -17,55 +16,34 @@ func NewLogoutImpl() *LogoutImpl {
 }
 
 func (i *LogoutImpl) Logout() error {
-	// 1. Load config
+	// Get current context and credential
+	currentContext, err := config.GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("failed to get current context: %w", err)
+	}
+
+	credential, err := config.GetCurrentCredential()
+	if err != nil {
+		return fmt.Errorf("failed to get current credential: %w", err)
+	}
+
+	// Clear token and refresh token from credential
+	credential.Token = ""
+	credential.RefreshToken = ""
+
+	// Load and save config
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set")
-	}
-
-	// 2. Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
-	}
-
-	if currentContext.Credentials == "" {
-		return fmt.Errorf("no credentials associated with context '%s'", cfg.CurrentContext)
-	}
-
-	// 3. Find and clear token from credential
-	credentialFound := false
-	for idx := range cfg.Credentials {
-		if cfg.Credentials[idx].Name == currentContext.Credentials {
-			cfg.Credentials[idx].Token = ""
-			credentialFound = true
-			break
-		}
-	}
-
-	if !credentialFound {
-		return fmt.Errorf("credential '%s' not found", currentContext.Credentials)
-	}
-
-	// 4. Save updated config
 	if err := config.SaveStoredConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
 	fmt.Printf("✓ Logged out successfully\n")
-	fmt.Printf("Cleared token for credential '%s' in context '%s'\n",
-		currentContext.Credentials, cfg.CurrentContext)
+	fmt.Printf("Cleared credentials for '%s' in context '%s'\n",
+		credential.Name, currentContext.Name)
 
 	return nil
 }
