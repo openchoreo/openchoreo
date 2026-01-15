@@ -45,13 +45,15 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("client ID and client secret are required (use --client-id and --client-secret flags or OCC_CLIENT_ID and OCC_CLIENT_SECRET environment variables)")
 	}
 
-	credentialName := params.CredentialName
 	currentContext, err := config.GetCurrentContext()
 	if err != nil {
 		return fmt.Errorf("failed to get current context: %w", err)
 	}
 	// Use existing credential name if none specified
-	credentialName = currentContext.Credentials
+	credentialName := params.CredentialName
+	if credentialName == "" {
+		credentialName = currentContext.Credentials
+	}
 
 	if credentialName == "" {
 		fmt.Println("No credential name specified")
@@ -132,14 +134,16 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 }
 
 func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
-	credentialName := params.CredentialName
 	currentContext, err := config.GetCurrentContext()
 	if err != nil {
 		return fmt.Errorf("failed to get current context: %w", err)
 	}
 
 	// Use existing credential name if none specified
-	credentialName = currentContext.Credentials
+	credentialName := params.CredentialName
+	if credentialName == "" {
+		credentialName = currentContext.Credentials
+	}
 	if credentialName == "" {
 		fmt.Printf("No credential name specified")
 		return fmt.Errorf("credential name must be specified when no existing credential is associated with the current context")

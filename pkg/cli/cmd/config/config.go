@@ -41,8 +41,8 @@ type Credential struct {
 // Context represents a single named configuration context.
 type Context struct {
 	Name              string `yaml:"name"`
-	ControlPlane      string `yaml:"controlplane"`            // Reference to controlplanes[].name
-	Credentials       string `yaml:"credentials,omitempty"`   // Reference to credentials[].name
+	ControlPlane      string `yaml:"controlplane"`          // Reference to controlplanes[].name
+	Credentials       string `yaml:"credentials,omitempty"` // Reference to credentials[].name
 	Organization      string `yaml:"organization,omitempty"`
 	Project           string `yaml:"project,omitempty"`
 	Component         string `yaml:"component,omitempty"`

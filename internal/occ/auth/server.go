@@ -48,7 +48,7 @@ func ListenForAuthCode(expectedState string, timeout time.Duration) (string, err
 		receivedState := r.URL.Query().Get("state")
 		if receivedState != expectedState {
 			errMsg := "state mismatch - possible CSRF attack"
-			authCodeChan <- AuthResult{Err: fmt.Errorf(errMsg)}
+			authCodeChan <- AuthResult{Err: fmt.Errorf("%s", errMsg)}
 			writeErrorHTML(w, errMsg)
 			return
 		}
@@ -57,7 +57,7 @@ func ListenForAuthCode(expectedState string, timeout time.Duration) (string, err
 		authCode := r.URL.Query().Get("code")
 		if authCode == "" {
 			errMsg := "no authorization code received"
-			authCodeChan <- AuthResult{Err: fmt.Errorf(errMsg)}
+			authCodeChan <- AuthResult{Err: fmt.Errorf("%s", errMsg)}
 			writeErrorHTML(w, errMsg)
 			return
 		}
