@@ -483,3 +483,71 @@ func maskToken(token string) string {
 	}
 	return token[:4] + "..." + token[len(token)-4:]
 }
+
+// GetCurrentCredential returns the credential for the current context
+func GetCurrentCredential() (*configContext.Credential, error) {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil || currentContext.Credentials == "" {
+		return nil, fmt.Errorf("no credentials associated with current context")
+	}
+
+	// Find credential
+	for idx := range cfg.Credentials {
+		if cfg.Credentials[idx].Name == currentContext.Credentials {
+			return &cfg.Credentials[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("credential '%s' not found", currentContext.Credentials)
+}
+
+// GetCurrentControlPlane returns the control plane for the current context
+func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	var currentContext *configContext.Context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			currentContext = &cfg.Contexts[idx]
+			break
+		}
+	}
+
+	if currentContext == nil {
+		return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
+	}
+
+	// Find control plane
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			return &cfg.ControlPlanes[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
+}

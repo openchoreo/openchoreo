@@ -6,12 +6,10 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
@@ -400,10 +398,12 @@ func (c *APIClient) delete(ctx context.Context, path string, body interface{}) (
 
 func (c *APIClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	// Check if token needs refresh before making request
-	if c.token != "" && c.isTokenExpired() {
-		if err := c.refreshToken(); err != nil {
+	if c.token != "" && auth.IsTokenExpired(c.token) {
+		newToken, err := auth.RefreshToken(c.token)
+		if err != nil {
 			return nil, fmt.Errorf("failed to refresh token: %w", err)
 		}
+		c.token = newToken
 	}
 
 	url := c.baseURL + path
@@ -436,196 +436,4 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body int
 	}
 
 	return resp, nil
-}
-
-// isTokenExpired checks if the JWT token is expired or will expire soon (within 1 minute)
-func (c *APIClient) isTokenExpired() bool {
-	if c.token == "" {
-		return false
-	}
-
-	// Parse JWT token (format: header.payload.signature)
-	parts := strings.Split(c.token, ".")
-	if len(parts) != 3 {
-		return true // Invalid token format
-	}
-
-	// Decode payload (base64url)
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return true // Failed to decode
-	}
-
-	// Parse payload JSON
-	var claims struct {
-		Exp int64 `json:"exp"` // Expiry time as Unix timestamp
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return true // Failed to parse
-	}
-
-	// Check if token is expired or will expire within 1 minute
-	expiryTime := time.Unix(claims.Exp, 0)
-	return time.Now().Add(1 * time.Minute).After(expiryTime)
-}
-
-// refreshToken refreshes the access token using client credentials
-func (c *APIClient) refreshToken() error {
-	// Load config to get credentials
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil || currentContext.Credentials == "" {
-		return fmt.Errorf("no credentials associated with current context")
-	}
-
-	// Find credential
-	var credential *configContext.Credential
-	for idx := range cfg.Credentials {
-		if cfg.Credentials[idx].Name == currentContext.Credentials {
-			credential = &cfg.Credentials[idx]
-			break
-		}
-	}
-
-	if credential == nil {
-		return fmt.Errorf("credential '%s' not found", currentContext.Credentials)
-	}
-
-	// Find control plane
-	var controlPlane *configContext.ControlPlane
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			controlPlane = &cfg.ControlPlanes[idx]
-			break
-		}
-	}
-
-	if controlPlane == nil {
-		return fmt.Errorf("control plane not found")
-	}
-
-	// Check auth method and use appropriate refresh strategy
-	if credential.AuthMethod == "pkce" && credential.RefreshToken != "" {
-		// Use PKCE refresh token grant
-		oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
-		if err != nil {
-			return fmt.Errorf("failed to fetch OIDC config: %w", err)
-		}
-
-		tokenResp, err := auth.RefreshAccessToken(
-			oidcConfig.TokenEndpoint,
-			credential.ClientID,
-			credential.RefreshToken,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to refresh PKCE token: %w", err)
-		}
-
-		// Update token in memory
-		c.token = tokenResp.AccessToken
-
-		// Update token in config
-		credential.Token = tokenResp.AccessToken
-		if tokenResp.RefreshToken != "" {
-			credential.RefreshToken = tokenResp.RefreshToken
-		}
-		expiryTime := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-		credential.TokenExpiry = expiryTime.Format(time.RFC3339)
-
-		if err := config.SaveStoredConfig(cfg); err != nil {
-			return fmt.Errorf("failed to save updated token: %w", err)
-		}
-
-		return nil
-	}
-
-	// Fall back to client credentials refresh
-	if credential.ClientID == "" || credential.ClientSecret == "" {
-		return fmt.Errorf("credential does not have client credentials for refresh")
-	}
-
-	// Fetch token endpoint from API
-	tokenEndpoint, err := getTokenEndpointFromAPI(controlPlane.URL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch token endpoint: %w", err)
-	}
-
-	// Request new token
-	authClient := &auth.ClientCredentialsAuth{
-		TokenEndpoint: tokenEndpoint,
-		ClientID:      credential.ClientID,
-		ClientSecret:  credential.ClientSecret,
-	}
-
-	tokenResp, err := authClient.GetToken()
-	if err != nil {
-		return fmt.Errorf("failed to get new access token: %w", err)
-	}
-
-	// Update token in memory
-	c.token = tokenResp.AccessToken
-
-	// Update token in config
-	credential.Token = tokenResp.AccessToken
-	if err := config.SaveStoredConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save updated token: %w", err)
-	}
-
-	return nil
-}
-
-// getTokenEndpointFromAPI fetches the OIDC configuration from the API server
-func getTokenEndpointFromAPI(apiURL string) (string, error) {
-	req, err := http.NewRequest(
-		http.MethodGet,
-		apiURL+"/api/v1/oidc-config",
-		nil,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add the header for OpenAPI routing
-	req.Header.Set("X-Use-OpenAPI", "true")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch OIDC config: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OIDC config request failed with status: %d", resp.StatusCode)
-	}
-
-	var oidcConfig struct {
-		TokenEndpoint string `json:"token_endpoint"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		return "", fmt.Errorf("failed to decode OIDC config: %w", err)
-	}
-
-	if oidcConfig.TokenEndpoint == "" {
-		return "", fmt.Errorf("token endpoint not found in OIDC config")
-	}
-
-	return oidcConfig.TokenEndpoint, nil
 }

@@ -16,13 +16,6 @@ import (
 	"time"
 )
 
-// OIDCConfig represents the OIDC discovery response
-type OIDCConfig struct {
-	AuthorizationEndpoint string `json:"authorization_endpoint"`
-	TokenEndpoint         string `json:"token_endpoint"`
-	CLIClientID           string `json:"cli_client_id"`
-}
-
 // PKCEAuth handles PKCE authorization code flow
 type PKCEAuth struct {
 	AuthorizationEndpoint string
@@ -41,49 +34,6 @@ type PKCETokenResponse struct {
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	Scope        string `json:"scope,omitempty"`
-}
-
-// FetchOIDCConfig fetches OIDC configuration including both endpoints and CLI client ID
-func FetchOIDCConfig(apiURL string) (*OIDCConfig, error) {
-	req, err := http.NewRequest(
-		http.MethodGet,
-		apiURL+"/api/v1/oidc-config",
-		nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("X-Use-OpenAPI", "true")
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OIDC config: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("OIDC config request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var oidcConfig OIDCConfig
-	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		return nil, fmt.Errorf("failed to decode OIDC config: %w", err)
-	}
-
-	if oidcConfig.AuthorizationEndpoint == "" {
-		return nil, fmt.Errorf("authorization endpoint not found in OIDC config")
-	}
-	if oidcConfig.TokenEndpoint == "" {
-		return nil, fmt.Errorf("token endpoint not found in OIDC config")
-	}
-	if oidcConfig.CLIClientID == "" {
-		return nil, fmt.Errorf("cli_client_id not found in OIDC config")
-	}
-
-	return &oidcConfig, nil
 }
 
 // NewPKCEAuth creates a new PKCE auth handler using the OIDC config
@@ -118,7 +68,6 @@ func (p *PKCEAuth) GeneratePKCE() error {
 	p.CodeChallenge = base64.RawURLEncoding.EncodeToString(hash[:])
 
 	// Generate 16 bytes (128 bits) of cryptographically secure random data for state
-	// This provides sufficient entropy to prevent CSRF attacks as recommended by OAuth 2.0 security best practices
 	stateBytes := make([]byte, 16)
 	if _, err := rand.Read(stateBytes); err != nil {
 		return fmt.Errorf("failed to generate random bytes for state: %w", err)

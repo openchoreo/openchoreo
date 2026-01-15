@@ -35,8 +35,7 @@ type Credential struct {
 	ClientSecret string `yaml:"clientSecret,omitempty"`
 	Token        string `yaml:"token,omitempty"`
 	RefreshToken string `yaml:"refreshToken,omitempty"`
-	TokenExpiry  string `yaml:"tokenExpiry,omitempty"` // RFC3339 format
-	AuthMethod   string `yaml:"authMethod,omitempty"`  // "pkce" or "client_credentials"
+	AuthMethod   string `yaml:"authMethod,omitempty"` // "pkce" or "client_credentials"
 }
 
 // Context represents a single named configuration context.

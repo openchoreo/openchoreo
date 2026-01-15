@@ -4,11 +4,8 @@
 package login
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/browser"
@@ -31,46 +28,6 @@ func (i *AuthImpl) Login(params api.LoginParams) error {
 	}
 	// Default to PKCE flow for interactive login
 	return i.loginWithPKCE(params)
-}
-
-// getTokenEndpointFromAPI fetches the OIDC configuration from the API server
-func (i *AuthImpl) getTokenEndpointFromAPI(apiURL string) (string, error) {
-	req, err := http.NewRequest(
-		http.MethodGet,
-		apiURL+"/api/v1/oidc-config",
-		nil,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Add the header here
-	req.Header.Set("X-Use-OpenAPI", "true")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch OIDC config: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("OIDC config request failed with status: %d", resp.StatusCode)
-	}
-
-	var oidcConfig struct {
-		TokenEndpoint string `json:"token_endpoint"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
-		return "", fmt.Errorf("failed to decode OIDC config: %w", err)
-	}
-
-	if oidcConfig.TokenEndpoint == "" {
-		return "", fmt.Errorf("token endpoint not found in OIDC config response")
-	}
-
-	return oidcConfig.TokenEndpoint, nil
 }
 
 func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
@@ -141,16 +98,15 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		}
 	}
 
-	// Always fetch token endpoint from API
-	tokenEndpoint, err := i.getTokenEndpointFromAPI(controlPlane.URL)
+	// Always fetch OIDC config from API
+	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
 	if err != nil {
-		return fmt.Errorf("failed to fetch token endpoint from API: %w", err)
+		return fmt.Errorf("failed to fetch OIDC config from API: %w", err)
 	}
-	fmt.Printf("✓ Token endpoint discovered: %s\n", tokenEndpoint)
 
 	// 3. Exchange credentials for token
 	authClient := &auth.ClientCredentialsAuth{
-		TokenEndpoint: tokenEndpoint,
+		TokenEndpoint: oidcConfig.TokenEndpoint,
 		ClientID:      clientID,
 		ClientSecret:  clientSecret,
 	}
@@ -297,16 +253,12 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 		return fmt.Errorf("failed to exchange auth code: %w", err)
 	}
 
-	// 9. Calculate token expiry time
-	expiryTime := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-
-	// 10. Save tokens to config
+	// 9. Save tokens to config
 	credentialExists := false
 	for idx := range cfg.Credentials {
 		if cfg.Credentials[idx].Name == credentialName {
 			cfg.Credentials[idx].Token = tokenResp.AccessToken
 			cfg.Credentials[idx].RefreshToken = tokenResp.RefreshToken
-			cfg.Credentials[idx].TokenExpiry = expiryTime.Format(time.RFC3339)
 			cfg.Credentials[idx].AuthMethod = "pkce"
 			cfg.Credentials[idx].ClientID = oidcConfig.CLIClientID
 			cfg.Credentials[idx].ClientSecret = "" // Clear any existing secret
@@ -321,7 +273,6 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 			ClientID:     oidcConfig.CLIClientID,
 			Token:        tokenResp.AccessToken,
 			RefreshToken: tokenResp.RefreshToken,
-			TokenExpiry:  expiryTime.Format(time.RFC3339),
 			AuthMethod:   "pkce",
 		})
 	}
@@ -376,23 +327,20 @@ func (i *AuthImpl) IsLoggedIn() bool {
 		return false
 	}
 
-	// Check token expiry for PKCE tokens
-	if credential.TokenExpiry != "" {
-		expiryTime, err := time.Parse(time.RFC3339, credential.TokenExpiry)
-		if err == nil && time.Now().After(expiryTime.Add(-1*time.Minute)) {
-			// Token expired or expiring soon - attempt refresh
-			if credential.RefreshToken != "" && credential.AuthMethod == "pkce" {
-				if err := i.refreshPKCEToken(cfg, credential, currentContext); err != nil {
-					return false
-				}
-				return true
+	// Check token expiry using JWT parsing
+	if auth.IsTokenExpired(credential.Token) {
+		// Token expired or expiring soon - attempt refresh for PKCE
+		if credential.RefreshToken != "" && credential.AuthMethod == "pkce" {
+			if err := i.refreshPKCEToken(cfg, credential, currentContext); err != nil {
+				return false
 			}
-			// For client credentials, the API client handles refresh
-			if credential.ClientID != "" && credential.ClientSecret != "" {
-				return true // Let API client refresh on demand
-			}
-			return false
+			return true
 		}
+		// For client credentials, the API client handles refresh on demand
+		if credential.ClientID != "" && credential.ClientSecret != "" {
+			return true
+		}
+		return false
 	}
 
 	return true
@@ -433,8 +381,6 @@ func (i *AuthImpl) refreshPKCEToken(cfg *configContext.StoredConfig, credential 
 	if tokenResp.RefreshToken != "" {
 		credential.RefreshToken = tokenResp.RefreshToken
 	}
-	expiryTime := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	credential.TokenExpiry = expiryTime.Format(time.RFC3339)
 
 	return config.SaveStoredConfig(cfg)
 }
