@@ -16,6 +16,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 )
 
 // OrganizationService handles organization-related business logic
@@ -98,14 +99,14 @@ func (s *OrganizationService) toOrganizationResponse(org *openchoreov1alpha1.Org
 	description := org.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := statusUnknown
+	status := apistatus.Unknown
 	if len(org.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := org.Status.Conditions[len(org.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
+			status = apistatus.Ready
 		} else {
-			status = statusNotReady
+			status = apistatus.NotReady
 		}
 	}
 

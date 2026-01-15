@@ -17,6 +17,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 )
 
 // SecretReferenceService handles secret reference-related business logic
@@ -114,14 +115,14 @@ func (s *SecretReferenceService) toSecretReferenceResponse(secretRef *openchoreo
 	}
 
 	// Get status from conditions
-	status := statusUnknown
+	status := apistatus.Unknown
 	if len(secretRef.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := secretRef.Status.Conditions[len(secretRef.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
+			status = apistatus.Ready
 		} else {
-			status = statusNotReady
+			status = apistatus.NotReady
 		}
 	}
 

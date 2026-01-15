@@ -14,6 +14,7 @@ import (
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 )
 
 const (
@@ -103,13 +104,13 @@ func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openc
 	}
 
 	// Determine status from conditions
-	status := statusUnknown
+	status := apistatus.Unknown
 	for _, condition := range pipeline.Status.Conditions {
-		if condition.Type == statusReady {
+		if condition.Type == apistatus.Ready {
 			if condition.Status == "True" {
-				status = statusReady
+				status = apistatus.Ready
 			} else {
-				status = statusNotReady
+				status = apistatus.NotReady
 			}
 			break
 		}
