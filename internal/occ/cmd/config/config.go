@@ -406,36 +406,23 @@ func EnsureContext() error {
 
 // SetControlPlane sets the control plane configuration
 func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) error {
+	// Get current context
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("failed to get current context: %w", err)
+	}
+
+	// Load config for updates
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return fmt.Errorf("no current context set")
-	}
-
-	// Update or create control plane
-	cpName := currentContext.ControlPlane
-	if cpName == "" {
-		cpName = "default"
-		currentContext.ControlPlane = cpName
-	}
-
 	// Find and update existing control plane or create new one
 	found := false
 	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == cpName {
-			cfg.ControlPlanes[idx].URL = params.Endpoint
+		if cfg.ControlPlanes[idx].Name == params.Name {
+			cfg.ControlPlanes[idx].URL = params.URL
 			found = true
 			break
 		}
@@ -443,34 +430,16 @@ func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) er
 
 	if !found {
 		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
-			Name: cpName,
-			URL:  params.Endpoint,
+			Name: params.Name,
+			URL:  params.URL,
 		})
 	}
 
-	// If token provided, create/update credential
-	if params.Token != "" {
-		credName := currentContext.Credentials
-		if credName == "" {
-			credName = "default"
-			currentContext.Credentials = credName
-		}
-
-		// Find and update existing credential or create new one
-		credFound := false
-		for idx := range cfg.Credentials {
-			if cfg.Credentials[idx].Name == credName {
-				cfg.Credentials[idx].Token = params.Token
-				credFound = true
-				break
-			}
-		}
-
-		if !credFound {
-			cfg.Credentials = append(cfg.Credentials, configContext.Credential{
-				Name:  credName,
-				Token: params.Token,
-			})
+	// Update current context to reference this control plane
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == currentContext.Name {
+			cfg.Contexts[idx].ControlPlane = params.Name
+			break
 		}
 	}
 
@@ -479,11 +448,8 @@ func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) er
 	}
 
 	fmt.Printf("Control plane configured successfully:\n")
-	fmt.Printf("  Name: %s\n", cpName)
-	fmt.Printf("  Endpoint: %s\n", params.Endpoint)
-	if params.Token != "" {
-		fmt.Printf("  Token: %s\n", maskToken(params.Token))
-	}
+	fmt.Printf("  Name: %s\n", params.Name)
+	fmt.Printf("  URL: %s\n", params.URL)
 
 	return nil
 }

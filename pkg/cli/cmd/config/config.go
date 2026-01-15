@@ -149,20 +149,24 @@ func newSetControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 	return (&builder.CommandBuilder{
 		Command: constants.ConfigSetControlPlane,
 		Flags: []flags.Flag{
-			flags.Endpoint,
-			flags.Token,
+			flags.Name,
+			flags.URL,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			endpoint := fg.GetString(flags.Endpoint)
-			token := fg.GetString(flags.Token)
+			name := fg.GetString(flags.Name)
+			url := fg.GetString(flags.URL)
 
-			if endpoint == "" {
-				return fmt.Errorf("endpoint is required")
+			if name == "" {
+				return fmt.Errorf("control plane name is required (use --name flag)")
+			}
+
+			if url == "" {
+				return fmt.Errorf("control plane URL is required (use --url flag)")
 			}
 
 			return impl.SetControlPlane(api.SetControlPlaneParams{
-				Endpoint: endpoint,
-				Token:    token,
+				Name: name,
+				URL:  url,
 			})
 		},
 	}).Build()

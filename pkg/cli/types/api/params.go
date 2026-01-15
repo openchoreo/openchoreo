@@ -304,8 +304,8 @@ type GetConfigurationGroupParams struct {
 
 // SetControlPlaneParams defines parameters for setting control plane configuration
 type SetControlPlaneParams struct {
-	Endpoint string
-	Token    string
+	Name string
+	URL  string
 }
 
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor

@@ -380,7 +380,7 @@ var (
 
 	URL = Flag{
 		Name:  "url",
-		Usage: "Control plane URL to update in the current context",
+		Usage: "Control plane URL to update",
 	}
 )
 
