@@ -79,10 +79,6 @@ type LoggingConfig struct {
 
 // AlertingConfig holds configuration related to alerting features
 type AlertingConfig struct {
-	// WebhookSecret is a shared secret used to authenticate incoming alerting webhooks.
-	// This value must match the secret appended to the webhook URL configured in
-	// observability backends (e.g., OpenSearch, Prometheus).
-	WebhookSecret string `koanf:"webhook.secret"`
 	// RCAServiceURL is the base URL for the AI RCA (Root Cause Analysis) service.
 	// Used for health checks and triggering RCA analysis.
 	RCAServiceURL string `koanf:"rca.service.url"`
@@ -147,7 +143,6 @@ func Load() (*Config, error) {
 		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
 		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
 		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
-		"ALERTING_WEBHOOK_SECRET":         "alerting.webhook.secret",
 		"RCA_SERVICE_URL":                 "alerting.rca.service.url",
 		"LOG_LEVEL":                       "loglevel",
 		"PORT":                            "server.port",           // Common alias
@@ -255,9 +250,6 @@ func getDefaults() map[string]interface{} {
 			"max.log.lines.per.file":  600000,
 		},
 		"alerting": map[string]interface{}{
-			// This secret must be kept in sync with the default used in
-			// observability backends (e.g., OpenSearch, Prometheus).
-			"webhook.secret":  "openchoreo-observer-alert-secret",
 			"rca.service.url": "http://ai-rca-agent:8080",
 		},
 		"loglevel": "info",

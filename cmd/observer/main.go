@@ -94,7 +94,7 @@ func main() {
 
 	// Initialize handlers
 	handler := handlers.NewHandler(
-		loggingService, logger, authzPDP, cfg.Alerting.WebhookSecret, cfg.Alerting.RCAServiceURL,
+		loggingService, logger, authzPDP, cfg.Alerting.RCAServiceURL,
 	)
 
 	// ===== Initialize Middlewares =====
@@ -118,7 +118,10 @@ func main() {
 	// TODO: Expose through a separate route group
 	routes.HandleFunc("PUT /api/alerting/rule/{sourceType}/{ruleName}", handler.UpsertAlertingRule)
 	routes.HandleFunc("DELETE /api/alerting/rule/{sourceType}/{ruleName}", handler.DeleteAlertingRule)
-	routes.HandleFunc("POST /api/alerting/webhook/{secret}", handler.AlertingWebhook)
+
+	// ===== Vendor-specific Alerting Webhook Endpoint (No JWT Authentication) =====
+	// TODO: Expose through a separate route group
+	routes.HandleFunc("POST /api/alerting/webhook/{alertSource}", handler.AlertingWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 

@@ -422,7 +422,7 @@ func TestValidateProfileRequest(t *testing.T) {
 			name: "valid profile request",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
-					Type:              authzcore.SubjectTypeUser,
+					Type:              "user",
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"test-group"},
 				},

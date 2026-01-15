@@ -24,9 +24,8 @@ class Settings(BaseSettings):
         "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp"
     )
 
-    # Middleware flags
-    debug: bool = False
-    use_filesystem: bool = False
+    # Logging
+    log_level: str = "INFO"
 
     # OpenSearch config
     opensearch_address: str = "https://opensearch:9200"
@@ -37,6 +36,13 @@ class Settings(BaseSettings):
     oauth_token_url: str = ""
     oauth_client_id: str = ""
     oauth_client_secret: str = ""
+
+    # Analysis concurrency and timeout settings
+    max_concurrent_analyses: int = 5
+    analysis_timeout_seconds: int = 1200
+
+    # Skip TLS certificate verification (for self-signed certificates)
+    tls_insecure_skip_verify: bool = False
 
 
 settings = Settings()

@@ -8,8 +8,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// Pipeline orchestrates workflow rendering by combining WorkflowRun, Workflow,
-// and ComponentType to generate fully resolved resources (e.g., Argo Workflow).
+// Pipeline orchestrates workflow rendering by combining WorkflowRun,
+// Workflow to generate fully resolved resources (e.g., Argo Workflow).
 type Pipeline struct {
 	templateEngine *template.Engine
 }
@@ -22,9 +22,6 @@ type RenderInput struct {
 	// Workflow contains the schema and resource template (required).
 	Workflow *v1alpha1.Workflow
 
-	// ComponentType provides component-type-specific configuration (optional).
-	ComponentType *v1alpha1.ComponentType
-
 	// Context provides workflow execution context metadata (required).
 	Context WorkflowContext
 }
@@ -35,8 +32,21 @@ type RenderOutput struct {
 	// to unstructured.Unstructured for Kubernetes API operations.
 	Resource map[string]any
 
+	// Resources contains additional rendered Kubernetes resources (e.g., secrets, configmaps)
+	// to be applied alongside the main workflow resource.
+	Resources []RenderedResource
+
 	// Metadata contains rendering process information such as warnings.
 	Metadata *RenderMetadata
+}
+
+// RenderedResource represents a rendered Kubernetes resource with its identifier.
+type RenderedResource struct {
+	// ID is the unique identifier for this resource from the Workflow spec.
+	ID string
+
+	// Resource is the fully rendered Kubernetes resource as a map.
+	Resource map[string]any
 }
 
 // RenderMetadata contains non-fatal information about the rendering process.
@@ -46,23 +56,11 @@ type RenderMetadata struct {
 }
 
 // WorkflowContext provides contextual metadata for workflow rendering.
-// These values are injected into CEL expressions as ${ctx.*} variables.
+// These values are injected into CEL expressions as ${metadata.*} variables.
 type WorkflowContext struct {
 	// OrgName is the organization name (typically the namespace).
 	OrgName string
 
-	// ProjectName is the project name from the workflow owner.
-	ProjectName string
-
-	// ComponentName is the component name from the workflow owner.
-	ComponentName string
-
 	// WorkflowRunName is the name of the workflow run CR.
 	WorkflowRunName string
-
-	// Timestamp is the Unix timestamp when rendering started (auto-generated).
-	Timestamp int64
-
-	// UUID is a short unique identifier (8 chars) for this workflow execution (auto-generated).
-	UUID string
 }

@@ -22,7 +22,7 @@ const (
 )
 
 // ensurePrerequisites creates prerequisite resources in the build plane
-// before creating the workflowRun: create namespace, service account, role, and role binding.
+// before creating the workflow run: create namespace, service account, role, and role binding.
 func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, bpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("namespace", namespace, "serviceAccount", serviceAccountName)
 
@@ -55,7 +55,6 @@ func ensureResource(ctx context.Context, client client.Client, obj client.Object
 	}
 
 	if apierrors.IsAlreadyExists(err) {
-		logger.V(1).Info("Resource already exists", "type", resourceType, "name", obj.GetName(), "namespace", obj.GetNamespace())
 		return nil
 	}
 

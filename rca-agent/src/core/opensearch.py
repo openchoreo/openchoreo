@@ -3,10 +3,10 @@
 
 import logging
 from datetime import UTC, datetime
-from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse
 
-from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy import AsyncOpenSearch
 from opensearchpy.exceptions import OpenSearchException
 
 from src.core.config import settings
@@ -15,31 +15,35 @@ from src.core.models.rca_report import RCAReport
 
 logger = logging.getLogger(__name__)
 
+# Default port for OpenSearch when not specified in URL
+_DEFAULT_OPENSEARCH_PORT = 9200
 
-class OpenSearchClient:
-    def __init__(self):
+# Module-level singleton
+_client: AsyncOpenSearchClient | None = None
+
+
+class AsyncOpenSearchClient:
+    def __init__(self) -> None:
         self.client = self._create_client()
         self.index_prefix = "rca-reports"
 
-    def _create_client(self) -> OpenSearch:
+    def _create_client(self) -> AsyncOpenSearch:
         url = settings.opensearch_address
-        use_ssl = url.startswith("https://")
+        parsed = urlparse(url)
 
-        host_with_port = url.replace("https://", "").replace("http://", "")
-        host, port = host_with_port.split(":", 1)
+        use_ssl = parsed.scheme == "https"
+        host = parsed.hostname or "localhost"
+        port = parsed.port or _DEFAULT_OPENSEARCH_PORT
 
-        client = OpenSearch(
-            hosts=[{"host": host, "port": int(port)}],
+        return AsyncOpenSearch(
+            hosts=[{"host": host, "port": port}],
             http_auth=(settings.opensearch_username, settings.opensearch_password),
             use_ssl=use_ssl,
             verify_certs=False,
             ssl_show_warn=False,
-            connection_class=RequestsHttpConnection,
         )
 
-        return client
-
-    def upsert_rca_report(
+    async def upsert_rca_report(
         self,
         report_id: str,
         alert_id: str,
@@ -51,7 +55,6 @@ class OpenSearchClient:
         organization_uid: str | None = None,
         project_uid: str | None = None,
         component_uids: list[str] | None = None,
-        _version: int = 1,
     ) -> dict[str, Any]:
         doc_timestamp = timestamp or datetime.now(UTC)
         index_name = f"{self.index_prefix}-{doc_timestamp.strftime('%Y.%m')}"
@@ -61,7 +64,6 @@ class OpenSearchClient:
             "reportId": report_id,
             "alertId": alert_id,
             "status": status,
-            # "version": version, # Temporarily disable versioning
             "resource": {
                 oc_labels.ENVIRONMENT_UID: environment_uid,
                 oc_labels.ORGANIZATION_UID: organization_uid,
@@ -77,7 +79,7 @@ class OpenSearchClient:
             document["summary"] = summary
 
         try:
-            response = self.client.index(index=index_name, body=document, id=report_id)
+            response = await self.client.index(index=index_name, body=document, id=report_id)
             logger.info(
                 f"Successfully upserted RCA report {report_id} to {index_name} with status={status}"
             )
@@ -86,16 +88,20 @@ class OpenSearchClient:
             logger.error(f"Failed to upsert RCA report {report_id}: {e}")
             raise
 
-    def check_connection(self) -> bool:
+    async def check_connection(self) -> bool:
         try:
-            info = self.client.info()
-            logger.debug(f"Successfully connected to OpenSearch: {info['version']['number']}")
+            await self.client.info()
             return True
         except OpenSearchException as e:
             logger.error(f"Failed to connect to OpenSearch: {e}")
             return False
 
+    async def close(self) -> None:
+        await self.client.close()
 
-@lru_cache
-def get_opensearch_client() -> OpenSearchClient:
-    return OpenSearchClient()
+
+def get_opensearch_client() -> AsyncOpenSearchClient:
+    global _client
+    if _client is None:
+        _client = AsyncOpenSearchClient()
+    return _client

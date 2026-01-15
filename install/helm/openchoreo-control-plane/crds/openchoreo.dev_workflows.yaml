@@ -40,21 +40,42 @@ spec:
           spec:
             description: spec defines the desired state of Workflow
             properties:
-              resource:
+              resources:
                 description: |-
-                  Resource contains the Kubernetes resource (typically an Argo Workflow)
-                  with CEL expressions enclosed in ${...} that will be evaluated at runtime.
+                  Resources are additional templates that generate Kubernetes resources dynamically
+                  to be deployed alongside the workflow run (e.g., secrets, configmaps).
+                  Template variables are substituted with context and parameter values using CEL expressions.
+                items:
+                  description: |-
+                    WorkflowResource defines a template for generating Kubernetes resources
+                    to be deployed alongside the workflow run.
+                  properties:
+                    id:
+                      description: ID uniquely identifies this resource within the
+                        workflow.
+                      minLength: 1
+                      type: string
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with CEL expressions.
+                        CEL expressions are enclosed in ${...} and will be evaluated at runtime.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - template
+                  type: object
+                type: array
+              runTemplate:
+                description: |-
+                  RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
+                  Template variables are substituted with context and parameter values.
+                  Supported template variables:
+                    - ${metadata.workflowRunName} - WorkflowRun name (the execution instance)
+                    - ${metadata.orgName} - Organization name
+                    - ${parameters.*} - Developer-provided parameter values
 
-                  Available CEL variables:
-                    - ${ctx.workflowRunName} - WorkflowRun name (the execution instance)
-                    - ${ctx.componentName} - Component name (if workflow is component-bound)
-                    - ${ctx.projectName} - Project name (if workflow is component-bound)
-                    - ${ctx.orgName} - Organization name
-                    - ${ctx.timestamp} - Unix timestamp
-                    - ${ctx.uuid} - Short UUID (8 chars)
-                    - ${schema.*} - Developer-provided values from schema
-
-                  Note: PE-controlled parameters should be hardcoded directly in the resource.
+                  Note: PE-controlled parameters should be hardcoded directly in the template.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               schema:
@@ -77,17 +98,39 @@ spec:
                       credentialsRef: string | enum=checkout-repo-credentials-dev,payments-repo-credentials-dev description="Repository credentials secret reference"
                     version: integer | default=1 description="Build version number"
                     testMode: string | enum=unit,integration,none default=unit description="Test mode to execute"
+                properties:
+                  parameters:
+                    description: |-
+                      Parameters defines the flexible PE-defined schema for additional build configuration.
+                      Platform Engineers have complete freedom to define any structure, types, and validation rules.
+
+                      This is a nested map structure where keys are field names and values are type definitions.
+                      Type definition format: "type | default=value enum=val1,val2 minimum=N maximum=N"
+
+                      Supported types: string, integer, boolean, array<type>, object
+
+                      Example:
+                        parameters:
+                          version: 'integer | default=1 description="Build version"'
+                          testMode: "string | enum=unit,integration,none default=unit"
+                          resources:
+                            cpuCores: "integer | default=1 minimum=1 maximum=8"
+                            memoryGb: "integer | default=2 minimum=1 maximum=32"
+                          cache:
+                            enabled: "boolean | default=true"
+                            paths: "array<string> | default=["/root/.cache"]"
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  types:
+                    description: |-
+                      Types defines reusable type definitions that can be referenced in schema fields.
+                      This is a nested map structure where keys are type names and values are type definitions.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              secrets:
-                description: |-
-                  Secrets lists the secret references that should be synchronized to the build plane.
-                  Can reference fields from the schema using CEL expressions like ${schema.repository.credentialsRef}.
-                items:
-                  type: string
-                type: array
             required:
-            - resource
+            - runTemplate
             type: object
           status:
             description: status defines the observed state of Workflow

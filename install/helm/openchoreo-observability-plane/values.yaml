@@ -1039,8 +1039,6 @@ observer:
     value: "http://openchoreo-observability-prometheus:9091"
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
-  - name: ALERTING_WEBHOOK_SECRET
-    value: "qxbfqk3yjiejrlelolvh" # TODO: Move to a kubernetes secret
   - name: AUTHZ_ENABLED
     value: "false"
   - name: AUTHZ_SERVICE_URL
@@ -2633,17 +2631,10 @@ openSearchClusterSetup:
 
   # @schema
   # type: string
-  # description: Observer service address for setup configuration
-  # default: http://observer.openchoreo-observability-plane:8080
+  # description: Alerting webhook URL for setup configuration
+  # default: http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch
   # @schema
-  observerAddress: "http://observer.openchoreo-observability-plane:8080"
-
-  # @schema
-  # type: string
-  # description: Webhook secret for alerting integration
-  # default: qxbfqk3yjiejrlelolvh
-  # @schema
-  observerAlertingWebhookSecret: qxbfqk3yjiejrlelolvh
+  alertingWebhookUrl: "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch"
 
 
 # @schema
@@ -2761,6 +2752,12 @@ security:
     jwksUrl: ""
     # @schema
     # type: string
+    # description: OIDC token endpoint URL
+    # default: ""
+    # @schema
+    tokenUrl: ""
+    # @schema
+    # type: string
     # description: Skip TLS verification for JWKS URL
     # default: "false"
     # @schema
@@ -2827,6 +2824,13 @@ rca:
   # default: 1
   # @schema
   replicas: 1
+
+  # @schema
+  # type: string
+  # description: Log level for the RCA agent
+  # default: INFO
+  # @schema
+  logLevel: "INFO"
 
   # @schema
   # type: object
@@ -2914,14 +2918,14 @@ rca:
 
   # @schema
   # type: string
-  # description: Observer MCP endpoint URL (leave empty for auto-discovery)
+  # description: Observer MCP endpoint URL
   # default: ""
   # @schema
   observerMcpUrl: ""
 
   # @schema
   # type: string
-  # description: OpenChoreo API MCP endpoint URL (leave empty for auto-discovery)
+  # description: OpenChoreo API MCP endpoint URL
   # default: ""
   # @schema
   openchoreoMcpUrl: ""
@@ -2969,12 +2973,6 @@ rca:
   # description: OAuth2 client credentials configuration for RCA agent authentication
   # @schema
   oauth:
-    # @schema
-    # type: string
-    # description: Token URL for obtaining access tokens from IDP
-    # default: http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token
-    # @schema
-    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
     # @schema
     # type: string
     # description: OAuth2 client ID registered with the IDP

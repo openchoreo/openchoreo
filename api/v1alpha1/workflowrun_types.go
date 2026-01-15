@@ -14,82 +14,47 @@ import (
 // WorkflowRunSpec defines the desired state of WorkflowRun.
 // WorkflowRun represents a runtime execution instance of a Workflow.
 type WorkflowRunSpec struct {
-	// Owner identifies the Component that owns this WorkflowRun.
-	// This is optional for generic workflows not bound to components.
-	// +optional
-	Owner WorkflowOwner `json:"owner,omitempty"`
-
 	// Workflow configuration referencing the Workflow CR and providing schema values.
 	// +required
-	Workflow WorkflowConfig `json:"workflow"`
+	Workflow WorkflowRunConfig `json:"workflow"`
 }
 
-// WorkflowConfig defines the workflow configuration for execution.
-type WorkflowConfig struct {
+// WorkflowRunConfig defines the workflow configuration for execution.
+type WorkflowRunConfig struct {
 	// Name references the Workflow CR to use for this execution.
 	// The Workflow CR contains the schema definition and resource template.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
-	// Schema contains the developer-provided values that conform to the schema
-	// defined in the referenced Workflow CR.
+	// Parameters contains the developer-provided values for the flexible parameter schema
+	// defined in the referenced ComponentWorkflow CR.
 	//
-	// These values are merged with context variables when rendering the final workflow resource.
+	// These values are validated against the ComponentWorkflow's parameter schema.
 	//
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
-	Schema *runtime.RawExtension `json:"schema,omitempty"`
-}
-
-// WorkflowOwner identifies the Component that owns a WorkflowRun execution.
-type WorkflowOwner struct {
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	ProjectName string `json:"projectName"`
-
-	// ComponentName is the name of the owning Component
-	// +required
-	// +kubebuilder:validation:MinLength=1
-	ComponentName string `json:"componentName"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // WorkflowRunStatus defines the observed state of WorkflowRun.
 type WorkflowRunStatus struct {
-	// conditions represent the current state of the WorkflowRun resource.
+	// Conditions represent the current state of the WorkflowRun resource.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// ImageStatus contains information about the built image from the workflow
-	// +optional
-	ImageStatus WorkflowImage `json:"imageStatus,omitempty"`
-
 	// RunReference contains a reference to the workflow run resource that was applied to the cluster.
-	// This tracks the actual workflow execution instance in the target cluster.
+	// This tracks the actual workflow execution instance (e.g., Argo Workflow) in the target cluster.
 	// +optional
-	RunReference WorkflowRunReference `json:"runReference,omitempty"`
-}
+	RunReference *ResourceReference `json:"runReference,omitempty"`
 
-// WorkflowImage contains information about a container image produced by a workflow
-type WorkflowImage struct {
-	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
+	// Resources contains references to additional resources applied to the cluster.
+	// These are tracked for cleanup when the WorkflowRun is deleted.
 	// +optional
-	Image string `json:"image,omitempty"`
-}
-
-// WorkflowRunReference contains a reference to the workflow run resource applied to the cluster.
-// This allows tracking the actual workflow execution instance that was created in the target cluster.
-type WorkflowRunReference struct {
-	// Name is the name of the workflow run resource in the target cluster
-	// +optional
-	Name string `json:"name,omitempty"`
-
-	// Namespace is the namespace of the workflow run resource in the target cluster
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
+	Resources *[]ResourceReference `json:"resources,omitempty"`
 }
 
 // +kubebuilder:object:root=true

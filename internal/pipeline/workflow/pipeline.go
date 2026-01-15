@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,16 +36,12 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Warnings: []string{},
 	}
 
-	if err := p.enrichContext(&input.Context); err != nil {
-		return nil, fmt.Errorf("failed to enrich context: %w", err)
-	}
-
 	celContext, err := p.buildCELContext(input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build CEL context: %w", err)
 	}
 
-	resource, err := p.renderTemplate(input.Workflow.Spec.Resource, celContext)
+	resource, err := p.renderTemplate(input.Workflow.Spec.RunTemplate, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
@@ -55,9 +50,16 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
+	// Render additional resources if defined
+	resources, err := p.renderResources(input.Workflow.Spec.Resources, celContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render resources: %w", err)
+	}
+
 	return &RenderOutput{
-		Resource: resource,
-		Metadata: metadata,
+		Resource:  resource,
+		Resources: resources,
+		Metadata:  metadata,
 	}, nil
 }
 
@@ -72,32 +74,16 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	if input.Workflow == nil {
 		return fmt.Errorf("workflow is nil")
 	}
-	if input.Workflow.Spec.Resource == nil {
-		return fmt.Errorf("workflow has no resource")
+	if input.Workflow.Spec.RunTemplate == nil {
+		return fmt.Errorf("workflow has no runTemplate")
 	}
 
 	if input.Context.OrgName == "" {
 		return fmt.Errorf("context.orgName is required")
 	}
-	if input.Context.ProjectName == "" {
-		return fmt.Errorf("context.projectName is required")
+	if input.Context.WorkflowRunName == "" {
+		return fmt.Errorf("context.workflowRunName is required")
 	}
-	if input.Context.ComponentName == "" {
-		return fmt.Errorf("context.componentName is required")
-	}
-
-	return nil
-}
-
-// enrichContext adds auto-generated fields to the workflow context.
-func (p *Pipeline) enrichContext(ctx *WorkflowContext) error {
-	ctx.Timestamp = time.Now().Unix()
-
-	uuid, err := generateShortUUID()
-	if err != nil {
-		return fmt.Errorf("failed to generate UUID: %w", err)
-	}
-	ctx.UUID = uuid
 
 	return nil
 }
@@ -106,7 +92,7 @@ func (p *Pipeline) enrichContext(ctx *WorkflowContext) error {
 func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[string]any) (map[string]any, error) {
 	templateData, err := rawExtensionToMap(tmpl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse resource template: %w", err)
+		return nil, fmt.Errorf("failed to parse runTemplate: %w", err)
 	}
 
 	rendered, err := p.templateEngine.Render(templateData, celContext)
@@ -126,49 +112,103 @@ func (p *Pipeline) renderTemplate(tmpl *runtime.RawExtension, celContext map[str
 	return resource, nil
 }
 
-// buildCELContext builds the CEL evaluation context with ctx.*, schema.*, and fixedParameters.* variables.
-func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
-	ctx := map[string]any{
-		"orgName":         input.Context.OrgName,
-		"projectName":     input.Context.ProjectName,
-		"componentName":   input.Context.ComponentName,
-		"workflowRunName": input.Context.WorkflowRunName,
-		"timestamp":       input.Context.Timestamp,
-		"uuid":            input.Context.UUID,
+// renderResources renders additional resources defined in the Workflow.
+func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celContext map[string]any) ([]RenderedResource, error) {
+	if len(resources) == 0 {
+		return nil, nil
 	}
 
+	renderedResources := make([]RenderedResource, 0, len(resources))
+	for _, res := range resources {
+		rendered, err := p.renderTemplate(res.Template, celContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to render resource %q: %w", res.ID, err)
+		}
+
+		if err := p.validateRenderedResource(rendered); err != nil {
+			return nil, fmt.Errorf("validation failed for resource %q: %w", res.ID, err)
+		}
+
+		renderedResources = append(renderedResources, RenderedResource{
+			ID:       res.ID,
+			Resource: rendered,
+		})
+	}
+
+	return renderedResources, nil
+}
+
+// buildCELContext builds the CEL evaluation context with metadata.* and parameters.* variables.
+func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
+	metadata := map[string]any{
+		"orgName":         input.Context.OrgName,
+		"workflowRunName": input.Context.WorkflowRunName,
+	}
+
+	// Build developer parameters with defaults applied from schema
+	parameters, err := p.buildParameters(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build parameters: %w", err)
+	}
+
+	return map[string]any{
+		"metadata":   metadata,
+		"parameters": parameters,
+	}, nil
+}
+
+// buildParameters builds the developer parameters with defaults applied from the Workflow schema.
+func (p *Pipeline) buildParameters(input *RenderInput) (map[string]any, error) {
+	// Build structural schema from Workflow for applying defaults
 	structural, err := p.buildStructuralSchema(input.Workflow)
 	if err != nil {
 		return nil, err
 	}
 
-	developerParams, err := extractParameters(input.WorkflowRun.Spec.Workflow.Schema)
+	// Extract developer parameters from WorkflowRun
+	developerParams, err := extractParameters(input.WorkflowRun.Spec.Workflow.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract workflow run parameters: %w", err)
 	}
 
-	schemaParams := schema.ApplyDefaults(developerParams, structural)
+	// Apply defaults from schema
+	if structural != nil {
+		return schema.ApplyDefaults(developerParams, structural), nil
+	}
 
-	return map[string]any{
-		"ctx":    ctx,
-		"schema": schemaParams,
-	}, nil
+	return developerParams, nil
 }
 
 // buildStructuralSchema builds the structural schema from Workflow for applying defaults.
+// Workflow.Spec.Schema has Types (optional) and Parameters (the actual schema).
 func (p *Pipeline) buildStructuralSchema(wf *v1alpha1.Workflow) (*apiextschema.Structural, error) {
 	if wf.Spec.Schema == nil {
 		return nil, nil
 	}
 
-	schemaMap, err := extractParameters(wf.Spec.Schema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract schema: %w", err)
+	// Extract types if present
+	var types map[string]any
+	if wf.Spec.Schema.Types != nil {
+		if err := json.Unmarshal(wf.Spec.Schema.Types.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
+	// Extract parameters schema (the main schema for Workflow)
+	var parameters map[string]any
+	if wf.Spec.Schema.Parameters != nil {
+		if err := json.Unmarshal(wf.Spec.Schema.Parameters.Raw, &parameters); err != nil {
+			return nil, fmt.Errorf("failed to extract parameters schema: %w", err)
+		}
+	}
+
+	if parameters == nil {
+		return nil, nil
 	}
 
 	def := schema.Definition{
-		Types:   make(map[string]any),
-		Schemas: []map[string]any{schemaMap},
+		Types:   types,
+		Schemas: []map[string]any{parameters},
 	}
 
 	structural, err := schema.ToStructural(def)
@@ -250,105 +290,59 @@ func convertComplexValuesToJSONStrings(data any) any {
 		result := make(map[string]any)
 		for key, val := range v {
 			if key == "value" {
-				result[key] = convertValueToString(val)
+				// If value is array or object, convert to JSON string
+				switch val.(type) {
+				case []any, map[string]any:
+					if jsonBytes, err := json.Marshal(val); err == nil {
+						result[key] = string(jsonBytes)
+					} else {
+						result[key] = val
+					}
+				default:
+					result[key] = val
+				}
 			} else {
 				result[key] = convertComplexValuesToJSONStrings(val)
 			}
 		}
 		return result
-
 	case []any:
 		result := make([]any, len(v))
-		for i, val := range v {
-			result[i] = convertComplexValuesToJSONStrings(val)
+		for i, item := range v {
+			result[i] = convertComplexValuesToJSONStrings(item)
 		}
 		return result
-
 	default:
-		return v
+		return data
 	}
 }
 
-// convertValueToString converts values to their appropriate YAML representation.
-// Arrays become FlowStyleArray, maps become JSON strings, primitives stay unchanged.
-func convertValueToString(val any) any {
-	switch v := val.(type) {
-	case []any:
-		return formatArrayInline(v)
-
-	case map[string]any:
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return v
-		}
-		return string(jsonBytes)
-
-	case int, int64, int32, float64, float32, bool, string:
-		return v
-
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-// formatArrayInline wraps an array in FlowStyleArray for inline YAML rendering.
-func formatArrayInline(arr []any) any {
-	return FlowStyleArray(arr)
-}
-
-// FlowStyleArray wraps arrays for flow-style YAML rendering (e.g., [1, 2, 3]).
-type FlowStyleArray []any
-
-// MarshalYAML implements yaml.Marshaler for flow-style array rendering.
-func (f FlowStyleArray) MarshalYAML() (interface{}, error) {
-	return []any(f), nil
-}
-
-// String returns the flow-style string representation for debugging.
-func (f FlowStyleArray) String() string {
-	result := "["
-	for i, elem := range f {
-		if i > 0 {
-			result += ", "
-		}
-		switch v := elem.(type) {
-		case string:
-			escaped, _ := json.Marshal(v)
-			result += string(escaped)
-		default:
-			result += fmt.Sprintf("%v", v)
-		}
-	}
-	result += "]"
-	return result
-}
-
-// convertFlowStyleArraysToSlices recursively converts FlowStyleArray to []any slices.
-// Required because Kubernetes API client doesn't understand custom types.
+// convertFlowStyleArraysToSlices recursively converts flow-style array strings to proper slices.
+// Flow-style arrays are YAML arrays written as "[item1, item2]" which get parsed as strings.
 func convertFlowStyleArraysToSlices(data any) any {
 	switch v := data.(type) {
-	case FlowStyleArray:
-		result := make([]any, len(v))
-		for i, elem := range v {
-			result[i] = convertFlowStyleArraysToSlices(elem)
-		}
-		return result
-
 	case map[string]any:
 		result := make(map[string]any)
 		for key, val := range v {
 			result[key] = convertFlowStyleArraysToSlices(val)
 		}
 		return result
-
 	case []any:
 		result := make([]any, len(v))
-		for i, val := range v {
-			result[i] = convertFlowStyleArraysToSlices(val)
+		for i, item := range v {
+			result[i] = convertFlowStyleArraysToSlices(item)
 		}
 		return result
-
-	default:
+	case string:
+		// Try to parse as JSON array
+		if len(v) > 0 && v[0] == '[' {
+			var arr []any
+			if err := json.Unmarshal([]byte(v), &arr); err == nil {
+				return arr
+			}
+		}
 		return v
+	default:
+		return data
 	}
 }

@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from src.api import router
+from src.core.auth import check_oauth2_connection
+from src.core.config import settings
 from src.core.llm import get_model
 from src.core.mcp import MCPClient
 from src.core.opensearch import get_opensearch_client
@@ -18,6 +20,9 @@ setup_logging()
 
 logger = logging.getLogger(__name__)
 
+if settings.tls_insecure_skip_verify:
+    logger.warning("TLS certificate verification disabled")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -27,13 +32,13 @@ async def lifespan(_app: FastAPI):
         test_response = await model.ainvoke("Hello")
         logger.info("LLM test successful: %s", test_response.content[:50])
     except Exception as e:
-        logger.error("LLM initialization failed: %s", e, exc_info=True)
+        logger.error("LLM initialization failed: %s", e)
         raise RuntimeError(f"LLM initialization failed: {e}") from e
 
     logger.info("Testing OpenSearch connection...")
     try:
         opensearch_client = get_opensearch_client()
-        if opensearch_client.check_connection():
+        if await opensearch_client.check_connection():
             logger.info("OpenSearch connection successful")
         else:
             logger.error("OpenSearch connection check failed")
@@ -41,8 +46,16 @@ async def lifespan(_app: FastAPI):
     except RuntimeError:
         raise
     except Exception as e:
-        logger.error("OpenSearch initialization failed: %s", e, exc_info=True)
+        logger.error("OpenSearch initialization failed: %s", e)
         raise RuntimeError(f"OpenSearch initialization failed: {e}") from e
+
+    logger.info("Testing OAuth2 token endpoint...")
+    try:
+        await check_oauth2_connection()
+        logger.info("OAuth2 connection successful")
+    except Exception as e:
+        logger.error("OAuth2 initialization failed: %s", e)
+        raise RuntimeError(f"OAuth2 initialization failed: {e}") from e
 
     logger.info("Testing MCP connections...")
     try:
@@ -50,12 +63,13 @@ async def lifespan(_app: FastAPI):
         tools = await mcp_client.get_tools()
         logger.info("MCP connection successful: loaded %d tools", len(tools))
     except Exception as e:
-        logger.error("MCP initialization failed: %s", e, exc_info=True)
+        logger.error("MCP initialization failed: %s", e)
         raise RuntimeError(f"MCP initialization failed: {e}") from e
 
     yield
 
     logger.info("Shutting down...")
+    await opensearch_client.close()
 
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)

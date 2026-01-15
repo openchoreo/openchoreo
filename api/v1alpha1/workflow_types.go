@@ -38,32 +38,77 @@ type WorkflowSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
-	Schema *runtime.RawExtension `json:"schema,omitempty"`
+	Schema *WorkflowSchema `json:"schema,omitempty"`
 
-	// Secrets lists the secret references that should be synchronized to the build plane.
-	// Can reference fields from the schema using CEL expressions like ${schema.repository.credentialsRef}.
+	// RunTemplate is the Kubernetes resource template to be rendered and applied to the cluster.
+	// Template variables are substituted with context and parameter values.
+	// Supported template variables:
+	//   - ${metadata.workflowRunName} - WorkflowRun name (the execution instance)
+	//   - ${metadata.orgName} - Organization name
+	//   - ${parameters.*} - Developer-provided parameter values
 	//
-	// +optional
-	Secrets []string `json:"secrets,omitempty"`
-
-	// Resource contains the Kubernetes resource (typically an Argo Workflow)
-	// with CEL expressions enclosed in ${...} that will be evaluated at runtime.
-	//
-	// Available CEL variables:
-	//   - ${ctx.workflowRunName} - WorkflowRun name (the execution instance)
-	//   - ${ctx.componentName} - Component name (if workflow is component-bound)
-	//   - ${ctx.projectName} - Project name (if workflow is component-bound)
-	//   - ${ctx.orgName} - Organization name
-	//   - ${ctx.timestamp} - Unix timestamp
-	//   - ${ctx.uuid} - Short UUID (8 chars)
-	//   - ${schema.*} - Developer-provided values from schema
-	//
-	// Note: PE-controlled parameters should be hardcoded directly in the resource.
+	// Note: PE-controlled parameters should be hardcoded directly in the template.
 	//
 	// +required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
-	Resource *runtime.RawExtension `json:"resource"`
+	RunTemplate *runtime.RawExtension `json:"runTemplate"`
+
+	// Resources are additional templates that generate Kubernetes resources dynamically
+	// to be deployed alongside the workflow run (e.g., secrets, configmaps).
+	// Template variables are substituted with context and parameter values using CEL expressions.
+	// +optional
+	Resources []WorkflowResource `json:"resources,omitempty"`
+}
+
+// WorkflowSchema defines the parameter schemas for workflows.
+type WorkflowSchema struct {
+	// Types defines reusable type definitions that can be referenced in schema fields.
+	// This is a nested map structure where keys are type names and values are type definitions.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Types *runtime.RawExtension `json:"types,omitempty"`
+
+	// Parameters defines the flexible PE-defined schema for additional build configuration.
+	// Platform Engineers have complete freedom to define any structure, types, and validation rules.
+	//
+	// This is a nested map structure where keys are field names and values are type definitions.
+	// Type definition format: "type | default=value enum=val1,val2 minimum=N maximum=N"
+	//
+	// Supported types: string, integer, boolean, array<type>, object
+	//
+	// Example:
+	//   parameters:
+	//     version: 'integer | default=1 description="Build version"'
+	//     testMode: "string | enum=unit,integration,none default=unit"
+	//     resources:
+	//       cpuCores: "integer | default=1 minimum=1 maximum=8"
+	//       memoryGb: "integer | default=2 minimum=1 maximum=32"
+	//     cache:
+	//       enabled: "boolean | default=true"
+	//       paths: "array<string> | default=["/root/.cache"]"
+	//
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// WorkflowResource defines a template for generating Kubernetes resources
+// to be deployed alongside the workflow run.
+type WorkflowResource struct {
+	// ID uniquely identifies this resource within the workflow.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ID string `json:"id"`
+
+	// Template contains the Kubernetes resource with CEL expressions.
+	// CEL expressions are enclosed in ${...} and will be evaluated at runtime.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Type=object
+	Template *runtime.RawExtension `json:"template"`
 }
 
 // WorkflowStatus defines the observed state of Workflow.

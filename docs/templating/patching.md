@@ -180,8 +180,7 @@ OpenChoreo extends RFC 6902 JSON Patch to provide Kubernetes-friendly behavior:
 | **Map key** | add | **Auto-create** parent maps if missing | Extended |
 | **Map key** | replace | **Error** if target doesn't exist | Standard |
 | **Map key** | remove | **Idempotent** - no error if key doesn't exist | Extended |
-| **Array index** | add, replace | **No-op** if array empty or index out of bounds | Extended |
-| **Array index** | remove | **Error** if index out of bounds | Standard |
+| **Array index** | add, replace, remove | **Error** if index out of bounds | Standard |
 
 ### Extensions to RFC 6902
 
@@ -194,7 +193,7 @@ These extensions match Kubernetes Strategic Merge Patch behavior. The map key au
 - `EnsurePathExistsOnAdd: true`
 - `AllowMissingPathOnRemove: true`
 
-**Note on Arrays**: Array index removal still errors on out-of-bounds indices, as this likely indicates a bug in the patch logic. For dynamic array operations, use filters (e.g., `[?(@.name=='sidecar')]`) instead of positional indices.
+**Note on Arrays**: All array index operations (add, replace, remove) error on out-of-bounds indices, as this likely indicates an error in the patch configuration or a mismatch between the patch and the ComponentType output. For dynamic array operations, use filters (e.g., `[?(@.name=='sidecar')]`) instead of positional indices.
 
 ### Examples
 
@@ -213,12 +212,11 @@ These extensions match Kubernetes Strategic Merge Patch behavior. The map key au
 - op: remove
   path: /metadata/labels/deprecated-feature
 
-# Array index on empty array - NO-OP for add/replace
+# Array index - ERRORS if index out of bounds
 - op: add
-  path: /spec/containers/0/env/-
-  value: {name: VAR, value: val}
+  path: /spec/containers/2  # Errors if less than 3 containers
+  value: {name: sidecar, image: sidecar:v1}
 
-# Array index removal - ERRORS if index out of bounds
 - op: remove
   path: /spec/containers/2  # Errors if less than 3 containers
 ```

@@ -8,19 +8,11 @@ import (
 	"net/http"
 )
 
-// SubjectType represents the type of authenticated subject
-type SubjectType string
-
-const (
-	SubjectTypeUser           SubjectType = "user"
-	SubjectTypeServiceAccount SubjectType = "service_account"
-)
-
 // SubjectContext contains the authenticated subject's type and entitlements
 type SubjectContext struct {
-	Type              SubjectType // Type of subject (user, service_account, etc.)
-	EntitlementClaim  string      // The claim name used for entitlements (e.g., "groups", "scopes")
-	EntitlementValues []string    // The entitlement values extracted from the claim
+	Type              string   // Type of subject (user, service_account, etc.)
+	EntitlementClaim  string   // The claim name used for entitlements (e.g., "groups", "scopes")
+	EntitlementValues []string // The entitlement values extracted from the claim
 }
 
 // Middleware defines the interface that all authentication middlewares must implement

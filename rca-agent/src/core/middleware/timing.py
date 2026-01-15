@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 class TimingMiddleware(AgentMiddleware):
     """Track execution time for model calls and tool calls."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.model_call_count = 0
-        self.tool_call_count = 0
+        self.model_call_count: int = 0
+        self.tool_call_count: int = 0
 
     async def awrap_model_call(
         self,

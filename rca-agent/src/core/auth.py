@@ -39,10 +39,12 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
 
     def sync_auth_flow(self, request: httpx.Request):
         """Sync auth flow."""
+        verify = not settings.tls_insecure_skip_verify
         client = OAuth2Client(
             client_id=self.client_id,
             client_secret=self.client_secret,
             token_endpoint_auth_method="client_secret_post",
+            verify=verify,
         )
         client.token = self._token
         self._ensure_token(client)
@@ -52,10 +54,12 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
 
     async def async_auth_flow(self, request: httpx.Request):
         """Async auth flow."""
+        verify = not settings.tls_insecure_skip_verify
         client = AsyncOAuth2Client(
             client_id=self.client_id,
             client_secret=self.client_secret,
             token_endpoint_auth_method="client_secret_post",
+            verify=verify,
         )
         client.token = self._token
         await self._async_ensure_token(client)
@@ -76,3 +80,34 @@ def get_oauth2_auth() -> OAuth2ClientCredentialsAuth | None:
         client_id=settings.oauth_client_id,
         client_secret=settings.oauth_client_secret,
     )
+
+
+async def check_oauth2_connection() -> bool:
+    """Check OAuth2 token endpoint connectivity by fetching a token.
+
+    Returns:
+        True if OAuth2 is not configured or token fetch succeeded.
+        Raises RuntimeError if configured but token fetch fails.
+    """
+    if not all([settings.oauth_token_url, settings.oauth_client_id, settings.oauth_client_secret]):
+        logger.debug("OAuth2 credentials not configured, skipping auth check")
+        return True
+
+    verify = not settings.tls_insecure_skip_verify
+    client = AsyncOAuth2Client(
+        client_id=settings.oauth_client_id,
+        client_secret=settings.oauth_client_secret,
+        token_endpoint_auth_method="client_secret_post",
+        verify=verify,
+    )
+
+    try:
+        token = await client.fetch_token(settings.oauth_token_url, grant_type="client_credentials")
+        logger.debug("OAuth2 token fetch successful, expires in %s", token.get("expires_in"))
+        return True
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to fetch OAuth2 token from {settings.oauth_token_url}: {e}"
+        ) from e
+    finally:
+        await client.aclose()

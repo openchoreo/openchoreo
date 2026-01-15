@@ -35,7 +35,7 @@ spec:
           protocol: TCP
         env:
         - name: OBSERVER_MCP_URL
-          value: {{ .Values.rca.observerMcpUrl | default (printf "http://observer.%s.svc.cluster.local:8080/mcp" .Release.Namespace) | quote }}
+          value: {{ .Values.rca.observerMcpUrl | default "http://observer:8080/mcp" | quote }}
 
         - name: OPENCHOREO_MCP_URL
           value: {{ .Values.rca.openchoreoMcpUrl | default "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/mcp" | quote }}
@@ -71,7 +71,7 @@ spec:
 
         # OAuth2 Client Credentials Configuration
         - name: OAUTH_TOKEN_URL
-          value: {{ .Values.rca.oauth.tokenUrl | quote }}
+          value: {{ .Values.security.oidc.tokenUrl | quote }}
 
         - name: OAUTH_CLIENT_ID
           value: {{ .Values.rca.oauth.clientId | quote }}
@@ -81,6 +81,14 @@ spec:
             secretKeyRef:
               name: {{ include "openchoreo-observability-plane.fullname" . }}-rca-oauth-secret
               key: client-secret
+
+        # TLS Configuration
+        - name: TLS_INSECURE_SKIP_VERIFY
+          value: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | quote }}
+
+        # Logging
+        - name: LOG_LEVEL
+          value: {{ .Values.rca.logLevel | quote }}
 
         resources:
           {{- toYaml .Values.rca.resources | nindent 10 }}

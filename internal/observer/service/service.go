@@ -362,11 +362,11 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 }
 
 // UpsertAlertRule creates or updates an alert rule in the observability backend
-func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string, ruleName string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
 	// Decide the observability backend based on the type of rule
 	switch sourceType {
 	case "log":
-		return s.UpsertOpenSearchAlertRule(ctx, ruleName, rule)
+		return s.UpsertOpenSearchAlertRule(ctx, rule)
 	// case "metric": (not implemented yet)
 	// 	return s.UpsertMetricAlertRule(ctx, rule)
 	default:
@@ -375,9 +375,9 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string,
 }
 
 // UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
-func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
 	// Build the alert rule body
-	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(ruleName, rule)
+	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build log alerting rule body: %w", err)
 	}
@@ -399,7 +399,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName
 	}
 
 	// Check if the alert rule already exists
-	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, ruleName)
+	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, rule.Metadata.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
 	}
@@ -410,7 +410,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName
 
 	if exists {
 		s.logger.Debug("Alert rule already exists. Checking if update is needed.",
-			"rule_name", ruleName,
+			"rule_name", rule.Metadata.Name,
 			"monitor_id", backendID)
 
 		// Get the existing monitor to compare
@@ -422,14 +422,14 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName
 		// Compare the existing monitor with the new alert rule body
 		if s.monitorsAreEqual(existingMonitor, alertRuleBody) {
 			s.logger.Debug("Alert rule unchanged, skipping update.",
-				"rule_name", ruleName,
+				"rule_name", rule.Metadata.Name,
 				"monitor_id", backendID)
 			action = "unchanged"
 			// Use current time since we're not updating
 			lastUpdateTime = time.Now().UnixMilli()
 		} else {
 			s.logger.Debug("Alert rule changed, updating.",
-				"rule_name", ruleName,
+				"rule_name", rule.Metadata.Name,
 				"monitor_id", backendID)
 
 			// Update the alert rule
@@ -441,7 +441,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName
 		}
 	} else {
 		s.logger.Debug("Alert rule does not exist. Creating the alert rule.",
-			"rule_name", ruleName)
+			"rule_name", rule.Metadata.Name)
 
 		// Create the alert rule
 		backendID, lastUpdateTime, err = s.osClient.CreateMonitor(ctx, alertRuleBody)
@@ -453,7 +453,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, ruleName
 	// Return the alert rule ID
 	return &types.AlertingRuleSyncResponse{
 		Status:     "synced",
-		LogicalID:  ruleName,
+		LogicalID:  rule.Metadata.Name,
 		BackendID:  backendID,
 		Action:     action,
 		LastSynced: time.UnixMilli(lastUpdateTime).UTC().Format(time.RFC3339),
@@ -1198,29 +1198,21 @@ func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[st
 	return alertID, nil
 }
 
-// GetObservabilityAlertRuleByName retrieves an ObservabilityAlertRule by metadata.name
-func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ruleName, componentUID, projectUID, environmentUID string) (*choreoapis.ObservabilityAlertRule, error) {
+// GetObservabilityAlertRuleByName retrieves an ObservabilityAlertRule by name and namespace
+func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ruleName, namespace string) (*choreoapis.ObservabilityAlertRule, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
 
-	// TODO: Remove label selectors and use direct Get by NamespacedName
-	alertRuleList := &choreoapis.ObservabilityAlertRuleList{}
-	if err := s.k8sClient.List(ctx, alertRuleList, client.MatchingLabels{
-		labels.LabelKeyComponentUID:   componentUID,
-		labels.LabelKeyProjectUID:     projectUID,
-		labels.LabelKeyEnvironmentUID: environmentUID,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to list ObservabilityAlertRules: %w", err)
+	alertRule := &choreoapis.ObservabilityAlertRule{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      ruleName,
+		Namespace: namespace,
+	}, alertRule); err != nil {
+		return nil, fmt.Errorf("failed to get ObservabilityAlertRule %s/%s: %w", namespace, ruleName, err)
 	}
 
-	for i := range alertRuleList.Items {
-		if alertRuleList.Items[i].Name == ruleName {
-			return &alertRuleList.Items[i], nil
-		}
-	}
-
-	return nil, fmt.Errorf("ObservabilityAlertRule %q not found", ruleName)
+	return alertRule, nil
 }
 
 // TriggerRCAAnalysis triggers an AI RCA analysis for the given alert.
@@ -1291,4 +1283,47 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 
 		s.logger.Debug("AI RCA analysis triggered", "alertID", alertID)
 	}()
+}
+
+// ParseOpenSearchAlertPayload parses the OpenSearch alert payload
+// Returns: ruleName, ruleNamespace, alertValue, timestamp, error
+func (s *LoggingService) ParseOpenSearchAlertPayload(requestBody map[string]interface{}) (string, string, string, string, error) {
+	ruleName, _ := requestBody["ruleName"].(string)
+	ruleNamespace, _ := requestBody["ruleNamespace"].(string)
+
+	// alertValue comes from {{ctx.results.0.hits.total.value}} which is a number
+	var alertValue string
+	if v, ok := requestBody["alertValue"].(float64); ok {
+		alertValue = strconv.FormatFloat(v, 'f', -1, 64)
+	} else if v, ok := requestBody["alertValue"].(string); ok {
+		alertValue = v
+	}
+
+	timestamp, _ := requestBody["timestamp"].(string)
+
+	if ruleName == "" {
+		return "", "", "", "", fmt.Errorf("ruleName is required in OpenSearch alert payload")
+	}
+	if ruleNamespace == "" {
+		return "", "", "", "", fmt.Errorf("ruleNamespace is required in OpenSearch alert payload")
+	}
+
+	return ruleName, ruleNamespace, alertValue, timestamp, nil
+}
+
+// EnrichAlertDetails enriches the alert details with the ObservabilityAlertRule CR details
+func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (map[string]interface{}, error) {
+	return map[string]interface{}{
+		"timestamp":                 timestamp,
+		"severity":                  alertRule.Spec.Severity,
+		"ruleName":                  alertRule.Spec.Name,
+		"ruleType":                  alertRule.Spec.Source.Type,
+		"ruleThreshold":             alertRule.Spec.Condition.Threshold,
+		"alertValue":                alertValue,
+		"componentUid":              alertRule.Labels["openchoreo.dev/component-uid"],
+		"environmentUid":            alertRule.Labels["openchoreo.dev/environment-uid"],
+		"projectUid":                alertRule.Labels["openchoreo.dev/project-uid"],
+		"notificationChannel":       alertRule.Spec.NotificationChannel,
+		"enableAiRootCauseAnalysis": alertRule.Spec.EnableAiRootCauseAnalysis,
+	}, nil
 }

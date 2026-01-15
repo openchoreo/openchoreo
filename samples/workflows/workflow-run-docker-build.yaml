@@ -1,0 +1,18 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: generic-workflow-run-docker-build-01
+spec:
+  workflow:
+    # Reference to Workflow
+    name: generic-workflow-docker-build
+
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/service-go-greeter"
+      docker:
+        context: "/service-go-greeter"
+        filePath: "/service-go-greeter/Dockerfile"

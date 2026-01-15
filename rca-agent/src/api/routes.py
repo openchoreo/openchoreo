@@ -5,15 +5,11 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
-from langchain_core.callbacks import UsageMetadataCallbackHandler
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import Field
 
-from src.core.agent import create_rca_agent
-from src.core.llm import get_model
-from src.core.mcp import MCPClient
+from src.core.agent import run_analysis
 from src.core.opensearch import get_opensearch_client
-from src.core.template_manager import render
 from src.core.utils import BaseModel, get_current_utc
 
 logger = logging.getLogger(__name__)
@@ -61,7 +57,7 @@ class AnalyzeRequest(BaseModel):
 async def health():
     try:
         opensearch_client = get_opensearch_client()
-        if not opensearch_client.check_connection():
+        if not await opensearch_client.check_connection():
             raise Exception("OpenSearch connection check failed")
 
         return {"status": "healthy"}
@@ -71,14 +67,17 @@ async def health():
 
 
 @router.post("/analyze")
-async def analyze(request: AnalyzeRequest):
+async def analyze(request: AnalyzeRequest, background_tasks: BackgroundTasks):
+    if logger.isEnabledFor(logging.DEBUG):
+        body = request.model_dump_json(by_alias=True)
+        logger.debug("Received analyze request: %s", body)
+
     timestamp = int(get_current_utc().timestamp())
     report_id = f"{request.alert.id}_{timestamp}"
     opensearch_client = get_opensearch_client()
 
     try:
-        # Create initial pending record
-        opensearch_client.upsert_rca_report(
+        await opensearch_client.upsert_rca_report(
             report_id=report_id,
             alert_id=request.alert.id,
             status="pending",
@@ -87,78 +86,21 @@ async def analyze(request: AnalyzeRequest):
             component_uids=[str(request.component_uid)],
         )
         logger.info("Created pending RCA report: report_id=%s", report_id)
-
-        usage_callback = UsageMetadataCallbackHandler()
-        model = get_model()
-        agent = await create_rca_agent(model, usage_callback=usage_callback)
-
-        # TODO: Preprocessing step to resolve id's etc.
-
-        content = render(
-            "api/rca_request.j2",
-            {
-                "component_uid": request.component_uid,
-                "project_uid": request.project_uid,
-                "environment_uid": request.environment_uid,
-                "alert": request.alert,
-                "meta": request.meta,
-            },
-        )
-
-        result = await agent.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": content,
-                    }
-                ],
-            }
-        )
-
-        logger.info("Analysis completed. Usage metadata: %s", usage_callback.usage_metadata)
-
-        rca_report = result["structured_response"]
-
-        # Update with completed report
-        try:
-            response = opensearch_client.upsert_rca_report(
-                report_id=report_id,
-                alert_id=request.alert.id,
-                status="completed",
-                report=rca_report,
-                environment_uid=str(request.environment_uid),
-                project_uid=str(request.project_uid),
-                component_uids=[str(request.component_uid)],
-            )
-            logger.info(
-                "Updated RCA report to completed: index=%s, report_id=%s, status=%s",
-                response.get("_index"),
-                report_id,
-                response.get("result"),
-            )
-        except Exception as e:
-            logger.error("Failed to update RCA report to OpenSearch: %s", e, exc_info=True)
-
-        return {"result": rca_report, "report_id": report_id}
     except Exception as e:
-        logger.error("Analysis failed: %s", e, exc_info=True)
+        logger.error("Failed to create pending RCA report: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create analysis task: {str(e)}"
+        ) from e
 
-        # Update status to failed with error summary
-        try:
-            opensearch_client.upsert_rca_report(
-                report_id=report_id,
-                alert_id=request.alert.id,
-                status="failed",
-                summary=f"Analysis failed: {str(e)}",
-                environment_uid=str(request.environment_uid),
-                project_uid=str(request.project_uid),
-                component_uids=[str(request.component_uid)],
-            )
-            logger.info("Updated RCA report status to failed: report_id=%s", report_id)
-        except Exception as update_error:
-            logger.error(
-                "Failed to update failed status to OpenSearch: %s", update_error, exc_info=True
-            )
+    background_tasks.add_task(
+        run_analysis,
+        report_id,
+        request.alert.id,
+        request.alert,
+        request.component_uid,
+        request.project_uid,
+        request.environment_uid,
+        request.meta,
+    )
 
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}") from e
+    return {"report_id": report_id, "status": "pending"}

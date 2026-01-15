@@ -293,6 +293,12 @@ security:
     # default: /etc/openchoreo/authz/default-roles-mappings.yaml
     # @schema
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
+  # @schema
+  # type: string
+  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
+  # default: ""
+  # @schema
+  authServerBaseUrl: ""
 
 # @schema
 # type: object
@@ -1070,13 +1076,6 @@ openchoreoApi:
   # default: ""
   # @schema
   serverBaseUrl: ""
-
-  # @schema
-  # type: string
-  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
-  # default: ""
-  # @schema
-  authServerBaseUrl: ""
 
   # @schema
   # type: object
@@ -2326,6 +2325,121 @@ backstage:
       # default: Unconfined
       # @schema
       type: Unconfined
+
+  # @schema
+  # type: object
+  # description: Feature flags for OpenChoreo functionality
+  # @schema
+  features:
+    # @schema
+    # type: object
+    # description: Workflow feature configuration
+    # @schema
+    workflows:
+      # @schema
+      # type: boolean
+      # description: Enable workflows feature
+      # default: true
+      # @schema
+      enabled: true
+    # @schema
+    # type: object
+    # description: Observability feature configuration
+    # @schema
+    observability:
+      # @schema
+      # type: boolean
+      # description: Enable observability feature
+      # default: true
+      # @schema
+      enabled: true
+
+  # @schema
+  # type: object
+  # description: Database configuration for Backstage
+  # @schema
+  database:
+    # @schema
+    # description: Database type
+    # enum: [sqlite, postgresql]
+    # default: sqlite
+    # @schema
+    type: sqlite
+    # @schema
+    # type: object
+    # description: SQLite settings (only used when type is sqlite)
+    # @schema
+    sqlite:
+      # @schema
+      # type: string
+      # description: Mount path for database directory inside container
+      # default: /app/.config/backstage
+      # @schema
+      mountPath: /app/.config/backstage
+      # @schema
+      # type: object
+      # description: Persistence settings for SQLite database
+      # @schema
+      persistence:
+        # @schema
+        # type: boolean
+        # description: Enable PVC for persistence (false = emptyDir)
+        # default: false
+        # @schema
+        enabled: false
+        # @schema
+        # type: string
+        # description: PVC storage size
+        # default: 1Gi
+        # @schema
+        size: 1Gi
+        # @schema
+        # type: string
+        # description: Storage class name (empty = default storage class)
+        # default: ""
+        # @schema
+        storageClassName: ""
+        # @schema
+        # description: PVC access mode
+        # enum: [ReadWriteOnce, ReadWriteMany]
+        # default: ReadWriteOnce
+        # @schema
+        accessMode: ReadWriteOnce
+    # @schema
+    # type: object
+    # description: PostgreSQL settings (only used when type is postgresql)
+    # @schema
+    postgresql:
+      # @schema
+      # type: string
+      # description: PostgreSQL host
+      # default: ""
+      # @schema
+      host: ""
+      # @schema
+      # type: integer
+      # description: PostgreSQL port
+      # default: 5432
+      # @schema
+      port: 5432
+      # @schema
+      # type: string
+      # description: PostgreSQL username
+      # default: backstage
+      # @schema
+      user: backstage
+      # @schema
+      # type: string
+      # description: PostgreSQL password
+      # default: ""
+      # @schema
+      password: ""
+      # @schema
+      # type: string
+      # description: PostgreSQL database name
+      # default: backstage
+      # @schema
+      database: backstage
 
 # @schema
 # type: object

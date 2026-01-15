@@ -685,7 +685,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 	return query, nil
 }
 
-func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(ruleName string, params types.AlertingRuleRequest) (map[string]interface{}, error) {
+func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(params types.AlertingRuleRequest) (map[string]interface{}, error) {
 	intervalDuration, err := time.ParseDuration(params.Condition.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid interval format: %w", err)
@@ -699,7 +699,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(ruleName string, params 
 	monitorBody := MonitorBody{
 		Type:        "monitor",
 		MonitorType: "query_level_monitor",
-		Name:        ruleName,
+		Name:        params.Metadata.Name,
 		Enabled:     params.Condition.Enabled,
 		Schedule: MonitorSchedule{
 			Period: MonitorSchedulePeriod{
@@ -718,7 +718,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(ruleName string, params 
 		Triggers: []MonitorTrigger{
 			{
 				QueryLevelTrigger: &MonitorTriggerQueryLevelTrigger{
-					Name:     "trigger-" + ruleName,
+					Name:     "trigger-" + params.Metadata.Name,
 					Severity: "1",
 					Condition: MonitorTriggerCondition{
 						Script: MonitorTriggerConditionScript{
@@ -728,7 +728,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleMonitorBody(ruleName string, params 
 					},
 					Actions: []MonitorTriggerAction{
 						{
-							Name:          "action-" + ruleName,
+							Name:          "action-" + params.Metadata.Name,
 							DestinationID: "openchoreo-observer-alerting-webhook",
 							MessageTemplate: MonitorMessageTemplate{
 								Source: buildWebhookMessageTemplate(params),
@@ -790,6 +790,7 @@ func GetOperatorSymbol(operator string) string {
 func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 	// Escape JSON strings properly
 	ruleName, _ := json.Marshal(params.Metadata.Name)
+	ruleNamespace, _ := json.Marshal(params.Metadata.Namespace)
 	componentUID, _ := json.Marshal(params.Metadata.ComponentUID)
 	projectUID, _ := json.Marshal(params.Metadata.ProjectUID)
 	environmentUID, _ := json.Marshal(params.Metadata.EnvironmentUID)
@@ -798,8 +799,9 @@ func buildWebhookMessageTemplate(params types.AlertingRuleRequest) string {
 
 	// Build the JSON template with Mustache variables
 	return fmt.Sprintf(
-		`{"ruleName":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"notificationChannel":%s,"enableAiRootCauseAnalysis":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
+		`{"ruleName":%s,"ruleNamespace":%s,"componentUid":%s,"projectUid":%s,"environmentUid":%s,"notificationChannel":%s,"enableAiRootCauseAnalysis":%s,"alertValue":{{ctx.results.0.hits.total.value}},"timestamp":"{{ctx.periodStart}}"}`,
 		string(ruleName),
+		string(ruleNamespace),
 		string(componentUID),
 		string(projectUID),
 		string(environmentUID),

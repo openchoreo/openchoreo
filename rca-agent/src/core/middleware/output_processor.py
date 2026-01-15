@@ -337,16 +337,16 @@ def _process_traces(content: dict[str, Any]) -> str:
         return json.dumps(content)
 
 
-def get_processor(tool_name: str) -> Callable[[dict[str, Any]], str]:
-    if tool_name == obs_tools.GET_COMPONENT_LOGS:
-        return _process_component_logs
-    elif tool_name == obs_tools.GET_PROJECT_LOGS:
-        return _process_project_logs
-    elif tool_name == obs_tools.GET_COMPONENT_RESOURCE_METRICS:
-        return _process_metrics
-    elif tool_name == obs_tools.GET_TRACES:
-        return _process_traces
-    return lambda content: content
+def get_processor(tool_name: str | None) -> Callable[[dict[str, Any]], str]:
+    processors: dict[str, Callable[[dict[str, Any]], str]] = {
+        obs_tools.GET_COMPONENT_LOGS: _process_component_logs,
+        obs_tools.GET_PROJECT_LOGS: _process_project_logs,
+        obs_tools.GET_COMPONENT_RESOURCE_METRICS: _process_metrics,
+        obs_tools.GET_TRACES: _process_traces,
+    }
+    if tool_name and tool_name in processors:
+        return processors[tool_name]
+    return lambda content: json.dumps(content)
 
 
 class OutputProcessorMiddleware(AgentMiddleware):

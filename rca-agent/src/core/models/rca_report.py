@@ -236,7 +236,8 @@ class IssueIdentified(BaseModel):
         description="Potential causes that were investigated and ruled out with reasoning, helping narrow down the actual root cause.",
     )
     recommendations: Recommendations = Field(
-        ..., description="Actionable recommendations to prevent recurrence of this issue. Do not include vague or non-actionable suggestions. Provide at most two actions each unless absolutely necessary."
+        ...,
+        description="Actionable recommendations to prevent recurrence of this issue. Do not include vague or non-actionable suggestions. Provide at most two actions each unless absolutely necessary.",
     )
 
 

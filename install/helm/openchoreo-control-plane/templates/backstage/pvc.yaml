@@ -1,0 +1,19 @@
+{{- if and .Values.backstage.enabled (eq .Values.backstage.database.type "sqlite") .Values.backstage.database.sqlite.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-db
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  accessModes:
+    - {{ .Values.backstage.database.sqlite.persistence.accessMode }}
+  {{- if .Values.backstage.database.sqlite.persistence.storageClassName }}
+  storageClassName: {{ .Values.backstage.database.sqlite.persistence.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backstage.database.sqlite.persistence.size }}
+{{- end }}

@@ -8,14 +8,6 @@ import (
 	"time"
 )
 
-// SubjectType defines the type of subject making the authorization request
-type SubjectType string
-
-const (
-	SubjectTypeUser           SubjectType = "user"
-	SubjectTypeServiceAccount SubjectType = "service_account"
-)
-
 // PolicyEffectType defines the effect of a policy: allow or deny
 type PolicyEffectType string
 
@@ -26,9 +18,9 @@ const (
 
 // SubjectContext represents the authenticated subject making the authorization request
 type SubjectContext struct {
-	Type              SubjectType `json:"type"`
-	EntitlementClaim  string      `json:"entitlement_claim"`
-	EntitlementValues []string    `json:"entitlement_values"`
+	Type              string   `json:"type"`
+	EntitlementClaim  string   `json:"entitlement_claim"`
+	EntitlementValues []string `json:"entitlement_values"`
 }
 
 // ResourceHierarchy represents a single item in a resource hierarchy

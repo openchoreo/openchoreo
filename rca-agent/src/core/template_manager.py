@@ -3,14 +3,15 @@
 
 import re
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
-_env = None
+_env: Environment | None = None
 
 
-def _match_test(value, pattern):
+def _match_test(value: Any, pattern: str) -> bool:
     """Jinja2 test for regex matching."""
     return re.match(pattern, str(value)) is not None
 
@@ -28,7 +29,7 @@ def _get_env() -> Environment:
     return _env
 
 
-def render(template_path: str, context: dict) -> str:
+def render(template_path: str, context: dict[str, Any]) -> str:
     """
     Render a Jinja2 template with the given context.
 

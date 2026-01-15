@@ -40,7 +40,7 @@ var _ = Describe("Workflow Controller", func() {
 						Namespace: "default",
 					},
 					Spec: openchoreodevv1alpha1.WorkflowSpec{
-						Resource: &runtime.RawExtension{
+						RunTemplate: &runtime.RawExtension{
 							Raw: []byte(`{
 								"apiVersion": "argoproj.io/v1alpha1",
 								"kind": "Workflow",
