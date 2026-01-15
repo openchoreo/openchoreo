@@ -30,6 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -1309,42 +1310,73 @@ func parseRecipientsList(s string) []string {
 	return parts
 }
 
-// renderTemplate performs simple template rendering by replacing ${key} with values from the map
-func (s *LoggingService) renderTemplate(template string, data map[string]interface{}) string {
-	result := template
-
-	// Replace known placeholders
-	replacements := map[string]string{
-		"${alert.name}":        getString(data, "ruleName"),
-		"${alert.ruleName}":    getString(data, "ruleName"),
-		"${alert.value}":       getStringFromAny(data["alertValue"]),
-		"${alert.timestamp}":   getString(data, "timestamp"),
-		"${alert.componentId}": getString(data, "componentUid"),
-		"${alert.projectId}":   getString(data, "projectUid"),
-		"${alert.envId}":       getString(data, "environmentUid"),
+// renderTemplate performs CEL expression rendering by evaluating ${...} expressions using the template engine.
+// If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
+func (s *LoggingService) renderTemplate(templateStr string, data map[string]interface{}) string {
+	// Build the CEL input context with the alert data
+	celInputs := map[string]any{
+		"alertName":                       data["ruleName"],
+		"alertTimestamp":                  data["timestamp"],
+		"alertSeverity":                   data["severity"],
+		"alertDescription":                data["description"],
+		"alertThreshold":                  data["threshold"],
+		"alertValue":                      data["value"],
+		"alertType":                       data["type"],
+		"component":                       data["component"],
+		"project":                         data["project"],
+		"environment":                     data["environment"],
+		"componentId":                     data["componentUid"],
+		"projectId":                       data["projectUid"],
+		"environmentId":                   data["environmentUid"],
+		"alertAIRootCauseAnalysisEnabled": data["enableAiRootCauseAnalysis"],
 	}
 
-	for placeholder, value := range replacements {
-		result = strings.ReplaceAll(result, placeholder, value)
+	s.logger.Debug("CEL template rendering inputs", "alertData", celInputs)
+
+	// Find all CEL expressions in the template
+	expressions, err := template.FindCELExpressions(templateStr)
+	if err != nil {
+		s.logger.Warn("Failed to parse CEL expressions in template, returning original template",
+			"error", err,
+			"template", templateStr)
+		return templateStr
+	}
+
+	// If no expressions found, return the template as-is
+	if len(expressions) == 0 {
+		return templateStr
+	}
+
+	// Create a new template engine for CEL evaluation
+	engine := template.NewEngine()
+
+	result := templateStr
+	for _, match := range expressions {
+		// Try to render this single expression
+		rendered, err := engine.Render(match.FullExpr, celInputs)
+		if err != nil {
+			s.logger.Warn("Failed to resolve CEL expression, keeping original expression",
+				"expression", match.FullExpr,
+				"innerExpr", match.InnerExpr,
+				"error", err)
+			// Keep the original expression in the result
+			continue
+		}
+
+		// Convert rendered result to string
+		var replacement string
+		switch v := rendered.(type) {
+		case string:
+			replacement = v
+		default:
+			replacement = fmt.Sprintf("%v", v)
+		}
+
+		// Replace only the first occurrence of this expression
+		result = strings.Replace(result, match.FullExpr, replacement, 1)
 	}
 
 	return result
-}
-
-// getString safely extracts a string value from the map
-func getString(m map[string]interface{}, key string) string {
-	if v, ok := m[key].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// getStringFromAny converts any value to string representation
-func getStringFromAny(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	return fmt.Sprintf("%v", v)
 }
 
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
@@ -1526,15 +1558,19 @@ func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]inte
 func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"timestamp":                 timestamp,
-		"severity":                  alertRule.Spec.Severity,
+		"severity":                  string(alertRule.Spec.Severity),
 		"ruleName":                  alertRule.Spec.Name,
-		"ruleType":                  alertRule.Spec.Source.Type,
-		"ruleThreshold":             alertRule.Spec.Condition.Threshold,
-		"alertValue":                alertValue,
+		"description":               alertRule.Spec.Description,
+		"type":                      string(alertRule.Spec.Source.Type),
+		"threshold":                 strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		"value":                     alertValue,
 		"componentUid":              alertRule.Labels["openchoreo.dev/component-uid"],
 		"environmentUid":            alertRule.Labels["openchoreo.dev/environment-uid"],
 		"projectUid":                alertRule.Labels["openchoreo.dev/project-uid"],
+		"component":                 alertRule.Labels["openchoreo.dev/component"],
+		"project":                   alertRule.Labels["openchoreo.dev/project"],
+		"environment":               alertRule.Labels["openchoreo.dev/environment"],
 		"notificationChannel":       alertRule.Spec.NotificationChannel,
-		"enableAiRootCauseAnalysis": alertRule.Spec.EnableAiRootCauseAnalysis,
+		"enableAiRootCauseAnalysis": strconv.FormatBool(alertRule.Spec.EnableAiRootCauseAnalysis),
 	}, nil
 }

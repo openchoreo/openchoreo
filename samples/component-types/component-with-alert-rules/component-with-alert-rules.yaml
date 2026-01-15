@@ -200,7 +200,19 @@ spec:
           interval: "1m"
           operator: "gt"
           threshold: 10
-    # TODO: Add CPU/Memory usage based alert rules
+    - name: observability-alertrule
+      instanceName: cpu-usage-alert-rule
+      parameters:
+        description: "fires alert when CPU usage is greater than 80%"
+        severity: "critical"
+        source:
+          type: "metric"
+          metric: "cpu_usage"
+        condition:
+          window: "1m"
+          interval: "1m"
+          operator: "gt"
+          threshold: 50
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -278,9 +290,20 @@ spec:
       tls:
         insecureSkipVerify: true
     template:
-      subject: "Test OpenChoreo notification"
       # Modify as needed with CEL expressions
-      body: "Alert triggered for your openchoreo observability alert rule"
+      subject: "OpenChoreo Observability Alert Notification - ${alertName}"
+      body: |
+        Alert triggered for your openchoreo observability alert rule: ${alertName}
+        Triggered at: ${alertTimestamp} UTC
+        Severity: ${alertSeverity}
+        Description: ${alertDescription}
+        Value: ${alertValue}
+        Threshold: ${alertThreshold}
+        Type: ${alertType}
+        Component: ${component}
+        Project: ${project}
+        Environment: ${environment}
+        Enabled AI Root Cause Analysis: ${alertAIRootCauseAnalysisEnabled}
 
 ---
 apiVersion: v1
