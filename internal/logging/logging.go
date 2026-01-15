@@ -40,6 +40,19 @@ func New(cfg Config) *slog.Logger {
 	return slog.New(handler)
 }
 
+// NewWithComponent creates a configured logger with a component field.
+func NewWithComponent(cfg Config, component string) *slog.Logger {
+	return New(cfg).With("component", component)
+}
+
+// Bootstrap creates a minimal logger for pre-configuration errors.
+// It writes JSON to stderr and includes the component field.
+// Use this before any configuration is loaded.
+func Bootstrap(component string) *slog.Logger {
+	handler := slog.NewJSONHandler(os.Stderr, nil)
+	return slog.New(handler).With("component", component)
+}
+
 // contextKey is the type for context keys to avoid collisions.
 type contextKey struct{}
 

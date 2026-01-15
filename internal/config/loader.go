@@ -7,23 +7,23 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log/slog"
+	"io"
 	"os"
 	"strings"
 
-	"github.com/knadh/koanf/parsers/yaml"
+	koanfyaml "github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
 	"github.com/spf13/pflag"
+	"gopkg.in/yaml.v3"
 )
 
 // Loader handles configuration loading from multiple sources.
 type Loader struct {
 	k         *koanf.Koanf
 	envPrefix string
-	logger    *slog.Logger
 }
 
 // Validator can be implemented by config structs to enable validation.
@@ -35,16 +35,11 @@ type Validator interface {
 // envPrefix should be like "OC_API" (without trailing delimiter).
 // Environment variables use double underscore (__) for nesting:
 // OC_API__SERVER__PORT -> server.port
-func NewLoader(envPrefix string, opts ...Option) *Loader {
-	l := &Loader{
+func NewLoader(envPrefix string) *Loader {
+	return &Loader{
 		k:         koanf.New("."),
 		envPrefix: envPrefix + "__",
-		logger:    slog.Default(),
 	}
-	for _, opt := range opts {
-		opt(l)
-	}
-	return l
 }
 
 // LoadWithDefaults loads configuration with the following priority (highest to lowest):
@@ -59,17 +54,15 @@ func (l *Loader) LoadWithDefaults(defaults any, configPath string) error {
 		if err := l.k.Load(structs.Provider(defaults, "koanf"), nil); err != nil {
 			return fmt.Errorf("failed to load defaults: %w", err)
 		}
-		l.logger.Debug("loaded struct defaults")
 	}
 
 	if configPath != "" {
 		if _, err := os.Stat(configPath); err != nil {
 			return fmt.Errorf("config file not found: %s", configPath)
 		}
-		if err := l.k.Load(file.Provider(configPath), yaml.Parser()); err != nil {
+		if err := l.k.Load(file.Provider(configPath), koanfyaml.Parser()); err != nil {
 			return fmt.Errorf("failed to load config file: %w", err)
 		}
-		l.logger.Info("loaded config file", "path", configPath)
 	}
 
 	// Double underscore (__) for nesting: OC_API__SERVER__PORT -> server.port
@@ -81,7 +74,6 @@ func (l *Loader) LoadWithDefaults(defaults any, configPath string) error {
 	if err := l.k.Load(envProvider, nil); err != nil {
 		return fmt.Errorf("failed to load environment variables: %w", err)
 	}
-	l.logger.Debug("loaded environment variables", "prefix", l.envPrefix)
 
 	return nil
 }
@@ -124,7 +116,11 @@ func (l *Loader) Set(key string, value any) error {
 }
 
 // Raw returns all loaded configuration as a nested map.
-// Useful for config dumping (e.g., --dump-config).
 func (l *Loader) Raw() map[string]any {
 	return l.k.Raw()
+}
+
+// DumpYAML writes the loaded configuration as YAML to the provided writer.
+func (l *Loader) DumpYAML(w io.Writer) error {
+	return yaml.NewEncoder(w).Encode(l.k.Raw())
 }

@@ -28,12 +28,12 @@ import (
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
 	services *services.Services
-	config   *config.Config
+	config   *config.ConfigLegacy
 	logger   *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.ConfigLegacy, logger *slog.Logger) *Handler {
 	return &Handler{
 		services: services,
 		config:   cfg,

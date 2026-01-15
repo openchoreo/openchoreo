@@ -27,8 +27,9 @@ func (h *Handler) GetOpenIDConfiguration(
 	securityEnabled := !jwtDisabled
 
 	// Build external clients from config file
-	externalClients := make([]gen.ExternalClient, len(h.Config.Security.ExternalClients))
-	for i, client := range h.Config.Security.ExternalClients {
+	// TODO: This is IdP concern, not resource server. Consider fetching from IdP instead.
+	externalClients := make([]gen.ExternalClient, len(h.Config.OAuth.Clients))
+	for i, client := range h.Config.OAuth.Clients {
 		externalClients[i] = gen.ExternalClient{
 			Name:     client.Name,
 			ClientId: client.ClientID,
