@@ -25,10 +25,9 @@ type SubjectContext struct {
 
 // ResourceHierarchy represents a single item in a resource hierarchy
 type ResourceHierarchy struct {
-	Organization      string   `json:"organization,omitempty"`
-	OrganizationUnits []string `json:"organization_units,omitempty"`
-	Project           string   `json:"project,omitempty"`
-	Component         string   `json:"component,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Project   string `json:"project,omitempty"`
+	Component string `json:"component,omitempty"`
 }
 
 // Resource represents a resource in the authorization request
@@ -83,6 +82,7 @@ type ProfileRequest struct {
 }
 
 // Role represents a role with a set of allowed actions
+// If Namespace is empty, it's a cluster-scoped role; otherwise it's namespace-scoped
 type Role struct {
 	// Name is the unique identifier for the role
 	Name string `json:"name"`
@@ -90,8 +90,22 @@ type Role struct {
 	// Actions is the list of actions this role permits
 	Actions []string `json:"actions"`
 
+	// Namespace is the namespace for namespace-scoped roles, empty for cluster roles
+	Namespace string `json:"namespace,omitempty"`
+
 	// IsInternal indicates if this role should be hidden from public listings
 	IsInternal bool `json:"-"`
+}
+
+// RoleRef uniquely identifies a role by name and namespace
+type RoleRef struct {
+	// Name is the role name
+	Name string `json:"name" yaml:"name"`
+
+	// Namespace identifies the role scope:
+	// - Empty string ("") = cluster-scoped role
+	// - Non-empty = namespace-scoped role in the specified namespace
+	Namespace string `json:"namespace,omitempty" yaml:"namespace"`
 }
 
 // Entitlement represents an entitlement with its claim and value
@@ -108,17 +122,18 @@ type RoleEntitlementMapping struct {
 	// ID is the unique identifier for the mapping
 	ID uint `json:"id" yaml:"id,omitempty"`
 
-	// RoleName is the name of the role being assigned
-	RoleName string `json:"role_name" yaml:"role_name"`
+	// RoleRef identifies the role being assigned
+	RoleRef RoleRef `json:"role" yaml:"role"`
 
 	// Entitlement contains the claim and value for this mapping
 	Entitlement Entitlement `json:"entitlement" yaml:"entitlement"`
 
 	// Hierarchy defines the resource hierarchy scope where this role applies
+	// Empty hierarchy means global scope (*)
 	Hierarchy ResourceHierarchy `json:"hierarchy" yaml:"hierarchy,omitempty"`
 
 	// Effect indicates whether the mapping is to allow or deny access
-	Effect PolicyEffectType `json:"effect" yaml:"effect,omitempty"`
+	Effect PolicyEffectType `json:"effect" yaml:"effect"`
 
 	// Context provides optional additional context metadata for this mapping
 	Context Context `json:"context" yaml:"context,omitempty"`
@@ -129,11 +144,23 @@ type RoleEntitlementMapping struct {
 
 // RoleEntitlementMappingFilter provides filters for listing role-entitlement mappings
 type RoleEntitlementMappingFilter struct {
-	// RoleName filters mappings by role name
-	RoleName *string
+	// RoleRef filters mappings by role reference (name and namespace)
+	RoleRef *RoleRef
 
 	// Entitlement filters mappings by entitlement claim and value
 	Entitlement *Entitlement
+}
+
+// RoleFilter provides filters for listing roles
+type RoleFilter struct {
+	// Namespace filters roles by namespace scope:
+	// - "" (empty) = cluster-scoped roles only
+	// - "ns1" = namespace-scoped roles in "ns1" only
+	// Ignored when IncludeAll is true
+	Namespace string
+
+	// IncludeAll when true returns all roles (cluster + all namespaces)
+	IncludeAll bool
 }
 
 // ActionCapability represents capabilities for a specific action

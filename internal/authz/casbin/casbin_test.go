@@ -67,9 +67,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "test-group",
 		},
-		RoleName: "multi-role",
+		RoleRef: authzcore.RoleRef{Name: "multi-role"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -89,7 +89,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "global-admin-group",
 		},
-		RoleName:  "global-admin",
+		RoleRef: authzcore.RoleRef{Name: "global-admin"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			// Empty hierarchy = global wildcard "*"
 		},
@@ -111,9 +111,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "component-group",
 		},
-		RoleName: "component-specific",
+		RoleRef: authzcore.RoleRef{Name: "component-specific"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "p1",
 			Component:    "c1",
 		},
@@ -135,9 +135,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "project-group",
 		},
-		RoleName: "project-specific",
+		RoleRef: authzcore.RoleRef{Name: "project-specific"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "p2",
 		},
 		Effect: authzcore.PolicyEffectAllow,
@@ -165,9 +165,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "multi-role-group",
 		},
-		RoleName: "reader",
+		RoleRef: authzcore.RoleRef{Name: "reader"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -179,9 +179,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "multi-role-group",
 		},
-		RoleName: "writer",
+		RoleRef: authzcore.RoleRef{Name: "writer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -201,9 +201,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "sub",
 			Value: "user-123",
 		},
-		RoleName: "sub-claim-role",
+		RoleRef: authzcore.RoleRef{Name: "sub-claim-role"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -223,9 +223,9 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "service-account-group",
 		},
-		RoleName: "service-role",
+		RoleRef: authzcore.RoleRef{Name: "service-role"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -249,7 +249,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			action: "organization:view",
 			want:   true,
@@ -261,7 +261,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 				Component:    "c1",
 			},
@@ -275,7 +275,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 				Component:    "c1",
 			},
@@ -289,7 +289,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"other-group", "test-group", "another-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:view",
@@ -302,7 +302,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 			},
 			action: "project:delete",
@@ -315,7 +315,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"group1", "group2", "group3"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:view",
@@ -326,7 +326,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			name:              "access denied - hierarchy out of scope",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme-v2",
+				Namespace: "acme-v2",
 				Project:      "p2",
 				Component:    "c1",
 			},
@@ -340,7 +340,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"service-account-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 				Component:    "c1",
 			},
@@ -354,7 +354,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "sub",
 			entitlementValues: []string{"user-123"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:view",
@@ -367,7 +367,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "sub",
 			entitlementValues: []string{"user-456"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:view",
@@ -380,7 +380,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"global-admin-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "any-org",
+				Namespace: "any-org",
 				Project:      "any-project",
 			},
 			action: "project:delete",
@@ -393,7 +393,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"component-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 				Component:    "c1",
 			},
@@ -407,7 +407,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"component-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 				Component:    "c2",
 			},
@@ -421,7 +421,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"project-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p2",
 				Component:    "c1",
 			},
@@ -435,7 +435,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:view",
@@ -448,7 +448,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Component:    "c1",
 			},
 			action: "component:create",
@@ -461,7 +461,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 			},
 			action: "project:create",
@@ -474,7 +474,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme2",
+				Namespace: "acme2",
 			},
 			action: "organization:view",
 			want:   false,
@@ -486,7 +486,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"project-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p22",
 			},
 			action: "project:view",
@@ -499,7 +499,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementClaim:  "groups",
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			action: "component:view",
 			want:   true,
@@ -565,9 +565,9 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			Claim: "groups",
 			Value: "user-group",
 		},
-		RoleName: "developer",
+		RoleRef: authzcore.RoleRef{Name: "developer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -581,9 +581,9 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			Claim: "groups",
 			Value: "user-group",
 		},
-		RoleName: "developer",
+		RoleRef: authzcore.RoleRef{Name: "developer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "secret",
 		},
 		Effect: authzcore.PolicyEffectDeny,
@@ -604,7 +604,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			name:              "allow in public project",
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "public",
 				Component:    "c1",
 			},
@@ -616,7 +616,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			name:              "deny in secret project (deny overrides allow)",
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "secret",
 				Component:    "c1",
 			},
@@ -628,7 +628,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			name:              "deny in secret project - component:deploy also denied",
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "secret",
 				Component:    "c1",
 			},
@@ -640,7 +640,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			name:              "allow in public project - component:create allowed",
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "public",
 				Component:    "c1",
 			},
@@ -704,9 +704,9 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleName: "reader",
+		RoleRef: authzcore.RoleRef{Name: "reader"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -715,9 +715,9 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleName: "writer",
+		RoleRef: authzcore.RoleRef{Name: "writer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "p1",
 		},
 		Effect: authzcore.PolicyEffectAllow,
@@ -741,7 +741,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 				Resource: authzcore.Resource{
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
-						Organization: "acme",
+						Namespace: "acme",
 						Project:      "p1",
 					},
 				},
@@ -756,7 +756,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 				Resource: authzcore.Resource{
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
-						Organization: "acme",
+						Namespace: "acme",
 						Project:      "p1",
 					},
 				},
@@ -771,7 +771,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 				Resource: authzcore.Resource{
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
-						Organization: "acme",
+						Namespace: "acme",
 						Project:      "p2",
 					},
 				},
@@ -817,7 +817,7 @@ func TestCasbinEnforcer_AddRole(t *testing.T) {
 		t.Fatalf("AddRole() error = %v", err)
 	}
 
-	retrievedRole, err := enforcer.GetRole(ctx, testRoleName)
+	retrievedRole, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: testRoleName})
 	if err != nil {
 		t.Fatalf("GetRole() error = %v", err)
 	}
@@ -868,20 +868,20 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 		}
 
 		// Remove role
-		err := enforcer.RemoveRole(ctx, "removable-role")
+		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "removable-role"})
 		if err != nil {
 			t.Fatalf("RemoveRole() error = %v", err)
 		}
 
 		// Verify role was removed
-		_, err = enforcer.GetRole(ctx, "removable-role")
+		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "removable-role"})
 		if err == nil {
 			t.Error("GetRole() after remove should return error")
 		}
 	})
 
 	t.Run("non-existent role", func(t *testing.T) {
-		err := enforcer.RemoveRole(ctx, "non-existent-role")
+		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent-role"})
 		if !errors.Is(err, authzcore.ErrRoleNotFound) {
 			t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
 		}
@@ -903,9 +903,9 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 				Claim: "group",
 				Value: "test-group",
 			},
-			RoleName: "in-use-role",
+			RoleRef: authzcore.RoleRef{Name: "in-use-role"},
 			Hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			Effect: authzcore.PolicyEffectAllow,
 		}
@@ -914,7 +914,7 @@ func TestCasbinEnforcer_RemoveRole(t *testing.T) {
 		}
 
 		// Attempt to remove the role - should fail because it's in use
-		err := enforcer.RemoveRole(ctx, "in-use-role")
+		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role"})
 		if !errors.Is(err, authzcore.ErrRoleInUse) {
 			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
 		}
@@ -935,7 +935,7 @@ func TestCasbinEnforcer_GetRole(t *testing.T) {
 	}
 
 	// Test getting the created role
-	role, err := enforcer.GetRole(ctx, "test-admin")
+	role, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "test-admin"})
 	if err != nil {
 		t.Fatalf("GetRole() error = %v", err)
 	}
@@ -990,7 +990,7 @@ func TestCasbinEnforcer_ListRoles(t *testing.T) {
 	}
 
 	// List roles
-	roles, err := enforcer.ListRoles(ctx)
+	roles, err := enforcer.ListRoles(ctx, &authzcore.RoleFilter{IncludeAll: true})
 	if err != nil {
 		t.Fatalf("ListRoles() error = %v", err)
 	}
@@ -1021,9 +1021,9 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 			Claim: "groups",
 			Value: "test-group",
 		},
-		RoleName: testRoleName,
+		RoleRef: authzcore.RoleRef{Name: testRoleName},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1040,7 +1040,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 
 	found := false
 	for _, m := range mappings {
-		if m.Entitlement.Claim == "groups" && m.Entitlement.Value == "test-group" && m.RoleName == "test-role" {
+		if m.Entitlement.Claim == "groups" && m.Entitlement.Value == "test-group" && m.RoleRef.Name == "test-role" {
 			found = true
 			break
 		}
@@ -1068,9 +1068,9 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 			Claim: testEntitlementType,
 			Value: testEntitlementValue,
 		},
-		RoleName: testRoleName,
+		RoleRef: authzcore.RoleRef{Name: testRoleName},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1088,7 +1088,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 	var mappingID uint
 	found := false
 	for _, m := range mappings {
-		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleName == testRoleName {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
 			mappingID = m.ID
 			found = true
 			break
@@ -1111,7 +1111,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 	}
 
 	for _, m := range mappings {
-		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleName == testRoleName {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
 			t.Error("RemoveRoleEntitlementMapping() mapping still exists after removal")
 		}
 	}
@@ -1149,9 +1149,9 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleName: "viewer",
+		RoleRef: authzcore.RoleRef{Name: "viewer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1160,9 +1160,9 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleName: "viewer",
+		RoleRef: authzcore.RoleRef{Name: "viewer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "p1",
 		},
 		Effect: authzcore.PolicyEffectDeny,
@@ -1172,9 +1172,9 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleName: "viewer",
+		RoleRef: authzcore.RoleRef{Name: "viewer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "other-org",
+			Namespace: "other-org",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1265,9 +1265,9 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleName: "editor",
+		RoleRef: authzcore.RoleRef{Name: "editor"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1276,9 +1276,9 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleName: "viewer",
+		RoleRef: authzcore.RoleRef{Name: "viewer"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "p1",
 		},
 		Effect: authzcore.PolicyEffectAllow,
@@ -1288,9 +1288,9 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleName: "editor",
+		RoleRef: authzcore.RoleRef{Name: "editor"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Organization: "acme",
+			Namespace: "acme",
 			Project:      "secret",
 		},
 		Effect: authzcore.PolicyEffectDeny,
@@ -1328,7 +1328,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 					EntitlementValues: []string{"dev-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
-					Organization: "acme",
+					Namespace: "acme",
 				},
 			},
 			wantErr: false,
@@ -1356,7 +1356,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 					EntitlementValues: []string{"dev-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
-					Organization: "acme",
+					Namespace: "acme",
 					Project:      "p1",
 				},
 			},
@@ -1385,7 +1385,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 					EntitlementValues: []string{"no-permissions-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
-					Organization: "acme",
+					Namespace: "acme",
 				},
 			},
 			wantErr:             false,
@@ -1641,9 +1641,9 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 				Claim: "group",
 				Value: "test-group",
 			},
-			RoleName: "force-removable",
+			RoleRef: authzcore.RoleRef{Name: "force-removable"},
 			Hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			Effect: authzcore.PolicyEffectAllow,
 		}
@@ -1652,20 +1652,20 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 		}
 
 		// Force remove the role
-		err := enforcer.ForceRemoveRole(ctx, "force-removable")
+		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
 		if err != nil {
 			t.Fatalf("ForceRemoveRole() error = %v", err)
 		}
 
 		// Verify role is gone
-		_, err = enforcer.GetRole(ctx, "force-removable")
+		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
 		if err == nil {
 			t.Error("ForceRemoveRole() role still exists after removal")
 		}
 
 		// Verify mappings are gone
 		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, &authzcore.RoleEntitlementMappingFilter{
-			RoleName: strPtr("force-removable"),
+			RoleRef: &authzcore.RoleRef{Name: "force-removable"},
 		})
 		if err != nil {
 			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
@@ -1676,7 +1676,7 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 	})
 
 	t.Run("force remove non-existent role", func(t *testing.T) {
-		err := enforcer.ForceRemoveRole(ctx, "non-existent")
+		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent"})
 		if !errors.Is(err, authzcore.ErrRoleNotFound) {
 			t.Errorf("ForceRemoveRole() error = %v, want ErrRoleNotFound", err)
 		}
@@ -1693,13 +1693,13 @@ func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
 		}
 
 		// Force remove should succeed
-		err := enforcer.ForceRemoveRole(ctx, "no-mappings-role")
+		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
 		if err != nil {
 			t.Fatalf("ForceRemoveRole() error = %v", err)
 		}
 
 		// Verify role is gone
-		_, err = enforcer.GetRole(ctx, "no-mappings-role")
+		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
 		if err == nil {
 			t.Error("ForceRemoveRole() role still exists after removal")
 		}
@@ -1732,7 +1732,7 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 		}
 
 		// Verify updated actions
-		retrieved, err := enforcer.GetRole(ctx, "mixed-update-role")
+		retrieved, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "mixed-update-role"})
 		if err != nil {
 			t.Fatalf("GetRole() error = %v", err)
 		}
@@ -1773,7 +1773,7 @@ func TestCasbinEnforcer_UpdateRole(t *testing.T) {
 		}
 
 		// Verify role still has original actions
-		retrieved, err := enforcer.GetRole(ctx, "removable-actions-role")
+		retrieved, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "removable-actions-role"})
 		if err != nil {
 			t.Fatalf("GetRole() error = %v", err)
 		}
@@ -1815,9 +1815,9 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 				Claim: "group",
 				Value: "dev-group",
 			},
-			RoleName: "update-test-role",
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
 			Hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			Effect: authzcore.PolicyEffectAllow,
 		}
@@ -1833,7 +1833,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 
 		var mappingID uint
 		for _, m := range mappings {
-			if m.RoleName == "update-test-role" && m.Entitlement.Value == "dev-group" {
+			if m.RoleRef.Name == "update-test-role" && m.Entitlement.Value == "dev-group" {
 				mappingID = m.ID
 				break
 			}
@@ -1850,9 +1850,9 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 				Claim: "group",
 				Value: "prod-group",
 			},
-			RoleName: "update-test-role",
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
 			Hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 				Project:      "p1",
 			},
 			Effect: authzcore.PolicyEffectDeny,
@@ -1898,9 +1898,9 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 				Claim: "group",
 				Value: "test",
 			},
-			RoleName: "update-test-role",
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
 			Hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
 			Effect: authzcore.PolicyEffectAllow,
 		}

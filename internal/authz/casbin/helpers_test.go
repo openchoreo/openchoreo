@@ -18,49 +18,49 @@ func TestResourceMatch(t *testing.T) {
 	}{
 		{
 			name:            "exact match",
-			requestResource: "org/acme",
-			policyResource:  "org/acme",
+			requestResource: "ns/acme",
+			policyResource:  "ns/acme",
 			want:            true,
 		},
 		{
 			name:            "hierarchical prefix match",
-			requestResource: "org/acme/project/p1/component/c1",
-			policyResource:  "org/acme/project/p1",
+			requestResource: "ns/acme/project/p1/component/c1",
+			policyResource:  "ns/acme/project/p1",
 			want:            true,
 		},
 		{
-			name:            "no match - different organization",
-			requestResource: "org/other/project/p1",
-			policyResource:  "org/acme",
+			name:            "no match - different namespace",
+			requestResource: "ns/other/project/p1",
+			policyResource:  "ns/acme",
 			want:            false,
 		},
 		{
 			name:            "no match - partial prefix without hierarchy boundary",
-			requestResource: "org/acme-other",
-			policyResource:  "org/acme",
+			requestResource: "ns/acme-other",
+			policyResource:  "ns/acme",
 			want:            false,
 		},
 		{
 			name:            "wildcard matches any resource",
-			requestResource: "org/acme/project/p1/component/c1",
+			requestResource: "ns/acme/project/p1/component/c1",
 			policyResource:  "*",
 			want:            true,
 		},
 		{
 			name:            "no match - policy is more specific than request",
-			requestResource: "org/acme",
-			policyResource:  "org/acme/project/p1",
+			requestResource: "ns/acme",
+			policyResource:  "ns/acme/project/p1",
 			want:            false,
 		},
 		{
 			name:            "empty request resource",
 			requestResource: "",
-			policyResource:  "org/acme",
+			policyResource:  "ns/acme",
 			want:            false,
 		},
 		{
 			name:            "empty policy resource",
-			requestResource: "org/acme",
+			requestResource: "ns/acme",
 			policyResource:  "",
 			want:            false,
 		},
@@ -144,29 +144,28 @@ func TestHierarchyToResourcePath(t *testing.T) {
 		want      string
 	}{
 		{
-			name: "full hierarchy without organization units",
+			name: "full hierarchy",
 			hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Namespace: "acme",
+				Project:   "p1",
+				Component: "c1",
 			},
-			want: "org/acme/project/p1/component/c1",
+			want: "ns/acme/project/p1/component/c1",
 		},
 		{
-			name: "organization only",
+			name: "namespace only",
 			hierarchy: authzcore.ResourceHierarchy{
-				Organization: "acme",
+				Namespace: "acme",
 			},
-			want: "org/acme",
+			want: "ns/acme",
 		},
 		{
-			name: "full hierarchy with organization units",
+			name: "namespace and project",
 			hierarchy: authzcore.ResourceHierarchy{
-				Organization:      "acme",
-				OrganizationUnits: []string{"sales", "emea"},
-				Project:           "p1",
+				Namespace: "acme",
+				Project:   "p1",
 			},
-			want: "org/acme/ou/sales/ou/emea/project/p1",
+			want: "ns/acme/project/p1",
 		},
 		{
 			name:      "empty hierarchy - returns wildcard",
@@ -192,22 +191,27 @@ func TestResourcePathToHierarchy(t *testing.T) {
 		want         authzcore.ResourceHierarchy
 	}{
 		{
-			name:         "full hierarchy path without organization units",
-			resourcePath: "org/acme/project/p1/component/c1",
+			name:         "full hierarchy path",
+			resourcePath: "ns/acme/project/p1/component/c1",
 			want: authzcore.ResourceHierarchy{
-				Organization: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Namespace: "acme",
+				Project:   "p1",
+				Component: "c1",
 			},
 		},
 		{
-			name:         "full hierarchy path with organization units",
-			resourcePath: "org/acme/ou/sales/ou/emea/project/p1/component/c1",
+			name:         "namespace only",
+			resourcePath: "ns/acme",
 			want: authzcore.ResourceHierarchy{
-				Organization:      "acme",
-				OrganizationUnits: []string{"sales", "emea"},
-				Project:           "p1",
-				Component:         "c1",
+				Namespace: "acme",
+			},
+		},
+		{
+			name:         "namespace and project",
+			resourcePath: "ns/acme/project/p1",
+			want: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
 			},
 		},
 		{
@@ -226,24 +230,14 @@ func TestResourcePathToHierarchy(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := resourcePathToHierarchy(tt.resourcePath)
 
-			if got.Organization != tt.want.Organization {
-				t.Errorf("Organization = %q, want %q", got.Organization, tt.want.Organization)
+			if got.Namespace != tt.want.Namespace {
+				t.Errorf("Namespace = %q, want %q", got.Namespace, tt.want.Namespace)
 			}
 			if got.Project != tt.want.Project {
 				t.Errorf("Project = %q, want %q", got.Project, tt.want.Project)
 			}
 			if got.Component != tt.want.Component {
 				t.Errorf("Component = %q, want %q", got.Component, tt.want.Component)
-			}
-
-			if len(got.OrganizationUnits) != len(tt.want.OrganizationUnits) {
-				t.Errorf("OrganizationUnits length = %d, want %d", len(got.OrganizationUnits), len(tt.want.OrganizationUnits))
-			} else {
-				for i := range got.OrganizationUnits {
-					if got.OrganizationUnits[i] != tt.want.OrganizationUnits[i] {
-						t.Errorf("OrganizationUnits[%d] = %q, want %q", i, got.OrganizationUnits[i], tt.want.OrganizationUnits[i])
-					}
-				}
 			}
 		})
 	}
@@ -427,7 +421,7 @@ func TestValidateProfileRequest(t *testing.T) {
 					EntitlementValues: []string{"test-group"},
 				},
 				Scope: authzcore.ResourceHierarchy{
-					Organization: "acme",
+					Namespace: "acme",
 				},
 			},
 			wantErr: false,
@@ -442,7 +436,7 @@ func TestValidateProfileRequest(t *testing.T) {
 			request: &authzcore.ProfileRequest{
 				SubjectContext: nil,
 				Scope: authzcore.ResourceHierarchy{
-					Organization: "acme",
+					Namespace: "acme",
 				},
 			},
 			wantErr: true,
@@ -468,38 +462,38 @@ func TestIsWithinScope(t *testing.T) {
 	}{
 		{
 			name:           "exact match",
-			policyResource: "org/acme",
-			scopePath:      "org/acme",
+			policyResource: "ns/acme",
+			scopePath:      "ns/acme",
 			want:           true,
 		},
 		{
 			name:           "policy is broader (parent) than scope",
-			policyResource: "org/acme",
-			scopePath:      "org/acme/project/p1",
+			policyResource: "ns/acme",
+			scopePath:      "ns/acme/project/p1",
 			want:           true,
 		},
 		{
 			name:           "policy is narrower (child) than scope",
-			policyResource: "org/acme/project/p1",
-			scopePath:      "org/acme",
+			policyResource: "ns/acme/project/p1",
+			scopePath:      "ns/acme",
 			want:           true,
 		},
 		{
 			name:           "wildcard policy matches any scope",
 			policyResource: "*",
-			scopePath:      "org/acme/project/p1",
+			scopePath:      "ns/acme/project/p1",
 			want:           true,
 		},
 		{
 			name:           "wildcard scope matches any policy",
-			policyResource: "org/acme/project/p1",
+			policyResource: "ns/acme/project/p1",
 			scopePath:      "*",
 			want:           true,
 		},
 		{
 			name:           "different scopes - no match",
-			policyResource: "org/acme/project/p1",
-			scopePath:      "org/acme/project/p2",
+			policyResource: "ns/acme/project/p1",
+			scopePath:      "ns/acme/project/p2",
 			want:           false,
 		},
 	}

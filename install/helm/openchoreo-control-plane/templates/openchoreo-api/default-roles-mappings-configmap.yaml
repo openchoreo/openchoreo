@@ -18,15 +18,17 @@ data:
     #       - "project:view"
     #
     # mappings:
-    #   - role_name: custom-role
+    #   - role:
+    #       name: custom-role             # Role name
+    #       namespace: ""                 # Empty for cluster role, namespace name for namespace-scoped role
     #     entitlement:
-    #       claim: groups                    # JWT claim from your IDP
-    #       value: developers                # Value to match from the claim
-    #     effect: allow                      # "allow" (default) or "deny"
-    #     hierarchy:                         # Optional: scope this mapping to specific resources
-    #       organization: my-org             # Organization name
-    #       project: my-project              # Project name (requires organization)
-    #       component: my-component          # Component name (requires organization and project)
+    #       claim: groups                 # JWT claim from your IDP
+    #       value: developers             # Value to match from the claim
+    #     effect: allow                   # "allow" (default) or "deny"
+    #     hierarchy:                      # Optional: scope this mapping to specific resources
+    #       namespace: my-org             # Namespace (organization) name
+    #       project: my-project           # Project name (requires namespace)
+    #       component: my-component       # Component name (requires namespace and project)
 
     # Default roles
     roles:
@@ -64,19 +66,22 @@ data:
 
     # Default entitlement-to-role mappings
     mappings:
-      - role_name: super-admin
+      - role:
+          name: super-admin
         entitlement:
           claim: groups
           value: platformEngineer
         effect: allow
       # DO NOT REMOVE: Required for Backstage integration
-      - role_name: backstage-catalog-reader
+      - role:
+          name: backstage-catalog-reader
         entitlement:
           claim: sub
           value: openchoreo-backstage-client
         effect: allow
       # DO NOT REMOVE: Required for RCA agent integration
-      - role_name: rca-agent
+      - role:
+          name: rca-agent
         entitlement:
           claim: sub
           value: openchoreo-rca-agent

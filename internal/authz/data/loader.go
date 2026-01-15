@@ -192,8 +192,8 @@ func validateRoles(roles []authzcore.Role) error {
 // validateMappings ensures the mappings data is valid
 func validateMappings(mappings []authzcore.RoleEntitlementMapping) error {
 	for i, mapping := range mappings {
-		if mapping.RoleName == "" {
-			return fmt.Errorf("mapping at index %d has empty role_name", i)
+		if mapping.RoleRef.Name == "" {
+			return fmt.Errorf("mapping at index %d has empty role_ref.name", i)
 		}
 		if mapping.Entitlement.Claim == "" {
 			return fmt.Errorf("mapping at index %d has empty entitlement claim", i)

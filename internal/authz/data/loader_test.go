@@ -75,14 +75,16 @@ func TestLoadDefaultAuthzDataFromFile(t *testing.T) {
     actions:
       - "*"
 mappings:
-  - role_name: admin
+  - role:
+      name: admin
     entitlement:
       claim: groups
       value: admin-group
     hierarchy:
-      organization: "acme"
+      namespace: "acme"
     effect: allow
-  - role_name: viewer
+  - role:
+      name: viewer
     entitlement:
       claim: groups
       value: viewers
@@ -101,7 +103,8 @@ mappings:
     actions:
       - "component:view"
 mappings:
-  - role_name: viewer
+  - role:
+      name: viewer
     entitlement:
       claim: groups
       value: viewers
@@ -109,7 +112,7 @@ mappings:
 			wantErr: true,
 		},
 		{
-			name:      "invalid file - mapping with missing role_name",
+			name:      "invalid file - mapping with missing role_ref",
 			setupFile: true,
 			filePath:  "test_authz_data.yaml",
 			fileContent: `roles:
@@ -211,14 +214,14 @@ func TestValidateMappings(t *testing.T) {
 			name: "valid mapping",
 			mappings: []authzcore.RoleEntitlementMapping{
 				{
-					RoleName: "admin",
+					RoleRef: authzcore.RoleRef{Name: "admin"},
 					Entitlement: authzcore.Entitlement{
 						Claim: "groups",
 						Value: "admin-group",
 					},
 					Hierarchy: authzcore.ResourceHierarchy{
-						Organization: "acme",
-						Project:      "payment",
+						Namespace: "acme",
+						Project:   "payment",
 					},
 					Effect: authzcore.PolicyEffectAllow,
 				},
@@ -226,10 +229,10 @@ func TestValidateMappings(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "empty role_name",
+			name: "empty role_ref name",
 			mappings: []authzcore.RoleEntitlementMapping{
 				{
-					RoleName: "",
+					RoleRef: authzcore.RoleRef{Name: ""},
 					Entitlement: authzcore.Entitlement{
 						Claim: "groups",
 						Value: "admin-group",
@@ -243,7 +246,7 @@ func TestValidateMappings(t *testing.T) {
 			name: "empty entitlement claim",
 			mappings: []authzcore.RoleEntitlementMapping{
 				{
-					RoleName: "admin",
+					RoleRef: authzcore.RoleRef{Name: "admin"},
 					Entitlement: authzcore.Entitlement{
 						Claim: "",
 						Value: "",
@@ -257,7 +260,7 @@ func TestValidateMappings(t *testing.T) {
 			name: "invalid effect",
 			mappings: []authzcore.RoleEntitlementMapping{
 				{
-					RoleName: "admin",
+					RoleRef: authzcore.RoleRef{Name: "admin"},
 					Entitlement: authzcore.Entitlement{
 						Claim: "groups",
 						Value: "admin-group",
@@ -271,7 +274,7 @@ func TestValidateMappings(t *testing.T) {
 			name: "multiple valid mappings",
 			mappings: []authzcore.RoleEntitlementMapping{
 				{
-					RoleName: "admin",
+					RoleRef: authzcore.RoleRef{Name: "admin"},
 					Entitlement: authzcore.Entitlement{
 						Claim: "groups",
 						Value: "admin-group",
@@ -279,7 +282,7 @@ func TestValidateMappings(t *testing.T) {
 					Effect: authzcore.PolicyEffectAllow,
 				},
 				{
-					RoleName: "viewer",
+					RoleRef: authzcore.RoleRef{Name: "viewer"},
 					Entitlement: authzcore.Entitlement{
 						Claim: "groups",
 						Value: "viewers",

@@ -103,6 +103,7 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 	}
 	if baseEnforcer != nil {
 		baseEnforcer.AddNamedMatchingFunc("g", "", actionMatchWrapper)
+		baseEnforcer.AddNamedMatchingFunc("g2", "", actionMatchWrapper)
 	}
 	// Load policies from database
 	if err := enforcer.LoadPolicy(); err != nil {
@@ -219,14 +220,16 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 		}
 
 		for _, policy := range policies {
-			if len(policy) != 5 {
-				ce.logger.Warn("skipping malformed policy", "policy", policy)
+			if len(policy) != 6 {
+				ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 6, "got", len(policy))
 				continue
 			}
 
 			resourcePath := policy[1]
 			roleName := policy[2]
-			effect := policy[3]
+			// policy[3] is role_ns, not needed for profile building
+			effect := policy[4]
+			// policy[5] is context
 
 			if !isWithinScope(resourcePath, scopePath) {
 				continue
@@ -318,17 +321,26 @@ func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) err
 	if role == nil {
 		return fmt.Errorf("role cannot be nil")
 	}
-	ce.logger.Info("add role called", "role_name", role.Name, "actions", role.Actions)
+	ce.logger.Debug("add role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
 
+	if role.Namespace == "" {
+		return ce.addClusterRole(role)
+	}
+	return ce.addNamespaceRole(role)
+}
+
+// addClusterRole creates a cluster-scoped role using the default g grouping
+func (ce *CasbinEnforcer) addClusterRole(role *authzcore.Role) error {
 	rules := make([][]string, 0, len(role.Actions))
 	for _, action := range role.Actions {
+		// Cluster role: g, roleName, action
 		rules = append(rules, []string{role.Name, action})
 	}
 
-	// Add all role-action mappings in a single atomic transaction
+	// Add all role-action mappings in a single atomic transaction using default grouping "g"
 	ok, err := ce.enforcer.AddGroupingPolicies(rules)
 	if err != nil {
-		return fmt.Errorf("failed to add role action mappings: %w", err)
+		return fmt.Errorf("failed to add cluster role action mappings: %w", err)
 	}
 	// if err is nil and ok is false, some mappings already exist
 	if !ok {
@@ -337,104 +349,233 @@ func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) err
 	return nil
 }
 
-// RemoveRole deletes a role by name
-func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleName string) error {
-	ce.logger.Info("remove role called", "role_name", roleName)
+// addNamespaceRole creates a namespace-scoped role using the g2 grouping
+func (ce *CasbinEnforcer) addNamespaceRole(role *authzcore.Role) error {
+	rules := make([][]string, 0, len(role.Actions))
+	for _, action := range role.Actions {
+		// Namespace role: g2, roleName, namespace, action
+		rules = append(rules, []string{role.Name, role.Namespace, action})
+	}
 
-	if roleName == "" {
+	// Add all role-action mappings in a single atomic transaction using named grouping "g2"
+	ok, err := ce.enforcer.AddNamedGroupingPolicies("g2", rules)
+	if err != nil {
+		return fmt.Errorf("failed to add namespace role action mappings: %w", err)
+	}
+	// if err is nil and ok is false, some mappings already exist
+	if !ok {
+		return authzcore.ErrRoleAlreadyExists
+	}
+	return nil
+}
+
+// RemoveRole deletes a role identified by RoleRef
+func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
+	if roleRef == nil {
+		return fmt.Errorf("role reference cannot be nil")
+	}
+	ce.logger.Info("remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
+
+	if roleRef.Name == "" {
 		return fmt.Errorf("role name cannot be empty")
 	}
 
-	policiesUsingRole, err := ce.enforcer.GetFilteredPolicy(2, roleName)
-	if err != nil {
-		return fmt.Errorf("failed to check policies using role: %w", err)
+	if roleRef.Namespace == "" {
+		return ce.removeClusterRole(roleRef.Name)
 	}
+	return ce.removeNamespaceRole(roleRef.Name, roleRef.Namespace)
+}
 
+// removeClusterRole removes a cluster-scoped role from the default g grouping
+func (ce *CasbinEnforcer) removeClusterRole(roleName string) error {
+	// For cluster roles, check policies where role_ns = "*" (index 3)
+	// Policy format: p, sub, resource, role, role_ns, eft, ctx
+	policiesUsingRole, err := ce.enforcer.GetFilteredPolicy(2, roleName, "*")
+	if err != nil {
+		return fmt.Errorf("failed to check policies using cluster role: %w", err)
+	}
 	if len(policiesUsingRole) > 0 {
-		ce.logger.Debug("cannot delete role: role is in use by role-entitlement mappings",
+		ce.logger.Debug("cannot delete cluster role: role is in use",
 			"role_name", roleName,
 			"policy_count", len(policiesUsingRole))
 		return authzcore.ErrRoleInUse
 	}
 
-	// No policies using this role, safe to delete
 	ok, err := ce.enforcer.RemoveFilteredGroupingPolicy(0, roleName)
 	if err != nil {
-		return fmt.Errorf("failed to remove role: %w", err)
+		return fmt.Errorf("failed to remove cluster role: %w", err)
 	}
-	// if err is nil and ok is false, role did not exist
 	if !ok {
 		return authzcore.ErrRoleNotFound
 	}
+	return nil
+}
 
+// removeNamespaceRole removes a namespace-scoped role from the g2 grouping
+func (ce *CasbinEnforcer) removeNamespaceRole(roleName, namespace string) error {
+	// For namespace roles, check policies where role_ns = namespace (index 3)
+	// Policy format: p, sub, resource, role, role_ns, eft, ctx
+	policiesUsingRole, err := ce.enforcer.GetFilteredPolicy(2, roleName, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to check policies using namespace role: %w", err)
+	}
+	if len(policiesUsingRole) > 0 {
+		ce.logger.Debug("cannot delete namespace role: role is in use",
+			"role_name", roleName,
+			"namespace", namespace,
+			"policy_count", len(policiesUsingRole))
+		return authzcore.ErrRoleInUse
+	}
+
+	ok, err := ce.enforcer.RemoveFilteredNamedGroupingPolicy("g2", 0, roleName, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to remove namespace role: %w", err)
+	}
+	if !ok {
+		return authzcore.ErrRoleNotFound
+	}
 	return nil
 }
 
 // ForceRemoveRole deletes a role and all its associated role-entitlement mappings
-func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleName string) error {
-	ce.logger.Info("force remove role called", "role_name", roleName)
+func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
+	if roleRef == nil {
+		return fmt.Errorf("role reference cannot be nil")
+	}
+	ce.logger.Info("force remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
 
-	if roleName == "" {
+	if roleRef.Name == "" {
 		return fmt.Errorf("role name cannot be empty")
 	}
 
-	// Check if the role exists first
+	if roleRef.Namespace == "" {
+		return ce.forceRemoveClusterRole(roleRef.Name)
+	}
+	return ce.forceRemoveNamespaceRole(roleRef.Name, roleRef.Namespace)
+}
+
+// forceRemoveClusterRole deletes a cluster role and all its associated role-entitlement mappings
+func (ce *CasbinEnforcer) forceRemoveClusterRole(roleName string) error {
+	// Check if the cluster role exists first
 	roleRuleSet, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
 	if err != nil {
-		return fmt.Errorf("failed to check if role exists: %w", err)
+		return fmt.Errorf("failed to check if cluster role exists: %w", err)
 	}
 	if len(roleRuleSet) == 0 {
 		return authzcore.ErrRoleNotFound
 	}
 
-	// Get all p mappingPolicies (role-entitlement mappings) that reference this role
-	mappingPolicies, err := ce.enforcer.GetFilteredPolicy(2, roleName)
+	// Get all p policies that reference this cluster role (role_ns = "*")
+	// Policy format: p, sub, resource, role, role_ns, eft, ctx
+	mappingPolicies, err := ce.enforcer.GetFilteredPolicy(2, roleName, "*")
 	if err != nil {
-		return fmt.Errorf("failed to get mappings using role: %w", err)
+		return fmt.Errorf("failed to get mappings using cluster role: %w", err)
 	}
 
 	if len(mappingPolicies) > 0 {
-		ce.logger.Debug("removing role-entitlement mappings for role",
+		ce.logger.Debug("removing role-entitlement mappings for cluster role",
 			"role_name", roleName,
 			"mapping_count", len(mappingPolicies))
 
 		// Remove all policies that reference this role
 		ok, err := ce.enforcer.RemovePolicies(mappingPolicies)
 		if err != nil {
-			return fmt.Errorf("failed to remove policies using role: %w", err)
+			return fmt.Errorf("failed to remove policies using cluster role: %w", err)
 		}
 		if !ok {
-			return fmt.Errorf("failed to remove role-entitlement mappings for role: %s", roleName)
+			return fmt.Errorf("failed to remove role-entitlement mappings for cluster role: %s", roleName)
 		}
 	}
 
-	// Remove the role itself
+	// Remove the role itself from g grouping
 	ok, err := ce.enforcer.RemoveGroupingPolicies(roleRuleSet)
 	if err != nil {
-		return fmt.Errorf("failed to remove role: %w", err)
+		return fmt.Errorf("failed to remove cluster role: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("failed to remove role: %s", roleName)
+		return fmt.Errorf("failed to remove cluster role: %s", roleName)
 	}
 
-	ce.logger.Debug("role and all associated mappings removed successfully",
+	ce.logger.Debug("cluster role and all associated mappings removed successfully",
 		"role_name", roleName,
 		"removed_mappings", len(mappingPolicies))
 
 	return nil
 }
 
-// GetRole retrieves a role by name
-func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (*authzcore.Role, error) {
-	ce.logger.Debug("get role called", "role_name", roleName)
+// forceRemoveNamespaceRole deletes a namespace role and all its associated role-entitlement mappings
+func (ce *CasbinEnforcer) forceRemoveNamespaceRole(roleName, namespace string) error {
+	// Check if the namespace role exists first (g2 format: [roleName, namespace, action])
+	roleRuleSet, err := ce.enforcer.GetFilteredNamedGroupingPolicy("g2", 0, roleName, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to check if namespace role exists: %w", err)
+	}
+	if len(roleRuleSet) == 0 {
+		return authzcore.ErrRoleNotFound
+	}
 
-	if roleName == "" {
+	// Get all p policies that reference this namespace role (role_ns = namespace)
+	// Policy format: p, sub, resource, role, role_ns, eft, ctx
+	mappingPolicies, err := ce.enforcer.GetFilteredPolicy(2, roleName, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get mappings using namespace role: %w", err)
+	}
+
+	if len(mappingPolicies) > 0 {
+		ce.logger.Debug("removing role-entitlement mappings for namespace role",
+			"role_name", roleName,
+			"namespace", namespace,
+			"mapping_count", len(mappingPolicies))
+
+		// Remove all policies that reference this role
+		ok, err := ce.enforcer.RemovePolicies(mappingPolicies)
+		if err != nil {
+			return fmt.Errorf("failed to remove policies using namespace role: %w", err)
+		}
+		if !ok {
+			return fmt.Errorf("failed to remove role-entitlement mappings for namespace role: %s", roleName)
+		}
+	}
+
+	// Remove the role itself from g2 grouping
+	ok, err := ce.enforcer.RemoveNamedGroupingPolicies("g2", roleRuleSet)
+	if err != nil {
+		return fmt.Errorf("failed to remove namespace role: %w", err)
+	}
+	if !ok {
+		return fmt.Errorf("failed to remove namespace role: %s", roleName)
+	}
+
+	ce.logger.Debug("namespace role and all associated mappings removed successfully",
+		"role_name", roleName,
+		"namespace", namespace,
+		"removed_mappings", len(mappingPolicies))
+
+	return nil
+}
+
+// GetRole retrieves a role identified by RoleRef
+func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleRef *authzcore.RoleRef) (*authzcore.Role, error) {
+	if roleRef == nil {
+		return nil, fmt.Errorf("role reference cannot be nil")
+	}
+	ce.logger.Debug("get role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
+
+	if roleRef.Name == "" {
 		return nil, fmt.Errorf("role name cannot be empty")
 	}
 
+	if roleRef.Namespace == "" {
+		return ce.getClusterRole(roleRef.Name)
+	}
+	return ce.getNamespaceRole(roleRef.Name, roleRef.Namespace)
+}
+
+// getClusterRole retrieves a cluster-scoped role from the default g grouping
+func (ce *CasbinEnforcer) getClusterRole(roleName string) (*authzcore.Role, error) {
 	rules, err := ce.enforcer.GetFilteredGroupingPolicy(0, roleName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get role: %w", err)
+		return nil, fmt.Errorf("failed to get cluster role: %w", err)
 	}
 
 	if len(rules) == 0 {
@@ -444,43 +585,107 @@ func (ce *CasbinEnforcer) GetRole(ctx context.Context, roleName string) (*authzc
 	actions := make([]string, 0, len(rules))
 	for _, rule := range rules {
 		if len(rule) != 2 {
-			ce.logger.Warn("skipping invalid role-action mapping", "rule", rule)
+			ce.logger.Warn("skipping invalid cluster role-action mapping", "rule", rule)
 			continue
 		}
 		actions = append(actions, rule[1])
 	}
 
 	return &authzcore.Role{
-		Name:    roleName,
-		Actions: actions,
+		Name:      roleName,
+		Actions:   actions,
+		Namespace: "",
 	}, nil
 }
 
-// ListRoles returns all defined roles
-func (ce *CasbinEnforcer) ListRoles(ctx context.Context) ([]*authzcore.Role, error) {
-	ce.logger.Debug("list roles called")
-
-	rules, err := ce.enforcer.GetGroupingPolicy()
+// getNamespaceRole retrieves a namespace-scoped role from the g2 grouping
+func (ce *CasbinEnforcer) getNamespaceRole(roleName, namespace string) (*authzcore.Role, error) {
+	rules, err := ce.enforcer.GetFilteredNamedGroupingPolicy("g2", 0, roleName, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get roles: %w", err)
+		return nil, fmt.Errorf("failed to get namespace role: %w", err)
 	}
 
-	roleMap := make(map[string][]string)
+	if len(rules) == 0 {
+		return nil, authzcore.ErrRoleNotFound
+	}
+
+	actions := make([]string, 0, len(rules))
 	for _, rule := range rules {
-		if len(rule) != 2 {
-			ce.logger.Warn("skipping malformed role rule", "rule", rule)
+		if len(rule) != 3 {
+			ce.logger.Warn("skipping invalid namespace role-action mapping", "rule", rule)
 			continue
 		}
-		roleName := rule[0]
-		action := rule[1]
-		roleMap[roleName] = append(roleMap[roleName], action)
+		actions = append(actions, rule[2]) // action is at index 2 for g2
 	}
 
-	roles := make([]*authzcore.Role, 0, len(roleMap))
-	for roleName, actions := range roleMap {
+	return &authzcore.Role{
+		Name:      roleName,
+		Actions:   actions,
+		Namespace: namespace,
+	}, nil
+}
+
+// ListRoles returns roles based on the provided filter
+// - filter.IncludeAll=true: returns all roles (cluster + all namespaces)
+// - filter.Namespace="": returns cluster-scoped roles only
+// - filter.Namespace="ns1": returns namespace-scoped roles in "ns1" only
+func (ce *CasbinEnforcer) ListRoles(ctx context.Context, filter *authzcore.RoleFilter) ([]*authzcore.Role, error) {
+	ce.logger.Debug("list roles called", "filter", filter)
+
+	if filter == nil {
+		filter = &authzcore.RoleFilter{IncludeAll: true}
+	}
+
+	roleRefMap := make(map[authzcore.RoleRef][]string)
+
+	// Get cluster roles if needed (IncludeAll or Namespace is empty)
+	if filter.IncludeAll || filter.Namespace == "" {
+		clusterRules, err := ce.enforcer.GetGroupingPolicy()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cluster roles: %w", err)
+		}
+
+		for _, rule := range clusterRules {
+			if len(rule) != 2 {
+				ce.logger.Warn("skipping malformed cluster role rule", "rule", rule)
+				continue
+			}
+			key := authzcore.RoleRef{Name: rule[0], Namespace: ""}
+			roleRefMap[key] = append(roleRefMap[key], rule[1])
+		}
+	}
+
+	// Get namespace roles if needed (IncludeAll or specific namespace)
+	if filter.IncludeAll || filter.Namespace != "" {
+		namespaceRules, err := ce.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			return nil, fmt.Errorf("failed to get namespace roles: %w", err)
+		}
+
+		for _, rule := range namespaceRules {
+			if len(rule) != 3 {
+				ce.logger.Warn("skipping malformed namespace role rule", "rule", rule)
+				continue
+			}
+			// g2 format: [roleName, namespace, action]
+			roleNamespace := rule[1]
+
+			// Skip if filtering by specific namespace and this doesn't match
+			if !filter.IncludeAll && filter.Namespace != roleNamespace {
+				continue
+			}
+
+			key := authzcore.RoleRef{Name: rule[0], Namespace: roleNamespace}
+			roleRefMap[key] = append(roleRefMap[key], rule[2])
+		}
+	}
+
+	roles := make([]*authzcore.Role, 0, len(roleRefMap))
+	for key, actions := range roleRefMap {
 		roles = append(roles, &authzcore.Role{
-			Name:    roleName,
-			Actions: actions,
+			Name:      key.Name,
+			Namespace: key.Namespace,
+			Actions:   actions,
 		})
 	}
 
@@ -518,22 +723,31 @@ func computeActionsDiff(existingActions, newActions []string) (added, removed []
 }
 
 // UpdateRole updates an existing role's actions
-func (ce *CasbinEnforcer) UpdateRole(tx context.Context, role *authzcore.Role) error {
+func (ce *CasbinEnforcer) UpdateRole(ctx context.Context, role *authzcore.Role) error {
 	if role == nil {
-		return fmt.Errorf("role cannot be empty")
+		return fmt.Errorf("role cannot be nil")
 	}
 	if len(role.Actions) == 0 {
 		return fmt.Errorf("role must have at least one action")
 	}
+	ce.logger.Debug("update role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
+
+	if role.Namespace == "" {
+		return ce.updateClusterRole(role)
+	}
+	return ce.updateNamespaceRole(role)
+}
+
+// updateClusterRole updates a cluster-scoped role's actions
+func (ce *CasbinEnforcer) updateClusterRole(role *authzcore.Role) error {
 	existingRules, err := ce.enforcer.GetFilteredGroupingPolicy(0, role.Name)
 	if err != nil {
-		return fmt.Errorf("failed to get role: %w", err)
+		return fmt.Errorf("failed to get cluster role: %w", err)
 	}
 	if len(existingRules) == 0 {
 		return authzcore.ErrRoleNotFound
 	}
 
-	// Extract existing actions
 	existingActions := make([]string, 0, len(existingRules))
 	for _, rule := range existingRules {
 		if len(rule) == 2 {
@@ -553,10 +767,10 @@ func (ce *CasbinEnforcer) UpdateRole(tx context.Context, role *authzcore.Role) e
 
 		ok, err := ce.enforcer.RemoveGroupingPolicies(toRemove)
 		if err != nil {
-			return fmt.Errorf("failed to remove old role action mappings: %w", err)
+			return fmt.Errorf("failed to remove old cluster role action mappings: %w", err)
 		}
 		if !ok {
-			return fmt.Errorf("failed to remove some role action mappings for role: %s", role.Name)
+			return fmt.Errorf("failed to remove some cluster role action mappings for role: %s", role.Name)
 		}
 	}
 
@@ -569,10 +783,67 @@ func (ce *CasbinEnforcer) UpdateRole(tx context.Context, role *authzcore.Role) e
 
 		ok, err := ce.enforcer.AddGroupingPolicies(toAdd)
 		if err != nil {
-			return fmt.Errorf("failed to add new role action mappings: %w", err)
+			return fmt.Errorf("failed to add new cluster role action mappings: %w", err)
 		}
 		if !ok {
-			return fmt.Errorf("failed to add some role action mappings for role: %s", role.Name)
+			return fmt.Errorf("failed to add some cluster role action mappings for role: %s", role.Name)
+		}
+	}
+
+	return nil
+}
+
+// updateNamespaceRole updates a namespace-scoped role's actions
+func (ce *CasbinEnforcer) updateNamespaceRole(role *authzcore.Role) error {
+	// g2 format: [roleName, namespace, action]
+	existingRules, err := ce.enforcer.GetFilteredNamedGroupingPolicy("g2", 0, role.Name, role.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get namespace role: %w", err)
+	}
+	if len(existingRules) == 0 {
+		return authzcore.ErrRoleNotFound
+	}
+
+	// Extract existing actions (format: [roleName, namespace, action])
+	existingActions := make([]string, 0, len(existingRules))
+	for _, rule := range existingRules {
+		if len(rule) == 3 {
+			existingActions = append(existingActions, rule[2])
+		}
+	}
+
+	// Compute diff
+	added, removed := computeActionsDiff(existingActions, role.Actions)
+
+	// Remove old actions
+	if len(removed) > 0 {
+		toRemove := make([][]string, 0, len(removed))
+		for _, action := range removed {
+			toRemove = append(toRemove, []string{role.Name, role.Namespace, action})
+		}
+
+		ok, err := ce.enforcer.RemoveNamedGroupingPolicies("g2", toRemove)
+		if err != nil {
+			return fmt.Errorf("failed to remove old namespace role action mappings: %w", err)
+		}
+		if !ok {
+			return fmt.Errorf("failed to remove some namespace role action mappings for role: %s", role.Name)
+		}
+	}
+
+	// Add new actions
+	if len(added) > 0 {
+		toAdd := make([][]string, 0, len(added))
+		for _, action := range added {
+			toAdd = append(toAdd, []string{role.Name, role.Namespace, action})
+		}
+
+		ok, err := ce.enforcer.AddNamedGroupingPolicies("g2", toAdd)
+		if err != nil {
+			return fmt.Errorf("failed to add new namespace role action mappings: %w", err)
+		}
+		if !ok {
+			return fmt.Errorf("failed to add some namespace role action mappings for role: %s", role.Name)
 		}
 	}
 
@@ -581,11 +852,13 @@ func (ce *CasbinEnforcer) UpdateRole(tx context.Context, role *authzcore.Role) e
 
 // AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
-	if mapping == nil {
-		return fmt.Errorf("mapping cannot be nil")
+	if err := validateRoleEntitlementMapping(mapping); err != nil {
+		return err
 	}
-	ce.logger.Info("add role entitlement mapping called",
-		"role", mapping.RoleName,
+
+	ce.logger.Debug("add role entitlement mapping called",
+		"role", mapping.RoleRef.Name,
+		"role_namespace", mapping.RoleRef.Namespace,
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
@@ -600,12 +873,20 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 		return fmt.Errorf("failed to format subject: %w", err)
 	}
 
-	// policy: p, subject, resourcePath, role, eft, context
-	// TODO: Handle context conditions properly in the future
+	// Determine role_ns from RoleRef.Namespace
+	// Empty namespace = cluster role (role_ns = "*")
+	// Non-empty namespace = namespace role (role_ns = namespace)
+	roleNs := "*"
+	if mapping.RoleRef.Namespace != "" {
+		roleNs = mapping.RoleRef.Namespace
+	}
+
+	// policy: p, subject, resourcePath, role, role_ns, eft, context (6 fields)
 	ok, err := ce.enforcer.AddPolicy(
 		subject,
 		resourcePath,
-		mapping.RoleName,
+		mapping.RoleRef.Name,
+		roleNs,
 		string(mapping.Effect),
 		emptyContextJSON,
 	)
@@ -628,7 +909,8 @@ func (ce *CasbinEnforcer) UpdateRoleEntitlementMapping(ctx context.Context, mapp
 	}
 	ce.logger.Debug("update role entitlement mapping called",
 		"mapping_id", mapping.ID,
-		"role", mapping.RoleName,
+		"role", mapping.RoleRef.Name,
+		"role_namespace", mapping.RoleRef.Namespace,
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
 		"hierarchy", mapping.Hierarchy,
@@ -653,17 +935,28 @@ func (ce *CasbinEnforcer) UpdateRoleEntitlementMapping(ctx context.Context, mapp
 	if err != nil {
 		return fmt.Errorf("failed to format subject: %w", err)
 	}
+
+	// Determine role_ns from RoleRef.Namespace
+	roleNs := "*"
+	if mapping.RoleRef.Namespace != "" {
+		roleNs = mapping.RoleRef.Namespace
+	}
+
+	// Old policy uses 6-field format (V0-V5)
 	oldPolicy := []string{
 		existingRule.V0,
 		existingRule.V1,
 		existingRule.V2,
 		existingRule.V3,
 		existingRule.V4,
+		existingRule.V5,
 	}
+	// New policy also uses 6-field format
 	newPolicy := []string{
 		subject,
 		resourcePath,
-		mapping.RoleName,
+		mapping.RoleRef.Name,
+		roleNs,
 		string(mapping.Effect),
 		emptyContextJSON,
 	}
@@ -699,6 +992,7 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 		rule.V2,
 		rule.V3,
 		rule.V4,
+		rule.V5,
 	)
 	if !ok {
 		return fmt.Errorf("failed to remove role entitlement mappingId: %d", mappingID)
@@ -729,20 +1023,30 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 		}
 		resourcePath := rule.V1
 		roleName := rule.V2
-		effect := authzcore.PolicyEffectType(rule.V3)
-		// TODO: Handle context conditions properly in the future
-		context := authzcore.Context{}
+		roleNs := rule.V3 // New field: role_ns
+		effect := authzcore.PolicyEffectType(rule.V4)
+		// V5 is context (currently emptyContextJSON)
+
+		// Convert role_ns to RoleRef.Namespace
+		// "*" means cluster role (empty namespace)
+		roleRefNamespace := ""
+		if roleNs != "*" {
+			roleRefNamespace = roleNs
+		}
 
 		mappings = append(mappings, &authzcore.RoleEntitlementMapping{
 			ID: rule.ID,
+			RoleRef: authzcore.RoleRef{
+				Name:      roleName,
+				Namespace: roleRefNamespace,
+			},
 			Entitlement: authzcore.Entitlement{
 				Claim: claim,
 				Value: value,
 			},
-			RoleName:  roleName,
 			Hierarchy: resourcePathToHierarchy(resourcePath),
 			Effect:    effect,
-			Context:   context,
+			Context:   authzcore.Context{},
 		})
 	}
 
@@ -872,9 +1176,16 @@ func (ce *CasbinEnforcer) getFilteredPolicies(filter *authzcore.RoleEntitlementM
 	query := ce.db.Where("ptype = ?", "p")
 
 	if filter != nil {
-		// Filter by role name (v2 column contains role name)
-		if filter.RoleName != nil && *filter.RoleName != "" {
-			query = query.Where("v2 = ?", *filter.RoleName)
+		// Filter by role reference (v2 = role name, v3 = role_ns)
+		if filter.RoleRef != nil && filter.RoleRef.Name != "" {
+			query = query.Where("v2 = ?", filter.RoleRef.Name)
+
+			// If namespace is specified, also filter by role_ns (v3)
+			// Empty namespace means cluster role (role_ns = "*")
+			// Non-empty namespace means namespace role (role_ns = namespace)
+			if filter.RoleRef.Namespace != "" {
+				query = query.Where("v3 = ?", filter.RoleRef.Namespace)
+			}
 		}
 
 		// Filter by entitlement (v0 column contains "claim:value" subject)

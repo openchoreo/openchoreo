@@ -93,17 +93,17 @@ func (da *DisabledAuthorizer) AddRole(ctx context.Context, role *authz.Role) err
 }
 
 // RemoveRole fails with error
-func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleName string) error {
+func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleRef *authz.RoleRef) error {
 	return authz.ErrAuthzDisabled
 }
 
 // ForceRemoveRole fails with error
-func (da *DisabledAuthorizer) ForceRemoveRole(ctx context.Context, roleName string) error {
+func (da *DisabledAuthorizer) ForceRemoveRole(ctx context.Context, roleRef *authz.RoleRef) error {
 	return authz.ErrAuthzDisabled
 }
 
 // GetRole fails with error
-func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleName string) (*authz.Role, error) {
+func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleRef *authz.RoleRef) (*authz.Role, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
@@ -113,7 +113,7 @@ func (da *DisabledAuthorizer) UpdateRole(ctx context.Context, role *authz.Role) 
 }
 
 // ListRoles fails with error
-func (da *DisabledAuthorizer) ListRoles(ctx context.Context) ([]*authz.Role, error) {
+func (da *DisabledAuthorizer) ListRoles(ctx context.Context, filter *authz.RoleFilter) ([]*authz.Role, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
