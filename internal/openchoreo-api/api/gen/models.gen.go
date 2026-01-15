@@ -983,6 +983,9 @@ type OidcConfig struct {
 	// AuthorizationEndpoint OAuth2 authorization endpoint URL
 	AuthorizationEndpoint *string `json:"authorization_endpoint,omitempty"`
 
+	// CliClientId OAuth2 client ID for CLI PKCE authentication
+	CliClientId string `json:"cli_client_id"`
+
 	// TokenEndpoint OAuth2 token endpoint URL
 	TokenEndpoint string `json:"token_endpoint"`
 }

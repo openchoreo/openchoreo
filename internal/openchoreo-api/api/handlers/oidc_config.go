@@ -19,9 +19,11 @@ func (h *Handler) GetOidcConfig(
 	// Read all values from environment variables
 	authorizationEndpoint := os.Getenv(config.EnvOIDCAuthorizationURL)
 	tokenEndpoint := os.Getenv(config.EnvOIDCTokenURL)
+	cliClientID := os.Getenv(config.EnvOIDCCLIClientID)
 
 	response := gen.GetOidcConfig200JSONResponse{
 		TokenEndpoint: tokenEndpoint,
+		CliClientId:   cliClientID,
 	}
 
 	if authorizationEndpoint != "" {

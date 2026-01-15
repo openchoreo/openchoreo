@@ -507,10 +507,6 @@ func (c *APIClient) refreshToken() error {
 		return fmt.Errorf("credential '%s' not found", currentContext.Credentials)
 	}
 
-	if credential.ClientID == "" || credential.ClientSecret == "" {
-		return fmt.Errorf("credential does not have client credentials for refresh")
-	}
-
 	// Find control plane
 	var controlPlane *configContext.ControlPlane
 	for idx := range cfg.ControlPlanes {
@@ -522,6 +518,46 @@ func (c *APIClient) refreshToken() error {
 
 	if controlPlane == nil {
 		return fmt.Errorf("control plane not found")
+	}
+
+	// Check auth method and use appropriate refresh strategy
+	if credential.AuthMethod == "pkce" && credential.RefreshToken != "" {
+		// Use PKCE refresh token grant
+		oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
+		if err != nil {
+			return fmt.Errorf("failed to fetch OIDC config: %w", err)
+		}
+
+		tokenResp, err := auth.RefreshAccessToken(
+			oidcConfig.TokenEndpoint,
+			credential.ClientID,
+			credential.RefreshToken,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to refresh PKCE token: %w", err)
+		}
+
+		// Update token in memory
+		c.token = tokenResp.AccessToken
+
+		// Update token in config
+		credential.Token = tokenResp.AccessToken
+		if tokenResp.RefreshToken != "" {
+			credential.RefreshToken = tokenResp.RefreshToken
+		}
+		expiryTime := time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+		credential.TokenExpiry = expiryTime.Format(time.RFC3339)
+
+		if err := config.SaveStoredConfig(cfg); err != nil {
+			return fmt.Errorf("failed to save updated token: %w", err)
+		}
+
+		return nil
+	}
+
+	// Fall back to client credentials refresh
+	if credential.ClientID == "" || credential.ClientSecret == "" {
+		return fmt.Errorf("credential does not have client credentials for refresh")
 	}
 
 	// Fetch token endpoint from API
@@ -592,38 +628,4 @@ func getTokenEndpointFromAPI(apiURL string) (string, error) {
 	}
 
 	return oidcConfig.TokenEndpoint, nil
-}
-
-// getStoredControlPlaneConfig reads control plane config from stored configuration
-func getStoredControlPlaneConfig() (*configContext.ControlPlane, error) {
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if cfg.CurrentContext == "" {
-		return nil, fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
-	}
-
-	// Find control plane for this context
-	for idx := range cfg.ControlPlanes {
-		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
-			return &cfg.ControlPlanes[idx], nil
-		}
-	}
-
-	return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
 }

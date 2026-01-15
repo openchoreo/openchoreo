@@ -2569,6 +2569,7 @@ components:
       description: OIDC configuration for CLI authentication
       required:
         - token_endpoint
+        - cli_client_id
       properties:
         authorization_endpoint:
           type: string
@@ -2578,6 +2579,10 @@ components:
           type: string
           description: OAuth2 token endpoint URL
           example: https://auth.openchoreo.dev/oauth2/token
+        cli_client_id:
+          type: string
+          description: OAuth2 client ID for CLI PKCE authentication
+          example: openchoreo-cli
 
     # -------------------------------------------------------------------------
     # User Type Configuration

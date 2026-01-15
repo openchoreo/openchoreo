@@ -257,6 +257,17 @@ security:
     # default: ""
     # @schema
     tokenUrl: ""
+    # @schema
+    # type: object
+    # description: CLI-specific OIDC configuration
+    # @schema
+    cli:
+      # @schema
+      # type: string
+      # description: OAuth2 client ID for CLI PKCE authentication
+      # default: ""
+      # @schema
+      clientId: "r9BccamDpz0v1zvA8TPdag"
 
   # @schema
   # type: object
