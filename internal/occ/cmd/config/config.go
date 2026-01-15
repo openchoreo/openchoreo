@@ -313,6 +313,8 @@ type DefaultContextValues struct {
 	Project      string
 	DataPlane    string
 	Environment  string
+	Credentials  string
+	ControlPlane string
 }
 
 // getDefaultContextValues returns the default context values based on
@@ -324,6 +326,8 @@ func getDefaultContextValues() DefaultContextValues {
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
 		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
+		Credentials:  getEnvOrDefault("CHOREO_DEFAULT_CREDENTIAL", "default"),
+		ControlPlane: getEnvOrDefault("CHOREO_DEFAULT_CONTROLPLANE", "default"),
 	}
 }
 
@@ -363,6 +367,8 @@ func EnsureContext() error {
 				Project:      defaults.Project,
 				DataPlane:    defaults.DataPlane,
 				Environment:  defaults.Environment,
+				Credentials:  defaults.Credentials,
+				ControlPlane: defaults.ControlPlane,
 			}
 			cfg.Contexts = append(cfg.Contexts, defaultContext)
 
@@ -374,12 +380,18 @@ func EnsureContext() error {
 				endpoint, _ := getDefaultControlPlaneValues()
 				cfg.ControlPlanes = []configContext.ControlPlane{
 					{
-						Name: "default",
+						Name: defaults.ControlPlane,
 						URL:  endpoint,
 					},
 				}
-				// Update context to reference the default control plane
-				cfg.Contexts[len(cfg.Contexts)-1].ControlPlane = "default"
+			}
+
+			if len(cfg.Credentials) == 0 {
+				cfg.Credentials = []configContext.Credential{
+					{
+						Name: defaults.Credentials,
+					},
+				}
 			}
 
 			// Save the config file
@@ -484,8 +496,8 @@ func maskToken(token string) string {
 	return token[:4] + "..." + token[len(token)-4:]
 }
 
-// GetCurrentCredential returns the credential for the current context
-func GetCurrentCredential() (*configContext.Credential, error) {
+// GetCurrentContext returns the current context
+func GetCurrentContext() (*configContext.Context, error) {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
@@ -496,16 +508,29 @@ func GetCurrentCredential() (*configContext.Credential, error) {
 	}
 
 	// Find current context
-	var currentContext *configContext.Context
 	for idx := range cfg.Contexts {
 		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
+			return &cfg.Contexts[idx], nil
 		}
 	}
 
-	if currentContext == nil || currentContext.Credentials == "" {
+	return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
+}
+
+// GetCurrentCredential returns the credential for the current context
+func GetCurrentCredential() (*configContext.Credential, error) {
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return nil, err
+	}
+
+	if currentContext.Credentials == "" {
 		return nil, fmt.Errorf("no credentials associated with current context")
+	}
+
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Find credential
@@ -520,26 +545,14 @@ func GetCurrentCredential() (*configContext.Credential, error) {
 
 // GetCurrentControlPlane returns the control plane for the current context
 func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return nil, err
+	}
+
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return nil, fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var currentContext *configContext.Context
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == cfg.CurrentContext {
-			currentContext = &cfg.Contexts[idx]
-			break
-		}
-	}
-
-	if currentContext == nil {
-		return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
 	}
 
 	// Find control plane
