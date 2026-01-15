@@ -44,18 +44,69 @@ spec:
           - name: git-revision
             valueFrom:
               path: /tmp/git-revision.txt
+      volumes:
+        - name: git-secret
+          secret:
+            secretName: '{{ "{{" }}workflow.parameters.git-secret{{ "}}" }}'
+            optional: true
       container:
         args:
           - |-
             set -e
 
+            #####################################################################
+            # 1. Initialize variables
+            #####################################################################
             BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
-            REPO={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
+            REPO_URL={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
             COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
 
+            #####################################################################
+            # 2. Read authentication token
+            #####################################################################
+            TOKEN_FILE="/etc/secrets/git-secret/git-token"
+            GIT_TOKEN=""
+            if [ -f "$TOKEN_FILE" ]; then
+              GIT_TOKEN="$(cat "$TOKEN_FILE")"
+            fi
+
+            #####################################################################
+            # 3. Build authenticated repository URL
+            #####################################################################
+            CLONE_URL="$REPO_URL"
+            if [ -n "$GIT_TOKEN" ]; then
+              case "$REPO_URL" in
+                https://*)
+                  HOST=$(echo "$REPO_URL" | sed -E 's|https://([^/]+)/.*|\1|')
+                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|https://[^/]+/(.*)|\1|')
+                  ;;
+                git@*)
+                  HOST=$(echo "$REPO_URL" | sed -E 's|git@([^:]+):.*|\1|')
+                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|git@[^:]+:(.*)|\1|')
+                  ;;
+              esac
+
+              # Map host to authentication prefix
+              case "$HOST" in
+                github.com)    AUTH_PREFIX="x-access-token" ;;
+                gitlab.com)    AUTH_PREFIX="oauth2" ;;
+                bitbucket.org) AUTH_PREFIX="x-token-auth" ;;
+                *)             AUTH_PREFIX="" ;;
+              esac
+
+              if [ -n "$AUTH_PREFIX" ]; then
+                CLONE_URL="https://${AUTH_PREFIX}:${GIT_TOKEN}@${HOST}/${REPO_PATH}"
+              fi
+            fi
+
+            echo "Cloning repository..."
+
+            #####################################################################
+            # 4. Clone repository
+            #####################################################################
             if [[ -n "$COMMIT" ]]; then
                 echo "Cloning specific commit: $COMMIT"
-                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                git clone --no-checkout --depth 1 "$CLONE_URL" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
@@ -63,7 +114,7 @@ spec:
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
             else
                 echo "Cloning branch: $BRANCH with latest commit"
-                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                git clone --single-branch --branch $BRANCH --depth 1 "$CLONE_URL" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
@@ -76,6 +127,9 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /etc/secrets/git-secret
+            name: git-secret
+            readOnly: true
     - name: build-step
       inputs:
         parameters:
