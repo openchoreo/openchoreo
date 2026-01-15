@@ -62,7 +62,30 @@ spec:
             value: ${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
       serviceAccountName: workflow-sa
       workflowTemplateRef:
         clusterScope: true
         name: react
+
+  resources:
+    - id: git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: openchoreo-ci-${metadata.orgName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token

@@ -2,6 +2,30 @@
 
 This directory contains reusable ComponentWorkflow definitions that define how OpenChoreo builds applications from source code. ComponentWorkflows are specialized templates for component builds that integrate with the Build Plane (Argo Workflows) to automate the containerization of your applications.
 
+---
+## Table of Contents
+
+1. [Overview](#overview)
+2. [How ComponentWorkflows Work](#how-componentworkflows-work)
+    - [Key Concepts](#key-concepts)
+    - [Referencing Build Plane Templates](#referencing-build-plane-templates)
+3. [Available ComponentWorkflows](#available-componentworkflows)
+    - [Docker ComponentWorkflow](#docker-componentworkflow)
+    - [Google Cloud Buildpacks ComponentWorkflow](#google-cloud-buildpacks-componentworkflow)
+    - [React ComponentWorkflow](#react-componentworkflow)
+4. [Using ComponentWorkflows](#using-componentworkflows)
+    - [Method 1: Reference in Component](#method-1-reference-in-component)
+    - [Method 2: Manual ComponentWorkflowRun](#method-2-manual-componentworkflowrun)
+5. [Deploying ComponentWorkflows](#deploying-componentworkflows)
+6. [Template Variables](#template-variables)
+7. [System Parameters vs Developer Parameters](#system-parameters-vs-developer-parameters)
+8. [Reusable Type Definitions](#reusable-type-definitions)
+9. [Working with Private Repositories](#working-with-private-repositories)
+10. [Using Secrets in Workflows](#using-secrets-in-workflows)
+11. [Platform Engineer vs Developer Responsibilities](#platform-engineer-vs-developer-responsibilities)
+12. [ComponentType Governance](#componenttype-governance)
+13. [See Also](#see-also)
+---
 ## Overview
 
 In OpenChoreo, a **ComponentWorkflow** is a Custom Resource that:
@@ -11,17 +35,6 @@ In OpenChoreo, a **ComponentWorkflow** is a Custom Resource that:
 3. **Provides flexible developer parameters** - Platform Engineer-defined schema for additional build configuration
 4. **Templates Argo Workflows** - Generates the actual Argo Workflow resources that execute in the Build Plane
 5. **Enforces governance** - Platform Engineers control hardcoded parameters (registry URLs, timeouts, security settings)
-
-## Why ComponentWorkflow vs Generic Workflow?
-
-Component builds have unique requirements that need predictable structure for platform features:
-
-- **Manual Build Actions** - UI actions like "build from latest commit" or "build from specific commit"
-- **Auto-Build / Webhook Integration** - Automated builds triggered by Git push events
-- **Build Traceability** - Tracking which Git repository, branch, and commit produced each build
-- **Monorepo Support** - Identifying the specific application path within a repository
-
-ComponentWorkflow enforces a required structure for repository information while maintaining schema flexibility for Platform Engineer-defined build parameters.
 
 ## How ComponentWorkflows Work
 
@@ -33,6 +46,29 @@ ComponentWorkflow enforces a required structure for repository information while
 - **Developer Parameters**: Flexible PE-defined schema for build configuration (resources, caching, testing, etc.)
 - **Template Variables**: Placeholders like `${metadata.componentName}`, `${systemParameters.repository.url}`, and `${parameters.version}`
 - **Build Plane**: A Kubernetes cluster running Argo Workflows
+- **ClusterWorkflowTemplate**: Pre-defined Argo Workflow templates in the Build Plane that ComponentWorkflows reference via `workflowTemplateRef`
+
+### Referencing Build Plane Templates
+
+ComponentWorkflows generate Argo Workflow resources that reference ClusterWorkflowTemplates deployed in the Build Plane. This enables reusable build logic:
+
+```yaml
+spec:
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    spec:
+      # Reference a ClusterWorkflowTemplate in the Build Plane
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks  # Pre-defined template in Build Plane
+      arguments:
+        parameters:
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+```
 
 ## Available ComponentWorkflows
 
@@ -148,100 +184,6 @@ parameters:
   nodeVersion: string | default="18"
 ```
 
-### [Private Repository Sample](./with-private-repository/)
-
-Demonstrates cloning source code from private Git repositories that require authentication.
-
-**Use Case**: Building applications from private GitHub, GitLab, or Bitbucket repositories.
-
-### [Private Registry Sample](./with-private-registry/)
-
-Demonstrates pushing built container images to private registries that require authentication.
-
-**Use Case**: Pushing images to Docker Hub, GCR, ECR, Azure ACR, or other private registries.
-
-## Using Secrets in Workflows
-
-Build workflows often need access to secrets for authentication, such as:
-- **Git credentials** for cloning private repositories
-- **Registry credentials** for pushing images to private container registries
-- **API tokens** for external services during the build process
-
-ComponentWorkflows support two approaches for providing secrets to the Build Plane:
-
-### Option 1: External Secrets Operator (Recommended for GitOps)
-
-Use the `resources` field in ComponentWorkflow to define ExternalSecret resources that automatically sync secrets from external secret managers (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, etc.):
-
-```yaml
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentWorkflow
-metadata:
-  name: my-workflow
-spec:
-  # ... schema and runTemplate ...
-
-  resources:
-    - id: registry-credentials
-      template:
-        apiVersion: external-secrets.io/v1
-        kind: ExternalSecret
-        metadata:
-          name: registry-push-secret
-          namespace: openchoreo-ci-${metadata.orgName}
-        spec:
-          refreshInterval: 15s
-          secretStoreRef:
-            name: default
-            kind: ClusterSecretStore
-          target:
-            name: registry-push-secret
-            creationPolicy: Owner
-          data:
-            - secretKey: dockerconfig
-              remoteRef:
-                key: my-secret-key
-                property: dockerconfigjson
-```
-
-**Benefits**:
-- Secrets are automatically synced and rotated
-- No manual secret management required
-- Ideal for GitOps workflows where all configuration is version-controlled
-- Secrets never appear in Git repositories
-
-### Option 2: Manual Secret Creation
-
-Create Kubernetes secrets directly in the Build Plane's execution namespace:
-
-```bash
-# For registry credentials
-kubectl create secret docker-registry registry-push-secret \
-  --docker-server=https://index.docker.io/v1/ \
-  --docker-username=your-username \
-  --docker-password=your-password \
-  -n openchoreo-ci-default
-
-# For Git credentials
-kubectl create secret generic git-clone-secret \
-  --from-literal=clone-secret=<your-personal-access-token> \
-  -n openchoreo-ci-default
-```
-
-**Benefits**:
-- Simple setup for development and testing
-- No additional operators required
-- Direct control over secret lifecycle
-
-### Sample Implementations
-
-See the following samples for complete working examples:
-
-| Sample | Description |
-|--------|-------------|
-| [with-private-repository](./with-private-repository/) | Clone from private Git repositories using PAT |
-| [with-private-registry](./with-private-registry/) | Push to private container registries using docker config |
-
 ## Using ComponentWorkflows
 
 ### Method 1: Reference in Component
@@ -305,6 +247,28 @@ spec:
       docker:
         context: "/"
         filePath: "/Dockerfile"
+```
+
+## Deploying ComponentWorkflows
+
+Deploy a component workflow to your control plane:
+
+```bash
+# Deploy all component workflows
+kubectl apply -f samples/component-workflows/
+
+# Deploy a specific component workflow
+kubectl apply -f samples/component-workflows/docker.yaml
+```
+
+Verify the component workflow is available:
+
+```bash
+# List component workflows
+kubectl get componentworkflows -n default
+
+# Describe a component workflow
+kubectl describe componentworkflow docker -n default
 ```
 
 ## Template Variables
@@ -523,6 +487,105 @@ spec:
 
 **Note**: Complex types (arrays and objects) are automatically converted to JSON strings when passed to Argo Workflow parameters, as Argo expects scalar string values.
 
+## Working with Private Repositories
+
+All default ComponentWorkflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, and Bitbucket.
+
+### How It Works
+
+When you configure a private repository, the workflow automatically:
+1. Reads the git token from the ExternalSecret created by the ComponentWorkflow
+2. Constructs an authenticated clone URL using provider-specific authentication prefixes
+3. Clones the repository securely without exposing credentials in logs
+
+**Supported Git Providers by Default:**
+- **GitHub**: Uses `x-access-token` authentication prefix
+- **GitLab**: Uses `oauth2` authentication prefix
+- **Bitbucket**: Uses `x-token-auth` authentication prefix
+
+### Setting Up Private Repository Access
+
+To enable private repository access, you need to store your Git Personal Access Token (PAT) in a secret backend that the External Secrets Operator (ESO) can access.
+
+#### Option 1: Using ESO Fake Provider (Development/Testing)
+
+For local development and testing, OpenChoreo uses ESO's fake provider. Add your Git token using:
+
+```bash
+kubectl patch clustersecretstore default --type='json' -p='[
+  {
+    "op": "add",
+    "path": "/spec/provider/fake/data/-",
+    "value": {
+      "key": "git-token",
+      "value": "ghp_YourGitHubPersonalAccessToken"
+    }
+  }
+]'
+```
+
+#### Option 2: Using a Real Secret Backend (Production)
+
+For production environments, use a real secret manager instead of the fake provider.
+
+### Using Private Repositories in Components
+
+Once the `git-token` is stored in your secret backend, simply reference your private repository in the Component:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: my-private-app
+spec:
+  workflow:
+    name: google-cloud-buildpacks
+    systemParameters:
+      repository:
+        url: "https://github.com/myorg/private-repo"  # Private repo URL
+        revision:
+          branch: "main"
+        appPath: "/"
+```
+
+The ComponentWorkflow automatically creates an ExternalSecret for each build that fetches the `git-token` and makes it available to the workflow.
+
+## Using Secrets in Workflows
+
+Build workflows often need access to secrets for authentication, such as:
+- **Git credentials** for cloning private repositories (see "Working with Private Repositories" section above)
+- **Registry credentials** for pushing images to private container registries
+- **API tokens** for external services during the build process
+
+ComponentWorkflows support two approaches for managing secrets in the Build Plane:
+
+### Approach 1: External Secrets with Dynamic Secret Names (Recommended)
+
+Use the `resources` section in ComponentWorkflow to define ExternalSecret resources that point to secrets in your secret backend. This approach:
+- Automatically creates and syncs secrets in the Build Plane's execution namespace
+- Generates unique secret names per workflow run (e.g., `${metadata.workflowRunName}-git-secret`)
+- Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
+- Ideal for GitOps workflows where all configuration is version-controlled
+
+**Benefits:**
+- Secrets are automatically created and cleaned up per workflow run
+- No manual secret management required
+- Secret rotation is handled automatically by ESO
+- Each workflow run gets its own isolated secret
+
+### Approach 2: Manual Secrets with Hardcoded Names
+
+Manually create Kubernetes secrets in the Build Plane's execution namespace and hardcode the secret name in the workflow template. This approach:
+- Requires pre-creating secrets before running workflows
+- Uses fixed secret names that are referenced directly in the workflow
+- Useful for development, testing, or when ESO is not available
+
+**Benefits:**
+- Simple setup for development and testing
+- No additional operators or infrastructure required
+- Direct control over secret lifecycle
+- Works without External Secrets Operator
+
 ## Platform Engineer vs Developer Responsibilities
 
 ### Platform Engineers Define:
@@ -540,28 +603,6 @@ spec:
 - ✅ System parameters: repository URL, branch, commit, appPath
 - ✅ Developer parameters: build-specific settings
 - ✅ Version and build settings (within Platform Engineer constraints)
-
-## Deploying ComponentWorkflows
-
-Deploy a component workflow to your control plane:
-
-```bash
-# Deploy all component workflows
-kubectl apply -f samples/component-workflows/
-
-# Deploy a specific component workflow
-kubectl apply -f samples/component-workflows/docker.yaml
-```
-
-Verify the component workflow is available:
-
-```bash
-# List component workflows
-kubectl get componentworkflows -n default
-
-# Describe a component workflow
-kubectl describe componentworkflow docker -n default
-```
 
 ## ComponentType Governance
 
