@@ -18,7 +18,7 @@ type DisabledAuthorizer struct {
 // NewDisabledAuthorizer creates a new disabled authorization implementation
 func NewDisabledAuthorizer(logger *slog.Logger) *DisabledAuthorizer {
 	return &DisabledAuthorizer{
-		logger: logger,
+		logger: logger.With("module", "authz.passthrough"),
 	}
 }
 

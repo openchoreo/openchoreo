@@ -6,42 +6,52 @@ package authz
 import (
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/authz/casbin"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
-// AuthZConfig holds configuration for authorization initialization
-type AuthZConfig struct {
-	Enabled                  bool   // Enable or disable authorization
-	DatabasePath             string // Path to database
-	DefaultAuthzDataFilePath string // Path to default authz data YAML file containing roles and mappings (optional)
-	EnableCache              bool   // Enable authz caching
+// Config holds configuration for authorization initialization.
+type Config struct {
+	// Enabled enables or disables authorization enforcement.
+	Enabled bool
+	// DatabasePath is the path to the SQLite database.
+	DatabasePath string
+	// RolesFile is the path to the roles YAML file containing roles and mappings (optional).
+	// If empty, embedded defaults are used.
+	RolesFile string
+	// CacheEnabled enables the Casbin enforcer cache.
+	CacheEnabled bool
+	// CacheTTL is the cache time-to-live duration.
+	CacheTTL time.Duration
 }
 
 // Initialize creates and returns PAP and PDP implementations based on configuration.
 // When authorization is disabled, it returns a passthrough implementation that allows all operations.
-func Initialize(config AuthZConfig, logger *slog.Logger) (authzcore.PAP, authzcore.PDP, error) {
-	if !config.Enabled {
-		logger.Info("Authorization disabled - using passthrough implementation")
-		passthroughAuthz := NewDisabledAuthorizer(logger.With("component", "authz.passthrough"))
+func Initialize(cfg Config, logger *slog.Logger) (authzcore.PAP, authzcore.PDP, error) {
+	log := logger.With("module", "authz")
+
+	if !cfg.Enabled {
+		log.Info("Authorization disabled - using passthrough implementation")
+		passthroughAuthz := NewDisabledAuthorizer(logger)
 		return passthroughAuthz, passthroughAuthz, nil
 	}
 
-	// Authorization enabled - initialize Casbin enforcer
-	logger.Info("Authorization enabled - initializing Casbin enforcer")
+	log.Info("Authorization enabled - initializing Casbin enforcer")
 
-	if config.DatabasePath == "" {
+	if cfg.DatabasePath == "" {
 		return nil, nil, fmt.Errorf("authz database path is required when authorization is enabled")
 	}
 
 	casbinConfig := casbin.CasbinConfig{
-		DatabasePath:      config.DatabasePath,
-		AuthzDataFilePath: config.DefaultAuthzDataFilePath, // Can be empty, will use embedded default
-		EnableCache:       config.EnableCache,
+		DatabasePath: cfg.DatabasePath,
+		RolesFile:    cfg.RolesFile,
+		CacheEnabled: cfg.CacheEnabled,
+		CacheTTL:     cfg.CacheTTL,
 	}
 
-	casbinAuthz, err := casbin.NewCasbinEnforcer(casbinConfig, logger.With("component", "authz.casbin"))
+	casbinAuthz, err := casbin.NewCasbinEnforcer(casbinConfig, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize Casbin enforcer: %w", err)
 	}

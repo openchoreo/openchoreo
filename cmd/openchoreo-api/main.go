@@ -110,13 +110,7 @@ func main() {
 		slog.String("config_path", legacyConfigPath))
 
 	// Initialize authorization
-	authzConfig := authz.AuthZConfig{
-		Enabled:                  os.Getenv("AUTHZ_ENABLED") == "true",
-		DatabasePath:             os.Getenv("AUTHZ_DATABASE_PATH"),
-		DefaultAuthzDataFilePath: os.Getenv("AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH"),
-		EnableCache:              false,
-	}
-	pap, pdp, err := authz.Initialize(authzConfig, logger.With("component", "authz"))
+	pap, pdp, err := authz.Initialize(cfg.Authorization.ToAuthzConfig(), logger)
 	if err != nil {
 		logger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)

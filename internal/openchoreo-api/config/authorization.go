@@ -4,6 +4,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/openchoreo/openchoreo/internal/authz"
 	"github.com/openchoreo/openchoreo/internal/config"
 )
@@ -14,10 +16,12 @@ type AuthorizationConfig struct {
 	Enabled bool `koanf:"enabled"`
 	// DatabasePath is the path to the Casbin SQLite database.
 	DatabasePath string `koanf:"database_path"`
-	// SeedPoliciesFile is the path to the initial policies file.
-	SeedPoliciesFile string `koanf:"seed_policies_file"`
+	// RolesFile is the path to the roles YAML file (contains roles and mappings).
+	RolesFile string `koanf:"roles_file"`
 	// CacheEnabled enables the Casbin enforcer cache.
 	CacheEnabled bool `koanf:"cache_enabled"`
+	// CacheTTL is the cache time-to-live duration.
+	CacheTTL time.Duration `koanf:"cache_ttl"`
 }
 
 // AuthorizationDefaults returns the default authorization configuration.
@@ -25,6 +29,7 @@ func AuthorizationDefaults() AuthorizationConfig {
 	return AuthorizationConfig{
 		Enabled:      false,
 		CacheEnabled: false,
+		CacheTTL:     5 * time.Minute,
 	}
 }
 
@@ -44,11 +49,12 @@ func (c *AuthorizationConfig) Validate(path *config.Path) config.ValidationError
 }
 
 // ToAuthzConfig converts to the authz library config.
-func (c *AuthorizationConfig) ToAuthzConfig() authz.AuthZConfig {
-	return authz.AuthZConfig{
-		Enabled:                  c.Enabled,
-		DatabasePath:             c.DatabasePath,
-		DefaultAuthzDataFilePath: c.SeedPoliciesFile,
-		EnableCache:              c.CacheEnabled,
+func (c *AuthorizationConfig) ToAuthzConfig() authz.Config {
+	return authz.Config{
+		Enabled:      c.Enabled,
+		DatabasePath: c.DatabasePath,
+		RolesFile:    c.RolesFile,
+		CacheEnabled: c.CacheEnabled,
+		CacheTTL:     c.CacheTTL,
 	}
 }

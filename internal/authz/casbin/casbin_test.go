@@ -33,7 +33,7 @@ func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	// Create enforcer with default user type configs
 	config := CasbinConfig{
 		DatabasePath: dbPath,
-		EnableCache:  false,
+		CacheEnabled: false,
 	}
 
 	enforcer, err := NewCasbinEnforcer(config, logger)

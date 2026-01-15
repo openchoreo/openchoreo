@@ -32,10 +32,10 @@ type CasbinEnforcer struct {
 
 // CasbinConfig holds configuration for the Casbin enforcer
 type CasbinConfig struct {
-	DatabasePath      string // Required: Path to SQLite database path
-	AuthzDataFilePath string // Optional: Path to roles YAML file (falls back to embedded if empty)
-	EnableCache       bool   // Optional: Enable policy cache (default: false)
-	CacheTTLInSeconds int    // Optional: Cache TTL in seconds (default: 300)
+	DatabasePath string        // Required: Path to SQLite database
+	RolesFile    string        // Optional: Path to roles YAML file (falls back to embedded if empty)
+	CacheEnabled bool          // Optional: Enable policy cache (default: false)
+	CacheTTL     time.Duration // Optional: Cache TTL (default: 5m)
 }
 
 const (
@@ -46,13 +46,10 @@ const (
 
 // NewCasbinEnforcer creates a new Casbin-based authorizer
 func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
+	logger = logger.With("module", "authz.casbin")
+
 	if config.DatabasePath == "" {
 		return nil, fmt.Errorf("DatabasePath is required in CasbinConfig")
-	}
-
-	// RolesFilePath is optional - will use embedded default if not provided
-	if config.CacheTTLInSeconds == 0 {
-		config.CacheTTLInSeconds = 300 // Default: 5 minutes
 	}
 
 	// Load Casbin model from embedded string
@@ -61,8 +58,8 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 		return nil, fmt.Errorf("failed to load embedded casbin model: %w", err)
 	}
 
-	// Create adapter with configured database path and authz data file
-	adapter, db, err := newAdapter(config.DatabasePath, config.AuthzDataFilePath, logger)
+	// Create adapter with configured database path and roles file
+	adapter, db, err := newAdapter(config.DatabasePath, config.RolesFile, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin adapter: %w", err)
 	}
@@ -71,13 +68,17 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 	actionRepo := NewActionRepository(db)
 
 	var enforcer casbin.IEnforcer
-	if config.EnableCache {
+	if config.CacheEnabled {
 		syncedCachedEnforcer, err := casbin.NewSyncedCachedEnforcer(m, adapter)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create synced cached enforcer: %w", err)
 		}
 
-		syncedCachedEnforcer.SetExpireTime(time.Duration(config.CacheTTLInSeconds) * time.Second)
+		// Fallback default if CacheTTL not configured
+		if config.CacheTTL == 0 {
+			config.CacheTTL = 5 * time.Minute
+		}
+		syncedCachedEnforcer.SetExpireTime(config.CacheTTL)
 		enforcer = syncedCachedEnforcer
 	} else {
 		enforcer, err = casbin.NewSyncedEnforcer(m, adapter)
@@ -119,7 +120,8 @@ func NewCasbinEnforcer(config CasbinConfig, logger *slog.Logger) (*CasbinEnforce
 	}
 
 	logger.Info("casbin enforcer initialized",
-		"cache_enabled", config.EnableCache)
+		"cache_enabled", config.CacheEnabled,
+		"cache_ttl", config.CacheTTL)
 
 	return ce, nil
 }
