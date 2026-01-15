@@ -350,5 +350,105 @@ data:
 
       log_info "RCA Agent application created successfully"
     fi
+
+  54-cli-app.sh: |
+    #!/bin/bash
+    set -e
+
+    log_info "Checking if application 'OpenChoreo CLI' already exists..."
+    existing_apps=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/applications')
+
+    # Extract application ID if it exists
+    app_id=$(echo "$existing_apps" | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+
+    # Define the application payload
+    APP_PAYLOAD='{
+      "name": "OpenChoreo CLI",
+      "description": "OpenChoreo CLI Default Application",
+      "auth_flow_graph_id": "auth_flow_config_basic",
+      "inbound_auth_config": [
+        {
+          "type": "oauth2",
+          "config": {
+            "client_id": "{{ .Values.security.oidc.cli.clientId }}",
+            "redirect_uris": [
+              {{- if .Values.thunder.bootstrap.cliAppRedirectUrls }}
+              {{- range $index, $url := .Values.thunder.bootstrap.cliAppRedirectUrls }}
+              {{- if $index }},{{ end }}
+              "{{ $url }}"
+              {{- end }}
+              {{- else }}
+              "http://localhost:8080/callback"
+              {{- end }}
+            ],
+            "grant_types": [
+              "authorization_code"
+            ],
+            "response_types": [
+              "code"
+            ],
+            "token_endpoint_auth_method": "none",
+            "pkce_required": true,
+            "public_client": true,
+            "token": {
+              "issuer": "thunder",
+              "access_token": {
+                "validity_period": 3600,
+                "user_attributes": [
+                  "given_name",
+                  "family_name",
+                  "username",
+                  "groups"
+                ]
+              },
+              "id_token": {
+                "validity_period": 3600,
+                "user_attributes": [
+                  "given_name",
+                  "family_name",
+                  "username",
+                  "groups"
+                ],
+                "scope_claims": {
+                  "groups": [
+                    "groups"
+                  ],
+                  "profile": [
+                    "username",
+                    "given_name",
+                    "family_name",
+                    "picture"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }'
+
+    if echo "$existing_apps" | grep -q '"name":"OpenChoreo CLI"'; then
+      log_info "Application 'OpenChoreo CLI' already exists (id: $app_id), updating..."
+      curl {{ $curlInsecure }} --location -X PUT "{{ $thunderUrl }}/applications/$app_id" \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Application updated successfully"
+    else
+      log_info "Application does not exist, creating default CLI application..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/applications' \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "Default CLI application created successfully"
+    fi
 {{- end }}
 {{- end }}

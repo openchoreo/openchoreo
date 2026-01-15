@@ -267,7 +267,7 @@ security:
       # description: OAuth2 client ID for CLI PKCE authentication
       # default: ""
       # @schema
-      clientId: "r9BccamDpz0v1zvA8TPdag"
+      clientId: "openchoreo-cli"
 
   # @schema
   # type: object
@@ -3649,6 +3649,7 @@ thunder:
         - 51-user-schema-and-users.sh
         - 52-default-apps.sh
         - 53-rca-agent-client.sh
+        - 54-cli-app.sh
     # @schema
     # type: array
     # description: Default users to create during bootstrap
