@@ -263,18 +263,10 @@ func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {
 
 // initAuditMiddleware initializes the audit logging middleware
 func (h *Handler) initAuditMiddleware() func(http.Handler) http.Handler {
-	// Create audit logger
 	auditLogger := audit.NewLogger(h.logger, "openchoreo-api")
-
-	// Get action definitions for openchoreo-api
 	actionDefinitions := apiaudit.GetActionDefinitions()
-
-	// Create action resolver
 	resolver := audit.NewActionResolver(actionDefinitions)
-
-	// Create audit middleware
 	auditMw := audit.NewMiddleware(auditLogger, resolver)
-
 	return auditMw.Handler
 }
 
