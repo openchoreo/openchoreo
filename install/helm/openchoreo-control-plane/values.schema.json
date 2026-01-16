@@ -977,22 +977,6 @@
       "title": "backstage",
       "type": "object"
     },
-    "cli": {
-      "additionalProperties": false,
-      "description": "CLI (Command Line Interface) configuration",
-      "properties": {
-        "clientId": {
-          "default": "openchoreo-cli",
-          "description": "OAuth2 client ID for CLI PKCE authentication",
-          "required": [],
-          "title": "clientId",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "title": "cli",
-      "type": "object"
-    },
     "clusterGateway": {
       "additionalProperties": true,
       "description": "Cluster Gateway configuration - manages WebSocket connections from cluster agents",
@@ -3966,6 +3950,37 @@
               "required": [],
               "title": "wellKnownEndpoint",
               "type": "string"
+            },
+            "externalClients": {
+              "description": "External client configurations for authentication",
+              "items": {
+                "properties": {
+                  "name": {
+                    "description": "Name of the external client",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "client_id": {
+                    "description": "OAuth2 client ID for this client type",
+                    "required": [],
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "description": "OAuth2 scopes for this client",
+                    "items": {
+                      "required": [],
+                      "type": "string"
+                    },
+                    "required": [],
+                    "type": "array"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "required": [],
+              "title": "externalClients",
+              "type": "array"
             }
           },
           "required": [],

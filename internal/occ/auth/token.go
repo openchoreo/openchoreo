@@ -4,11 +4,10 @@
 package auth
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 )
@@ -19,25 +18,31 @@ func IsTokenExpired(token string) bool {
 		return false
 	}
 
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return true
-	}
-
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	// Parse token without validation (we only need to check expiry)
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	claims := jwt.MapClaims{}
+	_, _, err := parser.ParseUnverified(token, claims)
 	if err != nil {
 		return true
 	}
 
-	var claims struct {
-		Exp int64 `json:"exp"`
+	// Get expiry time from claims
+	exp, ok := claims["exp"]
+	if !ok {
+		return true
 	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
+
+	var expiryTime time.Time
+	switch v := exp.(type) {
+	case float64:
+		expiryTime = time.Unix(int64(v), 0)
+	case int64:
+		expiryTime = time.Unix(v, 0)
+	default:
 		return true
 	}
 
 	// Check if token is expired or will expire within 1 minute
-	expiryTime := time.Unix(claims.Exp, 0)
 	return time.Now().Add(1 * time.Minute).After(expiryTime)
 }
 
@@ -65,7 +70,7 @@ func RefreshToken() (string, error) {
 	}
 
 	// Check auth method and use appropriate refresh strategy
-	if credential.AuthMethod == "pkce" && credential.RefreshToken != "" {
+	if credential.AuthMethod == "authorization_code" && credential.RefreshToken != "" {
 		// Use PKCE refresh token grant
 		tokenResp, err := RefreshAccessToken(
 			oidcConfig.TokenEndpoint,

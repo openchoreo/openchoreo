@@ -87,7 +87,7 @@ func main() {
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, baseLogger.With("component", "openapi-handlers"))
+	openapiHandler := openapihandlers.New(services, baseLogger.With("component", "openapi-handlers"), cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

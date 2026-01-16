@@ -25,6 +25,7 @@ type PKCEAuth struct {
 	CodeVerifier          string
 	CodeChallenge         string
 	State                 string
+	Scopes                []string
 }
 
 // PKCETokenResponse represents the OAuth2 token response for PKCE flow
@@ -41,8 +42,9 @@ func NewPKCEAuth(oidcConfig *OIDCConfig, redirectURI string) (*PKCEAuth, error) 
 	pkce := &PKCEAuth{
 		AuthorizationEndpoint: oidcConfig.AuthorizationEndpoint,
 		TokenEndpoint:         oidcConfig.TokenEndpoint,
-		ClientID:              oidcConfig.CLIClientID,
+		ClientID:              oidcConfig.ClientID,
 		RedirectURI:           redirectURI,
+		Scopes:                oidcConfig.Scopes,
 	}
 
 	if err := pkce.GeneratePKCE(); err != nil {
@@ -83,7 +85,7 @@ func (p *PKCEAuth) GetAuthorizationURL() (string, error) {
 		"response_type":         {"code"},
 		"code_challenge":        {p.CodeChallenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"openid profile email offline_access"},
+		"scope":                 {strings.Join(p.Scopes, " ")},
 		"state":                 {p.State},
 	}
 

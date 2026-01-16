@@ -215,8 +215,8 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 		if cfg.Credentials[idx].Name == credentialName {
 			cfg.Credentials[idx].Token = tokenResp.AccessToken
 			cfg.Credentials[idx].RefreshToken = tokenResp.RefreshToken
-			cfg.Credentials[idx].AuthMethod = "pkce"
-			cfg.Credentials[idx].ClientID = oidcConfig.CLIClientID
+			cfg.Credentials[idx].AuthMethod = "authorization_code"
+			cfg.Credentials[idx].ClientID = oidcConfig.ClientID
 			cfg.Credentials[idx].ClientSecret = ""
 			credentialExists = true
 			break
@@ -226,10 +226,10 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	if !credentialExists {
 		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
 			Name:         credentialName,
-			ClientID:     oidcConfig.CLIClientID,
+			ClientID:     oidcConfig.ClientID,
 			Token:        tokenResp.AccessToken,
 			RefreshToken: tokenResp.RefreshToken,
-			AuthMethod:   "pkce",
+			AuthMethod:   "authorization_code",
 		})
 	}
 

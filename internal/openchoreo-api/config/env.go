@@ -37,9 +37,6 @@ const (
 
 	// EnvOIDCTokenURL is the OIDC token endpoint URL
 	EnvOIDCTokenURL = "OIDC_TOKEN_URL" // #nosec G101 -- This is an environment variable name, not a credential
-
-	// EnvOIDCCLIClientID is the OAuth2 client ID for CLI PKCE authentication
-	EnvOIDCCLIClientID = "OIDC_CLI_CLIENT_ID"
 )
 
 // Default values for configuration

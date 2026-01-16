@@ -149,22 +149,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
-  /api/v1/oidc-config:
+  /api/v1/client-configs:
     get:
-      operationId: getOidcConfig
-      summary: Get OIDC configuration for CLI authentication
+      operationId: getClientConfigs
+      summary: Get external client configurations
       description: |
-        Returns OIDC configuration for CLI clients to discover authorization
-        and token endpoints. Used during initial CLI authentication setup.
+        Returns a list of external client configurations for authentication.
+        Includes client IDs and scopes for different client types (CLI, etc.).
       tags: [Operations]
       security: []
       responses:
         '200':
-          description: OIDC configuration
+          description: List of client configurations
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OidcConfig'
+                $ref: '#/components/schemas/ClientConfigList'
 
   # =============================================================================
   # Organization Endpoints
@@ -2562,27 +2562,52 @@ components:
             type: string
 
     # -------------------------------------------------------------------------
-    # OIDC Configuration
+    # Client Configuration
     # -------------------------------------------------------------------------
-    OidcConfig:
+    ExternalClient:
       type: object
-      description: OIDC configuration for CLI authentication
+      description: External client configuration
+      required:
+        - name
+        - client_id
+        - scopes
+      properties:
+        name:
+          type: string
+          description: Name of the external client
+          example: cli
+        client_id:
+          type: string
+          description: OAuth2 client ID for this client type
+          example: openchoreo-cli
+        scopes:
+          type: array
+          description: OAuth2 scopes for this client
+          items:
+            type: string
+          example: ["openid", "profile", "email"]
+
+    ClientConfigList:
+      type: object
+      description: Client configurations response
       required:
         - token_endpoint
-        - cli_client_id
+        - authorization_endpoint
+        - external_clients
       properties:
-        authorization_endpoint:
-          type: string
-          description: OAuth2 authorization endpoint URL
-          example: https://auth.openchoreo.dev/authorize
         token_endpoint:
           type: string
           description: OAuth2 token endpoint URL
           example: https://auth.openchoreo.dev/oauth2/token
-        cli_client_id:
+        authorization_endpoint:
           type: string
-          description: OAuth2 client ID for CLI PKCE authentication
-          example: openchoreo-cli
+          description: OAuth2 authorization endpoint URL
+          example: https://auth.openchoreo.dev/authorize
+        external_clients:
+          type: array
+          description: Array of external client configurations
+          items:
+            $ref: '#/components/schemas/ExternalClient'
 
     # -------------------------------------------------------------------------
     # User Type Configuration

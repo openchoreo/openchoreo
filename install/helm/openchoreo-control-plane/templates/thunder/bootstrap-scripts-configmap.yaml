@@ -362,6 +362,12 @@ data:
     app_id=$(echo "$existing_apps" | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
     # Define the application payload
+    {{- $cliClient := "" }}
+    {{- range .Values.security.oidc.externalClients }}
+      {{- if eq .name "cli" }}
+        {{- $cliClient = .client_id }}
+      {{- end }}
+    {{- end }}
     APP_PAYLOAD='{
       "name": "OpenChoreo CLI",
       "description": "OpenChoreo CLI Default Application",
@@ -370,7 +376,7 @@ data:
         {
           "type": "oauth2",
           "config": {
-            "client_id": "{{ .Values.cli.clientId }}",
+            "client_id": "{{ $cliClient }}",
             "redirect_uris": [
               "http://127.0.0.1:55152/auth-callback"
             ],

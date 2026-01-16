@@ -258,6 +258,18 @@ security:
     # @schema
     tokenUrl: ""
 
+    # @schema
+    # type: array
+    # description: External client configurations for authentication
+    # @schema
+    externalClients:
+      - name: "cli"
+        client_id: "openchoreo-cli"
+        scopes:
+          - "openid"
+          - "profile"
+          - "email"
+
   # @schema
   # type: object
   # description: JWT token configuration
@@ -299,18 +311,6 @@ security:
   # default: ""
   # @schema
   authServerBaseUrl: ""
-
-# @schema
-# type: object
-# description: CLI (Command Line Interface) configuration
-# @schema
-cli:
-  # @schema
-  # type: string
-  # description: OAuth2 client ID for CLI PKCE authentication
-  # default: openchoreo-cli
-  # @schema
-  clientId: "openchoreo-cli"
 
 # @schema
 # type: object
