@@ -55,7 +55,7 @@ func (s *TraitService) ListTraits(ctx context.Context, orgName string) ([]*model
 	traits := make([]*models.TraitResponse, 0, len(traitList.Items))
 	for i := range traitList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized trait", "org", orgName, "trait", traitList.Items[i].Name)
 				continue
@@ -74,7 +74,7 @@ func (s *TraitService) GetTrait(ctx context.Context, orgName, traitName string) 
 	s.logger.Debug("Getting Trait", "org", orgName, "name", traitName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, orgName, traitName st
 	s.logger.Debug("Getting Trait schema", "org", orgName, "name", traitName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

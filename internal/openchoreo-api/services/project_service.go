@@ -44,7 +44,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req 
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateProject, ResourceTypeProject, req.Name,
-		authz.ResourceHierarchy{Organization: orgName, Project: req.Name}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: req.Name}); err != nil {
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 	for _, item := range projectList.Items {
 		// Authorization check for each project
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, item.Name,
-			authz.ResourceHierarchy{Organization: orgName, Project: item.Name}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName, Project: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized projects silently (user doesn't have permission to see this project)
 				s.logger.Debug("Skipping unauthorized project", "org", orgName, "project", item.Name)
@@ -108,7 +108,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
 		return nil, err
 	}
 	return s.getProject(ctx, orgName, projectName)
@@ -191,7 +191,7 @@ func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
 		return err
 	}
 

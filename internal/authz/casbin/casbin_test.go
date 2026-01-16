@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -19,7 +20,6 @@ const (
 	testEntitlementType  = "group"
 	testEntitlementValue = "test-group"
 	user                 = "user"
-	serviceAccount       = "service_account"
 )
 
 // setupTestEnforcer creates a test CasbinEnforcer with temporary database
@@ -1891,11 +1891,12 @@ func TestCasbinEnforcer_AddRole_ClusterRole(t *testing.T) {
 func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
+	const testNs = "acme"
 
 	t.Run("add namespace-scoped role", func(t *testing.T) {
 		role := &authzcore.Role{
 			Name:      "ns-developer",
-			Namespace: "acme",
+			Namespace: testNs,
 			Actions:   []string{"component:create", "component:view"},
 		}
 		if err := enforcer.AddRole(ctx, role); err != nil {
@@ -1909,14 +1910,14 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 		}
 		found := false
 		for _, policy := range gPolicies {
-			if len(policy) >= 3 && policy[0] == "ns-developer" && policy[2] == "acme" {
+			if len(policy) >= 3 && policy[0] == "ns-developer" && policy[2] == testNs {
 				found = true
 				break
 			}
 		}
 
 		if !found {
-			t.Error("namespace role 'ns-developer' in namespace 'acme' not found in g policies")
+			t.Errorf("namespace role 'ns-developer' in namespace '%s' not found in g policies", testNs)
 		}
 	})
 
@@ -1933,7 +1934,7 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 		// Create namespace role with same name
 		nsRole := &authzcore.Role{
 			Name:      "admin",
-			Namespace: "acme",
+			Namespace: testNs,
 			Actions:   []string{"component:view"},
 		}
 		if err := enforcer.AddRole(ctx, nsRole); err != nil {
@@ -1954,7 +1955,7 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 				if policy[2] == "*" {
 					foundCluster = true
 				}
-				if policy[2] == "acme" {
+				if policy[2] == testNs {
 					foundNs = true
 				}
 			}
@@ -1963,14 +1964,14 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 			t.Error("cluster role 'admin' not found in g policies")
 		}
 		if !foundNs {
-			t.Error("namespace role 'admin' in namespace 'acme' not found in g policies")
+			t.Errorf("namespace role 'admin' in namespace '%s' not found in g policies", testNs)
 		}
 	})
 
 	t.Run("multiple namespace roles with same name in different namespaces", func(t *testing.T) {
 		role1 := &authzcore.Role{
 			Name:      "engineer",
-			Namespace: "acme",
+			Namespace: testNs,
 			Actions:   []string{"component:create"},
 		}
 		if err := enforcer.AddRole(ctx, role1); err != nil {
@@ -1997,7 +1998,7 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 		foundWidgets := false
 		for _, policy := range gPolicies {
 			if len(policy) >= 3 && policy[0] == "engineer" {
-				if policy[2] == "acme" {
+				if policy[2] == testNs {
 					foundAcme = true
 				}
 				if policy[2] == "widgets" {
@@ -2007,7 +2008,7 @@ func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
 		}
 
 		if !foundAcme {
-			t.Error("namespace role 'engineer' in namespace 'acme' not found in g policies")
+			t.Errorf("namespace role 'engineer' in namespace '%s' not found in g policies", testNs)
 		}
 		if !foundWidgets {
 			t.Error("namespace role 'engineer' in namespace 'widgets' not found in g policies")
@@ -2035,14 +2036,7 @@ func TestCasbinEnforcer_GetRole(t *testing.T) {
 		t.Errorf("GetRole() name = %s, want test-admin", role.Name)
 	}
 
-	hasWildcard := false
-	for _, action := range role.Actions {
-		if action == "*" {
-			hasWildcard = true
-			break
-		}
-	}
-	if !hasWildcard {
+	if !slices.Contains(role.Actions, "*") {
 		t.Error("GetRole() test-admin should have wildcard action")
 	}
 }
@@ -2052,13 +2046,14 @@ func TestCasbinEnforcer_GetRole(t *testing.T) {
 func TestCasbinEnforcer_GetRole_NamespacedRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
+	const testNs = "acme"
 
 	// Setup: Create namespace role directly using Casbin grouping policies
 	// Format: g, <role>, <action>, <namespace>
 	// Using "acme" for namespace-scoped role``
 	roleRules := [][]string{
-		{"ns-viewer", "component:view", "acme"},
-		{"ns-viewer", "project:view", "acme"},
+		{"ns-viewer", "component:view", testNs},
+		{"ns-viewer", "project:view", testNs},
 	}
 	_, err := enforcer.enforcer.AddGroupingPolicies(roleRules)
 	if err != nil {
@@ -2066,15 +2061,15 @@ func TestCasbinEnforcer_GetRole_NamespacedRole(t *testing.T) {
 	}
 
 	t.Run("get existing namespace role", func(t *testing.T) {
-		fetched, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "ns-viewer", Namespace: "acme"})
+		fetched, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "ns-viewer", Namespace: testNs})
 		if err != nil {
 			t.Fatalf("failed to get namespace role: %v", err)
 		}
 		if fetched.Name != "ns-viewer" {
 			t.Errorf("expected name 'ns-viewer', got '%s'", fetched.Name)
 		}
-		if fetched.Namespace != "acme" {
-			t.Errorf("expected namespace 'acme', got '%s'", fetched.Namespace)
+		if fetched.Namespace != testNs {
+			t.Errorf("expected namespace '%s', got '%s'", testNs, fetched.Namespace)
 		}
 		if len(fetched.Actions) != 2 {
 			t.Errorf("expected 2 actions, got %d", len(fetched.Actions))
@@ -2082,7 +2077,7 @@ func TestCasbinEnforcer_GetRole_NamespacedRole(t *testing.T) {
 	})
 
 	t.Run("get non-existent namespace role", func(t *testing.T) {
-		_, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "non-existent", Namespace: "acme"})
+		_, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "non-existent", Namespace: testNs})
 		if !errors.Is(err, authzcore.ErrRoleNotFound) {
 			t.Errorf("expected ErrRoleNotFound, got %v", err)
 		}
@@ -2100,11 +2095,13 @@ func TestCasbinEnforcer_GetRole_NamespacedRole(t *testing.T) {
 func TestCasbinEnforcer_ListRoles(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
+	const testNs = "acme"
+
 	// Setup: Create multiple roles (cluster and namespace scoped)
 	roleRules := [][]string{
 		{"cluster-admin", "*", "*"},
-		{"ns-dev-1", "component:create", "acme"},
-		{"ns-dev-2", "component:view", "acme"},
+		{"ns-dev-1", "component:create", testNs},
+		{"ns-dev-2", "component:view", testNs},
 		{"ns-viewer", "component:view", "widgets"},
 	}
 	_, err := enforcer.enforcer.AddGroupingPolicies(roleRules)
@@ -2113,17 +2110,17 @@ func TestCasbinEnforcer_ListRoles(t *testing.T) {
 	}
 
 	t.Run("list roles in specific namespace", func(t *testing.T) {
-		filter := authzcore.RoleFilter{Namespace: "acme"}
+		filter := authzcore.RoleFilter{Namespace: testNs}
 		fetched, err := enforcer.ListRoles(ctx, &filter)
 		if err != nil {
 			t.Fatalf("failed to list roles: %v", err)
 		}
 		if len(fetched) != 2 {
-			t.Errorf("expected 2 roles in 'acme' namespace, got %d", len(fetched))
+			t.Errorf("expected 2 roles in '%s' namespace, got %d", testNs, len(fetched))
 		}
 		for _, role := range fetched {
-			if role.Namespace != "acme" {
-				t.Errorf("expected namespace 'acme', got '%s'", role.Namespace)
+			if role.Namespace != testNs {
+				t.Errorf("expected namespace '%s', got '%s'", testNs, role.Namespace)
 			}
 		}
 	})
@@ -2217,14 +2214,15 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
+	const testNs = "acme"
 
 	t.Run("remove namespace role not in use", func(t *testing.T) {
-		_, err := enforcer.enforcer.AddGroupingPolicy("unused-role", "component:view", "acme")
+		_, err := enforcer.enforcer.AddGroupingPolicy("unused-role", "component:view", testNs)
 		if err != nil {
 			t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 		}
 
-		if err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "unused-role", Namespace: "acme"}); err != nil {
+		if err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "unused-role", Namespace: testNs}); err != nil {
 			t.Fatalf("failed to remove namespace role: %v", err)
 		}
 
@@ -2234,24 +2232,24 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
 		}
 		for _, policy := range gPolicies {
-			if len(policy) >= 3 && policy[0] == "unused-role" && policy[2] == "acme" {
+			if len(policy) >= 3 && policy[0] == "unused-role" && policy[2] == testNs {
 				t.Error("RemoveRole() namespace role still exists in g policies")
 			}
 		}
 	})
 
 	t.Run("remove namespace role in use fails", func(t *testing.T) {
-		_, err := enforcer.enforcer.AddGroupingPolicy("in-use-role", "component:view", "acme")
+		_, err := enforcer.enforcer.AddGroupingPolicy("in-use-role", "component:view", testNs)
 		if err != nil {
 			t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "in-use-role", "acme", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "in-use-role", testNs, "allow", "{}")
 		if err != nil {
 			t.Fatalf("failed to add mapping: %v", err)
 		}
 
-		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role", Namespace: "acme"})
+		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role", Namespace: testNs})
 		if !errors.Is(err, authzcore.ErrRoleInUse) {
 			t.Errorf("expected ErrRoleInUse, got %v", err)
 		}
@@ -2334,18 +2332,20 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	_, err := enforcer.enforcer.AddGroupingPolicy("ns-admin", "*", "acme")
+	const testNs = "acme"
+
+	_, err := enforcer.enforcer.AddGroupingPolicy("ns-admin", "*", testNs)
 	if err != nil {
 		t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 	}
 
-	_, err = enforcer.enforcer.AddPolicy("groups:admins", "orgs/acme", "ns-admin", "acme", "allow", "{}")
+	_, err = enforcer.enforcer.AddPolicy("groups:admins", "orgs/acme", "ns-admin", testNs, "allow", "{}")
 	if err != nil {
 		t.Fatalf("failed to add mapping: %v", err)
 	}
 
 	t.Run("force remove namespace role and mappings", func(t *testing.T) {
-		if err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "ns-admin", Namespace: "acme"}); err != nil {
+		if err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "ns-admin", Namespace: testNs}); err != nil {
 			t.Fatalf("failed to force remove namespace role: %v", err)
 		}
 
@@ -2355,7 +2355,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
 		}
 		for _, policy := range gPolicies {
-			if len(policy) >= 3 && policy[0] == "ns-admin" && policy[2] == "acme" {
+			if len(policy) >= 3 && policy[0] == "ns-admin" && policy[2] == testNs {
 				t.Error("ForceRemoveRole() namespace role still exists in g policies")
 			}
 		}
@@ -2366,7 +2366,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 		}
 		mappingCount := 0
 		for _, policy := range policies {
-			if len(policy) >= 4 && policy[2] == "ns-admin" && policy[3] == "acme" {
+			if len(policy) >= 4 && policy[2] == "ns-admin" && policy[3] == testNs {
 				mappingCount++
 			}
 		}

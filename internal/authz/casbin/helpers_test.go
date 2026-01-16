@@ -4,6 +4,7 @@
 package casbin
 
 import (
+	"slices"
 	"testing"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -815,14 +816,7 @@ func TestIndexActions(t *testing.T) {
 			for _, action := range tt.actions {
 				resourceType := extractActionResourceType(action.Action)
 				if actions, ok := idx.ByResourceType[resourceType]; ok {
-					found := false
-					for _, a := range actions {
-						if a == action.Action {
-							found = true
-							break
-						}
-					}
-					if !found {
+					if !slices.Contains(actions, action.Action) {
 						t.Errorf("indexActions() action %q not found in ByResourceType[%q]", action.Action, resourceType)
 					}
 				} else {

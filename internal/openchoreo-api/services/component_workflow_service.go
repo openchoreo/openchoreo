@@ -49,7 +49,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentWorkflow, ResourceTypeComponentWorkflow, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +174,7 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 
 		// Authorization check for each workflow run
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, workflowRun.Name,
-			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized component workflow run", "org", orgName, "project", projectName, "component", componentName, "workflowRun", workflowRun.Name)
 				continue
@@ -326,7 +326,7 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 	cwfs := make([]*models.WorkflowResponse, 0, len(cwfList.Items))
 	for i := range cwfList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized items
 				s.logger.Debug("Skipping unauthorized component workflow", "org", orgName, "componentWorkflow", cwfList.Items[i].Name)
@@ -348,7 +348,7 @@ func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, org
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -376,7 +376,7 @@ func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Contex
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

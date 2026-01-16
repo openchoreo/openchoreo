@@ -52,7 +52,7 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, orgName string) (
 	dataplanes := make([]*models.DataPlaneResponse, 0, len(dpList.Items))
 	for i := range dpList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized dataplane", "org", orgName, "dataplane", dpList.Items[i].Name)
 				continue
@@ -71,7 +71,7 @@ func (s *DataPlaneService) GetDataPlane(ctx context.Context, orgName, dpName str
 	s.logger.Debug("Getting dataplane", "org", orgName, "dataplane", dpName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -101,7 +101,7 @@ func (s *DataPlaneService) CreateDataPlane(ctx context.Context, orgName string, 
 	req.Sanitize()
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateDataPlane, ResourceTypeDataPlane, req.Name,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

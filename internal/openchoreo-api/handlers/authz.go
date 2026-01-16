@@ -14,6 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
+// TODO: binoyperies: Need refactor role CRUDs to accommodate namespace-scoped roles, once the ns concept is added.
+
 // UpdateRoleRequest represents the request body for updating a role
 type UpdateRoleRequest struct {
 	Actions []string `json:"actions"`
@@ -21,7 +23,7 @@ type UpdateRoleRequest struct {
 
 // UpdateRoleMappingRequest represents the request body for updating a role-entitlement mapping
 type UpdateRoleMappingRequest struct {
-	RoleName    string                  `json:"role_name"`
+	RoleRef     authz.RoleRef           `json:"role"`
 	Entitlement authz.Entitlement       `json:"entitlement"`
 	Hierarchy   authz.ResourceHierarchy `json:"hierarchy"`
 	Effect      authz.PolicyEffectType  `json:"effect"`
@@ -235,7 +237,8 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	setAuditResource(ctx, "role_mapping", strconv.FormatUint(uint64(mapping.ID), 10), strconv.FormatUint(uint64(mapping.ID), 10))
 	addAuditMetadataBatch(ctx, map[string]any{
-		"role":        mapping.RoleName,
+		"role":        mapping.RoleRef.Name,
+		"role_ns":     mapping.RoleRef.Namespace,
 		"entitlement": mapping.Entitlement,
 		"hierarchy":   mapping.Hierarchy,
 		"effect":      mapping.Effect,
@@ -286,7 +289,8 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "role_mapping", idStr, idStr)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"role":        req.RoleName,
+		"role":        req.RoleRef.Name,
+		"role_ns":     req.RoleRef.Namespace,
 		"entitlement": req.Entitlement,
 		"hierarchy":   req.Hierarchy,
 		"effect":      req.Effect,
@@ -296,7 +300,7 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 	// Map DTO to domain model
 	mapping := &authz.RoleEntitlementMapping{
 		ID:          uint(id),
-		RoleName:    req.RoleName,
+		RoleRef:     req.RoleRef,
 		Entitlement: req.Entitlement,
 		Hierarchy:   req.Hierarchy,
 		Effect:      req.Effect,
@@ -439,10 +443,9 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 // GetSubjectProfile handles GET /api/v1/authz/profile
 func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	// Extract query parameters
-	org := r.URL.Query().Get("org")
+	namespace := r.URL.Query().Get("namespace")
 	project := r.URL.Query().Get("project")
 	component := r.URL.Query().Get("component")
-	orgUnits := r.URL.Query()["ou"]
 
 	subjectCtx, ok := auth.GetSubjectContextFromContext(r.Context())
 	if !ok || subjectCtx == nil {
@@ -455,10 +458,9 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	request := &authz.ProfileRequest{
 		SubjectContext: authzSubjectCtx,
 		Scope: authz.ResourceHierarchy{
-			Organization:      org,
-			OrganizationUnits: orgUnits,
-			Project:           project,
-			Component:         component,
+			Namespace: namespace,
+			Project:   project,
+			Component: component,
 		},
 	}
 

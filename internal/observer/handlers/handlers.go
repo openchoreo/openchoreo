@@ -269,9 +269,9 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponentWorkflowRun,
 		buildID,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -366,9 +366,9 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -465,8 +465,8 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -602,7 +602,7 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeOrg,
 		req.OrgName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
+			Namespace: req.OrgName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -689,8 +689,8 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -812,9 +812,9 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -904,9 +904,9 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {

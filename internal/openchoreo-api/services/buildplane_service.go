@@ -69,7 +69,7 @@ func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, orgName string) (
 	}
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewBuildPlane, ResourceTypeBuildPlane, buildPlane.Name,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -121,7 +121,7 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string)
 	buildPlaneResponses := make([]models.BuildPlaneResponse, 0, len(buildPlanes.Items))
 	for i := range buildPlanes.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewBuildPlane, ResourceTypeBuildPlane, buildPlanes.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized build plane", "org", orgName, "buildPlane", buildPlanes.Items[i].Name)
 				continue

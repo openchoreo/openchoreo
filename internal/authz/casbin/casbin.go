@@ -318,11 +318,11 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 
 // AddRole creates a new role with the specified name and actions
 func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) error {
-	ce.logger.Debug("add role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
-
 	if err := ValidateCreateRoleRequest(role); err != nil {
 		return err
 	}
+
+	ce.logger.Debug("add role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
 
 	namespace := normalizeNamespace(role.Namespace)
 
@@ -345,11 +345,11 @@ func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) err
 
 // RemoveRole deletes a role identified by RoleRef
 func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
-	ce.logger.Debug("remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
-
 	if err := validateRoleRef(roleRef); err != nil {
 		return err
 	}
+
+	ce.logger.Debug("remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
 
 	namespace := normalizeNamespace(roleRef.Namespace)
 
@@ -379,11 +379,10 @@ func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleRef *authzcore.Rol
 
 // ForceRemoveRole deletes a role and all its associated role-entitlement mappings
 func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
-	ce.logger.Debug("force remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
-
 	if err := validateRoleRef(roleRef); err != nil {
 		return err
 	}
+	ce.logger.Debug("force remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
 
 	namespace := normalizeNamespace(roleRef.Namespace)
 
@@ -564,13 +563,13 @@ func computeActionsDiff(existingActions, newActions []string) (added, removed []
 
 // UpdateRole updates an existing role's actions
 func (ce *CasbinEnforcer) UpdateRole(ctx context.Context, role *authzcore.Role) error {
-	ce.logger.Debug("update role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
 	if role == nil {
 		return fmt.Errorf("role cannot be nil")
 	}
 	if len(role.Actions) == 0 {
 		return fmt.Errorf("role must have at least one action")
 	}
+	ce.logger.Debug("update role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
 
 	namespace := normalizeNamespace(role.Namespace)
 
