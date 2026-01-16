@@ -1389,16 +1389,6 @@ func (s *ComponentService) DeleteComponent(ctx context.Context, orgName, project
 		return err
 	}
 
-	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
-	if err != nil {
-		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
-			return ErrProjectNotFound
-		}
-		return fmt.Errorf("failed to verify project: %w", err)
-	}
-
 	// Get the component first to ensure it exists and belongs to the project
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
