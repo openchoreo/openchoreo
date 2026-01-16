@@ -27,16 +27,22 @@ func (i *LogoutImpl) Logout() error {
 		return fmt.Errorf("failed to get current credential: %w", err)
 	}
 
-	// Clear token and refresh token from credential
-	credential.Token = ""
-	credential.RefreshToken = ""
-
-	// Load and save config
+	// Load config
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Find and clear token and refresh token from credential in config
+	for idx := range cfg.Credentials {
+		if cfg.Credentials[idx].Name == credential.Name {
+			cfg.Credentials[idx].Token = ""
+			cfg.Credentials[idx].RefreshToken = ""
+			break
+		}
+	}
+
+	// Save updated config
 	if err := config.SaveStoredConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
