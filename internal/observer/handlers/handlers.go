@@ -1044,7 +1044,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// Check if alert is not in firing state (ignore 'resolved' alerts from Prometheus)
 		if errors.Is(err, fmt.Errorf("alert is not in firing state")) {
-			h.logger.Info("Ignoring non-firing alert")
+			h.logger.Debug("Only alerts in firing state are processed. Non firing state (e.g. resolved alerts) are ignored.")
 			h.writeJSON(w, http.StatusOK, map[string]interface{}{
 				"message": "Alert ignored (not in firing state)",
 			})

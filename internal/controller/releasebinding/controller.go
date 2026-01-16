@@ -820,10 +820,10 @@ func (r *Reconciler) applyDefaultNotificationChannel(
 	rb *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 ) error {
-	// Identify observability-alertrule trait instances in the release.
+	// Identify observability-alert-rule trait instances in the release.
 	alertRuleInstances := make([]openchoreov1alpha1.ComponentTrait, 0)
 	for _, trait := range componentRelease.Spec.ComponentProfile.Traits {
-		if trait.Name == "observability-alertrule" {
+		if trait.Name == "observability-alert-rule" {
 			alertRuleInstances = append(alertRuleInstances, trait)
 		}
 	}

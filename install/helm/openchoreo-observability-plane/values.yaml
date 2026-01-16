@@ -1707,11 +1707,11 @@ prometheus:
         repeat_interval: 12h
         receiver: 'null' # Default receiver for unmatched alerts
         routes:
-          - receiver: 'openchoreo-user-alerts'
+          - receiver: 'openchoreo-alerts'
             matchers:
               - openchoreo_alert = true
       receivers:
-        - name: 'openchoreo-user-alerts'
+        - name: 'openchoreo-alerts'
           webhook_configs:
             - url: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus'
               send_resolved: true

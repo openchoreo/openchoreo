@@ -112,7 +112,7 @@ spec:
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
-  name: observability-alertrule
+  name: observability-alert-rule
   namespace: default
 spec:
   schema:
@@ -122,8 +122,8 @@ spec:
       severity: "string | default=warning"
       source:
         type: "string"
-        query: "string | default="    # Required for log-based alerts, optional for metric alerts
-        metric: "string | default="   # Required for metric-based alerts, optional for log alerts
+        query: "string | default="    # Required for log-based alerts
+        metric: "string | default="   # Required for metric-based alerts
       condition:
         window: "string | default=5m"
         interval: "string | default=1m"
@@ -187,7 +187,7 @@ spec:
 
   # Traits - Alert Rules is now added as a trait
   traits:
-    - name: observability-alertrule
+    - name: observability-alert-rule
       instanceName: error-logs-alert-rule
       parameters:
         description: "fires alert when 'ERROR: Critical failure detected' log message is received more than 10 times in 5 minutes"
@@ -200,19 +200,19 @@ spec:
           interval: "1m"
           operator: "gt"
           threshold: 10
-    - name: observability-alertrule
+    - name: observability-alert-rule
       instanceName: cpu-usage-alert-rule
       parameters:
-        description: "fires alert when CPU usage is greater than 80%"
+        description: "fires alert when CPU usage is greater than 80% for last 5 minutes"
         severity: "critical"
         source:
           type: "metric"
           metric: "cpu_usage"
         condition:
-          window: "1m"
+          window: "5m"
           interval: "1m"
           operator: "gt"
-          threshold: 50
+          threshold: 80
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
