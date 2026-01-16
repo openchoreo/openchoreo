@@ -89,7 +89,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			Claim: "groups",
 			Value: "global-admin-group",
 		},
-		RoleRef: authzcore.RoleRef{Name: "global-admin"},
+		RoleRef:   authzcore.RoleRef{Name: "global-admin"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			// Empty hierarchy = global wildcard "*"
 		},
@@ -114,8 +114,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		RoleRef: authzcore.RoleRef{Name: "component-specific"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
-			Project:      "p1",
-			Component:    "c1",
+			Project:   "p1",
+			Component: "c1",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -138,7 +138,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 		RoleRef: authzcore.RoleRef{Name: "project-specific"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
-			Project:      "p2",
+			Project:   "p2",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -262,8 +262,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Project:   "p1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -276,8 +276,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Project:   "p1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -290,7 +290,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"other-group", "test-group", "another-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -303,7 +303,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
+				Project:   "p1",
 			},
 			action: "project:delete",
 			want:   false,
@@ -316,7 +316,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"group1", "group2", "group3"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   false,
@@ -327,8 +327,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"test-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme-v2",
-				Project:      "p2",
-				Component:    "c1",
+				Project:   "p2",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   false,
@@ -341,8 +341,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"service-account-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Project:   "p1",
+				Component: "c1",
 			},
 			action: "component:deploy",
 			want:   true,
@@ -355,7 +355,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"user-123"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -368,7 +368,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"user-456"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   false,
@@ -381,7 +381,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"global-admin-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "any-org",
-				Project:      "any-project",
+				Project:   "any-project",
 			},
 			action: "project:delete",
 			want:   true,
@@ -394,8 +394,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"component-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
-				Component:    "c1",
+				Project:   "p1",
+				Component: "c1",
 			},
 			action: "component:deploy",
 			want:   true,
@@ -408,8 +408,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"component-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
-				Component:    "c2",
+				Project:   "p1",
+				Component: "c2",
 			},
 			action: "component:deploy",
 			want:   false,
@@ -422,8 +422,8 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"project-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p2",
-				Component:    "c1",
+				Project:   "p2",
+				Component: "c1",
 			},
 			action: "component:create",
 			want:   true,
@@ -436,7 +436,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -449,7 +449,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Component:    "c1",
+				Component: "c1",
 			},
 			action: "component:create",
 			want:   true,
@@ -462,7 +462,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"multi-role-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p1",
+				Project:   "p1",
 			},
 			action: "project:create",
 			want:   true,
@@ -487,7 +487,7 @@ func TestCasbinEnforcer_Evaluate(t *testing.T) {
 			entitlementValues: []string{"project-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "p22",
+				Project:   "p22",
 			},
 			action: "project:view",
 			want:   false,
@@ -584,7 +584,7 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 		RoleRef: authzcore.RoleRef{Name: "developer"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
-			Project:      "secret",
+			Project:   "secret",
 		},
 		Effect: authzcore.PolicyEffectDeny,
 	}
@@ -605,8 +605,8 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "public",
-				Component:    "c1",
+				Project:   "public",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   true,
@@ -617,8 +617,8 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "secret",
-				Component:    "c1",
+				Project:   "secret",
+				Component: "c1",
 			},
 			action: "component:view",
 			want:   false,
@@ -629,8 +629,8 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "secret",
-				Component:    "c1",
+				Project:   "secret",
+				Component: "c1",
 			},
 			action: "component:deploy",
 			want:   false,
@@ -641,8 +641,8 @@ func TestCasbinEnforcer_Evaluate_DenyOverridesAllow(t *testing.T) {
 			entitlementValues: []string{"user-group"},
 			resource: authzcore.ResourceHierarchy{
 				Namespace: "acme",
-				Project:      "public",
-				Component:    "c1",
+				Project:   "public",
+				Component: "c1",
 			},
 			action: "component:create",
 			want:   true,
@@ -718,7 +718,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 		RoleRef: authzcore.RoleRef{Name: "writer"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
-			Project:      "p1",
+			Project:   "p1",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -742,7 +742,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
 						Namespace: "acme",
-						Project:      "p1",
+						Project:   "p1",
 					},
 				},
 				Action: "component:view",
@@ -757,7 +757,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
 						Namespace: "acme",
-						Project:      "p1",
+						Project:   "p1",
 					},
 				},
 				Action: "component:create",
@@ -772,7 +772,7 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 					Type: "component",
 					Hierarchy: authzcore.ResourceHierarchy{
 						Namespace: "acme",
-						Project:      "p2",
+						Project:   "p2",
 					},
 				},
 				Action: "component:create",
@@ -801,333 +801,6 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 			t.Errorf("BatchEvaluate() decision[%d] = %v, want %v (reason: %s)",
 				i, response.Decisions[i].Decision, expected, response.Decisions[i].Context.Reason)
 		}
-	}
-}
-
-func TestCasbinEnforcer_AddRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	role := &authzcore.Role{
-		Name:    testRoleName,
-		Actions: []string{"component:view", "component:create"},
-	}
-	err := enforcer.AddRole(ctx, role)
-	if err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
-
-	retrievedRole, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: testRoleName})
-	if err != nil {
-		t.Fatalf("GetRole() error = %v", err)
-	}
-
-	if retrievedRole.Name != role.Name {
-		t.Errorf("GetRole() name = %s, want %s", retrievedRole.Name, role.Name)
-	}
-
-	if len(retrievedRole.Actions) != len(role.Actions) {
-		t.Errorf("GetRole() actions count = %d, want %d", len(retrievedRole.Actions), len(role.Actions))
-	}
-}
-
-func TestCasbinEnforcer_AddRole_Duplicate(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	role := &authzcore.Role{
-		Name:    "duplicate-role",
-		Actions: []string{"component:view"},
-	}
-
-	// Add role first time
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() first call error = %v", err)
-	}
-
-	// Add role second time - should fail
-	err := enforcer.AddRole(ctx, role)
-	if !errors.Is(err, authzcore.ErrRoleAlreadyExists) {
-		t.Errorf("AddRole() second call error = %v, want ErrRoleAlreadyExists", err)
-	}
-}
-
-func TestCasbinEnforcer_RemoveRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	t.Run("success - remove role with no mappings", func(t *testing.T) {
-		role := &authzcore.Role{
-			Name:    "removable-role",
-			Actions: []string{"component:view"},
-		}
-
-		// Add role
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Remove role
-		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "removable-role"})
-		if err != nil {
-			t.Fatalf("RemoveRole() error = %v", err)
-		}
-
-		// Verify role was removed
-		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "removable-role"})
-		if err == nil {
-			t.Error("GetRole() after remove should return error")
-		}
-	})
-
-	t.Run("non-existent role", func(t *testing.T) {
-		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent-role"})
-		if !errors.Is(err, authzcore.ErrRoleNotFound) {
-			t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
-		}
-	})
-
-	t.Run("role in use", func(t *testing.T) {
-		// Create a role
-		role := &authzcore.Role{
-			Name:    "in-use-role",
-			Actions: []string{"component:view", "component:create"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Create a role-entitlement mapping that uses this role
-		mapping := &authzcore.RoleEntitlementMapping{
-			Entitlement: authzcore.Entitlement{
-				Claim: "group",
-				Value: "test-group",
-			},
-			RoleRef: authzcore.RoleRef{Name: "in-use-role"},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: "acme",
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Attempt to remove the role - should fail because it's in use
-		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role"})
-		if !errors.Is(err, authzcore.ErrRoleInUse) {
-			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
-		}
-	})
-}
-
-func TestCasbinEnforcer_GetRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	// Create a test role
-	testRole := &authzcore.Role{
-		Name:    "test-admin",
-		Actions: []string{"*", "organization:view", "component:view"},
-	}
-	if err := enforcer.AddRole(ctx, testRole); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
-
-	// Test getting the created role
-	role, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "test-admin"})
-	if err != nil {
-		t.Fatalf("GetRole() error = %v", err)
-	}
-
-	if role.Name != "test-admin" {
-		t.Errorf("GetRole() name = %s, want test-admin", role.Name)
-	}
-
-	// Verify it has expected actions
-	if len(role.Actions) != 3 {
-		t.Errorf("GetRole() actions count = %d, want 3", len(role.Actions))
-	}
-
-	hasWildcard := false
-	for _, action := range role.Actions {
-		if action == "*" {
-			hasWildcard = true
-			break
-		}
-	}
-	if !hasWildcard {
-		t.Error("GetRole() test-admin should have wildcard action")
-	}
-}
-
-func TestCasbinEnforcer_ListRoles(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	// Create test roles
-	role1 := &authzcore.Role{
-		Name:    "admin-role",
-		Actions: []string{"*"},
-	}
-	role2 := &authzcore.Role{
-		Name:    "viewer-role",
-		Actions: []string{"component:view", "project:view"},
-	}
-	role3 := &authzcore.Role{
-		Name:    "editor-role",
-		Actions: []string{"component:edit", "project:edit"},
-	}
-
-	if err := enforcer.AddRole(ctx, role1); err != nil {
-		t.Fatalf("AddRole(role1) error = %v", err)
-	}
-	if err := enforcer.AddRole(ctx, role2); err != nil {
-		t.Fatalf("AddRole(role2) error = %v", err)
-	}
-	if err := enforcer.AddRole(ctx, role3); err != nil {
-		t.Fatalf("AddRole(role3) error = %v", err)
-	}
-
-	// List roles
-	roles, err := enforcer.ListRoles(ctx, &authzcore.RoleFilter{IncludeAll: true})
-	if err != nil {
-		t.Fatalf("ListRoles() error = %v", err)
-	}
-
-	if len(roles) < 3 {
-		t.Errorf("ListRoles() returned %d roles, want 4", len(roles))
-	}
-}
-
-// ============================================================================
-// PAP Tests - Policy Mapping Management
-// ============================================================================
-
-func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	role := &authzcore.Role{
-		Name:    testRoleName,
-		Actions: []string{"component:view"},
-	}
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
-
-	mapping := &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: "groups",
-			Value: "test-group",
-		},
-		RoleRef: authzcore.RoleRef{Name: testRoleName},
-		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "acme",
-		},
-		Effect: authzcore.PolicyEffectAllow,
-	}
-
-	err := enforcer.AddRoleEntitlementMapping(ctx, mapping)
-	if err != nil {
-		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-	}
-
-	mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-	}
-
-	found := false
-	for _, m := range mappings {
-		if m.Entitlement.Claim == "groups" && m.Entitlement.Value == "test-group" && m.RoleRef.Name == "test-role" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("AddRoleEntitlementMapping() mapping not found in list")
-	}
-}
-
-func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	// Add role and mapping
-	role := &authzcore.Role{
-		Name:    testRoleName,
-		Actions: []string{"component:view"},
-	}
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
-
-	mapping := &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: testEntitlementType,
-			Value: testEntitlementValue,
-		},
-		RoleRef: authzcore.RoleRef{Name: testRoleName},
-		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "acme",
-		},
-		Effect: authzcore.PolicyEffectAllow,
-	}
-
-	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-	}
-
-	// Get the mapping ID by listing mappings
-	mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-	}
-
-	var mappingID uint
-	found := false
-	for _, m := range mappings {
-		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
-			mappingID = m.ID
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("AddRoleEntitlementMapping() mapping not found after creation")
-	}
-
-	// Remove mapping by ID
-	err = enforcer.RemoveRoleEntitlementMapping(ctx, mappingID)
-	if err != nil {
-		t.Fatalf("RemoveRoleEntitlementMapping() error = %v", err)
-	}
-
-	// Verify mapping was removed
-	mappings, err = enforcer.ListRoleEntitlementMappings(ctx, nil)
-	if err != nil {
-		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-	}
-
-	for _, m := range mappings {
-		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
-			t.Error("RemoveRoleEntitlementMapping() mapping still exists after removal")
-		}
-	}
-}
-
-func TestCasbinEnforcer_ListActions(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	actions, err := enforcer.ListActions(ctx)
-	if err != nil {
-		t.Fatalf("ListActions() error = %v", err)
-	}
-
-	if len(actions) == 0 {
-		t.Error("ListActions() returned empty list")
 	}
 }
 
@@ -1163,7 +836,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		RoleRef: authzcore.RoleRef{Name: "viewer"},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
-			Project:      "p1",
+			Project:   "p1",
 		},
 		Effect: authzcore.PolicyEffectDeny,
 	}
@@ -1235,230 +908,6 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			}
 			if len(policies) != tt.wantPolicyCount {
 				t.Errorf("filterPoliciesBySubjectAndScope() returned %d policies, want %d", len(policies), tt.wantPolicyCount)
-			}
-		})
-	}
-}
-
-func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	viewerRole := &authzcore.Role{
-		Name:    "viewer",
-		Actions: []string{"component:view", "project:view"},
-	}
-	editorRole := &authzcore.Role{
-		Name:    "editor",
-		Actions: []string{"component:*", "project:create"},
-	}
-	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
-		t.Fatalf("AddRole(viewer) error = %v", err)
-	}
-	if err := enforcer.AddRole(ctx, editorRole); err != nil {
-		t.Fatalf("AddRole(editor) error = %v", err)
-	}
-
-	// Setup: Add role entitlement mappings
-	viewerMapping := &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: "groups",
-			Value: "dev-group",
-		},
-		RoleRef: authzcore.RoleRef{Name: "editor"},
-		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "acme",
-		},
-		Effect: authzcore.PolicyEffectAllow,
-	}
-	editorMapping := &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: "groups",
-			Value: "dev-group",
-		},
-		RoleRef: authzcore.RoleRef{Name: "viewer"},
-		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "acme",
-			Project:      "p1",
-		},
-		Effect: authzcore.PolicyEffectAllow,
-	}
-	denyMapping := &authzcore.RoleEntitlementMapping{
-		Entitlement: authzcore.Entitlement{
-			Claim: "groups",
-			Value: "dev-group",
-		},
-		RoleRef: authzcore.RoleRef{Name: "editor"},
-		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "acme",
-			Project:      "secret",
-		},
-		Effect: authzcore.PolicyEffectDeny,
-	}
-
-	if err := enforcer.AddRoleEntitlementMapping(ctx, viewerMapping); err != nil {
-		t.Fatalf("AddRoleEntitlementMapping(viewer) error = %v", err)
-	}
-	if err := enforcer.AddRoleEntitlementMapping(ctx, editorMapping); err != nil {
-		t.Fatalf("AddRoleEntitlementMapping(editor) error = %v", err)
-	}
-	if err := enforcer.AddRoleEntitlementMapping(ctx, denyMapping); err != nil {
-		t.Fatalf("AddRoleEntitlementMapping(deny) error = %v", err)
-	}
-	type expectedCapability struct {
-		action       string
-		allowedCount int
-		deniedCount  int
-	}
-
-	tests := []struct {
-		name                 string
-		request              *authzcore.ProfileRequest
-		wantErr              bool
-		wantEmptyCapability  bool
-		expectedUser         authzcore.SubjectContext
-		expectedCapabilities []expectedCapability
-	}{
-		{
-			name: "get profile with org scope",
-			request: &authzcore.ProfileRequest{
-				SubjectContext: &authzcore.SubjectContext{
-					Type:              user,
-					EntitlementClaim:  "groups",
-					EntitlementValues: []string{"dev-group"},
-				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-				},
-			},
-			wantErr: false,
-			expectedUser: authzcore.SubjectContext{
-				Type:              user,
-				EntitlementClaim:  "groups",
-				EntitlementValues: []string{"dev-group"},
-			},
-			expectedCapabilities: []expectedCapability{
-				{action: "component:view", allowedCount: 2, deniedCount: 1},
-				{action: "project:view", allowedCount: 1, deniedCount: 0},
-				{action: "component:create", allowedCount: 1, deniedCount: 1},
-				{action: "component:delete", allowedCount: 1, deniedCount: 1},
-				{action: "component:update", allowedCount: 1, deniedCount: 1},
-				{action: "component:deploy", allowedCount: 1, deniedCount: 1},
-				{action: "project:create", allowedCount: 1, deniedCount: 1},
-			},
-		},
-		{
-			name: "get profile for scope within an organization",
-			request: &authzcore.ProfileRequest{
-				SubjectContext: &authzcore.SubjectContext{
-					Type:              user,
-					EntitlementClaim:  "groups",
-					EntitlementValues: []string{"dev-group"},
-				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-					Project:      "p1",
-				},
-			},
-			wantErr: false,
-			expectedUser: authzcore.SubjectContext{
-				Type:              user,
-				EntitlementClaim:  "groups",
-				EntitlementValues: []string{"dev-group"},
-			},
-			expectedCapabilities: []expectedCapability{
-				{action: "component:view", allowedCount: 2, deniedCount: 0},
-				{action: "project:view", allowedCount: 1, deniedCount: 0},
-				{action: "component:create", allowedCount: 1, deniedCount: 0},
-				{action: "component:update", allowedCount: 1, deniedCount: 0},
-				{action: "component:deploy", allowedCount: 1, deniedCount: 0},
-				{action: "component:delete", allowedCount: 1, deniedCount: 0},
-				{action: "project:create", allowedCount: 1, deniedCount: 0},
-			},
-		},
-		{
-			name: "get profile for user with no permissions",
-			request: &authzcore.ProfileRequest{
-				SubjectContext: &authzcore.SubjectContext{
-					Type:              user,
-					EntitlementClaim:  "groups",
-					EntitlementValues: []string{"no-permissions-group"},
-				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-				},
-			},
-			wantErr:             false,
-			wantEmptyCapability: true,
-			expectedUser: authzcore.SubjectContext{
-				Type:              user,
-				EntitlementClaim:  "groups",
-				EntitlementValues: []string{"no-permissions-group"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			resp, err := enforcer.GetSubjectProfile(ctx, tt.request)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetSubjectProfile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if resp == nil {
-				t.Fatal("GetSubjectProfile() returned nil response")
-			}
-			if resp.GeneratedAt.IsZero() {
-				t.Error("expected GeneratedAt to be set")
-			}
-
-			// Check the user field
-			if resp.User.Type != tt.expectedUser.Type {
-				t.Errorf("expected user type %q, got %q", tt.expectedUser.Type, resp.User.Type)
-			}
-			if resp.User.EntitlementClaim != tt.expectedUser.EntitlementClaim {
-				t.Errorf("expected user claim %q, got %q", tt.expectedUser.EntitlementClaim, resp.User.EntitlementClaim)
-			}
-			if len(resp.User.EntitlementValues) != len(tt.expectedUser.EntitlementValues) {
-				t.Errorf("expected %d entitlement values, got %d", len(tt.expectedUser.EntitlementValues), len(resp.User.EntitlementValues))
-			}
-			for i, expectedVal := range tt.expectedUser.EntitlementValues {
-				if resp.User.EntitlementValues[i] != expectedVal {
-					t.Errorf("expected entitlement value[%d] %q, got %q", i, expectedVal, resp.User.EntitlementValues[i])
-				}
-			}
-
-			// Check if we expect empty capabilities
-			if tt.wantEmptyCapability {
-				if len(resp.Capabilities) != 0 {
-					t.Errorf("expected empty capabilities, got %d", len(resp.Capabilities))
-				}
-				return
-			}
-
-			if len(resp.Capabilities) == 0 {
-				t.Error("expected capabilities to be non-empty")
-			}
-
-			if len(tt.expectedCapabilities) != len(resp.Capabilities) {
-				t.Errorf("expected %d capabilities, got %d", len(tt.expectedCapabilities), len(resp.Capabilities))
-			}
-
-			for _, exp := range tt.expectedCapabilities {
-				cap, ok := resp.Capabilities[exp.action]
-				if !ok {
-					t.Errorf("expected action %q to be present in capabilities", exp.action)
-					continue
-				}
-
-				if len(cap.Allowed) != exp.allowedCount {
-					t.Errorf("action %q: expected %d allowed resources, got %d", exp.action, exp.allowedCount, len(cap.Allowed))
-				}
-
-				if len(cap.Denied) != exp.deniedCount {
-					t.Errorf("action %q: expected %d denied resources, got %d", exp.action, exp.deniedCount, len(cap.Denied))
-				}
 			}
 		})
 	}
@@ -1620,299 +1069,10 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 	}
 }
 
-// TestCasbinEnforcer_ForceRemoveRole tests force removal of roles
-func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
+// ============================================================================
+// PAP Tests - Policy Mapping Management
+// ============================================================================
 
-	t.Run("force remove role with associated mappings", func(t *testing.T) {
-		// Setup: Create role
-		role := &authzcore.Role{
-			Name:    "force-removable",
-			Actions: []string{"component:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Add a mapping for this role
-		mapping := &authzcore.RoleEntitlementMapping{
-			Entitlement: authzcore.Entitlement{
-				Claim: "group",
-				Value: "test-group",
-			},
-			RoleRef: authzcore.RoleRef{Name: "force-removable"},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: "acme",
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Force remove the role
-		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
-		if err != nil {
-			t.Fatalf("ForceRemoveRole() error = %v", err)
-		}
-
-		// Verify role is gone
-		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
-		if err == nil {
-			t.Error("ForceRemoveRole() role still exists after removal")
-		}
-
-		// Verify mappings are gone
-		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, &authzcore.RoleEntitlementMappingFilter{
-			RoleRef: &authzcore.RoleRef{Name: "force-removable"},
-		})
-		if err != nil {
-			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-		}
-		if len(mappings) != 0 {
-			t.Errorf("ForceRemoveRole() expected 0 mappings, got %d", len(mappings))
-		}
-	})
-
-	t.Run("force remove non-existent role", func(t *testing.T) {
-		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent"})
-		if !errors.Is(err, authzcore.ErrRoleNotFound) {
-			t.Errorf("ForceRemoveRole() error = %v, want ErrRoleNotFound", err)
-		}
-	})
-
-	t.Run("force remove role without mappings", func(t *testing.T) {
-		// Setup: Create role without mappings
-		role := &authzcore.Role{
-			Name:    "no-mappings-role",
-			Actions: []string{"component:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Force remove should succeed
-		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
-		if err != nil {
-			t.Fatalf("ForceRemoveRole() error = %v", err)
-		}
-
-		// Verify role is gone
-		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
-		if err == nil {
-			t.Error("ForceRemoveRole() role still exists after removal")
-		}
-	})
-}
-
-// TestCasbinEnforcer_UpdateRole tests updating existing roles
-func TestCasbinEnforcer_UpdateRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	t.Run("update role with both added and removed actions", func(t *testing.T) {
-		// Setup: Create role
-		role := &authzcore.Role{
-			Name:    "mixed-update-role",
-			Actions: []string{"component:view", "component:create", "project:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Update: remove component:create, keep component:view, add component:delete
-		updatedRole := &authzcore.Role{
-			Name:    "mixed-update-role",
-			Actions: []string{"component:view", "component:delete"},
-		}
-		err := enforcer.UpdateRole(ctx, updatedRole)
-		if err != nil {
-			t.Fatalf("UpdateRole() error = %v", err)
-		}
-
-		// Verify updated actions
-		retrieved, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "mixed-update-role"})
-		if err != nil {
-			t.Fatalf("GetRole() error = %v", err)
-		}
-
-		if len(retrieved.Actions) != 2 {
-			t.Errorf("UpdateRole() got %d actions, want 2", len(retrieved.Actions))
-		}
-
-		expectedActions := map[string]bool{
-			"component:view":   true,
-			"component:delete": true,
-		}
-		for _, action := range retrieved.Actions {
-			if !expectedActions[action] {
-				t.Errorf("UpdateRole() unexpected action: %s", action)
-			}
-		}
-	})
-
-	t.Run("update role with empty actions should fail", func(t *testing.T) {
-		// Setup: Create role
-		role := &authzcore.Role{
-			Name:    "removable-actions-role",
-			Actions: []string{"component:view", "component:create"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Attempt to update with empty actions - should fail
-		updatedRole := &authzcore.Role{
-			Name:    "removable-actions-role",
-			Actions: []string{},
-		}
-		err := enforcer.UpdateRole(ctx, updatedRole)
-		if err == nil {
-			t.Error("UpdateRole() with empty actions should return error")
-		}
-
-		// Verify role still has original actions
-		retrieved, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "removable-actions-role"})
-		if err != nil {
-			t.Fatalf("GetRole() error = %v", err)
-		}
-
-		if len(retrieved.Actions) != 2 {
-			t.Errorf("UpdateRole() failed but role actions changed, got %d actions, want 2", len(retrieved.Actions))
-		}
-	})
-
-	t.Run("update non-existent role", func(t *testing.T) {
-		nonExistentRole := &authzcore.Role{
-			Name:    "does-not-exist",
-			Actions: []string{"component:view"},
-		}
-		err := enforcer.UpdateRole(ctx, nonExistentRole)
-		if !errors.Is(err, authzcore.ErrRoleNotFound) {
-			t.Errorf("UpdateRole() error = %v, want ErrRoleNotFound", err)
-		}
-	})
-}
-
-// TestCasbinEnforcer_UpdateRoleEntitlementMapping tests updating mappings
-func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	// Setup: Create role
-	role := &authzcore.Role{
-		Name:    "update-test-role",
-		Actions: []string{"component:view"},
-	}
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
-	}
-
-	t.Run("update existing mapping", func(t *testing.T) {
-		mapping := &authzcore.RoleEntitlementMapping{
-			Entitlement: authzcore.Entitlement{
-				Claim: "group",
-				Value: "dev-group",
-			},
-			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: "acme",
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Get mapping ID
-		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
-		if err != nil {
-			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-		}
-
-		var mappingID uint
-		for _, m := range mappings {
-			if m.RoleRef.Name == "update-test-role" && m.Entitlement.Value == "dev-group" {
-				mappingID = m.ID
-				break
-			}
-		}
-
-		if mappingID == 0 {
-			t.Fatal("Could not find created mapping")
-		}
-
-		// Update the mapping
-		updatedMapping := &authzcore.RoleEntitlementMapping{
-			ID: mappingID,
-			Entitlement: authzcore.Entitlement{
-				Claim: "group",
-				Value: "prod-group",
-			},
-			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: "acme",
-				Project:      "p1",
-			},
-			Effect: authzcore.PolicyEffectDeny,
-		}
-
-		err = enforcer.UpdateRoleEntitlementMapping(ctx, updatedMapping)
-		if err != nil {
-			t.Fatalf("UpdateRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Verify update
-		mappings, err = enforcer.ListRoleEntitlementMappings(ctx, nil)
-		if err != nil {
-			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
-		}
-
-		var found bool
-		for _, m := range mappings {
-			if m.ID == mappingID {
-				found = true
-				if m.Entitlement.Value != "prod-group" {
-					t.Errorf("UpdateRoleEntitlementMapping() entitlement value = %s, want prod-group", m.Entitlement.Value)
-				}
-				if m.Hierarchy.Project != "p1" {
-					t.Errorf("UpdateRoleEntitlementMapping() project = %s, want p1", m.Hierarchy.Project)
-				}
-				if m.Effect != authzcore.PolicyEffectDeny {
-					t.Errorf("UpdateRoleEntitlementMapping() effect = %s, want deny", m.Effect)
-				}
-				break
-			}
-		}
-
-		if !found {
-			t.Error("UpdateRoleEntitlementMapping() updated mapping not found")
-		}
-	})
-
-	t.Run("update non-existent mapping", func(t *testing.T) {
-		mapping := &authzcore.RoleEntitlementMapping{
-			ID: 999999, // Non-existent ID
-			Entitlement: authzcore.Entitlement{
-				Claim: "group",
-				Value: "test",
-			},
-			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: "acme",
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-
-		err := enforcer.UpdateRoleEntitlementMapping(ctx, mapping)
-		if !errors.Is(err, authzcore.ErrRolePolicyMappingNotFound) {
-			t.Errorf("UpdateRoleEntitlementMapping() error = %v, want ErrRolePolicyMappingNotFound", err)
-		}
-	})
-}
-
-// TestComputeActionsDiff tests the action diff computation
 func TestComputeActionsDiff(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -1995,7 +1155,1207 @@ func TestComputeActionsDiff(t *testing.T) {
 	}
 }
 
-// Helper function to create string pointers
-func strPtr(s string) *string {
-	return &s
+// TestCasbinEnforcer_ListRoles_NamespacedRoles tests listing namespace-scoped roles
+
+func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	viewerRole := &authzcore.Role{
+		Name:    "viewer",
+		Actions: []string{"component:view", "project:view"},
+	}
+	editorRole := &authzcore.Role{
+		Name:    "editor",
+		Actions: []string{"component:*", "project:create"},
+	}
+	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
+		t.Fatalf("AddRole(viewer) error = %v", err)
+	}
+	if err := enforcer.AddRole(ctx, editorRole); err != nil {
+		t.Fatalf("AddRole(editor) error = %v", err)
+	}
+
+	// Setup: Add role entitlement mappings
+	viewerMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "dev-group",
+		},
+		RoleRef: authzcore.RoleRef{Name: "editor"},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	editorMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "dev-group",
+		},
+		RoleRef: authzcore.RoleRef{Name: "viewer"},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+			Project:   "p1",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	denyMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "dev-group",
+		},
+		RoleRef: authzcore.RoleRef{Name: "editor"},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+			Project:   "secret",
+		},
+		Effect: authzcore.PolicyEffectDeny,
+	}
+
+	if err := enforcer.AddRoleEntitlementMapping(ctx, viewerMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(viewer) error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, editorMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(editor) error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, denyMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(deny) error = %v", err)
+	}
+	type expectedCapability struct {
+		action       string
+		allowedCount int
+		deniedCount  int
+	}
+
+	tests := []struct {
+		name                 string
+		request              *authzcore.ProfileRequest
+		wantErr              bool
+		wantEmptyCapability  bool
+		expectedUser         authzcore.SubjectContext
+		expectedCapabilities []expectedCapability
+	}{
+		{
+			name: "get profile with org scope",
+			request: &authzcore.ProfileRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              user,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Namespace: "acme",
+				},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				{action: "component:view", allowedCount: 2, deniedCount: 1},
+				{action: "project:view", allowedCount: 1, deniedCount: 0},
+				{action: "component:create", allowedCount: 1, deniedCount: 1},
+				{action: "component:update", allowedCount: 1, deniedCount: 1},
+				{action: "component:deploy", allowedCount: 1, deniedCount: 1},
+				{action: "project:create", allowedCount: 1, deniedCount: 1},
+			},
+		},
+		{
+			name: "get profile for scope within an organization",
+			request: &authzcore.ProfileRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              user,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Namespace: "acme",
+					Project:   "p1",
+				},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				{action: "component:view", allowedCount: 2, deniedCount: 0},
+				{action: "project:view", allowedCount: 1, deniedCount: 0},
+				{action: "component:create", allowedCount: 1, deniedCount: 0},
+				{action: "component:update", allowedCount: 1, deniedCount: 0},
+				{action: "component:deploy", allowedCount: 1, deniedCount: 0},
+				{action: "project:create", allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "get profile for user with no permissions",
+			request: &authzcore.ProfileRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              user,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"no-permissions-group"},
+				},
+				Scope: authzcore.ResourceHierarchy{
+					Namespace: "acme",
+				},
+			},
+			wantErr:             false,
+			wantEmptyCapability: true,
+			expectedUser: authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: []string{"no-permissions-group"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := enforcer.GetSubjectProfile(ctx, tt.request)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetSubjectProfile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if resp == nil {
+				t.Fatal("GetSubjectProfile() returned nil response")
+			}
+			if resp.GeneratedAt.IsZero() {
+				t.Error("expected GeneratedAt to be set")
+			}
+
+			// Check the user field
+			if resp.User.Type != tt.expectedUser.Type {
+				t.Errorf("expected user type %q, got %q", tt.expectedUser.Type, resp.User.Type)
+			}
+			if resp.User.EntitlementClaim != tt.expectedUser.EntitlementClaim {
+				t.Errorf("expected user claim %q, got %q", tt.expectedUser.EntitlementClaim, resp.User.EntitlementClaim)
+			}
+			if len(resp.User.EntitlementValues) != len(tt.expectedUser.EntitlementValues) {
+				t.Errorf("expected %d entitlement values, got %d", len(tt.expectedUser.EntitlementValues), len(resp.User.EntitlementValues))
+			}
+			for i, expectedVal := range tt.expectedUser.EntitlementValues {
+				if resp.User.EntitlementValues[i] != expectedVal {
+					t.Errorf("expected entitlement value[%d] %q, got %q", i, expectedVal, resp.User.EntitlementValues[i])
+				}
+			}
+
+			// Check if we expect empty capabilities
+			if tt.wantEmptyCapability {
+				if len(resp.Capabilities) != 0 {
+					t.Errorf("expected empty capabilities, got %d", len(resp.Capabilities))
+				}
+				return
+			}
+
+			if len(resp.Capabilities) == 0 {
+				t.Error("expected capabilities to be non-empty")
+			}
+
+			if len(tt.expectedCapabilities) != len(resp.Capabilities) {
+				t.Errorf("expected %d capabilities, got %d", len(tt.expectedCapabilities), len(resp.Capabilities))
+			}
+
+			for _, exp := range tt.expectedCapabilities {
+				cap, ok := resp.Capabilities[exp.action]
+				if !ok {
+					t.Errorf("expected action %q to be present in capabilities", exp.action)
+					continue
+				}
+
+				if len(cap.Allowed) != exp.allowedCount {
+					t.Errorf("action %q: expected %d allowed resources, got %d", exp.action, exp.allowedCount, len(cap.Allowed))
+				}
+
+				if len(cap.Denied) != exp.deniedCount {
+					t.Errorf("action %q: expected %d denied resources, got %d", exp.action, exp.deniedCount, len(cap.Denied))
+				}
+			}
+		})
+	}
+}
+
+// TestCasbinEnforcer_AddRole_ClusterRole tests adding cluster-scoped roles
+func TestCasbinEnforcer_AddRole_ClusterRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("add cluster-scoped role", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    testRoleName,
+			Actions: []string{"component:view", "component:create"},
+		}
+		err := enforcer.AddRole(ctx, role)
+		if err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		// Verify role exists in Casbin g policies (cluster roles)
+		gPolicies, err := enforcer.enforcer.GetNamedGroupingPolicy("g")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		found := false
+		for _, policy := range gPolicies {
+			if len(policy) >= 2 && policy[0] == testRoleName {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("role %s not found in g policies", testRoleName)
+		}
+	})
+
+	t.Run("add duplicate role", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "duplicate-role",
+			Actions: []string{"component:view"},
+		}
+
+		// Add role first time
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() first call error = %v", err)
+		}
+
+		// Add role second time - should fail
+		err := enforcer.AddRole(ctx, role)
+		if !errors.Is(err, authzcore.ErrRoleAlreadyExists) {
+			t.Errorf("AddRole() second call error = %v, want ErrRoleAlreadyExists", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_AddRole_NamespacedRole tests adding namespace-scoped roles
+
+func TestCasbinEnforcer_AddRole_NamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("add namespace-scoped role", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:      "ns-developer",
+			Namespace: "acme",
+			Actions:   []string{"component:create", "component:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("failed to add namespace role: %v", err)
+		}
+
+		// Verify role exists in Casbin g2 policies (namespace roles)
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		found := false
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "ns-developer" && policy[1] == "acme" {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Error("namespace role 'ns-developer' in namespace 'acme' not found in g2 policies")
+		}
+	})
+
+	t.Run("cluster and namespace roles with same name", func(t *testing.T) {
+		// Create cluster role
+		clusterRole := &authzcore.Role{
+			Name:    "admin",
+			Actions: []string{"*"},
+		}
+		if err := enforcer.AddRole(ctx, clusterRole); err != nil {
+			t.Fatalf("failed to add cluster role: %v", err)
+		}
+
+		// Create namespace role with same name
+		nsRole := &authzcore.Role{
+			Name:      "admin",
+			Namespace: "acme",
+			Actions:   []string{"component:view"},
+		}
+		if err := enforcer.AddRole(ctx, nsRole); err != nil {
+			t.Fatalf("failed to add namespace role: %v", err)
+		}
+
+		// Verify cluster role exists in g policies
+		gPolicies, err := enforcer.enforcer.GetNamedGroupingPolicy("g")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy(g) error = %v", err)
+		}
+		foundCluster := false
+		for _, policy := range gPolicies {
+			if len(policy) >= 2 && policy[0] == "admin" {
+				foundCluster = true
+				break
+			}
+		}
+		if !foundCluster {
+			t.Error("cluster role 'admin' not found in g policies")
+		}
+
+		// Verify namespace role exists in g2 policies
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy(g2) error = %v", err)
+		}
+		foundNs := false
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "admin" && policy[1] == "acme" {
+				foundNs = true
+				break
+			}
+		}
+		if !foundNs {
+			t.Error("namespace role 'admin' in namespace 'acme' not found in g2 policies")
+		}
+	})
+
+	t.Run("multiple namespace roles with same name in different namespaces", func(t *testing.T) {
+		role1 := &authzcore.Role{
+			Name:      "engineer",
+			Namespace: "acme",
+			Actions:   []string{"component:create"},
+		}
+		if err := enforcer.AddRole(ctx, role1); err != nil {
+			t.Fatalf("failed to add first namespace role: %v", err)
+		}
+
+		role2 := &authzcore.Role{
+			Name:      "engineer",
+			Namespace: "widgets",
+			Actions:   []string{"component:update"},
+		}
+		if err := enforcer.AddRole(ctx, role2); err != nil {
+			t.Fatalf("failed to add second namespace role: %v", err)
+		}
+
+		// Verify both exist in g2 policies
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy(g2) error = %v", err)
+		}
+
+		foundAcme := false
+		foundWidgets := false
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "engineer" {
+				if policy[1] == "acme" {
+					foundAcme = true
+				}
+				if policy[1] == "widgets" {
+					foundWidgets = true
+				}
+			}
+		}
+
+		if !foundAcme {
+			t.Error("namespace role 'engineer' in namespace 'acme' not found in g2 policies")
+		}
+		if !foundWidgets {
+			t.Error("namespace role 'engineer' in namespace 'widgets' not found in g2 policies")
+		}
+	})
+}
+
+// TestCasbinEnforcer_GetRole tests retrieving cluster-scoped roles
+func TestCasbinEnforcer_GetRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Create a test role
+	testRole := &authzcore.Role{
+		Name:    "test-admin",
+		Actions: []string{"*", "organization:view", "component:view"},
+	}
+	if err := enforcer.AddRole(ctx, testRole); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	// Test getting the created role
+	role, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "test-admin"})
+	if err != nil {
+		t.Fatalf("GetRole() error = %v", err)
+	}
+
+	if role.Name != "test-admin" {
+		t.Errorf("GetRole() name = %s, want test-admin", role.Name)
+	}
+
+	// Verify it has expected actions
+	if len(role.Actions) != 3 {
+		t.Errorf("GetRole() actions count = %d, want 3", len(role.Actions))
+	}
+
+	hasWildcard := false
+	for _, action := range role.Actions {
+		if action == "*" {
+			hasWildcard = true
+			break
+		}
+	}
+	if !hasWildcard {
+		t.Error("GetRole() test-admin should have wildcard action")
+	}
+}
+
+// TestCasbinEnforcer_GetRole_NamespacedRole tests retrieving namespace-scoped roles
+
+func TestCasbinEnforcer_GetRole_NamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create namespace role
+	role := &authzcore.Role{
+		Name:      "ns-viewer",
+		Namespace: "acme",
+		Actions:   []string{"component:view", "project:view"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("failed to add namespace role: %v", err)
+	}
+
+	t.Run("get existing namespace role", func(t *testing.T) {
+		fetched, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "ns-viewer", Namespace: "acme"})
+		if err != nil {
+			t.Fatalf("failed to get namespace role: %v", err)
+		}
+		if fetched.Name != "ns-viewer" {
+			t.Errorf("expected name 'ns-viewer', got '%s'", fetched.Name)
+		}
+		if fetched.Namespace != "acme" {
+			t.Errorf("expected namespace 'acme', got '%s'", fetched.Namespace)
+		}
+		if len(fetched.Actions) != 2 {
+			t.Errorf("expected 2 actions, got %d", len(fetched.Actions))
+		}
+	})
+
+	t.Run("get non-existent namespace role", func(t *testing.T) {
+		_, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "non-existent", Namespace: "acme"})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("expected ErrRoleNotFound, got %v", err)
+		}
+	})
+
+	t.Run("get namespace role with wrong namespace", func(t *testing.T) {
+		_, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "ns-viewer", Namespace: "wrong-ns"})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("expected ErrRoleNotFound, got %v", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ListRoles_NamespacedRoles tests listing roles
+func TestCasbinEnforcer_ListRoles_NamespacedRoles(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	roles := []*authzcore.Role{
+		{Name: "cluster-admin", Actions: []string{"*"}},
+		{Name: "ns-dev-1", Namespace: "acme", Actions: []string{"component:create"}},
+		{Name: "ns-dev-2", Namespace: "acme", Actions: []string{"component:view"}},
+		{Name: "ns-viewer", Namespace: "widgets", Actions: []string{"component:view"}},
+	}
+	for _, role := range roles {
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("failed to add role %s: %v", role.Name, err)
+		}
+	}
+
+	t.Run("list roles in specific namespace", func(t *testing.T) {
+		filter := authzcore.RoleFilter{Namespace: "acme"}
+		fetched, err := enforcer.ListRoles(ctx, &filter)
+		if err != nil {
+			t.Fatalf("failed to list roles: %v", err)
+		}
+		if len(fetched) != 2 {
+			t.Errorf("expected 2 roles in 'acme' namespace, got %d", len(fetched))
+		}
+		for _, role := range fetched {
+			if role.Namespace != "acme" {
+				t.Errorf("expected namespace 'acme', got '%s'", role.Namespace)
+			}
+		}
+	})
+
+	t.Run("list all roles including cluster and namespace", func(t *testing.T) {
+		filter := authzcore.RoleFilter{IncludeAll: true}
+		fetched, err := enforcer.ListRoles(ctx, &filter)
+		if err != nil {
+			t.Fatalf("failed to list roles: %v", err)
+		}
+		if len(fetched) < 4 {
+			t.Errorf("expected at least 4 roles, got %d", len(fetched))
+		}
+	})
+
+	t.Run("list only cluster roles", func(t *testing.T) {
+		filter := authzcore.RoleFilter{}
+		fetched, err := enforcer.ListRoles(ctx, &filter)
+		if err != nil {
+			t.Fatalf("failed to list roles: %v", err)
+		}
+		if len(fetched) < 1 {
+			t.Errorf("expected at least 1 cluster role, got %d", len(fetched))
+		}
+		for _, role := range fetched {
+			if role.Namespace != "" {
+				t.Errorf("expected cluster role with empty namespace, got '%s'", role.Namespace)
+			}
+		}
+	})
+}
+
+// TestCasbinEnforcer_RemoveRole tests removing cluster-scoped roles
+func TestCasbinEnforcer_RemoveRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("success - remove role with no mappings", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "removable-role",
+			Actions: []string{"component:view"},
+		}
+
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "removable-role"})
+		if err != nil {
+			t.Fatalf("RemoveRole() error = %v", err)
+		}
+
+		gPolicies, err := enforcer.enforcer.GetNamedGroupingPolicy("g")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		for _, policy := range gPolicies {
+			if len(policy) >= 2 && policy[0] == "removable-role" {
+				t.Error("RemoveRole() role still exists in g policies")
+			}
+		}
+	})
+
+	t.Run("non-existent role", func(t *testing.T) {
+		err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent-role"})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("role in use", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "in-use-role",
+			Actions: []string{"component:view", "component:create"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		_, err := enforcer.enforcer.AddPolicy("group:test-group", "orgs/acme", "in-use-role", "*", "allow", "{}")
+		if err != nil {
+			t.Fatalf("AddPolicy() error = %v", err)
+		}
+
+		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role"})
+		if !errors.Is(err, authzcore.ErrRoleInUse) {
+			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_RemoveRole_NamespacedRole tests removing namespace-scoped roles
+func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("remove namespace role not in use", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:      "unused-role",
+			Namespace: "acme",
+			Actions:   []string{"component:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("failed to add namespace role: %v", err)
+		}
+
+		if err := enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "unused-role", Namespace: "acme"}); err != nil {
+			t.Fatalf("failed to remove namespace role: %v", err)
+		}
+
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "unused-role" && policy[1] == "acme" {
+				t.Error("RemoveRole() namespace role still exists in g2 policies")
+			}
+		}
+	})
+
+	t.Run("remove namespace role in use fails", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:      "in-use-role",
+			Namespace: "acme",
+			Actions:   []string{"component:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("failed to add namespace role: %v", err)
+		}
+
+		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "in-use-role", "acme", "allow", "{}")
+		if err != nil {
+			t.Fatalf("failed to add mapping: %v", err)
+		}
+
+		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role", Namespace: "acme"})
+		if !errors.Is(err, authzcore.ErrRoleInUse) {
+			t.Errorf("expected ErrRoleInUse, got %v", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ForceRemoveRole tests force removing cluster-scoped roles
+func TestCasbinEnforcer_ForceRemoveRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("force remove role with associated mappings", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "force-removable",
+			Actions: []string{"component:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		_, err := enforcer.enforcer.AddPolicy("group:test-group", "orgs/acme", "force-removable", "*", "allow", "{}")
+		if err != nil {
+			t.Fatalf("AddPolicy() error = %v", err)
+		}
+
+		err = enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
+		if err != nil {
+			t.Fatalf("ForceRemoveRole() error = %v", err)
+		}
+
+		gPolicies, err := enforcer.enforcer.GetNamedGroupingPolicy("g")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		for _, policy := range gPolicies {
+			if len(policy) >= 2 && policy[0] == "force-removable" {
+				t.Error("ForceRemoveRole() role still exists in g policies")
+			}
+		}
+
+		policies, err := enforcer.enforcer.GetPolicy()
+		if err != nil {
+			t.Fatalf("GetPolicy() error = %v", err)
+		}
+		mappingCount := 0
+		for _, policy := range policies {
+			if len(policy) >= 3 && policy[2] == "force-removable" {
+				mappingCount++
+			}
+		}
+		if mappingCount != 0 {
+			t.Errorf("ForceRemoveRole() expected 0 mappings, got %d", mappingCount)
+		}
+	})
+
+	t.Run("force remove non-existent role", func(t *testing.T) {
+		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent"})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("ForceRemoveRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("force remove role without mappings", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "no-mappings-role",
+			Actions: []string{"component:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
+		if err != nil {
+			t.Fatalf("ForceRemoveRole() error = %v", err)
+		}
+
+		_, err = enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
+		if err == nil {
+			t.Error("ForceRemoveRole() role still exists after removal")
+		}
+	})
+}
+
+// TestCasbinEnforcer_ForceRemoveRole_NamespacedRole tests force removing namespace-scoped roles
+func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	role := &authzcore.Role{
+		Name:      "ns-admin",
+		Namespace: "acme",
+		Actions:   []string{"*"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("failed to add namespace role: %v", err)
+	}
+
+	_, err := enforcer.enforcer.AddPolicy("groups:admins", "orgs/acme", "ns-admin", "acme", "allow", "{}")
+	if err != nil {
+		t.Fatalf("failed to add mapping: %v", err)
+	}
+
+	t.Run("force remove namespace role and mappings", func(t *testing.T) {
+		if err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "ns-admin", Namespace: "acme"}); err != nil {
+			t.Fatalf("failed to force remove namespace role: %v", err)
+		}
+
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "ns-admin" && policy[1] == "acme" {
+				t.Error("ForceRemoveRole() namespace role still exists in g2 policies")
+			}
+		}
+
+		policies, err := enforcer.enforcer.GetPolicy()
+		if err != nil {
+			t.Fatalf("GetPolicy() error = %v", err)
+		}
+		mappingCount := 0
+		for _, policy := range policies {
+			if len(policy) >= 4 && policy[2] == "ns-admin" && policy[3] == "acme" {
+				mappingCount++
+			}
+		}
+		if mappingCount != 0 {
+			t.Errorf("expected 0 mappings after force delete, got %d", mappingCount)
+		}
+	})
+}
+
+// TestCasbinEnforcer_UpdateRole tests updating cluster-scoped roles
+func TestCasbinEnforcer_UpdateRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("update role with both added and removed actions", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "mixed-update-role",
+			Actions: []string{"component:view", "component:create", "project:view"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		updatedRole := &authzcore.Role{
+			Name:    "mixed-update-role",
+			Actions: []string{"component:view", "component:delete"},
+		}
+		err := enforcer.UpdateRole(ctx, updatedRole)
+		if err != nil {
+			t.Fatalf("UpdateRole() error = %v", err)
+		}
+
+		gPolicies, err := enforcer.enforcer.GetNamedGroupingPolicy("g")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+
+		foundActions := make(map[string]bool)
+		for _, policy := range gPolicies {
+			if len(policy) >= 2 && policy[0] == "mixed-update-role" {
+				foundActions[policy[1]] = true
+			}
+		}
+
+		expectedActions := map[string]bool{
+			"component:view":   true,
+			"component:delete": true,
+		}
+
+		if len(foundActions) != 2 {
+			t.Errorf("UpdateRole() got %d actions, want 2", len(foundActions))
+		}
+
+		for action := range expectedActions {
+			if !foundActions[action] {
+				t.Errorf("UpdateRole() missing expected action: %s", action)
+			}
+		}
+
+		if foundActions["component:create"] {
+			t.Error("UpdateRole() component:create should have been removed")
+		}
+		if foundActions["project:view"] {
+			t.Error("UpdateRole() project:view should have been removed")
+		}
+	})
+
+	t.Run("update role with empty actions should fail", func(t *testing.T) {
+		role := &authzcore.Role{
+			Name:    "removable-actions-role",
+			Actions: []string{"component:view", "component:create"},
+		}
+		if err := enforcer.AddRole(ctx, role); err != nil {
+			t.Fatalf("AddRole() error = %v", err)
+		}
+
+		updatedRole := &authzcore.Role{
+			Name:    "removable-actions-role",
+			Actions: []string{},
+		}
+		err := enforcer.UpdateRole(ctx, updatedRole)
+		if err == nil {
+			t.Error("UpdateRole() with empty actions should return error")
+		}
+
+		retrieved, err := enforcer.GetRole(ctx, &authzcore.RoleRef{Name: "removable-actions-role"})
+		if err != nil {
+			t.Fatalf("GetRole() error = %v", err)
+		}
+
+		if len(retrieved.Actions) != 2 {
+			t.Errorf("UpdateRole() failed but role actions changed, got %d actions, want 2", len(retrieved.Actions))
+		}
+	})
+
+	t.Run("update non-existent role", func(t *testing.T) {
+		nonExistentRole := &authzcore.Role{
+			Name:    "does-not-exist",
+			Actions: []string{"component:view"},
+		}
+		err := enforcer.UpdateRole(ctx, nonExistentRole)
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("UpdateRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_UpdateRole_NamespacedRole tests updating namespace-scoped roles
+func TestCasbinEnforcer_UpdateRole_NamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create namespace role
+	role := &authzcore.Role{
+		Name:      "ns-engineer",
+		Namespace: "acme",
+		Actions:   []string{"component:create", "component:view"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("failed to add namespace role: %v", err)
+	}
+
+	t.Run("update namespace role actions", func(t *testing.T) {
+		updatedRole := &authzcore.Role{
+			Name:      "ns-engineer",
+			Namespace: "acme",
+			Actions:   []string{"component:create", "component:view", "component:update"},
+		}
+		if err := enforcer.UpdateRole(ctx, updatedRole); err != nil {
+			t.Fatalf("failed to update namespace role: %v", err)
+		}
+
+		// Verify update by checking g2 policies
+		g2Policies, err := enforcer.enforcer.GetNamedGroupingPolicy("g2")
+		if err != nil {
+			t.Fatalf("GetNamedGroupingPolicy() error = %v", err)
+		}
+
+		foundActions := make(map[string]bool)
+		for _, policy := range g2Policies {
+			if len(policy) >= 3 && policy[0] == "ns-engineer" && policy[1] == "acme" {
+				foundActions[policy[2]] = true
+			}
+		}
+
+		if len(foundActions) != 3 {
+			t.Errorf("UpdateRole() got %d actions, want 3", len(foundActions))
+		}
+
+		expectedActions := []string{"component:create", "component:view", "component:update"}
+		for _, action := range expectedActions {
+			if !foundActions[action] {
+				t.Errorf("UpdateRole() missing expected action: %s", action)
+			}
+		}
+	})
+
+	t.Run("update non-existent namespace role", func(t *testing.T) {
+		nonExistent := &authzcore.Role{
+			Name:      "non-existent",
+			Namespace: "acme",
+			Actions:   []string{"component:view"},
+		}
+		err := enforcer.UpdateRole(ctx, nonExistent)
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("expected ErrRoleNotFound, got %v", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_AddRoleEntitlementMapping tests adding role-entitlement mappings
+func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	role := &authzcore.Role{
+		Name:    testRoleName,
+		Actions: []string{"component:view"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	mapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "test-group",
+		},
+		RoleRef: authzcore.RoleRef{Name: testRoleName},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+
+	err := enforcer.AddRoleEntitlementMapping(ctx, mapping)
+	if err != nil {
+		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+
+	mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+	}
+
+	found := false
+	for _, m := range mappings {
+		if m.Entitlement.Claim == "groups" && m.Entitlement.Value == "test-group" && m.RoleRef.Name == "test-role" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("AddRoleEntitlementMapping() mapping not found in list")
+	}
+}
+
+// TestCasbinEnforcer_RemoveRoleEntitlementMapping tests removing role-entitlement mappings
+func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Add role and mapping
+	role := &authzcore.Role{
+		Name:    testRoleName,
+		Actions: []string{"component:view"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	mapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: testEntitlementType,
+			Value: testEntitlementValue,
+		},
+		RoleRef: authzcore.RoleRef{Name: testRoleName},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+
+	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+
+	// Get the mapping ID by listing mappings
+	mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+	}
+
+	var mappingID uint
+	found := false
+	for _, m := range mappings {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
+			mappingID = m.ID
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("AddRoleEntitlementMapping() mapping not found after creation")
+	}
+
+	// Remove mapping by ID
+	err = enforcer.RemoveRoleEntitlementMapping(ctx, mappingID)
+	if err != nil {
+		t.Fatalf("RemoveRoleEntitlementMapping() error = %v", err)
+	}
+
+	// Verify mapping was removed
+	mappings, err = enforcer.ListRoleEntitlementMappings(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+	}
+
+	for _, m := range mappings {
+		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
+			t.Error("RemoveRoleEntitlementMapping() mapping still exists after removal")
+		}
+	}
+}
+
+// TestCasbinEnforcer_UpdateRoleEntitlementMapping tests updating role-entitlement mappings
+func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: Create role
+	role := &authzcore.Role{
+		Name:    "update-test-role",
+		Actions: []string{"component:view"},
+	}
+	if err := enforcer.AddRole(ctx, role); err != nil {
+		t.Fatalf("AddRole() error = %v", err)
+	}
+
+	t.Run("update existing mapping", func(t *testing.T) {
+		mapping := &authzcore.RoleEntitlementMapping{
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "dev-group",
+			},
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
+			Hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
+			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Get mapping ID
+		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
+		if err != nil {
+			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+		}
+
+		var mappingID uint
+		for _, m := range mappings {
+			if m.RoleRef.Name == "update-test-role" && m.Entitlement.Value == "dev-group" {
+				mappingID = m.ID
+				break
+			}
+		}
+
+		if mappingID == 0 {
+			t.Fatal("Could not find created mapping")
+		}
+
+		// Update the mapping
+		updatedMapping := &authzcore.RoleEntitlementMapping{
+			ID: mappingID,
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "prod-group",
+			},
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
+			Hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+			},
+			Effect: authzcore.PolicyEffectDeny,
+		}
+
+		err = enforcer.UpdateRoleEntitlementMapping(ctx, updatedMapping)
+		if err != nil {
+			t.Fatalf("UpdateRoleEntitlementMapping() error = %v", err)
+		}
+
+		// Verify update
+		mappings, err = enforcer.ListRoleEntitlementMappings(ctx, nil)
+		if err != nil {
+			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
+		}
+
+		var found bool
+		for _, m := range mappings {
+			if m.ID == mappingID {
+				found = true
+				if m.Entitlement.Value != "prod-group" {
+					t.Errorf("UpdateRoleEntitlementMapping() entitlement value = %s, want prod-group", m.Entitlement.Value)
+				}
+				if m.Hierarchy.Project != "p1" {
+					t.Errorf("UpdateRoleEntitlementMapping() project = %s, want p1", m.Hierarchy.Project)
+				}
+				if m.Effect != authzcore.PolicyEffectDeny {
+					t.Errorf("UpdateRoleEntitlementMapping() effect = %s, want deny", m.Effect)
+				}
+				break
+			}
+		}
+
+		if !found {
+			t.Error("UpdateRoleEntitlementMapping() updated mapping not found")
+		}
+	})
+
+	t.Run("update non-existent mapping", func(t *testing.T) {
+		mapping := &authzcore.RoleEntitlementMapping{
+			ID: 999999, // Non-existent ID
+			Entitlement: authzcore.Entitlement{
+				Claim: "group",
+				Value: "test",
+			},
+			RoleRef: authzcore.RoleRef{Name: "update-test-role"},
+			Hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+			},
+			Effect: authzcore.PolicyEffectAllow,
+		}
+
+		err := enforcer.UpdateRoleEntitlementMapping(ctx, mapping)
+		if !errors.Is(err, authzcore.ErrRolePolicyMappingNotFound) {
+			t.Errorf("UpdateRoleEntitlementMapping() error = %v, want ErrRolePolicyMappingNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ListActions tests listing all actions
+func TestCasbinEnforcer_ListActions(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	actions, err := enforcer.ListActions(ctx)
+	if err != nil {
+		t.Fatalf("ListActions() error = %v", err)
+	}
+
+	if len(actions) == 0 {
+		t.Error("ListActions() returned empty list")
+	}
 }
