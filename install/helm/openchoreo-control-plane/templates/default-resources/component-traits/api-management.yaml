@@ -52,7 +52,7 @@ spec:
         apiVersion: gateway.kgateway.dev/v1alpha1
         kind: Backend
         metadata:
-          name: api-platform-default-gateway-router
+          name: ${metadata.componentName}-api-gw-backend
           namespace: ${metadata.namespace}
         spec:
           type: Static
@@ -96,7 +96,7 @@ spec:
           value:
             group: gateway.kgateway.dev
             kind: Backend
-            name: api-platform-default-gateway-router
+            name: ${metadata.componentName}-api-gw-backend
 
         # Update the URLRewrite filter to rewrite to the API context
         - op: replace
