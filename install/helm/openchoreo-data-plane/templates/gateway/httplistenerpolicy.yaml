@@ -1,0 +1,17 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: HTTPListenerPolicy
+metadata:
+  name: default-httplistenerpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-default
+  upgradeConfig:
+    enabledUpgrades:
+    - websocket
+{{- end }}
