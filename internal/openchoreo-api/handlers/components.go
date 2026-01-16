@@ -175,6 +175,11 @@ func (h *Handler) DeleteComponent(w http.ResponseWriter, r *http.Request) {
 	// Call service to delete component
 	err := h.services.ComponentService.DeleteComponent(ctx, orgName, projectName, componentName)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to delete component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
