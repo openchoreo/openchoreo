@@ -31,14 +31,14 @@ func (i *CreateEnvironmentImpl) CreateEnvironment(params api.CreateEnvironmentPa
 }
 
 func createEnvironment(params api.CreateEnvironmentParams, config constants.CRDConfig) error {
-	envRes, err := kinds.NewEnvironmentResource(config, params.Organization)
+	envRes, err := kinds.NewEnvironmentResource(config, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create Environment resource: %w", err)
 	}
 
 	if err := envRes.CreateEnvironment(params); err != nil {
-		return fmt.Errorf("failed to create Environment '%s' in organization '%s': %w",
-			params.Name, params.Organization, err)
+		return fmt.Errorf("failed to create Environment '%s' in namespace '%s': %w",
+			params.Name, params.Namespace, err)
 	}
 
 	return nil

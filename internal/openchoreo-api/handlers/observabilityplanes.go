@@ -9,21 +9,21 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
-// ListObservabilityPlanes retrieves all observability planes for an organization
+// ListObservabilityPlanes retrieves all observability planes for an namespace
 func (h *Handler) ListObservabilityPlanes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 	log.Info("ListObservabilityPlanes handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
 	// Call service to list observability planes
-	observabilityPlanes, err := h.services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, orgName)
+	observabilityPlanes, err := h.services.ObservabilityPlaneService.ListObservabilityPlanes(ctx, namespaceName)
 	if err != nil {
 		log.Error("Failed to list observability planes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list observability planes", "INTERNAL_ERROR")

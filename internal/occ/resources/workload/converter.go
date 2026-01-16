@@ -89,7 +89,7 @@ type WorkloadDescriptorFileVar struct {
 
 // ConversionParams holds the parameters needed for workload conversion
 type ConversionParams struct {
-	OrganizationName string
+	NamespaceName string
 	ProjectName      string
 	ComponentName    string
 	ImageURL         string
@@ -149,8 +149,8 @@ func readWorkloadDescriptorFromReader(reader io.Reader) (*WorkloadDescriptor, er
 }
 
 func validateConversionParams(params api.CreateWorkloadParams) error {
-	if params.OrganizationName == "" {
-		return fmt.Errorf("organization name is required")
+	if params.NamespaceName == "" {
+		return fmt.Errorf("namespace name is required")
 	}
 	if params.ProjectName == "" {
 		return fmt.Errorf("project name is required")

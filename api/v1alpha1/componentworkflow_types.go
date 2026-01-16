@@ -24,7 +24,7 @@ type ComponentWorkflowSpec struct {
 	//   ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
 	//   ${metadata.componentName}    - Component name
 	//   ${metadata.projectName}      - Project name
-	//   ${metadata.orgName}          - Organization name (namespace)
+	//   ${metadata.namespaceName}          - Namespace name (namespace)
 	//   ${systemParameters.*}        - System parameter values
 	//   ${parameters.*}              - Developer parameter values
 	// +kubebuilder:validation:Required

@@ -136,8 +136,8 @@ type Binding struct {
 	// Name Binding name
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// ProjectName Parent project name
 	ProjectName string `json:"projectName"`
@@ -196,7 +196,7 @@ type BuildPlane struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name BuildPlane name (unique within organization)
+	// Name BuildPlane name (unique within namespace)
 	Name string `json:"name"`
 
 	// Namespace Kubernetes namespace for the build plane
@@ -268,8 +268,8 @@ type Component struct {
 	// Name Component name (unique within project)
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// ProjectName Parent project name
 	ProjectName string `json:"projectName"`
@@ -307,8 +307,8 @@ type ComponentRelease struct {
 	// Name Release name
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// ProjectName Parent project name
 	ProjectName string `json:"projectName"`
@@ -369,7 +369,7 @@ type ComponentType struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name ComponentType name (unique within organization)
+	// Name ComponentType name (unique within namespace)
 	Name string `json:"name"`
 
 	// WorkloadType Type of workload (service, web-application, scheduled-task)
@@ -456,8 +456,8 @@ type ComponentWorkflowRun struct {
 	// Name Workflow run name
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// ProjectName Parent project name
 	ProjectName string `json:"projectName"`
@@ -492,7 +492,7 @@ type ComponentWorkflowTemplate struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name ComponentWorkflow name (unique within organization)
+	// Name ComponentWorkflow name (unique within namespace)
 	Name string `json:"name"`
 }
 
@@ -559,7 +559,7 @@ type CreateDataPlaneRequest struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name DataPlane name (must be unique within organization)
+	// Name DataPlane name (must be unique within namespace)
 	Name string `json:"name"`
 
 	// ObservabilityPlaneRef Reference to the observability plane
@@ -601,13 +601,13 @@ type CreateEnvironmentRequest struct {
 	// IsProduction Whether this is a production environment
 	IsProduction *bool `json:"isProduction,omitempty"`
 
-	// Name Environment name (must be unique within organization)
+	// Name Environment name (must be unique within namespace)
 	Name string `json:"name"`
 }
 
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
-	// DeploymentPipeline Deployment pipeline to use (defaults to organization default)
+	// DeploymentPipeline Deployment pipeline to use (defaults to namespace default)
 	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
 
 	// Description Project description
@@ -616,7 +616,7 @@ type CreateProjectRequest struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name Project name (must be unique within organization)
+	// Name Project name (must be unique within namespace)
 	Name string `json:"name"`
 }
 
@@ -634,7 +634,7 @@ type DataPlane struct {
 	// ImagePullSecretRefs References to image pull secrets
 	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
 
-	// Name DataPlane name (unique within organization)
+	// Name DataPlane name (unique within namespace)
 	Name string `json:"name"`
 
 	// Namespace Kubernetes namespace for the data plane
@@ -649,7 +649,7 @@ type DataPlane struct {
 	// OrganizationHTTPSPort Organization HTTPS port
 	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort"`
 
-	// OrganizationVirtualHost Organization virtual host for internal traffic
+	// OrganizationVirtualHost Namespace virtual host for internal traffic
 	OrganizationVirtualHost string `json:"organizationVirtualHost"`
 
 	// PublicHTTPPort Public HTTP port
@@ -730,8 +730,8 @@ type DeploymentPipeline struct {
 	// Name Pipeline name
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// PromotionPaths Promotion paths between environments
 	PromotionPaths *[]PromotionPath `json:"promotionPaths,omitempty"`
@@ -745,8 +745,8 @@ type EndpointStatus struct {
 	// Name Endpoint name
 	Name *string `json:"name,omitempty"`
 
-	// Organization Exposed endpoint details
-	Organization *ExposedEndpoint `json:"organization,omitempty"`
+	// Namespace Exposed endpoint details
+	Namespace *ExposedEndpoint `json:"namespace,omitempty"`
 
 	// Project Exposed endpoint details
 	Project *ExposedEndpoint `json:"project,omitempty"`
@@ -820,7 +820,7 @@ type Environment struct {
 	// IsProduction Whether this is a production environment
 	IsProduction bool `json:"isProduction"`
 
-	// Name Environment name (unique within organization)
+	// Name Environment name (unique within namespace)
 	Name string `json:"name"`
 
 	// Namespace Kubernetes namespace for the environment
@@ -954,6 +954,36 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+// Namespace Namespace resource
+type Namespace struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description Namespace description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name Namespace name (unique identifier)
+	Name string `json:"name"`
+
+	// Namespace Kubernetes namespace for the namespace
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Status Namespace status
+	Status *string `json:"status,omitempty"`
+}
+
+// NamespaceList Paginated list of namespaces
+type NamespaceList struct {
+	Items []Namespace `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728
 type OAuthProtectedResourceMetadata struct {
 	// AuthorizationServers List of authorization server URLs
@@ -983,7 +1013,7 @@ type ObservabilityPlane struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name ObservabilityPlane name (unique within organization)
+	// Name ObservabilityPlane name (unique within namespace)
 	Name string `json:"name"`
 
 	// Namespace Kubernetes namespace for the observability plane
@@ -1009,36 +1039,6 @@ type ObserverURLResponse struct {
 
 	// ObserverUrl URL to the observer service for logs and metrics
 	ObserverUrl *string `json:"observerUrl,omitempty"`
-}
-
-// Organization Organization resource
-type Organization struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Description Organization description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Organization name (unique identifier)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the organization
-	Namespace *string `json:"namespace,omitempty"`
-
-	// Status Organization status
-	Status *string `json:"status,omitempty"`
-}
-
-// OrganizationList Paginated list of organizations
-type OrganizationList struct {
-	Items []Organization `json:"items"`
-
-	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
-	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
 }
 
 // Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
@@ -1094,11 +1094,11 @@ type Project struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name Project name (unique within organization)
+	// Name Project name (unique within namespace)
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// Status Project status
 	Status *string `json:"status,omitempty"`
@@ -1163,8 +1163,8 @@ type ReleaseBinding struct {
 	// Name Binding name
 	Name string `json:"name"`
 
-	// OrgName Parent organization name
-	OrgName string `json:"orgName"`
+	// NamespaceName Parent namespace name
+	NamespaceName string `json:"namespaceName"`
 
 	// ProjectName Parent project name
 	ProjectName string `json:"projectName"`
@@ -1220,11 +1220,8 @@ type ResourceHierarchy struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
 
-	// Organization Organization name
-	Organization *string `json:"organization,omitempty"`
-
-	// OrganizationUnits Organization unit names
-	OrganizationUnits *[]string `json:"organization_units,omitempty"`
+	// Namespace Namespace name
+	Namespace *string `json:"namespace,omitempty"`
 
 	// Project Project name
 	Project *string `json:"project,omitempty"`
@@ -1388,7 +1385,7 @@ type Trait struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name Trait name (unique within organization)
+	// Name Trait name (unique within namespace)
 	Name string `json:"name"`
 }
 
@@ -1558,7 +1555,7 @@ type Workflow struct {
 	// DisplayName Human-readable display name
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// Name Workflow name (unique within organization)
+	// Name Workflow name (unique within namespace)
 	Name string `json:"name"`
 }
 
@@ -1610,8 +1607,8 @@ type LimitParam = int
 // MappingIdParam defines model for MappingIdParam.
 type MappingIdParam = int64
 
-// OrgNameParam defines model for OrgNameParam.
-type OrgNameParam = string
+// NamespaceNameParam defines model for NamespaceNameParam.
+type NamespaceNameParam = string
 
 // ProjectNameParam defines model for ProjectNameParam.
 type ProjectNameParam = string
@@ -1651,7 +1648,7 @@ type Unauthorized = ErrorResponse
 
 // GetSubjectProfileParams defines parameters for GetSubjectProfile.
 type GetSubjectProfileParams struct {
-	// Org Organization scope
+	// Org Namespace scope
 	Org *string `form:"org,omitempty" json:"org,omitempty"`
 
 	// Project Project scope
@@ -1660,7 +1657,7 @@ type GetSubjectProfileParams struct {
 	// Component Component scope
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
 
-	// Ou Organization units scope
+	// Ou Namespace units scope
 	Ou *[]string `form:"ou,omitempty" json:"ou,omitempty"`
 }
 
@@ -1682,8 +1679,8 @@ type RemoveRoleParams struct {
 	Force *bool `form:"force,omitempty" json:"force,omitempty"`
 }
 
-// ListOrganizationsParams defines parameters for ListOrganizations.
-type ListOrganizationsParams struct {
+// ListNamespacesParams defines parameters for ListNamespaces.
+type ListNamespacesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 

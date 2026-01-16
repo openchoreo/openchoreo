@@ -35,14 +35,14 @@ func (i *CreateProjImpl) CreateProject(params api.CreateProjectParams) error {
 }
 
 func createProject(params api.CreateProjectParams, config constants.CRDConfig) error {
-	projRes, err := kinds.NewProjectResource(config, params.Organization)
+	projRes, err := kinds.NewProjectResource(config, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create Project resource: %w", err)
 	}
 
 	if err := projRes.CreateProject(params); err != nil {
-		return fmt.Errorf("failed to create project '%s' in organization '%s': %w",
-			params.Name, params.Organization, err)
+		return fmt.Errorf("failed to create project '%s' in namespace '%s': %w",
+			params.Name, params.Namespace, err)
 	}
 
 	return nil

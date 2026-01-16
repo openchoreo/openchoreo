@@ -7,6 +7,6 @@ import (
 	"context"
 )
 
-func (h *MCPHandler) GetProjectDeploymentPipeline(ctx context.Context, orgName, projectName string) (any, error) {
-	return h.Services.DeploymentPipelineService.GetProjectDeploymentPipeline(ctx, orgName, projectName)
+func (h *MCPHandler) GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (any, error) {
+	return h.Services.DeploymentPipelineService.GetProjectDeploymentPipeline(ctx, namespaceName, projectName)
 }

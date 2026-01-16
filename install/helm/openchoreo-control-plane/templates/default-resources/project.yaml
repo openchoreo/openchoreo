@@ -12,7 +12,6 @@ metadata:
     "helm.sh/hook-weight": "7"
     "helm.sh/hook-delete-policy": hook-failed
   labels:
-    openchoreo.dev/organization: default
     openchoreo.dev/name: default
 spec:
   deploymentPipelineRef: default

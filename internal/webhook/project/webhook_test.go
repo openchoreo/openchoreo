@@ -40,14 +40,13 @@ var _ = Describe("Project Webhook", func() {
 	AfterEach(func() {
 	})
 
-	createValidProject := func(name string, orgName string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
+	createValidProject := func(name string, namespaceName string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
 		project := &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 				Labels: map[string]string{
-					labels.LabelKeyName:             name,
-					labels.LabelKeyOrganizationName: orgName,
+					labels.LabelKeyName: name,
 				},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{

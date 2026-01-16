@@ -142,7 +142,7 @@ func main() {
 	api.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
 	api.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)
 	api.HandleFunc("POST /api/logs/gateway", handler.GetGatewayLogs)
-	api.HandleFunc("POST /api/logs/org/{orgId}", handler.GetOrganizationLogs)
+	api.HandleFunc("POST /api/logs/namespace/{namespaceName}", handler.GetNamespaceLogs)
 
 	// API routes - Traces
 	api.HandleFunc("POST /api/traces", handler.GetTraces)

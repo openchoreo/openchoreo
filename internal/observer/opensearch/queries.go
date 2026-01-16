@@ -322,14 +322,14 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 	mustConditions = addTimeRangeFilter(mustConditions, params.StartTime, params.EndTime)
 	mustConditions = addSearchPhraseFilter(mustConditions, params.SearchPhrase)
 
-	// Add organization path filter
-	if params.OrganizationID != "" {
-		orgFilter := map[string]interface{}{
+	// Add namespace path filter
+	if params.NamespaceName != "" {
+		namespaceFilter := map[string]interface{}{
 			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*\"apiPath\":\"/%s*", params.OrganizationID),
+				"log": fmt.Sprintf("*\"apiPath\":\"/%s*", params.NamespaceName),
 			},
 		}
-		mustConditions = append(mustConditions, orgFilter)
+		mustConditions = append(mustConditions, namespaceFilter)
 	}
 
 	query := map[string]interface{}{
@@ -448,18 +448,18 @@ func (qb *QueryBuilder) GenerateIndices(startTime, endTime string) ([]string, er
 	return indices, nil
 }
 
-// BuildOrganizationLogsQuery builds a query for organization logs with wildcard search
-func (qb *QueryBuilder) BuildOrganizationLogsQuery(params QueryParams, podLabels map[string]string) map[string]interface{} {
+// BuildNamespaceLogsQuery builds a query for namespace logs with wildcard search
+func (qb *QueryBuilder) BuildNamespaceLogsQuery(params QueryParams, podLabels map[string]string) map[string]interface{} {
 	mustConditions := []map[string]interface{}{}
 
-	// Add organization filter - this is the key fix!
-	if params.OrganizationID != "" {
-		orgFilter := map[string]interface{}{
+	// Add namespace filter - this is the key fix!
+	if params.NamespaceName != "" {
+		namespaceFilter := map[string]interface{}{
 			"term": map[string]interface{}{
-				labels.OSOrganizationUUID + ".keyword": params.OrganizationID,
+				labels.OSNamespaceName + ".keyword": params.NamespaceName,
 			},
 		}
-		mustConditions = append(mustConditions, orgFilter)
+		mustConditions = append(mustConditions, namespaceFilter)
 	}
 
 	// Add environment filter if specified

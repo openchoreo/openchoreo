@@ -78,28 +78,28 @@ global:
   defaultResources:
     # @schema
     # type: boolean
-    # description: Enable creation of default resources (organization, project, environments, pipeline)
+    # description: Enable creation of default resources (namespace, project, environments, pipeline)
     # default: true
     # @schema
     enabled: true
 
     # @schema
     # type: object
-    # description: Default organization configuration
+    # description: Default namespace configuration
     # @schema
-    organization:
+    namespace:
       # @schema
       # type: string
-      # description: Display name for the default organization
-      # default: Default Organization
+      # description: Display name for the default namespace
+      # default: Default Namespace
       # @schema
-      displayName: Default Organization
+      displayName: Default Namespace
       # @schema
       # type: string
-      # description: Description for the default organization
-      # default: Getting started with your first organization
+      # description: Description for the default namespace
+      # default: Getting started with your first namespace
       # @schema
-      description: Getting started with your first organization
+      description: Getting started with your first namespace
 
     # @schema
     # type: object
@@ -1167,9 +1167,9 @@ openchoreoApi:
     # @schema
     # type: string
     # description: Comma-separated list of enabled MCP toolsets
-    # default: organization,project,component,build,deployment,infrastructure
+    # default: namespace,project,component,build,deployment,infrastructure
     # @schema
-    toolsets: "organization,project,component,build,deployment,infrastructure"
+    toolsets: "namespace,project,component,build,deployment,infrastructure"
 
   # @schema
   # description: Log level for the API server

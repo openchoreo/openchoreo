@@ -35,33 +35,18 @@ func NewSecretReferenceService(k8sClient client.Client, logger *slog.Logger, aut
 	}
 }
 
-// ListSecretReferences lists all secret references for an organization
-func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgName string) ([]*models.SecretReferenceResponse, error) {
-	s.logger.Debug("Listing secret references", "org", orgName)
+// ListSecretReferences lists all secret references for a namespace
+func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, namespaceName string) ([]*models.SecretReferenceResponse, error) {
+	s.logger.Debug("Listing secret references", "namespace", namespaceName)
 
-	// Get the organization to find its namespace
-	org := &openchoreov1alpha1.Organization{}
-	key := client.ObjectKey{
-		Name: orgName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, org); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Organization not found", "org", orgName)
-			return nil, ErrOrganizationNotFound
-		}
-		s.logger.Error("Failed to get organization", "error", err)
-		return nil, fmt.Errorf("failed to get organization: %w", err)
-	}
-
-	// List secret references in the organization's namespace
+	// List secret references in the namespace
 	var secretRefList openchoreov1alpha1.SecretReferenceList
 	listOptions := &client.ListOptions{
-		Namespace: org.Status.Namespace,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.List(ctx, &secretRefList, listOptions); err != nil {
-		s.logger.Error("Failed to list secret references", "error", err, "org", orgName, "namespace", org.Status.Namespace)
+		s.logger.Error("Failed to list secret references", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to list secret references: %w", err)
 	}
 
@@ -69,9 +54,9 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 	secretReferences := make([]*models.SecretReferenceResponse, 0, len(secretRefList.Items))
 	for i := range secretRefList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewSecretReference, ResourceTypeSecretReference, secretRefList.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized secret reference", "org", orgName, "secretReference", secretRefList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized secret reference", "namespace", namespaceName, "secretReference", secretRefList.Items[i].Name)
 				continue
 			}
 			// Return other errors
@@ -80,7 +65,7 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 		secretReferences = append(secretReferences, s.toSecretReferenceResponse(&secretRefList.Items[i]))
 	}
 
-	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", orgName)
+	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", namespaceName)
 	return secretReferences, nil
 }
 

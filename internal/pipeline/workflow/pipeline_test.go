@@ -51,7 +51,7 @@ func TestPipeline_Render(t *testing.T) {
 							"kind":       "Workflow",
 							"metadata": map[string]interface{}{
 								"name":      "${metadata.workflowRunName}",
-								"namespace": "ci-${metadata.orgName}",
+								"namespace": "ci-${metadata.namespaceName}",
 							},
 							"spec": map[string]interface{}{
 								"arguments": map[string]interface{}{
@@ -71,7 +71,7 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "default",
+					NamespaceName:         "default",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -122,7 +122,7 @@ func TestPipeline_Render(t *testing.T) {
 				WorkflowRun: nil,
 				Workflow:    &v1alpha1.Workflow{},
 				Context: WorkflowContext{
-					OrgName: "test",
+					NamespaceName: "test",
 				},
 			},
 			wantErr: true,
@@ -134,7 +134,7 @@ func TestPipeline_Render(t *testing.T) {
 				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow:    nil,
 				Context: WorkflowContext{
-					OrgName: "test",
+					NamespaceName: "test",
 				},
 			},
 			wantErr: true,
@@ -150,14 +150,14 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName: "test",
+					NamespaceName: "test",
 				},
 			},
 			wantErr: true,
 			errMsg:  "workflow has no runTemplate",
 		},
 		{
-			name: "missing context orgName",
+			name: "missing context namespaceName",
 			input: &RenderInput{
 				WorkflowRun: &v1alpha1.WorkflowRun{},
 				Workflow: &v1alpha1.Workflow{
@@ -169,11 +169,11 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName: "",
+					NamespaceName: "",
 				},
 			},
 			wantErr: true,
-			errMsg:  "context.orgName is required",
+			errMsg:  "context.namespaceName is required",
 		},
 		{
 			name: "missing context workflowRunName",
@@ -191,7 +191,7 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test",
+					NamespaceName:         "test",
 					WorkflowRunName: "",
 				},
 			},
@@ -249,7 +249,7 @@ func TestPipeline_validateInput(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -665,7 +665,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "default",
+					NamespaceName:         "default",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -714,7 +714,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -798,7 +798,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -862,7 +862,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -920,7 +920,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -992,17 +992,17 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 							"kind":       "ConfigMap",
 							"metadata": map[string]interface{}{
 								"name":      "${metadata.workflowRunName}",
-								"namespace": "ci-${metadata.orgName}",
+								"namespace": "ci-${metadata.namespaceName}",
 								"labels": map[string]interface{}{
 									"workflow-run": "${metadata.workflowRunName}",
-									"org":          "${metadata.orgName}",
+									"org":          "${metadata.namespaceName}",
 								},
 							},
 						}),
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "my-org",
+					NamespaceName:         "my-namespace",
 					WorkflowRunName: "run-12345",
 				},
 			},
@@ -1014,8 +1014,8 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 					t.Errorf("expected name 'run-12345', got %v", metadata["name"])
 				}
 
-				if metadata["namespace"] != "ci-my-org" {
-					t.Errorf("expected namespace 'ci-my-org', got %v", metadata["namespace"])
+				if metadata["namespace"] != "ci-my-namespace" {
+					t.Errorf("expected namespace 'ci-my-namespace', got %v", metadata["namespace"])
 				}
 
 				labels := metadata["labels"].(map[string]interface{})
@@ -1023,8 +1023,8 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 					t.Errorf("expected workflow-run 'run-12345', got %v", labels["workflow-run"])
 				}
 
-				if labels["org"] != "my-org" {
-					t.Errorf("expected org 'my-org', got %v", labels["org"])
+				if labels["org"] != "my-namespace" {
+					t.Errorf("expected org 'my-namespace', got %v", labels["org"])
 				}
 			},
 		},
@@ -1066,7 +1066,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1137,7 +1137,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1156,7 +1156,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1188,7 +1188,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1288,7 +1288,7 @@ func TestPipeline_Render_DifferentResourceTypes(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					OrgName:         "test-org",
+					NamespaceName:         "test-org",
 					WorkflowRunName: "test-run",
 				},
 			}

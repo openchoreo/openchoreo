@@ -5,7 +5,7 @@ package api
 
 // CommandImplementationInterface combines all APIs
 type CommandImplementationInterface interface {
-	OrganizationAPI
+	NamespaceAPI
 	ProjectAPI
 	ComponentAPI
 	ApplyAPI
@@ -22,9 +22,10 @@ type CommandImplementationInterface interface {
 	ReleaseBindingAPI
 }
 
-// OrganizationAPI defines organization-related operations
-type OrganizationAPI interface {
-	CreateOrganization(params CreateOrganizationParams) error
+// NamespaceAPI defines namespace-related operations
+type NamespaceAPI interface {
+	CreateNamespace(params CreateNamespaceParams) error
+	GetNamespace(params GetParams) error
 }
 
 // ProjectAPI defines project-related operations

@@ -16,21 +16,21 @@ func (h *Handler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListWorkflows handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
-	wfs, err := h.services.WorkflowService.ListWorkflows(ctx, orgName)
+	wfs, err := h.services.WorkflowService.ListWorkflows(ctx, namespaceName)
 	if err != nil {
 		logger.Error("Failed to list Workflows", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	logger.Debug("Listed Workflows successfully", "org", orgName, "count", len(wfs))
+	logger.Debug("Listed Workflows successfully", "org", namespaceName, "count", len(wfs))
 	writeListResponse(w, wfs, len(wfs), 1, len(wfs))
 }
 
@@ -39,23 +39,23 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetWorkflowSchema handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	workflowName := r.PathValue("workflowName")
-	if orgName == "" || workflowName == "" {
-		logger.Warn("Organization name and Workflow name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and Workflow name are required", services.CodeInvalidInput)
+	if namespaceName == "" || workflowName == "" {
+		logger.Warn("Namespace name and Workflow name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and Workflow name are required", services.CodeInvalidInput)
 		return
 	}
 
-	schema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, orgName, workflowName)
+	schema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, namespaceName, workflowName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view workflow schema", "org", orgName, "workflow", workflowName)
+			logger.Warn("Unauthorized to view workflow schema", "org", namespaceName, "workflow", workflowName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowNotFound) {
-			logger.Warn("Workflow not found", "org", orgName, "name", workflowName)
+			logger.Warn("Workflow not found", "org", namespaceName, "name", workflowName)
 			writeErrorResponse(w, http.StatusNotFound, "Workflow not found", services.CodeWorkflowNotFound)
 			return
 		}
@@ -64,6 +64,6 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved Workflow schema successfully", "org", orgName, "name", workflowName)
+	logger.Debug("Retrieved Workflow schema successfully", "org", namespaceName, "name", workflowName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

@@ -19,7 +19,7 @@ type Services struct {
 	WorkflowService           *WorkflowService
 	ComponentWorkflowService  *ComponentWorkflowService
 	TraitService              *TraitService
-	OrganizationService       *OrganizationService
+	NamespaceService          *NamespaceService
 	EnvironmentService        *EnvironmentService
 	DataPlaneService          *DataPlaneService
 	BuildPlaneService         *BuildPlaneService
@@ -40,8 +40,8 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create component service (depends on project service)
 	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
 
-	// Create organization service
-	organizationService := NewOrganizationService(k8sClient, logger.With("service", "organization"), authzPDP)
+	// Create namespace service
+	namespaceService := NewNamespaceService(k8sClient, logger.With("service", "namespace"), authzPDP)
 
 	// Create environment service
 	environmentService := NewEnvironmentService(k8sClient, logger.With("service", "environment"), authzPDP)
@@ -89,7 +89,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		WorkflowService:           workflowService,
 		ComponentWorkflowService:  componentWorkflowService,
 		TraitService:              traitService,
-		OrganizationService:       organizationService,
+		NamespaceService:          namespaceService,
 		EnvironmentService:        environmentService,
 		DataPlaneService:          dataplaneService,
 		BuildPlaneService:         buildPlaneService,

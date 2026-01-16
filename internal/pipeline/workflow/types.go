@@ -58,8 +58,8 @@ type RenderMetadata struct {
 // WorkflowContext provides contextual metadata for workflow rendering.
 // These values are injected into CEL expressions as ${metadata.*} variables.
 type WorkflowContext struct {
-	// OrgName is the organization name (typically the namespace).
-	OrgName string
+	// NamespaceName is the namespace name.
+	NamespaceName string
 
 	// WorkflowRunName is the name of the workflow run CR.
 	WorkflowRunName string

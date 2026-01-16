@@ -50,8 +50,8 @@ type DeleteResponse struct {
 	Code  string `json:"code,omitempty"`
 }
 
-// OrganizationResponse represents an organization from the API
-type OrganizationResponse struct {
+// NamespaceResponse represents an namespace from the API
+type NamespaceResponse struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName,omitempty"`
 	Description string `json:"description,omitempty"`
@@ -61,14 +61,14 @@ type OrganizationResponse struct {
 
 // ListResponse represents a paginated list response
 type ListResponse struct {
-	Items      []OrganizationResponse `json:"items"`
-	TotalCount int                    `json:"totalCount"`
-	Page       int                    `json:"page"`
-	PageSize   int                    `json:"pageSize"`
+	Items      []NamespaceResponse `json:"items"`
+	TotalCount int                 `json:"totalCount"`
+	Page       int                 `json:"page"`
+	PageSize   int                 `json:"pageSize"`
 }
 
-// ListOrganizationsResponse represents the response from listing organizations
-type ListOrganizationsResponse struct {
+// ListNamespacesResponse represents the response from listing namespaces
+type ListNamespacesResponse struct {
 	Success bool         `json:"success"`
 	Data    ListResponse `json:"data"`
 	Error   string       `json:"error,omitempty"`
@@ -78,7 +78,7 @@ type ListOrganizationsResponse struct {
 // ProjectResponse represents a project from the API
 type ProjectResponse struct {
 	Name               string `json:"name"`
-	OrgName            string `json:"orgName"`
+	NamespaceName      string `json:"namespaceName"`
 	DisplayName        string `json:"displayName,omitempty"`
 	Description        string `json:"description,omitempty"`
 	DeploymentPipeline string `json:"deploymentPipeline,omitempty"`
@@ -101,14 +101,14 @@ type ListProjectsResponse struct {
 
 // ComponentResponse represents a component from the API
 type ComponentResponse struct {
-	Name        string `json:"name"`
-	OrgName     string `json:"orgName"`
-	ProjectName string `json:"projectName"`
-	DisplayName string `json:"displayName,omitempty"`
-	Description string `json:"description,omitempty"`
-	Type        string `json:"type"`
-	CreatedAt   string `json:"createdAt"`
-	Status      string `json:"status,omitempty"`
+	Name          string `json:"name"`
+	NamespaceName string `json:"namespaceName"`
+	ProjectName   string `json:"projectName"`
+	DisplayName   string `json:"displayName,omitempty"`
+	Description   string `json:"description,omitempty"`
+	Type          string `json:"type"`
+	CreatedAt     string `json:"createdAt"`
+	Status        string `json:"status,omitempty"`
 }
 
 // ListComponentsResponse represents the response from listing components
@@ -210,11 +210,11 @@ func (c *APIClient) Delete(ctx context.Context, resource map[string]interface{})
 	return &deleteResp, nil
 }
 
-// ListOrganizations retrieves all organizations from the API
-func (c *APIClient) ListOrganizations(ctx context.Context) ([]OrganizationResponse, error) {
+// ListNamespaces retrieves all namespaces from the API
+func (c *APIClient) ListNamespaces(ctx context.Context) ([]NamespaceResponse, error) {
 	resp, err := c.get(ctx, "/api/v1/orgs")
 	if err != nil {
-		return nil, fmt.Errorf("failed to make list organizations request: %w", err)
+		return nil, fmt.Errorf("failed to make list namespaces request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -223,21 +223,21 @@ func (c *APIClient) ListOrganizations(ctx context.Context) ([]OrganizationRespon
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var listResp ListOrganizationsResponse
+	var listResp ListNamespacesResponse
 	if err := json.Unmarshal(body, &listResp); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if !listResp.Success {
-		return nil, fmt.Errorf("list organizations failed: %s", listResp.Error)
+		return nil, fmt.Errorf("list namespaces failed: %s", listResp.Error)
 	}
 
 	return listResp.Data.Items, nil
 }
 
-// ListProjects retrieves all projects for an organization from the API
-func (c *APIClient) ListProjects(ctx context.Context, orgName string) ([]ProjectResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects", orgName)
+// ListProjects retrieves all projects for an namespace from the API
+func (c *APIClient) ListProjects(ctx context.Context, namespaceName string) ([]ProjectResponse, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/projects", namespaceName)
 	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make list projects request: %w", err)
@@ -261,9 +261,9 @@ func (c *APIClient) ListProjects(ctx context.Context, orgName string) ([]Project
 	return listResp.Data.Items, nil
 }
 
-// ListComponents retrieves all components for an organization and project from the API
-func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName string) ([]ComponentResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", orgName, projectName)
+// ListComponents retrieves all components for an namespace and project from the API
+func (c *APIClient) ListComponents(ctx context.Context, namespaceName, projectName string) ([]ComponentResponse, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", namespaceName, projectName)
 	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make list components request: %w", err)
@@ -288,20 +288,20 @@ func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName str
 }
 
 // GetComponentTypeSchema fetches ComponentType schema from the API
-func (c *APIClient) GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/component-types/%s/schema", orgName, ctName)
+func (c *APIClient) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/component-types/%s/schema", namespaceName, ctName)
 	return c.getSchema(ctx, path)
 }
 
 // GetTraitSchema fetches Trait schema from the API
-func (c *APIClient) GetTraitSchema(ctx context.Context, orgName, traitName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/traits/%s/schema", orgName, traitName)
+func (c *APIClient) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/traits/%s/schema", namespaceName, traitName)
 	return c.getSchema(ctx, path)
 }
 
 // GetComponentWorkflowSchema fetches ComponentWorkflow schema from the API
-func (c *APIClient) GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/component-workflows/%s/schema", orgName, cwName)
+func (c *APIClient) GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (*json.RawMessage, error) {
+	path := fmt.Sprintf("/api/v1/orgs/%s/component-workflows/%s/schema", namespaceName, cwName)
 	return c.getSchema(ctx, path)
 }
 

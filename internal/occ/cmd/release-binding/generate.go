@@ -100,9 +100,9 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 	}
 
 	// 6. Get namespace from context
-	namespace := ctx.Organization
+	namespace := ctx.Namespace
 	if namespace == "" {
-		return fmt.Errorf("organization is required in context")
+		return fmt.Errorf("namespace is required in context")
 	}
 
 	// 7. Create generator

@@ -29,19 +29,19 @@ func NewObservabilityPlaneService(k8sClient client.Client, logger *slog.Logger) 
 	}
 }
 
-// ListObservabilityPlanes retrieves all observability planes for an organization
-func (s *ObservabilityPlaneService) ListObservabilityPlanes(ctx context.Context, orgName string) ([]models.ObservabilityPlaneResponse, error) {
-	s.logger.Debug("Listing observability planes", "org", orgName)
+// ListObservabilityPlanes retrieves all observability planes for an namespace
+func (s *ObservabilityPlaneService) ListObservabilityPlanes(ctx context.Context, namespaceName string) ([]models.ObservabilityPlaneResponse, error) {
+	s.logger.Debug("Listing observability planes", "org", namespaceName)
 
-	// List all observability planes in the organization namespace
+	// List all observability planes in the namespace namespace
 	var observabilityPlanes openchoreov1alpha1.ObservabilityPlaneList
-	err := s.k8sClient.List(ctx, &observabilityPlanes, client.InNamespace(orgName))
+	err := s.k8sClient.List(ctx, &observabilityPlanes, client.InNamespace(namespaceName))
 	if err != nil {
-		s.logger.Error("Failed to list observability planes", "error", err, "org", orgName)
+		s.logger.Error("Failed to list observability planes", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}
 
-	s.logger.Debug("Found observability planes", "count", len(observabilityPlanes.Items), "org", orgName)
+	s.logger.Debug("Found observability planes", "count", len(observabilityPlanes.Items), "org", namespaceName)
 
 	// Convert to response format
 	observabilityPlaneResponses := make([]models.ObservabilityPlaneResponse, 0, len(observabilityPlanes.Items))

@@ -14,7 +14,7 @@ In `pkg/mcp/tools.go`, add your method to the appropriate handler interface:
 
 ```go
 type ComponentToolsetHandler interface {
-    CreateComponent(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (string, error)
+    CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (string, error)
     YourNewMethod(ctx context.Context, param1 string, param2 int) (string, error)  // Add here
 }
 ```
@@ -100,7 +100,7 @@ In `pkg/mcp/tools.go`, add a new constant:
 
 ```go
 const (
-    ToolsetOrganization   ToolsetType = "organization"
+    ToolsetNamespace      ToolsetType = "namespace"
     ToolsetProject        ToolsetType = "project"
     ToolsetComponent      ToolsetType = "component"
     ToolsetBuild          ToolsetType = "build"

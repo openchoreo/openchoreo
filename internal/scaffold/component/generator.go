@@ -138,7 +138,7 @@ type Options struct {
 	// ComponentName is the name for the generated Component
 	ComponentName string `yaml:"componentName"`
 
-	// Namespace is the target namespace (organization namespace)
+	// Namespace is the target namespace
 	Namespace string `yaml:"namespace"`
 
 	// ProjectName is the owning project name (required for spec.owner.projectName)

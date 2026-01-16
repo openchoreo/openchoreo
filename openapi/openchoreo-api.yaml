@@ -29,14 +29,14 @@ security:
 tags:
   - name: Operations
     description: Health, readiness, and version endpoints
-  - name: Organizations
-    description: Organization management
+  - name: Namespaces
+    description: Namespace management
   - name: Projects
-    description: Project management within organizations
+    description: Project management within namespaces
   - name: Components
     description: Component management within projects
   - name: Environments
-    description: Environment management within organizations
+    description: Environment management within namespaces
   - name: DataPlanes
     description: DataPlane management for workload deployment targets
   - name: BuildPlanes
@@ -167,25 +167,25 @@ paths:
                 $ref: '#/components/schemas/ClientConfigList'
 
   # =============================================================================
-  # Organization Endpoints
+  # Namespace Endpoints
   # =============================================================================
 
-  /api/v1/orgs:
+  /api/v1/namespaces:
     get:
-      operationId: listOrganizations
-      summary: List organizations
-      description: Returns a paginated list of organizations the user has access to.
-      tags: [Organizations]
+      operationId: listNamespaces
+      summary: List namespaces
+      description: Returns a paginated list of namespaces the user has access to.
+      tags: [Namespaces]
       parameters:
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
-          description: List of organizations
+          description: List of namespaces
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OrganizationList'
+                $ref: '#/components/schemas/NamespaceList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -193,21 +193,21 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}:
+  /api/v1/namespaces/{namespaceName}:
     get:
-      operationId: getOrganization
-      summary: Get organization
-      description: Returns details of a specific organization.
-      tags: [Organizations]
+      operationId: getNamespace
+      summary: Get namespace
+      description: Returns details of a specific namespace.
+      tags: [Namespaces]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       responses:
         '200':
-          description: Organization details
+          description: Namespace details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Organization'
+                $ref: '#/components/schemas/Namespace'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -221,14 +221,14 @@ paths:
   # Project Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/projects:
+  /api/v1/namespaces/{namespaceName}/projects:
     get:
       operationId: listProjects
       summary: List projects
-      description: Returns a paginated list of projects within an organization.
+      description: Returns a paginated list of projects within an namespace.
       tags: [Projects]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -250,10 +250,10 @@ paths:
     post:
       operationId: createProject
       summary: Create project
-      description: Creates a new project within an organization.
+      description: Creates a new project within an namespace.
       tags: [Projects]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       requestBody:
         required: true
         content:
@@ -278,14 +278,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}:
     get:
       operationId: getProject
       summary: Get project
       description: Returns details of a specific project.
       tags: [Projects]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
       responses:
         '200':
@@ -307,14 +307,14 @@ paths:
   # Component Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components:
     get:
       operationId: listComponents
       summary: List components
       description: Returns a paginated list of components within a project.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
@@ -340,7 +340,7 @@ paths:
       description: Creates a new component within a project.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
       requestBody:
         required: true
@@ -372,14 +372,14 @@ paths:
   # Environment Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/environments:
+  /api/v1/namespaces/{namespaceName}/environments:
     get:
       operationId: listEnvironments
       summary: List environments
-      description: Returns a paginated list of environments within an organization.
+      description: Returns a paginated list of environments within an namespace.
       tags: [Environments]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -399,10 +399,10 @@ paths:
     post:
       operationId: createEnvironment
       summary: Create environment
-      description: Creates a new environment within an organization.
+      description: Creates a new environment within an namespace.
       tags: [Environments]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       requestBody:
         required: true
         content:
@@ -427,14 +427,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/environments/{envName}:
+  /api/v1/namespaces/{namespaceName}/environments/{envName}:
     get:
       operationId: getEnvironment
       summary: Get environment
       description: Returns details of a specific environment.
       tags: [Environments]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/EnvironmentNameParam'
       responses:
         '200':
@@ -452,14 +452,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/environments/{envName}/observer-url:
+  /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url:
     get:
       operationId: getEnvironmentObserverURL
       summary: Get environment observer URL
       description: Returns the observer URL for accessing logs and metrics for this environment.
       tags: [Environments]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/EnvironmentNameParam'
       responses:
         '200':
@@ -481,14 +481,14 @@ paths:
   # DataPlane Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/dataplanes:
+  /api/v1/namespaces/{namespaceName}/dataplanes:
     get:
       operationId: listDataPlanes
       summary: List data planes
-      description: Returns a paginated list of data planes within an organization.
+      description: Returns a paginated list of data planes within an namespace.
       tags: [DataPlanes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -508,10 +508,10 @@ paths:
     post:
       operationId: createDataPlane
       summary: Create data plane
-      description: Creates a new data plane within an organization.
+      description: Creates a new data plane within an namespace.
       tags: [DataPlanes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       requestBody:
         required: true
         content:
@@ -536,14 +536,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/dataplanes/{dpName}:
+  /api/v1/namespaces/{namespaceName}/dataplanes/{dpName}:
     get:
       operationId: getDataPlane
       summary: Get data plane
       description: Returns details of a specific data plane.
       tags: [DataPlanes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/DataPlaneNameParam'
       responses:
         '200':
@@ -565,14 +565,14 @@ paths:
   # BuildPlane Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/buildplanes:
+  /api/v1/namespaces/{namespaceName}/buildplanes:
     get:
       operationId: listBuildPlanes
       summary: List build planes
-      description: Returns a list of build planes within an organization. Typically one per organization.
+      description: Returns a list of build planes within an namespace. Typically one per namespace.
       tags: [BuildPlanes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       responses:
         '200':
           description: List of build planes
@@ -591,14 +591,14 @@ paths:
   # ObservabilityPlane Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/observabilityplanes:
+  /api/v1/namespaces/{namespaceName}/observabilityplanes:
     get:
       operationId: listObservabilityPlanes
       summary: List observability planes
-      description: Returns a list of observability planes within an organization.
+      description: Returns a list of observability planes within an namespace.
       tags: [ObservabilityPlanes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       responses:
         '200':
           description: List of observability planes
@@ -617,14 +617,14 @@ paths:
   # ComponentType Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/component-types:
+  /api/v1/namespaces/{namespaceName}/component-types:
     get:
       operationId: listComponentTypes
       summary: List component types
-      description: Returns a list of component types available in the organization.
+      description: Returns a list of component types available in the namespace.
       tags: [ComponentTypes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -641,14 +641,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/component-types/{ctName}/schema:
+  /api/v1/namespaces/{namespaceName}/component-types/{ctName}/schema:
     get:
       operationId: getComponentTypeSchema
       summary: Get component type schema
       description: Returns the parameter schema for a specific component type.
       tags: [ComponentTypes]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ComponentTypeNameParam'
       responses:
         '200':
@@ -670,14 +670,14 @@ paths:
   # Trait Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/traits:
+  /api/v1/namespaces/{namespaceName}/traits:
     get:
       operationId: listTraits
       summary: List traits
-      description: Returns a list of traits available in the organization.
+      description: Returns a list of traits available in the namespace.
       tags: [Traits]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -694,14 +694,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/traits/{traitName}/schema:
+  /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema:
     get:
       operationId: getTraitSchema
       summary: Get trait schema
       description: Returns the parameter schema for a specific trait.
       tags: [Traits]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/TraitNameParam'
       responses:
         '200':
@@ -723,14 +723,14 @@ paths:
   # Workflow Endpoints (Generic Workflows)
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/workflows:
+  /api/v1/namespaces/{namespaceName}/workflows:
     get:
       operationId: listWorkflows
       summary: List workflows
-      description: Returns a list of generic workflows available in the organization.
+      description: Returns a list of generic workflows available in the namespace.
       tags: [Workflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -747,14 +747,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/workflows/{workflowName}/schema:
+  /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema:
     get:
       operationId: getWorkflowSchema
       summary: Get workflow schema
       description: Returns the parameter schema for a specific workflow.
       tags: [Workflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/WorkflowNameParam'
       responses:
         '200':
@@ -776,14 +776,14 @@ paths:
   # ComponentWorkflow Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/component-workflows:
+  /api/v1/namespaces/{namespaceName}/component-workflows:
     get:
       operationId: listComponentWorkflows
       summary: List component workflows
-      description: Returns a list of component workflow templates available in the organization.
+      description: Returns a list of component workflow templates available in the namespace.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -800,14 +800,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/component-workflows/{cwName}/schema:
+  /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/schema:
     get:
       operationId: getComponentWorkflowSchema
       summary: Get component workflow schema
       description: Returns the parameter schema for a specific component workflow.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ComponentWorkflowNameParam'
       responses:
         '200':
@@ -825,14 +825,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}:
     get:
       operationId: getComponent
       summary: Get component
       description: Returns details of a specific component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - name: include
@@ -864,7 +864,7 @@ paths:
       description: Updates a component with partial data.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -891,14 +891,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema:
     get:
       operationId: getComponentSchema
       summary: Get component schema
       description: Returns the combined parameter schema for a component (ComponentType + Traits).
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       responses:
@@ -917,14 +917,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits:
     get:
       operationId: listComponentTraits
       summary: List component traits
       description: Returns the traits attached to a component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       responses:
@@ -949,7 +949,7 @@ paths:
       description: Replaces the traits attached to a component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -976,14 +976,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings:
     get:
       operationId: listComponentBindings
       summary: List component bindings
       description: Returns the deployment bindings for a component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - name: environment
@@ -1012,14 +1012,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}:
     patch:
       operationId: updateComponentBinding
       summary: Update component binding
       description: Updates a component's deployment binding.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/BindingNameParam'
@@ -1047,14 +1047,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases:
     get:
       operationId: listComponentReleases
       summary: List component releases
       description: Returns immutable release snapshots for a component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -1081,7 +1081,7 @@ paths:
       description: Creates an immutable release snapshot from current component state.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -1108,14 +1108,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}:
     get:
       operationId: getComponentRelease
       summary: Get component release
       description: Returns details of a specific component release.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/ReleaseNameParam'
@@ -1135,14 +1135,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema:
     get:
       operationId: getComponentReleaseSchema
       summary: Get component release schema
       description: Returns the parameter schema for a component release.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/ReleaseNameParam'
@@ -1162,14 +1162,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings:
     get:
       operationId: listReleaseBindings
       summary: List release bindings
       description: Returns environment-specific release bindings for a component.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - name: environment
@@ -1198,14 +1198,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}:
     patch:
       operationId: patchReleaseBinding
       summary: Patch release binding
       description: Updates a release binding with environment-specific overrides.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/BindingNameParam'
@@ -1233,14 +1233,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release:
     get:
       operationId: getEnvironmentRelease
       summary: Get environment release
       description: Returns the deployed release for a component in an environment.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
@@ -1260,14 +1260,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
       summary: Deploy release
       description: Deploys a component release to an environment.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -1294,14 +1294,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote:
     post:
       operationId: promoteComponent
       summary: Promote component
       description: Promotes a component release from one environment to another.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -1328,14 +1328,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url:
     get:
       operationId: getComponentObserverURL
       summary: Get component observer URL
       description: Returns the observer URL for component logs and metrics in an environment.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
@@ -1355,14 +1355,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/observer-url:
     get:
       operationId: getBuildObserverURL
       summary: Get build observer URL
       description: Returns the observer URL for component build logs.
       tags: [Components]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       responses:
@@ -1381,14 +1381,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters:
     patch:
       operationId: updateComponentWorkflowParameters
       summary: Update component workflow parameters
       description: Updates the workflow parameters for a component.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -1415,14 +1415,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs:
     get:
       operationId: listComponentWorkflowRuns
       summary: List component workflow runs
       description: Returns a list of workflow runs for a component.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -1449,7 +1449,7 @@ paths:
       description: Triggers a new workflow run (build) for a component.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - name: commit
@@ -1477,14 +1477,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}:
     get:
       operationId: getComponentWorkflowRun
       summary: Get component workflow run
       description: Returns details of a specific workflow run.
       tags: [ComponentWorkflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
         - $ref: '#/components/parameters/WorkflowRunNameParam'
@@ -1851,7 +1851,7 @@ paths:
         - name: org
           in: query
           required: false
-          description: Organization scope
+          description: Namespace scope
           schema:
             type: string
         - name: project
@@ -1869,7 +1869,7 @@ paths:
         - name: ou
           in: query
           required: false
-          description: Organization units scope
+          description: Namespace units scope
           schema:
             type: array
             items:
@@ -2071,14 +2071,14 @@ paths:
   # Secret Reference Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/secret-references:
+  /api/v1/namespaces/{namespaceName}/secret-references:
     get:
       operationId: listSecretReferences
       summary: List secret references
-      description: Returns a list of secret references within an organization.
+      description: Returns a list of secret references within an namespace.
       tags: [SecretReferences]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       responses:
         '200':
           description: List of secret references
@@ -2099,14 +2099,14 @@ paths:
   # Workload Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads:
     get:
       operationId: getWorkloads
       summary: Get component workloads
       description: Returns the workload definition for a component.
       tags: [Workloads]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       responses:
@@ -2131,7 +2131,7 @@ paths:
       description: Creates or updates the workload definition for a component.
       tags: [Workloads]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
@@ -2162,14 +2162,14 @@ paths:
   # Deployment Pipeline Endpoints
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/projects/{projectName}/deployment-pipeline:
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline:
     get:
       operationId: getProjectDeploymentPipeline
       summary: Get project deployment pipeline
       description: Returns the deployment pipeline for a project.
       tags: [DeploymentPipelines]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ProjectNameParam'
       responses:
         '200':
@@ -2208,14 +2208,14 @@ components:
   # Common Parameters
   # ===========================================================================
   parameters:
-    OrgNameParam:
-      name: orgName
+    NamespaceNameParam:
+      name: namespaceName
       in: path
       required: true
-      description: Organization name
+      description: Namespace name
       schema:
         type: string
-        example: my-org
+        example: my-namespace
 
     ProjectNameParam:
       name: projectName
@@ -2709,11 +2709,11 @@ components:
           example: 42
 
     # -------------------------------------------------------------------------
-    # Organizations
+    # Namespaces
     # -------------------------------------------------------------------------
-    OrganizationList:
+    NamespaceList:
       type: object
-      description: Paginated list of organizations
+      description: Paginated list of namespaces
       required:
         - items
         - pagination
@@ -2721,33 +2721,33 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Organization'
+            $ref: '#/components/schemas/Namespace'
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    Organization:
+    Namespace:
       type: object
-      description: Organization resource
+      description: Namespace resource
       required:
         - name
         - createdAt
       properties:
         name:
           type: string
-          description: Organization name (unique identifier)
-          example: my-org
+          description: Namespace name (unique identifier)
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
-          example: My Organization
+          example: My Namespace
         description:
           type: string
-          description: Organization description
-          example: Main development organization
+          description: Namespace description
+          example: Main development namespace
         namespace:
           type: string
-          description: Kubernetes namespace for the organization
-          example: org-my-org
+          description: Kubernetes namespace for the namespace
+          example: org-my-namespace
         createdAt:
           type: string
           format: date-time
@@ -2755,7 +2755,7 @@ components:
           example: "2025-01-06T10:00:00Z"
         status:
           type: string
-          description: Organization status
+          description: Namespace status
           example: Ready
 
     # -------------------------------------------------------------------------
@@ -2781,7 +2781,7 @@ components:
       required:
         - uid
         - name
-        - orgName
+        - namespaceName
         - createdAt
       properties:
         uid:
@@ -2791,12 +2791,12 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440000
         name:
           type: string
-          description: Project name (unique within organization)
+          description: Project name (unique within namespace)
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -2827,7 +2827,7 @@ components:
       properties:
         name:
           type: string
-          description: Project name (must be unique within organization)
+          description: Project name (must be unique within namespace)
           example: my-project
           minLength: 1
           maxLength: 63
@@ -2844,7 +2844,7 @@ components:
           maxLength: 1024
         deploymentPipeline:
           type: string
-          description: Deployment pipeline to use (defaults to organization default)
+          description: Deployment pipeline to use (defaults to namespace default)
           example: default-pipeline
 
     # -------------------------------------------------------------------------
@@ -2872,7 +2872,7 @@ components:
         - name
         - type
         - projectName
-        - orgName
+        - namespaceName
         - createdAt
       properties:
         uid:
@@ -2905,10 +2905,10 @@ components:
           type: string
           description: Parent project name
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         createdAt:
           type: string
           format: date-time
@@ -3117,12 +3117,12 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440002
         name:
           type: string
-          description: Environment name (unique within organization)
+          description: Environment name (unique within namespace)
           example: dev
         namespace:
           type: string
           description: Kubernetes namespace for the environment
-          example: org-my-org
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -3161,7 +3161,7 @@ components:
       properties:
         name:
           type: string
-          description: Environment name (must be unique within organization)
+          description: Environment name (must be unique within namespace)
           example: staging
           minLength: 1
           maxLength: 63
@@ -3236,12 +3236,12 @@ components:
       properties:
         name:
           type: string
-          description: DataPlane name (unique within organization)
+          description: DataPlane name (unique within namespace)
           example: default-dataplane
         namespace:
           type: string
           description: Kubernetes namespace for the data plane
-          example: org-my-org
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -3266,7 +3266,7 @@ components:
           example: apps.example.com
         organizationVirtualHost:
           type: string
-          description: Organization virtual host for internal traffic
+          description: Namespace virtual host for internal traffic
           example: internal.example.com
         publicHTTPPort:
           type: integer
@@ -3313,7 +3313,7 @@ components:
       properties:
         name:
           type: string
-          description: DataPlane name (must be unique within organization)
+          description: DataPlane name (must be unique within namespace)
           example: production-dataplane
           minLength: 1
           maxLength: 63
@@ -3392,12 +3392,12 @@ components:
       properties:
         name:
           type: string
-          description: BuildPlane name (unique within organization)
+          description: BuildPlane name (unique within namespace)
           example: default-buildplane
         namespace:
           type: string
           description: Kubernetes namespace for the build plane
-          example: org-my-org
+          example: org-my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -3447,12 +3447,12 @@ components:
       properties:
         name:
           type: string
-          description: ObservabilityPlane name (unique within organization)
+          description: ObservabilityPlane name (unique within namespace)
           example: default-observability
         namespace:
           type: string
           description: Kubernetes namespace for the observability plane
-          example: org-my-org
+          example: org-my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -3498,7 +3498,7 @@ components:
       properties:
         name:
           type: string
-          description: ComponentType name (unique within organization)
+          description: ComponentType name (unique within namespace)
           example: go-service
         displayName:
           type: string
@@ -3550,7 +3550,7 @@ components:
       properties:
         name:
           type: string
-          description: Trait name (unique within organization)
+          description: Trait name (unique within namespace)
           example: autoscaler
         displayName:
           type: string
@@ -3609,7 +3609,7 @@ components:
       properties:
         name:
           type: string
-          description: Workflow name (unique within organization)
+          description: Workflow name (unique within namespace)
           example: database-migration
         displayName:
           type: string
@@ -3651,7 +3651,7 @@ components:
       properties:
         name:
           type: string
-          description: ComponentWorkflow name (unique within organization)
+          description: ComponentWorkflow name (unique within namespace)
           example: docker-build
         displayName:
           type: string
@@ -3727,7 +3727,7 @@ components:
         - name
         - componentName
         - projectName
-        - orgName
+        - namespaceName
         - createdAt
       properties:
         name:
@@ -3746,10 +3746,10 @@ components:
           type: string
           description: Parent project name
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         status:
           type: string
           description: Run status
@@ -3761,7 +3761,7 @@ components:
         image:
           type: string
           description: Built container image
-          example: registry.example.com/my-org/api-service:abc1234
+          example: registry.example.com/my-namespace/api-service:abc1234
         workflow:
           $ref: '#/components/schemas/ComponentWorkflowConfig'
         createdAt:
@@ -3853,7 +3853,7 @@ components:
         - type
         - componentName
         - projectName
-        - orgName
+        - namespaceName
         - environment
         - status
       properties:
@@ -3873,10 +3873,10 @@ components:
           type: string
           description: Parent project name
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         environment:
           type: string
           description: Target environment name
@@ -3927,7 +3927,7 @@ components:
           example: http
         project:
           $ref: '#/components/schemas/ExposedEndpoint'
-        organization:
+        namespace:
           $ref: '#/components/schemas/ExposedEndpoint'
         public:
           $ref: '#/components/schemas/ExposedEndpoint'
@@ -3969,7 +3969,7 @@ components:
         image:
           type: string
           description: Container image
-          example: registry.example.com/my-org/api-service:v1.0.0
+          example: registry.example.com/my-namespace/api-service:v1.0.0
         releaseState:
           type: string
           description: Release state
@@ -3987,7 +3987,7 @@ components:
         image:
           type: string
           description: Container image
-          example: registry.example.com/my-org/web-app:v1.0.0
+          example: registry.example.com/my-namespace/web-app:v1.0.0
         releaseState:
           type: string
           description: Release state
@@ -4000,7 +4000,7 @@ components:
         image:
           type: string
           description: Container image
-          example: registry.example.com/my-org/cron-job:v1.0.0
+          example: registry.example.com/my-namespace/cron-job:v1.0.0
         releaseState:
           type: string
           description: Release state
@@ -4042,7 +4042,7 @@ components:
         - name
         - componentName
         - projectName
-        - orgName
+        - namespaceName
         - createdAt
       properties:
         name:
@@ -4057,10 +4057,10 @@ components:
           type: string
           description: Parent project name
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         createdAt:
           type: string
           format: date-time
@@ -4104,7 +4104,7 @@ components:
         - name
         - componentName
         - projectName
-        - orgName
+        - namespaceName
         - environment
         - createdAt
       properties:
@@ -4120,10 +4120,10 @@ components:
           type: string
           description: Parent project name
           example: my-project
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         environment:
           type: string
           description: Target environment name
@@ -4364,16 +4364,10 @@ components:
       type: object
       description: Resource hierarchy scope
       properties:
-        organization:
+        namespace:
           type: string
-          description: Organization name
-          example: my-org
-        organization_units:
-          type: array
-          description: Organization unit names
-          items:
-            type: string
-          example: ["team-a"]
+          description: Namespace name
+          example: my-namespace
         project:
           type: string
           description: Project name
@@ -4644,7 +4638,7 @@ components:
             namespace:
               type: string
               description: Kubernetes namespace
-              example: org-my-org
+              example: org-my-namespace
           additionalProperties: true
         spec:
           type: object
@@ -4675,7 +4669,7 @@ components:
         namespace:
           type: string
           description: Applied resource namespace
-          example: org-my-org
+          example: org-my-namespace
         operation:
           type: string
           description: Operation performed
@@ -4706,7 +4700,7 @@ components:
         namespace:
           type: string
           description: Deleted resource namespace
-          example: org-my-org
+          example: org-my-namespace
         operation:
           type: string
           description: Operation result
@@ -4745,7 +4739,7 @@ components:
         namespace:
           type: string
           description: Kubernetes namespace
-          example: org-my-org
+          example: org-my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -4797,7 +4791,7 @@ components:
         namespace:
           type: string
           description: Secret store namespace
-          example: org-my-org
+          example: org-my-namespace
         kind:
           type: string
           description: Secret store kind
@@ -4846,7 +4840,7 @@ components:
       example:
         containers:
           main:
-            image: registry.example.com/my-org/api:v1.0.0
+            image: registry.example.com/my-namespace/api:v1.0.0
             ports:
               - containerPort: 8080
         endpoints:
@@ -4861,7 +4855,7 @@ components:
       description: Deployment pipeline resource
       required:
         - name
-        - orgName
+        - namespaceName
         - createdAt
       properties:
         name:
@@ -4876,10 +4870,10 @@ components:
           type: string
           description: Pipeline description
           example: Standard deployment pipeline with dev, staging, and prod
-        orgName:
+        namespaceName:
           type: string
-          description: Parent organization name
-          example: my-org
+          description: Parent namespace name
+          example: my-namespace
         createdAt:
           type: string
           format: date-time

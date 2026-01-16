@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testOrgName       = "my-org"
+	testNamespaceName       = "my-namespace"
 	testProjectName   = "my-project"
 	testComponentName = "my-component"
 	testEnvName       = "dev"
@@ -22,7 +22,7 @@ func setupTestServer(t *testing.T) (*mcp.ClientSession, *MockCoreToolsetHandler)
 	t.Helper()
 	mockHandler := NewMockCoreToolsetHandler()
 	toolsets := &Toolsets{
-		OrganizationToolset:   mockHandler,
+		NamespaceToolset:      mockHandler,
 		ProjectToolset:        mockHandler,
 		ComponentToolset:      mockHandler,
 		BuildToolset:          mockHandler,
@@ -73,7 +73,7 @@ type toolTestSpec struct {
 	name string
 
 	// Toolset association
-	toolset string // "organization", "project", "component", "build", "deployment", "infrastructure", "schema", "resource"
+	toolset string // "namespace", "project", "component", "build", "deployment", "infrastructure", "schema", "resource"
 
 	// Description validation
 	descriptionKeywords []string
@@ -92,7 +92,7 @@ type toolTestSpec struct {
 // allToolSpecs aggregates all tool specs from all toolsets
 var allToolSpecs = func() []toolTestSpec {
 	specs := []toolTestSpec{}
-	specs = append(specs, organizationToolSpecs()...)
+	specs = append(specs, namespaceToolSpecs()...)
 	specs = append(specs, projectToolSpecs()...)
 	specs = append(specs, componentToolSpecs()...)
 	specs = append(specs, buildToolSpecs()...)

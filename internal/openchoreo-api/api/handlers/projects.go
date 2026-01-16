@@ -15,14 +15,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListProjects returns a paginated list of projects within an organization
+// ListProjects returns a paginated list of projects within an namespace
 func (h *Handler) ListProjects(
 	ctx context.Context,
 	request gen.ListProjectsRequestObject,
 ) (gen.ListProjectsResponseObject, error) {
-	h.logger.Debug("ListProjects called", "orgName", request.OrgName)
+	h.logger.Debug("ListProjects called", "namespaceName", request.NamespaceName)
 
-	projects, err := h.services.ProjectService.ListProjects(ctx, request.OrgName)
+	projects, err := h.services.ProjectService.ListProjects(ctx, request.NamespaceName)
 	if err != nil {
 		h.logger.Error("Failed to list projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -41,12 +41,12 @@ func (h *Handler) ListProjects(
 	}, nil
 }
 
-// CreateProject creates a new project within an organization
+// CreateProject creates a new project within an namespace
 func (h *Handler) CreateProject(
 	ctx context.Context,
 	request gen.CreateProjectRequestObject,
 ) (gen.CreateProjectResponseObject, error) {
-	h.logger.Info("CreateProject called", "orgName", request.OrgName)
+	h.logger.Info("CreateProject called", "namespaceName", request.NamespaceName)
 
 	if request.Body == nil {
 		return gen.CreateProject400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
@@ -60,7 +60,7 @@ func (h *Handler) CreateProject(
 		DeploymentPipeline: ptr.Deref(request.Body.DeploymentPipeline, ""),
 	}
 
-	project, err := h.services.ProjectService.CreateProject(ctx, request.OrgName, req)
+	project, err := h.services.ProjectService.CreateProject(ctx, request.NamespaceName, req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.CreateProject403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -72,7 +72,7 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Project created successfully", "orgName", request.OrgName, "project", project.Name)
+	h.logger.Info("Project created successfully", "namespaceName", request.NamespaceName, "project", project.Name)
 	return gen.CreateProject201JSONResponse(toGenProject(project)), nil
 }
 
@@ -81,11 +81,11 @@ func (h *Handler) GetProject(
 	ctx context.Context,
 	request gen.GetProjectRequestObject,
 ) (gen.GetProjectResponseObject, error) {
-	h.logger.Debug("GetProject called", "orgName", request.OrgName, "projectName", request.ProjectName)
+	h.logger.Debug("GetProject called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
 
 	project, err := h.services.ProjectService.GetProject(
 		ctx,
-		request.OrgName,
+		request.NamespaceName,
 		request.ProjectName,
 	)
 	if err != nil {
@@ -108,7 +108,7 @@ func toGenProject(p *models.ProjectResponse) gen.Project {
 	return gen.Project{
 		Uid:                uid,
 		Name:               p.Name,
-		OrgName:            p.OrgName,
+		NamespaceName:            p.NamespaceName,
 		DisplayName:        ptr.To(p.DisplayName),
 		Description:        ptr.To(p.Description),
 		DeploymentPipeline: ptr.To(p.DeploymentPipeline),

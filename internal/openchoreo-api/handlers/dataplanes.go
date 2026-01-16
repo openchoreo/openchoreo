@@ -12,18 +12,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListDataPlanes handles GET /api/v1/orgs/{orgName}/dataplanes
+// ListDataPlanes handles GET /api/v1/orgs/{namespaceName}/dataplanes
 func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
-	dataplanes, err := h.services.DataPlaneService.ListDataPlanes(ctx, orgName)
+	dataplanes, err := h.services.DataPlaneService.ListDataPlanes(ctx, namespaceName)
 	if err != nil {
-		h.logger.Error("Failed to list dataplanes", "error", err, "org", orgName)
+		h.logger.Error("Failed to list dataplanes", "error", err, "org", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list dataplanes", services.CodeInternalError)
 		return
 	}
@@ -31,14 +31,14 @@ func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 	writeListResponse(w, dataplanes, len(dataplanes), 1, len(dataplanes))
 }
 
-// GetDataPlane handles GET /api/v1/orgs/{orgName}/dataplanes/{dpName}
+// GetDataPlane handles GET /api/v1/orgs/{namespaceName}/dataplanes/{dpName}
 func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	dpName := r.PathValue("dpName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -47,10 +47,10 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dataplane, err := h.services.DataPlaneService.GetDataPlane(ctx, orgName, dpName)
+	dataplane, err := h.services.DataPlaneService.GetDataPlane(ctx, namespaceName, dpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to view dataplane", "org", orgName, "dataplane", dpName)
+			h.logger.Warn("Unauthorized to view dataplane", "org", namespaceName, "dataplane", dpName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -58,7 +58,7 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
-		h.logger.Error("Failed to get dataplane", "error", err, "org", orgName, "dataplane", dpName)
+		h.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", dpName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get dataplane", services.CodeInternalError)
 		return
 	}
@@ -66,13 +66,13 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, dataplane)
 }
 
-// CreateDataPlane handles POST /api/v1/orgs/{orgName}/dataplanes
+// CreateDataPlane handles POST /api/v1/orgs/{namespaceName}/dataplanes
 func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -91,12 +91,12 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuditResource(ctx, "dataplane", req.Name, req.Name)
-	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "organization", namespaceName)
 
-	dataplane, err := h.services.DataPlaneService.CreateDataPlane(ctx, orgName, &req)
+	dataplane, err := h.services.DataPlaneService.CreateDataPlane(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to create dataplane", "org", orgName, "dataplane", req.Name)
+			h.logger.Warn("Unauthorized to create dataplane", "org", namespaceName, "dataplane", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -104,7 +104,7 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusConflict, "DataPlane already exists", services.CodeDataPlaneExists)
 			return
 		}
-		h.logger.Error("Failed to create dataplane", "error", err, "org", orgName, "dataplane", req.Name)
+		h.logger.Error("Failed to create dataplane", "error", err, "org", namespaceName, "dataplane", req.Name)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create dataplane", services.CodeInternalError)
 		return
 	}

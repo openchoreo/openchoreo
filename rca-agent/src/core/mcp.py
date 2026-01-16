@@ -22,7 +22,7 @@ OBS_MCP_TOOLS = (
 
 OC_MCP_TOOLS = (
     oc_tools.LIST_ENVIRONMENTS,
-    oc_tools.LIST_ORGANIZATIONS,
+    oc_tools.LIST_NAMESPACES,
     oc_tools.LIST_PROJECTS,
     oc_tools.LIST_COMPONENTS,
 )

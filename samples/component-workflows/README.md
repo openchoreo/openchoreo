@@ -280,7 +280,7 @@ ComponentWorkflows support template variables for dynamic values in the `runTemp
 | `${metadata.workflowRunName}` | Name of the ComponentWorkflowRun CR | All component workflows |
 | `${metadata.componentName}` | Component name | Component-level workflows only |
 | `${metadata.projectName}` | Project name | Component-level workflows only |
-| `${metadata.orgName}` | Organization (namespace) | All component workflows |
+| `${metadata.namespaceName}` | Organization (namespace) | All component workflows |
 | `${systemParameters.*}` | System parameter values (repository.url, etc.) | All component workflows |
 | `${parameters.*}` | Developer-provided parameter values | All component workflows |
 
@@ -292,7 +292,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.orgName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:

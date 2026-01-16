@@ -95,7 +95,7 @@ type PromoteComponentPayload struct {
 	models.PromoteComponentRequest
 	ComponentName string `json:"componentName"`
 	ProjectName   string `json:"projectName"`
-	OrgName       string `json:"orgName"`
+	NamespaceName string `json:"namespaceName"`
 }
 
 // NewComponentService creates a new component service
@@ -109,19 +109,19 @@ func NewComponentService(k8sClient client.Client, projectService *ProjectService
 	}
 }
 
-func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
-	s.logger.Debug("Creating component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
+	s.logger.Debug("Creating component release", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -129,12 +129,12 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 
 	componentKey := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 	component := &openchoreov1alpha1.Component{}
 	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -143,12 +143,12 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 
 	// Verify component belongs to the project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 	workloadList := &openchoreov1alpha1.WorkloadList{}
 	if err := s.k8sClient.List(ctx, workloadList, listOpts...); err != nil {
@@ -165,13 +165,13 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 	}
 
 	if workload == nil {
-		s.logger.Warn("Workload not found", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Workload not found", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrWorkloadNotFound
 	}
 
 	// Generate release name if not provided
 	if releaseName == "" {
-		generatedName, err := s.generateReleaseName(ctx, orgName, projectName, componentName)
+		generatedName, err := s.generateReleaseName(ctx, namespaceName, projectName, componentName)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +190,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 
 		componentTypeKey := client.ObjectKey{
 			Name:      componentTypeName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		}
 		componentType := &openchoreov1alpha1.ComponentType{}
 		if err := s.k8sClient.Get(ctx, componentTypeKey, componentType); err != nil {
@@ -208,7 +208,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 	for _, componentTrait := range component.Spec.Traits {
 		traitKey := client.ObjectKey{
 			Name:      componentTrait.Name,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		}
 		trait := &openchoreov1alpha1.Trait{}
 		if err := s.k8sClient.Get(ctx, traitKey, trait); err != nil {
@@ -241,7 +241,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 	componentRelease := &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      releaseName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Labels: map[string]string{
 				labels.LabelKeyProjectName:   projectName,
 				labels.LabelKeyComponentName: componentName,
@@ -270,12 +270,12 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 		return nil, fmt.Errorf("failed to create component release: %w", err)
 	}
 
-	s.logger.Debug("ComponentRelease created successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	s.logger.Debug("ComponentRelease created successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	return &models.ComponentReleaseResponse{
 		Name:          releaseName,
 		ComponentName: componentName,
 		ProjectName:   projectName,
-		OrgName:       orgName,
+		NamespaceName: namespaceName,
 		CreatedAt:     componentRelease.CreationTimestamp.Time,
 		Status:        statusReady,
 	}, nil
@@ -284,11 +284,11 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 // generateReleaseName generates a unique release name for a component
 // Format: <component_name>-<date>-<number>
 // Example: my-component-20240118-1
-func (s *ComponentService) generateReleaseName(ctx context.Context, orgName, projectName, componentName string) (string, error) {
+func (s *ComponentService) generateReleaseName(ctx context.Context, namespaceName, projectName, componentName string) (string, error) {
 	// List existing releases for this component
 	releaseList := &openchoreov1alpha1.ComponentReleaseList{}
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 		client.MatchingLabels{
 			labels.LabelKeyProjectName:   projectName,
 			labels.LabelKeyComponentName: componentName,
@@ -318,17 +318,17 @@ func (s *ComponentService) generateReleaseName(ctx context.Context, orgName, pro
 }
 
 // ListComponentReleases lists all component releases for a specific component
-func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentReleaseResponse, error) {
-	s.logger.Debug("Listing component releases", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.ComponentReleaseResponse, error) {
+	s.logger.Debug("Listing component releases", "org", namespaceName, "project", projectName, "component", componentName)
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -336,13 +336,13 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	var releaseList openchoreov1alpha1.ComponentReleaseList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
@@ -357,10 +357,10 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 		}
 		// Authorization check for each release
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, item.Name,
-			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized releases
-				s.logger.Debug("Skipping unauthorized component release", "org", orgName, "project", projectName, "component", componentName, "release", item.Name)
+				s.logger.Debug("Skipping unauthorized component release", "org", namespaceName, "project", projectName, "component", componentName, "release", item.Name)
 				continue
 			}
 			// system failures, return the error
@@ -370,27 +370,27 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 			Name:          item.Name,
 			ComponentName: componentName,
 			ProjectName:   projectName,
-			OrgName:       orgName,
+			NamespaceName: namespaceName,
 			CreatedAt:     item.CreationTimestamp.Time,
 			Status:        statusReady,
 		})
 	}
 
-	s.logger.Debug("Listed component releases", "org", orgName, "project", projectName, "component", componentName, "count", len(releases))
+	s.logger.Debug("Listed component releases", "org", namespaceName, "project", projectName, "component", componentName, "count", len(releases))
 	return releases, nil
 }
 
 // GetComponentRelease retrieves a specific component release by its name
-func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
-	s.logger.Debug("Getting component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+func (s *ComponentService) GetComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (*models.ComponentReleaseResponse, error) {
+	s.logger.Debug("Getting component release", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -399,13 +399,13 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 	}
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -413,18 +413,18 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	releaseKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      releaseName,
 	}
 	var release openchoreov1alpha1.ComponentRelease
 	if err := s.k8sClient.Get(ctx, releaseKey, &release); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			s.logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			return nil, ErrComponentReleaseNotFound
 		}
 		s.logger.Error("Failed to get component release", "error", err)
@@ -432,39 +432,39 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 	}
 
 	if release.Spec.Owner.ComponentName != componentName {
-		s.logger.Warn("Component release does not belong to component", "org", orgName, "component", componentName, "release", releaseName)
+		s.logger.Warn("Component release does not belong to component", "org", namespaceName, "component", componentName, "release", releaseName)
 		return nil, ErrComponentReleaseNotFound
 	}
 
-	s.logger.Debug("Retrieved component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	s.logger.Debug("Retrieved component release", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	return &models.ComponentReleaseResponse{
 		Name:          release.Name,
 		ComponentName: componentName,
 		ProjectName:   projectName,
-		OrgName:       orgName,
+		NamespaceName: namespaceName,
 		CreatedAt:     release.CreationTimestamp.Time,
 		Status:        statusReady, // ComponentRelease is immutable, so it's always ready once created
 	}, nil
 }
 
 // GetComponentReleaseSchema retrieves the JSON schema for a ComponentRelease
-func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting component release schema", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting component release schema", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -472,18 +472,18 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	releaseKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      releaseName,
 	}
 	var release openchoreov1alpha1.ComponentRelease
 	if err := s.k8sClient.Get(ctx, releaseKey, &release); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			s.logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			return nil, ErrComponentReleaseNotFound
 		}
 		s.logger.Error("Failed to get component release", "error", err)
@@ -491,7 +491,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 	}
 
 	if release.Spec.Owner.ComponentName != componentName {
-		s.logger.Warn("Component release does not belong to component", "org", orgName, "component", componentName, "release", releaseName)
+		s.logger.Warn("Component release does not belong to component", "org", namespaceName, "component", componentName, "release", releaseName)
 		return nil, ErrComponentReleaseNotFound
 	}
 
@@ -556,23 +556,23 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 		}
 	}
 
-	s.logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvOverrides", componentTypeEnvOverrides != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component release schema successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName, "hasComponentTypeEnvOverrides", componentTypeEnvOverrides != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
 // GetComponentSchema retrieves the JSON schema for a Component using the latest ComponentType
-func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, projectName, componentName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting component schema", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName, projectName, componentName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting component schema", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Get the component
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -580,7 +580,7 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
@@ -593,13 +593,13 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 
 	// Get the latest ComponentType
 	ctKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      ctName,
 	}
 	var ct openchoreov1alpha1.ComponentType
 	if err := s.k8sClient.Get(ctx, ctKey, &ct); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
+			s.logger.Warn("ComponentType not found", "org", namespaceName, "name", ctName)
 			return nil, ErrComponentTypeNotFound
 		}
 		s.logger.Error("Failed to get ComponentType", "error", err)
@@ -644,13 +644,13 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
 	for _, componentTrait := range component.Spec.Traits {
 		traitKey := client.ObjectKey{
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Name:      componentTrait.Name,
 		}
 		var trait openchoreov1alpha1.Trait
 		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "org", orgName, "trait", componentTrait.Name)
+				s.logger.Warn("Trait not found", "org", namespaceName, "trait", componentTrait.Name)
 				continue // Skip missing traits instead of failing
 			}
 			s.logger.Error("Failed to get trait", "trait", componentTrait.Name, "error", err)
@@ -675,23 +675,23 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, orgName, proj
 		}
 	}
 
-	s.logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName, "hasComponentTypeEnvOverrides", envOverrides != nil, "traitCount", len(traitSchemas))
+	s.logger.Debug("Retrieved component schema successfully", "org", namespaceName, "project", projectName, "component", componentName, "hasComponentTypeEnvOverrides", envOverrides != nil, "traitCount", len(traitSchemas))
 	return wrappedSchema, nil
 }
 
 // GetEnvironmentRelease retrieves the Release spec and status for a given component and environment
 // Returns the full Release spec and status including resources, owner, environment information, and conditions
-func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (*models.ReleaseResponse, error) {
-	s.logger.Debug("Getting release", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, namespaceName, projectName, componentName, environmentName string) (*models.ReleaseResponse, error) {
+	s.logger.Debug("Getting release", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -699,18 +699,17 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	var releaseList openchoreov1alpha1.ReleaseList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 		client.MatchingLabels{
-			labels.LabelKeyOrganizationName: orgName,
-			labels.LabelKeyProjectName:      projectName,
-			labels.LabelKeyComponentName:    componentName,
-			labels.LabelKeyEnvironmentName:  environmentName,
+			labels.LabelKeyProjectName:     projectName,
+			labels.LabelKeyComponentName:   componentName,
+			labels.LabelKeyEnvironmentName: environmentName,
 		},
 	}
 
@@ -720,14 +719,14 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, orgName, p
 	}
 
 	if len(releaseList.Items) == 0 {
-		s.logger.Warn("No release found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+		s.logger.Warn("No release found", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 		return nil, ErrReleaseNotFound
 	}
 
 	// Get the first matching Release (there should only be one per component/environment)
 	release := &releaseList.Items[0]
 
-	s.logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	s.logger.Debug("Retrieved release successfully", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
 	return &models.ReleaseResponse{
 		Spec:   release.Spec,
 		Status: release.Status,
@@ -814,16 +813,16 @@ func (s *ComponentService) applyWorkloadOverrides(binding *openchoreov1alpha1.Re
 }
 
 // PatchReleaseBinding patches a ReleaseBinding with environment-specific overrides
-func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
-	s.logger.Debug("Patching release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+func (s *ComponentService) PatchReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req *models.PatchReleaseBindingRequest) (*models.ReleaseBindingResponse, error) {
+	s.logger.Debug("Patching release binding", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateReleaseBinding, ResourceTypeReleaseBinding, bindingName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -832,13 +831,13 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 	}
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -846,12 +845,12 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	bindingKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      bindingName,
 	}
 	var binding openchoreov1alpha1.ReleaseBinding
@@ -867,7 +866,7 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 	// Handle binding not found - create new one
 	if err != nil {
 		bindingExists = false
-		s.logger.Debug("Release binding not found, will create new one", "org", orgName, "binding", bindingName)
+		s.logger.Debug("Release binding not found, will create new one", "org", namespaceName, "binding", bindingName)
 
 		if req.Environment == "" {
 			s.logger.Warn("Environment is required when creating a new release binding")
@@ -877,7 +876,7 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 		binding = openchoreov1alpha1.ReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      bindingName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 				Labels: map[string]string{
 					labels.LabelKeyProjectName:   projectName,
 					labels.LabelKeyComponentName: componentName,
@@ -899,7 +898,7 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 
 	// Verify the binding belongs to the correct component (only if it already exists)
 	if bindingExists && binding.Spec.Owner.ComponentName != componentName {
-		s.logger.Warn("Release binding does not belong to component", "org", orgName, "component", componentName, "binding", bindingName)
+		s.logger.Warn("Release binding does not belong to component", "org", namespaceName, "component", componentName, "binding", bindingName)
 		return nil, ErrReleaseBindingNotFound
 	}
 
@@ -932,25 +931,25 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 			s.logger.Error("Failed to update release binding", "error", err)
 			return nil, fmt.Errorf("failed to update release binding: %w", err)
 		}
-		s.logger.Debug("Release binding updated successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+		s.logger.Debug("Release binding updated successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	} else {
 		if err := s.k8sClient.Create(ctx, &binding); err != nil {
 			s.logger.Error("Failed to create release binding", "error", err)
 			return nil, fmt.Errorf("failed to create release binding: %w", err)
 		}
-		s.logger.Debug("Release binding created successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+		s.logger.Debug("Release binding created successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	}
 
-	return s.toReleaseBindingResponse(&binding, orgName, projectName, componentName), nil
+	return s.toReleaseBindingResponse(&binding, namespaceName, projectName, componentName), nil
 }
 
 // toReleaseBindingResponse converts a ReleaseBinding CR to a ReleaseBindingResponse
-func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.ReleaseBinding, orgName, projectName, componentName string) *models.ReleaseBindingResponse {
+func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.ReleaseBinding, namespaceName, projectName, componentName string) *models.ReleaseBindingResponse {
 	response := &models.ReleaseBindingResponse{
 		Name:          binding.Name,
 		ComponentName: componentName,
 		ProjectName:   projectName,
-		OrgName:       orgName,
+		NamespaceName: namespaceName,
 		Environment:   binding.Spec.Environment,
 		ReleaseName:   binding.Spec.ReleaseName,
 		CreatedAt:     binding.CreationTimestamp.Time,
@@ -1077,10 +1076,10 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 
 // ListReleaseBindings lists all release bindings for a specific component
 // If environments is provided, only returns bindings for those environments
-func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.ReleaseBindingResponse, error) {
-	s.logger.Debug("Listing release bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments)
+func (s *ComponentService) ListReleaseBindings(ctx context.Context, namespaceName, projectName, componentName string, environments []string) ([]*models.ReleaseBindingResponse, error) {
+	s.logger.Debug("Listing release bindings", "org", namespaceName, "project", projectName, "component", componentName, "environments", environments)
 
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1089,13 +1088,13 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 	}
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -1103,13 +1102,13 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	var bindingList openchoreov1alpha1.ReleaseBindingList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &bindingList, listOpts...); err != nil {
@@ -1139,34 +1138,34 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 
 		// Authorization check for each release binding
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewReleaseBinding, ResourceTypeReleaseBinding, binding.Name,
-			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized release bindings
-				s.logger.Debug("Skipping unauthorized release binding", "org", orgName, "project", projectName, "component", componentName, "binding", binding.Name)
+				s.logger.Debug("Skipping unauthorized release binding", "org", namespaceName, "project", projectName, "component", componentName, "binding", binding.Name)
 				continue
 			}
 			// Return non-forbidden errors
 			return nil, err
 		}
 
-		bindings = append(bindings, s.toReleaseBindingResponse(binding, orgName, projectName, componentName))
+		bindings = append(bindings, s.toReleaseBindingResponse(binding, namespaceName, projectName, componentName))
 	}
 
-	s.logger.Debug("Listed release bindings", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+	s.logger.Debug("Listed release bindings", "org", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
 	return bindings, nil
 }
 
 // DeployRelease deploys a component release to the lowest environment in the deployment pipeline
-func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectName, componentName string, req *models.DeployReleaseRequest) (*models.ReleaseBindingResponse, error) {
-	s.logger.Debug("Deploying release", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName)
+func (s *ComponentService) DeployRelease(ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest) (*models.ReleaseBindingResponse, error) {
+	s.logger.Debug("Deploying release", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
-	project, err := s.projectService.getProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1176,12 +1175,12 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 
 	pipelineName := project.DeploymentPipeline
 	if pipelineName == "" {
-		s.logger.Warn("Project has no deployment pipeline", "org", orgName, "project", projectName)
+		s.logger.Warn("Project has no deployment pipeline", "org", namespaceName, "project", projectName)
 		return nil, fmt.Errorf("project has no deployment pipeline configured")
 	}
 
 	pipelineKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      pipelineName,
 	}
 	var pipeline openchoreov1alpha1.DeploymentPipeline
@@ -1201,13 +1200,13 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 
 	// Verify component exists
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -1215,18 +1214,18 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 	}
 
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component does not belong to project", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not belong to project", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	releaseKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      req.ReleaseName,
 	}
 	var release openchoreov1alpha1.ComponentRelease
 	if err := s.k8sClient.Get(ctx, releaseKey, &release); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component release not found", "org", orgName, "release", req.ReleaseName)
+			s.logger.Warn("Component release not found", "org", namespaceName, "release", req.ReleaseName)
 			return nil, ErrComponentReleaseNotFound
 		}
 		s.logger.Error("Failed to get component release", "error", err)
@@ -1240,7 +1239,7 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 
 	bindingName := fmt.Sprintf("%s-%s", componentName, lowestEnv)
 	bindingKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      bindingName,
 	}
 
@@ -1267,7 +1266,7 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 		binding = openchoreov1alpha1.ReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      bindingName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 				Labels: map[string]string{
 					labels.LabelKeyProjectName:   projectName,
 					labels.LabelKeyComponentName: componentName,
@@ -1288,8 +1287,8 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 		}
 	}
 
-	s.logger.Debug("Release deployed successfully", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", lowestEnv)
-	return s.toReleaseBindingResponse(&binding, orgName, projectName, componentName), nil
+	s.logger.Debug("Release deployed successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", lowestEnv)
+	return s.toReleaseBindingResponse(&binding, namespaceName, projectName, componentName), nil
 }
 
 // findLowestEnvironment finds the lowest environment in the deployment pipeline
@@ -1323,59 +1322,59 @@ func (s *ComponentService) findLowestEnvironment(promotionPaths []openchoreov1al
 }
 
 // CreateComponent creates a new component in the given project
-func (s *ComponentService) CreateComponent(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Creating component", "org", orgName, "project", projectName, "component", req.Name)
+func (s *ComponentService) CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Creating component", "org", namespaceName, "project", projectName, "component", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponent, ResourceTypeComponent, req.Name,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: req.Name}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: req.Name}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
 	// Check if component already exists
-	exists, err := s.componentExists(ctx, orgName, projectName, req.Name)
+	exists, err := s.componentExists(ctx, namespaceName, projectName, req.Name)
 	if err != nil {
 		s.logger.Error("Failed to check component existence", "error", err)
 		return nil, fmt.Errorf("failed to check component existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Component already exists", "org", orgName, "project", projectName, "component", req.Name)
+		s.logger.Warn("Component already exists", "org", namespaceName, "project", projectName, "component", req.Name)
 		return nil, ErrComponentAlreadyExists
 	}
 
 	// Create the component and related resources
-	component, err := s.createComponentResources(ctx, orgName, projectName, req)
+	component, err := s.createComponentResources(ctx, namespaceName, projectName, req)
 	if err != nil {
 		s.logger.Error("Failed to create component resources", "error", err)
 		return nil, fmt.Errorf("failed to create component: %w", err)
 	}
 
-	s.logger.Debug("Component created successfully", "org", orgName, "project", projectName, "component", req.Name)
+	s.logger.Debug("Component created successfully", "org", namespaceName, "project", projectName, "component", req.Name)
 
 	// Return the created component
 	return &models.ComponentResponse{
-		UID:         string(component.UID),
-		Name:        component.Name,
-		DisplayName: req.DisplayName,
-		Description: req.Description,
-		Type:        req.Type,
-		ProjectName: projectName,
-		OrgName:     orgName,
-		CreatedAt:   component.CreationTimestamp.Time,
-		Status:      "Created",
+		UID:           string(component.UID),
+		Name:          component.Name,
+		DisplayName:   req.DisplayName,
+		Description:   req.Description,
+		Type:          req.Type,
+		ProjectName:   projectName,
+		NamespaceName: namespaceName,
+		CreatedAt:     component.CreationTimestamp.Time,
+		Status:        "Created",
 	}, nil
 }
 
@@ -1422,11 +1421,11 @@ func (s *ComponentService) DeleteComponent(ctx context.Context, orgName, project
 }
 
 // ListComponents lists all components in the given project
-func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectName string) ([]*models.ComponentResponse, error) {
-	s.logger.Debug("Listing components", "org", orgName, "project", projectName)
+func (s *ComponentService) ListComponents(ctx context.Context, namespaceName, projectName string) ([]*models.ComponentResponse, error) {
+	s.logger.Debug("Listing components", "org", namespaceName, "project", projectName)
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1436,7 +1435,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 
 	var componentList openchoreov1alpha1.ComponentList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &componentList, listOpts...); err != nil {
@@ -1450,10 +1449,10 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		if item.Spec.Owner.ProjectName == projectName {
 			// Authorization check for each component
 			if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, item.Name,
-				authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: item.Name}); err != nil {
+				authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: item.Name}); err != nil {
 				if errors.Is(err, ErrForbidden) {
 					// Skip unauthorized components
-					s.logger.Debug("Skipping unauthorized component", "org", orgName, "project", projectName, "component", item.Name)
+					s.logger.Debug("Skipping unauthorized component", "org", namespaceName, "project", projectName, "component", item.Name)
 					continue
 				}
 				// system failures, return the error
@@ -1463,22 +1462,22 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		}
 	}
 
-	s.logger.Debug("Listed components", "org", orgName, "project", projectName, "count", len(components))
+	s.logger.Debug("Listed components", "org", namespaceName, "project", projectName, "count", len(components))
 	return components, nil
 }
 
 // GetComponent retrieves a specific component
-func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectName, componentName string, additionalResources []string) (*models.ComponentResponse, error) {
-	s.logger.Debug("Getting component", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) GetComponent(ctx context.Context, namespaceName, projectName, componentName string, additionalResources []string) (*models.ComponentResponse, error) {
+	s.logger.Debug("Getting component", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -1489,12 +1488,12 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -1528,13 +1527,13 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 			continue
 		}
 
-		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
+		spec, err := fetcher.FetchSpec(ctx, s.k8sClient, namespaceName, componentName)
 		if err != nil {
 			if client.IgnoreNotFound(err) == nil {
 				s.logger.Warn(
 					"Resource not found for fetcher",
 					"fetcherKey", fetcherKey,
-					"org", orgName,
+					"org", namespaceName,
 					"project", projectName,
 					"component", componentName,
 				)
@@ -1542,7 +1541,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 				s.logger.Error(
 					"Failed to fetch spec for resource type",
 					"fetcherKey", fetcherKey,
-					"org", orgName,
+					"org", namespaceName,
 					"project", projectName,
 					"component", componentName,
 					"error", err,
@@ -1555,7 +1554,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 
 	// Verify that the component belongs to the specified project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
@@ -1563,24 +1562,24 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 }
 
 // PatchComponent patches a Component with the provided updates
-func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectName, componentName string,
+func (s *ComponentService) PatchComponent(ctx context.Context, namespaceName, projectName, componentName string,
 	req *models.PatchComponentRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Patching component", "org", orgName, "project", projectName, "component", componentName)
+	s.logger.Debug("Patching component", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -1589,7 +1588,7 @@ func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectN
 
 	// Verify that the component belongs to the specified project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
@@ -1604,9 +1603,9 @@ func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectN
 			s.logger.Error("Failed to patch component", "error", err)
 			return nil, fmt.Errorf("failed to patch component: %w", err)
 		}
-		s.logger.Debug("Component patched successfully", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Debug("Component patched successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	} else {
-		s.logger.Debug("No changes detected, returning existing component", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Debug("No changes detected, returning existing component", "org", namespaceName, "project", projectName, "component", componentName)
 	}
 
 	return s.toComponentResponse(&component, nil, true), nil
@@ -1644,11 +1643,11 @@ func (s *ComponentService) applyComponentPatch(spec *openchoreov1alpha1.Componen
 }
 
 // componentExists checks if a component already exists by name and namespace and belongs to the specified project
-func (s *ComponentService) componentExists(ctx context.Context, orgName, projectName, componentName string) (bool, error) {
+func (s *ComponentService) componentExists(ctx context.Context, namespaceName, projectName, componentName string) (bool, error) {
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	err := s.k8sClient.Get(ctx, key, component)
@@ -1668,7 +1667,7 @@ func (s *ComponentService) componentExists(ctx context.Context, orgName, project
 }
 
 // createComponentResources creates the component and related Kubernetes resources
-func (s *ComponentService) createComponentResources(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (*openchoreov1alpha1.Component, error) {
+func (s *ComponentService) createComponentResources(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (*openchoreov1alpha1.Component, error) {
 	displayName := req.DisplayName
 	if displayName == "" {
 		displayName = req.Name
@@ -1719,7 +1718,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, orgName
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        req.Name,
-			Namespace:   orgName,
+			Namespace:   namespaceName,
 			Annotations: annotations,
 		},
 		Spec: componentSpec,
@@ -1809,7 +1808,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		Type:              componentType,
 		AutoDeploy:        component.Spec.AutoDeploy,
 		ProjectName:       projectName,
-		OrgName:           component.Namespace,
+		NamespaceName:     component.Namespace,
 		CreatedAt:         component.CreationTimestamp.Time,
 		DeletionTimestamp: deletionTimestamp,
 		Status:            status,
@@ -1830,18 +1829,18 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 
 // GetComponentBindings retrieves bindings for a component in multiple environments
 // If environments is empty, it will get all environments from the project's deployment pipeline
-func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, projectName, componentName string, environments []string) ([]*models.BindingResponse, error) {
-	s.logger.Debug("Getting component bindings", "org", orgName, "project", projectName, "component", componentName, "environments", environments)
+func (s *ComponentService) GetComponentBindings(ctx context.Context, namespaceName, projectName, componentName string, environments []string) ([]*models.BindingResponse, error) {
+	s.logger.Debug("Getting component bindings", "org", namespaceName, "project", projectName, "component", componentName, "environments", environments)
 
 	// First get the component to determine its type
-	component, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	component, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		return nil, err
 	}
 
 	// If no environments specified, get all environments from the deployment pipeline
 	if len(environments) == 0 {
-		pipelineEnvironments, err := s.getEnvironmentsFromDeploymentPipeline(ctx, orgName, projectName)
+		pipelineEnvironments, err := s.getEnvironmentsFromDeploymentPipeline(ctx, namespaceName, projectName)
 		if err != nil {
 			return nil, err
 		}
@@ -1851,7 +1850,7 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 
 	bindings := make([]*models.BindingResponse, 0, len(environments))
 	for _, environment := range environments {
-		binding, err := s.getComponentBinding(ctx, orgName, projectName, componentName, environment, component.Type)
+		binding, err := s.getComponentBinding(ctx, namespaceName, projectName, componentName, environment, component.Type)
 		if err != nil {
 			// If binding not found for an environment, skip it rather than failing the entire request
 			if errors.Is(err, ErrBindingNotFound) {
@@ -1869,28 +1868,28 @@ func (s *ComponentService) GetComponentBindings(ctx context.Context, orgName, pr
 }
 
 // GetComponentBinding retrieves the binding for a component in a specific environment
-func (s *ComponentService) GetComponentBinding(ctx context.Context, orgName, projectName, componentName, environment string) (*models.BindingResponse, error) {
-	s.logger.Debug("Getting component binding", "org", orgName, "project", projectName, "component", componentName, "environment", environment)
+func (s *ComponentService) GetComponentBinding(ctx context.Context, namespaceName, projectName, componentName, environment string) (*models.BindingResponse, error) {
+	s.logger.Debug("Getting component binding", "org", namespaceName, "project", projectName, "component", componentName, "environment", environment)
 
 	// First get the component to determine its type
-	component, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	component, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		return nil, err
 	}
 
-	return s.getComponentBinding(ctx, orgName, projectName, componentName, environment, component.Type)
+	return s.getComponentBinding(ctx, namespaceName, projectName, componentName, environment, component.Type)
 }
 
 // getComponentBinding retrieves the binding for a component in a specific environment
-func (s *ComponentService) getComponentBinding(ctx context.Context, orgName, projectName, componentName, environment, componentType string) (*models.BindingResponse, error) {
+func (s *ComponentService) getComponentBinding(ctx context.Context, namespaceName, projectName, componentName, environment, componentType string) (*models.BindingResponse, error) {
 	// Determine binding type based on component type - all legacy types removed
 	return nil, fmt.Errorf("legacy component types no longer supported: %s", componentType)
 }
 
 // getEnvironmentsFromDeploymentPipeline extracts all environments from the project's deployment pipeline
-func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Context, orgName, projectName string) ([]string, error) {
+func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Context, namespaceName, projectName string) ([]string, error) {
 	// Get the project to determine the deployment pipeline reference
-	project, err := s.projectService.getProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		return nil, err
 	}
@@ -1906,12 +1905,12 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	key := client.ObjectKey{
 		Name:      pipelineName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, pipeline); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Deployment pipeline not found", "org", orgName, "project", projectName, "pipeline", pipelineName)
+			s.logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName, "pipeline", pipelineName)
 			return nil, ErrDeploymentPipelineNotFound
 		}
 		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
@@ -1941,20 +1940,20 @@ func (s *ComponentService) getEnvironmentsFromDeploymentPipeline(ctx context.Con
 
 // PromoteComponent promotes a component from source environment to target environment
 func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteComponentPayload) (*models.ReleaseBindingResponse, error) {
-	s.logger.Debug("Promoting component", "org", req.OrgName, "project", req.ProjectName, "component", req.ComponentName,
+	s.logger.Debug("Promoting component", "org", req.NamespaceName, "project", req.ProjectName, "component", req.ComponentName,
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
 
 	// Authorization check (promote uses same permission as deploy)
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, req.ComponentName,
-		authz.ResourceHierarchy{Namespace: req.OrgName, Project: req.ProjectName, Component: req.ComponentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: req.NamespaceName, Project: req.ProjectName, Component: req.ComponentName}); err != nil {
 		return nil, err
 	}
 
-	if err := s.validatePromotionPath(ctx, req.OrgName, req.ProjectName, req.SourceEnvironment, req.TargetEnvironment); err != nil {
+	if err := s.validatePromotionPath(ctx, req.NamespaceName, req.ProjectName, req.SourceEnvironment, req.TargetEnvironment); err != nil {
 		return nil, err
 	}
 
-	sourceReleaseBinding, err := s.getReleaseBinding(ctx, req.OrgName, req.ProjectName, req.ComponentName, req.SourceEnvironment)
+	sourceReleaseBinding, err := s.getReleaseBinding(ctx, req.NamespaceName, req.ProjectName, req.ComponentName, req.SourceEnvironment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get source release binding: %w", err)
 	}
@@ -1963,18 +1962,18 @@ func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteCom
 		return nil, fmt.Errorf("failed to create/update target release binding: %w", err)
 	}
 
-	targetReleaseBinding, err := s.getReleaseBinding(ctx, req.OrgName, req.ProjectName, req.ComponentName, req.TargetEnvironment)
+	targetReleaseBinding, err := s.getReleaseBinding(ctx, req.NamespaceName, req.ProjectName, req.ComponentName, req.TargetEnvironment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
 
-	return s.toReleaseBindingResponse(targetReleaseBinding, req.OrgName, req.ProjectName, req.ComponentName), nil
+	return s.toReleaseBindingResponse(targetReleaseBinding, req.NamespaceName, req.ProjectName, req.ComponentName), nil
 }
 
 // validatePromotionPath validates that the promotion path is allowed by the deployment pipeline
-func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, projectName, sourceEnv, targetEnv string) error {
+func (s *ComponentService) validatePromotionPath(ctx context.Context, namespaceName, projectName, sourceEnv, targetEnv string) error {
 	// Get the project to determine the deployment pipeline reference
-	project, err := s.projectService.getProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		return err
 	}
@@ -1990,7 +1989,7 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	key := client.ObjectKey{
 		Name:      pipelineName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, pipeline); err != nil {
@@ -2022,11 +2021,11 @@ func (s *ComponentService) validatePromotionPath(ctx context.Context, orgName, p
 }
 
 // getReleaseBinding retrieves a ReleaseBinding for a component in a specific environment
-func (s *ComponentService) getReleaseBinding(ctx context.Context, orgName, projectName, componentName, environment string) (*openchoreov1alpha1.ReleaseBinding, error) {
+func (s *ComponentService) getReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, environment string) (*openchoreov1alpha1.ReleaseBinding, error) {
 	// List all ReleaseBindings in the namespace
 	bindingList := &openchoreov1alpha1.ReleaseBindingList{}
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, bindingList, listOpts...); err != nil {
@@ -2052,7 +2051,7 @@ func (s *ComponentService) getReleaseBinding(ctx context.Context, orgName, proje
 // createOrUpdateReleaseBinding creates or updates a ReleaseBinding in the target environment
 func (s *ComponentService) createOrUpdateReleaseBinding(ctx context.Context, req *PromoteComponentPayload, sourceBinding *openchoreov1alpha1.ReleaseBinding) error {
 	// Check if there's already a binding for this component in the target environment
-	existingTargetBinding, err := s.getReleaseBinding(ctx, req.OrgName, req.ProjectName, req.ComponentName, req.TargetEnvironment)
+	existingTargetBinding, err := s.getReleaseBinding(ctx, req.NamespaceName, req.ProjectName, req.ComponentName, req.TargetEnvironment)
 	var targetBindingName string
 
 	if err != nil && !errors.Is(err, ErrReleaseBindingNotFound) {
@@ -2073,7 +2072,7 @@ func (s *ComponentService) createOrUpdateReleaseBinding(ctx context.Context, req
 		targetBinding = &openchoreov1alpha1.ReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      targetBindingName,
-				Namespace: req.OrgName,
+				Namespace: req.NamespaceName,
 				Labels: map[string]string{
 					labels.LabelKeyProjectName:   req.ProjectName,
 					labels.LabelKeyComponentName: req.ComponentName,
@@ -2098,45 +2097,45 @@ func (s *ComponentService) createOrUpdateReleaseBinding(ctx context.Context, req
 		if err := s.k8sClient.Create(ctx, targetBinding); err != nil {
 			return fmt.Errorf("failed to create target release binding: %w", err)
 		}
-		s.logger.Debug("Created new ReleaseBinding", "name", targetBindingName, "namespace", req.OrgName, "environment", req.TargetEnvironment)
+		s.logger.Debug("Created new ReleaseBinding", "name", targetBindingName, "namespace", req.NamespaceName, "environment", req.TargetEnvironment)
 	} else {
 		// Update existing binding
 		if err := s.k8sClient.Update(ctx, targetBinding); err != nil {
 			return fmt.Errorf("failed to update target release binding: %w", err)
 		}
-		s.logger.Debug("Updated existing ReleaseBinding", "name", targetBindingName, "namespace", req.OrgName, "environment", req.TargetEnvironment)
+		s.logger.Debug("Updated existing ReleaseBinding", "name", targetBindingName, "namespace", req.NamespaceName, "environment", req.TargetEnvironment)
 	}
 
 	return nil
 }
 
 // UpdateComponentBinding updates a component binding
-func (s *ComponentService) UpdateComponentBinding(ctx context.Context, orgName, projectName, componentName, bindingName string, req *models.UpdateBindingRequest) (*models.BindingResponse, error) {
-	s.logger.Debug("Updating component binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+func (s *ComponentService) UpdateComponentBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req *models.UpdateBindingRequest) (*models.BindingResponse, error) {
+	s.logger.Debug("Updating component binding", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
 	}
 
 	// Verify component exists
-	exists, err := s.componentExists(ctx, orgName, projectName, componentName)
+	exists, err := s.componentExists(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		s.logger.Error("Failed to check component existence", "error", err)
 		return nil, fmt.Errorf("failed to check component existence: %w", err)
 	}
 	if !exists {
-		s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	// Get the component type to determine which binding type to update
-	component, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	component, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		s.logger.Error("Failed to get component", "error", err)
 		return nil, fmt.Errorf("failed to get component: %w", err)
@@ -2154,11 +2153,11 @@ type ComponentObserverResponse struct {
 
 // GetComponentObserverURL retrieves the observer URL for component runtime logs
 // NOTE: This function is to be deprecated in favor of the environment service to get the observer URL
-func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName, projectName, componentName, environmentName string) (*ComponentObserverResponse, error) {
-	s.logger.Debug("Getting component observer URL", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+func (s *ComponentService) GetComponentObserverURL(ctx context.Context, namespaceName, projectName, componentName, environmentName string) (*ComponentObserverResponse, error) {
+	s.logger.Debug("Getting component observer URL", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 
 	// 1. Verify component exists in project
-	_, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	_, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		return nil, err
 	}
@@ -2167,15 +2166,15 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName,
 	env := &openchoreov1alpha1.Environment{}
 	envKey := client.ObjectKey{
 		Name:      environmentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, envKey, env); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Environment not found", "org", orgName, "environment", environmentName)
+			s.logger.Warn("Environment not found", "org", namespaceName, "environment", environmentName)
 			return nil, ErrEnvironmentNotFound
 		}
-		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "environment", environmentName)
+		s.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "environment", environmentName)
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
@@ -2189,15 +2188,15 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName,
 	dp := &openchoreov1alpha1.DataPlane{}
 	dpKey := client.ObjectKey{
 		Name:      env.Spec.DataPlaneRef,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "org", orgName, "dataplane", env.Spec.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "org", namespaceName, "dataplane", env.Spec.DataPlaneRef)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "org", orgName, "dataplane", env.Spec.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", env.Spec.DataPlaneRef)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
@@ -2240,32 +2239,32 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, orgName,
 }
 
 // GetBuildObserverURL retrieves the observer URL for component build logs
-func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, projectName, componentName string) (*ComponentObserverResponse, error) {
-	s.logger.Debug("Getting build observer URL", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) GetBuildObserverURL(ctx context.Context, namespaceName, projectName, componentName string) (*ComponentObserverResponse, error) {
+	s.logger.Debug("Getting build observer URL", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// 1. Verify component exists in project
-	_, err := s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	_, err := s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 	if err != nil {
 		return nil, err
 	}
 
-	// 2. Get BuildPlane configuration for the organization
+	// 2. Get BuildPlane configuration for the namespace
 	var buildPlanes openchoreov1alpha1.BuildPlaneList
-	err = s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
+	err = s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(namespaceName))
 	if err != nil {
-		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
+		s.logger.Error("Failed to list build planes", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
 
 	// Check if any build planes exist
 	if len(buildPlanes.Items) == 0 {
-		s.logger.Error("No build planes found", "org", orgName)
-		return nil, fmt.Errorf("no build planes found for organization: %s", orgName)
+		s.logger.Error("No build planes found", "org", namespaceName)
+		return nil, fmt.Errorf("no build planes found for namespace: %s", namespaceName)
 	}
 
 	// Get the first build plane (0th index)
 	buildPlane := &buildPlanes.Items[0]
-	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", orgName)
+	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", namespaceName)
 
 	// 3. Check if observer is configured via ObservabilityPlaneRef
 	if buildPlane.Spec.ObservabilityPlaneRef == "" {
@@ -2306,17 +2305,17 @@ func (s *ComponentService) GetBuildObserverURL(ctx context.Context, orgName, pro
 }
 
 // GetComponentWorkloads retrieves workload data for a specific component
-func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (interface{}, error) {
-	s.logger.Debug("Getting component workloads", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) GetComponentWorkloads(ctx context.Context, namespaceName, projectName, componentName string) (interface{}, error) {
+	s.logger.Debug("Getting component workloads", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkload, ResourceTypeWorkload, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2328,12 +2327,12 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2342,16 +2341,16 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 
 	// Verify that the component belongs to the specified project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	// Use the WorkloadSpecFetcher to get workload data
 	fetcher := &WorkloadSpecFetcher{}
-	workloadSpec, err := fetcher.FetchSpec(ctx, s.k8sClient, orgName, componentName)
+	workloadSpec, err := fetcher.FetchSpec(ctx, s.k8sClient, namespaceName, componentName)
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workload not found for component", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Workload not found for component", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, fmt.Errorf("workload not found for component: %s", componentName)
 		}
 		s.logger.Error("Failed to fetch workload spec", "error", err)
@@ -2362,17 +2361,17 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 }
 
 // CreateComponentWorkload creates or updates workload data for a specific component
-func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName, projectName, componentName string, workloadSpec *openchoreov1alpha1.WorkloadSpec) (*openchoreov1alpha1.WorkloadSpec, error) {
-	s.logger.Debug("Creating/updating component workload", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) CreateComponentWorkload(ctx context.Context, namespaceName, projectName, componentName string, workloadSpec *openchoreov1alpha1.WorkloadSpec) (*openchoreov1alpha1.WorkloadSpec, error) {
+	s.logger.Debug("Creating/updating component workload", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkload, ResourceTypeWorkload, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2384,12 +2383,12 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2398,13 +2397,13 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 
 	// Verify that the component belongs to the specified project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName, "component", componentName)
 		return nil, ErrComponentNotFound
 	}
 
 	// Check if workload already exists
 	workloadList := &openchoreov1alpha1.WorkloadList{}
-	if err := s.k8sClient.List(ctx, workloadList, client.InNamespace(orgName)); err != nil {
+	if err := s.k8sClient.List(ctx, workloadList, client.InNamespace(namespaceName)); err != nil {
 		return nil, fmt.Errorf("failed to list workloads: %w", err)
 	}
 
@@ -2426,14 +2425,14 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			s.logger.Error("Failed to update workload", "error", err)
 			return nil, fmt.Errorf("failed to update workload: %w", err)
 		}
-		s.logger.Debug("Updated existing workload", "name", existingWorkload.Name, "namespace", orgName)
+		s.logger.Debug("Updated existing workload", "name", existingWorkload.Name, "namespace", namespaceName)
 	} else {
 		// Create new workload
 		workloadName = componentName + "-workload"
 		workload := &openchoreov1alpha1.Workload{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      workloadName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 			},
 			Spec: *workloadSpec,
 		}
@@ -2448,7 +2447,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 			s.logger.Error("Failed to create workload", "error", err)
 			return nil, fmt.Errorf("failed to create workload: %w", err)
 		}
-		s.logger.Debug("Created new workload", "name", workload.Name, "namespace", orgName)
+		s.logger.Debug("Created new workload", "name", workload.Name, "namespace", namespaceName)
 	}
 
 	// Create the appropriate type-specific resource based on component type if it doesn't exist
@@ -2468,14 +2467,14 @@ func (s *ComponentService) createTypeSpecificResource() error {
 }
 
 // UpdateComponentWorkflowParameters updates the workflow parameters for a component
-func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Updating component workflow parameters", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow parameters", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -2484,12 +2483,12 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 	// Get the component
 	componentKey := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 	component := &openchoreov1alpha1.Component{}
 	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2498,13 +2497,13 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 
 	// Verify component belongs to the project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
 	// Check if component has workflow configuration
 	if component.Spec.Workflow == nil {
-		s.logger.Warn("Component does not have workflow configuration", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Warn("Component does not have workflow configuration", "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, fmt.Errorf("component does not have workflow configuration")
 	}
 
@@ -2525,7 +2524,7 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 	// Update developer parameters if provided
 	if req.Parameters != nil {
 		// Validate the parameters against the ComponentWorkflow CRD
-		if err := s.validateComponentWorkflowParameters(ctx, orgName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+		if err := s.validateComponentWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
 			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
 			return nil, ErrWorkflowSchemaInvalid
 		}
@@ -2538,21 +2537,21 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 		return nil, fmt.Errorf("failed to update component: %w", err)
 	}
 
-	s.logger.Debug("Updated component workflow schema successfully", "org", orgName, "project", projectName, "component", componentName)
+	s.logger.Debug("Updated component workflow schema successfully", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Return the updated component
-	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	return s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 }
 
 // UpdateComponentWorkflowSchema updates or initializes the workflow schema configuration for a component
-func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
-	s.logger.Debug("Updating component workflow schema", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentWorkflowRequest) (*models.ComponentResponse, error) {
+	s.logger.Debug("Updating component workflow schema", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		return nil, fmt.Errorf("failed to verify project: %w", err)
@@ -2561,12 +2560,12 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 	// Get the component
 	componentKey := client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 	component := &openchoreov1alpha1.Component{}
 	if err := s.k8sClient.Get(ctx, componentKey, component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2575,14 +2574,14 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 
 	// Verify component belongs to the project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
 	// Initialize workflow configuration if it doesn't exist
 	if component.Spec.Workflow == nil {
 		if req.WorkflowName == "" {
-			s.logger.Warn("Workflow name is required to initialize workflow configuration", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Workflow name is required to initialize workflow configuration", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, fmt.Errorf("workflow name is required to initialize workflow configuration")
 		}
 		component.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowRunConfig{
@@ -2610,7 +2609,7 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 	// Update developer parameters if provided
 	if req.Parameters != nil {
 		// Validate the parameters against the ComponentWorkflow CRD
-		if err := s.validateComponentWorkflowParameters(ctx, orgName, component.Spec.Workflow.Name, req.Parameters); err != nil {
+		if err := s.validateComponentWorkflowParameters(ctx, namespaceName, component.Spec.Workflow.Name, req.Parameters); err != nil {
 			s.logger.Warn("Invalid workflow parameters", "error", err, "workflow", component.Spec.Workflow.Name)
 			return nil, ErrWorkflowSchemaInvalid
 		}
@@ -2623,23 +2622,23 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, or
 		return nil, fmt.Errorf("failed to update component: %w", err)
 	}
 
-	s.logger.Debug("Updated component workflow schema successfully", "org", orgName, "project", projectName, "component", componentName)
+	s.logger.Debug("Updated component workflow schema successfully", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Return the updated component
-	return s.GetComponent(ctx, orgName, projectName, componentName, []string{})
+	return s.GetComponent(ctx, namespaceName, projectName, componentName, []string{})
 }
 
 // validateComponentWorkflowParameters validates the provided parameters against the ComponentWorkflow CRD's parameter schema
-func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Context, orgName, workflowName string, providedParameters *runtime.RawExtension) error {
+func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Context, namespaceName, workflowName string, providedParameters *runtime.RawExtension) error {
 	// Fetch the ComponentWorkflow CR
 	workflowKey := client.ObjectKey{
 		Name:      workflowName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 	componentWorkflow := &openchoreov1alpha1.ComponentWorkflow{}
 	if err := s.k8sClient.Get(ctx, workflowKey, componentWorkflow); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentWorkflow not found", "org", orgName, "workflow", workflowName)
+			s.logger.Warn("ComponentWorkflow not found", "org", namespaceName, "workflow", workflowName)
 			return fmt.Errorf("component workflow %s not found", workflowName)
 		}
 		s.logger.Error("Failed to get component workflow", "error", err)
@@ -2690,17 +2689,17 @@ func (s *ComponentService) validateComponentWorkflowParameters(ctx context.Conte
 }
 
 // ListComponentTraits returns all trait instances attached to a component
-func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) ([]*models.ComponentTraitResponse, error) {
-	s.logger.Debug("Listing component traits", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) ListComponentTraits(ctx context.Context, namespaceName, projectName, componentName string) ([]*models.ComponentTraitResponse, error) {
+	s.logger.Debug("Listing component traits", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2710,13 +2709,13 @@ func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, pro
 
 	// Get component
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2725,7 +2724,7 @@ func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, pro
 
 	// Verify component belongs to project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
@@ -2751,22 +2750,22 @@ func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, pro
 		traits = append(traits, traitResponse)
 	}
 
-	s.logger.Debug("Listed component traits", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	s.logger.Debug("Listed component traits", "org", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
 	return traits, nil
 }
 
 // UpdateComponentTraits replaces all traits on a component
-func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest) ([]*models.ComponentTraitResponse, error) {
-	s.logger.Debug("Updating component traits", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentService) UpdateComponentTraits(ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentTraitsRequest) ([]*models.ComponentTraitResponse, error) {
+	s.logger.Debug("Updating component traits", "org", namespaceName, "project", projectName, "component", componentName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
 	// Verify project exists
-	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	_, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, ErrProjectNotFound) {
 			return nil, ErrProjectNotFound
@@ -2776,13 +2775,13 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 
 	// Get component
 	componentKey := client.ObjectKey{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      componentName,
 	}
 	var component openchoreov1alpha1.Component
 	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			s.logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			return nil, ErrComponentNotFound
 		}
 		s.logger.Error("Failed to get component", "error", err)
@@ -2791,20 +2790,20 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 
 	// Verify component belongs to project
 	if component.Spec.Owner.ProjectName != projectName {
-		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		s.logger.Warn("Component belongs to different project", "org", namespaceName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
 		return nil, ErrComponentNotFound
 	}
 
-	// Validate that all referenced traits exist in the organization
+	// Validate that all referenced traits exist in the namespace
 	for _, traitReq := range req.Traits {
 		traitKey := client.ObjectKey{
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Name:      traitReq.Name,
 		}
 		var trait openchoreov1alpha1.Trait
 		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
 			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "org", orgName, "trait", traitReq.Name)
+				s.logger.Warn("Trait not found", "org", namespaceName, "trait", traitReq.Name)
 				return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
 			}
 			s.logger.Error("Failed to get trait", "error", err)
@@ -2846,11 +2845,11 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 			s.logger.Error("Failed to patch component traits", "error", err)
 			return nil, fmt.Errorf("failed to patch component traits: %w", err)
 		}
-		s.logger.Debug("Component traits updated successfully", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Debug("Component traits updated successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	} else {
-		s.logger.Debug("No trait changes detected", "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Debug("No trait changes detected", "org", namespaceName, "project", projectName, "component", componentName)
 	}
 
 	// Return the updated traits
-	return s.ListComponentTraits(ctx, orgName, projectName, componentName)
+	return s.ListComponentTraits(ctx, namespaceName, projectName, componentName)
 }

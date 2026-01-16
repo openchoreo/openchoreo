@@ -17,16 +17,16 @@ func (h *Handler) ListTraits(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListTraits handler called")
 
-	// Extract organization name from URL path
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	// Extract namespace name from URL path
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
 	// Call service to list Traits
-	traits, err := h.services.TraitService.ListTraits(ctx, orgName)
+	traits, err := h.services.TraitService.ListTraits(ctx, namespaceName)
 	if err != nil {
 		logger.Error("Failed to list Traits", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
@@ -38,7 +38,7 @@ func (h *Handler) ListTraits(w http.ResponseWriter, r *http.Request) {
 	copy(traitValues, traits)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed Traits successfully", "org", orgName, "count", len(traits))
+	logger.Debug("Listed Traits successfully", "org", namespaceName, "count", len(traits))
 	writeListResponse(w, traitValues, len(traits), 1, len(traits))
 }
 
@@ -48,24 +48,24 @@ func (h *Handler) GetTraitSchema(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("GetTraitSchema handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	traitName := r.PathValue("traitName")
-	if orgName == "" || traitName == "" {
-		logger.Warn("Organization name and Trait name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and Trait name are required", services.CodeInvalidInput)
+	if namespaceName == "" || traitName == "" {
+		logger.Warn("Namespace name and Trait name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and Trait name are required", services.CodeInvalidInput)
 		return
 	}
 
 	// Call service to get Trait schema
-	schema, err := h.services.TraitService.GetTraitSchema(ctx, orgName, traitName)
+	schema, err := h.services.TraitService.GetTraitSchema(ctx, namespaceName, traitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view trait schema", "org", orgName, "trait", traitName)
+			logger.Warn("Unauthorized to view trait schema", "org", namespaceName, "trait", traitName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrTraitNotFound) {
-			logger.Warn("Trait not found", "org", orgName, "name", traitName)
+			logger.Warn("Trait not found", "org", namespaceName, "name", traitName)
 			writeErrorResponse(w, http.StatusNotFound, "Trait not found", services.CodeTraitNotFound)
 			return
 		}
@@ -75,6 +75,6 @@ func (h *Handler) GetTraitSchema(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved Trait schema successfully", "org", orgName, "name", traitName)
+	logger.Debug("Retrieved Trait schema successfully", "org", namespaceName, "name", traitName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

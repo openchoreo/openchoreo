@@ -36,40 +36,40 @@ func NewBuildPlaneService(k8sClient client.Client, bpClientMgr *kubernetesClient
 	}
 }
 
-// getBuildPlane retrieves the build plane for an organization without authorization checks (internal use only)
-func (s *BuildPlaneService) getBuildPlane(ctx context.Context, orgName string) (*openchoreov1alpha1.BuildPlane, error) {
-	// List all build planes in the organization namespace
+// getBuildPlane retrieves the build plane for an namespace without authorization checks (internal use only)
+func (s *BuildPlaneService) getBuildPlane(ctx context.Context, namespaceName string) (*openchoreov1alpha1.BuildPlane, error) {
+	// List all build planes in the namespace namespace
 	var buildPlanes openchoreov1alpha1.BuildPlaneList
-	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
+	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(namespaceName))
 	if err != nil {
-		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
+		s.logger.Error("Failed to list build planes", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
 
 	// Check if any build planes exist
 	if len(buildPlanes.Items) == 0 {
-		s.logger.Warn("No build planes found", "org", orgName)
-		return nil, fmt.Errorf("no build planes found for organization: %s", orgName)
+		s.logger.Warn("No build planes found", "org", namespaceName)
+		return nil, fmt.Errorf("no build planes found for namespace: %s", namespaceName)
 	}
 
 	// Return the first build plane (0th index)
 	buildPlane := &buildPlanes.Items[0]
 
-	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", orgName)
+	s.logger.Debug("Found build plane", "name", buildPlane.Name, "org", namespaceName)
 
 	return buildPlane, nil
 }
 
-// GetBuildPlane retrieves the build plane for an organization
-func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, orgName string) (*openchoreov1alpha1.BuildPlane, error) {
-	s.logger.Debug("Getting build plane", "org", orgName)
-	buildPlane, err := s.getBuildPlane(ctx, orgName)
+// GetBuildPlane retrieves the build plane for an namespace
+func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, namespaceName string) (*openchoreov1alpha1.BuildPlane, error) {
+	s.logger.Debug("Getting build plane", "org", namespaceName)
+	buildPlane, err := s.getBuildPlane(ctx, namespaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewBuildPlane, ResourceTypeBuildPlane, buildPlane.Name,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
@@ -79,11 +79,11 @@ func (s *BuildPlaneService) GetBuildPlane(ctx context.Context, orgName string) (
 // GetBuildPlaneClient creates and returns a Kubernetes client for the build plane cluster
 // This method is deprecated and will be removed in a future version.
 // Build plane operations should use the cluster gateway proxy instead.
-func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName string, gatewayURL string) (client.Client, error) {
-	s.logger.Debug("Getting build plane client", "org", orgName)
+func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, namespaceName string, gatewayURL string) (client.Client, error) {
+	s.logger.Debug("Getting build plane client", "org", namespaceName)
 
 	// Get the build plane first
-	buildPlane, err := s.getBuildPlane(ctx, orgName)
+	buildPlane, err := s.getBuildPlane(ctx, namespaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane: %w", err)
 	}
@@ -95,35 +95,35 @@ func (s *BuildPlaneService) GetBuildPlaneClient(ctx context.Context, orgName str
 		gatewayURL,
 	)
 	if err != nil {
-		s.logger.Error("Failed to create build plane client", "error", err, "org", orgName)
+		s.logger.Error("Failed to create build plane client", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to create build plane client: %w", err)
 	}
 
-	s.logger.Debug("Created build plane client", "org", orgName, "cluster", buildPlane.Name)
+	s.logger.Debug("Created build plane client", "org", namespaceName, "cluster", buildPlane.Name)
 	return buildPlaneClient, nil
 }
 
-// ListBuildPlanes retrieves all build planes for an organization
-func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, orgName string) ([]models.BuildPlaneResponse, error) {
-	s.logger.Debug("Listing build planes", "org", orgName)
+// ListBuildPlanes retrieves all build planes for an namespace
+func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, namespaceName string) ([]models.BuildPlaneResponse, error) {
+	s.logger.Debug("Listing build planes", "org", namespaceName)
 
-	// List all build planes in the organization namespace
+	// List all build planes in the namespace namespace
 	var buildPlanes openchoreov1alpha1.BuildPlaneList
-	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(orgName))
+	err := s.k8sClient.List(ctx, &buildPlanes, client.InNamespace(namespaceName))
 	if err != nil {
-		s.logger.Error("Failed to list build planes", "error", err, "org", orgName)
+		s.logger.Error("Failed to list build planes", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
 
-	s.logger.Debug("Found build planes", "count", len(buildPlanes.Items), "org", orgName)
+	s.logger.Debug("Found build planes", "count", len(buildPlanes.Items), "org", namespaceName)
 
 	// Convert to response format
 	buildPlaneResponses := make([]models.BuildPlaneResponse, 0, len(buildPlanes.Items))
 	for i := range buildPlanes.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewBuildPlane, ResourceTypeBuildPlane, buildPlanes.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized build plane", "org", orgName, "buildPlane", buildPlanes.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized build plane", "org", namespaceName, "buildPlane", buildPlanes.Items[i].Name)
 				continue
 			}
 			return nil, err

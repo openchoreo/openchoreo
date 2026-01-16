@@ -44,12 +44,12 @@ func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger, a
 }
 
 // TriggerWorkflow creates a new ComponentWorkflowRun from a component's workflow configuration
-func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
-	s.logger.Debug("Triggering component workflow", "org", orgName, "project", projectName, "component", componentName, "commit", commit)
+func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Triggering component workflow", "org", namespaceName, "project", projectName, "component", componentName, "commit", commit)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentWorkflow, ResourceTypeComponentWorkflow, componentName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -57,11 +57,11 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 	var component openchoreov1alpha1.Component
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      componentName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}, &component)
 
 	if err != nil {
-		s.logger.Error("Failed to get component", "error", err, "org", orgName, "project", projectName, "component", componentName)
+		s.logger.Error("Failed to get component", "error", err, "org", namespaceName, "project", projectName, "component", componentName)
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
@@ -104,7 +104,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 	workflowRun := &openchoreov1alpha1.ComponentWorkflowRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workflowRunName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		},
 		Spec: openchoreov1alpha1.ComponentWorkflowRunSpec{
 			Owner: openchoreov1alpha1.ComponentWorkflowOwner{
@@ -146,7 +146,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 		UUID:          string(workflowRun.UID),
 		ComponentName: componentName,
 		ProjectName:   projectName,
-		OrgName:       orgName,
+		NamespaceName: namespaceName,
 		Commit:        commit,
 		Status:        "Pending",
 		CreatedAt:     workflowRun.CreationTimestamp.Time,
@@ -155,11 +155,11 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 }
 
 // ListComponentWorkflowRuns retrieves component workflow runs for a component using spec.owner fields
-func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) ([]models.ComponentWorkflowResponse, error) {
-	s.logger.Debug("Listing component workflow runs", "org", orgName, "project", projectName, "component", componentName)
+func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) ([]models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Listing component workflow runs", "org", namespaceName, "project", projectName, "component", componentName)
 
 	var workflowRuns openchoreov1alpha1.ComponentWorkflowRunList
-	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(orgName))
+	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(namespaceName))
 	if err != nil {
 		s.logger.Error("Failed to list component workflow runs", "error", err)
 		return nil, fmt.Errorf("failed to list component workflow runs: %w", err)
@@ -174,9 +174,9 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 
 		// Authorization check for each workflow run
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, workflowRun.Name,
-			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized component workflow run", "org", orgName, "project", projectName, "component", componentName, "workflowRun", workflowRun.Name)
+				s.logger.Debug("Skipping unauthorized component workflow run", "org", namespaceName, "project", projectName, "component", componentName, "workflowRun", workflowRun.Name)
 				continue
 			}
 			return nil, err
@@ -193,7 +193,7 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 			UUID:          string(workflowRun.UID),
 			ComponentName: componentName,
 			ProjectName:   projectName,
-			OrgName:       orgName,
+			NamespaceName: namespaceName,
 			Commit:        commit,
 			Status:        getComponentWorkflowStatus(workflowRun.Status.Conditions),
 			CreatedAt:     workflowRun.CreationTimestamp.Time,
@@ -205,17 +205,17 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 }
 
 // GetComponentWorkflowRun retrieves a specific component workflow run by name
-func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, orgName, projectName, componentName, runName string) (*models.ComponentWorkflowResponse, error) {
-	s.logger.Debug("Getting component workflow run", "org", orgName, "project", projectName, "component", componentName, "run", runName)
+func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, namespaceName, projectName, componentName, runName string) (*models.ComponentWorkflowResponse, error) {
+	s.logger.Debug("Getting component workflow run", "org", namespaceName, "project", projectName, "component", componentName, "run", runName)
 
 	var workflowRun openchoreov1alpha1.ComponentWorkflowRun
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      runName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}, &workflowRun)
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Component workflow run not found", "org", orgName, "run", runName)
+			s.logger.Warn("Component workflow run not found", "org", namespaceName, "run", runName)
 			return nil, ErrComponentWorkflowRunNotFound
 		}
 		s.logger.Error("Failed to get component workflow run", "error", err)
@@ -225,7 +225,7 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, 
 	// Verify the workflow run belongs to the specified component
 	if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
 		s.logger.Warn("Component workflow run does not belong to the specified component",
-			"org", orgName, "project", projectName, "component", componentName, "run", runName)
+			"org", namespaceName, "project", projectName, "component", componentName, "run", runName)
 		return nil, ErrComponentWorkflowRunNotFound
 	}
 
@@ -263,7 +263,7 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, 
 	return &models.ComponentWorkflowResponse{
 		Name:          workflowRun.Name,
 		UUID:          string(workflowRun.UID),
-		OrgName:       orgName,
+		NamespaceName: namespaceName,
 		ProjectName:   projectName,
 		ComponentName: componentName,
 		Commit:        commit,
@@ -309,13 +309,13 @@ func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 	return "Pending"
 }
 
-// ListComponentWorkflows lists all ComponentWorkflow templates in the given organization
-func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, orgName string) ([]*models.WorkflowResponse, error) {
-	s.logger.Debug("Listing ComponentWorkflow templates", "org", orgName)
+// ListComponentWorkflows lists all ComponentWorkflow templates in the given namespace
+func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, namespaceName string) ([]*models.WorkflowResponse, error) {
+	s.logger.Debug("Listing ComponentWorkflow templates", "org", namespaceName)
 
 	var cwfList openchoreov1alpha1.ComponentWorkflowList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &cwfList, listOpts...); err != nil {
@@ -326,10 +326,10 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 	cwfs := make([]*models.WorkflowResponse, 0, len(cwfList.Items))
 	for i := range cwfList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfList.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized items
-				s.logger.Debug("Skipping unauthorized component workflow", "org", orgName, "componentWorkflow", cwfList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized component workflow", "org", namespaceName, "componentWorkflow", cwfList.Items[i].Name)
 				continue
 			}
 			// Return other errors
@@ -338,29 +338,29 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 		cwfs = append(cwfs, s.toComponentWorkflowResponse(&cwfList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentWorkflow templates", "org", orgName, "count", len(cwfs))
+	s.logger.Debug("Listed ComponentWorkflow templates", "org", namespaceName, "count", len(cwfs))
 	return cwfs, nil
 }
 
 // GetComponentWorkflow retrieves a specific ComponentWorkflow template
-func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, orgName, cwfName string) (*models.WorkflowResponse, error) {
-	s.logger.Debug("Getting ComponentWorkflow", "org", orgName, "name", cwfName)
+func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, namespaceName, cwfName string) (*models.WorkflowResponse, error) {
+	s.logger.Debug("Getting ComponentWorkflow", "org", namespaceName, "name", cwfName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
 	cwf := &openchoreov1alpha1.ComponentWorkflow{}
 	key := client.ObjectKey{
 		Name:      cwfName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, cwf); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentWorkflow template not found", "org", orgName, "name", cwfName)
+			s.logger.Warn("ComponentWorkflow template not found", "org", namespaceName, "name", cwfName)
 			return nil, ErrComponentWorkflowNotFound
 		}
 		s.logger.Error("Failed to get ComponentWorkflow template", "error", err)
@@ -371,24 +371,24 @@ func (s *ComponentWorkflowService) GetComponentWorkflow(ctx context.Context, org
 }
 
 // GetComponentWorkflowSchema retrieves the JSON schema for a ComponentWorkflow template
-func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Context, orgName, cwfName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting ComponentWorkflow template schema", "org", orgName, "name", cwfName)
+func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwfName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting ComponentWorkflow template schema", "org", namespaceName, "name", cwfName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflow, ResourceTypeComponentWorkflow, cwfName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
 	cwf := &openchoreov1alpha1.ComponentWorkflow{}
 	key := client.ObjectKey{
 		Name:      cwfName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, cwf); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentWorkflow template not found", "org", orgName, "name", cwfName)
+			s.logger.Warn("ComponentWorkflow template not found", "org", namespaceName, "name", cwfName)
 			return nil, ErrComponentWorkflowNotFound
 		}
 		s.logger.Error("Failed to get ComponentWorkflow template", "error", err)
@@ -434,7 +434,7 @@ func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Contex
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved ComponentWorkflow template schema successfully", "org", orgName, "name", cwfName)
+	s.logger.Debug("Retrieved ComponentWorkflow template schema successfully", "org", namespaceName, "name", cwfName)
 	return jsonSchema, nil
 }
 

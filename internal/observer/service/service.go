@@ -221,7 +221,7 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 // GetGatewayLogs retrieves gateway logs using V2 wildcard search
 func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting gateway logs",
-		"organization_id", params.OrganizationID,
+		"namespace_name", params.NamespaceName,
 		"gateway_vhosts", params.GatewayVHosts,
 		"search_phrase", params.SearchPhrase)
 
@@ -260,10 +260,10 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 	}, nil
 }
 
-// GetOrganizationLogs retrieves logs for an organization with custom filters
-func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (*LogResponse, error) {
-	s.logger.Info("Getting organization logs",
-		"organization_id", params.OrganizationID,
+// GetNamespaceLogs retrieves logs for a namespace with custom filters
+func (s *LoggingService) GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (*LogResponse, error) {
+	s.logger.Info("Getting namespace logs",
+		"namespace_name", params.NamespaceName,
 		"environment_id", params.EnvironmentID,
 		"pod_labels", podLabels,
 		"search_phrase", params.SearchPhrase)
@@ -275,13 +275,13 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
-	// Build organization-specific query
-	query := s.queryBuilder.BuildOrganizationLogsQuery(params, podLabels)
+	// Build namespace-specific query
+	query := s.queryBuilder.BuildNamespaceLogsQuery(params, podLabels)
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute organization logs search", "error", err)
+		s.logger.Error("Failed to execute namespace logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -292,7 +292,7 @@ func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensea
 		logs = append(logs, entry)
 	}
 
-	s.logger.Info("Organization logs retrieved",
+	s.logger.Info("Namespace logs retrieved",
 		"count", len(logs),
 		"total", response.Hits.Total.Value)
 

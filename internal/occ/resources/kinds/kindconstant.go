@@ -36,8 +36,8 @@ const (
 	// DataPlane related errors
 	ErrCreateDataPlane = "failed to create dataplane: %w"
 
-	// Organization related errors
-	ErrCreateOrganization = "failed to create organization: %w"
+	// Namespace related errors
+	ErrCreateNamespace = "failed to create namespace: %w"
 
 	// DeployableArtifact related errors
 	ErrCreateArtifact = "failed to create deployable artifact: %w"
@@ -60,7 +60,7 @@ const (
 	HeaderAge             = "AGE"
 	HeaderType            = "TYPE"
 	HeaderProject         = "PROJECT"
-	HeaderOrganization    = "ORGANIZATION"
+	HeaderNamespace    = "NAMESPACE"
 	HeaderComponent       = "COMPONENT"
 	HeaderEnvironment     = "ENVIRONMENT"
 	HeaderDeploymentTrack = "DEPLOYMENT TRACK"
@@ -79,38 +79,38 @@ const (
 
 // Resource-specific table headers defined as variables (not constants)
 var (
-	// Organization table headers
-	HeadersOrganization = []string{HeaderName, HeaderAge, HeaderStatus}
+	// Namespace table headers
+	HeadersNamespace = []string{HeaderName, HeaderAge, HeaderStatus}
 
 	// Project table headers
-	HeadersProject = []string{HeaderName, HeaderStatus, HeaderAge, HeaderOrganization}
+	HeadersProject = []string{HeaderName, HeaderStatus, HeaderAge, HeaderNamespace}
 
 	// Component table headers
-	HeadersComponent = []string{HeaderName, HeaderType, HeaderStatus, HeaderAge, HeaderProject, HeaderOrganization}
+	HeadersComponent = []string{HeaderName, HeaderType, HeaderStatus, HeaderAge, HeaderProject, HeaderNamespace}
 
 	// Build table headers
-	HeadersBuild = []string{HeaderName, HeaderStatus, HeaderRevision, HeaderDuration, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization}
+	HeadersBuild = []string{HeaderName, HeaderStatus, HeaderRevision, HeaderDuration, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// DeployableArtifact table headers
-	HeadersDeployableArtifact = []string{HeaderName, HeaderSource, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization}
+	HeadersDeployableArtifact = []string{HeaderName, HeaderSource, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Deployment table headers
-	HeadersDeployment = []string{HeaderName, HeaderArtifact, HeaderEnvironment, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization}
+	HeadersDeployment = []string{HeaderName, HeaderArtifact, HeaderEnvironment, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// DeploymentTrack table headers
-	HeadersDeploymentTrack = []string{HeaderName, HeaderAPIVersion, HeaderAutoDeploy, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization}
+	HeadersDeploymentTrack = []string{HeaderName, HeaderAPIVersion, HeaderAutoDeploy, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Environment table headers
-	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderDNSPrefix, HeaderAge, HeaderOrganization}
+	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderDNSPrefix, HeaderAge, HeaderNamespace}
 
 	// DataPlane table headers
-	HeadersDataPlane = []string{HeaderName, HeaderCluster, HeaderStatus, HeaderAge, HeaderOrganization}
+	HeadersDataPlane = []string{HeaderName, HeaderCluster, HeaderStatus, HeaderAge, HeaderNamespace}
 
 	// Endpoint table headers
-	HeadersEndpoint = []string{HeaderName, HeaderType, HeaderAddress, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderOrganization, HeaderEnvironment}
+	HeadersEndpoint = []string{HeaderName, HeaderType, HeaderAddress, HeaderStatus, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace, HeaderEnvironment}
 
 	// Workload table headers
-	HeadersWorkload = []string{HeaderName, HeaderStatus, HeaderAge, HeaderOrganization}
+	HeadersWorkload = []string{HeaderName, HeaderStatus, HeaderAge, HeaderNamespace}
 )
 
 //
@@ -196,35 +196,35 @@ const (
 
 // Success messages for resource creation
 const (
-	FmtProjectSuccess = "Project '%s' created successfully in organization '%s'\n"
+	FmtProjectSuccess = "Project '%s' created successfully in namespace '%s'\n"
 	// Component success messages
-	FmtComponentSuccess = "Component '%s' created successfully in project '%s' of organization '%s'\n"
+	FmtComponentSuccess = "Component '%s' created successfully in project '%s' of namespace '%s'\n"
 
 	// Deployment success messages
-	FmtDeploymentSuccess = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in organization '%s'\n"
-	FmtDeploySuccessMsg  = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in organization '%s'\n"
+	FmtDeploymentSuccess = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
+	FmtDeploySuccessMsg  = "Deployment '%s' created successfully in environment '%s' for component '%s' of project '%s' in namespace '%s'\n"
 
 	// Build success messages
-	FmtBuildSuccess       = "Build '%s' created successfully for component '%s' in project '%s' of organization '%s'\n"
-	FmtBuildCreateSuccess = "Build '%s' created successfully for component '%s' in project '%s' of organization '%s'\n"
+	FmtBuildSuccess       = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
+	FmtBuildCreateSuccess = "Build '%s' created successfully for component '%s' in project '%s' of namespace '%s'\n"
 
 	// Environment success messages
-	FmtEnvironmentSuccess = "Environment '%s' created successfully in organization '%s'\n"
+	FmtEnvironmentSuccess = "Environment '%s' created successfully in namespace '%s'\n"
 
 	// DataPlane success messages
-	FmtDataPlaneCreateSuccess = "DataPlane '%s' created successfully in organization '%s'\n"
+	FmtDataPlaneCreateSuccess = "DataPlane '%s' created successfully in namespace '%s'\n"
 
-	// Organization success messages
-	FmtOrganizationSuccess = "Organization '%s' created\n"
+	// Namespace success messages
+	FmtNamespaceSuccess = "Namespace '%s' created\n"
 
 	// DeploymentTrack success messages
-	FmtDeploymentTrackSuccess = "Deployment track '%s' created successfully in component '%s' of project '%s' in organization '%s'\n"
+	FmtDeploymentTrackSuccess = "Deployment track '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
 
 	// DeployableArtifact success messages
-	FmtDeployableArtifactSuccess = "Deployable artifact '%s' created successfully in component '%s' of project '%s' in organization '%s'\n"
+	FmtDeployableArtifactSuccess = "Deployable artifact '%s' created successfully in component '%s' of project '%s' in namespace '%s'\n"
 
 	// Endpoint success messages
-	FmtEndpointSuccess = "Endpoint '%s' created successfully in component '%s' of project '%s' in organization '%s' for environment '%s'\n"
+	FmtEndpointSuccess = "Endpoint '%s' created successfully in component '%s' of project '%s' in namespace '%s' for environment '%s'\n"
 
 	// Workload success messages
 	FmtWorkloadSuccess = "Workload created successfully from descriptor '%s'\n"

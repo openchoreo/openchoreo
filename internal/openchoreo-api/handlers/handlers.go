@@ -93,94 +93,95 @@ func (h *Handler) Routes() http.Handler {
 	// Middleware order: logger -> jwt -> audit -> handler
 	api := routes.With(jwtAuth, auditMiddleware)
 
-	// Organization operations
-	api.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}", h.GetOrganization)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/secret-references", h.ListSecretReferences)
+	// Controlplane namespace operations
+	// TODO: chathurangas: Remove commented out code below
+	// api.HandleFunc("GET "+v1+"/namespaces", h.ListNamespaces)
+	// api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}", h.GetNamespace)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/secret-references", h.ListSecretReferences)
 
 	// Apply/Delete operations (kubectl-like)
 	api.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
 	api.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
 
 	// DataPlane management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes", h.ListDataPlanes)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/dataplanes", h.CreateDataPlane)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/dataplanes/{dpName}", h.GetDataPlane)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/dataplanes", h.ListDataPlanes)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/dataplanes", h.CreateDataPlane)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/dataplanes/{dpName}", h.GetDataPlane)
 
 	// Environment management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments", h.ListEnvironments)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/environments", h.CreateEnvironment)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}", h.GetEnvironment)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/environments/{envName}/observer-url", h.GetEnvironmentObserverURL)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments", h.ListEnvironments)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/environments", h.CreateEnvironment)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}", h.GetEnvironment)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/environments/{envName}/observer-url", h.GetEnvironmentObserverURL)
 
 	// BuildPlane management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/buildplanes", h.ListBuildPlanes)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/buildplanes", h.ListBuildPlanes)
 
 	// ComponentType endpoints
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types", h.ListComponentTypes)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types", h.ListComponentTypes)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
 
 	// Workflow endpoints (generic workflows)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows", h.ListWorkflows)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows", h.ListWorkflows)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
 
 	// ComponentWorkflow endpoints (component-specific workflows)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows", h.ListComponentWorkflows)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", h.CreateComponentWorkflowRun)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", h.ListComponentWorkflowRuns)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", h.GetComponentWorkflowRun)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows", h.ListComponentWorkflows)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.CreateComponentWorkflowRun)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.ListComponentWorkflowRuns)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", h.GetComponentWorkflowRun)
 
 	// Trait endpoints
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits", h.ListTraits)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/traits/{traitName}/schema", h.GetTraitSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits", h.ListTraits)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/schema", h.GetTraitSchema)
 
 	// Project management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}", h.GetProject)
-	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}", h.DeleteProject)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects", h.ListProjects)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects", h.CreateProject)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}", h.GetProject)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/projects/{projectName}", h.DeleteProject)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
 
 	// Component management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
-	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.DeleteComponent)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components", h.ListComponents)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components", h.CreateComponent)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}", h.DeleteComponent)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
 
 	// Component trait management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", h.ListComponentTraits)
-	api.HandleFunc("PUT "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", h.UpdateComponentTraits)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits", h.ListComponentTraits)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits", h.UpdateComponentTraits)
 
 	// Component bindings
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", h.UpdateComponentBinding)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings", h.GetComponentBinding)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", h.UpdateComponentBinding)
 
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases", h.ListComponentReleases)
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases", h.CreateComponentRelease)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}", h.GetComponentRelease)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema", h.GetComponentReleaseSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases", h.ListComponentReleases)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases", h.CreateComponentRelease)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}", h.GetComponentRelease)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema", h.GetComponentReleaseSchema)
 
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings", h.ListReleaseBindings)
-	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}", h.PatchReleaseBinding)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings", h.ListReleaseBindings)
+	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}", h.PatchReleaseBinding)
 
 	// Deployment endpoint
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy", h.DeployRelease)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy", h.DeployRelease)
 
 	// Promotion endpoint
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote", h.PromoteComponent)
 
 	// Observer URL endpoints
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", h.GetComponentObserverURL)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url", h.GetBuildObserverURL)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", h.GetComponentObserverURL)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/observer-url", h.GetBuildObserverURL)
 
 	// Workload management
-	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
 
 	// Authorization admin endpoints
 	api.HandleFunc("GET "+v1+"/authz/roles", h.ListRoles)
@@ -203,7 +204,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/authz/profile", h.GetSubjectProfile)
 
 	// ObservabilityPlane management
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/observabilityplanes", h.ListObservabilityPlanes)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/observabilityplanes", h.ListObservabilityPlanes)
 
 	return mux
 }
@@ -307,7 +308,7 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 	toolsetsEnv := os.Getenv(config.EnvMCPToolsets)
 	if toolsetsEnv == "" {
 		// Default to all toolsets if not specified
-		toolsetsEnv = string(tools.ToolsetOrganization) + "," +
+		toolsetsEnv = string(tools.ToolsetNamespace) + "," +
 			string(tools.ToolsetProject) + "," +
 			string(tools.ToolsetComponent) + "," +
 			string(tools.ToolsetBuild) + "," +
@@ -335,9 +336,9 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 
 	for toolsetType := range toolsetsMap {
 		switch toolsetType {
-		case tools.ToolsetOrganization:
-			toolsets.OrganizationToolset = handler
-			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "organization"))
+		case tools.ToolsetNamespace:
+			toolsets.NamespaceToolset = handler
+			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "namespace"))
 		case tools.ToolsetProject:
 			toolsets.ProjectToolset = handler
 			h.logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))

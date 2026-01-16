@@ -29,8 +29,8 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateDeployableArtifactParams(cmdType, params)
 	case ResourceDataPlane:
 		return validateDataPlaneParams(cmdType, params)
-	case ResourceOrganization:
-		return validateOrganizationParams(cmdType, params)
+	case ResourceNamespace:
+		return validateNamespaceParams(cmdType, params)
 	case ResourceEndpoint:
 		return validateEndpointParams(cmdType, params)
 	case ResourceLogs:
@@ -56,7 +56,7 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateProjectParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"name":         p.Name,
 			}
 			if !checkRequiredFields(fields) {
@@ -66,7 +66,7 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetProjectParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceProject, fields)
@@ -82,7 +82,7 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateComponentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"name":         p.Name,
 			}
@@ -94,7 +94,7 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetComponentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 			}
 			if !checkRequiredFields(fields) {
@@ -112,7 +112,7 @@ func validateBuildParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateBuildParams); ok {
 			// All required fields
 			requiredFields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 				"name":         p.Name,
@@ -126,7 +126,7 @@ func validateBuildParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetBuildParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -144,7 +144,7 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateDeploymentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -155,7 +155,7 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetDeploymentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -173,7 +173,7 @@ func validateDeploymentTrackParams(cmdType CommandType, params interface{}) erro
 	case CmdCreate:
 		if p, ok := params.(api.CreateDeploymentTrackParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -184,7 +184,7 @@ func validateDeploymentTrackParams(cmdType CommandType, params interface{}) erro
 	case CmdGet:
 		if p, ok := params.(api.GetDeploymentTrackParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -202,7 +202,7 @@ func validateEnvironmentParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateEnvironmentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"name":         p.Name,
 			}
 			if !checkRequiredFields(fields) {
@@ -212,7 +212,7 @@ func validateEnvironmentParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetEnvironmentParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceEnvironment, fields)
@@ -228,7 +228,7 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 	case CmdCreate:
 		if p, ok := params.(api.CreateDeployableArtifactParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -239,7 +239,7 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 	case CmdGet:
 		if p, ok := params.(api.GetDeployableArtifactParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -269,7 +269,7 @@ func validateLogParams(cmdType CommandType, params interface{}) error {
 			switch p.Type {
 			case "build":
 				buildFields := map[string]string{
-					"organization": p.Organization,
+					"namespace": p.Namespace,
 					"build":        p.Build,
 				}
 				if !checkRequiredFields(buildFields) {
@@ -277,7 +277,7 @@ func validateLogParams(cmdType CommandType, params interface{}) error {
 				}
 			case "deployment":
 				deployFields := map[string]string{
-					"organization": p.Organization,
+					"namespace": p.Namespace,
 					"project":      p.Project,
 					"component":    p.Component,
 					"environment":  p.Environment,
@@ -300,7 +300,7 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 	case CmdGet:
 		if p, ok := params.(api.GetDataPlaneParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDataPlane, fields)
@@ -309,7 +309,7 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateDataPlaneParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"name":         p.Name,
 			}
 			if !checkRequiredFields(fields) {
@@ -320,15 +320,15 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 	return nil
 }
 
-// validateOrganizationParams validates parameters for organization operations
-func validateOrganizationParams(cmdType CommandType, params interface{}) error {
+// validateNamespaceParams validates parameters for namespace operations
+func validateNamespaceParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdCreate {
-		if p, ok := params.(api.CreateOrganizationParams); ok {
+		if p, ok := params.(api.CreateNamespaceParams); ok {
 			fields := map[string]string{
 				"name": p.Name,
 			}
 			if !checkRequiredFields(fields) {
-				return generateHelpError(cmdType, ResourceOrganization, fields)
+				return generateHelpError(cmdType, ResourceNamespace, fields)
 			}
 		}
 	}
@@ -340,7 +340,7 @@ func validateEndpointParams(cmdType CommandType, params interface{}) error {
 	if cmdType == CmdGet {
 		if p, ok := params.(api.GetEndpointParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 				"project":      p.Project,
 				"component":    p.Component,
 			}
@@ -388,7 +388,7 @@ func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) e
 	case CmdGet:
 		if p, ok := params.(api.GetDeploymentPipelineParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeploymentPipeline, fields)
@@ -397,7 +397,7 @@ func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) e
 	case CmdCreate:
 		if p, ok := params.(api.CreateDeploymentPipelineParams); ok {
 			fields := map[string]string{
-				"organization":      p.Organization,
+				"namespace":      p.Namespace,
 				"name":              p.Name,
 				"environment-order": strings.Join(p.EnvironmentOrder, ","),
 			}
@@ -414,7 +414,7 @@ func validateConfigurationGroupParams(cmdType CommandType, params interface{}) e
 	if cmdType == CmdGet {
 		if p, ok := params.(api.GetConfigurationGroupParams); ok {
 			fields := map[string]string{
-				"organization": p.Organization,
+				"namespace": p.Namespace,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceConfigurationGroup, fields)
@@ -430,7 +430,7 @@ func validateWorkloadParams(cmdType CommandType, params interface{}) error {
 	case CmdCreate:
 		if p, ok := params.(api.CreateWorkloadParams); ok {
 			fields := map[string]string{
-				"organization": p.OrganizationName,
+				"namespace": p.NamespaceName,
 				"project":      p.ProjectName,
 				"component":    p.ComponentName,
 				"image":        p.ImageURL,

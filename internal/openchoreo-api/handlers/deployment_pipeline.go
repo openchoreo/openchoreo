@@ -17,29 +17,29 @@ func (h *Handler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Re
 	logger.Debug("GetProjectDeploymentPipeline handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
-	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" {
+		logger.Warn("Namespace name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and project name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to get project deployment pipeline
-	pipeline, err := h.services.DeploymentPipelineService.GetProjectDeploymentPipeline(ctx, orgName, projectName)
+	pipeline, err := h.services.DeploymentPipelineService.GetProjectDeploymentPipeline(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view deployment pipeline", "org", orgName, "project", projectName)
+			logger.Warn("Unauthorized to view deployment pipeline", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDeploymentPipelineNotFound) {
-			logger.Warn("Deployment pipeline not found", "org", orgName, "project", projectName)
+			logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Deployment pipeline not found", services.CodeDeploymentPipelineNotFound)
 			return
 		}
@@ -49,6 +49,6 @@ func (h *Handler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Re
 	}
 
 	// Success response
-	logger.Debug("Retrieved project deployment pipeline successfully", "org", orgName, "project", projectName, "pipeline", pipeline.Name)
+	logger.Debug("Retrieved project deployment pipeline successfully", "org", namespaceName, "project", projectName, "pipeline", pipeline.Name)
 	writeSuccessResponse(w, http.StatusOK, pipeline)
 }

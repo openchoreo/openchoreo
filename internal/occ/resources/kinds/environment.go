@@ -19,7 +19,7 @@ type EnvironmentResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList]
 }
 
-// NewEnvironmentResource constructs an EnvironmentResource with CRDConfig and optionally sets organization.
+// NewEnvironmentResource constructs an EnvironmentResource with CRDConfig and optionally sets namespace.
 func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -31,7 +31,7 @@ func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentRe
 		resources.WithConfig[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](org))
 	}
@@ -41,7 +41,7 @@ func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentRe
 	}, nil
 }
 
-// WithNamespace sets the namespace for the environment resource (usually the organization name)
+// WithNamespace sets the namespace for the environment resource (usually the namespace name)
 func (e *EnvironmentResource) WithNamespace(namespace string) {
 	e.BaseResource.WithNamespace(namespace)
 }
@@ -74,7 +74,7 @@ func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceW
 		message := "No environments found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		fmt.Println(message)
@@ -91,7 +91,7 @@ func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceW
 			resources.FormatBoolAsYesNo(env.Spec.IsProduction),
 			resources.FormatValueOrPlaceholder(env.Spec.Gateway.DNSPrefix),
 			resources.FormatAge(env.GetCreationTimestamp().Time),
-			env.GetLabels()[constants.LabelOrganization],
+			env.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersEnvironment, rows)
@@ -128,20 +128,20 @@ func (e *EnvironmentResource) Print(format resources.OutputFormat, filter *resou
 // CreateEnvironment creates a new Environment CR.
 func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentParams) error {
 	// Generate a K8s-compliant name for the environment
-	k8sName := resources.GenerateResourceName(params.Organization, params.Name)
+	k8sName := resources.GenerateResourceName(params.Namespace, params.Name)
 
 	// Create the Environment resource
 	environment := &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationDisplayName: resources.DefaultIfEmpty(params.DisplayName, params.Name),
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
 				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelNamespace: params.Namespace,
 			},
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
@@ -158,22 +158,22 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 		return fmt.Errorf(ErrCreateEnvironment, err)
 	}
 
-	fmt.Printf(FmtEnvironmentSuccess, params.Name, params.Organization)
+	fmt.Printf(FmtEnvironmentSuccess, params.Name, params.Namespace)
 	return nil
 }
 
-// GetEnvironmentsForOrganization returns environments filtered by organization
-func (e *EnvironmentResource) GetEnvironmentsForOrganization(orgName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Environment], error) {
+// GetEnvironmentsForNamespace returns environments filtered by namespace
+func (e *EnvironmentResource) GetEnvironmentsForNamespace(namespaceName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Environment], error) {
 	// List all environments in the namespace
 	allEnvironments, err := e.List()
 	if err != nil {
 		return nil, err
 	}
 
-	// Filter by organization
+	// Filter by namespace
 	var environments []resources.ResourceWrapper[*openchoreov1alpha1.Environment]
 	for _, wrapper := range allEnvironments {
-		if wrapper.Resource.GetLabels()[constants.LabelOrganization] == orgName {
+		if wrapper.Resource.GetLabels()[constants.LabelNamespace] == namespaceName {
 			environments = append(environments, wrapper)
 		}
 	}

@@ -31,14 +31,14 @@ func (i *CreateCompImpl) CreateComponent(params api.CreateComponentParams) error
 }
 
 func createComponent(params api.CreateComponentParams, config constants.CRDConfig) error {
-	compRes, err := kinds.NewComponentResource(config, params.Organization, params.Project)
+	compRes, err := kinds.NewComponentResource(config, params.Namespace, params.Project)
 	if err != nil {
 		return fmt.Errorf("failed to create Component resource: %w", err)
 	}
 
 	if err := compRes.CreateComponent(params); err != nil {
-		return fmt.Errorf("failed to create component '%s' in project '%s' of organization '%s': %w",
-			params.Name, params.Project, params.Organization, err)
+		return fmt.Errorf("failed to create component '%s' in project '%s' of namespace '%s': %w",
+			params.Name, params.Project, params.Namespace, err)
 	}
 
 	return nil

@@ -59,19 +59,19 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 	// Trigger builds for affected components
 	triggeredComponents := make([]string, 0)
 	for _, comp := range affectedComponents {
-		orgName := comp.Namespace // Assuming namespace is the org name
+		namespaceName := comp.Namespace // Assuming namespace is the org name
 		projectName := comp.Spec.Owner.ProjectName
 		componentName := comp.Name
 
 		logger.Info("Triggering build for component",
-			"org", orgName,
+			"org", namespaceName,
 			"project", projectName,
 			"component", componentName,
 			"commit", event.Commit)
 
 		_, err := s.workflowService.TriggerWorkflow(
 			ctx,
-			orgName,
+			namespaceName,
 			projectName,
 			componentName,
 			event.Commit,

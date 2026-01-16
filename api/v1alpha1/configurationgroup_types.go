@@ -104,7 +104,7 @@ type ConfigurationGroupStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=configgrp,categories={choreo,all}
 // +kubebuilder:printcolumn:name="DisplayName",type="string",JSONPath=".metadata.annotations.core\\.choreo\\.dev/display-name"
-// +kubebuilder:printcolumn:name="Organization",type="string",JSONPath=".metadata.labels.core\\.choreo\\.dev/organization"
+// +kubebuilder:printcolumn:name="Namespace",type="string",JSONPath=".metadata.namespace"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ConfigurationGroup is the Schema for the configurationgroups API

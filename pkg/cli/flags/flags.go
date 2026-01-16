@@ -28,10 +28,10 @@ var (
 		Usage: messages.KubecontextFlagDesc,
 	}
 
-	Organization = Flag{
-		Name:  "organization",
-		Usage: messages.FlagOrgDesc,
-		Alias: "org",
+	Namespace = Flag{
+		Name:  "namespace",
+		Usage: messages.FlagNamespaceDesc,
+		Alias: "ns",
 	}
 
 	Project = Flag{
@@ -176,9 +176,9 @@ var (
 		Usage: "Public virtual host for the gateway",
 	}
 
-	OrgVirtualHost = Flag{
-		Name:  "org-virtual-host",
-		Usage: "Organization virtual host for the gateway",
+	NamespaceVirtualHost = Flag{
+		Name:  "namespace-virtual-host",
+		Usage: "Namespace virtual host for the gateway",
 	}
 
 	ClusterAgentClientCA = Flag{

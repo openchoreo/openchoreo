@@ -35,48 +35,48 @@ func NewProjectService(k8sClient client.Client, logger *slog.Logger, authzPDP au
 	}
 }
 
-// CreateProject creates a new project in the given organization
-func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
-	s.logger.Debug("Creating project", "org", orgName, "project", req.Name)
+// CreateProject creates a new project in the given namespace
+func (s *ProjectService) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
+	s.logger.Debug("Creating project", "org", namespaceName, "project", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateProject, ResourceTypeProject, req.Name,
-		authz.ResourceHierarchy{Namespace: orgName, Project: req.Name}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: req.Name}); err != nil {
 		return nil, err
 	}
 
 	// Check if project already exists
-	exists, err := s.projectExists(ctx, orgName, req.Name)
+	exists, err := s.projectExists(ctx, namespaceName, req.Name)
 	if err != nil {
 		s.logger.Error("Failed to check project existence", "error", err)
 		return nil, fmt.Errorf("failed to check project existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Project already exists", "org", orgName, "project", req.Name)
+		s.logger.Warn("Project already exists", "org", namespaceName, "project", req.Name)
 		return nil, ErrProjectAlreadyExists
 	}
 
 	// Create the project CR
-	projectCR := s.buildProjectCR(orgName, req)
+	projectCR := s.buildProjectCR(namespaceName, req)
 	if err := s.k8sClient.Create(ctx, projectCR); err != nil {
 		s.logger.Error("Failed to create project CR", "error", err)
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	s.logger.Debug("Project created successfully", "org", orgName, "project", req.Name)
+	s.logger.Debug("Project created successfully", "org", namespaceName, "project", req.Name)
 	return s.toProjectResponse(projectCR), nil
 }
 
-// ListProjects lists all projects in the given organization
-func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*models.ProjectResponse, error) {
-	s.logger.Debug("Listing projects", "org", orgName)
+// ListProjects lists all projects in the given namespace
+func (s *ProjectService) ListProjects(ctx context.Context, namespaceName string) ([]*models.ProjectResponse, error) {
+	s.logger.Debug("Listing projects", "org", namespaceName)
 
 	var projectList openchoreov1alpha1.ProjectList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {
@@ -88,10 +88,10 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 	for _, item := range projectList.Items {
 		// Authorization check for each project
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, item.Name,
-			authz.ResourceHierarchy{Namespace: orgName, Project: item.Name}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName, Project: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized projects silently (user doesn't have permission to see this project)
-				s.logger.Debug("Skipping unauthorized project", "org", orgName, "project", item.Name)
+				s.logger.Debug("Skipping unauthorized project", "org", namespaceName, "project", item.Name)
 				continue
 			}
 			// system failures, return the error
@@ -100,33 +100,33 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string) ([]*m
 		projects = append(projects, s.toProjectResponse(&item))
 	}
 
-	s.logger.Debug("Listed projects", "org", orgName, "count", len(projects))
+	s.logger.Debug("Listed projects", "org", namespaceName, "count", len(projects))
 	return projects, nil
 }
 
 // GetProject retrieves a specific project
-func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
+func (s *ProjectService) GetProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error) {
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName}); err != nil {
 		return nil, err
 	}
-	return s.getProject(ctx, orgName, projectName)
+	return s.getProject(ctx, namespaceName, projectName)
 }
 
 // getProject is the internal helper without authorization (INTERNAL USE ONLY)
-func (s *ProjectService) getProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
-	s.logger.Debug("Getting project", "org", orgName, "project", projectName)
+func (s *ProjectService) getProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error) {
+	s.logger.Debug("Getting project", "org", namespaceName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, project); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		s.logger.Error("Failed to get project", "error", err)
@@ -136,12 +136,12 @@ func (s *ProjectService) getProject(ctx context.Context, orgName, projectName st
 	return s.toProjectResponse(project), nil
 }
 
-// projectExists checks if a project already exists in the organization
-func (s *ProjectService) projectExists(ctx context.Context, orgName, projectName string) (bool, error) {
+// projectExists checks if a project already exists in the namespace
+func (s *ProjectService) projectExists(ctx context.Context, namespaceName, projectName string) (bool, error) {
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	err := s.k8sClient.Get(ctx, key, project)
@@ -155,7 +155,7 @@ func (s *ProjectService) projectExists(ctx context.Context, orgName, projectName
 }
 
 // buildProjectCR builds a Project custom resource from the request
-func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjectRequest) *openchoreov1alpha1.Project {
+func (s *ProjectService) buildProjectCR(namespaceName string, req *models.CreateProjectRequest) *openchoreov1alpha1.Project {
 	// Set default deployment pipeline if not provided
 	deploymentPipeline := req.DeploymentPipeline
 	if deploymentPipeline == "" {
@@ -169,14 +169,13 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Annotations: map[string]string{
 				controller.AnnotationKeyDisplayName: req.DisplayName,
 				controller.AnnotationKeyDescription: req.Description,
 			},
 			Labels: map[string]string{
-				labels.LabelKeyOrganizationName: orgName,
-				labels.LabelKeyName:             req.Name,
+				labels.LabelKeyName: req.Name,
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
@@ -242,7 +241,7 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 	response := &models.ProjectResponse{
 		UID:                string(project.UID),
 		Name:               project.Name,
-		OrgName:            project.Namespace,
+		NamespaceName:      project.Namespace,
 		DisplayName:        displayName,
 		Description:        description,
 		DeploymentPipeline: project.Spec.DeploymentPipelineRef,

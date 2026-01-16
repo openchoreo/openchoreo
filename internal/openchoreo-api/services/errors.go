@@ -15,7 +15,7 @@ var (
 	ErrComponentTypeNotFound        = errors.New("component type not found")
 	ErrTraitAlreadyExists           = errors.New("trait already exists")
 	ErrTraitNotFound                = errors.New("trait not found")
-	ErrOrganizationNotFound         = errors.New("organization not found")
+	ErrNamespaceNotFound            = errors.New("namespace not found")
 	ErrEnvironmentNotFound          = errors.New("environment not found")
 	ErrEnvironmentAlreadyExists     = errors.New("environment already exists")
 	ErrDataPlaneNotFound            = errors.New("dataplane not found")
@@ -47,7 +47,7 @@ const (
 	CodeComponentTypeNotFound        = "COMPONENT_TYPE_NOT_FOUND"
 	CodeTraitExists                  = "TRAIT_EXISTS"
 	CodeTraitNotFound                = "TRAIT_NOT_FOUND"
-	CodeOrganizationNotFound         = "ORGANIZATION_NOT_FOUND"
+	CodeNamespaceNotFound            = "NAMESPACE_NOT_FOUND"
 	CodeEnvironmentNotFound          = "ENVIRONMENT_NOT_FOUND"
 	CodeEnvironmentExists            = "ENVIRONMENT_EXISTS"
 	CodeDataPlaneNotFound            = "DATAPLANE_NOT_FOUND"

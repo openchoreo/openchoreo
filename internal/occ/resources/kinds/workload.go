@@ -19,13 +19,13 @@ type WorkloadResource struct {
 	*resources.ResourceBase
 }
 
-// NewWorkloadResource constructs a WorkloadResource with CRDConfig and optionally sets organization.
+// NewWorkloadResource constructs a WorkloadResource with CRDConfig and optionally sets namespace.
 func NewWorkloadResource(cfg constants.CRDConfig, org string) (*WorkloadResource, error) {
 	options := []resources.ResourceBaseOption{
 		resources.WithResourceConfig(cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithResourceNamespace(org))
 	}
@@ -35,7 +35,7 @@ func NewWorkloadResource(cfg constants.CRDConfig, org string) (*WorkloadResource
 	}, nil
 }
 
-// WithNamespace sets the namespace for the workload resource (usually the organization name)
+// WithNamespace sets the namespace for the workload resource (usually the namespace name)
 
 func (w *WorkloadResource) SetNamespace(namespace string) {
 	w.ResourceBase.SetNamespace(namespace)
@@ -44,8 +44,8 @@ func (w *WorkloadResource) SetNamespace(namespace string) {
 // CreateWorkload creates a Workload CR from a descriptor file or basic parameters.
 func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error {
 	// Validate required parameters
-	if params.OrganizationName == "" {
-		return fmt.Errorf("organization name is required (--organization)")
+	if params.NamespaceName == "" {
+		return fmt.Errorf("namespace name is required (--namespace)")
 	}
 	if params.ProjectName == "" {
 		return fmt.Errorf("project name is required (--project)")
@@ -120,7 +120,7 @@ func (w *WorkloadResource) PrintTableItems(workloads []resources.ResourceWrapper
 		message := "No workloads found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		fmt.Println(message)
@@ -135,7 +135,7 @@ func (w *WorkloadResource) PrintTableItems(workloads []resources.ResourceWrapper
 			wrapper.LogicalName,
 			w.GetStatus(workload),
 			w.GetAge(workload),
-			workload.GetLabels()[constants.LabelOrganization],
+			workload.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersWorkload, rows)

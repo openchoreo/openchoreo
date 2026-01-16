@@ -13,8 +13,8 @@ type ListEnvironmentsResponse struct {
 	Environments []*models.EnvironmentResponse `json:"environments"`
 }
 
-func (h *MCPHandler) ListEnvironments(ctx context.Context, orgName string) (any, error) {
-	environments, err := h.Services.EnvironmentService.ListEnvironments(ctx, orgName)
+func (h *MCPHandler) ListEnvironments(ctx context.Context, namespaceName string) (any, error) {
+	environments, err := h.Services.EnvironmentService.ListEnvironments(ctx, namespaceName)
 	if err != nil {
 		return ListEnvironmentsResponse{}, err
 	}
@@ -23,10 +23,10 @@ func (h *MCPHandler) ListEnvironments(ctx context.Context, orgName string) (any,
 	}, nil
 }
 
-func (h *MCPHandler) GetEnvironment(ctx context.Context, orgName, envName string) (any, error) {
-	return h.Services.EnvironmentService.GetEnvironment(ctx, orgName, envName)
+func (h *MCPHandler) GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error) {
+	return h.Services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
 }
 
-func (h *MCPHandler) CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (any, error) {
-	return h.Services.EnvironmentService.CreateEnvironment(ctx, orgName, req)
+func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error) {
+	return h.Services.EnvironmentService.CreateEnvironment(ctx, namespaceName, req)
 }

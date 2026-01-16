@@ -63,7 +63,7 @@ func (i *CreateWorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) err
 
 // createWorkloadAPIServerMode handles the existing API server mode logic
 func (i *CreateWorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadParams) error {
-	workloadRes, err := kinds.NewWorkloadResource(i.config, params.OrganizationName)
+	workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create Workload resource: %w", err)
 	}
@@ -98,7 +98,7 @@ func (i *CreateWorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Con
 	idx := fsmode.WrapIndex(persistentIndex.Index)
 
 	// Generate workload CR using existing logic
-	workloadRes, err := kinds.NewWorkloadResource(i.config, params.OrganizationName)
+	workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create Workload resource: %w", err)
 	}
@@ -111,7 +111,7 @@ func (i *CreateWorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Con
 	// Create writer and write workload
 	writer := output.NewWorkloadWriter(idx)
 	writtenPath, err := writer.WriteWorkload(output.WorkloadWriteParams{
-		Namespace:     params.OrganizationName,
+		Namespace:     params.NamespaceName,
 		RepoPath:      repoPath,
 		ProjectName:   params.ProjectName,
 		ComponentName: params.ComponentName,

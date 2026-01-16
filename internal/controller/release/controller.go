@@ -169,14 +169,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 }
 
 // getDPClient gets the dataplane client for the specified environment
-func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmentName string) (client.Client, error) {
+func (r *Reconciler) getDPClient(ctx context.Context, namespaceName string, environmentName string) (client.Client, error) {
 	env := &openchoreov1alpha1.Environment{}
-	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: orgName}, env); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: namespaceName}, env); err != nil {
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
 	dataplane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: orgName}, dataplane); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: namespaceName}, dataplane); err != nil {
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
 
@@ -191,9 +191,9 @@ func (r *Reconciler) getDPClient(ctx context.Context, orgName string, environmen
 
 // getOPClient gets the observability plane client for the specified environment
 // It follows the chain: Environment -> DataPlane -> ObservabilityPlane
-func (r *Reconciler) getOPClient(ctx context.Context, orgName string, environmentName string) (client.Client, error) {
+func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, environmentName string) (client.Client, error) {
 	env := &openchoreov1alpha1.Environment{}
-	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: orgName}, env); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: environmentName, Namespace: namespaceName}, env); err != nil {
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
@@ -204,7 +204,7 @@ func (r *Reconciler) getOPClient(ctx context.Context, orgName string, environmen
 
 	// Get the DataPlane
 	dataPlane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: orgName}, dataPlane); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: namespaceName}, dataPlane); err != nil {
 		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
 	}
 
@@ -217,7 +217,7 @@ func (r *Reconciler) getOPClient(ctx context.Context, orgName string, environmen
 	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
 	if err := r.Get(ctx, client.ObjectKey{
 		Name:      dataPlane.Spec.ObservabilityPlaneRef,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}, observabilityPlane); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("observability plane %s not found", dataPlane.Spec.ObservabilityPlaneRef)

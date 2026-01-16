@@ -75,156 +75,156 @@ type ServerInterface interface {
 	// Delete resource
 	// (DELETE /api/v1/delete)
 	DeleteResource(w http.ResponseWriter, r *http.Request)
-	// List organizations
-	// (GET /api/v1/orgs)
-	ListOrganizations(w http.ResponseWriter, r *http.Request, params ListOrganizationsParams)
-	// Get organization
-	// (GET /api/v1/orgs/{orgName})
-	GetOrganization(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// List namespaces
+	// (GET /api/v1/namespaces)
+	ListNamespaces(w http.ResponseWriter, r *http.Request, params ListNamespacesParams)
+	// Get namespace
+	// (GET /api/v1/namespaces/{namespaceName})
+	GetNamespace(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// List build planes
-	// (GET /api/v1/orgs/{orgName}/buildplanes)
-	ListBuildPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/buildplanes)
+	ListBuildPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// List component types
-	// (GET /api/v1/orgs/{orgName}/component-types)
-	ListComponentTypes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListComponentTypesParams)
+	// (GET /api/v1/namespaces/{namespaceName}/component-types)
+	ListComponentTypes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListComponentTypesParams)
 	// Get component type schema
-	// (GET /api/v1/orgs/{orgName}/component-types/{ctName}/schema)
-	GetComponentTypeSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, ctName ComponentTypeNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/component-types/{ctName}/schema)
+	GetComponentTypeSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, ctName ComponentTypeNameParam)
 	// List component workflows
-	// (GET /api/v1/orgs/{orgName}/component-workflows)
-	ListComponentWorkflows(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListComponentWorkflowsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/component-workflows)
+	ListComponentWorkflows(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListComponentWorkflowsParams)
 	// Get component workflow schema
-	// (GET /api/v1/orgs/{orgName}/component-workflows/{cwName}/schema)
-	GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, cwName ComponentWorkflowNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/schema)
+	GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam)
 	// List data planes
-	// (GET /api/v1/orgs/{orgName}/dataplanes)
-	ListDataPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListDataPlanesParams)
+	// (GET /api/v1/namespaces/{namespaceName}/dataplanes)
+	ListDataPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListDataPlanesParams)
 	// Create data plane
-	// (POST /api/v1/orgs/{orgName}/dataplanes)
-	CreateDataPlane(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/dataplanes)
+	CreateDataPlane(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// Get data plane
-	// (GET /api/v1/orgs/{orgName}/dataplanes/{dpName})
-	GetDataPlane(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, dpName DataPlaneNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/dataplanes/{dpName})
+	GetDataPlane(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, dpName DataPlaneNameParam)
 	// List environments
-	// (GET /api/v1/orgs/{orgName}/environments)
-	ListEnvironments(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListEnvironmentsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/environments)
+	ListEnvironments(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListEnvironmentsParams)
 	// Create environment
-	// (POST /api/v1/orgs/{orgName}/environments)
-	CreateEnvironment(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/environments)
+	CreateEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// Get environment
-	// (GET /api/v1/orgs/{orgName}/environments/{envName})
-	GetEnvironment(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, envName EnvironmentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName})
+	GetEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
 	// Get environment observer URL
-	// (GET /api/v1/orgs/{orgName}/environments/{envName}/observer-url)
-	GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, envName EnvironmentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url)
+	GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam)
 	// List observability planes
-	// (GET /api/v1/orgs/{orgName}/observabilityplanes)
-	ListObservabilityPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/observabilityplanes)
+	ListObservabilityPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// List projects
-	// (GET /api/v1/orgs/{orgName}/projects)
-	ListProjects(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListProjectsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects)
+	ListProjects(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListProjectsParams)
 	// Create project
-	// (POST /api/v1/orgs/{orgName}/projects)
-	CreateProject(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects)
+	CreateProject(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// Get project
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName})
-	GetProject(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName})
+	GetProject(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam)
 	// List components
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components)
-	ListComponents(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, params ListComponentsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components)
+	ListComponents(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, params ListComponentsParams)
 	// Create component
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components)
-	CreateComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components)
+	CreateComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam)
 	// Get component
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName})
-	GetComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params GetComponentParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName})
+	GetComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params GetComponentParams)
 	// Patch component
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName})
-	PatchComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName})
+	PatchComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// List component bindings
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings)
-	ListComponentBindings(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentBindingsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings)
+	ListComponentBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentBindingsParams)
 	// Update component binding
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName})
-	UpdateComponentBinding(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam)
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName})
+	UpdateComponentBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam)
 	// List component releases
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases)
-	ListComponentReleases(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentReleasesParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases)
+	ListComponentReleases(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentReleasesParams)
 	// Create component release
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases)
-	CreateComponentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases)
+	CreateComponentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Get component release
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName})
-	GetComponentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName})
+	GetComponentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam)
 	// Get component release schema
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema)
-	GetComponentReleaseSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema)
+	GetComponentReleaseSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam)
 	// Deploy release
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy)
-	DeployRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy)
+	DeployRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Get component observer URL
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url)
-	GetComponentObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url)
+	GetComponentObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam)
 	// Get environment release
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release)
-	GetEnvironmentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release)
+	GetEnvironmentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam)
 	// Get build observer URL
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url)
-	GetBuildObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/observer-url)
+	GetBuildObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Promote component
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote)
-	PromoteComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote)
+	PromoteComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// List release bindings
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings)
-	ListReleaseBindings(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListReleaseBindingsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings)
+	ListReleaseBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListReleaseBindingsParams)
 	// Patch release binding
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName})
-	PatchReleaseBinding(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam)
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName})
+	PatchReleaseBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam)
 	// Get component schema
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema)
-	GetComponentSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema)
+	GetComponentSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// List component traits
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits)
-	ListComponentTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits)
+	ListComponentTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Update component traits
-	// (PUT /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits)
-	UpdateComponentTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (PUT /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits)
+	UpdateComponentTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Update component workflow parameters
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters)
-	UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters)
+	UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// List component workflow runs
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs)
-	ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentWorkflowRunsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs)
+	ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentWorkflowRunsParams)
 	// Trigger component workflow run
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs)
-	CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params CreateComponentWorkflowRunParams)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs)
+	CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params CreateComponentWorkflowRunParams)
 	// Get component workflow run
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName})
-	GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName})
+	GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam)
 	// Get component workloads
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads)
-	GetWorkloads(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads)
+	GetWorkloads(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Create or update workload
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads)
-	CreateWorkload(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads)
+	CreateWorkload(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam)
 	// Get project deployment pipeline
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/deployment-pipeline)
-	GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline)
+	GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam)
 	// List secret references
-	// (GET /api/v1/orgs/{orgName}/secret-references)
-	ListSecretReferences(w http.ResponseWriter, r *http.Request, orgName OrgNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/secret-references)
+	ListSecretReferences(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
 	// List traits
-	// (GET /api/v1/orgs/{orgName}/traits)
-	ListTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListTraitsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/traits)
+	ListTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListTraitsParams)
 	// Get trait schema
-	// (GET /api/v1/orgs/{orgName}/traits/{traitName}/schema)
-	GetTraitSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, traitName TraitNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema)
+	GetTraitSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, traitName TraitNameParam)
 	// List workflows
-	// (GET /api/v1/orgs/{orgName}/workflows)
-	ListWorkflows(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListWorkflowsParams)
+	// (GET /api/v1/namespaces/{namespaceName}/workflows)
+	ListWorkflows(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListWorkflowsParams)
 	// Get workflow schema
-	// (GET /api/v1/orgs/{orgName}/workflows/{workflowName}/schema)
-	GetWorkflowSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, workflowName WorkflowNameParam)
+	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema)
+	GetWorkflowSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam)
 	// List user types
 	// (GET /api/v1/user-types)
 	ListUserTypes(w http.ResponseWriter, r *http.Request)
@@ -720,8 +720,8 @@ func (siw *ServerInterfaceWrapper) DeleteResource(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// ListOrganizations operation middleware
-func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *http.Request) {
+// ListNamespaces operation middleware
+func (siw *ServerInterfaceWrapper) ListNamespaces(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -732,7 +732,7 @@ func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListOrganizationsParams
+	var params ListNamespacesParams
 
 	// ------------- Optional query parameter "limit" -------------
 
@@ -751,7 +751,7 @@ func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *h
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListOrganizations(w, r, params)
+		siw.Handler.ListNamespaces(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -761,17 +761,17 @@ func (siw *ServerInterfaceWrapper) ListOrganizations(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// GetOrganization operation middleware
-func (siw *ServerInterfaceWrapper) GetOrganization(w http.ResponseWriter, r *http.Request) {
+// GetNamespace operation middleware
+func (siw *ServerInterfaceWrapper) GetNamespace(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -782,7 +782,7 @@ func (siw *ServerInterfaceWrapper) GetOrganization(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetOrganization(w, r, orgName)
+		siw.Handler.GetNamespace(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -797,12 +797,12 @@ func (siw *ServerInterfaceWrapper) ListBuildPlanes(w http.ResponseWriter, r *htt
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -813,7 +813,7 @@ func (siw *ServerInterfaceWrapper) ListBuildPlanes(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListBuildPlanes(w, r, orgName)
+		siw.Handler.ListBuildPlanes(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -828,12 +828,12 @@ func (siw *ServerInterfaceWrapper) ListComponentTypes(w http.ResponseWriter, r *
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -863,7 +863,7 @@ func (siw *ServerInterfaceWrapper) ListComponentTypes(w http.ResponseWriter, r *
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentTypes(w, r, orgName, params)
+		siw.Handler.ListComponentTypes(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -878,12 +878,12 @@ func (siw *ServerInterfaceWrapper) GetComponentTypeSchema(w http.ResponseWriter,
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -903,7 +903,7 @@ func (siw *ServerInterfaceWrapper) GetComponentTypeSchema(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentTypeSchema(w, r, orgName, ctName)
+		siw.Handler.GetComponentTypeSchema(w, r, namespaceName, ctName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -918,12 +918,12 @@ func (siw *ServerInterfaceWrapper) ListComponentWorkflows(w http.ResponseWriter,
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -953,7 +953,7 @@ func (siw *ServerInterfaceWrapper) ListComponentWorkflows(w http.ResponseWriter,
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentWorkflows(w, r, orgName, params)
+		siw.Handler.ListComponentWorkflows(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -968,12 +968,12 @@ func (siw *ServerInterfaceWrapper) GetComponentWorkflowSchema(w http.ResponseWri
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -993,7 +993,7 @@ func (siw *ServerInterfaceWrapper) GetComponentWorkflowSchema(w http.ResponseWri
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentWorkflowSchema(w, r, orgName, cwName)
+		siw.Handler.GetComponentWorkflowSchema(w, r, namespaceName, cwName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1008,12 +1008,12 @@ func (siw *ServerInterfaceWrapper) ListDataPlanes(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1043,7 +1043,7 @@ func (siw *ServerInterfaceWrapper) ListDataPlanes(w http.ResponseWriter, r *http
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListDataPlanes(w, r, orgName, params)
+		siw.Handler.ListDataPlanes(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1058,12 +1058,12 @@ func (siw *ServerInterfaceWrapper) CreateDataPlane(w http.ResponseWriter, r *htt
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1074,7 +1074,7 @@ func (siw *ServerInterfaceWrapper) CreateDataPlane(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateDataPlane(w, r, orgName)
+		siw.Handler.CreateDataPlane(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1089,12 +1089,12 @@ func (siw *ServerInterfaceWrapper) GetDataPlane(w http.ResponseWriter, r *http.R
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1114,7 +1114,7 @@ func (siw *ServerInterfaceWrapper) GetDataPlane(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDataPlane(w, r, orgName, dpName)
+		siw.Handler.GetDataPlane(w, r, namespaceName, dpName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1129,12 +1129,12 @@ func (siw *ServerInterfaceWrapper) ListEnvironments(w http.ResponseWriter, r *ht
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1164,7 +1164,7 @@ func (siw *ServerInterfaceWrapper) ListEnvironments(w http.ResponseWriter, r *ht
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListEnvironments(w, r, orgName, params)
+		siw.Handler.ListEnvironments(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1179,12 +1179,12 @@ func (siw *ServerInterfaceWrapper) CreateEnvironment(w http.ResponseWriter, r *h
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1195,7 +1195,7 @@ func (siw *ServerInterfaceWrapper) CreateEnvironment(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateEnvironment(w, r, orgName)
+		siw.Handler.CreateEnvironment(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1210,12 +1210,12 @@ func (siw *ServerInterfaceWrapper) GetEnvironment(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1235,7 +1235,7 @@ func (siw *ServerInterfaceWrapper) GetEnvironment(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetEnvironment(w, r, orgName, envName)
+		siw.Handler.GetEnvironment(w, r, namespaceName, envName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1250,12 +1250,12 @@ func (siw *ServerInterfaceWrapper) GetEnvironmentObserverURL(w http.ResponseWrit
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1275,7 +1275,7 @@ func (siw *ServerInterfaceWrapper) GetEnvironmentObserverURL(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetEnvironmentObserverURL(w, r, orgName, envName)
+		siw.Handler.GetEnvironmentObserverURL(w, r, namespaceName, envName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1290,12 +1290,12 @@ func (siw *ServerInterfaceWrapper) ListObservabilityPlanes(w http.ResponseWriter
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1306,7 +1306,7 @@ func (siw *ServerInterfaceWrapper) ListObservabilityPlanes(w http.ResponseWriter
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListObservabilityPlanes(w, r, orgName)
+		siw.Handler.ListObservabilityPlanes(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1321,12 +1321,12 @@ func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.R
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1356,7 +1356,7 @@ func (siw *ServerInterfaceWrapper) ListProjects(w http.ResponseWriter, r *http.R
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListProjects(w, r, orgName, params)
+		siw.Handler.ListProjects(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1371,12 +1371,12 @@ func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1387,7 +1387,7 @@ func (siw *ServerInterfaceWrapper) CreateProject(w http.ResponseWriter, r *http.
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateProject(w, r, orgName)
+		siw.Handler.CreateProject(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1402,12 +1402,12 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1427,7 +1427,7 @@ func (siw *ServerInterfaceWrapper) GetProject(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProject(w, r, orgName, projectName)
+		siw.Handler.GetProject(w, r, namespaceName, projectName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1442,12 +1442,12 @@ func (siw *ServerInterfaceWrapper) ListComponents(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1486,7 +1486,7 @@ func (siw *ServerInterfaceWrapper) ListComponents(w http.ResponseWriter, r *http
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponents(w, r, orgName, projectName, params)
+		siw.Handler.ListComponents(w, r, namespaceName, projectName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1501,12 +1501,12 @@ func (siw *ServerInterfaceWrapper) CreateComponent(w http.ResponseWriter, r *htt
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1526,7 +1526,7 @@ func (siw *ServerInterfaceWrapper) CreateComponent(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateComponent(w, r, orgName, projectName)
+		siw.Handler.CreateComponent(w, r, namespaceName, projectName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1541,12 +1541,12 @@ func (siw *ServerInterfaceWrapper) GetComponent(w http.ResponseWriter, r *http.R
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1586,7 +1586,7 @@ func (siw *ServerInterfaceWrapper) GetComponent(w http.ResponseWriter, r *http.R
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponent(w, r, orgName, projectName, componentName, params)
+		siw.Handler.GetComponent(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1601,12 +1601,12 @@ func (siw *ServerInterfaceWrapper) PatchComponent(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1635,7 +1635,7 @@ func (siw *ServerInterfaceWrapper) PatchComponent(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PatchComponent(w, r, orgName, projectName, componentName)
+		siw.Handler.PatchComponent(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1650,12 +1650,12 @@ func (siw *ServerInterfaceWrapper) ListComponentBindings(w http.ResponseWriter, 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1695,7 +1695,7 @@ func (siw *ServerInterfaceWrapper) ListComponentBindings(w http.ResponseWriter, 
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentBindings(w, r, orgName, projectName, componentName, params)
+		siw.Handler.ListComponentBindings(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1710,12 +1710,12 @@ func (siw *ServerInterfaceWrapper) UpdateComponentBinding(w http.ResponseWriter,
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1753,7 +1753,7 @@ func (siw *ServerInterfaceWrapper) UpdateComponentBinding(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateComponentBinding(w, r, orgName, projectName, componentName, bindingName)
+		siw.Handler.UpdateComponentBinding(w, r, namespaceName, projectName, componentName, bindingName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1768,12 +1768,12 @@ func (siw *ServerInterfaceWrapper) ListComponentReleases(w http.ResponseWriter, 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1821,7 +1821,7 @@ func (siw *ServerInterfaceWrapper) ListComponentReleases(w http.ResponseWriter, 
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentReleases(w, r, orgName, projectName, componentName, params)
+		siw.Handler.ListComponentReleases(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1836,12 +1836,12 @@ func (siw *ServerInterfaceWrapper) CreateComponentRelease(w http.ResponseWriter,
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1870,7 +1870,7 @@ func (siw *ServerInterfaceWrapper) CreateComponentRelease(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateComponentRelease(w, r, orgName, projectName, componentName)
+		siw.Handler.CreateComponentRelease(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1885,12 +1885,12 @@ func (siw *ServerInterfaceWrapper) GetComponentRelease(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1928,7 +1928,7 @@ func (siw *ServerInterfaceWrapper) GetComponentRelease(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentRelease(w, r, orgName, projectName, componentName, releaseName)
+		siw.Handler.GetComponentRelease(w, r, namespaceName, projectName, componentName, releaseName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1943,12 +1943,12 @@ func (siw *ServerInterfaceWrapper) GetComponentReleaseSchema(w http.ResponseWrit
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -1986,7 +1986,7 @@ func (siw *ServerInterfaceWrapper) GetComponentReleaseSchema(w http.ResponseWrit
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentReleaseSchema(w, r, orgName, projectName, componentName, releaseName)
+		siw.Handler.GetComponentReleaseSchema(w, r, namespaceName, projectName, componentName, releaseName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2001,12 +2001,12 @@ func (siw *ServerInterfaceWrapper) DeployRelease(w http.ResponseWriter, r *http.
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2035,7 +2035,7 @@ func (siw *ServerInterfaceWrapper) DeployRelease(w http.ResponseWriter, r *http.
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeployRelease(w, r, orgName, projectName, componentName)
+		siw.Handler.DeployRelease(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2050,12 +2050,12 @@ func (siw *ServerInterfaceWrapper) GetComponentObserverURL(w http.ResponseWriter
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2093,7 +2093,7 @@ func (siw *ServerInterfaceWrapper) GetComponentObserverURL(w http.ResponseWriter
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentObserverURL(w, r, orgName, projectName, componentName, environmentName)
+		siw.Handler.GetComponentObserverURL(w, r, namespaceName, projectName, componentName, environmentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2108,12 +2108,12 @@ func (siw *ServerInterfaceWrapper) GetEnvironmentRelease(w http.ResponseWriter, 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2151,7 +2151,7 @@ func (siw *ServerInterfaceWrapper) GetEnvironmentRelease(w http.ResponseWriter, 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetEnvironmentRelease(w, r, orgName, projectName, componentName, environmentName)
+		siw.Handler.GetEnvironmentRelease(w, r, namespaceName, projectName, componentName, environmentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2166,12 +2166,12 @@ func (siw *ServerInterfaceWrapper) GetBuildObserverURL(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2200,7 +2200,7 @@ func (siw *ServerInterfaceWrapper) GetBuildObserverURL(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetBuildObserverURL(w, r, orgName, projectName, componentName)
+		siw.Handler.GetBuildObserverURL(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2215,12 +2215,12 @@ func (siw *ServerInterfaceWrapper) PromoteComponent(w http.ResponseWriter, r *ht
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2249,7 +2249,7 @@ func (siw *ServerInterfaceWrapper) PromoteComponent(w http.ResponseWriter, r *ht
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PromoteComponent(w, r, orgName, projectName, componentName)
+		siw.Handler.PromoteComponent(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2264,12 +2264,12 @@ func (siw *ServerInterfaceWrapper) ListReleaseBindings(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2309,7 +2309,7 @@ func (siw *ServerInterfaceWrapper) ListReleaseBindings(w http.ResponseWriter, r 
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListReleaseBindings(w, r, orgName, projectName, componentName, params)
+		siw.Handler.ListReleaseBindings(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2324,12 +2324,12 @@ func (siw *ServerInterfaceWrapper) PatchReleaseBinding(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2367,7 +2367,7 @@ func (siw *ServerInterfaceWrapper) PatchReleaseBinding(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PatchReleaseBinding(w, r, orgName, projectName, componentName, bindingName)
+		siw.Handler.PatchReleaseBinding(w, r, namespaceName, projectName, componentName, bindingName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2382,12 +2382,12 @@ func (siw *ServerInterfaceWrapper) GetComponentSchema(w http.ResponseWriter, r *
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2416,7 +2416,7 @@ func (siw *ServerInterfaceWrapper) GetComponentSchema(w http.ResponseWriter, r *
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentSchema(w, r, orgName, projectName, componentName)
+		siw.Handler.GetComponentSchema(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2431,12 +2431,12 @@ func (siw *ServerInterfaceWrapper) ListComponentTraits(w http.ResponseWriter, r 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2465,7 +2465,7 @@ func (siw *ServerInterfaceWrapper) ListComponentTraits(w http.ResponseWriter, r 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentTraits(w, r, orgName, projectName, componentName)
+		siw.Handler.ListComponentTraits(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2480,12 +2480,12 @@ func (siw *ServerInterfaceWrapper) UpdateComponentTraits(w http.ResponseWriter, 
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2514,7 +2514,7 @@ func (siw *ServerInterfaceWrapper) UpdateComponentTraits(w http.ResponseWriter, 
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateComponentTraits(w, r, orgName, projectName, componentName)
+		siw.Handler.UpdateComponentTraits(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2529,12 +2529,12 @@ func (siw *ServerInterfaceWrapper) UpdateComponentWorkflowParameters(w http.Resp
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2563,7 +2563,7 @@ func (siw *ServerInterfaceWrapper) UpdateComponentWorkflowParameters(w http.Resp
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateComponentWorkflowParameters(w, r, orgName, projectName, componentName)
+		siw.Handler.UpdateComponentWorkflowParameters(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2578,12 +2578,12 @@ func (siw *ServerInterfaceWrapper) ListComponentWorkflowRuns(w http.ResponseWrit
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2631,7 +2631,7 @@ func (siw *ServerInterfaceWrapper) ListComponentWorkflowRuns(w http.ResponseWrit
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComponentWorkflowRuns(w, r, orgName, projectName, componentName, params)
+		siw.Handler.ListComponentWorkflowRuns(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2646,12 +2646,12 @@ func (siw *ServerInterfaceWrapper) CreateComponentWorkflowRun(w http.ResponseWri
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2691,7 +2691,7 @@ func (siw *ServerInterfaceWrapper) CreateComponentWorkflowRun(w http.ResponseWri
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateComponentWorkflowRun(w, r, orgName, projectName, componentName, params)
+		siw.Handler.CreateComponentWorkflowRun(w, r, namespaceName, projectName, componentName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2706,12 +2706,12 @@ func (siw *ServerInterfaceWrapper) GetComponentWorkflowRun(w http.ResponseWriter
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2749,7 +2749,7 @@ func (siw *ServerInterfaceWrapper) GetComponentWorkflowRun(w http.ResponseWriter
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComponentWorkflowRun(w, r, orgName, projectName, componentName, runName)
+		siw.Handler.GetComponentWorkflowRun(w, r, namespaceName, projectName, componentName, runName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2764,12 +2764,12 @@ func (siw *ServerInterfaceWrapper) GetWorkloads(w http.ResponseWriter, r *http.R
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2798,7 +2798,7 @@ func (siw *ServerInterfaceWrapper) GetWorkloads(w http.ResponseWriter, r *http.R
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetWorkloads(w, r, orgName, projectName, componentName)
+		siw.Handler.GetWorkloads(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2813,12 +2813,12 @@ func (siw *ServerInterfaceWrapper) CreateWorkload(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2847,7 +2847,7 @@ func (siw *ServerInterfaceWrapper) CreateWorkload(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateWorkload(w, r, orgName, projectName, componentName)
+		siw.Handler.CreateWorkload(w, r, namespaceName, projectName, componentName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2862,12 +2862,12 @@ func (siw *ServerInterfaceWrapper) GetProjectDeploymentPipeline(w http.ResponseW
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2887,7 +2887,7 @@ func (siw *ServerInterfaceWrapper) GetProjectDeploymentPipeline(w http.ResponseW
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetProjectDeploymentPipeline(w, r, orgName, projectName)
+		siw.Handler.GetProjectDeploymentPipeline(w, r, namespaceName, projectName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2902,12 +2902,12 @@ func (siw *ServerInterfaceWrapper) ListSecretReferences(w http.ResponseWriter, r
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2918,7 +2918,7 @@ func (siw *ServerInterfaceWrapper) ListSecretReferences(w http.ResponseWriter, r
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListSecretReferences(w, r, orgName)
+		siw.Handler.ListSecretReferences(w, r, namespaceName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2933,12 +2933,12 @@ func (siw *ServerInterfaceWrapper) ListTraits(w http.ResponseWriter, r *http.Req
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -2968,7 +2968,7 @@ func (siw *ServerInterfaceWrapper) ListTraits(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListTraits(w, r, orgName, params)
+		siw.Handler.ListTraits(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2983,12 +2983,12 @@ func (siw *ServerInterfaceWrapper) GetTraitSchema(w http.ResponseWriter, r *http
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -3008,7 +3008,7 @@ func (siw *ServerInterfaceWrapper) GetTraitSchema(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetTraitSchema(w, r, orgName, traitName)
+		siw.Handler.GetTraitSchema(w, r, namespaceName, traitName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3023,12 +3023,12 @@ func (siw *ServerInterfaceWrapper) ListWorkflows(w http.ResponseWriter, r *http.
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -3058,7 +3058,7 @@ func (siw *ServerInterfaceWrapper) ListWorkflows(w http.ResponseWriter, r *http.
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListWorkflows(w, r, orgName, params)
+		siw.Handler.ListWorkflows(w, r, namespaceName, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3073,12 +3073,12 @@ func (siw *ServerInterfaceWrapper) GetWorkflowSchema(w http.ResponseWriter, r *h
 
 	var err error
 
-	// ------------- Path parameter "orgName" -------------
-	var orgName OrgNameParam
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
 
-	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
 		return
 	}
 
@@ -3098,7 +3098,7 @@ func (siw *ServerInterfaceWrapper) GetWorkflowSchema(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetWorkflowSchema(w, r, orgName, workflowName)
+		siw.Handler.GetWorkflowSchema(w, r, namespaceName, workflowName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3363,56 +3363,56 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.GetRole)
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.UpdateRole)
 	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/delete", wrapper.DeleteResource)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs", wrapper.ListOrganizations)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}", wrapper.GetOrganization)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/buildplanes", wrapper.ListBuildPlanes)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/component-types", wrapper.ListComponentTypes)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/component-types/{ctName}/schema", wrapper.GetComponentTypeSchema)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/component-workflows", wrapper.ListComponentWorkflows)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/component-workflows/{cwName}/schema", wrapper.GetComponentWorkflowSchema)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/dataplanes", wrapper.ListDataPlanes)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/dataplanes", wrapper.CreateDataPlane)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/dataplanes/{dpName}", wrapper.GetDataPlane)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/environments", wrapper.ListEnvironments)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/environments", wrapper.CreateEnvironment)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/environments/{envName}", wrapper.GetEnvironment)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/environments/{envName}/observer-url", wrapper.GetEnvironmentObserverURL)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/observabilityplanes", wrapper.ListObservabilityPlanes)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects", wrapper.ListProjects)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects", wrapper.CreateProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}", wrapper.GetProject)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components", wrapper.ListComponents)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components", wrapper.CreateComponent)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}", wrapper.GetComponent)
-	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}", wrapper.PatchComponent)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings", wrapper.ListComponentBindings)
-	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", wrapper.UpdateComponentBinding)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases", wrapper.ListComponentReleases)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases", wrapper.CreateComponentRelease)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}", wrapper.GetComponentRelease)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema", wrapper.GetComponentReleaseSchema)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy", wrapper.DeployRelease)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", wrapper.GetComponentObserverURL)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", wrapper.GetEnvironmentRelease)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url", wrapper.GetBuildObserverURL)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote", wrapper.PromoteComponent)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings", wrapper.ListReleaseBindings)
-	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}", wrapper.PatchReleaseBinding)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", wrapper.GetComponentSchema)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", wrapper.ListComponentTraits)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", wrapper.UpdateComponentTraits)
-	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters", wrapper.UpdateComponentWorkflowParameters)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", wrapper.ListComponentWorkflowRuns)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs", wrapper.CreateComponentWorkflowRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", wrapper.GetComponentWorkflowRun)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", wrapper.GetWorkloads)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads", wrapper.CreateWorkload)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/projects/{projectName}/deployment-pipeline", wrapper.GetProjectDeploymentPipeline)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/secret-references", wrapper.ListSecretReferences)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/traits", wrapper.ListTraits)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/traits/{traitName}/schema", wrapper.GetTraitSchema)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/workflows", wrapper.ListWorkflows)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/orgs/{orgName}/workflows/{workflowName}/schema", wrapper.GetWorkflowSchema)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces", wrapper.ListNamespaces)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}", wrapper.GetNamespace)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/buildplanes", wrapper.ListBuildPlanes)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/component-types", wrapper.ListComponentTypes)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/component-types/{ctName}/schema", wrapper.GetComponentTypeSchema)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/component-workflows", wrapper.ListComponentWorkflows)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/schema", wrapper.GetComponentWorkflowSchema)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/dataplanes", wrapper.ListDataPlanes)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/dataplanes", wrapper.CreateDataPlane)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/dataplanes/{dpName}", wrapper.GetDataPlane)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments", wrapper.ListEnvironments)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments", wrapper.CreateEnvironment)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}", wrapper.GetEnvironment)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url", wrapper.GetEnvironmentObserverURL)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/observabilityplanes", wrapper.ListObservabilityPlanes)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects", wrapper.ListProjects)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects", wrapper.CreateProject)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}", wrapper.GetProject)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components", wrapper.ListComponents)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components", wrapper.CreateComponent)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}", wrapper.GetComponent)
+	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}", wrapper.PatchComponent)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings", wrapper.ListComponentBindings)
+	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}", wrapper.UpdateComponentBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases", wrapper.ListComponentReleases)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases", wrapper.CreateComponentRelease)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}", wrapper.GetComponentRelease)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema", wrapper.GetComponentReleaseSchema)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy", wrapper.DeployRelease)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url", wrapper.GetComponentObserverURL)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", wrapper.GetEnvironmentRelease)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/observer-url", wrapper.GetBuildObserverURL)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote", wrapper.PromoteComponent)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings", wrapper.ListReleaseBindings)
+	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}", wrapper.PatchReleaseBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema", wrapper.GetComponentSchema)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits", wrapper.ListComponentTraits)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits", wrapper.UpdateComponentTraits)
+	m.HandleFunc("PATCH "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", wrapper.UpdateComponentWorkflowParameters)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", wrapper.ListComponentWorkflowRuns)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", wrapper.CreateComponentWorkflowRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}", wrapper.GetComponentWorkflowRun)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", wrapper.GetWorkloads)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", wrapper.CreateWorkload)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline", wrapper.GetProjectDeploymentPipeline)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/secret-references", wrapper.ListSecretReferences)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits", wrapper.ListTraits)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits/{traitName}/schema", wrapper.GetTraitSchema)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows", wrapper.ListWorkflows)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema", wrapper.GetWorkflowSchema)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/user-types", wrapper.ListUserTypes)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/webhooks/bitbucket", wrapper.HandleBitbucketWebhook)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/webhooks/github", wrapper.HandleGitHubWebhook)
@@ -4281,97 +4281,97 @@ func (response DeleteResource500JSONResponse) VisitDeleteResourceResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListOrganizationsRequestObject struct {
-	Params ListOrganizationsParams
+type ListNamespacesRequestObject struct {
+	Params ListNamespacesParams
 }
 
-type ListOrganizationsResponseObject interface {
-	VisitListOrganizationsResponse(w http.ResponseWriter) error
+type ListNamespacesResponseObject interface {
+	VisitListNamespacesResponse(w http.ResponseWriter) error
 }
 
-type ListOrganizations200JSONResponse OrganizationList
+type ListNamespaces200JSONResponse NamespaceList
 
-func (response ListOrganizations200JSONResponse) VisitListOrganizationsResponse(w http.ResponseWriter) error {
+func (response ListNamespaces200JSONResponse) VisitListNamespacesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListOrganizations401JSONResponse struct{ UnauthorizedJSONResponse }
+type ListNamespaces401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ListOrganizations401JSONResponse) VisitListOrganizationsResponse(w http.ResponseWriter) error {
+func (response ListNamespaces401JSONResponse) VisitListNamespacesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListOrganizations403JSONResponse struct{ ForbiddenJSONResponse }
+type ListNamespaces403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ListOrganizations403JSONResponse) VisitListOrganizationsResponse(w http.ResponseWriter) error {
+func (response ListNamespaces403JSONResponse) VisitListNamespacesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListOrganizations500JSONResponse struct{ InternalErrorJSONResponse }
+type ListNamespaces500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response ListOrganizations500JSONResponse) VisitListOrganizationsResponse(w http.ResponseWriter) error {
+func (response ListNamespaces500JSONResponse) VisitListNamespacesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetOrganizationRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
+type GetNamespaceRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 }
 
-type GetOrganizationResponseObject interface {
-	VisitGetOrganizationResponse(w http.ResponseWriter) error
+type GetNamespaceResponseObject interface {
+	VisitGetNamespaceResponse(w http.ResponseWriter) error
 }
 
-type GetOrganization200JSONResponse Organization
+type GetNamespace200JSONResponse Namespace
 
-func (response GetOrganization200JSONResponse) VisitGetOrganizationResponse(w http.ResponseWriter) error {
+func (response GetNamespace200JSONResponse) VisitGetNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetOrganization401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetNamespace401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response GetOrganization401JSONResponse) VisitGetOrganizationResponse(w http.ResponseWriter) error {
+func (response GetNamespace401JSONResponse) VisitGetNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetOrganization403JSONResponse struct{ ForbiddenJSONResponse }
+type GetNamespace403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response GetOrganization403JSONResponse) VisitGetOrganizationResponse(w http.ResponseWriter) error {
+func (response GetNamespace403JSONResponse) VisitGetNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetOrganization404JSONResponse struct{ NotFoundJSONResponse }
+type GetNamespace404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response GetOrganization404JSONResponse) VisitGetOrganizationResponse(w http.ResponseWriter) error {
+func (response GetNamespace404JSONResponse) VisitGetNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetOrganization500JSONResponse struct{ InternalErrorJSONResponse }
+type GetNamespace500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response GetOrganization500JSONResponse) VisitGetOrganizationResponse(w http.ResponseWriter) error {
+func (response GetNamespace500JSONResponse) VisitGetNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -4379,7 +4379,7 @@ func (response GetOrganization500JSONResponse) VisitGetOrganizationResponse(w ht
 }
 
 type ListBuildPlanesRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 }
 
 type ListBuildPlanesResponseObject interface {
@@ -4423,8 +4423,8 @@ func (response ListBuildPlanes500JSONResponse) VisitListBuildPlanesResponse(w ht
 }
 
 type ListComponentTypesRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListComponentTypesParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListComponentTypesParams
 }
 
 type ListComponentTypesResponseObject interface {
@@ -4468,8 +4468,8 @@ func (response ListComponentTypes500JSONResponse) VisitListComponentTypesRespons
 }
 
 type GetComponentTypeSchemaRequestObject struct {
-	OrgName OrgNameParam           `json:"orgName"`
-	CtName  ComponentTypeNameParam `json:"ctName"`
+	NamespaceName NamespaceNameParam     `json:"namespaceName"`
+	CtName        ComponentTypeNameParam `json:"ctName"`
 }
 
 type GetComponentTypeSchemaResponseObject interface {
@@ -4522,8 +4522,8 @@ func (response GetComponentTypeSchema500JSONResponse) VisitGetComponentTypeSchem
 }
 
 type ListComponentWorkflowsRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListComponentWorkflowsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListComponentWorkflowsParams
 }
 
 type ListComponentWorkflowsResponseObject interface {
@@ -4567,8 +4567,8 @@ func (response ListComponentWorkflows500JSONResponse) VisitListComponentWorkflow
 }
 
 type GetComponentWorkflowSchemaRequestObject struct {
-	OrgName OrgNameParam               `json:"orgName"`
-	CwName  ComponentWorkflowNameParam `json:"cwName"`
+	NamespaceName NamespaceNameParam         `json:"namespaceName"`
+	CwName        ComponentWorkflowNameParam `json:"cwName"`
 }
 
 type GetComponentWorkflowSchemaResponseObject interface {
@@ -4621,8 +4621,8 @@ func (response GetComponentWorkflowSchema500JSONResponse) VisitGetComponentWorkf
 }
 
 type ListDataPlanesRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListDataPlanesParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListDataPlanesParams
 }
 
 type ListDataPlanesResponseObject interface {
@@ -4666,8 +4666,8 @@ func (response ListDataPlanes500JSONResponse) VisitListDataPlanesResponse(w http
 }
 
 type CreateDataPlaneRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Body    *CreateDataPlaneJSONRequestBody
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateDataPlaneJSONRequestBody
 }
 
 type CreateDataPlaneResponseObject interface {
@@ -4729,8 +4729,8 @@ func (response CreateDataPlane500JSONResponse) VisitCreateDataPlaneResponse(w ht
 }
 
 type GetDataPlaneRequestObject struct {
-	OrgName OrgNameParam       `json:"orgName"`
-	DpName  DataPlaneNameParam `json:"dpName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	DpName        DataPlaneNameParam `json:"dpName"`
 }
 
 type GetDataPlaneResponseObject interface {
@@ -4783,8 +4783,8 @@ func (response GetDataPlane500JSONResponse) VisitGetDataPlaneResponse(w http.Res
 }
 
 type ListEnvironmentsRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListEnvironmentsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListEnvironmentsParams
 }
 
 type ListEnvironmentsResponseObject interface {
@@ -4828,8 +4828,8 @@ func (response ListEnvironments500JSONResponse) VisitListEnvironmentsResponse(w 
 }
 
 type CreateEnvironmentRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Body    *CreateEnvironmentJSONRequestBody
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateEnvironmentJSONRequestBody
 }
 
 type CreateEnvironmentResponseObject interface {
@@ -4891,8 +4891,8 @@ func (response CreateEnvironment500JSONResponse) VisitCreateEnvironmentResponse(
 }
 
 type GetEnvironmentRequestObject struct {
-	OrgName OrgNameParam         `json:"orgName"`
-	EnvName EnvironmentNameParam `json:"envName"`
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
+	EnvName       EnvironmentNameParam `json:"envName"`
 }
 
 type GetEnvironmentResponseObject interface {
@@ -4945,8 +4945,8 @@ func (response GetEnvironment500JSONResponse) VisitGetEnvironmentResponse(w http
 }
 
 type GetEnvironmentObserverURLRequestObject struct {
-	OrgName OrgNameParam         `json:"orgName"`
-	EnvName EnvironmentNameParam `json:"envName"`
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
+	EnvName       EnvironmentNameParam `json:"envName"`
 }
 
 type GetEnvironmentObserverURLResponseObject interface {
@@ -4999,7 +4999,7 @@ func (response GetEnvironmentObserverURL500JSONResponse) VisitGetEnvironmentObse
 }
 
 type ListObservabilityPlanesRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 }
 
 type ListObservabilityPlanesResponseObject interface {
@@ -5043,8 +5043,8 @@ func (response ListObservabilityPlanes500JSONResponse) VisitListObservabilityPla
 }
 
 type ListProjectsRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListProjectsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListProjectsParams
 }
 
 type ListProjectsResponseObject interface {
@@ -5097,8 +5097,8 @@ func (response ListProjects500JSONResponse) VisitListProjectsResponse(w http.Res
 }
 
 type CreateProjectRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Body    *CreateProjectJSONRequestBody
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateProjectJSONRequestBody
 }
 
 type CreateProjectResponseObject interface {
@@ -5160,8 +5160,8 @@ func (response CreateProject500JSONResponse) VisitCreateProjectResponse(w http.R
 }
 
 type GetProjectRequestObject struct {
-	OrgName     OrgNameParam     `json:"orgName"`
-	ProjectName ProjectNameParam `json:"projectName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	ProjectName   ProjectNameParam   `json:"projectName"`
 }
 
 type GetProjectResponseObject interface {
@@ -5214,9 +5214,9 @@ func (response GetProject500JSONResponse) VisitGetProjectResponse(w http.Respons
 }
 
 type ListComponentsRequestObject struct {
-	OrgName     OrgNameParam     `json:"orgName"`
-	ProjectName ProjectNameParam `json:"projectName"`
-	Params      ListComponentsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	ProjectName   ProjectNameParam   `json:"projectName"`
+	Params        ListComponentsParams
 }
 
 type ListComponentsResponseObject interface {
@@ -5269,9 +5269,9 @@ func (response ListComponents500JSONResponse) VisitListComponentsResponse(w http
 }
 
 type CreateComponentRequestObject struct {
-	OrgName     OrgNameParam     `json:"orgName"`
-	ProjectName ProjectNameParam `json:"projectName"`
-	Body        *CreateComponentJSONRequestBody
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	ProjectName   ProjectNameParam   `json:"projectName"`
+	Body          *CreateComponentJSONRequestBody
 }
 
 type CreateComponentResponseObject interface {
@@ -5342,7 +5342,7 @@ func (response CreateComponent500JSONResponse) VisitCreateComponentResponse(w ht
 }
 
 type GetComponentRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        GetComponentParams
@@ -5398,7 +5398,7 @@ func (response GetComponent500JSONResponse) VisitGetComponentResponse(w http.Res
 }
 
 type PatchComponentRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *PatchComponentJSONRequestBody
@@ -5463,7 +5463,7 @@ func (response PatchComponent500JSONResponse) VisitPatchComponentResponse(w http
 }
 
 type ListComponentBindingsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        ListComponentBindingsParams
@@ -5519,7 +5519,7 @@ func (response ListComponentBindings500JSONResponse) VisitListComponentBindingsR
 }
 
 type UpdateComponentBindingRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	BindingName   BindingNameParam   `json:"bindingName"`
@@ -5585,7 +5585,7 @@ func (response UpdateComponentBinding500JSONResponse) VisitUpdateComponentBindin
 }
 
 type ListComponentReleasesRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        ListComponentReleasesParams
@@ -5641,7 +5641,7 @@ func (response ListComponentReleases500JSONResponse) VisitListComponentReleasesR
 }
 
 type CreateComponentReleaseRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *CreateComponentReleaseJSONRequestBody
@@ -5706,7 +5706,7 @@ func (response CreateComponentRelease500JSONResponse) VisitCreateComponentReleas
 }
 
 type GetComponentReleaseRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	ReleaseName   ReleaseNameParam   `json:"releaseName"`
@@ -5762,7 +5762,7 @@ func (response GetComponentRelease500JSONResponse) VisitGetComponentReleaseRespo
 }
 
 type GetComponentReleaseSchemaRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	ReleaseName   ReleaseNameParam   `json:"releaseName"`
@@ -5818,7 +5818,7 @@ func (response GetComponentReleaseSchema500JSONResponse) VisitGetComponentReleas
 }
 
 type DeployReleaseRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *DeployReleaseJSONRequestBody
@@ -5883,7 +5883,7 @@ func (response DeployRelease500JSONResponse) VisitDeployReleaseResponse(w http.R
 }
 
 type GetComponentObserverURLRequestObject struct {
-	OrgName         OrgNameParam                  `json:"orgName"`
+	NamespaceName   NamespaceNameParam            `json:"namespaceName"`
 	ProjectName     ProjectNameParam              `json:"projectName"`
 	ComponentName   ComponentNameParam            `json:"componentName"`
 	EnvironmentName ComponentEnvironmentNameParam `json:"environmentName"`
@@ -5939,7 +5939,7 @@ func (response GetComponentObserverURL500JSONResponse) VisitGetComponentObserver
 }
 
 type GetEnvironmentReleaseRequestObject struct {
-	OrgName         OrgNameParam                  `json:"orgName"`
+	NamespaceName   NamespaceNameParam            `json:"namespaceName"`
 	ProjectName     ProjectNameParam              `json:"projectName"`
 	ComponentName   ComponentNameParam            `json:"componentName"`
 	EnvironmentName ComponentEnvironmentNameParam `json:"environmentName"`
@@ -5995,7 +5995,7 @@ func (response GetEnvironmentRelease500JSONResponse) VisitGetEnvironmentReleaseR
 }
 
 type GetBuildObserverURLRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 }
@@ -6050,7 +6050,7 @@ func (response GetBuildObserverURL500JSONResponse) VisitGetBuildObserverURLRespo
 }
 
 type PromoteComponentRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *PromoteComponentJSONRequestBody
@@ -6115,7 +6115,7 @@ func (response PromoteComponent500JSONResponse) VisitPromoteComponentResponse(w 
 }
 
 type ListReleaseBindingsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        ListReleaseBindingsParams
@@ -6171,7 +6171,7 @@ func (response ListReleaseBindings500JSONResponse) VisitListReleaseBindingsRespo
 }
 
 type PatchReleaseBindingRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	BindingName   BindingNameParam   `json:"bindingName"`
@@ -6237,7 +6237,7 @@ func (response PatchReleaseBinding500JSONResponse) VisitPatchReleaseBindingRespo
 }
 
 type GetComponentSchemaRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 }
@@ -6292,7 +6292,7 @@ func (response GetComponentSchema500JSONResponse) VisitGetComponentSchemaRespons
 }
 
 type ListComponentTraitsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 }
@@ -6347,7 +6347,7 @@ func (response ListComponentTraits500JSONResponse) VisitListComponentTraitsRespo
 }
 
 type UpdateComponentTraitsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *UpdateComponentTraitsJSONRequestBody
@@ -6412,7 +6412,7 @@ func (response UpdateComponentTraits500JSONResponse) VisitUpdateComponentTraitsR
 }
 
 type UpdateComponentWorkflowParametersRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *UpdateComponentWorkflowParametersJSONRequestBody
@@ -6477,7 +6477,7 @@ func (response UpdateComponentWorkflowParameters500JSONResponse) VisitUpdateComp
 }
 
 type ListComponentWorkflowRunsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        ListComponentWorkflowRunsParams
@@ -6533,7 +6533,7 @@ func (response ListComponentWorkflowRuns500JSONResponse) VisitListComponentWorkf
 }
 
 type CreateComponentWorkflowRunRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Params        CreateComponentWorkflowRunParams
@@ -6598,7 +6598,7 @@ func (response CreateComponentWorkflowRun500JSONResponse) VisitCreateComponentWo
 }
 
 type GetComponentWorkflowRunRequestObject struct {
-	OrgName       OrgNameParam         `json:"orgName"`
+	NamespaceName NamespaceNameParam   `json:"namespaceName"`
 	ProjectName   ProjectNameParam     `json:"projectName"`
 	ComponentName ComponentNameParam   `json:"componentName"`
 	RunName       WorkflowRunNameParam `json:"runName"`
@@ -6654,7 +6654,7 @@ func (response GetComponentWorkflowRun500JSONResponse) VisitGetComponentWorkflow
 }
 
 type GetWorkloadsRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 }
@@ -6709,7 +6709,7 @@ func (response GetWorkloads500JSONResponse) VisitGetWorkloadsResponse(w http.Res
 }
 
 type CreateWorkloadRequestObject struct {
-	OrgName       OrgNameParam       `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	ProjectName   ProjectNameParam   `json:"projectName"`
 	ComponentName ComponentNameParam `json:"componentName"`
 	Body          *CreateWorkloadJSONRequestBody
@@ -6774,8 +6774,8 @@ func (response CreateWorkload500JSONResponse) VisitCreateWorkloadResponse(w http
 }
 
 type GetProjectDeploymentPipelineRequestObject struct {
-	OrgName     OrgNameParam     `json:"orgName"`
-	ProjectName ProjectNameParam `json:"projectName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	ProjectName   ProjectNameParam   `json:"projectName"`
 }
 
 type GetProjectDeploymentPipelineResponseObject interface {
@@ -6828,7 +6828,7 @@ func (response GetProjectDeploymentPipeline500JSONResponse) VisitGetProjectDeplo
 }
 
 type ListSecretReferencesRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
 }
 
 type ListSecretReferencesResponseObject interface {
@@ -6881,8 +6881,8 @@ func (response ListSecretReferences500JSONResponse) VisitListSecretReferencesRes
 }
 
 type ListTraitsRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListTraitsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListTraitsParams
 }
 
 type ListTraitsResponseObject interface {
@@ -6926,8 +6926,8 @@ func (response ListTraits500JSONResponse) VisitListTraitsResponse(w http.Respons
 }
 
 type GetTraitSchemaRequestObject struct {
-	OrgName   OrgNameParam   `json:"orgName"`
-	TraitName TraitNameParam `json:"traitName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	TraitName     TraitNameParam     `json:"traitName"`
 }
 
 type GetTraitSchemaResponseObject interface {
@@ -6980,8 +6980,8 @@ func (response GetTraitSchema500JSONResponse) VisitGetTraitSchemaResponse(w http
 }
 
 type ListWorkflowsRequestObject struct {
-	OrgName OrgNameParam `json:"orgName"`
-	Params  ListWorkflowsParams
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListWorkflowsParams
 }
 
 type ListWorkflowsResponseObject interface {
@@ -7025,8 +7025,8 @@ func (response ListWorkflows500JSONResponse) VisitListWorkflowsResponse(w http.R
 }
 
 type GetWorkflowSchemaRequestObject struct {
-	OrgName      OrgNameParam      `json:"orgName"`
-	WorkflowName WorkflowNameParam `json:"workflowName"`
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	WorkflowName  WorkflowNameParam  `json:"workflowName"`
 }
 
 type GetWorkflowSchemaResponseObject interface {
@@ -7363,155 +7363,155 @@ type StrictServerInterface interface {
 	// Delete resource
 	// (DELETE /api/v1/delete)
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
-	// List organizations
-	// (GET /api/v1/orgs)
-	ListOrganizations(ctx context.Context, request ListOrganizationsRequestObject) (ListOrganizationsResponseObject, error)
-	// Get organization
-	// (GET /api/v1/orgs/{orgName})
-	GetOrganization(ctx context.Context, request GetOrganizationRequestObject) (GetOrganizationResponseObject, error)
+	// List namespaces
+	// (GET /api/v1/namespaces)
+	ListNamespaces(ctx context.Context, request ListNamespacesRequestObject) (ListNamespacesResponseObject, error)
+	// Get namespace
+	// (GET /api/v1/namespaces/{namespaceName})
+	GetNamespace(ctx context.Context, request GetNamespaceRequestObject) (GetNamespaceResponseObject, error)
 	// List build planes
-	// (GET /api/v1/orgs/{orgName}/buildplanes)
+	// (GET /api/v1/namespaces/{namespaceName}/buildplanes)
 	ListBuildPlanes(ctx context.Context, request ListBuildPlanesRequestObject) (ListBuildPlanesResponseObject, error)
 	// List component types
-	// (GET /api/v1/orgs/{orgName}/component-types)
+	// (GET /api/v1/namespaces/{namespaceName}/component-types)
 	ListComponentTypes(ctx context.Context, request ListComponentTypesRequestObject) (ListComponentTypesResponseObject, error)
 	// Get component type schema
-	// (GET /api/v1/orgs/{orgName}/component-types/{ctName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/component-types/{ctName}/schema)
 	GetComponentTypeSchema(ctx context.Context, request GetComponentTypeSchemaRequestObject) (GetComponentTypeSchemaResponseObject, error)
 	// List component workflows
-	// (GET /api/v1/orgs/{orgName}/component-workflows)
+	// (GET /api/v1/namespaces/{namespaceName}/component-workflows)
 	ListComponentWorkflows(ctx context.Context, request ListComponentWorkflowsRequestObject) (ListComponentWorkflowsResponseObject, error)
 	// Get component workflow schema
-	// (GET /api/v1/orgs/{orgName}/component-workflows/{cwName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/schema)
 	GetComponentWorkflowSchema(ctx context.Context, request GetComponentWorkflowSchemaRequestObject) (GetComponentWorkflowSchemaResponseObject, error)
 	// List data planes
-	// (GET /api/v1/orgs/{orgName}/dataplanes)
+	// (GET /api/v1/namespaces/{namespaceName}/dataplanes)
 	ListDataPlanes(ctx context.Context, request ListDataPlanesRequestObject) (ListDataPlanesResponseObject, error)
 	// Create data plane
-	// (POST /api/v1/orgs/{orgName}/dataplanes)
+	// (POST /api/v1/namespaces/{namespaceName}/dataplanes)
 	CreateDataPlane(ctx context.Context, request CreateDataPlaneRequestObject) (CreateDataPlaneResponseObject, error)
 	// Get data plane
-	// (GET /api/v1/orgs/{orgName}/dataplanes/{dpName})
+	// (GET /api/v1/namespaces/{namespaceName}/dataplanes/{dpName})
 	GetDataPlane(ctx context.Context, request GetDataPlaneRequestObject) (GetDataPlaneResponseObject, error)
 	// List environments
-	// (GET /api/v1/orgs/{orgName}/environments)
+	// (GET /api/v1/namespaces/{namespaceName}/environments)
 	ListEnvironments(ctx context.Context, request ListEnvironmentsRequestObject) (ListEnvironmentsResponseObject, error)
 	// Create environment
-	// (POST /api/v1/orgs/{orgName}/environments)
+	// (POST /api/v1/namespaces/{namespaceName}/environments)
 	CreateEnvironment(ctx context.Context, request CreateEnvironmentRequestObject) (CreateEnvironmentResponseObject, error)
 	// Get environment
-	// (GET /api/v1/orgs/{orgName}/environments/{envName})
+	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName})
 	GetEnvironment(ctx context.Context, request GetEnvironmentRequestObject) (GetEnvironmentResponseObject, error)
 	// Get environment observer URL
-	// (GET /api/v1/orgs/{orgName}/environments/{envName}/observer-url)
+	// (GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url)
 	GetEnvironmentObserverURL(ctx context.Context, request GetEnvironmentObserverURLRequestObject) (GetEnvironmentObserverURLResponseObject, error)
 	// List observability planes
-	// (GET /api/v1/orgs/{orgName}/observabilityplanes)
+	// (GET /api/v1/namespaces/{namespaceName}/observabilityplanes)
 	ListObservabilityPlanes(ctx context.Context, request ListObservabilityPlanesRequestObject) (ListObservabilityPlanesResponseObject, error)
 	// List projects
-	// (GET /api/v1/orgs/{orgName}/projects)
+	// (GET /api/v1/namespaces/{namespaceName}/projects)
 	ListProjects(ctx context.Context, request ListProjectsRequestObject) (ListProjectsResponseObject, error)
 	// Create project
-	// (POST /api/v1/orgs/{orgName}/projects)
+	// (POST /api/v1/namespaces/{namespaceName}/projects)
 	CreateProject(ctx context.Context, request CreateProjectRequestObject) (CreateProjectResponseObject, error)
 	// Get project
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName})
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName})
 	GetProject(ctx context.Context, request GetProjectRequestObject) (GetProjectResponseObject, error)
 	// List components
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components)
 	ListComponents(ctx context.Context, request ListComponentsRequestObject) (ListComponentsResponseObject, error)
 	// Create component
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components)
 	CreateComponent(ctx context.Context, request CreateComponentRequestObject) (CreateComponentResponseObject, error)
 	// Get component
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName})
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName})
 	GetComponent(ctx context.Context, request GetComponentRequestObject) (GetComponentResponseObject, error)
 	// Patch component
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName})
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName})
 	PatchComponent(ctx context.Context, request PatchComponentRequestObject) (PatchComponentResponseObject, error)
 	// List component bindings
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings)
 	ListComponentBindings(ctx context.Context, request ListComponentBindingsRequestObject) (ListComponentBindingsResponseObject, error)
 	// Update component binding
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName})
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName})
 	UpdateComponentBinding(ctx context.Context, request UpdateComponentBindingRequestObject) (UpdateComponentBindingResponseObject, error)
 	// List component releases
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases)
 	ListComponentReleases(ctx context.Context, request ListComponentReleasesRequestObject) (ListComponentReleasesResponseObject, error)
 	// Create component release
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases)
 	CreateComponentRelease(ctx context.Context, request CreateComponentReleaseRequestObject) (CreateComponentReleaseResponseObject, error)
 	// Get component release
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName})
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName})
 	GetComponentRelease(ctx context.Context, request GetComponentReleaseRequestObject) (GetComponentReleaseResponseObject, error)
 	// Get component release schema
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema)
 	GetComponentReleaseSchema(ctx context.Context, request GetComponentReleaseSchemaRequestObject) (GetComponentReleaseSchemaResponseObject, error)
 	// Deploy release
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy)
 	DeployRelease(ctx context.Context, request DeployReleaseRequestObject) (DeployReleaseResponseObject, error)
 	// Get component observer URL
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/observer-url)
 	GetComponentObserverURL(ctx context.Context, request GetComponentObserverURLRequestObject) (GetComponentObserverURLResponseObject, error)
 	// Get environment release
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release)
 	GetEnvironmentRelease(ctx context.Context, request GetEnvironmentReleaseRequestObject) (GetEnvironmentReleaseResponseObject, error)
 	// Get build observer URL
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/observer-url)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/observer-url)
 	GetBuildObserverURL(ctx context.Context, request GetBuildObserverURLRequestObject) (GetBuildObserverURLResponseObject, error)
 	// Promote component
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote)
 	PromoteComponent(ctx context.Context, request PromoteComponentRequestObject) (PromoteComponentResponseObject, error)
 	// List release bindings
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings)
 	ListReleaseBindings(ctx context.Context, request ListReleaseBindingsRequestObject) (ListReleaseBindingsResponseObject, error)
 	// Patch release binding
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName})
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName})
 	PatchReleaseBinding(ctx context.Context, request PatchReleaseBindingRequestObject) (PatchReleaseBindingResponseObject, error)
 	// Get component schema
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/schema)
 	GetComponentSchema(ctx context.Context, request GetComponentSchemaRequestObject) (GetComponentSchemaResponseObject, error)
 	// List component traits
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits)
 	ListComponentTraits(ctx context.Context, request ListComponentTraitsRequestObject) (ListComponentTraitsResponseObject, error)
 	// Update component traits
-	// (PUT /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits)
+	// (PUT /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits)
 	UpdateComponentTraits(ctx context.Context, request UpdateComponentTraitsRequestObject) (UpdateComponentTraitsResponseObject, error)
 	// Update component workflow parameters
-	// (PATCH /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters)
+	// (PATCH /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters)
 	UpdateComponentWorkflowParameters(ctx context.Context, request UpdateComponentWorkflowParametersRequestObject) (UpdateComponentWorkflowParametersResponseObject, error)
 	// List component workflow runs
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs)
 	ListComponentWorkflowRuns(ctx context.Context, request ListComponentWorkflowRunsRequestObject) (ListComponentWorkflowRunsResponseObject, error)
 	// Trigger component workflow run
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs)
 	CreateComponentWorkflowRun(ctx context.Context, request CreateComponentWorkflowRunRequestObject) (CreateComponentWorkflowRunResponseObject, error)
 	// Get component workflow run
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName})
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName})
 	GetComponentWorkflowRun(ctx context.Context, request GetComponentWorkflowRunRequestObject) (GetComponentWorkflowRunResponseObject, error)
 	// Get component workloads
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads)
 	GetWorkloads(ctx context.Context, request GetWorkloadsRequestObject) (GetWorkloadsResponseObject, error)
 	// Create or update workload
-	// (POST /api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads)
+	// (POST /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads)
 	CreateWorkload(ctx context.Context, request CreateWorkloadRequestObject) (CreateWorkloadResponseObject, error)
 	// Get project deployment pipeline
-	// (GET /api/v1/orgs/{orgName}/projects/{projectName}/deployment-pipeline)
+	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline)
 	GetProjectDeploymentPipeline(ctx context.Context, request GetProjectDeploymentPipelineRequestObject) (GetProjectDeploymentPipelineResponseObject, error)
 	// List secret references
-	// (GET /api/v1/orgs/{orgName}/secret-references)
+	// (GET /api/v1/namespaces/{namespaceName}/secret-references)
 	ListSecretReferences(ctx context.Context, request ListSecretReferencesRequestObject) (ListSecretReferencesResponseObject, error)
 	// List traits
-	// (GET /api/v1/orgs/{orgName}/traits)
+	// (GET /api/v1/namespaces/{namespaceName}/traits)
 	ListTraits(ctx context.Context, request ListTraitsRequestObject) (ListTraitsResponseObject, error)
 	// Get trait schema
-	// (GET /api/v1/orgs/{orgName}/traits/{traitName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema)
 	GetTraitSchema(ctx context.Context, request GetTraitSchemaRequestObject) (GetTraitSchemaResponseObject, error)
 	// List workflows
-	// (GET /api/v1/orgs/{orgName}/workflows)
+	// (GET /api/v1/namespaces/{namespaceName}/workflows)
 	ListWorkflows(ctx context.Context, request ListWorkflowsRequestObject) (ListWorkflowsResponseObject, error)
 	// Get workflow schema
-	// (GET /api/v1/orgs/{orgName}/workflows/{workflowName}/schema)
+	// (GET /api/v1/namespaces/{namespaceName}/workflows/{workflowName}/schema)
 	GetWorkflowSchema(ctx context.Context, request GetWorkflowSchemaRequestObject) (GetWorkflowSchemaResponseObject, error)
 	// List user types
 	// (GET /api/v1/user-types)
@@ -8047,25 +8047,25 @@ func (sh *strictHandler) DeleteResource(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// ListOrganizations operation middleware
-func (sh *strictHandler) ListOrganizations(w http.ResponseWriter, r *http.Request, params ListOrganizationsParams) {
-	var request ListOrganizationsRequestObject
+// ListNamespaces operation middleware
+func (sh *strictHandler) ListNamespaces(w http.ResponseWriter, r *http.Request, params ListNamespacesParams) {
+	var request ListNamespacesRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListOrganizations(ctx, request.(ListOrganizationsRequestObject))
+		return sh.ssi.ListNamespaces(ctx, request.(ListNamespacesRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListOrganizations")
+		handler = middleware(handler, "ListNamespaces")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListOrganizationsResponseObject); ok {
-		if err := validResponse.VisitListOrganizationsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListNamespacesResponseObject); ok {
+		if err := validResponse.VisitListNamespacesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8073,25 +8073,25 @@ func (sh *strictHandler) ListOrganizations(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// GetOrganization operation middleware
-func (sh *strictHandler) GetOrganization(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
-	var request GetOrganizationRequestObject
+// GetNamespace operation middleware
+func (sh *strictHandler) GetNamespace(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
+	var request GetNamespaceRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetOrganization(ctx, request.(GetOrganizationRequestObject))
+		return sh.ssi.GetNamespace(ctx, request.(GetNamespaceRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetOrganization")
+		handler = middleware(handler, "GetNamespace")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetOrganizationResponseObject); ok {
-		if err := validResponse.VisitGetOrganizationResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetNamespaceResponseObject); ok {
+		if err := validResponse.VisitGetNamespaceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8100,10 +8100,10 @@ func (sh *strictHandler) GetOrganization(w http.ResponseWriter, r *http.Request,
 }
 
 // ListBuildPlanes operation middleware
-func (sh *strictHandler) ListBuildPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) ListBuildPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request ListBuildPlanesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListBuildPlanes(ctx, request.(ListBuildPlanesRequestObject))
@@ -8126,10 +8126,10 @@ func (sh *strictHandler) ListBuildPlanes(w http.ResponseWriter, r *http.Request,
 }
 
 // ListComponentTypes operation middleware
-func (sh *strictHandler) ListComponentTypes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListComponentTypesParams) {
+func (sh *strictHandler) ListComponentTypes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListComponentTypesParams) {
 	var request ListComponentTypesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8153,10 +8153,10 @@ func (sh *strictHandler) ListComponentTypes(w http.ResponseWriter, r *http.Reque
 }
 
 // GetComponentTypeSchema operation middleware
-func (sh *strictHandler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, ctName ComponentTypeNameParam) {
+func (sh *strictHandler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, ctName ComponentTypeNameParam) {
 	var request GetComponentTypeSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.CtName = ctName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8180,10 +8180,10 @@ func (sh *strictHandler) GetComponentTypeSchema(w http.ResponseWriter, r *http.R
 }
 
 // ListComponentWorkflows operation middleware
-func (sh *strictHandler) ListComponentWorkflows(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListComponentWorkflowsParams) {
+func (sh *strictHandler) ListComponentWorkflows(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListComponentWorkflowsParams) {
 	var request ListComponentWorkflowsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8207,10 +8207,10 @@ func (sh *strictHandler) ListComponentWorkflows(w http.ResponseWriter, r *http.R
 }
 
 // GetComponentWorkflowSchema operation middleware
-func (sh *strictHandler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, cwName ComponentWorkflowNameParam) {
+func (sh *strictHandler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam) {
 	var request GetComponentWorkflowSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.CwName = cwName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8234,10 +8234,10 @@ func (sh *strictHandler) GetComponentWorkflowSchema(w http.ResponseWriter, r *ht
 }
 
 // ListDataPlanes operation middleware
-func (sh *strictHandler) ListDataPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListDataPlanesParams) {
+func (sh *strictHandler) ListDataPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListDataPlanesParams) {
 	var request ListDataPlanesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8261,10 +8261,10 @@ func (sh *strictHandler) ListDataPlanes(w http.ResponseWriter, r *http.Request, 
 }
 
 // CreateDataPlane operation middleware
-func (sh *strictHandler) CreateDataPlane(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) CreateDataPlane(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request CreateDataPlaneRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	var body CreateDataPlaneJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -8294,10 +8294,10 @@ func (sh *strictHandler) CreateDataPlane(w http.ResponseWriter, r *http.Request,
 }
 
 // GetDataPlane operation middleware
-func (sh *strictHandler) GetDataPlane(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, dpName DataPlaneNameParam) {
+func (sh *strictHandler) GetDataPlane(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, dpName DataPlaneNameParam) {
 	var request GetDataPlaneRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.DpName = dpName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8321,10 +8321,10 @@ func (sh *strictHandler) GetDataPlane(w http.ResponseWriter, r *http.Request, or
 }
 
 // ListEnvironments operation middleware
-func (sh *strictHandler) ListEnvironments(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListEnvironmentsParams) {
+func (sh *strictHandler) ListEnvironments(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListEnvironmentsParams) {
 	var request ListEnvironmentsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8348,10 +8348,10 @@ func (sh *strictHandler) ListEnvironments(w http.ResponseWriter, r *http.Request
 }
 
 // CreateEnvironment operation middleware
-func (sh *strictHandler) CreateEnvironment(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) CreateEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request CreateEnvironmentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	var body CreateEnvironmentJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -8381,10 +8381,10 @@ func (sh *strictHandler) CreateEnvironment(w http.ResponseWriter, r *http.Reques
 }
 
 // GetEnvironment operation middleware
-func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, envName EnvironmentNameParam) {
+func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam) {
 	var request GetEnvironmentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.EnvName = envName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8408,10 +8408,10 @@ func (sh *strictHandler) GetEnvironment(w http.ResponseWriter, r *http.Request, 
 }
 
 // GetEnvironmentObserverURL operation middleware
-func (sh *strictHandler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, envName EnvironmentNameParam) {
+func (sh *strictHandler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, envName EnvironmentNameParam) {
 	var request GetEnvironmentObserverURLRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.EnvName = envName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8435,10 +8435,10 @@ func (sh *strictHandler) GetEnvironmentObserverURL(w http.ResponseWriter, r *htt
 }
 
 // ListObservabilityPlanes operation middleware
-func (sh *strictHandler) ListObservabilityPlanes(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) ListObservabilityPlanes(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request ListObservabilityPlanesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListObservabilityPlanes(ctx, request.(ListObservabilityPlanesRequestObject))
@@ -8461,10 +8461,10 @@ func (sh *strictHandler) ListObservabilityPlanes(w http.ResponseWriter, r *http.
 }
 
 // ListProjects operation middleware
-func (sh *strictHandler) ListProjects(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListProjectsParams) {
+func (sh *strictHandler) ListProjects(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListProjectsParams) {
 	var request ListProjectsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8488,10 +8488,10 @@ func (sh *strictHandler) ListProjects(w http.ResponseWriter, r *http.Request, or
 }
 
 // CreateProject operation middleware
-func (sh *strictHandler) CreateProject(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) CreateProject(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request CreateProjectRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	var body CreateProjectJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -8521,10 +8521,10 @@ func (sh *strictHandler) CreateProject(w http.ResponseWriter, r *http.Request, o
 }
 
 // GetProject operation middleware
-func (sh *strictHandler) GetProject(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam) {
+func (sh *strictHandler) GetProject(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam) {
 	var request GetProjectRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -8548,10 +8548,10 @@ func (sh *strictHandler) GetProject(w http.ResponseWriter, r *http.Request, orgN
 }
 
 // ListComponents operation middleware
-func (sh *strictHandler) ListComponents(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, params ListComponentsParams) {
+func (sh *strictHandler) ListComponents(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, params ListComponentsParams) {
 	var request ListComponentsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.Params = params
 
@@ -8576,10 +8576,10 @@ func (sh *strictHandler) ListComponents(w http.ResponseWriter, r *http.Request, 
 }
 
 // CreateComponent operation middleware
-func (sh *strictHandler) CreateComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam) {
+func (sh *strictHandler) CreateComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam) {
 	var request CreateComponentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 
 	var body CreateComponentJSONRequestBody
@@ -8610,10 +8610,10 @@ func (sh *strictHandler) CreateComponent(w http.ResponseWriter, r *http.Request,
 }
 
 // GetComponent operation middleware
-func (sh *strictHandler) GetComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params GetComponentParams) {
+func (sh *strictHandler) GetComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params GetComponentParams) {
 	var request GetComponentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -8639,10 +8639,10 @@ func (sh *strictHandler) GetComponent(w http.ResponseWriter, r *http.Request, or
 }
 
 // PatchComponent operation middleware
-func (sh *strictHandler) PatchComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) PatchComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request PatchComponentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -8674,10 +8674,10 @@ func (sh *strictHandler) PatchComponent(w http.ResponseWriter, r *http.Request, 
 }
 
 // ListComponentBindings operation middleware
-func (sh *strictHandler) ListComponentBindings(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentBindingsParams) {
+func (sh *strictHandler) ListComponentBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentBindingsParams) {
 	var request ListComponentBindingsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -8703,10 +8703,10 @@ func (sh *strictHandler) ListComponentBindings(w http.ResponseWriter, r *http.Re
 }
 
 // UpdateComponentBinding operation middleware
-func (sh *strictHandler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam) {
+func (sh *strictHandler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam) {
 	var request UpdateComponentBindingRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.BindingName = bindingName
@@ -8739,10 +8739,10 @@ func (sh *strictHandler) UpdateComponentBinding(w http.ResponseWriter, r *http.R
 }
 
 // ListComponentReleases operation middleware
-func (sh *strictHandler) ListComponentReleases(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentReleasesParams) {
+func (sh *strictHandler) ListComponentReleases(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentReleasesParams) {
 	var request ListComponentReleasesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -8768,10 +8768,10 @@ func (sh *strictHandler) ListComponentReleases(w http.ResponseWriter, r *http.Re
 }
 
 // CreateComponentRelease operation middleware
-func (sh *strictHandler) CreateComponentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) CreateComponentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request CreateComponentReleaseRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -8803,10 +8803,10 @@ func (sh *strictHandler) CreateComponentRelease(w http.ResponseWriter, r *http.R
 }
 
 // GetComponentRelease operation middleware
-func (sh *strictHandler) GetComponentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) {
+func (sh *strictHandler) GetComponentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) {
 	var request GetComponentReleaseRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.ReleaseName = releaseName
@@ -8832,10 +8832,10 @@ func (sh *strictHandler) GetComponentRelease(w http.ResponseWriter, r *http.Requ
 }
 
 // GetComponentReleaseSchema operation middleware
-func (sh *strictHandler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) {
+func (sh *strictHandler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) {
 	var request GetComponentReleaseSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.ReleaseName = releaseName
@@ -8861,10 +8861,10 @@ func (sh *strictHandler) GetComponentReleaseSchema(w http.ResponseWriter, r *htt
 }
 
 // DeployRelease operation middleware
-func (sh *strictHandler) DeployRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) DeployRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request DeployReleaseRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -8896,10 +8896,10 @@ func (sh *strictHandler) DeployRelease(w http.ResponseWriter, r *http.Request, o
 }
 
 // GetComponentObserverURL operation middleware
-func (sh *strictHandler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) {
+func (sh *strictHandler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) {
 	var request GetComponentObserverURLRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.EnvironmentName = environmentName
@@ -8925,10 +8925,10 @@ func (sh *strictHandler) GetComponentObserverURL(w http.ResponseWriter, r *http.
 }
 
 // GetEnvironmentRelease operation middleware
-func (sh *strictHandler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) {
+func (sh *strictHandler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) {
 	var request GetEnvironmentReleaseRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.EnvironmentName = environmentName
@@ -8954,10 +8954,10 @@ func (sh *strictHandler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Re
 }
 
 // GetBuildObserverURL operation middleware
-func (sh *strictHandler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request GetBuildObserverURLRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -8982,10 +8982,10 @@ func (sh *strictHandler) GetBuildObserverURL(w http.ResponseWriter, r *http.Requ
 }
 
 // PromoteComponent operation middleware
-func (sh *strictHandler) PromoteComponent(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) PromoteComponent(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request PromoteComponentRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9017,10 +9017,10 @@ func (sh *strictHandler) PromoteComponent(w http.ResponseWriter, r *http.Request
 }
 
 // ListReleaseBindings operation middleware
-func (sh *strictHandler) ListReleaseBindings(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListReleaseBindingsParams) {
+func (sh *strictHandler) ListReleaseBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListReleaseBindingsParams) {
 	var request ListReleaseBindingsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -9046,10 +9046,10 @@ func (sh *strictHandler) ListReleaseBindings(w http.ResponseWriter, r *http.Requ
 }
 
 // PatchReleaseBinding operation middleware
-func (sh *strictHandler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam) {
+func (sh *strictHandler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam) {
 	var request PatchReleaseBindingRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.BindingName = bindingName
@@ -9082,10 +9082,10 @@ func (sh *strictHandler) PatchReleaseBinding(w http.ResponseWriter, r *http.Requ
 }
 
 // GetComponentSchema operation middleware
-func (sh *strictHandler) GetComponentSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) GetComponentSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request GetComponentSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9110,10 +9110,10 @@ func (sh *strictHandler) GetComponentSchema(w http.ResponseWriter, r *http.Reque
 }
 
 // ListComponentTraits operation middleware
-func (sh *strictHandler) ListComponentTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) ListComponentTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request ListComponentTraitsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9138,10 +9138,10 @@ func (sh *strictHandler) ListComponentTraits(w http.ResponseWriter, r *http.Requ
 }
 
 // UpdateComponentTraits operation middleware
-func (sh *strictHandler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request UpdateComponentTraitsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9173,10 +9173,10 @@ func (sh *strictHandler) UpdateComponentTraits(w http.ResponseWriter, r *http.Re
 }
 
 // UpdateComponentWorkflowParameters operation middleware
-func (sh *strictHandler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request UpdateComponentWorkflowParametersRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9208,10 +9208,10 @@ func (sh *strictHandler) UpdateComponentWorkflowParameters(w http.ResponseWriter
 }
 
 // ListComponentWorkflowRuns operation middleware
-func (sh *strictHandler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentWorkflowRunsParams) {
+func (sh *strictHandler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params ListComponentWorkflowRunsParams) {
 	var request ListComponentWorkflowRunsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -9237,10 +9237,10 @@ func (sh *strictHandler) ListComponentWorkflowRuns(w http.ResponseWriter, r *htt
 }
 
 // CreateComponentWorkflowRun operation middleware
-func (sh *strictHandler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params CreateComponentWorkflowRunParams) {
+func (sh *strictHandler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params CreateComponentWorkflowRunParams) {
 	var request CreateComponentWorkflowRunRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.Params = params
@@ -9266,10 +9266,10 @@ func (sh *strictHandler) CreateComponentWorkflowRun(w http.ResponseWriter, r *ht
 }
 
 // GetComponentWorkflowRun operation middleware
-func (sh *strictHandler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam) {
+func (sh *strictHandler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam) {
 	var request GetComponentWorkflowRunRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 	request.RunName = runName
@@ -9295,10 +9295,10 @@ func (sh *strictHandler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.
 }
 
 // GetWorkloads operation middleware
-func (sh *strictHandler) GetWorkloads(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) GetWorkloads(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request GetWorkloadsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9323,10 +9323,10 @@ func (sh *strictHandler) GetWorkloads(w http.ResponseWriter, r *http.Request, or
 }
 
 // CreateWorkload operation middleware
-func (sh *strictHandler) CreateWorkload(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
+func (sh *strictHandler) CreateWorkload(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) {
 	var request CreateWorkloadRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 	request.ComponentName = componentName
 
@@ -9358,10 +9358,10 @@ func (sh *strictHandler) CreateWorkload(w http.ResponseWriter, r *http.Request, 
 }
 
 // GetProjectDeploymentPipeline operation middleware
-func (sh *strictHandler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, projectName ProjectNameParam) {
+func (sh *strictHandler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam) {
 	var request GetProjectDeploymentPipelineRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.ProjectName = projectName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -9385,10 +9385,10 @@ func (sh *strictHandler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *
 }
 
 // ListSecretReferences operation middleware
-func (sh *strictHandler) ListSecretReferences(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+func (sh *strictHandler) ListSecretReferences(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request ListSecretReferencesRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListSecretReferences(ctx, request.(ListSecretReferencesRequestObject))
@@ -9411,10 +9411,10 @@ func (sh *strictHandler) ListSecretReferences(w http.ResponseWriter, r *http.Req
 }
 
 // ListTraits operation middleware
-func (sh *strictHandler) ListTraits(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListTraitsParams) {
+func (sh *strictHandler) ListTraits(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListTraitsParams) {
 	var request ListTraitsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -9438,10 +9438,10 @@ func (sh *strictHandler) ListTraits(w http.ResponseWriter, r *http.Request, orgN
 }
 
 // GetTraitSchema operation middleware
-func (sh *strictHandler) GetTraitSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, traitName TraitNameParam) {
+func (sh *strictHandler) GetTraitSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, traitName TraitNameParam) {
 	var request GetTraitSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.TraitName = traitName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -9465,10 +9465,10 @@ func (sh *strictHandler) GetTraitSchema(w http.ResponseWriter, r *http.Request, 
 }
 
 // ListWorkflows operation middleware
-func (sh *strictHandler) ListWorkflows(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListWorkflowsParams) {
+func (sh *strictHandler) ListWorkflows(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListWorkflowsParams) {
 	var request ListWorkflowsRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
@@ -9492,10 +9492,10 @@ func (sh *strictHandler) ListWorkflows(w http.ResponseWriter, r *http.Request, o
 }
 
 // GetWorkflowSchema operation middleware
-func (sh *strictHandler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, workflowName WorkflowNameParam) {
+func (sh *strictHandler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, workflowName WorkflowNameParam) {
 	var request GetWorkflowSchemaRequestObject
 
-	request.OrgName = orgName
+	request.NamespaceName = namespaceName
 	request.WorkflowName = workflowName
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {

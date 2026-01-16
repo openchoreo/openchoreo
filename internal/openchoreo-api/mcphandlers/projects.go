@@ -13,8 +13,8 @@ type ListProjectsResponse struct {
 	Projects []*models.ProjectResponse `json:"projects"`
 }
 
-func (h *MCPHandler) ListProjects(ctx context.Context, orgName string) (any, error) {
-	projects, err := h.Services.ProjectService.ListProjects(ctx, orgName)
+func (h *MCPHandler) ListProjects(ctx context.Context, namespaceName string) (any, error) {
+	projects, err := h.Services.ProjectService.ListProjects(ctx, namespaceName)
 	if err != nil {
 		return ListProjectsResponse{}, err
 	}
@@ -24,10 +24,10 @@ func (h *MCPHandler) ListProjects(ctx context.Context, orgName string) (any, err
 	}, nil
 }
 
-func (h *MCPHandler) GetProject(ctx context.Context, orgName, projectName string) (any, error) {
-	return h.Services.ProjectService.GetProject(ctx, orgName, projectName)
+func (h *MCPHandler) GetProject(ctx context.Context, namespaceName, projectName string) (any, error) {
+	return h.Services.ProjectService.GetProject(ctx, namespaceName, projectName)
 }
 
-func (h *MCPHandler) CreateProject(ctx context.Context, orgName string, req *models.CreateProjectRequest) (any, error) {
-	return h.Services.ProjectService.CreateProject(ctx, orgName, req)
+func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error) {
+	return h.Services.ProjectService.CreateProject(ctx, namespaceName, req)
 }

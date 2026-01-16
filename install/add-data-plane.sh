@@ -284,7 +284,7 @@ $CLIENT_CA_CONFIG
   secretStoreRef:
     name: default
   gateway:
-    organizationVirtualHost: openchoreoapis.internal
+    namespaceVirtualHost: openchoreoapis.internal
     publicVirtualHost: openchoreoapis.localhost
 EOF
 )

@@ -27,8 +27,8 @@ const (
 	// VersionID is the unique deployment version identifier (UUID)
 	VersionID = "version_id"
 
-	// OrganizationUUID identifies the organization that owns the resources
-	OrganizationUUID = "organization-name"
+	// NamespaceName identifies the namespace that owns the resources
+	NamespaceName = "namespace-name"
 
 	// PipelineID identifies the CI/CD pipeline that deployed the component
 	PipelineID = "pipeline-id"
@@ -79,18 +79,18 @@ const (
 	KubernetesContainerName = KubernetesPrefix + ".container_name"
 
 	// Full field paths for OpenSearch queries
-	OSComponentID      = KubernetesLabelsPrefix + "." + ComponentID
-	OSEnvironmentID    = KubernetesLabelsPrefix + "." + EnvironmentID
-	OSProjectID        = KubernetesLabelsPrefix + "." + ProjectID
-	OSVersion          = KubernetesLabelsPrefix + "." + Version
-	OSVersionID        = KubernetesLabelsPrefix + "." + VersionID
-	OSOrganizationUUID = KubernetesLabelsPrefix + "." + OrganizationUUID
-	OSPipelineID       = KubernetesLabelsPrefix + "." + PipelineID
-	OSRunID            = KubernetesLabelsPrefix + "." + RunID
-	OSWorkflowName     = KubernetesLabelsPrefix + "." + WorkflowName
-	OSBuildID          = KubernetesLabelsPrefix + "." + BuildID
-	OSBuildUUID        = KubernetesLabelsPrefix + "." + BuildUUID
-	OSTarget           = KubernetesLabelsPrefix + "." + Target
+	OSComponentID   = KubernetesLabelsPrefix + "." + ComponentID
+	OSEnvironmentID = KubernetesLabelsPrefix + "." + EnvironmentID
+	OSProjectID     = KubernetesLabelsPrefix + "." + ProjectID
+	OSVersion       = KubernetesLabelsPrefix + "." + Version
+	OSVersionID     = KubernetesLabelsPrefix + "." + VersionID
+	OSNamespaceName = KubernetesLabelsPrefix + "." + NamespaceName
+	OSPipelineID    = KubernetesLabelsPrefix + "." + PipelineID
+	OSRunID         = KubernetesLabelsPrefix + "." + RunID
+	OSWorkflowName  = KubernetesLabelsPrefix + "." + WorkflowName
+	OSBuildID       = KubernetesLabelsPrefix + "." + BuildID
+	OSBuildUUID     = KubernetesLabelsPrefix + "." + BuildUUID
+	OSTarget        = KubernetesLabelsPrefix + "." + Target
 )
 
 // RequiredLabels are the required labels that must be present on all Choreo components for proper log filtering

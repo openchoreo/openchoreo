@@ -13,8 +13,8 @@ type ListDataPlanesResponse struct {
 	DataPlanes []*models.DataPlaneResponse `json:"data_planes"`
 }
 
-func (h *MCPHandler) ListDataPlanes(ctx context.Context, orgName string) (any, error) {
-	dataplanes, err := h.Services.DataPlaneService.ListDataPlanes(ctx, orgName)
+func (h *MCPHandler) ListDataPlanes(ctx context.Context, namespaceName string) (any, error) {
+	dataplanes, err := h.Services.DataPlaneService.ListDataPlanes(ctx, namespaceName)
 	if err != nil {
 		return ListDataPlanesResponse{}, err
 	}
@@ -23,10 +23,10 @@ func (h *MCPHandler) ListDataPlanes(ctx context.Context, orgName string) (any, e
 	}, nil
 }
 
-func (h *MCPHandler) GetDataPlane(ctx context.Context, orgName, dpName string) (any, error) {
-	return h.Services.DataPlaneService.GetDataPlane(ctx, orgName, dpName)
+func (h *MCPHandler) GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error) {
+	return h.Services.DataPlaneService.GetDataPlane(ctx, namespaceName, dpName)
 }
 
-func (h *MCPHandler) CreateDataPlane(ctx context.Context, orgName string, req *models.CreateDataPlaneRequest) (any, error) {
-	return h.Services.DataPlaneService.CreateDataPlane(ctx, orgName, req)
+func (h *MCPHandler) CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error) {
+	return h.Services.DataPlaneService.CreateDataPlane(ctx, namespaceName, req)
 }

@@ -13,15 +13,15 @@ func deploymentToolSpecs() []toolTestSpec {
 			toolset:             "deployment",
 			descriptionKeywords: []string{"deployment", "pipeline"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name"},
+			requiredParams:      []string{"namespace_name", "project_name"},
 			testArgs: map[string]any{
-				"org_name":     testOrgName,
+				"namespace_name":     testNamespaceName,
 				"project_name": testProjectName,
 			},
 			expectedMethod: "GetProjectDeploymentPipeline",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testProjectName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)", testOrgName, testProjectName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testProjectName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testProjectName, args[0], args[1])
 				}
 			},
 		},

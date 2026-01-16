@@ -29,7 +29,7 @@ type ListResponse[T any] struct {
 type ProjectResponse struct {
 	UID                string     `json:"uid"`
 	Name               string     `json:"name"`
-	OrgName            string     `json:"orgName"`
+	NamespaceName      string     `json:"namespaceName"`
 	DisplayName        string     `json:"displayName,omitempty"`
 	Description        string     `json:"description,omitempty"`
 	DeploymentPipeline string     `json:"deploymentPipeline,omitempty"`
@@ -47,7 +47,7 @@ type ComponentResponse struct {
 	Type              string                           `json:"type"`
 	AutoDeploy        bool                             `json:"autoDeploy"`
 	ProjectName       string                           `json:"projectName"`
-	OrgName           string                           `json:"orgName"`
+	NamespaceName     string                           `json:"namespaceName"`
 	CreatedAt         time.Time                        `json:"createdAt"`
 	DeletionTimestamp *time.Time                       `json:"deletionTimestamp,omitempty"`
 	Status            string                           `json:"status,omitempty"`
@@ -60,7 +60,7 @@ type BindingResponse struct {
 	Type          string        `json:"type"`
 	ComponentName string        `json:"componentName"`
 	ProjectName   string        `json:"projectName"`
-	OrgName       string        `json:"orgName"`
+	NamespaceName string        `json:"namespaceName"`
 	Environment   string        `json:"environment"`
 	BindingStatus BindingStatus `json:"status"`
 	// Component-specific binding data
@@ -104,11 +104,11 @@ type ScheduledTaskBinding struct {
 }
 
 type EndpointStatus struct {
-	Name         string           `json:"name"`
-	Type         string           `json:"type"`
-	Project      *ExposedEndpoint `json:"project,omitempty"`
-	Organization *ExposedEndpoint `json:"organization,omitempty"`
-	Public       *ExposedEndpoint `json:"public,omitempty"`
+	Name      string           `json:"name"`
+	Type      string           `json:"type"`
+	Project   *ExposedEndpoint `json:"project,omitempty"`
+	Namespace *ExposedEndpoint `json:"namespace,omitempty"`
+	Public    *ExposedEndpoint `json:"public,omitempty"`
 }
 
 type ExposedEndpoint struct {
@@ -124,7 +124,7 @@ type DeploymentPipelineResponse struct {
 	Name           string          `json:"name"`
 	DisplayName    string          `json:"displayName,omitempty"`
 	Description    string          `json:"description,omitempty"`
-	OrgName        string          `json:"orgName"`
+	NamespaceName  string          `json:"namespaceName"`
 	CreatedAt      time.Time       `json:"createdAt"`
 	Status         string          `json:"status,omitempty"`
 	PromotionPaths []PromotionPath `json:"promotionPaths,omitempty"`
@@ -143,12 +143,11 @@ type TargetEnvironmentRef struct {
 	IsManualApprovalRequired bool   `json:"isManualApprovalRequired,omitempty"`
 }
 
-// OrganizationResponse represents an organization in API responses
-type OrganizationResponse struct {
+// NamespaceResponse represents a namespace in API responses
+type NamespaceResponse struct {
 	Name        string    `json:"name"`
 	DisplayName string    `json:"displayName,omitempty"`
 	Description string    `json:"description,omitempty"`
-	Namespace   string    `json:"namespace,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	Status      string    `json:"status,omitempty"`
 }
@@ -201,7 +200,7 @@ type BuildPlaneResponse struct {
 type ComponentWorkflowResponse struct {
 	Name          string                           `json:"name"`
 	UUID          string                           `json:"uuid"`
-	OrgName       string                           `json:"orgName"`
+	NamespaceName string                           `json:"namespaceName"`
 	ProjectName   string                           `json:"projectName"`
 	ComponentName string                           `json:"componentName"`
 	Commit        string                           `json:"commit,omitempty"`
@@ -301,7 +300,7 @@ type ComponentReleaseResponse struct {
 	Name          string    `json:"name"`
 	ComponentName string    `json:"componentName"`
 	ProjectName   string    `json:"projectName"`
-	OrgName       string    `json:"orgName"`
+	NamespaceName string    `json:"namespaceName"`
 	CreatedAt     time.Time `json:"createdAt"`
 	Status        string    `json:"status,omitempty"`
 }
@@ -311,7 +310,7 @@ type ReleaseBindingResponse struct {
 	Name                      string                 `json:"name"`
 	ComponentName             string                 `json:"componentName"`
 	ProjectName               string                 `json:"projectName"`
-	OrgName                   string                 `json:"orgName"`
+	NamespaceName             string                 `json:"namespaceName"`
 	Environment               string                 `json:"environment"`
 	ReleaseName               string                 `json:"releaseName,omitempty"`
 	ComponentTypeEnvOverrides map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`

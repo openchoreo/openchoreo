@@ -38,7 +38,7 @@ func createDeploymentPipeline(params api.CreateDeploymentPipelineParams, config 
 	// Check for empty promotion paths and create a default one if needed
 	if len(params.PromotionPaths) == 0 {
 		// Try to get available environments to create a default promotion path
-		envResource, err := kinds.NewEnvironmentResource(constants.EnvironmentV1Config, params.Organization)
+		envResource, err := kinds.NewEnvironmentResource(constants.EnvironmentV1Config, params.Namespace)
 		if err != nil {
 			return fmt.Errorf("failed to create Environment resource: %w", err)
 		}
@@ -112,14 +112,14 @@ func createDeploymentPipeline(params api.CreateDeploymentPipelineParams, config 
 		}
 	}
 
-	pipelineRes, err := kinds.NewDeploymentPipelineResource(config, params.Organization)
+	pipelineRes, err := kinds.NewDeploymentPipelineResource(config, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create DeploymentPipeline resource: %w", err)
 	}
 
 	if err := pipelineRes.CreateDeploymentPipeline(params); err != nil {
-		return fmt.Errorf("failed to create deployment pipeline '%s' in organization '%s': %w",
-			params.Name, params.Organization, err)
+		return fmt.Errorf("failed to create deployment pipeline '%s' in namespace '%s': %w",
+			params.Name, params.Namespace, err)
 	}
 
 	return nil

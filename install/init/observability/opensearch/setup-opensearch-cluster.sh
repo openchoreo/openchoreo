@@ -172,6 +172,7 @@ rcaReportsIndexTemplate='
     }
   }
 }'
+# TODO: "openchoreo.dev/organization-uid": should be removed or refactored
 
 # The following array holds pairs of index template names and their definitions. Define more templates above
 # and add them to this array.

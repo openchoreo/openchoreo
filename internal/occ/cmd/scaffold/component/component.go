@@ -36,8 +36,8 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	if params.ComponentType == "" {
 		return fmt.Errorf("component type is required (--type)")
 	}
-	if params.Organization == "" {
-		return fmt.Errorf("organization is required (--organization or set via context)")
+	if params.Namespace == "" {
+		return fmt.Errorf("namespace is required (--namespace or set via context)")
 	}
 	if params.ProjectName == "" {
 		return fmt.Errorf("project is required (--project or set via context)")
@@ -60,7 +60,7 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	defer cancel()
 
 	// Fetch ComponentType schema
-	componentTypeSchemaRaw, err := apiClient.GetComponentTypeSchema(ctx, params.Organization, componentTypeName)
+	componentTypeSchemaRaw, err := apiClient.GetComponentTypeSchema(ctx, params.Namespace, componentTypeName)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	// Fetch Trait schemas if specified
 	traitSchemas := make(map[string]*extv1.JSONSchemaProps)
 	for _, traitName := range params.Traits {
-		traitSchemaRaw, err := apiClient.GetTraitSchema(ctx, params.Organization, traitName)
+		traitSchemaRaw, err := apiClient.GetTraitSchema(ctx, params.Namespace, traitName)
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	// Fetch Workflow schema if specified
 	var workflowSchema *extv1.JSONSchemaProps
 	if params.WorkflowName != "" {
-		workflowSchemaRaw, err := apiClient.GetComponentWorkflowSchema(ctx, params.Organization, params.WorkflowName)
+		workflowSchemaRaw, err := apiClient.GetComponentWorkflowSchema(ctx, params.Namespace, params.WorkflowName)
 		if err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func scaffoldComponent(params api.ScaffoldComponentParams) error {
 	// --skip-optional disables optional fields without defaults
 	opts := &scaffold.Options{
 		ComponentName:             params.ComponentName,
-		Namespace:                 params.Organization, // organization name = k8s namespace
+		Namespace:                 params.Namespace, // namespace name = k8s namespace
 		ProjectName:               params.ProjectName,
 		IncludeAllFields:          !params.SkipOptional,
 		IncludeFieldDescriptions:  !params.SkipComments,

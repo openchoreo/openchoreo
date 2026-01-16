@@ -12,19 +12,19 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListEnvironments handles GET /api/v1/orgs/{orgName}/environments
+// ListEnvironments handles GET /api/v1/orgs/{namespaceName}/environments
 func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
-	environments, err := h.services.EnvironmentService.ListEnvironments(ctx, orgName)
+	environments, err := h.services.EnvironmentService.ListEnvironments(ctx, namespaceName)
 	if err != nil {
-		h.logger.Error("Failed to list environments", "error", err, "org", orgName)
+		h.logger.Error("Failed to list environments", "error", err, "org", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list environments", services.CodeInternalError)
 		return
 	}
@@ -32,14 +32,14 @@ func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 	writeListResponse(w, environments, len(environments), 1, len(environments))
 }
 
-// GetEnvironment handles GET /api/v1/orgs/{orgName}/environments/{envName}
+// GetEnvironment handles GET /api/v1/orgs/{namespaceName}/environments/{envName}
 func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	envName := r.PathValue("envName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -48,10 +48,10 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, orgName, envName)
+	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to view environment", "org", orgName, "env", envName)
+			h.logger.Warn("Unauthorized to view environment", "org", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -59,7 +59,7 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
-		h.logger.Error("Failed to get environment", "error", err, "org", orgName, "env", envName)
+		h.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get environment", services.CodeInternalError)
 		return
 	}
@@ -67,13 +67,13 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, environment)
 }
 
-// CreateEnvironment handles POST /api/v1/orgs/{orgName}/environments
+// CreateEnvironment handles POST /api/v1/orgs/{namespaceName}/environments
 func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -92,12 +92,12 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuditResource(ctx, "environment", req.Name, req.Name)
-	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "organization", namespaceName)
 
-	environment, err := h.services.EnvironmentService.CreateEnvironment(ctx, orgName, &req)
+	environment, err := h.services.EnvironmentService.CreateEnvironment(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to create environment", "org", orgName, "env", req.Name)
+			h.logger.Warn("Unauthorized to create environment", "org", namespaceName, "env", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -105,7 +105,7 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusConflict, "Environment already exists", services.CodeEnvironmentExists)
 			return
 		}
-		h.logger.Error("Failed to create environment", "error", err, "org", orgName, "env", req.Name)
+		h.logger.Error("Failed to create environment", "error", err, "org", namespaceName, "env", req.Name)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create environment", services.CodeInternalError)
 		return
 	}
@@ -113,14 +113,14 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusCreated, environment)
 }
 
-// GetEnvironmentObserverURL handles GET /api/v1/orgs/{orgName}/environments/{envName}/observer-url
+// GetEnvironmentObserverURL handles GET /api/v1/orgs/{namespaceName}/environments/{envName}/observer-url
 func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	envName := r.PathValue("envName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -129,19 +129,19 @@ func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, orgName, envName)
+	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, namespaceName, envName)
 	if err != nil {
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
-			h.logger.Warn("Environment not found", "org", orgName, "env", envName)
+			h.logger.Warn("Environment not found", "org", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDataPlaneNotFound) {
-			h.logger.Warn("DataPlane not found", "org", orgName, "env", envName)
+			h.logger.Warn("DataPlane not found", "org", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
-		h.logger.Error("Failed to get environment observer URL", "error", err, "org", orgName, "env", envName)
+		h.logger.Error("Failed to get environment observer URL", "error", err, "org", namespaceName, "env", envName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get environment observer URL", services.CodeInternalError)
 		return
 	}

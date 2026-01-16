@@ -5,34 +5,34 @@ package tools
 
 import "testing"
 
-// organizationToolSpecs returns test specs for organization toolset
-func organizationToolSpecs() []toolTestSpec {
+// namespaceToolSpecs returns test specs for namespace toolset
+func namespaceToolSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
-			name:                "list_organizations",
-			toolset:             "organization",
-			descriptionKeywords: []string{"organization"},
+			name:                "list_namespaces",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"namespace"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{},
 			optionalParams:      []string{},
 			testArgs:            map[string]any{},
-			expectedMethod:      "ListOrganizations",
+			expectedMethod:      "ListNamespaces",
 			validateCall: func(t *testing.T, args []interface{}) {
-				// ListOrganizations takes no arguments
+				// ListNamespaces takes no arguments
 				if len(args) != 0 {
-					t.Errorf("Expected no arguments for ListOrganizations, got %d", len(args))
+					t.Errorf("Expected no arguments for ListNamespaces, got %d", len(args))
 				}
 			},
 		},
 		{
-			name:                "get_organization",
-			toolset:             "organization",
-			descriptionKeywords: []string{"organization"},
+			name:                "get_namespace",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"namespace"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"name"},
 			optionalParams:      []string{},
 			testArgs:            map[string]any{"name": "test-org"},
-			expectedMethod:      "GetOrganization",
+			expectedMethod:      "GetNamespace",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "test-org" {
 					t.Errorf("Expected org name 'test-org', got %v", args[0])
@@ -41,17 +41,17 @@ func organizationToolSpecs() []toolTestSpec {
 		},
 		{
 			name:                "list_secret_references",
-			toolset:             "organization",
+			toolset:             "namespace",
 			descriptionKeywords: []string{"list", "secret", "reference"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListSecretReferences",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},

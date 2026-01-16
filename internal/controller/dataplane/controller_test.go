@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,52 +17,47 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	org "github.com/openchoreo/openchoreo/internal/controller/organization"
-	"github.com/openchoreo/openchoreo/internal/controller/testutils"
 )
 
 var _ = Describe("DataPlane Controller", func() {
 	Context("When reconciling a resource", func() {
 		const dpName = "test-dataplane"
 
-		// Organization resource to keep the dataplane
-		orgName := "test-organization"
+		// Namespace to keep the dataplane
+		namespaceName := "test-namespace"
 
 		ctx := context.Background()
 
 		dpNamespacedName := types.NamespacedName{
 			Name:      dpName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		}
 		dataplane := &openchoreov1alpha1.DataPlane{}
 
 		BeforeEach(func() {
-			orgNamespacedName := types.NamespacedName{
-				Name: orgName,
+			namespaceNamespacedName := types.NamespacedName{
+				Name: namespaceName,
 			}
-			organization := &openchoreov1alpha1.Organization{
+			namespace := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: orgName,
+					Name: namespaceName,
 				},
 			}
-			By("Creating and reconciling organization resource", func() {
-				orgReconciler := &org.Reconciler{
-					Client:   k8sClient,
-					Scheme:   k8sClient.Scheme(),
-					Recorder: record.NewFakeRecorder(100),
+			By("Creating namespace", func() {
+				err := k8sClient.Get(ctx, namespaceNamespacedName, namespace)
+				if err != nil && errors.IsNotFound(err) {
+					Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 				}
-				testutils.CreateAndReconcileResourceWithCycles(ctx, k8sClient, organization, orgReconciler,
-					orgNamespacedName, 2)
 			})
 
 		})
 
 		AfterEach(func() {
-			By("Deleting the organization resource", func() {
-				org := &openchoreov1alpha1.Organization{}
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: orgName}, org)
+			By("Deleting the namespace", func() {
+				namespace := &corev1.Namespace{}
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: namespaceName}, namespace)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(k8sClient.Delete(ctx, org)).To(Succeed())
+				Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
 			})
 		})
 
@@ -72,7 +68,7 @@ var _ = Describe("DataPlane Controller", func() {
 					dp := &openchoreov1alpha1.DataPlane{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      dpName,
-							Namespace: orgName,
+							Namespace: namespaceName,
 						},
 					}
 					Expect(k8sClient.Create(ctx, dp)).To(Succeed())
@@ -98,7 +94,7 @@ var _ = Describe("DataPlane Controller", func() {
 					return k8sClient.Get(ctx, dpNamespacedName, dataPlane)
 				}, time.Second*10, time.Millisecond*500).Should(Succeed())
 				Expect(dataPlane.Name).To(Equal(dpName))
-				Expect(dataPlane.Namespace).To(Equal(orgName))
+				Expect(dataPlane.Namespace).To(Equal(namespaceName))
 				Expect(dataPlane.Spec).NotTo(BeNil())
 			})
 

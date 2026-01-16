@@ -13,14 +13,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "environment"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListEnvironments",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -29,15 +29,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"environment"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "env_name"},
+			requiredParams:      []string{"namespace_name", "env_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 				"env_name": testEnvName,
 			},
 			expectedMethod: "GetEnvironment",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testEnvName {
-					t.Errorf("Expected (%s, %s), got (%v, %v)", testOrgName, testEnvName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testEnvName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testEnvName, args[0], args[1])
 				}
 			},
 		},
@@ -46,14 +46,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "data", "plane"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListDataPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -62,15 +62,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"data", "plane"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "dp_name"},
+			requiredParams:      []string{"namespace_name", "dp_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 				"dp_name":  "dp1",
 			},
 			expectedMethod: "GetDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != "dp1" {
-					t.Errorf("Expected (%s, dp1), got (%v, %v)", testOrgName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != "dp1" {
+					t.Errorf("Expected (%s, dp1), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},
@@ -79,14 +79,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "component", "type"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListComponentTypes",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -95,15 +95,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"component", "type", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "ct_name"},
+			requiredParams:      []string{"namespace_name", "ct_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 				"ct_name":  "WebApplication",
 			},
 			expectedMethod: "GetComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != "WebApplication" {
-					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testOrgName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != "WebApplication" {
+					t.Errorf("Expected (%s, WebApplication), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},
@@ -112,14 +112,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "workflow"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListWorkflows",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -128,15 +128,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "workflow_name"},
+			requiredParams:      []string{"namespace_name", "workflow_name"},
 			testArgs: map[string]any{
-				"org_name":      testOrgName,
+				"namespace_name":      testNamespaceName,
 				"workflow_name": "workflow-1",
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != "workflow-1" {
-					t.Errorf("Expected (%s, workflow-1), got (%v, %v)", testOrgName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != "workflow-1" {
+					t.Errorf("Expected (%s, workflow-1), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},
@@ -145,14 +145,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "trait"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListTraits",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -161,15 +161,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"trait", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "trait_name"},
+			requiredParams:      []string{"namespace_name", "trait_name"},
 			testArgs: map[string]any{
-				"org_name":   testOrgName,
+				"namespace_name":   testNamespaceName,
 				"trait_name": "autoscaling",
 			},
 			expectedMethod: "GetTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != "autoscaling" {
-					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testOrgName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != "autoscaling" {
+					t.Errorf("Expected (%s, autoscaling), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},
@@ -179,22 +179,22 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "data", "plane"},
 			descriptionMinLen:   10,
 			requiredParams: []string{
-				"org_name", "name", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+				"namespace_name", "name", "cluster_agent_client_ca", "public_virtual_host", "namespace_virtual_host",
 			},
 			optionalParams: []string{
 				"display_name", "description", "observability_plane_ref",
 			},
 			testArgs: map[string]any{
-				"org_name":                  testOrgName,
+				"namespace_name":                  testNamespaceName,
 				"name":                      "new-dp",
 				"cluster_agent_client_ca":   "-----BEGIN CERTIFICATE-----\ntest-ca-cert-data\n-----END CERTIFICATE-----",
 				"public_virtual_host":       "public.example.com",
-				"organization_virtual_host": "org.example.com",
+				"namespace_virtual_host": "org.example.com",
 			},
 			expectedMethod: "CreateDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 				// args[1] is *models.CreateDataPlaneRequest
 			},
@@ -204,10 +204,10 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"create", "environment"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			optionalParams:      []string{"display_name", "description", "data_plane_ref", "is_production", "dns_prefix"},
 			testArgs: map[string]any{
-				"org_name":       testOrgName,
+				"namespace_name":       testNamespaceName,
 				"name":           "new-env",
 				"display_name":   "New Environment",
 				"description":    "Test environment",
@@ -216,8 +216,8 @@ func infrastructureToolSpecs() []toolTestSpec {
 			},
 			expectedMethod: "CreateEnvironment",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 				// args[1] is *models.CreateEnvironmentRequest
 			},
@@ -227,14 +227,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "observability", "plane"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListObservabilityPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -243,14 +243,14 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"list", "workflow", "component"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListComponentWorkflows",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -259,15 +259,15 @@ func infrastructureToolSpecs() []toolTestSpec {
 			toolset:             "infrastructure",
 			descriptionKeywords: []string{"schema", "workflow", "component"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "cw_name"},
+			requiredParams:      []string{"namespace_name", "cw_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 				"cw_name":  "build-workflow",
 			},
 			expectedMethod: "GetComponentWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != "build-workflow" {
-					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testOrgName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != "build-workflow" {
+					t.Errorf("Expected (%s, build-workflow), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
 		},

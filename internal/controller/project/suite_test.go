@@ -92,7 +92,6 @@ var _ = BeforeSuite(func() {
 			Cache: &client.CacheOptions{
 				// Disable cache reads for types not in ByObject
 				DisableFor: []client.Object{
-					&openchoreov1alpha1.Organization{},
 					&openchoreov1alpha1.Project{},
 					&openchoreov1alpha1.DataPlane{},
 					&openchoreov1alpha1.Environment{},

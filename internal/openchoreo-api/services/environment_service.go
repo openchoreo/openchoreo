@@ -35,17 +35,17 @@ func NewEnvironmentService(k8sClient client.Client, logger *slog.Logger, authzPD
 	}
 }
 
-// ListEnvironments lists all environments in the specified organization
-func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName string) ([]*models.EnvironmentResponse, error) {
-	s.logger.Debug("Listing environments", "org", orgName)
+// ListEnvironments lists all environments in the specified namespace
+func (s *EnvironmentService) ListEnvironments(ctx context.Context, namespaceName string) ([]*models.EnvironmentResponse, error) {
+	s.logger.Debug("Listing environments", "org", namespaceName)
 
 	var envList openchoreov1alpha1.EnvironmentList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &envList, listOpts...); err != nil {
-		s.logger.Error("Failed to list environments", "error", err, "org", orgName)
+		s.logger.Error("Failed to list environments", "error", err, "org", namespaceName)
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
@@ -53,9 +53,9 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 	environments := make([]*models.EnvironmentResponse, 0, len(envList.Items))
 	for i := range envList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envList.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized environment", "org", orgName, "environment", envList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized environment", "org", namespaceName, "environment", envList.Items[i].Name)
 				continue
 			}
 			// Return other errors
@@ -64,26 +64,26 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 		environments = append(environments, s.toEnvironmentResponse(&envList.Items[i]))
 	}
 
-	s.logger.Debug("Listed environments", "count", len(environments), "org", orgName)
+	s.logger.Debug("Listed environments", "count", len(environments), "org", namespaceName)
 	return environments, nil
 }
 
 // getEnvironment is the internal helper without authorization (INTERNAL USE ONLY)
-func (s *EnvironmentService) getEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
-	s.logger.Debug("Getting environment", "org", orgName, "env", envName)
+func (s *EnvironmentService) getEnvironment(ctx context.Context, namespaceName, envName string) (*models.EnvironmentResponse, error) {
+	s.logger.Debug("Getting environment", "org", namespaceName, "env", envName)
 
 	env := &openchoreov1alpha1.Environment{}
 	key := client.ObjectKey{
 		Name:      envName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, env); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Environment not found", "org", orgName, "env", envName)
+			s.logger.Warn("Environment not found", "org", namespaceName, "env", envName)
 			return nil, ErrEnvironmentNotFound
 		}
-		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "env", envName)
+		s.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
@@ -91,56 +91,56 @@ func (s *EnvironmentService) getEnvironment(ctx context.Context, orgName, envNam
 }
 
 // GetEnvironment retrieves a specific environment
-func (s *EnvironmentService) GetEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
+func (s *EnvironmentService) GetEnvironment(ctx context.Context, namespaceName, envName string) (*models.EnvironmentResponse, error) {
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
-	return s.getEnvironment(ctx, orgName, envName)
+	return s.getEnvironment(ctx, namespaceName, envName)
 }
 
 // CreateEnvironment creates a new environment
-func (s *EnvironmentService) CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (*models.EnvironmentResponse, error) {
-	s.logger.Debug("Creating environment", "org", orgName, "env", req.Name)
+func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (*models.EnvironmentResponse, error) {
+	s.logger.Debug("Creating environment", "org", namespaceName, "env", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateEnvironment, ResourceTypeEnvironment, req.Name,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
 	// Check if environment already exists
-	exists, err := s.environmentExists(ctx, orgName, req.Name)
+	exists, err := s.environmentExists(ctx, namespaceName, req.Name)
 	if err != nil {
 		s.logger.Error("Failed to check environment existence", "error", err)
 		return nil, fmt.Errorf("failed to check environment existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Environment already exists", "org", orgName, "env", req.Name)
+		s.logger.Warn("Environment already exists", "org", namespaceName, "env", req.Name)
 		return nil, ErrEnvironmentAlreadyExists
 	}
 
 	// Create the environment CR
-	environmentCR := s.buildEnvironmentCR(orgName, req)
+	environmentCR := s.buildEnvironmentCR(namespaceName, req)
 	if err := s.k8sClient.Create(ctx, environmentCR); err != nil {
 		s.logger.Error("Failed to create environment CR", "error", err)
 		return nil, fmt.Errorf("failed to create environment: %w", err)
 	}
 
-	s.logger.Debug("Environment created successfully", "org", orgName, "env", req.Name)
+	s.logger.Debug("Environment created successfully", "org", namespaceName, "env", req.Name)
 	return s.toEnvironmentResponse(environmentCR), nil
 }
 
-// environmentExists checks if an environment exists in the given organization
-func (s *EnvironmentService) environmentExists(ctx context.Context, orgName, envName string) (bool, error) {
+// environmentExists checks if an environment exists in the given namespace
+func (s *EnvironmentService) environmentExists(ctx context.Context, namespaceName, envName string) (bool, error) {
 	env := &openchoreov1alpha1.Environment{}
 	key := client.ObjectKey{
 		Name:      envName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, env); err != nil {
@@ -153,7 +153,7 @@ func (s *EnvironmentService) environmentExists(ctx context.Context, orgName, env
 }
 
 // buildEnvironmentCR builds an Environment CR from the request
-func (s *EnvironmentService) buildEnvironmentCR(orgName string, req *models.CreateEnvironmentRequest) *openchoreov1alpha1.Environment {
+func (s *EnvironmentService) buildEnvironmentCR(namespaceName string, req *models.CreateEnvironmentRequest) *openchoreov1alpha1.Environment {
 	// Set default data plane if not provided
 	dataPlaneRef := req.DataPlaneRef
 	if dataPlaneRef == "" {
@@ -179,14 +179,13 @@ func (s *EnvironmentService) buildEnvironmentCR(orgName string, req *models.Crea
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.Name,
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Annotations: map[string]string{
 				controller.AnnotationKeyDisplayName: displayName,
 				controller.AnnotationKeyDescription: description,
 			},
 			Labels: map[string]string{
-				labels.LabelKeyOrganizationName: orgName,
-				labels.LabelKeyName:             req.Name,
+				labels.LabelKeyName: req.Name,
 			},
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
@@ -238,12 +237,12 @@ type EnvironmentObserverResponse struct {
 }
 
 // GetEnvironmentObserverURL retrieves the observer URL for the environment
-func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, orgName, envName string) (*EnvironmentObserverResponse, error) {
-	s.logger.Debug("Getting environment observer URL", "org", orgName, "env", envName)
+func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (*EnvironmentObserverResponse, error) {
+	s.logger.Debug("Getting environment observer URL", "org", namespaceName, "env", envName)
 
-	env, err := s.getEnvironment(ctx, orgName, envName)
+	env, err := s.getEnvironment(ctx, namespaceName, envName)
 	if err != nil {
-		s.logger.Error("Failed to get environment", "error", err, "org", orgName, "env", envName)
+		s.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
 		return nil, err
 	}
 
@@ -257,15 +256,15 @@ func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, orgN
 	dp := &openchoreov1alpha1.DataPlane{}
 	dpKey := client.ObjectKey{
 		Name:      env.DataPlaneRef,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "org", orgName, "dataplane", env.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "org", namespaceName, "dataplane", env.DataPlaneRef)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "org", orgName, "dataplane", env.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", env.DataPlaneRef)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 

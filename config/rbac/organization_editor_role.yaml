@@ -1,16 +1,17 @@
-# permissions for end users to edit organizations.
+# TODO: chathurangas: rename this file
+# permissions for end users to edit namespaces.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: organization-editor-role
+  name: namespace-editor-role
 rules:
 - apiGroups:
-  - openchoreo.dev
+  - ""
   resources:
-  - organizations
+  - namespaces
   verbs:
   - create
   - delete
@@ -19,9 +20,3 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - openchoreo.dev
-  resources:
-  - organizations/status
-  verbs:
-  - get

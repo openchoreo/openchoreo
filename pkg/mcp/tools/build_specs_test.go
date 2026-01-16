@@ -13,17 +13,17 @@ func buildToolSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"observability", "build"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"org_name":       testOrgName,
+				"namespace_name":       testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
 			expectedMethod: "GetBuildObserverURL",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+				if args[0] != testNamespaceName || args[1] != testProjectName || args[2] != testComponentName {
 					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2])
 				}
 			},
 		},
@@ -32,14 +32,14 @@ func buildToolSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"list", "build", "template"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListBuildTemplates",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -48,19 +48,19 @@ func buildToolSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"trigger", "build"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name", "component_name", "commit"},
+			requiredParams:      []string{"namespace_name", "project_name", "component_name", "commit"},
 			testArgs: map[string]any{
-				"org_name":       testOrgName,
+				"namespace_name":       testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"commit":         "abc123",
 			},
 			expectedMethod: "TriggerBuild",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testProjectName ||
+				if args[0] != testNamespaceName || args[1] != testProjectName ||
 					args[2] != testComponentName || args[3] != "abc123" {
 					t.Errorf("Expected (%s, %s, %s, abc123), got (%v, %v, %v, %v)",
-						testOrgName, testProjectName, testComponentName,
+						testNamespaceName, testProjectName, testComponentName,
 						args[0], args[1], args[2], args[3])
 				}
 			},
@@ -70,17 +70,17 @@ func buildToolSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"list", "build"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name", "project_name", "component_name"},
+			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"org_name":       testOrgName,
+				"namespace_name":       testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
 			expectedMethod: "ListBuilds",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName || args[1] != testProjectName || args[2] != testComponentName {
+				if args[0] != testNamespaceName || args[1] != testProjectName || args[2] != testComponentName {
 					t.Errorf("Expected (%s, %s, %s), got (%v, %v, %v)",
-						testOrgName, testProjectName, testComponentName, args[0], args[1], args[2])
+						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2])
 				}
 			},
 		},
@@ -89,14 +89,14 @@ func buildToolSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"list", "build", "plane"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"org_name"},
+			requiredParams:      []string{"namespace_name"},
 			testArgs: map[string]any{
-				"org_name": testOrgName,
+				"namespace_name": testNamespaceName,
 			},
 			expectedMethod: "ListBuildPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testOrgName {
-					t.Errorf("Expected org name %q, got %v", testOrgName, args[0])
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},

@@ -11,8 +11,8 @@ type ListBuildPlanesResponse struct {
 	BuildPlanes any `json:"build_planes"`
 }
 
-func (h *MCPHandler) ListBuildPlanes(ctx context.Context, orgName string) (any, error) {
-	buildplanes, err := h.Services.BuildPlaneService.ListBuildPlanes(ctx, orgName)
+func (h *MCPHandler) ListBuildPlanes(ctx context.Context, namespaceName string) (any, error) {
+	buildplanes, err := h.Services.BuildPlaneService.ListBuildPlanes(ctx, namespaceName)
 	if err != nil {
 		return ListBuildPlanesResponse{}, err
 	}

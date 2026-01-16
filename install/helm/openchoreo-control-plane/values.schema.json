@@ -2523,7 +2523,8 @@
             },
             "enabled": {
               "default": true,
-              "description": "Enable creation of default resources (organization, project, environments, pipeline)",
+              "description": "Enable creation of default resources (namespace, project, environments, pipeline)",
+              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -2558,25 +2559,27 @@
               "title": "environments",
               "type": "array"
             },
-            "organization": {
+            "namespace": {
               "additionalProperties": false,
-              "description": "Default organization configuration",
+              "description": "Default namespace configuration",
               "properties": {
                 "description": {
-                  "default": "Getting started with your first organization",
-                  "description": "Description for the default organization",
+                  "default": "Getting started with your first namespace",
+                  "description": "Description for the default namespace",
+                  "required": [],
                   "title": "description",
                   "type": "string"
                 },
                 "displayName": {
                   "default": "Default Organization",
-                  "description": "Display name for the default organization",
+                  "description": "Display name for the default namespace",
+                  "required": [],
                   "title": "displayName",
                   "type": "string"
                 }
               },
               "required": [],
-              "title": "organization",
+              "title": "namespace",
               "type": "object"
             },
             "project": {
@@ -3108,7 +3111,7 @@
           "description": "MCP (Model Context Protocol) configuration",
           "properties": {
             "toolsets": {
-              "default": "organization,project,component,build,deployment,infrastructure",
+              "default": "namespace,project,component,build,deployment,infrastructure",
               "description": "Comma-separated list of enabled MCP toolsets",
               "title": "toolsets",
               "type": "string"

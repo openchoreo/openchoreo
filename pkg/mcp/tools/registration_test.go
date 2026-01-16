@@ -54,14 +54,14 @@ func TestPartialToolsetRegistration(t *testing.T) {
 
 	// Define which toolsets to register
 	registeredToolsets := map[string]bool{
-		"organization": true,
+		"namespace": true,
 		"project":      true,
 	}
 
 	// Register only a subset of toolsets
 	toolsets := &Toolsets{
-		OrganizationToolset: mockHandler,
-		ProjectToolset:      mockHandler,
+		NamespaceToolset: mockHandler,
+		ProjectToolset:   mockHandler,
 		// Intentionally omitting ComponentToolset, BuildToolset, DeploymentToolset, InfrastructureToolset
 	}
 
@@ -110,7 +110,7 @@ func TestPartialToolsetRegistration(t *testing.T) {
 	// Test that registered tools work correctly
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "list_projects",
-		Arguments: map[string]any{"org_name": testOrgName},
+		Arguments: map[string]any{"namespace_name": testNamespaceName},
 	})
 	if err != nil {
 		t.Fatalf("Failed to call registered tool: %v", err)
@@ -123,7 +123,7 @@ func TestPartialToolsetRegistration(t *testing.T) {
 	// Test that unregistered tools are not callable
 	_, err = clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "list_components",
-		Arguments: map[string]any{"org_name": testOrgName, "project_name": testProjectName},
+		Arguments: map[string]any{"namespace_name": testNamespaceName, "project_name": testProjectName},
 	})
 	if err == nil {
 		t.Error("Expected error when calling unregistered tool 'list_components', got nil")

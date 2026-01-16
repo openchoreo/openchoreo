@@ -18,14 +18,14 @@ func TestListComponentReleases_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -34,13 +34,13 @@ func TestListComponentReleases_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify path values are set
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -217,7 +217,7 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		releaseName   string
@@ -225,7 +225,7 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -235,7 +235,7 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 			req.SetPathValue("releaseName", tt.releaseName)
@@ -253,7 +253,7 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		releaseName   string
@@ -261,15 +261,15 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/component-releases/myrelease-20251120-1/schema",
-			orgName:       "my-org",
+			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/component-releases/myrelease-20251120-1/schema",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 			releaseName:   "myrelease-20251120-1",
@@ -279,14 +279,14 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 			req.SetPathValue("releaseName", tt.releaseName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -306,21 +306,21 @@ func TestGetComponentSchema_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/schema",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/schema",
-			orgName:       "my-org",
+			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/schema",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
@@ -329,13 +329,13 @@ func TestGetComponentSchema_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -351,42 +351,42 @@ func TestGetComponentSchema_PathParameters(t *testing.T) {
 func TestGetComponentSchema_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		wantValid     bool
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
 			name:          "Missing org name",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			wantValid:     false,
@@ -396,7 +396,7 @@ func TestGetComponentSchema_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from GetComponentSchema handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
@@ -410,7 +410,7 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 	tests := []struct {
 		name            string
 		url             string
-		orgName         string
+		namespaceName   string
 		projectName     string
 		componentName   string
 		environmentName string
@@ -418,15 +418,15 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 		{
 			name:            "Valid path with all parameters",
 			url:             "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/environments/development/resources",
-			orgName:         "myorg",
+			namespaceName:   "myorg",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "development",
 		},
 		{
 			name:            "Path with hyphens in names",
-			url:             "/api/v1/orgs/my-org/projects/my-project/components/my-component/environments/staging/resources",
-			orgName:         "my-org",
+			url:             "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/environments/staging/resources",
+			namespaceName:   "my-namespace",
 			projectName:     "my-project",
 			componentName:   "my-component",
 			environmentName: "staging",
@@ -436,14 +436,14 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 			req.SetPathValue("environmentName", tt.environmentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -462,7 +462,7 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name            string
-		orgName         string
+		namespaceName   string
 		projectName     string
 		componentName   string
 		environmentName string
@@ -470,7 +470,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:            "All parameters present",
-			orgName:         "myorg",
+			namespaceName:   "myorg",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "development",
@@ -478,7 +478,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing org name",
-			orgName:         "",
+			namespaceName:   "",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "development",
@@ -486,7 +486,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing project name",
-			orgName:         "myorg",
+			namespaceName:   "myorg",
 			projectName:     "",
 			componentName:   "mycomponent",
 			environmentName: "development",
@@ -494,7 +494,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing component name",
-			orgName:         "myorg",
+			namespaceName:   "myorg",
 			projectName:     "myproject",
 			componentName:   "",
 			environmentName: "development",
@@ -502,7 +502,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing environment name",
-			orgName:         "myorg",
+			namespaceName:   "myorg",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "",
@@ -510,7 +510,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "All parameters missing",
-			orgName:         "",
+			namespaceName:   "",
 			projectName:     "",
 			componentName:   "",
 			environmentName: "",
@@ -521,7 +521,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from GetReleaseResources handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != "" && tt.environmentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != "" && tt.environmentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
@@ -534,7 +534,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		releaseName   string
@@ -542,7 +542,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -550,7 +550,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing org name",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -558,7 +558,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -566,7 +566,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "",
 			releaseName:   "myrelease-v1",
@@ -574,7 +574,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing release name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "",
@@ -582,7 +582,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			releaseName:   "",
@@ -593,7 +593,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from GetComponentReleaseSchema handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != "" && tt.releaseName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != "" && tt.releaseName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
@@ -682,28 +682,28 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component",
-			orgName:       "my-org",
+			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
 			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component",
-			orgName:       "my_org",
+			namespaceName: "my_org",
 			projectName:   "my_project",
 			componentName: "my_component",
 		},
@@ -712,13 +712,13 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPatch, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -735,21 +735,21 @@ func TestListComponentTraits_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/traits",
-			orgName:       "my-org",
+			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/traits",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
@@ -758,13 +758,13 @@ func TestListComponentTraits_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -780,42 +780,42 @@ func TestListComponentTraits_PathParameters(t *testing.T) {
 func TestListComponentTraits_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		wantValid     bool
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
 			name:          "Missing org name",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			wantValid:     false,
@@ -825,7 +825,7 @@ func TestListComponentTraits_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from ListComponentTraits handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
@@ -932,28 +932,28 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path with all parameters",
 			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component/traits",
-			orgName:       "my-org",
+			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/traits",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
 			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component/traits",
-			orgName:       "my_org",
+			namespaceName: "my_org",
 			projectName:   "my_project",
 			componentName: "my_component",
 		},
@@ -962,13 +962,13 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPut, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -984,42 +984,42 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		wantValid     bool
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
 			name:          "Missing org name",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			wantValid:     false,
@@ -1029,7 +1029,7 @@ func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from UpdateComponentTraits handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
@@ -1042,42 +1042,42 @@ func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
 func TestPatchComponent_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		wantValid     bool
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
 			name:          "Missing org name",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			wantValid:     false,
@@ -1087,7 +1087,7 @@ func TestPatchComponent_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from PatchComponent handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)

@@ -50,7 +50,7 @@ func (c *ConfigContextImpl) GetContexts() error {
 		rows = append(rows, []string{
 			marker,
 			formatValueOrPlaceholder(ctx.Name),
-			formatValueOrPlaceholder(ctx.Organization),
+			formatValueOrPlaceholder(ctx.Namespace),
 			formatValueOrPlaceholder(ctx.Project),
 			formatValueOrPlaceholder(ctx.Component),
 			formatValueOrPlaceholder(ctx.Environment),
@@ -90,7 +90,7 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 	headers := []string{"PROPERTY", "VALUE"}
 	rows := [][]string{
 		{"Current Context", formatValueOrPlaceholder(currentCtx.Name)},
-		{"Organization", formatValueOrPlaceholder(currentCtx.Organization)},
+		{"Namespace", formatValueOrPlaceholder(currentCtx.Namespace)},
 		{"Project", formatValueOrPlaceholder(currentCtx.Project)},
 		{"Component", formatValueOrPlaceholder(currentCtx.Component)},
 		{"Environment", formatValueOrPlaceholder(currentCtx.Environment)},
@@ -173,7 +173,7 @@ func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
 	// Create new context
 	newCtx := configContext.Context{
 		Name:              params.Name,
-		Organization:      params.Organization,
+		Namespace:      params.Namespace,
 		Project:           params.Project,
 		Component:         params.Component,
 		Environment:       params.Environment,
@@ -187,8 +187,8 @@ func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
 	for i := range cfg.Contexts {
 		if cfg.Contexts[i].Name == params.Name {
 			// Preserve existing fields if not provided
-			if params.Organization == "" {
-				newCtx.Organization = cfg.Contexts[i].Organization
+			if params.Namespace == "" {
+				newCtx.Namespace = cfg.Contexts[i].Namespace
 			}
 			if params.Project == "" {
 				newCtx.Project = cfg.Contexts[i].Project
@@ -288,7 +288,7 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	}
 
 	// Apply context-based defaults only if flags not explicitly set
-	applyIfNotSet(cmd, flags.Organization.Name, curCtx.Organization)
+	applyIfNotSet(cmd, flags.Namespace.Name, curCtx.Namespace)
 	applyIfNotSet(cmd, flags.Project.Name, curCtx.Project)
 	applyIfNotSet(cmd, flags.Environment.Name, curCtx.Environment)
 	applyIfNotSet(cmd, flags.Component.Name, curCtx.Component)
@@ -309,7 +309,7 @@ func applyIfNotSet(cmd *cobra.Command, flagName, value string) {
 // DefaultContextValues defines default values for context initialization
 type DefaultContextValues struct {
 	ContextName  string
-	Organization string
+	Namespace string
 	Project      string
 	DataPlane    string
 	Environment  string
@@ -322,7 +322,7 @@ type DefaultContextValues struct {
 func getDefaultContextValues() DefaultContextValues {
 	return DefaultContextValues{
 		ContextName:  getEnvOrDefault("CHOREO_DEFAULT_CONTEXT", "default"),
-		Organization: getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
+		Namespace: getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
 		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
@@ -363,7 +363,7 @@ func EnsureContext() error {
 			// Create default context
 			defaultContext := configContext.Context{
 				Name:         defaults.ContextName,
-				Organization: defaults.Organization,
+				Namespace: defaults.Namespace,
 				Project:      defaults.Project,
 				DataPlane:    defaults.DataPlane,
 				Environment:  defaults.Environment,

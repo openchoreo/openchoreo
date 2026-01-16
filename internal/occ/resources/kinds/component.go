@@ -20,7 +20,7 @@ type ComponentResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList]
 }
 
-// NewComponentResource constructs a ComponentResource with CRDConfig and optionally sets organization and project.
+// NewComponentResource constructs a ComponentResource with CRDConfig and optionally sets namespace and project.
 func NewComponentResource(cfg constants.CRDConfig, org string, project string) (*ComponentResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -32,7 +32,7 @@ func NewComponentResource(cfg constants.CRDConfig, org string, project string) (
 		resources.WithConfig[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](org))
 	}
@@ -48,7 +48,7 @@ func NewComponentResource(cfg constants.CRDConfig, org string, project string) (
 	}, nil
 }
 
-// WithNamespace sets the namespace for the component resource (usually the organization name)
+// WithNamespace sets the namespace for the component resource (usually the namespace name)
 func (c *ComponentResource) WithNamespace(namespace string) {
 	c.BaseResource.WithNamespace(namespace)
 }
@@ -77,7 +77,7 @@ func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapp
 		message := "No components found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		if project, ok := labels[constants.LabelProject]; ok {
@@ -98,7 +98,7 @@ func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapp
 			c.GetStatus(comp),
 			resources.FormatAge(comp.GetCreationTimestamp().Time),
 			comp.GetLabels()[constants.LabelProject],
-			comp.GetLabels()[constants.LabelOrganization],
+			comp.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersComponent, rows)
@@ -131,20 +131,20 @@ func (c *ComponentResource) Print(format resources.OutputFormat, filter *resourc
 
 // CreateComponent creates a new Component CR and its default deployment track.
 func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) error {
-	k8sName := resources.GenerateResourceName(params.Organization, params.Project, params.Name)
+	k8sName := resources.GenerateResourceName(params.Namespace, params.Project, params.Name)
 
 	// Create the Component resource
 	component := &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationDisplayName: params.DisplayName,
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
 				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelNamespace: params.Namespace,
 				constants.LabelProject:      params.Project,
 				constants.LabelType:         string(params.Type),
 			},
@@ -160,14 +160,14 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 	}
 
 	// Create default deployment track
-	trackName := resources.GenerateResourceName(params.Organization, params.Project, params.Name, DefaultTrackName)
+	trackName := resources.GenerateResourceName(params.Namespace, params.Project, params.Name, DefaultTrackName)
 	deploymentTrack := &openchoreov1alpha1.DeploymentTrack{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      trackName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Labels: map[string]string{
 				constants.LabelName:         DefaultTrackName,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelNamespace: params.Namespace,
 				constants.LabelProject:      params.Project,
 				constants.LabelComponent:    params.Name,
 			},
@@ -204,7 +204,7 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 	}
 
 	fmt.Printf(FmtComponentSuccess,
-		params.Name, params.Project, params.Organization)
+		params.Name, params.Project, params.Namespace)
 	return nil
 }
 

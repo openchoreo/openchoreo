@@ -65,7 +65,7 @@ func TestToolResponseFormat(t *testing.T) {
 
 	// Test with a single tool - response format is consistent across all tools
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
-		Name:      "get_organization",
+		Name:      "get_namespace",
 		Arguments: map[string]any{"name": "test-org"},
 	})
 	if err != nil {

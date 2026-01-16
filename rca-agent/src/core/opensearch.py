@@ -52,7 +52,6 @@ class AsyncOpenSearchClient:
         summary: str | None = None,
         timestamp: datetime | None = None,
         environment_uid: str | None = None,
-        organization_uid: str | None = None,
         project_uid: str | None = None,
         component_uids: list[str] | None = None,
     ) -> dict[str, Any]:
@@ -66,7 +65,6 @@ class AsyncOpenSearchClient:
             "status": status,
             "resource": {
                 oc_labels.ENVIRONMENT_UID: environment_uid,
-                oc_labels.ORGANIZATION_UID: organization_uid,
                 oc_labels.PROJECT_UID: project_uid,
                 oc_labels.COMPONENT_UIDS: component_uids,
             },

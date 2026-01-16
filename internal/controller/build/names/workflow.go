@@ -20,10 +20,10 @@ func MakeWorkflowName(build *openchoreov1alpha1.Build) string {
 	return dpkubernetes.GenerateK8sNameWithLengthLimit(MaxWorkflowNameLength, build.Name)
 }
 
-// MakeNamespaceName generates the namespace name for the workflow based on organization
+// MakeNamespaceName generates the namespace name for the workflow based on namespace
 func MakeNamespaceName(build *openchoreov1alpha1.Build) string {
-	orgName := normalizeForK8s(build.Namespace)
-	return fmt.Sprintf("openchoreo-ci-%s", orgName)
+	namespaceName := normalizeForK8s(build.Namespace)
+	return fmt.Sprintf("openchoreo-ci-%s", namespaceName)
 }
 
 // normalizeForK8s normalizes a string to be valid for Kubernetes labels/names
@@ -48,12 +48,11 @@ func normalizeForK8s(s string) string {
 // MakeWorkflowLabels creates labels for the workflow
 func MakeWorkflowLabels(build *openchoreov1alpha1.Build) map[string]string {
 	labels := map[string]string{
-		dpkubernetes.LabelKeyOrganizationName: build.Namespace,
-		dpkubernetes.LabelKeyProjectName:      build.Spec.Owner.ProjectName,
-		dpkubernetes.LabelKeyComponentName:    build.Spec.Owner.ComponentName,
-		dpkubernetes.LabelKeyBuildName:        build.Name,
-		dpkubernetes.LabelKeyUUID:             string(build.UID),
-		dpkubernetes.LabelKeyTarget:           dpkubernetes.LabelValueBuildTarget,
+		dpkubernetes.LabelKeyProjectName:   build.Spec.Owner.ProjectName,
+		dpkubernetes.LabelKeyComponentName: build.Spec.Owner.ComponentName,
+		dpkubernetes.LabelKeyBuildName:     build.Name,
+		dpkubernetes.LabelKeyUUID:          string(build.UID),
+		dpkubernetes.LabelKeyTarget:        dpkubernetes.LabelValueBuildTarget,
 	}
 	return labels
 }

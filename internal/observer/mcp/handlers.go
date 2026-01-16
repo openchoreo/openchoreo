@@ -31,9 +31,9 @@ func (h *MCPHandler) GetGatewayLogs(ctx context.Context, params opensearch.Gatew
 	return h.Service.GetGatewayLogs(ctx, params)
 }
 
-// GetOrganizationLogs retrieves logs for an entire organization
-func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
-	return h.Service.GetOrganizationLogs(ctx, params, podLabels)
+// GetNamespaceLogs retrieves logs for an entire namespace
+func (h *MCPHandler) GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
+	return h.Service.GetNamespaceLogs(ctx, params, podLabels)
 }
 
 // GetTraces retrieves distributed tracing spans for a specific traceID or traces of requests which call specific components

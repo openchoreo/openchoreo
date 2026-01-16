@@ -17,16 +17,16 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListComponentTypes handler called")
 
-	// Extract organization name from URL path
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	// Extract namespace name from URL path
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
 	// Call service to list ComponentTypes
-	cts, err := h.services.ComponentTypeService.ListComponentTypes(ctx, orgName)
+	cts, err := h.services.ComponentTypeService.ListComponentTypes(ctx, namespaceName)
 	if err != nil {
 		logger.Error("Failed to list ComponentTypes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
@@ -38,7 +38,7 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	copy(ctValues, cts)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed ComponentTypes successfully", "org", orgName, "count", len(cts))
+	logger.Debug("Listed ComponentTypes successfully", "org", namespaceName, "count", len(cts))
 	writeListResponse(w, ctValues, len(cts), 1, len(cts))
 }
 
@@ -48,24 +48,24 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	logger.Debug("GetComponentTypeSchema handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	ctName := r.PathValue("ctName")
-	if orgName == "" || ctName == "" {
-		logger.Warn("Organization name and ComponentType name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and ComponentType name are required", services.CodeInvalidInput)
+	if namespaceName == "" || ctName == "" {
+		logger.Warn("Namespace name and ComponentType name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and ComponentType name are required", services.CodeInvalidInput)
 		return
 	}
 
 	// Call service to get ComponentType schema
-	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, orgName, ctName)
+	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, namespaceName, ctName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component type schema", "org", orgName, "componentType", ctName)
+			logger.Warn("Unauthorized to view component type schema", "org", namespaceName, "componentType", ctName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
-			logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
+			logger.Warn("ComponentType not found", "org", namespaceName, "name", ctName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
@@ -75,6 +75,6 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Success response
-	logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctName)
+	logger.Debug("Retrieved ComponentType schema successfully", "org", namespaceName, "name", ctName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

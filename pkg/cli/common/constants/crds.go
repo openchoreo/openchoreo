@@ -13,7 +13,8 @@ const (
 )
 
 const (
-	LabelOrganization    = "openchoreo.dev/organization"
+	// TODO: chathurangas:
+	LabelNamespace    = "openchoreo.dev/namespace"
 	LabelProject         = "openchoreo.dev/project"
 	LabelComponent       = "openchoreo.dev/component"
 	LabelBuild           = "openchoreo.dev/build"
@@ -39,7 +40,7 @@ const (
 
 const (
 	OutputFormatYAML = "yaml"
-	OrganizationKind = "Organization"
+	NamespaceKind = "Namespace"
 	ProjectKind      = "Project"
 	ComponentKind    = "Component"
 	WorkloadKind     = "Workload"
@@ -52,10 +53,10 @@ type CRDConfig struct {
 }
 
 var (
-	OrganizationV1Config = CRDConfig{
-		Group:   ChoreoGroup,
-		Version: V1Alpha1,
-		Kind:    OrganizationKind,
+	NamespaceV1Config = CRDConfig{
+		Group:   "",
+		Version: V1,
+		Kind:    NamespaceKind,
 	}
 	ProjectV1Config = CRDConfig{
 		Group:   ChoreoGroup,

@@ -17,7 +17,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // DataPlaneCleanupFinalizer is the finalizer that is used to clean up dataplane resources.
@@ -100,9 +99,6 @@ func (r *Reconciler) deleteEnvironmentsAndWait(ctx context.Context, dataPlane *o
 	environmentsList := &openchoreov1alpha1.EnvironmentList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(dataPlane.Namespace),
-		client.MatchingLabels{
-			labels.LabelKeyOrganizationName: controller.GetOrganizationName(dataPlane),
-		},
 		client.MatchingFields{
 			dataplaneRefIndexKey: dataPlane.Name,
 		},

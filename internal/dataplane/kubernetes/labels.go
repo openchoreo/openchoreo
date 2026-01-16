@@ -4,8 +4,7 @@
 package kubernetes
 
 const (
-	LabelKeyOrganizationName    = "organization-name"
-	LabelKeyEnvironmentName     = "environment-name"
+	LabelKeyEnvironmentName = "environment-name"
 	LabelKeyEnvironmentID       = "environment-id"
 	LabelKeyProjectName         = "project-name"
 	LabelKeyProjectID           = "project-id"

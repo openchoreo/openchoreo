@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,49 +19,44 @@ import (
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
-	org "github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("Environment Controller", Ordered, func() {
-	const orgName = "test-org"
+	const namespaceName = "test-org"
 	const dpName = "test-dataplane"
 
-	orgNamespacedName := types.NamespacedName{
-		Name: orgName,
+	namespaceNamespacedName := types.NamespacedName{
+		Name: namespaceName,
 	}
-	organization := &openchoreov1alpha1.Organization{
+	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: orgName,
+			Name: namespaceName,
 		},
 	}
 
 	k8sClientMgr := kubernetesClient.NewManager()
 
 	BeforeAll(func() {
-		By("Creating and reconciling organization resource", func() {
-			orgReconciler := &org.Reconciler{
-				Client:   k8sClient,
-				Scheme:   k8sClient.Scheme(),
-				Recorder: record.NewFakeRecorder(100),
+		By("Creating namespace", func() {
+			err := k8sClient.Get(ctx, namespaceNamespacedName, namespace)
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 			}
-			testutils.CreateAndReconcileResourceWithCycles(ctx, k8sClient, organization, orgReconciler,
-				orgNamespacedName, 2)
 		})
 
 		dpNamespacedName := types.NamespacedName{
 			Name:      dpName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		}
 
 		dataplane := &openchoreov1alpha1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyOrganizationName: organization.Name,
-					labels.LabelKeyName:             dpName,
+					labels.LabelKeyName: dpName,
 				},
 			},
 		}
@@ -76,8 +72,8 @@ var _ = Describe("Environment Controller", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		By("Deleting the organization resource", func() {
-			testutils.DeleteResource(ctx, k8sClient, organization, orgNamespacedName)
+		By("Deleting the namespace", func() {
+			testutils.DeleteResource(ctx, k8sClient, namespace, namespaceNamespacedName)
 		})
 	})
 
@@ -85,7 +81,7 @@ var _ = Describe("Environment Controller", Ordered, func() {
 		const envName = "test-env"
 
 		envNamespacedName := types.NamespacedName{
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Name:      envName,
 		}
 		environment := &openchoreov1alpha1.Environment{}
@@ -95,10 +91,9 @@ var _ = Describe("Environment Controller", Ordered, func() {
 				dp := &openchoreov1alpha1.Environment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      envName,
-						Namespace: orgName,
+						Namespace: namespaceName,
 						Labels: map[string]string{
-							labels.LabelKeyOrganizationName: orgName,
-							labels.LabelKeyName:             envName,
+							labels.LabelKeyName: envName,
 						},
 						Annotations: map[string]string{
 							controller.AnnotationKeyDisplayName: "Test Environment",
@@ -137,7 +132,7 @@ var _ = Describe("Environment Controller", Ordered, func() {
 				return k8sClient.Get(ctx, envNamespacedName, environment)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(environment.Name).To(Equal(envName))
-			Expect(environment.Namespace).To(Equal(orgName))
+			Expect(environment.Namespace).To(Equal(namespaceName))
 			Expect(environment.Spec).NotTo(BeNil())
 		})
 
@@ -198,7 +193,7 @@ var _ = Describe("Environment Controller", Ordered, func() {
 		const envName = "test-env-immutability"
 
 		envNamespacedName := types.NamespacedName{
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Name:      envName,
 		}
 
@@ -208,10 +203,9 @@ var _ = Describe("Environment Controller", Ordered, func() {
 			env := &openchoreov1alpha1.Environment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      envName,
-					Namespace: orgName,
+					Namespace: namespaceName,
 					Labels: map[string]string{
-						labels.LabelKeyOrganizationName: orgName,
-						labels.LabelKeyName:             envName,
+						labels.LabelKeyName: envName,
 					},
 				},
 				Spec: openchoreov1alpha1.EnvironmentSpec{

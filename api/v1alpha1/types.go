@@ -5,6 +5,7 @@ package v1alpha1
 
 // This file contains common types shared across multiple OpenChoreo CRDs
 
+// TODO: chathurangas: organization endpoint = inter-project endpoint. This is not being used. Refactor later
 // EndpointStatus represents the observed state of an endpoint
 // Used by ServiceBinding, WebApplicationBinding, and other binding types
 type EndpointStatus struct {

@@ -231,7 +231,7 @@ func (h *MCPHandler) handleResourceNamespace(obj *unstructured.Unstructured, api
 func (h *MCPHandler) isClusterScopedResource(gvk schema.GroupVersionKind) bool {
 	// List of known cluster-scoped OpenChoreo resources
 	clusterScopedResources := map[string]bool{
-		"Organization": true,
+		"Namespace": true,
 	}
 
 	return clusterScopedResources[gvk.Kind]

@@ -4,7 +4,7 @@
 
 class OpenchoreoTools:
     LIST_ENVIRONMENTS = "list_environments"
-    LIST_ORGANIZATIONS = "list_organizations"
+    LIST_NAMESPACES = "list_namespaces"
     LIST_PROJECTS = "list_projects"
     LIST_COMPONENTS = "list_components"
     LIST_COMPONENT_RELEASES = "list_component_releases"
@@ -12,7 +12,7 @@ class OpenchoreoTools:
 
 class ObservabilityTools:
     GET_TRACES = "get_traces"
-    GET_ORGANIZATION_LOGS = "get_organization_logs"
+    GET_NAMESPACE_LOGS = "get_namespace_logs"
     GET_PROJECT_LOGS = "get_project_logs"
     GET_COMPONENT_LOGS = "get_component_logs"
     GET_COMPONENT_RESOURCE_METRICS = "get_component_resource_metrics"
@@ -26,7 +26,6 @@ class OpenchoreoLabels:
     COMPONENT_UID = "openchoreo.dev/component-uid"
     COMPONENT_UIDS = "openchoreo.dev/component-uids"
     ENVIRONMENT_UID = "openchoreo.dev/environment-uid"
-    ORGANIZATION_UID = "openchoreo.dev/organization-uid"
     PROJECT_UID = "openchoreo.dev/project-uid"
 
 

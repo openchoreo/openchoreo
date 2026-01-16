@@ -23,9 +23,6 @@ spec:
     - jsonPath: .metadata.annotations.core\.choreo\.dev/display-name
       name: DisplayName
       type: string
-    - jsonPath: .metadata.labels.core\.choreo\.dev/organization
-      name: Organization
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

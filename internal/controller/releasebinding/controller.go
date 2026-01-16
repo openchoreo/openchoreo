@@ -237,7 +237,7 @@ func (r *Reconciler) buildMetadataContext(
 	environmentName string,
 ) pipelinecontext.MetadataContext {
 	// Extract information
-	organizationName := componentRelease.Namespace
+	namespaceName := componentRelease.Namespace
 	projectName := componentRelease.Spec.Owner.ProjectName
 	componentName := componentRelease.Spec.Owner.ComponentName
 	componentUID := string(component.UID)
@@ -251,18 +251,17 @@ func (r *Reconciler) buildMetadataContext(
 	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
 
 	// Generate namespace using platform naming conventions
-	// Format: dp-{org}-{project}-{env}-{hash}
+	// Format: dp-{namespace}-{project}-{env}-{hash}
 	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxNamespaceNameLength,
-		"dp", organizationName, projectName, environmentName,
+		"dp", namespaceName, projectName, environmentName,
 	)
 
 	// Build standard labels
 	standardLabels := map[string]string{
-		labels.LabelKeyOrganizationName: organizationName,
-		labels.LabelKeyProjectName:      projectName,
-		labels.LabelKeyComponentName:    componentName,
-		labels.LabelKeyEnvironmentName:  environmentName,
+		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyComponentName:   componentName,
+		labels.LabelKeyEnvironmentName: environmentName,
 	}
 
 	// Build pod selectors
@@ -476,10 +475,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		dataPlaneRelease.Labels = map[string]string{
-			labels.LabelKeyOrganizationName: releaseBinding.Namespace,
-			labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
-			labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
-			labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
+			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 		}
 
 		dataPlaneRelease.Spec = openchoreov1alpha1.ReleaseSpec{
@@ -604,10 +602,9 @@ func (r *Reconciler) reconcileObservabilityRelease(
 			}
 
 			observabilityRelease.Labels = map[string]string{
-				labels.LabelKeyOrganizationName: releaseBinding.Namespace,
-				labels.LabelKeyProjectName:      releaseBinding.Spec.Owner.ProjectName,
-				labels.LabelKeyComponentName:    releaseBinding.Spec.Owner.ComponentName,
-				labels.LabelKeyEnvironmentName:  releaseBinding.Spec.Environment,
+				labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
+				labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
+				labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 			}
 
 			observabilityRelease.Spec = openchoreov1alpha1.ReleaseSpec{

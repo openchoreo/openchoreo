@@ -93,20 +93,20 @@ type Span struct {
 
 // QueryParams holds common query parameters
 type QueryParams struct {
-	StartTime      string   `json:"startTime"`
-	EndTime        string   `json:"endTime"`
-	SearchPhrase   string   `json:"searchPhrase"`
-	LogLevels      []string `json:"logLevels"`
-	Limit          int      `json:"limit"`
-	SortOrder      string   `json:"sortOrder"`
-	ComponentID    string   `json:"componentId,omitempty"`
-	EnvironmentID  string   `json:"environmentId,omitempty"`
-	ProjectID      string   `json:"projectId,omitempty"`
-	OrganizationID string   `json:"organizationId,omitempty"`
-	Namespace      string   `json:"namespace,omitempty"`
-	Versions       []string `json:"versions,omitempty"`
-	VersionIDs     []string `json:"versionIds,omitempty"`
-	LogType        string   `json:"logType,omitempty"`
+	StartTime     string   `json:"startTime"`
+	EndTime       string   `json:"endTime"`
+	SearchPhrase  string   `json:"searchPhrase"`
+	LogLevels     []string `json:"logLevels"`
+	Limit         int      `json:"limit"`
+	SortOrder     string   `json:"sortOrder"`
+	ComponentID   string   `json:"componentId,omitempty"`
+	EnvironmentID string   `json:"environmentId,omitempty"`
+	ProjectID     string   `json:"projectId,omitempty"`
+	NamespaceName string   `json:"namespaceName,omitempty"`
+	Namespace     string   `json:"namespace,omitempty"`
+	Versions      []string `json:"versions,omitempty"`
+	VersionIDs    []string `json:"versionIds,omitempty"`
+	LogType       string   `json:"logType,omitempty"`
 }
 
 // BuildQueryParams holds build-specific query parameters
@@ -127,7 +127,7 @@ type ComponentQueryParams struct {
 // GatewayQueryParams holds gateway-specific query parameters
 type GatewayQueryParams struct {
 	QueryParams
-	OrganizationID    string            `json:"organizationId"`
+	NamespaceName     string            `json:"namespaceName"`
 	APIIDToVersionMap map[string]string `json:"apiIdToVersionMap"`
 	GatewayVHosts     []string          `json:"gatewayVHosts"`
 }
@@ -252,7 +252,7 @@ type TracesRequestParams struct {
 	EnvironmentName string   `json:"environmentName,omitempty"`
 	EnvironmentUID  string   `json:"environmentUid,omitempty"`
 	Limit           int      `json:"limit,omitempty"`
-	OrgName         string   `json:"orgName,omitempty"`
+	NamespaceName   string   `json:"namespaceName,omitempty"`
 	ProjectName     string   `json:"projectName,omitempty"`
 	ProjectUID      string   `json:"projectUid"`
 	SortOrder       string   `json:"sortOrder,omitempty"`

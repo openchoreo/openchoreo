@@ -300,7 +300,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Release
 metadata:
   name: my-service-dev
-  namespace: my-org
+  namespace: my-namespace
 spec:
   owner:
     projectName: my-project
@@ -313,7 +313,7 @@ spec:
         kind: Deployment
         metadata:
           name: my-service
-          namespace: my-org
+          namespace: my-namespace
         spec:
           replicas: 2
           selector:
@@ -335,7 +335,7 @@ spec:
         kind: Service
         metadata:
           name: my-service
-          namespace: my-org
+          namespace: my-namespace
         spec:
           selector:
             app: my-service
@@ -351,7 +351,7 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: Release
 metadata:
   name: my-app-prod
-  namespace: my-org
+  namespace: my-namespace
 spec:
   owner:
     projectName: my-project

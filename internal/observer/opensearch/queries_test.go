@@ -185,7 +185,7 @@ func TestQueryBuilder_BuildGatewayLogsQuery(t *testing.T) {
 			Limit:        200,
 			SortOrder:    "desc",
 		},
-		OrganizationID: "org-123",
+		NamespaceName: "namespace-123",
 		APIIDToVersionMap: map[string]string{
 			"api-1": "v1",
 			"api-2": "v2",

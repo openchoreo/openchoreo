@@ -10,7 +10,6 @@ metadata:
     openchoreo.dev/display-name: {{ .displayName }}
     openchoreo.dev/description: {{ .displayName }}
   labels:
-    openchoreo.dev/organization: default
     openchoreo.dev/name: {{ .name }}
 spec:
   dataPlaneRef: default #TODO: Use kubebulder defaults to set this

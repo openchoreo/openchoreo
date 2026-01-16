@@ -43,7 +43,7 @@ type Context struct {
 	Name              string `yaml:"name"`
 	ControlPlane      string `yaml:"controlplane"`          // Reference to controlplanes[].name
 	Credentials       string `yaml:"credentials,omitempty"` // Reference to credentials[].name
-	Organization      string `yaml:"organization,omitempty"`
+	Namespace         string `yaml:"namespace,omitempty"`
 	Project           string `yaml:"project,omitempty"`
 	Component         string `yaml:"component,omitempty"`
 	Environment       string `yaml:"environment,omitempty"`
@@ -88,7 +88,7 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.ConfigSetContext,
 		Flags: []flags.Flag{
-			flags.Organization,
+			flags.Namespace,
 			flags.Project,
 			flags.Component,
 			flags.DataPlane,
@@ -103,7 +103,7 @@ func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			}
 			return impl.SetContext(api.SetContextParams{
 				Name:              args[0],
-				Organization:      fg.GetString(flags.Organization),
+				Namespace:         fg.GetString(flags.Namespace),
 				Project:           fg.GetString(flags.Project),
 				Component:         fg.GetString(flags.Component),
 				DataPlane:         fg.GetString(flags.DataPlane),

@@ -8,7 +8,7 @@ metadata:
 spec:
   # Template Variable Reference (processed by controller):
   # ${metadata.workflowRunName}  - WorkflowRun CR name
-  # ${metadata.orgName}          - Organization name (namespace)
+  # ${metadata.namespaceName}          - Namespace name (namespace)
   # ${parameters.*}              - Developer-provided values from parameters schema
 
   # Schema definition for workflows
@@ -30,7 +30,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.orgName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:

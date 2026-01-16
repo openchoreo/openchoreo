@@ -10,7 +10,7 @@ spec:
   # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
   # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
   # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
-  # ${metadata.orgName}          - Organization name (namespace)
+  # ${metadata.namespaceName}          - Namespace name (namespace)
   # ${systemParameters.*}        - System-provided values from systemParameters schema
   # ${parameters.*}              - Developer-provided values from parameters schema
 
@@ -65,7 +65,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.orgName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
     spec:
       arguments:
         parameters:
@@ -134,7 +134,7 @@ spec:
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.orgName}
+          namespace: openchoreo-ci-${metadata.namespaceName}
         spec:
           refreshInterval: 15s
           secretStoreRef:

@@ -6,7 +6,6 @@ metadata:
     openchoreo.dev/display-name: GCP Microservice Demo
   labels:
     openchoreo.dev/name: gcp-microservice-demo
-    openchoreo.dev/organization: default
   name: gcp-microservice-demo
   namespace: default
 spec:

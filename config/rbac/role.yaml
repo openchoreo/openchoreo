@@ -62,7 +62,6 @@ rules:
   - observabilityalertrules
   - observabilityalertsnotificationchannels
   - observabilityplanes
-  - organizations
   - projects
   - releasebindings
   - secretreferences
@@ -70,6 +69,18 @@ rules:
   - workflowruns
   - workflows
   - workloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - create
   - delete
@@ -96,7 +107,6 @@ rules:
   - observabilityalertrules/finalizers
   - observabilityalertsnotificationchannels/finalizers
   - observabilityplanes/finalizers
-  - organizations/finalizers
   - projects/finalizers
   - releasebindings/finalizers
   - releases/finalizers
@@ -125,7 +135,6 @@ rules:
   - observabilityalertrules/status
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status
-  - organizations/status
   - projects/status
   - releasebindings/status
   - releases/status

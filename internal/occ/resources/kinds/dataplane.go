@@ -19,7 +19,7 @@ type DataPlaneResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.DataPlane, *openchoreov1alpha1.DataPlaneList]
 }
 
-// NewDataPlaneResource constructs a DataPlaneResource with CRDConfig and optionally sets organization.
+// NewDataPlaneResource constructs a DataPlaneResource with CRDConfig and optionally sets namespace.
 func NewDataPlaneResource(cfg constants.CRDConfig, org string) (*DataPlaneResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -31,7 +31,7 @@ func NewDataPlaneResource(cfg constants.CRDConfig, org string) (*DataPlaneResour
 		resources.WithConfig[*openchoreov1alpha1.DataPlane, *openchoreov1alpha1.DataPlaneList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DataPlane, *openchoreov1alpha1.DataPlaneList](org))
 	}
@@ -41,7 +41,7 @@ func NewDataPlaneResource(cfg constants.CRDConfig, org string) (*DataPlaneResour
 	}, nil
 }
 
-// WithNamespace sets the namespace for the dataplane resource (usually the organization name)
+// WithNamespace sets the namespace for the dataplane resource (usually the namespace name)
 func (d *DataPlaneResource) WithNamespace(namespace string) {
 	d.BaseResource.WithNamespace(namespace)
 }
@@ -76,7 +76,7 @@ func (d *DataPlaneResource) PrintTableItems(dataPlanes []resources.ResourceWrapp
 		message := "No data planes found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		fmt.Println(message)
@@ -92,7 +92,7 @@ func (d *DataPlaneResource) PrintTableItems(dataPlanes []resources.ResourceWrapp
 			dataPlane.Name,
 			d.GetStatus(dataPlane),
 			d.GetAge(dataPlane),
-			dataPlane.GetLabels()[constants.LabelOrganization],
+			dataPlane.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersDataPlane, rows)
@@ -125,20 +125,20 @@ func (d *DataPlaneResource) Print(format resources.OutputFormat, filter *resourc
 
 // CreateDataPlane creates a new DataPlane CR.
 func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) error {
-	k8sName := resources.GenerateResourceName(params.Organization, params.Name)
+	k8sName := resources.GenerateResourceName(params.Namespace, params.Name)
 
 	// Create the DataPlane resource
 	dataPlane := &openchoreov1alpha1.DataPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationDisplayName: resources.DefaultIfEmpty(params.DisplayName, params.Name),
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelName:      params.Name,
+				constants.LabelNamespace: params.Namespace,
 			},
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
@@ -149,7 +149,7 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 			},
 			Gateway: openchoreov1alpha1.GatewaySpec{
 				PublicVirtualHost:       params.PublicVirtualHost,
-				OrganizationVirtualHost: params.OrganizationVirtualHost,
+				OrganizationVirtualHost: params.NamespaceVirtualHost,
 			},
 		},
 	}
@@ -162,12 +162,12 @@ func (d *DataPlaneResource) CreateDataPlane(params api.CreateDataPlaneParams) er
 		return fmt.Errorf(ErrCreateDataPlane, err)
 	}
 
-	fmt.Printf(FmtDataPlaneCreateSuccess, params.Name, params.Organization)
+	fmt.Printf(FmtDataPlaneCreateSuccess, params.Name, params.Namespace)
 	return nil
 }
 
-// GetDataPlanesForOrganization returns dataplanes filtered by organization
-func (d *DataPlaneResource) GetDataPlanesForOrganization(orgName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DataPlane], error) {
+// GetDataPlanesForNamespace returns dataplanes filtered by namespace
+func (d *DataPlaneResource) GetDataPlanesForNamespace(namespaceName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DataPlane], error) {
 	allDataPlanes, err := d.List()
 	if err != nil {
 		return nil, err
@@ -175,7 +175,7 @@ func (d *DataPlaneResource) GetDataPlanesForOrganization(orgName string) ([]reso
 
 	var dataPlanes []resources.ResourceWrapper[*openchoreov1alpha1.DataPlane]
 	for _, wrapper := range allDataPlanes {
-		if wrapper.Resource.GetLabels()[constants.LabelOrganization] == orgName {
+		if wrapper.Resource.GetLabels()[constants.LabelNamespace] == namespaceName {
 			dataPlanes = append(dataPlanes, wrapper)
 		}
 	}

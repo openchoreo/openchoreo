@@ -20,11 +20,11 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("CreateComponent handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
-	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" {
+		logger.Warn("Namespace name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and project name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -44,20 +44,20 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Call service to create component
-	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
+	component, err := h.services.ComponentService.CreateComponent(ctx, namespaceName, projectName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create component", "org", orgName, "project", projectName, "component", req.Name)
+			logger.Warn("Unauthorized to create component", "org", namespaceName, "project", projectName, "component", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentAlreadyExists) {
-			logger.Warn("Component already exists", "org", orgName, "project", projectName, "component", req.Name)
+			logger.Warn("Component already exists", "org", namespaceName, "project", projectName, "component", req.Name)
 			writeErrorResponse(w, http.StatusConflict, "Component already exists", services.CodeComponentExists)
 			return
 		}
@@ -67,7 +67,7 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Component created successfully", "org", orgName, "project", projectName, "component", component.Name)
+	logger.Debug("Component created successfully", "org", namespaceName, "project", projectName, "component", component.Name)
 	writeSuccessResponse(w, http.StatusCreated, component)
 }
 
@@ -77,19 +77,19 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("ListComponents handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
-	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" {
+		logger.Warn("Namespace name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and project name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to list components
-	components, err := h.services.ComponentService.ListComponents(ctx, orgName, projectName)
+	components, err := h.services.ComponentService.ListComponents(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -103,7 +103,7 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 	copy(componentValues, components)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed components successfully", "org", orgName, "project", projectName, "count", len(components))
+	logger.Debug("Listed components successfully", "org", namespaceName, "project", projectName, "count", len(components))
 	writeListResponse(w, componentValues, len(components), 1, len(components))
 }
 
@@ -120,30 +120,30 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to get component
-	component, err := h.services.ComponentService.GetComponent(ctx, orgName, projectName, componentName, additionalResources)
+	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, projectName, componentName, additionalResources)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to view component", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -153,7 +153,7 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved component successfully", "org", orgName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved component successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
@@ -206,12 +206,12 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("PatchComponent handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidParams)
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", services.CodeInvalidParams)
 		return
 	}
 
@@ -224,24 +224,24 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "component", componentName, componentName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
+		"organization": namespaceName,
 		"project":      projectName,
 	})
 
-	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
+	component, err := h.services.ComponentService.PatchComponent(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update component", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to update component", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -250,7 +250,7 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Patched component successfully", "org", orgName, "project", projectName, "component", componentName)
+	logger.Debug("Patched component successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
@@ -259,29 +259,29 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetComponentSchema handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidInput)
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", services.CodeInvalidInput)
 		return
 	}
 
-	schema, err := h.services.ComponentService.GetComponentSchema(ctx, orgName, projectName, componentName)
+	schema, err := h.services.ComponentService.GetComponentSchema(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
-			logger.Warn("ComponentType not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("ComponentType not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
@@ -290,7 +290,7 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved component schema successfully", "org", orgName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved component schema successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -300,12 +300,12 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	logger.Debug("UpdateComponentWorkflowParameters handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -324,20 +324,20 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	})
 
 	// Call service to update workflow parameters
-	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, orgName, projectName, componentName, &req)
+	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowSchemaInvalid) {
-			logger.Warn("Invalid workflow parameters", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Invalid workflow parameters", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusBadRequest, "Invalid workflow parameters", services.CodeWorkflowSchemaInvalid)
 			return
 		}
@@ -355,12 +355,12 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("GetComponentBinding handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -368,15 +368,15 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	environments := r.URL.Query()["environment"]
 
 	// Call service to get component bindings
-	bindings, err := h.services.ComponentService.GetComponentBindings(ctx, orgName, projectName, componentName, environments)
+	bindings, err := h.services.ComponentService.GetComponentBindings(ctx, namespaceName, projectName, componentName, environments)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -388,9 +388,9 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	// Success response
 	envCount := len(environments)
 	if envCount == 0 {
-		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
 	} else {
-		logger.Debug("Retrieved component bindings successfully", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
+		logger.Debug("Retrieved component bindings successfully", "org", namespaceName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
 	}
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
@@ -401,12 +401,12 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("PromoteComponent handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -434,28 +434,28 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 		PromoteComponentRequest: req,
 		ComponentName:           componentName,
 		ProjectName:             projectName,
-		OrgName:                 orgName,
+		NamespaceName:           namespaceName,
 	}
 
 	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to promote component", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to promote component", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDeploymentPipelineNotFound) {
-			logger.Warn("Deployment pipeline not found", "org", orgName, "project", projectName)
+			logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Deployment pipeline not found", services.CodeDeploymentPipelineNotFound)
 			return
 		}
@@ -465,7 +465,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, services.ErrReleaseBindingNotFound) {
-			logger.Warn("Source release binding not found", "org", orgName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
+			logger.Warn("Source release binding not found", "org", namespaceName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
 			writeErrorResponse(w, http.StatusNotFound, "Source release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
@@ -475,7 +475,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Component promoted successfully", "org", orgName, "project", projectName, "component", componentName,
+	logger.Debug("Component promoted successfully", "org", namespaceName, "project", projectName, "component", componentName,
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
 	writeSuccessResponse(w, http.StatusOK, targetReleaseBinding)
 }
@@ -486,13 +486,13 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	logger.Debug("UpdateComponentBinding handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	bindingName := r.PathValue("bindingName")
-	if orgName == "" || projectName == "" || componentName == "" || bindingName == "" {
-		logger.Warn("Organization name, project name, component name, and binding name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and binding name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" || bindingName == "" {
+		logger.Warn("Namespace name, project name, component name, and binding name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, component name, and binding name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -520,20 +520,20 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	})
 
 	// Call service to update component binding
-	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, orgName, projectName, componentName, bindingName, &req)
+	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, namespaceName, projectName, componentName, bindingName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrBindingNotFound) {
-			logger.Warn("Binding not found", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Binding not found", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusNotFound, "Binding not found", services.CodeBindingNotFound)
 			return
 		}
@@ -543,7 +543,7 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Success response
-	logger.Debug("Component binding updated successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+	logger.Debug("Component binding updated successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	writeSuccessResponse(w, http.StatusOK, binding)
 }
 
@@ -553,37 +553,37 @@ func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request
 	logger.Debug("GetComponentObserverURL handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	environmentName := r.PathValue("environmentName")
 
-	if orgName == "" || projectName == "" || componentName == "" || environmentName == "" {
+	if namespaceName == "" || projectName == "" || componentName == "" || environmentName == "" {
 		logger.Warn("All path parameters are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization, project, component, and environment names are required", "INVALID_PARAMS")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace, project, component, and environment names are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to get observer URL
-	observerResponse, err := h.services.ComponentService.GetComponentObserverURL(ctx, orgName, projectName, componentName, environmentName)
+	observerResponse, err := h.services.ComponentService.GetComponentObserverURL(ctx, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Error in retrieving the log URL: Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Error in retrieving the log URL: Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Error in retrieving the log URL: Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Environment not found", "org", orgName, "environment", environmentName)
+			logger.Warn("Error in retrieving the log URL: Environment not found", "org", namespaceName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDataPlaneNotFound) {
-			logger.Warn("Error in retrieving the log URL: DataPlane not found", "org", orgName, "environment", environmentName)
+			logger.Warn("Error in retrieving the log URL: DataPlane not found", "org", namespaceName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
@@ -593,7 +593,7 @@ func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request
 	}
 
 	// Success response
-	logger.Debug("Retrieved component observer URL successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+	logger.Debug("Retrieved component observer URL successfully", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 	writeSuccessResponse(w, http.StatusOK, observerResponse)
 }
 
@@ -603,26 +603,26 @@ func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("GetBuildObserverURL handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 
-	if orgName == "" || projectName == "" || componentName == "" {
+	if namespaceName == "" || projectName == "" || componentName == "" {
 		logger.Warn("All parameters are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization, project, and component names are required", "INVALID_PARAMS")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace, project, and component names are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to get build observer URL
-	observerResponse, err := h.services.ComponentService.GetBuildObserverURL(ctx, orgName, projectName, componentName)
+	observerResponse, err := h.services.ComponentService.GetBuildObserverURL(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Error in retrieving the log URL: Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Error in retrieving the log URL: Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Error in retrieving the log URL: Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -632,7 +632,7 @@ func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved build observer URL successfully", "org", orgName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved build observer URL successfully", "org", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, observerResponse)
 }
 
@@ -642,12 +642,12 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 	logger.Debug("CreateComponentRelease handler called")
 
 	defer r.Body.Close()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -660,25 +660,25 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 
 	req.Sanitize()
 
-	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, orgName, projectName, componentName, req.ReleaseName)
+	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, namespaceName, projectName, componentName, req.ReleaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create component release", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to create component release", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrWorkloadNotFound) {
-			logger.Warn("Workload not found - component not built", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Workload not found - component not built", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusBadRequest, "Component has not been built yet", services.CodeWorkloadNotFound)
 			return
 		}
@@ -687,7 +687,7 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	logger.Debug("Component release created successfully", "org", orgName, "project", projectName, "component", componentName, "release", componentRelease.Name)
+	logger.Debug("Component release created successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", componentRelease.Name)
 	writeSuccessResponse(w, http.StatusCreated, componentRelease)
 }
 
@@ -696,24 +696,24 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListComponentReleases handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
-	releases, err := h.services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName)
+	releases, err := h.services.ComponentService.ListComponentReleases(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -722,7 +722,7 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logger.Debug("Listed component releases successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(releases))
+	logger.Debug("Listed component releases successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(releases))
 	writeListResponse(w, releases, len(releases), 1, len(releases))
 }
 
@@ -731,35 +731,35 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetComponentRelease handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	releaseName := r.PathValue("releaseName")
-	if orgName == "" || projectName == "" || componentName == "" || releaseName == "" {
-		logger.Warn("Organization name, project name, component name, and release name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and release name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" || releaseName == "" {
+		logger.Warn("Namespace name, project name, component name, and release name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, component name, and release name are required", "INVALID_PARAMS")
 		return
 	}
 
-	release, err := h.services.ComponentService.GetComponentRelease(ctx, orgName, projectName, componentName, releaseName)
+	release, err := h.services.ComponentService.GetComponentRelease(ctx, namespaceName, projectName, componentName, releaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component release", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Unauthorized to view component release", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -768,7 +768,7 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved component release successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	logger.Debug("Retrieved component release successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	writeSuccessResponse(w, http.StatusOK, release)
 }
 
@@ -777,35 +777,35 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetComponentReleaseSchema handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	releaseName := r.PathValue("releaseName")
-	if orgName == "" || projectName == "" || componentName == "" || releaseName == "" {
-		logger.Warn("Organization name, project name, component name, and release name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and release name are required", services.CodeInvalidInput)
+	if namespaceName == "" || projectName == "" || componentName == "" || releaseName == "" {
+		logger.Warn("Namespace name, project name, component name, and release name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, component name, and release name are required", services.CodeInvalidInput)
 		return
 	}
 
-	schema, err := h.services.ComponentService.GetComponentReleaseSchema(ctx, orgName, projectName, componentName, releaseName)
+	schema, err := h.services.ComponentService.GetComponentReleaseSchema(ctx, namespaceName, projectName, componentName, releaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component release schema", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Unauthorized to view component release schema", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -814,7 +814,7 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	logger.Debug("Retrieved component release schema successfully", "org", orgName, "project", projectName, "component", componentName, "release", releaseName)
+	logger.Debug("Retrieved component release schema successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -823,30 +823,30 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetReleaseResources handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	environmentName := r.PathValue("environmentName")
-	if orgName == "" || projectName == "" || componentName == "" || environmentName == "" {
-		logger.Warn("Organization name, project name, component name, and environment name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and environment name are required", services.CodeInvalidInput)
+	if namespaceName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Namespace name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, component name, and environment name are required", services.CodeInvalidInput)
 		return
 	}
 
-	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrReleaseNotFound) {
-			logger.Warn("Release not found", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName)
+			logger.Warn("Release not found", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
 			return
 		}
@@ -855,7 +855,7 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logger.Debug("Retrieved release successfully", "org", orgName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	logger.Debug("Retrieved release successfully", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
 	writeSuccessResponse(w, http.StatusOK, release)
 }
 
@@ -865,13 +865,13 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("PatchReleaseBinding handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	bindingName := r.PathValue("bindingName")
-	if orgName == "" || projectName == "" || componentName == "" || bindingName == "" {
-		logger.Warn("Organization name, project name, component name, and binding name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, component name, and binding name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" || bindingName == "" {
+		logger.Warn("Namespace name, project name, component name, and binding name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, component name, and binding name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -883,25 +883,25 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, orgName, projectName, componentName, bindingName, &req)
+	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, namespaceName, projectName, componentName, bindingName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update release binding", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Unauthorized to update release binding", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrReleaseBindingNotFound) {
-			logger.Warn("Release binding not found", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Release binding not found", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusNotFound, "Release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
@@ -910,7 +910,7 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Patched release binding successfully", "org", orgName, "project", projectName, "component", componentName, "binding", bindingName)
+	logger.Debug("Patched release binding successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	writeSuccessResponse(w, http.StatusOK, binding)
 }
 
@@ -919,26 +919,26 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListReleaseBindings handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
 	environments := r.URL.Query()["environment"]
 
-	bindings, err := h.services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments)
+	bindings, err := h.services.ComponentService.ListReleaseBindings(ctx, namespaceName, projectName, componentName, environments)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -947,7 +947,7 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Listed release bindings successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+	logger.Debug("Listed release bindings successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
 
@@ -956,12 +956,12 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("DeployRelease handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
@@ -980,25 +980,25 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	binding, err := h.services.ComponentService.DeployRelease(ctx, orgName, projectName, componentName, &req)
+	binding, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to deploy component", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to deploy component", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName)
+			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -1007,7 +1007,7 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Deployed release successfully", "org", orgName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
+	logger.Debug("Deployed release successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
 	writeSuccessResponse(w, http.StatusCreated, binding)
 }
 
@@ -1017,30 +1017,30 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("ListComponentTraits handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidParams)
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", services.CodeInvalidParams)
 		return
 	}
 
 	// Call service to list component traits
-	traits, err := h.services.ComponentService.ListComponentTraits(ctx, orgName, projectName, componentName)
+	traits, err := h.services.ComponentService.ListComponentTraits(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component traits", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to view component traits", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -1050,7 +1050,7 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Listed component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	logger.Debug("Listed component traits successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
 	writeListResponse(w, traits, len(traits), 1, len(traits))
 }
 
@@ -1060,12 +1060,12 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	logger.Debug("UpdateComponentTraits handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", services.CodeInvalidParams)
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", services.CodeInvalidParams)
 		return
 	}
 
@@ -1093,25 +1093,25 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	})
 
 	// Call service to update component traits
-	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)
+	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update component traits", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to update component traits", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrTraitNotFound) {
-			logger.Warn("Trait not found", "org", orgName, "project", projectName, "component", componentName, "error", err)
+			logger.Warn("Trait not found", "org", namespaceName, "project", projectName, "component", componentName, "error", err)
 			writeErrorResponse(w, http.StatusNotFound, err.Error(), services.CodeTraitNotFound)
 			return
 		}
@@ -1121,6 +1121,6 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Success response
-	logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
+	logger.Debug("Updated component traits successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
 	writeListResponse(w, traits, len(traits), 1, len(traits))
 }

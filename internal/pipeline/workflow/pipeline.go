@@ -78,8 +78,8 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 		return fmt.Errorf("workflow has no runTemplate")
 	}
 
-	if input.Context.OrgName == "" {
-		return fmt.Errorf("context.orgName is required")
+	if input.Context.NamespaceName == "" {
+		return fmt.Errorf("context.namespaceName is required")
 	}
 	if input.Context.WorkflowRunName == "" {
 		return fmt.Errorf("context.workflowRunName is required")
@@ -141,7 +141,7 @@ func (p *Pipeline) renderResources(resources []v1alpha1.WorkflowResource, celCon
 // buildCELContext builds the CEL evaluation context with metadata.* and parameters.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	metadata := map[string]any{
-		"orgName":         input.Context.OrgName,
+		"namespaceName":   input.Context.NamespaceName,
 		"workflowRunName": input.Context.WorkflowRunName,
 	}
 

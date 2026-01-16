@@ -17,7 +17,7 @@ type ConfigurationGroupResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList]
 }
 
-// NewConfigurationGroupResource constructs a ConfigurationGroupResource with CRDConfig and optionally sets organization.
+// NewConfigurationGroupResource constructs a ConfigurationGroupResource with CRDConfig and optionally sets namespace.
 func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*ConfigurationGroupResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -29,7 +29,7 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 		resources.WithConfig[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](org))
 	}
@@ -37,7 +37,7 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 	// Create labels for filtering
 	labels := map[string]string{}
 	if org != "" {
-		labels[constants.LabelOrganization] = org
+		labels[constants.LabelNamespace] = org
 	}
 
 	// Add labels if any were set
@@ -50,7 +50,7 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 	}, nil
 }
 
-// WithNamespace sets the namespace for the configuration group resource (usually the organization name)
+// WithNamespace sets the namespace for the configuration group resource (usually the namespace name)
 func (d *ConfigurationGroupResource) WithNamespace(namespace string) {
 	d.BaseResource.WithNamespace(namespace)
 }
@@ -82,7 +82,7 @@ func (d *ConfigurationGroupResource) PrintTableItems(cgs []resources.ResourceWra
 		namespaceName := d.GetNamespace()
 		message := "No configuration groups found"
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 		fmt.Println(message)
 		return nil

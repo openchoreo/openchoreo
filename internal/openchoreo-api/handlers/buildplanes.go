@@ -18,18 +18,18 @@ func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 	log.Info("GetBuildPlane handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
 	// Call service to get build plane
-	buildPlane, err := h.services.BuildPlaneService.GetBuildPlane(ctx, orgName)
+	buildPlane, err := h.services.BuildPlaneService.GetBuildPlane(ctx, namespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view build plane", "org", orgName)
+			log.Warn("Unauthorized to view build plane", "org", namespaceName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -42,21 +42,21 @@ func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, buildPlane)
 }
 
-// ListBuildPlanes retrieves all build planes for an organization
+// ListBuildPlanes retrieves all build planes for an namespace
 func (h *Handler) ListBuildPlanes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 	log.Info("ListBuildPlanes handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
 	// Call service to list build planes
-	buildPlanes, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, orgName)
+	buildPlanes, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, namespaceName)
 	if err != nil {
 		log.Error("Failed to list build planes", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list build planes", "INTERNAL_ERROR")

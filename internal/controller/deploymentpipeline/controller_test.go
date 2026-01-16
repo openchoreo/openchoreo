@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,47 +19,43 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	dp "github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	env "github.com/openchoreo/openchoreo/internal/controller/environment"
-	org "github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/testutils"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 var _ = Describe("DeploymentPipeline Controller", func() {
 	const (
-		orgName = "test-org"
-		dpName  = "test-dataplane"
-		envName = "test-env"
+		namespaceName = "test-org"
+		dpName        = "test-dataplane"
+		envName       = "test-env"
 	)
 
-	orgNamespacedName := types.NamespacedName{
-		Name: orgName,
+	namespaceNamespacedName := types.NamespacedName{
+		Name: namespaceName,
 	}
-	organization := &openchoreov1alpha1.Organization{
+	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: orgName,
+			Name: namespaceName,
 		},
 	}
 
 	BeforeEach(func() {
-		By("Creating and reconciling organization resource", func() {
-			orgReconciler := &org.Reconciler{
-				Client:   k8sClient,
-				Scheme:   k8sClient.Scheme(),
-				Recorder: record.NewFakeRecorder(100),
+		By("Creating namespace", func() {
+			err := k8sClient.Get(ctx, namespaceNamespacedName, namespace)
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
 			}
-			testutils.CreateAndReconcileResourceWithCycles(ctx, k8sClient, organization, orgReconciler,
-				orgNamespacedName, 2)
 		})
 
 		dpNamespacedName := types.NamespacedName{
 			Name:      dpName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		}
 
 		dataplane := &openchoreov1alpha1.DataPlane{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      dpName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 			},
 		}
 
@@ -72,17 +69,16 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 		})
 
 		envNamespacedName := types.NamespacedName{
-			Namespace: orgName,
+			Namespace: namespaceName,
 			Name:      envName,
 		}
 
 		environment := &openchoreov1alpha1.Environment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      envName,
-				Namespace: orgName,
+				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyOrganizationName: orgName,
-					labels.LabelKeyName:             envName,
+					labels.LabelKeyName: envName,
 				},
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Environment",
@@ -109,15 +105,15 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 	})
 
 	AfterEach(func() {
-		By("Deleting the organization resource", func() {
-			testutils.DeleteResource(ctx, k8sClient, organization, orgNamespacedName)
+		By("Deleting the namespace", func() {
+			testutils.DeleteResource(ctx, k8sClient, namespace, namespaceNamespacedName)
 		})
 	})
 
 	const pipelineName = "test-deployment-pipeline"
 
 	pipelineNamespacedName := types.NamespacedName{
-		Namespace: orgName,
+		Namespace: namespaceName,
 		Name:      pipelineName,
 	}
 
@@ -130,10 +126,9 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				dp := &openchoreov1alpha1.DeploymentPipeline{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pipelineName,
-						Namespace: orgName,
+						Namespace: namespaceName,
 						Labels: map[string]string{
-							labels.LabelKeyOrganizationName: orgName,
-							labels.LabelKeyName:             pipelineName,
+							labels.LabelKeyName: pipelineName,
 						},
 						Annotations: map[string]string{
 							controller.AnnotationKeyDisplayName: "Test Deployment pipeline",
@@ -172,7 +167,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				return k8sClient.Get(ctx, pipelineNamespacedName, deploymentPipeline)
 			}, time.Second*10, time.Millisecond*500).Should(Succeed())
 			Expect(deploymentPipeline.Name).To(Equal(pipelineName))
-			Expect(deploymentPipeline.Namespace).To(Equal(orgName))
+			Expect(deploymentPipeline.Namespace).To(Equal(namespaceName))
 			Expect(deploymentPipeline.Spec).NotTo(BeNil())
 		})
 

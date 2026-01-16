@@ -65,7 +65,7 @@ const (
 	ErrorMsgBuildIDRequired           = "Build ID is required"
 	ErrorMsgComponentIDRequired       = "Component ID is required"
 	ErrorMsgProjectIDRequired         = "Project ID is required"
-	ErrorMsgOrganizationIDRequired    = "Organization ID is required"
+	ErrorMsgNamespaceNameRequired     = "Namespace name is required"
 	ErrorMsgEnvironmentIDRequired     = "Environment ID is required"
 	ErrorMsgRuleNameRequired          = "Rule name is required"
 	ErrorMsgSourceTypeRequired        = "Source type is required"
@@ -123,7 +123,7 @@ func (h *Handler) writeErrorResponse(w http.ResponseWriter, status int, errorTyp
 // BuildLogsRequest represents the request body for build logs
 type BuildLogsRequest struct {
 	ComponentName string `json:"componentName,omitempty"`
-	OrgName       string `json:"orgName,omitempty"`
+	NamespaceName string `json:"namespaceName,omitempty"`
 	ProjectName   string `json:"projectName,omitempty"`
 	StartTime     string `json:"startTime" validate:"required"`
 	EndTime       string `json:"endTime" validate:"required"`
@@ -134,7 +134,7 @@ type BuildLogsRequest struct {
 // ComponentLogsRequest represents the request body for component logs
 type ComponentLogsRequest struct {
 	ComponentName   string   `json:"componentName,omitempty"`
-	OrgName         string   `json:"orgName,omitempty"`
+	NamespaceName   string   `json:"namespaceName,omitempty"`
 	StartTime       string   `json:"startTime" validate:"required"`
 	EndTime         string   `json:"endTime" validate:"required"`
 	EnvironmentName string   `json:"environmentName,omitempty"`
@@ -162,7 +162,7 @@ type ProjectLogsRequest struct {
 type GatewayLogsRequest struct {
 	StartTime         string            `json:"startTime" validate:"required"`
 	EndTime           string            `json:"endTime" validate:"required"`
-	OrganizationID    string            `json:"organizationId" validate:"required"`
+	NamespaceName     string            `json:"namespaceName" validate:"required"`
 	SearchPhrase      string            `json:"searchPhrase,omitempty"`
 	APIIDToVersionMap map[string]string `json:"apiIdToVersionMap,omitempty"`
 	GatewayVHosts     []string          `json:"gatewayVHosts,omitempty"`
@@ -171,8 +171,8 @@ type GatewayLogsRequest struct {
 	LogType           string            `json:"logType,omitempty"`
 }
 
-// OrganizationLogsRequest represents the request body for organization logs
-type OrganizationLogsRequest struct {
+// NamespaceLogsRequest represents the request body for namespace logs
+type NamespaceLogsRequest struct {
 	ComponentLogsRequest
 	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
@@ -184,7 +184,7 @@ type MetricsRequest struct {
 	EndTime         string `json:"endTime,omitempty"`
 	EnvironmentName string `json:"environmentName,omitempty"`
 	EnvironmentID   string `json:"environmentId" validate:"required"`
-	OrgName         string `json:"orgName,omitempty"`
+	NamespaceName   string `json:"namespaceName,omitempty"`
 	StartTime       string `json:"startTime,omitempty"`
 	ProjectName     string `json:"projectName,omitempty"`
 	ProjectID       string `json:"projectId" validate:"required"`
@@ -254,7 +254,7 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" || req.ComponentName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
 				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
 			return
@@ -269,7 +269,7 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponentWorkflowRun,
 		buildID,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 			Component: req.ComponentName,
 		},
@@ -351,7 +351,7 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" || req.ComponentName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
 				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
 			return
@@ -366,7 +366,7 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 			Component: req.ComponentName,
 		},
@@ -450,9 +450,9 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
-				ErrorCodeMissingParameter, "Organization and Project names required for authorization")
+				ErrorCodeMissingParameter, "Namespace and Project names required for authorization")
 			return
 		}
 	}
@@ -465,7 +465,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 		},
 	); err != nil {
@@ -552,7 +552,7 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 			SortOrder:    req.SortOrder,
 			LogType:      opensearch.ExtractLogType(req.LogType),
 		},
-		OrganizationID:    req.OrganizationID,
+		NamespaceName:     req.NamespaceName,
 		APIIDToVersionMap: req.APIIDToVersionMap,
 		GatewayVHosts:     req.GatewayVHosts,
 	}
@@ -569,15 +569,15 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetOrganizationLogs handles POST /api/logs/org/{orgId}
-func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
-	orgID := httputil.GetPathParam(r, "orgId")
-	if orgID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgOrganizationIDRequired)
+// GetNamespaceLogs handles POST /api/logs/namespace/{namespaceName}
+func (h *Handler) GetNamespaceLogs(w http.ResponseWriter, r *http.Request) {
+	namespaceName := httputil.GetPathParam(r, "namespaceName")
+	if namespaceName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgNamespaceNameRequired)
 		return
 	}
 
-	var req OrganizationLogsRequest
+	var req NamespaceLogsRequest
 	if err := httputil.BindJSON(r, &req); err != nil {
 		h.logger.Error("Failed to bind request", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
@@ -587,9 +587,9 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" {
+		if req.NamespaceName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
-				ErrorCodeMissingParameter, "Organization name required for authorization")
+				ErrorCodeMissingParameter, "Namespace name required for authorization")
 			return
 		}
 	}
@@ -599,10 +599,10 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 		h.logger,
 		h.authzPDP,
 		observerAuthz.ActionViewLogs,
-		observerAuthz.ResourceTypeOrg,
-		req.OrgName,
+		observerAuthz.ResourceTypeNamespace,
+		req.NamespaceName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -636,25 +636,25 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Build query parameters
 	params := opensearch.QueryParams{
-		StartTime:      req.StartTime,
-		EndTime:        req.EndTime,
-		SearchPhrase:   req.SearchPhrase,
-		LogLevels:      req.LogLevels,
-		Limit:          req.Limit,
-		SortOrder:      req.SortOrder,
-		EnvironmentID:  req.EnvironmentID,
-		Namespace:      req.Namespace,
-		Versions:       req.Versions,
-		VersionIDs:     req.VersionIDs,
-		LogType:        opensearch.ExtractLogType(req.LogType),
-		OrganizationID: orgID, // Add the organization ID from URL parameter
+		StartTime:     req.StartTime,
+		EndTime:       req.EndTime,
+		SearchPhrase:  req.SearchPhrase,
+		LogLevels:     req.LogLevels,
+		Limit:         req.Limit,
+		SortOrder:     req.SortOrder,
+		EnvironmentID: req.EnvironmentID,
+		Namespace:     req.Namespace,
+		Versions:      req.Versions,
+		VersionIDs:    req.VersionIDs,
+		LogType:       opensearch.ExtractLogType(req.LogType),
+		NamespaceName: namespaceName, // Add the namespace name from URL parameter
 	}
 
 	// Execute query
 	ctx := r.Context()
-	result, err := h.service.GetOrganizationLogs(ctx, params, req.PodLabels)
+	result, err := h.service.GetNamespaceLogs(ctx, params, req.PodLabels)
 	if err != nil {
-		h.logger.Error("Failed to get organization logs", "error", err)
+		h.logger.Error("Failed to get namespace logs", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}
@@ -674,9 +674,9 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
-				ErrorCodeMissingParameter, "Organization and Project names required for authorization")
+				ErrorCodeMissingParameter, "Namespace and Project names required for authorization")
 			return
 		}
 	}
@@ -689,7 +689,7 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 		},
 	); err != nil {
@@ -797,7 +797,7 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" || req.ComponentName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
 				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
 			return
@@ -812,7 +812,7 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 			Component: req.ComponentName,
 		},
@@ -889,7 +889,7 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 	// AUTHORIZATION CHECK
 	if h.authzPDP != nil {
 		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" || req.ProjectName == "" || req.ComponentName == "" {
+		if req.NamespaceName == "" || req.ProjectName == "" || req.ComponentName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
 				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
 			return
@@ -904,7 +904,7 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
+			Namespace: req.NamespaceName,
 			Project:   req.ProjectName,
 			Component: req.ComponentName,
 		},

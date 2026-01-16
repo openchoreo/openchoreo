@@ -15,7 +15,7 @@ import (
 type ToolsetType string
 
 const (
-	ToolsetOrganization   ToolsetType = "organization"
+	ToolsetNamespace      ToolsetType = "namespace"
 	ToolsetProject        ToolsetType = "project"
 	ToolsetComponent      ToolsetType = "component"
 	ToolsetBuild          ToolsetType = "build"
@@ -26,7 +26,7 @@ const (
 )
 
 type Toolsets struct {
-	OrganizationToolset   OrganizationToolsetHandler
+	NamespaceToolset      NamespaceToolsetHandler
 	ProjectToolset        ProjectToolsetHandler
 	ComponentToolset      ComponentToolsetHandler
 	BuildToolset          BuildToolsetHandler
@@ -36,126 +36,127 @@ type Toolsets struct {
 	ResourceToolset       ResourceToolsetHandler
 }
 
-// OrganizationToolsetHandler handles organization operations
-type OrganizationToolsetHandler interface {
-	GetOrganization(ctx context.Context, name string) (any, error)
-	ListOrganizations(ctx context.Context) (any, error)
-	ListSecretReferences(ctx context.Context, orgName string) (any, error)
+// NamespaceToolsetHandler handles namespace operations
+type NamespaceToolsetHandler interface {
+	// TODO: chathurangas: Remove commented out code below
+	// GetNamespace(ctx context.Context, name string) (any, error)
+	// ListNamespaces(ctx context.Context) (any, error)
+	ListSecretReferences(ctx context.Context, namespaceName string) (any, error)
 }
 
-// ProjectToolsetHandler handles organization and project operations
+// ProjectToolsetHandler handles project operations
 type ProjectToolsetHandler interface {
 	// Project operations
-	ListProjects(ctx context.Context, orgName string) (any, error)
-	GetProject(ctx context.Context, orgName, projectName string) (any, error)
-	CreateProject(ctx context.Context, orgName string, req *models.CreateProjectRequest) (any, error)
+	ListProjects(ctx context.Context, namespaceName string) (any, error)
+	GetProject(ctx context.Context, namespaceName, projectName string) (any, error)
+	CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (any, error)
 }
 
 // ComponentToolsetHandler handles component operations
 type ComponentToolsetHandler interface {
-	CreateComponent(ctx context.Context, orgName, projectName string, req *models.CreateComponentRequest) (any, error)
-	ListComponents(ctx context.Context, orgName, projectName string) (any, error)
+	CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (any, error)
+	ListComponents(ctx context.Context, namespaceName, projectName string) (any, error)
 	GetComponent(
-		ctx context.Context, orgName, projectName, componentName string, additionalResources []string,
+		ctx context.Context, namespaceName, projectName, componentName string, additionalResources []string,
 	) (any, error)
 	UpdateComponentBinding(
-		ctx context.Context, orgName, projectName, componentName, bindingName string,
+		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
 		req *models.UpdateBindingRequest,
 	) (any, error)
-	GetComponentWorkloads(ctx context.Context, orgName, projectName, componentName string) (any, error)
+	GetComponentWorkloads(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
 	// Component release operations
-	ListComponentReleases(ctx context.Context, orgName, projectName, componentName string) (any, error)
-	CreateComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (any, error)
-	GetComponentRelease(ctx context.Context, orgName, projectName, componentName, releaseName string) (any, error)
+	ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	CreateComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
+	GetComponentRelease(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
 	// Release binding operations
 	ListReleaseBindings(
-		ctx context.Context, orgName, projectName, componentName string, environments []string,
+		ctx context.Context, namespaceName, projectName, componentName string, environments []string,
 	) (any, error)
 	PatchReleaseBinding(
-		ctx context.Context, orgName, projectName, componentName, bindingName string,
+		ctx context.Context, namespaceName, projectName, componentName, bindingName string,
 		req *models.PatchReleaseBindingRequest,
 	) (any, error)
 	// Deployment operations
 	DeployRelease(
-		ctx context.Context, orgName, projectName, componentName string, req *models.DeployReleaseRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *models.DeployReleaseRequest,
 	) (any, error)
 	PromoteComponent(
-		ctx context.Context, orgName, projectName, componentName string, req *models.PromoteComponentRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
 	) (any, error)
 	// Workload operations
-	CreateWorkload(ctx context.Context, orgName, projectName, componentName string, workloadSpec interface{}) (any, error)
+	CreateWorkload(ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{}) (any, error)
 	// Schema operations
-	GetComponentSchema(ctx context.Context, orgName, projectName, componentName string) (any, error)
-	GetComponentReleaseSchema(ctx context.Context, orgName, projectName, componentName, releaseName string) (any, error)
+	GetComponentSchema(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	GetComponentReleaseSchema(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
 	// Trait operations
-	ListComponentTraits(ctx context.Context, orgName, projectName, componentName string) (any, error)
+	ListComponentTraits(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
 	UpdateComponentTraits(
-		ctx context.Context, orgName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
 	) (any, error)
 	// Release operations
-	GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error)
+	GetEnvironmentRelease(ctx context.Context, namespaceName, projectName, componentName, environmentName string) (any, error)
 	// Component patch operations
 	PatchComponent(
-		ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest,
+		ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,
 	) (any, error)
 	// Component workflow operations
-	ListComponentWorkflows(ctx context.Context, orgName string) (any, error)
-	GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error)
-	TriggerComponentWorkflow(ctx context.Context, orgName, projectName, componentName, commit string) (any, error)
-	ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) (any, error)
+	ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error)
+	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
+	TriggerComponentWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (any, error)
+	ListComponentWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
 	UpdateComponentWorkflowSchema(
-		ctx context.Context, orgName, projectName, componentName string,
+		ctx context.Context, namespaceName, projectName, componentName string,
 		req *models.UpdateComponentWorkflowRequest,
 	) (any, error)
 }
 
 // BuildToolsetHandler handles build operations
 type BuildToolsetHandler interface {
-	ListBuildTemplates(ctx context.Context, orgName string) (any, error)
-	TriggerBuild(ctx context.Context, orgName, projectName, componentName, commit string) (any, error)
-	ListBuilds(ctx context.Context, orgName, projectName, componentName string) (any, error)
-	GetBuildObserverURL(ctx context.Context, orgName, projectName, componentName string) (any, error)
-	ListBuildPlanes(ctx context.Context, orgName string) (any, error)
+	ListBuildTemplates(ctx context.Context, namespaceName string) (any, error)
+	TriggerBuild(ctx context.Context, namespaceName, projectName, componentName, commit string) (any, error)
+	ListBuilds(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	GetBuildObserverURL(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
+	ListBuildPlanes(ctx context.Context, namespaceName string) (any, error)
 }
 
 // DeploymentToolsetHandler handles deployment operations
 type DeploymentToolsetHandler interface {
-	GetProjectDeploymentPipeline(ctx context.Context, orgName, projectName string) (any, error)
+	GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (any, error)
 	GetComponentObserverURL(
-		ctx context.Context, orgName, projectName, componentName, environmentName string,
+		ctx context.Context, namespaceName, projectName, componentName, environmentName string,
 	) (any, error)
 }
 
 // InfrastructureToolsetHandler handles infrastructure operations
 type InfrastructureToolsetHandler interface {
 	// Environment operations
-	ListEnvironments(ctx context.Context, orgName string) (any, error)
-	GetEnvironment(ctx context.Context, orgName, envName string) (any, error)
-	CreateEnvironment(ctx context.Context, orgName string, req *models.CreateEnvironmentRequest) (any, error)
+	ListEnvironments(ctx context.Context, namespaceName string) (any, error)
+	GetEnvironment(ctx context.Context, namespaceName, envName string) (any, error)
+	CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (any, error)
 
 	// DataPlane operations
-	ListDataPlanes(ctx context.Context, orgName string) (any, error)
-	GetDataPlane(ctx context.Context, orgName, dpName string) (any, error)
-	CreateDataPlane(ctx context.Context, orgName string, req *models.CreateDataPlaneRequest) (any, error)
+	ListDataPlanes(ctx context.Context, namespaceName string) (any, error)
+	GetDataPlane(ctx context.Context, namespaceName, dpName string) (any, error)
+	CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (any, error)
 
 	// ComponentType operations
-	ListComponentTypes(ctx context.Context, orgName string) (any, error)
-	GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (any, error)
+	ListComponentTypes(ctx context.Context, namespaceName string) (any, error)
+	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
 
 	// Workflow operations
-	ListWorkflows(ctx context.Context, orgName string) (any, error)
-	GetWorkflowSchema(ctx context.Context, orgName, workflowName string) (any, error)
+	ListWorkflows(ctx context.Context, namespaceName string) (any, error)
+	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 
 	// Trait operations
-	ListTraits(ctx context.Context, orgName string) (any, error)
-	GetTraitSchema(ctx context.Context, orgName, traitName string) (any, error)
+	ListTraits(ctx context.Context, namespaceName string) (any, error)
+	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
 
 	// ObservabilityPlane operations
-	ListObservabilityPlanes(ctx context.Context, orgName string) (any, error)
+	ListObservabilityPlanes(ctx context.Context, namespaceName string) (any, error)
 
 	// ComponentWorkflow operations (org-level)
-	ListComponentWorkflows(ctx context.Context, orgName string) (any, error)
-	GetComponentWorkflowSchema(ctx context.Context, orgName, cwName string) (any, error)
+	ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error)
+	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
 }
 
 // SchemaToolsetHandler handles schema and resource explanation operations

@@ -129,7 +129,6 @@ metadata:
     openchoreo.dev/display-name: DataPlane "$DATAPLANE_KIND_NAME"
   labels:
     openchoreo.dev/name: $DATAPLANE_KIND_NAME
-    openchoreo.dev/organization: default
     openchoreo.dev/build-plane: "true"
   name: $DATAPLANE_KIND_NAME
   namespace: default
@@ -137,7 +136,7 @@ spec:
   secretStoreRef:
     name: default
   gateway:
-    organizationVirtualHost: openchoreoapis.internal
+    namespaceVirtualHost: openchoreoapis.internal
     publicVirtualHost: openchoreoapis.localhost
   kubernetesCluster:
     server: $SERVER_URL

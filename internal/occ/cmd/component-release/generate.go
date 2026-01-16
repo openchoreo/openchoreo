@@ -93,10 +93,10 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 	baseDir := repoPath
 	customOutputPath := params.OutputPath
 
-	// 6. Get namespace from context (same as organization)
-	namespace := ctx.Organization
+	// 6. Get namespace from context (same as namespace)
+	namespace := ctx.Namespace
 	if namespace == "" {
-		return fmt.Errorf("organization is required in context")
+		return fmt.Errorf("namespace is required in context")
 	}
 
 	// 7. Generate releases based on scope

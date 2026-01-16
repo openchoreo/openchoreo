@@ -38,13 +38,13 @@ func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger, authz
 	}
 }
 
-// ListComponentTypes lists all ComponentTypes in the given organization
-func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName string) ([]*models.ComponentTypeResponse, error) {
-	s.logger.Debug("Listing ComponentTypes", "org", orgName)
+// ListComponentTypes lists all ComponentTypes in the given namespace
+func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, namespaceName string) ([]*models.ComponentTypeResponse, error) {
+	s.logger.Debug("Listing ComponentTypes", "org", namespaceName)
 
 	var ctList openchoreov1alpha1.ComponentTypeList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &ctList, listOpts...); err != nil {
@@ -55,9 +55,9 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 	cts := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
 	for i := range ctList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctList.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized component type", "org", orgName, "componentType", ctList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized component type", "org", namespaceName, "componentType", ctList.Items[i].Name)
 				continue
 			}
 			return nil, err
@@ -65,28 +65,28 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 		cts = append(cts, s.toComponentTypeResponse(&ctList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentTypes", "org", orgName, "count", len(cts))
+	s.logger.Debug("Listed ComponentTypes", "org", namespaceName, "count", len(cts))
 	return cts, nil
 }
 
 // GetComponentType retrieves a specific ComponentType
-func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ctName string) (*models.ComponentTypeResponse, error) {
-	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctName)
+func (s *ComponentTypeService) GetComponentType(ctx context.Context, namespaceName, ctName string) (*models.ComponentTypeResponse, error) {
+	s.logger.Debug("Getting ComponentType", "org", namespaceName, "name", ctName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
 	ct := &openchoreov1alpha1.ComponentType{}
 	key := client.ObjectKey{
 		Name:      ctName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, ct); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
+			s.logger.Warn("ComponentType not found", "org", namespaceName, "name", ctName)
 			return nil, ErrComponentTypeNotFound
 		}
 		s.logger.Error("Failed to get ComponentType", "error", err)
@@ -97,11 +97,11 @@ func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ct
 }
 
 // GetComponentTypeSchema retrieves the JSON schema for a ComponentType
-func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgName, ctName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctName)
+func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting ComponentType schema", "org", namespaceName, "name", ctName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
@@ -109,12 +109,12 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 	ct := &openchoreov1alpha1.ComponentType{}
 	key := client.ObjectKey{
 		Name:      ctName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, ct); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("ComponentType not found", "org", orgName, "name", ctName)
+			s.logger.Warn("ComponentType not found", "org", namespaceName, "name", ctName)
 			return nil, ErrComponentTypeNotFound
 		}
 		s.logger.Error("Failed to get ComponentType", "error", err)
@@ -152,7 +152,7 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved ComponentType schema successfully", "org", orgName, "name", ctName)
+	s.logger.Debug("Retrieved ComponentType schema successfully", "org", namespaceName, "name", ctName)
 	return jsonSchema, nil
 }
 

@@ -10,23 +10,23 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListSecretReferences handles GET /api/v1/orgs/{orgName}/secret-references
+// ListSecretReferences handles GET /api/v1/orgs/{namespaceName}/secret-references
 func (h *Handler) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 
-	if orgName == "" {
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
-	secretReferences, err := h.services.SecretReferenceService.ListSecretReferences(ctx, orgName)
+	secretReferences, err := h.services.SecretReferenceService.ListSecretReferences(ctx, namespaceName)
 	if err != nil {
-		if errors.Is(err, services.ErrOrganizationNotFound) {
-			writeErrorResponse(w, http.StatusNotFound, "Organization not found", services.CodeOrganizationNotFound)
+		if errors.Is(err, services.ErrNamespaceNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Namespace not found", services.CodeNamespaceNotFound)
 			return
 		}
-		h.logger.Error("Failed to list secret references", "error", err, "org", orgName)
+		h.logger.Error("Failed to list secret references", "error", err, "org", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list secret references", services.CodeInternalError)
 		return
 	}

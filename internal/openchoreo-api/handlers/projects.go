@@ -18,11 +18,11 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Info("CreateProject handler called")
 
-	// Extract organization name from URL path
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	// Extract namespace name from URL path
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
@@ -36,15 +36,15 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Call service to create project
-	project, err := h.services.ProjectService.CreateProject(ctx, orgName, &req)
+	project, err := h.services.ProjectService.CreateProject(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create project", "org", orgName, "project", req.Name)
+			logger.Warn("Unauthorized to create project", "org", namespaceName, "project", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectAlreadyExists) {
-			logger.Warn("Project already exists", "org", orgName, "project", req.Name)
+			logger.Warn("Project already exists", "org", namespaceName, "project", req.Name)
 			writeErrorResponse(w, http.StatusConflict, "Project already exists", services.CodeProjectExists)
 			return
 		}
@@ -58,7 +58,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	addAuditMetadata(ctx, "organization", orgName)
 
 	// Success response
-	logger.Info("Project created successfully", "org", orgName, "project", project.Name)
+	logger.Info("Project created successfully", "org", namespaceName, "project", project.Name)
 	writeSuccessResponse(w, http.StatusCreated, project)
 }
 
@@ -67,16 +67,16 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListProjects handler called")
 
-	// Extract organization name from URL path
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	// Extract namespace name from URL path
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
 	// Call service to list projects
-	projects, err := h.services.ProjectService.ListProjects(ctx, orgName)
+	projects, err := h.services.ProjectService.ListProjects(ctx, namespaceName)
 	if err != nil {
 		logger.Error("Failed to list projects", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
@@ -88,7 +88,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	copy(projectValues, projects)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed projects successfully", "org", orgName, "count", len(projects))
+	logger.Debug("Listed projects successfully", "org", namespaceName, "count", len(projects))
 	writeListResponse(w, projectValues, len(projects), 1, len(projects))
 }
 
@@ -98,24 +98,24 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("GetProject handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
-	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" {
+		logger.Warn("Namespace name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and project name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to get project
-	project, err := h.services.ProjectService.GetProject(ctx, orgName, projectName)
+	project, err := h.services.ProjectService.GetProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view project", "org", orgName, "project", projectName)
+			logger.Warn("Unauthorized to view project", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -125,7 +125,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved project successfully", "org", orgName, "project", projectName)
+	logger.Debug("Retrieved project successfully", "org", namespaceName, "project", projectName)
 	writeSuccessResponse(w, http.StatusOK, project)
 }
 

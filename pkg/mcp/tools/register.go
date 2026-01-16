@@ -7,11 +7,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// organizationToolRegistrations returns the list of organization toolset registration functions
-func (t *Toolsets) organizationToolRegistrations() []RegisterFunc {
+// namespaceToolRegistrations returns the list of namespace toolset registration functions
+func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
-		t.RegisterListOrganizations,
-		t.RegisterGetOrganization,
 		t.RegisterListSecretReferences,
 	}
 }
@@ -111,9 +109,9 @@ func (t *Toolsets) resourceToolRegistrations() []RegisterFunc {
 }
 
 func (t *Toolsets) Register(s *mcp.Server) {
-	// Register organization tools if OrganizationToolset is enabled
-	if t.OrganizationToolset != nil {
-		for _, registerFunc := range t.organizationToolRegistrations() {
+	// Register namespace tools if NamespaceToolset is enabled
+	if t.NamespaceToolset != nil {
+		for _, registerFunc := range t.namespaceToolRegistrations() {
 			registerFunc(s)
 		}
 	}

@@ -305,5 +305,5 @@ spec:
     secretRef: registry-credentials
   gateway:
     publicVirtualHost: api.example.com
-    organizationVirtualHost: internal.example.com
+    namespaceVirtualHost: internal.example.com
   observabilityPlaneRef: dev-observability

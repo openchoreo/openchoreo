@@ -77,7 +77,6 @@ The following labels format will be used to represent the relationships between 
 `openchoreo.dev/<kind-lowecase>=<resource-name>`
 
 Examples:
-- `openchoreo.dev/organization=my-org`: The organization name that the resource belongs to.
 - `openchoreo.dev/project=my-project`: The project name that the resource belongs to.
 
 In addition to the above labels, the following label will be used to represent the name of the resource:
@@ -109,7 +108,7 @@ metadata:
   # +required
   # +immutable
   name: us-dp-1
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -122,12 +121,6 @@ metadata:
     #
     # +optional
     openchoreo.dev/description: Data plane for the US region
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   kubernetesCluster:
     # Name of the kubernetes cluster
@@ -174,7 +167,7 @@ metadata:
   # +required
   # +immutable
   name: us-production
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -189,12 +182,6 @@ metadata:
     # +optional
     # +mutable
     openchoreo.dev/description: Production environment for the US region
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Reference to the data plane that the environment is associated with.
   # For the Shared Data Plane, the reference will use a special value with
@@ -240,7 +227,7 @@ metadata:
   # +required
   # +immutable
   name: default-deployment-pipeline
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -253,12 +240,6 @@ metadata:
     #
     # +optional
     openchoreo.dev/description: Allows promoting from dev to production
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # List of promotion paths in the deployment pipeline.
   # The order of the promotion paths in the list is the order in which the promotion will happen.
@@ -308,7 +289,7 @@ metadata:
   # +required
   # +immutable
   name: test-project
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -321,12 +302,6 @@ metadata:
     #
     # +optional
     openchoreo.dev/description: Test Project Description
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Reference to the deployment pipeline that defines the order of promotion of the components
   # within this project across environments.
@@ -357,7 +332,7 @@ metadata:
   # +required
   # +immutable
   name: test-component
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -376,11 +351,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/project: test-project
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Type of the component that indicates how the component deployed.
   #
@@ -465,7 +435,7 @@ metadata:
   # +required
   # +immutable
   name: test-deployment-track
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -489,11 +459,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/project: test-project
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # API version of the managed APIs that are exposed via this deployment track.
   #
@@ -543,7 +508,7 @@ metadata:
   # +required
   # +immutable
   name: test-build
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -572,11 +537,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/project: test-project
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Branch of the git repository to build the component.
   # The branch field takes priority over gitRevision when both are specified.
@@ -682,7 +642,7 @@ metadata:
   # +required
   # +immutable
   name: test-deployable-artifact
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -711,11 +671,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/project: test-project
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Reference to the artifact that is being deployed.
   #
@@ -1100,7 +1055,7 @@ metadata:
   # +required
   # +immutable
   name: test-deployment
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -1134,11 +1089,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/environment: test-environment
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Sets the number of deployment revisions to keep for rollback.
   #
@@ -1204,7 +1154,7 @@ metadata:
   # +required
   # +immutable
   name: test-deployment-456789
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -1238,11 +1188,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/environment: test-environment
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec: {} # Refer to the spec of the Deployment resource.
 ```
 
@@ -1269,7 +1214,7 @@ metadata:
   # +required
   # +immutable
   name: test-endpoint
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -1308,11 +1253,6 @@ metadata:
     # +required
     # +immutable
     openchoreo.dev/environment: test-environment
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
 spec:
   # Indicates the protocol of the endpoint.
   #
@@ -1472,7 +1412,7 @@ metadata:
   # +required
   # +immutable
   name: test-configuration-group
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -1487,12 +1427,7 @@ metadata:
     # +optional
     # +mutable
     openchoreo.dev/description: Test Configuration Group Description
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
+
     # Name of the resource.
     #
     # +required
@@ -1581,7 +1516,7 @@ metadata:
   # +required
   # +immutable
   name: test-secret
-  # Organization name that the resource belongs to.
+  # Namespace name that the resource belongs to.
   #
   # +immutable
   namespace: test-org
@@ -1594,12 +1529,7 @@ metadata:
     #
     # +optional
     openchoreo.dev/description: Test Secret Description
-  labels:
-    # Organization name that the resource belongs to.
-    #
-    # +required
-    # +immutable
-    openchoreo.dev/organization: test-org
+
 spec:
   # Indicates the type of the secret. Depending on the type, the required fields will change.
   #

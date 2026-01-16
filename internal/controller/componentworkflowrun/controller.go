@@ -154,7 +154,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 		ComponentWorkflowRun: componentWorkflowRun,
 		ComponentWorkflow:    componentWorkflow,
 		Context: componentworkflowpipeline.ComponentWorkflowContext{
-			OrgName:         componentWorkflowRun.Namespace,
+			NamespaceName:         componentWorkflowRun.Namespace,
 			ProjectName:     componentWorkflowRun.Spec.Owner.ProjectName,
 			ComponentName:   componentWorkflowRun.Spec.Owner.ComponentName,
 			WorkflowRunName: componentWorkflowRun.Name,

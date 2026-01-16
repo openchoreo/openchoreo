@@ -19,7 +19,7 @@ type ProjectResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList]
 }
 
-// NewProjectResource constructs a ProjectResource with CRDConfig and optionally sets organization.
+// NewProjectResource constructs a ProjectResource with CRDConfig and optionally sets namespace.
 func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -31,7 +31,7 @@ func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, 
 		resources.WithConfig[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](org))
 	}
@@ -41,7 +41,7 @@ func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, 
 	}, nil
 }
 
-// WithNamespace sets the namespace for the project resource (usually the organization name)
+// WithNamespace sets the namespace for the project resource (usually the namespace name)
 func (p *ProjectResource) WithNamespace(namespace string) {
 	p.BaseResource.WithNamespace(namespace)
 }
@@ -73,7 +73,7 @@ func (p *ProjectResource) PrintTableItems(projects []resources.ResourceWrapper[*
 		message := "No projects found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		fmt.Println(message)
@@ -88,7 +88,7 @@ func (p *ProjectResource) PrintTableItems(projects []resources.ResourceWrapper[*
 			wrapper.LogicalName,
 			p.GetStatus(proj),
 			p.GetAge(proj),
-			proj.GetLabels()[constants.LabelOrganization],
+			proj.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersProject, rows)
@@ -126,15 +126,15 @@ func (p *ProjectResource) Print(format resources.OutputFormat, filter *resources
 func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 	project := &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      resources.GenerateResourceName(params.Organization, params.Name),
-			Namespace: params.Organization,
+			Name:      resources.GenerateResourceName(params.Namespace, params.Name),
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationDisplayName: params.DisplayName,
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
 				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelNamespace: params.Namespace,
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
@@ -150,6 +150,6 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 		return fmt.Errorf(ErrCreateProject, err)
 	}
 
-	fmt.Printf(FmtProjectSuccess, params.Name, params.Organization)
+	fmt.Printf(FmtProjectSuccess, params.Name, params.Namespace)
 	return nil
 }

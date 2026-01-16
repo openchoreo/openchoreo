@@ -23,7 +23,7 @@ func getBasicFlags() []flags.Flag {
 
 func getOrgScopedFlags() []flags.Flag {
 	return append(getBasicFlags(),
-		flags.Organization,
+		flags.Namespace,
 	)
 }
 
@@ -54,7 +54,7 @@ func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	}
 
 	createCmd.AddCommand(
-		// newCreateOrganizationCmd(impl),
+		// newCreateNamespaceCmd(impl),
 		// newCreateProjectCmd(impl),
 		// newCreateComponentCmd(impl),
 		// newCreateBuildCmd(impl),
@@ -71,12 +71,12 @@ func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 }
 
 //nolint:unused // Temporarily disabled
-func newCreateOrganizationCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newCreateNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return (&builder.CommandBuilder{
-		Command: constants.CreateOrganization,
+		Command: constants.CreateNamespace,
 		Flags:   getMetadataFlags(),
 		RunE: func(fg *builder.FlagGetter) error {
-			return impl.CreateOrganization(api.CreateOrganizationParams{
+			return impl.CreateNamespace(api.CreateNamespaceParams{
 				Name:        fg.GetString(flags.Name),
 				DisplayName: fg.GetString(flags.DisplayName),
 				Description: fg.GetString(flags.Description),
@@ -97,7 +97,7 @@ func newCreateProjectCmd(impl api.CommandImplementationInterface) *cobra.Command
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.CreateProject(api.CreateProjectParams{
 				Name:               fg.GetString(flags.Name),
-				Organization:       fg.GetString(flags.Organization),
+				Namespace:          fg.GetString(flags.Namespace),
 				DisplayName:        fg.GetString(flags.DisplayName),
 				Description:        fg.GetString(flags.Description),
 				DeploymentPipeline: fg.GetString(flags.DeploymentPipeline),
@@ -119,13 +119,13 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 		Flags:   workloadFlags,
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.CreateWorkload(api.CreateWorkloadParams{
-				FilePath:         fg.GetString(flags.WorkloadDescriptor),
-				OrganizationName: fg.GetString(flags.Organization),
-				ProjectName:      fg.GetString(flags.Project),
-				ComponentName:    fg.GetString(flags.Component),
-				ImageURL:         fg.GetString(flags.Image),
-				OutputPath:       fg.GetString(flags.Output),
-				DryRun:           fg.GetBool(flags.DryRun),
+				FilePath:      fg.GetString(flags.WorkloadDescriptor),
+				NamespaceName: fg.GetString(flags.Namespace),
+				ProjectName:   fg.GetString(flags.Project),
+				ComponentName: fg.GetString(flags.Component),
+				ImageURL:      fg.GetString(flags.Image),
+				OutputPath:    fg.GetString(flags.Output),
+				DryRun:        fg.GetBool(flags.DryRun),
 			})
 		},
 	}).Build()
@@ -135,8 +135,8 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := append(getMetadataFlags(),
 		flags.PublicVirtualHost,
-		flags.OrgVirtualHost,
-		flags.Organization,
+		flags.NamespaceVirtualHost,
+		flags.Namespace,
 		flags.ClusterAgentClientCA,
 	)
 	return (&builder.CommandBuilder{
@@ -144,13 +144,13 @@ func newCreateDataPlaneCmd(impl api.CommandImplementationInterface) *cobra.Comma
 		Flags:   dpFlags,
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.CreateDataPlane(api.CreateDataPlaneParams{
-				Name:                    fg.GetString(flags.Name),
-				Organization:            fg.GetString(flags.Organization),
-				DisplayName:             fg.GetString(flags.DisplayName),
-				Description:             fg.GetString(flags.Description),
-				ClusterAgentClientCA:    fg.GetString(flags.ClusterAgentClientCA),
-				PublicVirtualHost:       fg.GetString(flags.PublicVirtualHost),
-				OrganizationVirtualHost: fg.GetString(flags.OrgVirtualHost),
+				Name:                 fg.GetString(flags.Name),
+				Namespace:            fg.GetString(flags.Namespace),
+				DisplayName:          fg.GetString(flags.DisplayName),
+				Description:          fg.GetString(flags.Description),
+				ClusterAgentClientCA: fg.GetString(flags.ClusterAgentClientCA),
+				PublicVirtualHost:    fg.GetString(flags.PublicVirtualHost),
+				NamespaceVirtualHost: fg.GetString(flags.NamespaceVirtualHost),
 			})
 		},
 	}).Build()
@@ -171,7 +171,7 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.CreateEnvironment(api.CreateEnvironmentParams{
 				Name:         fg.GetString(flags.Name),
-				Organization: fg.GetString(flags.Organization),
+				Namespace:    fg.GetString(flags.Namespace),
 				DisplayName:  fg.GetString(flags.DisplayName),
 				Description:  fg.GetString(flags.Description),
 				DataPlaneRef: fg.GetString(flags.DataPlaneRef),
@@ -185,7 +185,7 @@ func newCreateEnvironmentCmd(impl api.CommandImplementationInterface) *cobra.Com
 //nolint:unused // Temporarily disabled
 func newCreateDeploymentPipelineCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	dpFlags := []flags.Flag{
-		flags.Organization,
+		flags.Namespace,
 		flags.Name,
 		flags.EnvironmentOrder,
 	}
@@ -206,7 +206,7 @@ func newCreateDeploymentPipelineCmd(impl api.CommandImplementationInterface) *co
 
 			return impl.CreateDeploymentPipeline(api.CreateDeploymentPipelineParams{
 				Name:             fg.GetString(flags.Name),
-				Organization:     fg.GetString(flags.Organization),
+				Namespace:        fg.GetString(flags.Namespace),
 				EnvironmentOrder: environmentOrder,
 			})
 		},

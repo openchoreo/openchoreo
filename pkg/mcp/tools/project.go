@@ -14,15 +14,15 @@ import (
 func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_projects",
-		Description: "List all projects in an organization. Projects are logical groupings of related " +
+		Description: "List all projects in an namespace. Projects are logical groupings of related " +
 			"components that share deployment pipelines.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": stringProperty("Use get_organization to discover valid names"),
-		}, []string{"org_name"}),
+			"namespace_name": stringProperty("Use get_namespace to discover valid names"),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ProjectToolset.ListProjects(ctx, args.OrgName)
+		result, err := t.ProjectToolset.ListProjects(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -33,14 +33,14 @@ func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
 		Description: "Get detailed information about a specific project including deployment pipeline " +
 			"configuration and component summary.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":     defaultStringProperty(),
+			"namespace_name":     defaultStringProperty(),
 			"project_name": stringProperty("Use list_projects to discover valid names"),
-		}, []string{"org_name", "project_name"}),
+		}, []string{"namespace_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName     string `json:"org_name"`
+		NamespaceName     string `json:"namespace_name"`
 		ProjectName string `json:"project_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ProjectToolset.GetProject(ctx, args.OrgName, args.ProjectName)
+		result, err := t.ProjectToolset.GetProject(ctx, args.NamespaceName, args.ProjectName)
 		return handleToolResult(result, err)
 	})
 }
@@ -48,16 +48,16 @@ func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
 func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_project",
-		Description: "Create a new project in an organization. Project names must be DNS-compatible " +
+		Description: "Create a new project in an namespace. Project names must be DNS-compatible " +
 			"(lowercase, alphanumeric, hyphens only, max 63 chars).",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
 				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"description": stringProperty("Human-readable description"),
-		}, []string{"org_name", "name"}),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName     string `json:"org_name"`
+		NamespaceName     string `json:"namespace_name"`
 		Name        string `json:"name"`
 		Description string `json:"description"`
 	}) (*mcp.CallToolResult, any, error) {
@@ -65,7 +65,7 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 			Name:        args.Name,
 			Description: args.Description,
 		}
-		result, err := t.ProjectToolset.CreateProject(ctx, args.OrgName, projectReq)
+		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq)
 		return handleToolResult(result, err)
 	})
 }

@@ -38,14 +38,14 @@ var (
 	Create = Command{
 		Use:   "create",
 		Short: "Create OpenChoreo resources",
-		Long: fmt.Sprintf(`Create OpenChoreo resources like organizations, projects, and components.
+		Long: fmt.Sprintf(`Create OpenChoreo resources like namespaces, projects, and components.
 
 Examples:
-  # Create a project in an organization
-  %[1]s create project --organization acme-corp --name online-store
+  # Create a project in a namespace
+  %[1]s create project --namespace acme-corp --name online-store
 
   # Create a component in a project
-  %[1]s create component --organization acme-corp --project online-store --name product-catalog \
+  %[1]s create component --namespace acme-corp --project online-store --name product-catalog \
    --git-repository-url https://github.com/org/repo`, messages.DefaultCLIName),
 	}
 
@@ -53,20 +53,20 @@ Examples:
 		Use:     "get",
 		Short:   "List OpenChoreo resources",
 		Aliases: []string{"list"},
-		Long: fmt.Sprintf(`List OpenChoreo resources like organizations, projects, and components.
+		Long: fmt.Sprintf(`List OpenChoreo resources like namespaces, projects, and components.
 
 Examples:
-  # List all organizations
-  %[1]s get organization
+  # List all namespaces
+  %[1]s get namespace
 
-  # List projects in an organization
-  %[1]s get project --organization acme-corp
+  # List projects in a namespace
+  %[1]s get project --namespace acme-corp
 
   # List components in a project
-  %[1]s get component --organization acme-corp --project online-store
+  %[1]s get component --namespace acme-corp --project online-store
 
-  # Output organization details in YAML format
-  %[1]s get organization -o yaml`,
+  # Output namespace details in YAML format
+  %[1]s get namespace -o yaml`,
 			messages.DefaultCLIName),
 	}
 
@@ -76,8 +76,8 @@ Examples:
 		Long: fmt.Sprintf(`Apply a configuration file to create or update OpenChoreo resources.
 
 	Examples:
-	  # Apply an organization configuration
-	  %[1]s apply -f organization.yaml`,
+	  # Apply a namespace configuration
+	  %[1]s apply -f namespace.yaml`,
 			messages.DefaultCLIName),
 	}
 
@@ -85,11 +85,11 @@ Examples:
 		Use:     "project",
 		Aliases: []string{"proj", "projects"},
 		Short:   "Create a project",
-		Long: fmt.Sprintf(`Create a new project in an organization.
+		Long: fmt.Sprintf(`Create a new project in a namespace.
 
 Examples:
-  # Create a project in a specific organization
-  %[1]s create project --organization acme-corp --name online-store`,
+  # Create a project in a specific namespace
+  %[1]s create project --namespace acme-corp --name online-store`,
 			messages.DefaultCLIName),
 	}
 
@@ -97,29 +97,29 @@ Examples:
 		Use:     "component",
 		Aliases: []string{"comp", "components"},
 		Short:   "Create a new component in a project",
-		Long: fmt.Sprintf(`Create a new component in the specified project and organization.
+		Long: fmt.Sprintf(`Create a new component in the specified project and namespace.
 
 Examples:
   # Create a component with Git repository
-  %[1]s create component --name product-catalog --organization acme-corp --project online-store \
+  %[1]s create component --name product-catalog --namespace acme-corp --project online-store \
     --display-name "Product Catalog" --git-repository-url https://github.com/acme-corp/product-catalog --type Service
 
   # Create a component with build configuration
-  %[1]s create component --name product-catalog --organization acme-corp --project online-store \
+  %[1]s create component --name product-catalog --namespace acme-corp --project online-store \
     --type Service --git-repository-url https://github.com/acme-corp/product-catalog --branch main \
 	--path / --docker-context ./src --dockerfile-path ./src/Dockerfile`,
 			messages.DefaultCLIName),
 	}
 
-	CreateOrganization = Command{
-		Use:     "organization",
-		Aliases: []string{"org", "orgs", "organizations"},
-		Short:   "Create an organization",
-		Long: fmt.Sprintf(`Create a new organization in Choreo.
+	CreateNamespace = Command{
+		Use:     "namespace",
+		Aliases: []string{"namespaces", "ns"},
+		Short:   "Create a namespace",
+		Long: fmt.Sprintf(`Create a new namespace in Choreo.
 
 Examples:
-  # Create an organization with specific details
-  %[1]s create organization --name acme-corp --display-name "ACME" --description "ACME Corporation"`,
+  # Create a namespace with specific details
+  %[1]s create namespace --name acme-corp --display-name "ACME" --description "ACME Corporation"`,
 			messages.DefaultCLIName),
 	}
 
@@ -134,7 +134,7 @@ and describes the endpoints and configuration for your workload.
 
 Examples:
   # Create workload from descriptor
-  %[1]s create workload workload.yaml --organization acme-corp --project online-store \
+  %[1]s create workload workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest
 
   # Create workload and save to file
@@ -163,7 +163,7 @@ The command fetches the ComponentType and any specified Traits from the cluster,
 applies default values, and generates a YAML file with required fields as
 placeholders and optional fields as commented examples.
 
-The --organization and --project flags can be omitted if set in the current context.
+The --namespace and --project flags can be omitted if set in the current context.
 
 Examples:
   # Scaffold a basic component
@@ -179,24 +179,24 @@ Examples:
   %[1]s scaffold component --name my-app --type deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
 	}
 
-	ListOrganization = Command{
-		Use:     "organization",
-		Aliases: []string{"org", "orgs", "organizations"},
-		Short:   "List organizations",
-		Long: fmt.Sprintf(`List all organizations or get details of a specific organization.
+	ListNamespace = Command{
+		Use:     "namespace",
+		Aliases: []string{"namespaces", "ns"},
+		Short:   "List namespaces",
+		Long: fmt.Sprintf(`List all namespaces or get details of a specific namespace.
 
 Examples:
-  # List all organizations
-  %[1]s get organization
+  # List all namespaces
+  %[1]s get namespace
 
-  # List a specific organization
-  %[1]s get organization acme-corp
+  # List a specific namespace
+  %[1]s get namespace acme-corp
 
-  # Output organization details in YAML format
-  %[1]s get organization -o yaml
+  # Output namespace details in YAML format
+  %[1]s get namespace -o yaml
 
-  # Output specific organization in YAML format
-  %[1]s get organization acme-corp -o yaml`,
+  # Output specific namespace in YAML format
+  %[1]s get namespace acme-corp -o yaml`,
 			messages.DefaultCLIName),
 	}
 
@@ -204,23 +204,23 @@ Examples:
 		Use:     "project",
 		Aliases: []string{"proj", "projects"},
 		Short:   "List projects",
-		Long: fmt.Sprintf(`List all projects in an organization or get details of a specific project.
+		Long: fmt.Sprintf(`List all projects in a namespace or get details of a specific project.
 
 Examples:
-  # List all projects in the current organization
+  # List all projects in the current namespace
   %[1]s get project
 
-  # List all projects in a specific organization
-  %[1]s get project --organization acme-corp
+  # List all projects in a specific namespace
+  %[1]s get project --namespace acme-corp
 
   # List a specific project
-  %[1]s get project online-store --organization acme-corp
+  %[1]s get project online-store --namespace acme-corp
 
   # Output project details in YAML format
-  %[1]s get project -o yaml --organization acme-corp
+  %[1]s get project -o yaml --namespace acme-corp
 
   # Output specific project in YAML format
-  %[1]s get project online-store -o yaml --organization acme-corp`,
+  %[1]s get project online-store -o yaml --namespace acme-corp`,
 			messages.DefaultCLIName),
 	}
 
@@ -232,16 +232,16 @@ Examples:
 
 Examples:
   # List all components in the current project
-  %[1]s get component --organization acme-corp --project online-store
+  %[1]s get component --namespace acme-corp --project online-store
 
   # List a specific component
-  %[1]s get component product-catalog --organization acme-corp --project online-store
+  %[1]s get component product-catalog --namespace acme-corp --project online-store
 
   # Output component details in YAML format
-  %[1]s get component -o yaml --organization acme-corp --project online-store
+  %[1]s get component -o yaml --namespace acme-corp --project online-store
 
   # Output specific component in YAML format
-  %[1]s get component product-catalog -o yaml --organization acme-corp --project online-store`,
+  %[1]s get component product-catalog -o yaml --namespace acme-corp --project online-store`,
 			messages.DefaultCLIName),
 	}
 
@@ -256,19 +256,19 @@ This command allows you to:
 - Get logs from a specific build or deployment
 - Follow log output`,
 		Example: `  # Get logs from a specific build
-  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --namespace acme-corp --project online-store \
   --component product-catalog
 
   # Get logs from a specific deployment
-  occ logs --type deployment --deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ logs --type deployment --deployment product-catalog-dev-01 --namespace acme-corp --project online-store \
   --component product-catalog --environment development
 
   # Get last 100 lines of logs from a specific build
-  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --namespace acme-corp --project online-store \
   --component product-catalog --tail 100
 
   # Stream logs from a specific build
-  occ logs --type build --build product-catalog-build-01 --organization acme-corp --project online-store \
+  occ logs --type build --build product-catalog-build-01 --namespace acme-corp --project online-store \
    --component product-catalog --follow
   `,
 	}
@@ -285,15 +285,15 @@ This command creates a new build for a component. You can:
 - Specify build context and Dockerfile
 - Define custom build arguments`,
 		Example: `  # Create a build
-  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
     --component product-catalog --docker-context ./src --dockerfile-path ./src/Dockerfile --deployment-track main
 
   # Create a Buildpack build
-  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
     --component product-catalog --buildpack-name java --buildpack-version  --deployment-track main
 
   # Create a build with revision and branch
-  occ create build --name product-catalog-build-01 --organization acme-corp --project online-store \
+  occ create build --name product-catalog-build-01 --namespace acme-corp --project online-store \
     --component product-catalog --branch main --revision abc123 --auto-build true`,
 	}
 
@@ -301,13 +301,13 @@ This command creates a new build for a component. You can:
 		Use:     "build",
 		Aliases: []string{"builds"},
 		Short:   "List builds",
-		Long: `List all builds in the current project or organization.
+		Long: `List all builds in the current project or namespace.
 `,
 		Example: `  # List all builds
   occ get build
 
   # List builds for a specific component
-  occ get build  --organization acme-corp --project online-store --component product-catalog
+  occ get build  --namespace acme-corp --project online-store --component product-catalog
 
   # List builds in yaml format
   occ get build -o yaml
@@ -317,48 +317,48 @@ This command creates a new build for a component. You can:
 		Use:     "deployableartifact",
 		Aliases: []string{"deployableartifacts"},
 		Short:   "List deployable artifacts",
-		Long: `List all deployable artifacts in the current project or organization.
+		Long: `List all deployable artifacts in the current project or namespace.
 `,
 		Example: `  # List all deployable artifacts
 		  occ get deployableartifact
 
 		  # List deployable artifacts for a specific component
-		  occ get deployableartifact  --organization acme-corp --project online-store --component product-catalog
+		  occ get deployableartifact  --namespace acme-corp --project online-store --component product-catalog
 
 		  # List deployable artifacts in yaml format
-		  occ get deployableartifact --organization acme-corp --project online-store --component product-catalog -o yaml
+		  occ get deployableartifact --namespace acme-corp --project online-store --component product-catalog -o yaml
 `,
 	}
 	ListDeployment = Command{
 		Use:     "deployment",
 		Aliases: []string{"deployments", "deploy"},
 		Short:   "List deployments",
-		Long: `List all deployments in the current project or organization.
+		Long: `List all deployments in the current project or namespace.
 
 This command allows you to:
 - List all deployments
-- Filter by organization, project, and component
+- Filter by namespace, project, and component
 - Filter by environment and deployment track
 - View deployments in different output formats`,
 		Example: `  # List all deployments
   occ get deployment
 
   # List deployments for a specific component
-  occ get deployment --organization acme-corp --project online-store --component product-catalog
+  occ get deployment --namespace acme-corp --project online-store --component product-catalog
 
   # List deployments for a specific environment
-  occ get deployment --organization acme-corp --project online-store --component product-catalog \
+  occ get deployment --namespace acme-corp --project online-store --component product-catalog \
   --environment dev
 
   # List deployments for a specific deployment track
-  occ get deployment --organization acme-corp --project online-store --component product-catalog \
+  occ get deployment --namespace acme-corp --project online-store --component product-catalog \
    --deployment-track main
 
   # List deployments in yaml format
-  occ get deployment -o yaml --organization acme-corp --project product-catalog
+  occ get deployment -o yaml --namespace acme-corp --project product-catalog
 
   # List details of a specific deployment
-  occ get deployment product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ get deployment product-catalog-dev-01 --namespace acme-corp --project online-store \
    --component product-catalog`,
 	}
 
@@ -366,9 +366,9 @@ This command allows you to:
 		Use:     "deployment",
 		Aliases: []string{"deployments", "deploy"},
 		Short:   "Create a deployment",
-		Long:    `Create a deployment in the specified organization, project and component.`,
+		Long:    `Create a deployment in the specified namespace, project and component.`,
 		Example: `  # Create a deployment with specific parameters
-  occ create deployment --name product-catalog-dev-01 --organization acme-corp --project online-store \
+  occ create deployment --name product-catalog-dev-01 --namespace acme-corp --project online-store \
     --component product-catalog --environment development --deployableartifact product-catalog-artifact`,
 	}
 
@@ -376,9 +376,9 @@ This command allows you to:
 		Use:     "deploymenttrack",
 		Aliases: []string{"deptrack", "deptracks"},
 		Short:   "Create a deployment track",
-		Long:    `Create a deployment track in the specified organization, project and component.`,
+		Long:    `Create a deployment track in the specified namespace, project and component.`,
 		Example: `  # Create a deployment track with specific parameters
-  occ create deploymenttrack --name main-track --organization acme-corp --project online-store \
+  occ create deploymenttrack --name main-track --namespace acme-corp --project online-store \
     --component product-catalog --api-version v1 --auto-deploy true`,
 	}
 
@@ -386,12 +386,12 @@ This command allows you to:
 		Use:     "deploymenttrack [name]",
 		Aliases: []string{"deptrack", "deptracks"},
 		Short:   "List deployment tracks",
-		Long:    `List deployment tracks in an organization, project and component.`,
+		Long:    `List deployment tracks in a namespace, project and component.`,
 		Example: `  # List all deployment tracks
-  occ get deploymenttrack --organization acme-corp --project online-store --component product-catalog
+  occ get deploymenttrack --namespace acme-corp --project online-store --component product-catalog
 
   # List specific deployment track
-  occ get deploymenttrack main-track --organization acme-corp --project online-store --component product-catalog
+  occ get deploymenttrack main-track --namespace acme-corp --project online-store --component product-catalog
 
   # Output deployment tracks in YAML format
   occ get deploymenttrack -o yaml`,
@@ -401,24 +401,24 @@ This command allows you to:
 		Use:     "environment [name]",
 		Aliases: []string{"env", "environments", "envs"},
 		Short:   "List environments",
-		Long:    `List all environments or a specific environment in an organization.`,
-		Example: `  # List all environments in an organization
-  occ get environment --organization acme-corp
+		Long:    `List all environments or a specific environment in a namespace.`,
+		Example: `  # List all environments in a namespace
+  occ get environment --namespace acme-corp
 
   # List a specific environment
-  occ get environment development --organization acme-corp
+  occ get environment development --namespace acme-corp
 
   # Output environments in YAML format
-  occ get environment --organization acme-corp -o yaml`,
+  occ get environment --namespace acme-corp -o yaml`,
 	}
 
 	CreateDataPlane = Command{
 		Use:     "dataplane",
 		Aliases: []string{"dp", "dataplanes"},
 		Short:   "Create a data plane",
-		Long:    `Create a data plane in the specified organization.`,
+		Long:    `Create a data plane in the specified namespace.`,
 		Example: `  # Create a data plane with specific parameters
-  occ create dataplane --name primary-dataplane --organization acme-corp --cluster-name k8s-cluster-01 \
+  occ create dataplane --name primary-dataplane --namespace acme-corp --cluster-name k8s-cluster-01 \
     --connection-config kubeconfig --enable-cilium --enable-scale-to-zero --gateway-type envoy \
     --public-virtual-host api.example.com`,
 	}
@@ -427,32 +427,32 @@ This command allows you to:
 		Use:     "dataplane [name]",
 		Aliases: []string{"dp", "dataplanes"},
 		Short:   "List data planes",
-		Long:    `List all data planes or a specific data plane in an organization.`,
+		Long:    `List all data planes or a specific data plane in a namespace.`,
 		Example: `  # List all data planes
-  occ get dataplane --organization acme-corp
+  occ get dataplane --namespace acme-corp
 
   # List a specific data plane
-  occ get dataplane primary-dataplane --organization acme-corp
+  occ get dataplane primary-dataplane --namespace acme-corp
 
   # Output data plane details in YAML format
-  occ get dataplane --organization acme-corp -o yaml`,
+  occ get dataplane --namespace acme-corp -o yaml`,
 	}
 
 	ListEndpoint = Command{
 		Use:     "endpoint [name]",
 		Aliases: []string{"ep", "endpoints"},
 		Short:   "List endpoints",
-		Long:    `List all endpoints in an organization, project, component, and environment.`,
+		Long:    `List all endpoints in a namespace, project, component, and environment.`,
 		Example: `  # List all endpoints
-  occ get endpoint --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint --namespace acme-corp --project online-store --component product-catalog \
   --environment dev
 
   # List a specific endpoint
-  occ get endpoint product-ep --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint product-ep --namespace acme-corp --project online-store --component product-catalog \
    --environment dev
 
   # Output endpoint details in YAML format
-  occ get endpoint --organization acme-corp --project online-store --component product-catalog \
+  occ get endpoint --namespace acme-corp --project online-store --component product-catalog \
   --environment development -o yaml`,
 	}
 
@@ -460,12 +460,12 @@ This command allows you to:
 		Use:     "environment",
 		Aliases: []string{"env", "environments"},
 		Short:   "Create an environment",
-		Long:    `Create an environment in the specified organization.`,
+		Long:    `Create an environment in the specified namespace.`,
 		Example: `  # Create a development environment
-  occ create environment --name dev --organization acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
+  occ create environment --name dev --namespace acme-corp --dataplane-ref primary-dataplane --dns-prefix dev
 
   # Create a production environment
-  occ create environment --name production --organization acme-corp --dataplane-ref primary-dataplane \
+  occ create environment --name production --namespace acme-corp --dataplane-ref primary-dataplane \
     --dns-prefix prod --production`,
 	}
 
@@ -473,13 +473,13 @@ This command allows you to:
 		Use:     "deployableartifact",
 		Aliases: []string{"da", "artifact"},
 		Short:   "Create a deployable artifact",
-		Long:    `Create a deployable artifact in the specified organization, project and component.`,
+		Long:    `Create a deployable artifact in the specified namespace, project and component.`,
 		Example: `  # Create a deployable artifact from a build
-  occ create deployableartifact --name product-catalog-artifact --organization acme-corp \
+  occ create deployableartifact --name product-catalog-artifact --namespace acme-corp \
     --project online-store --component product-catalog --build product-catalog-build-01
 
   # Create a deployable artifact from an image
-  occ create deployableartifact --name product-catalog-artifact --organization acme-corp \
+  occ create deployableartifact --name product-catalog-artifact --namespace acme-corp \
     --project online-store --component product-catalog --from-image-ref product-catalog:latest`,
 	}
 
@@ -487,9 +487,9 @@ This command allows you to:
 		Use:     "deploymentpipeline",
 		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
 		Short:   "Create a deployment pipeline",
-		Long:    `Create a deployment pipeline in the specified organization.`,
+		Long:    `Create a deployment pipeline in the specified namespace.`,
 		Example: `  # Create a deployment pipeline with specific parameters
-  occ create deploymentpipeline --name dev-stage-prod --organization acme-corp \
+  occ create deploymentpipeline --name dev-stage-prod --namespace acme-corp \
    --environment-order "development,staging,production"`,
 	}
 
@@ -497,30 +497,30 @@ This command allows you to:
 		Use:     "deploymentpipeline [name]",
 		Aliases: []string{"deppipe", "deppipes", "deploymentpipelines"},
 		Short:   "List deployment pipelines",
-		Long:    `List all deployment pipelines or a specific deployment pipeline in an organization.`,
+		Long:    `List all deployment pipelines or a specific deployment pipeline in a namespace.`,
 		Example: `  # List all deployment pipelines
-  occ get deploymentpipeline --organization acme-corp
+  occ get deploymentpipeline --namespace acme-corp
 
   # List a specific deployment pipeline
-  occ get deploymentpipeline default --organization acme-corp
+  occ get deploymentpipeline default --namespace acme-corp
 
   # Output deployment pipeline details in YAML format
-  occ get deploymentpipeline --organization acme-corp -o yaml`,
+  occ get deploymentpipeline --namespace acme-corp -o yaml`,
 	}
 
 	ListConfigurationGroup = Command{
 		Use:     "configurationgroup [name]",
 		Aliases: []string{"cg", "configurationgroup"},
 		Short:   "List configuration groups",
-		Long:    `List all configuration groups or a specific configuration group in an organization.`,
+		Long:    `List all configuration groups or a specific configuration group in a namespace.`,
 		Example: `  # List all configuration groups
-  occ get configurationgroup --organization acme-corp
+  occ get configurationgroup --namespace acme-corp
 
   # List a specific configuration group
-  occ get configurationgroup config-group-1 --organization acme-corp
+  occ get configurationgroup config-group-1 --namespace acme-corp
 
   # Output configuration group details in YAML format
-  occ get configurationgroup --organization acme-corp -o yaml`,
+  occ get configurationgroup --namespace acme-corp -o yaml`,
 	}
 
 	// ------------------------------------------------------------------------
@@ -531,13 +531,13 @@ This command allows you to:
 	ConfigRoot = Command{
 		Use:   "config",
 		Short: "Manage Choreo configuration contexts",
-		Long: "Manage configuration contexts that store default values (e.g., organization, project, component) " +
+		Long: "Manage configuration contexts that store default values (e.g., namespace, project, component) " +
 			"for occ commands.",
 		Example: fmt.Sprintf(`  # List all stored configuration contexts
   %[1]s config get-contexts
 
   # Set or update a configuration context
-  %[1]s config set-context --name acme-corp-context --organization acme-corp
+  %[1]s config set-context --name acme-corp-context --namespace acme-corp
 
   # Use a configuration context
   %[1]s config use-context --name acme-corp-context
@@ -559,9 +559,9 @@ This command allows you to:
 	ConfigSetContext = Command{
 		Use:   "set-context",
 		Short: "Create or update a configuration context",
-		Long:  "Configure a context by specifying values for organization, project, component, build, environment, etc.",
+		Long:  "Configure a context by specifying values for namespace, project, component, build, environment, etc.",
 		Example: fmt.Sprintf(`  # Set a configuration context named acme-corp-context
-  %[1]s config set-context acme-corp-context --organization acme-corp \
+  %[1]s config set-context acme-corp-context --namespace acme-corp \
     --project online-store --environment dev`,
 			messages.DefaultCLIName),
 	}
@@ -669,8 +669,8 @@ This command allows you to:
 	// FlagContextNameDesc is used for the --name flag.
 	FlagContextNameDesc = "Name of the configuration context to create, update, or use"
 
-	// FlagOrgDesc is used for the --organization flag.
-	FlagOrgDesc = "Organization name stored in this configuration context"
+	// FlagNamespaceDesc is used for the --namespace flag.
+	FlagNamespaceDesc = "Namespace name stored in this configuration context"
 
 	// FlagProjDesc is used for the --project flag.
 	FlagProjDesc = "Project name stored in this configuration context"
@@ -701,7 +701,7 @@ This command allows you to:
 	Delete = Command{
 		Use:   "delete",
 		Short: "Delete OpenChoreo resources by file names",
-		Long:  "Delete resources in OpenChoreo platform such as organizations, projects, components, etc.",
+		Long:  "Delete resources in OpenChoreo platform such as namespaces, projects, components, etc.",
 		Example: `  # Delete resources from a YAML file
   occ delete -f resources.yaml`,
 	}

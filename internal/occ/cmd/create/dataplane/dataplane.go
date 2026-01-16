@@ -31,14 +31,14 @@ func (i *CreateDataPlaneImpl) CreateDataPlane(params api.CreateDataPlaneParams) 
 }
 
 func createDataPlane(params api.CreateDataPlaneParams, config constants.CRDConfig) error {
-	dpRes, err := kinds.NewDataPlaneResource(config, params.Organization)
+	dpRes, err := kinds.NewDataPlaneResource(config, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to create DataPlane resource: %w", err)
 	}
 
 	if err := dpRes.CreateDataPlane(params); err != nil {
-		return fmt.Errorf("failed to create DataPlane '%s' in organization '%s': %w",
-			params.Name, params.Organization, err)
+		return fmt.Errorf("failed to create DataPlane '%s' in namespace '%s': %w",
+			params.Name, params.Namespace, err)
 	}
 
 	return nil

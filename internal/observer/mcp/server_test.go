@@ -21,7 +21,7 @@ const (
 	testComponentID     = "comp-123"
 	testEnvironmentID   = "env-dev"
 	testProjectID       = "proj-456"
-	testOrganizationID  = "org-789"
+	testNamespaceName  = "namespace-789"
 	testNamespace       = "default"
 	testServiceName     = "test-service"
 	testStartTime       = "2025-01-01T00:00:00Z"
@@ -42,7 +42,7 @@ type MockHandler struct {
 	componentLogsError            error
 	projectLogsError              error
 	gatewayLogsError              error
-	organizationLogsError         error
+	namespaceLogsError         error
 	tracesError                   error
 	componentResourceMetricsError error
 }
@@ -97,10 +97,10 @@ func (m *MockHandler) GetGatewayLogs(ctx context.Context, params opensearch.Gate
 	return logsData, nil
 }
 
-func (m *MockHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
-	m.recordCall("GetOrganizationLogs", params, podLabels)
-	if m.organizationLogsError != nil {
-		return nil, m.organizationLogsError
+func (m *MockHandler) GetNamespaceLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
+	m.recordCall("GetNamespaceLogs", params, podLabels)
+	if m.namespaceLogsError != nil {
+		return nil, m.namespaceLogsError
 	}
 	var logsData map[string]interface{}
 	if err := json.Unmarshal([]byte(testLogsResponse), &logsData); err != nil {
@@ -340,10 +340,10 @@ var allToolSpecs = []toolTestSpec{
 		name:                "get_gateway_logs",
 		descriptionKeywords: []string{"gateway", "logs"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"organization_id", "start_time", "end_time"},
+		requiredParams:      []string{"namespace_name", "start_time", "end_time"},
 		optionalParams:      []string{"search_phrase", "api_id_to_version_map", "gateway_vhosts", "limit", "sort_order", "log_type"},
 		testArgs: map[string]any{
-			"organization_id": testOrganizationID,
+			"namespace_name": testNamespaceName,
 			"start_time":      testStartTime,
 			"end_time":        testEndTime,
 			"search_phrase":   "api",
@@ -365,9 +365,9 @@ var allToolSpecs = []toolTestSpec{
 			if !ok {
 				t.Fatalf("Expected GatewayQueryParams, got %T", args[0])
 			}
-			// The server sets OrganizationID in QueryParams.OrganizationID, not at the struct level
-			if params.QueryParams.OrganizationID != testOrganizationID {
-				t.Errorf("Expected organization_id %q, got %q", testOrganizationID, params.QueryParams.OrganizationID)
+			// The server sets NamespaceName in QueryParams.NamespaceName, not at the struct level
+			if params.QueryParams.NamespaceName != testNamespaceName {
+				t.Errorf("Expected namespace_name %q, got %q", testNamespaceName, params.QueryParams.NamespaceName)
 			}
 			if params.QueryParams.StartTime != testStartTime {
 				t.Errorf("Expected start_time %q, got %q", testStartTime, params.QueryParams.StartTime)
@@ -401,13 +401,13 @@ var allToolSpecs = []toolTestSpec{
 		},
 	},
 	{
-		name:                "get_organization_logs",
-		descriptionKeywords: []string{"organization", "logs"},
+		name:                "get_namespace_logs",
+		descriptionKeywords: []string{"namespace", "logs"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"organization_id", "environment_id", "start_time", "end_time"},
+		requiredParams:      []string{"namespace_name", "environment_id", "start_time", "end_time"},
 		optionalParams:      []string{"pod_labels", "search_phrase", "log_levels", "limit", "sort_order"},
 		testArgs: map[string]any{
-			"organization_id": testOrganizationID,
+			"namespace_name": testNamespaceName,
 			"environment_id":  testEnvironmentID,
 			"start_time":      testStartTime,
 			"end_time":        testEndTime,
@@ -420,7 +420,7 @@ var allToolSpecs = []toolTestSpec{
 			"limit":         150,
 			"sort_order":    sortOrderDesc,
 		},
-		expectedMethod: "GetOrganizationLogs",
+		expectedMethod: "GetNamespaceLogs",
 		validateCall: func(t *testing.T, args []interface{}) {
 			if len(args) < 2 {
 				t.Fatal("Expected at least two arguments")
@@ -433,8 +433,8 @@ var allToolSpecs = []toolTestSpec{
 			if !ok {
 				t.Fatalf("Expected map[string]string for pod_labels, got %T", args[1])
 			}
-			if params.OrganizationID != testOrganizationID {
-				t.Errorf("Expected organization_id %q, got %q", testOrganizationID, params.OrganizationID)
+			if params.NamespaceName != testNamespaceName {
+				t.Errorf("Expected namespace_name %q, got %q", testNamespaceName, params.NamespaceName)
 			}
 			if params.EnvironmentID != testEnvironmentID {
 				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, params.EnvironmentID)
@@ -952,16 +952,16 @@ func TestMinimalParameterSets(t *testing.T) {
 			name:     "get_gateway_logs_minimal",
 			toolName: "get_gateway_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
 			},
 		},
 		{
-			name:     "get_organization_logs_minimal",
-			toolName: "get_organization_logs",
+			name:     "get_namespace_logs_minimal",
+			toolName: "get_namespace_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"environment_id":  testEnvironmentID,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
@@ -1066,7 +1066,7 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			name:     "get_gateway_logs_error",
 			toolName: "get_gateway_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
 			},
@@ -1075,16 +1075,16 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			},
 		},
 		{
-			name:     "get_organization_logs_error",
-			toolName: "get_organization_logs",
+			name:     "get_namespace_logs_error",
+			toolName: "get_namespace_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"environment_id":  testEnvironmentID,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
 			},
 			setupErr: func(h *MockHandler) {
-				h.organizationLogsError = errors.New("unauthorized")
+				h.namespaceLogsError = errors.New("unauthorized")
 			},
 		},
 		{
@@ -1236,7 +1236,7 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			name:     "gateway_logs_without_optional_filters",
 			toolName: "get_gateway_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
 			},
@@ -1252,10 +1252,10 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			},
 		},
 		{
-			name:     "organization_logs_without_pod_labels",
-			toolName: "get_organization_logs",
+			name:     "namespace_logs_without_pod_labels",
+			toolName: "get_namespace_logs",
 			args: map[string]any{
-				"organization_id": testOrganizationID,
+				"namespace_name": testNamespaceName,
 				"environment_id":  testEnvironmentID,
 				"start_time":      testStartTime,
 				"end_time":        testEndTime,
@@ -1394,7 +1394,7 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"sort_order":     "string",
 		},
 		"get_gateway_logs": {
-			"organization_id":       "string",
+			"namespace_name":       "string",
 			"start_time":            "string",
 			"end_time":              "string",
 			"search_phrase":         "string",
@@ -1404,8 +1404,8 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"sort_order":            "string",
 			"log_type":              "string",
 		},
-		"get_organization_logs": {
-			"organization_id": "string",
+		"get_namespace_logs": {
+			"namespace_name": "string",
 			"environment_id":  "string",
 			"start_time":      "string",
 			"end_time":        "string",

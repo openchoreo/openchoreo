@@ -33,9 +33,9 @@ func ValidateName(resourceType string, val interface{}) error {
 	return nil
 }
 
-// ValidateOrganizationName validates an organization name
-func ValidateOrganizationName(val interface{}) error {
-	return ValidateName("organization", val)
+// ValidateNamespaceName validates an namespace name
+func ValidateNamespaceName(val interface{}) error {
+	return ValidateName("namespace", val)
 }
 
 // ValidateProjectName validates a project name

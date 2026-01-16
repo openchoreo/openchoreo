@@ -14,15 +14,15 @@ import (
 func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_environments",
-		Description: "List all environments in an organization. Environments are deployment targets representing " +
+		Description: "List all environments in an namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListEnvironments(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListEnvironments(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -33,14 +33,14 @@ func (t *Toolsets) RegisterGetEnvironments(s *mcp.Server) {
 		Description: "Get detailed information about an environment including associated data plane, deployed " +
 			"components, resource quotas, and network configuration.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-			"env_name": stringProperty("Use list_environments to discover valid names"),
-		}, []string{"org_name", "env_name"}),
+			"namespace_name": defaultStringProperty(),
+			"env_name":       stringProperty("Use list_environments to discover valid names"),
+		}, []string{"namespace_name", "env_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
-		EnvName string `json:"env_name"`
+		NamespaceName string `json:"namespace_name"`
+		EnvName       string `json:"env_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetEnvironment(ctx, args.OrgName, args.EnvName)
+		result, err := t.InfrastructureToolset.GetEnvironment(ctx, args.NamespaceName, args.EnvName)
 		return handleToolResult(result, err)
 	})
 }
@@ -48,10 +48,10 @@ func (t *Toolsets) RegisterGetEnvironments(s *mcp.Server) {
 func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "create_environment",
-		Description: "Create a new environment in an organization. Environments are deployment targets representing " +
+		Description: "Create a new environment in an namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":       defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
@@ -61,15 +61,15 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 				"description": "Whether this is a production environment",
 			},
 			"dns_prefix": stringProperty("Optional: DNS prefix for this environment"),
-		}, []string{"org_name", "name"}),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName      string `json:"org_name"`
-		Name         string `json:"name"`
-		DisplayName  string `json:"display_name"`
-		Description  string `json:"description"`
-		DataPlaneRef string `json:"data_plane_ref"`
-		IsProduction bool   `json:"is_production"`
-		DNSPrefix    string `json:"dns_prefix"`
+		NamespaceName string `json:"namespace_name"`
+		Name          string `json:"name"`
+		DisplayName   string `json:"display_name"`
+		Description   string `json:"description"`
+		DataPlaneRef  string `json:"data_plane_ref"`
+		IsProduction  bool   `json:"is_production"`
+		DNSPrefix     string `json:"dns_prefix"`
 	}) (*mcp.CallToolResult, any, error) {
 		envReq := &models.CreateEnvironmentRequest{
 			Name:         args.Name,
@@ -79,7 +79,7 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 			IsProduction: args.IsProduction,
 			DNSPrefix:    args.DNSPrefix,
 		}
-		result, err := t.InfrastructureToolset.CreateEnvironment(ctx, args.OrgName, envReq)
+		result, err := t.InfrastructureToolset.CreateEnvironment(ctx, args.NamespaceName, envReq)
 		return handleToolResult(result, err)
 	})
 }
@@ -87,15 +87,15 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_dataplanes",
-		Description: "List all data planes in an organization. Data planes are Kubernetes clusters or cluster " +
+		Description: "List all data planes in an namespace. Data planes are Kubernetes clusters or cluster " +
 			"regions where component workloads actually execute.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListDataPlanes(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListDataPlanes(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -106,14 +106,14 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 		Description: "Get detailed information about a data plane including cluster details, capacity, health " +
 			"status, associated environments, and network configuration.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-			"dp_name":  stringProperty("Use list_dataplanes to discover valid names"),
-		}, []string{"org_name", "dp_name"}),
+			"namespace_name": defaultStringProperty(),
+			"dp_name":        stringProperty("Use list_dataplanes to discover valid names"),
+		}, []string{"namespace_name", "dp_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
-		DpName  string `json:"dp_name"`
+		NamespaceName string `json:"namespace_name"`
+		DpName        string `json:"dp_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetDataPlane(ctx, args.OrgName, args.DpName)
+		result, err := t.InfrastructureToolset.GetDataPlane(ctx, args.NamespaceName, args.DpName)
 		return handleToolResult(result, err)
 	})
 }
@@ -121,29 +121,29 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "create_dataplane",
-		Description: "Create a new data plane in an organization. Uses cluster agent for communication.",
+		Description: "Create a new data plane in an namespace. Uses cluster agent for communication.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
 				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name":              stringProperty("Human-readable display name"),
-			"description":               stringProperty("Human-readable description"),
-			"cluster_agent_client_ca":   stringProperty("CA certificate to verify cluster agent's client certificate"),
-			"public_virtual_host":       stringProperty("Public virtual host for the data plane"),
-			"organization_virtual_host": stringProperty("Organization-specific virtual host"),
-			"observability_plane_ref":   stringProperty("Optional: Reference to an ObservabilityPlane resource"),
+			"display_name":            stringProperty("Human-readable display name"),
+			"description":             stringProperty("Human-readable description"),
+			"cluster_agent_client_ca": stringProperty("CA certificate to verify cluster agent's client certificate"),
+			"public_virtual_host":     stringProperty("Public virtual host for the data plane"),
+			"namespace_virtual_host":  stringProperty("Namespace-specific virtual host"),
+			"observability_plane_ref": stringProperty("Optional: Reference to an ObservabilityPlane resource"),
 		}, []string{
-			"org_name", "name", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+			"namespace_name", "name", "cluster_agent_client_ca", "public_virtual_host", "namespace_virtual_host",
 		}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName                 string `json:"org_name"`
-		Name                    string `json:"name"`
-		DisplayName             string `json:"display_name"`
-		Description             string `json:"description"`
-		ClusterAgentClientCA    string `json:"cluster_agent_client_ca"`
-		PublicVirtualHost       string `json:"public_virtual_host"`
-		OrganizationVirtualHost string `json:"organization_virtual_host"`
-		ObservabilityPlaneRef   string `json:"observability_plane_ref"`
+		NamespaceName         string `json:"namespace_name"`
+		Name                  string `json:"name"`
+		DisplayName           string `json:"display_name"`
+		Description           string `json:"description"`
+		ClusterAgentClientCA  string `json:"cluster_agent_client_ca"`
+		PublicVirtualHost     string `json:"public_virtual_host"`
+		NamespaceVirtualHost  string `json:"namespace_virtual_host"`
+		ObservabilityPlaneRef string `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
 		dataPlaneReq := &models.CreateDataPlaneRequest{
 			Name:                    args.Name,
@@ -151,10 +151,10 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			Description:             args.Description,
 			ClusterAgentClientCA:    args.ClusterAgentClientCA,
 			PublicVirtualHost:       args.PublicVirtualHost,
-			OrganizationVirtualHost: args.OrganizationVirtualHost,
+			OrganizationVirtualHost: args.NamespaceVirtualHost,
 			ObservabilityPlaneRef:   args.ObservabilityPlaneRef,
 		}
-		result, err := t.InfrastructureToolset.CreateDataPlane(ctx, args.OrgName, dataPlaneReq)
+		result, err := t.InfrastructureToolset.CreateDataPlane(ctx, args.NamespaceName, dataPlaneReq)
 		return handleToolResult(result, err)
 	})
 }
@@ -162,15 +162,15 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_component_types",
-		Description: "List all available component types in an organization. Component types define the " +
+		Description: "List all available component types in an namespace. Component types define the " +
 			"structure and capabilities of components (e.g., WebApplication, Service, ScheduledTask).",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListComponentTypes(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListComponentTypes(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -181,14 +181,14 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 		Description: "Get the schema definition for a component type. Returns the JSON schema showing " +
 			"required fields, optional fields, and their types.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-			"ct_name":  stringProperty("Component type name. Use list_component_types to discover valid names"),
-		}, []string{"org_name", "ct_name"}),
+			"namespace_name": defaultStringProperty(),
+			"ct_name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
+		}, []string{"namespace_name", "ct_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
-		CtName  string `json:"ct_name"`
+		NamespaceName string `json:"namespace_name"`
+		CtName        string `json:"ct_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetComponentTypeSchema(ctx, args.OrgName, args.CtName)
+		result, err := t.InfrastructureToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.CtName)
 		return handleToolResult(result, err)
 	})
 }
@@ -196,15 +196,15 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_workflows",
-		Description: "List all available component-workflows in an organization. Workflows define build and deployment " +
+		Description: "List all available component-workflows in an namespace. Workflows define build and deployment " +
 			"processes for components.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListWorkflows(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListWorkflows(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -215,14 +215,14 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
 		Description: "Get the schema definition for a workflow. Returns the JSON schema showing workflow " +
 			"configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":      defaultStringProperty(),
-			"workflow_name": stringProperty("Workflow name. Use list_workflows to discover valid names"),
-		}, []string{"org_name", "workflow_name"}),
+			"namespace_name": defaultStringProperty(),
+			"workflow_name":  stringProperty("Workflow name. Use list_workflows to discover valid names"),
+		}, []string{"namespace_name", "workflow_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName      string `json:"org_name"`
-		WorkflowName string `json:"workflow_name"`
+		NamespaceName string `json:"namespace_name"`
+		WorkflowName  string `json:"workflow_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetWorkflowSchema(ctx, args.OrgName, args.WorkflowName)
+		result, err := t.InfrastructureToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.WorkflowName)
 		return handleToolResult(result, err)
 	})
 }
@@ -230,15 +230,15 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
 func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_traits",
-		Description: "List all available traits in an organization. Traits add capabilities to components " +
+		Description: "List all available traits in an namespace. Traits add capabilities to components " +
 			"(e.g., autoscaling, ingress, service mesh).",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListTraits(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListTraits(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -249,14 +249,14 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
 		Description: "Get the schema definition for a trait. Returns the JSON schema showing trait " +
 			"configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
-			"org_name":   defaultStringProperty(),
-			"trait_name": stringProperty("Trait name. Use list_traits to discover valid names"),
-		}, []string{"org_name", "trait_name"}),
+			"namespace_name": defaultStringProperty(),
+			"trait_name":     stringProperty("Trait name. Use list_traits to discover valid names"),
+		}, []string{"namespace_name", "trait_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName   string `json:"org_name"`
-		TraitName string `json:"trait_name"`
+		NamespaceName string `json:"namespace_name"`
+		TraitName     string `json:"trait_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetTraitSchema(ctx, args.OrgName, args.TraitName)
+		result, err := t.InfrastructureToolset.GetTraitSchema(ctx, args.NamespaceName, args.TraitName)
 		return handleToolResult(result, err)
 	})
 }
@@ -264,30 +264,30 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
 func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_observability_planes",
-		Description: "List all ObservabilityPlanes in an organization. ObservabilityPlanes provide monitoring, " +
+		Description: "List all ObservabilityPlanes in an namespace. ObservabilityPlanes provide monitoring, " +
 			"logging, tracing, and metrics collection capabilities for deployed components.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListObservabilityPlanes(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListObservabilityPlanes(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
 func (t *Toolsets) RegisterListComponentWorkflowsOrgLevel(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "list_component_workflows_org_level",
-		Description: "List all ComponentWorkflow templates available in an organization. " +
+		Description: "List all ComponentWorkflow templates available in an namespace. " +
 			"ComponentWorkflows are reusable workflow templates that can be triggered on components.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-		}, []string{"org_name"}),
+			"namespace_name": defaultStringProperty(),
+		}, []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
+		NamespaceName string `json:"namespace_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.ListComponentWorkflows(ctx, args.OrgName)
+		result, err := t.InfrastructureToolset.ListComponentWorkflows(ctx, args.NamespaceName)
 		return handleToolResult(result, err)
 	})
 }
@@ -295,17 +295,17 @@ func (t *Toolsets) RegisterListComponentWorkflowsOrgLevel(s *mcp.Server) {
 func (t *Toolsets) RegisterGetComponentWorkflowSchemaOrgLevel(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "get_component_workflow_schema_org_level",
-		Description: "Get the schema for a ComponentWorkflow template in an organization. " +
+		Description: "Get the schema for a ComponentWorkflow template in an namespace. " +
 			"Returns the JSON schema defining the input parameters and configuration for the workflow.",
 		InputSchema: createSchema(map[string]any{
-			"org_name": defaultStringProperty(),
-			"cw_name":  defaultStringProperty(),
-		}, []string{"org_name", "cw_name"}),
+			"namespace_name": defaultStringProperty(),
+			"cw_name":        defaultStringProperty(),
+		}, []string{"namespace_name", "cw_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		OrgName string `json:"org_name"`
-		CWName  string `json:"cw_name"`
+		NamespaceName string `json:"namespace_name"`
+		CWName        string `json:"cw_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.InfrastructureToolset.GetComponentWorkflowSchema(ctx, args.OrgName, args.CWName)
+		result, err := t.InfrastructureToolset.GetComponentWorkflowSchema(ctx, args.NamespaceName, args.CWName)
 		return handleToolResult(result, err)
 	})
 }

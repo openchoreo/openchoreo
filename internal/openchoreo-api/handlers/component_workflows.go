@@ -12,27 +12,27 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
-// ListComponentWorkflows lists ComponentWorkflow templates in an organization
+// ListComponentWorkflows lists ComponentWorkflow templates in an namespace
 func (h *Handler) ListComponentWorkflows(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 	log.Debug("ListComponentWorkflows handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
-	cwfs, err := h.services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName)
+	cwfs, err := h.services.ComponentWorkflowService.ListComponentWorkflows(ctx, namespaceName)
 	if err != nil {
 		log.Error("Failed to list ComponentWorkflows", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	log.Debug("Listed ComponentWorkflows successfully", "org", orgName, "count", len(cwfs))
+	log.Debug("Listed ComponentWorkflows successfully", "org", namespaceName, "count", len(cwfs))
 	writeListResponse(w, cwfs, len(cwfs), 1, len(cwfs))
 }
 
@@ -42,23 +42,23 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 	log := logger.GetLogger(ctx)
 	log.Debug("GetComponentWorkflowSchema handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	cwName := r.PathValue("cwName")
-	if orgName == "" || cwName == "" {
-		log.Warn("Organization name and ComponentWorkflow name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and ComponentWorkflow name are required", services.CodeInvalidInput)
+	if namespaceName == "" || cwName == "" {
+		log.Warn("Namespace name and ComponentWorkflow name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and ComponentWorkflow name are required", services.CodeInvalidInput)
 		return
 	}
 
-	schema, err := h.services.ComponentWorkflowService.GetComponentWorkflowSchema(ctx, orgName, cwName)
+	schema, err := h.services.ComponentWorkflowService.GetComponentWorkflowSchema(ctx, namespaceName, cwName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view component workflow schema", "org", orgName, "componentWorkflow", cwName)
+			log.Warn("Unauthorized to view component workflow schema", "org", namespaceName, "componentWorkflow", cwName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrComponentWorkflowNotFound) {
-			log.Warn("ComponentWorkflow not found", "org", orgName, "name", cwName)
+			log.Warn("ComponentWorkflow not found", "org", namespaceName, "name", cwName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentWorkflow not found", services.CodeComponentWorkflowNotFound)
 			return
 		}
@@ -67,7 +67,7 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Debug("Retrieved ComponentWorkflow schema successfully", "org", orgName, "name", cwName)
+	log.Debug("Retrieved ComponentWorkflow schema successfully", "org", namespaceName, "name", cwName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -78,14 +78,14 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 	log.Info("CreateComponentWorkflowRun handler called")
 
 	// Extract parameters from URL path
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	commit := r.URL.Query().Get("commit")
 
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
@@ -102,17 +102,17 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 	}
 
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
+		"organization": namespaceName,
 		"project":      projectName,
 		"component":    componentName,
 		"commit":       commit,
 	})
 
-	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
+	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, namespaceName, projectName, componentName, commit)
 	setAuditResource(ctx, "component_workflow_run", workflowRun.Name, workflowRun.Name)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to trigger component workflow", "org", orgName, "project", projectName, "component", componentName)
+			log.Warn("Unauthorized to trigger component workflow", "org", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -140,13 +140,13 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 	log.Info("ListComponentWorkflowRuns handler called")
 
 	// Extract parameters from URL path
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
@@ -163,7 +163,7 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Call service to list component workflow runs
-	workflowRuns, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
+	workflowRuns, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		// List operations don't check for ErrForbidden here - the service already filtered unauthorized items
 		log.Error("Failed to list component workflow runs", "error", err)
@@ -182,14 +182,14 @@ func (h *Handler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request
 	log.Info("GetComponentWorkflowRun handler called")
 
 	// Extract parameters from URL path
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
 	runName := r.PathValue("runName")
 
-	if orgName == "" {
-		log.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", "INVALID_ORG_NAME")
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
 		return
 	}
 
@@ -212,10 +212,10 @@ func (h *Handler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request
 	}
 
 	// Call service to get component workflow run
-	workflowRun, err := h.services.ComponentWorkflowService.GetComponentWorkflowRun(ctx, orgName, projectName, componentName, runName)
+	workflowRun, err := h.services.ComponentWorkflowService.GetComponentWorkflowRun(ctx, namespaceName, projectName, componentName, runName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
-			log.Warn("Component workflow run not found", "org", orgName, "project", projectName, "component", componentName, "run", runName)
+			log.Warn("Component workflow run not found", "org", namespaceName, "project", projectName, "component", componentName, "run", runName)
 			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
 			return
 		}

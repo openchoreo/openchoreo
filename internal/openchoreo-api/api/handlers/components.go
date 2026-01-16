@@ -22,11 +22,11 @@ func (h *Handler) ListComponents(
 	ctx context.Context,
 	request gen.ListComponentsRequestObject,
 ) (gen.ListComponentsResponseObject, error) {
-	h.logger.Debug("ListComponents called", "orgName", request.OrgName, "projectName", request.ProjectName)
+	h.logger.Debug("ListComponents called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
 
 	components, err := h.services.ComponentService.ListComponents(
 		ctx,
-		request.OrgName,
+		request.NamespaceName,
 		request.ProjectName,
 	)
 	if err != nil {
@@ -52,7 +52,7 @@ func (h *Handler) CreateComponent(
 	ctx context.Context,
 	request gen.CreateComponentRequestObject,
 ) (gen.CreateComponentResponseObject, error) {
-	h.logger.Info("CreateComponent called", "orgName", request.OrgName, "projectName", request.ProjectName)
+	h.logger.Info("CreateComponent called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
 
 	if request.Body == nil {
 		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
@@ -63,7 +63,7 @@ func (h *Handler) CreateComponent(
 
 	component, err := h.services.ComponentService.CreateComponent(
 		ctx,
-		request.OrgName,
+		request.NamespaceName,
 		request.ProjectName,
 		req,
 	)
@@ -82,7 +82,7 @@ func (h *Handler) CreateComponent(
 	}
 
 	h.logger.Info("Component created successfully",
-		"orgName", request.OrgName,
+		"namespaceName", request.NamespaceName,
 		"projectName", request.ProjectName,
 		"component", component.Name)
 
@@ -97,7 +97,7 @@ func toGenComponent(c *models.ComponentResponse) gen.Component {
 		Name:        c.Name,
 		Type:        c.Type,
 		ProjectName: c.ProjectName,
-		OrgName:     c.OrgName,
+		NamespaceName:     c.NamespaceName,
 		CreatedAt:   c.CreatedAt,
 		DisplayName: ptr.To(c.DisplayName),
 		Description: ptr.To(c.Description),

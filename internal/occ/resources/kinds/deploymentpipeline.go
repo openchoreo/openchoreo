@@ -20,7 +20,7 @@ type DeploymentPipelineResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList]
 }
 
-// NewDeploymentPipelineResource constructs a DeploymentPipelineResource with CRDConfig and optionally sets organization.
+// NewDeploymentPipelineResource constructs a DeploymentPipelineResource with CRDConfig and optionally sets namespace.
 func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*DeploymentPipelineResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -32,7 +32,7 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 		resources.WithConfig[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](org))
 	}
@@ -40,7 +40,7 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 	// Create labels for filtering
 	labels := map[string]string{}
 	if org != "" {
-		labels[constants.LabelOrganization] = org
+		labels[constants.LabelNamespace] = org
 	}
 
 	// Add labels if any were set
@@ -53,7 +53,7 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 	}, nil
 }
 
-// WithNamespace sets the namespace for the deployment pipeline resource (usually the organization name)
+// WithNamespace sets the namespace for the deployment pipeline resource (usually the namespace name)
 func (d *DeploymentPipelineResource) WithNamespace(namespace string) {
 	d.BaseResource.WithNamespace(namespace)
 }
@@ -85,7 +85,7 @@ func (d *DeploymentPipelineResource) PrintTableItems(pipelines []resources.Resou
 		namespaceName := d.GetNamespace()
 		message := "No deployment pipelines found"
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 		fmt.Println(message)
 		return nil
@@ -114,7 +114,7 @@ func (d *DeploymentPipelineResource) Print(format resources.OutputFormat, filter
 // CreateDeploymentPipeline creates a new DeploymentPipeline CR.
 func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateDeploymentPipelineParams) error {
 	// Generate a K8s-compliant name for the deployment pipeline
-	k8sName := resources.GenerateResourceName(params.Organization, params.Name)
+	k8sName := resources.GenerateResourceName(params.Namespace, params.Name)
 
 	// Convert promotion paths from API params to CR structure
 	promotionPaths := []openchoreov1alpha1.PromotionPath{}
@@ -138,14 +138,14 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 	deploymentPipeline := &openchoreov1alpha1.DeploymentPipeline{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Annotations: map[string]string{
 				constants.AnnotationDisplayName: resources.DefaultIfEmpty(params.DisplayName, params.Name),
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
 				constants.LabelName:         params.Name,
-				constants.LabelOrganization: params.Organization,
+				constants.LabelNamespace: params.Namespace,
 			},
 		},
 		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
@@ -158,7 +158,7 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 		return fmt.Errorf("failed to create deployment pipeline: %w", err)
 	}
 
-	fmt.Printf("Deployment pipeline '%s' created successfully in organization '%s'\n",
-		params.Name, params.Organization)
+	fmt.Printf("Deployment pipeline '%s' created successfully in namespace '%s'\n",
+		params.Name, params.Namespace)
 	return nil
 }

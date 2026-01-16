@@ -39,11 +39,11 @@ func NewDeploymentPipelineService(k8sClient client.Client, projectService *Proje
 }
 
 // GetProjectDeploymentPipeline retrieves the deployment pipeline for a given project
-func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Context, orgName, projectName string) (*models.DeploymentPipelineResponse, error) {
-	s.logger.Debug("Getting project deployment pipeline", "org", orgName, "project", projectName)
+func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (*models.DeploymentPipelineResponse, error) {
+	s.logger.Debug("Getting project deployment pipeline", "org", namespaceName, "project", projectName)
 
 	// First verify the project exists and get its deployment pipeline reference
-	project, err := s.projectService.getProject(ctx, orgName, projectName)
+	project, err := s.projectService.getProject(ctx, namespaceName, projectName)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 	}
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDeploymentPipeline, ResourceTypeDeploymentPipeline, pipelineName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName}); err != nil {
 		return nil, err
 	}
 
@@ -68,12 +68,12 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	key := client.ObjectKey{
 		Name:      pipelineName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, pipeline); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Deployment pipeline not found", "org", orgName, "project", projectName, "pipeline", pipelineName)
+			s.logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName, "pipeline", pipelineName)
 			return nil, ErrDeploymentPipelineNotFound
 		}
 		s.logger.Error("Failed to get deployment pipeline", "error", err)
@@ -119,7 +119,7 @@ func (s *DeploymentPipelineService) toDeploymentPipelineResponse(pipeline *openc
 		Name:           pipeline.Name,
 		DisplayName:    pipeline.Annotations[controller.AnnotationKeyDisplayName],
 		Description:    pipeline.Annotations[controller.AnnotationKeyDescription],
-		OrgName:        pipeline.Namespace,
+		NamespaceName:  pipeline.Namespace,
 		CreatedAt:      pipeline.CreationTimestamp.Time,
 		Status:         status,
 		PromotionPaths: promotionPaths,

@@ -42,7 +42,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertrule"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
-	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
 	"github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
@@ -110,12 +109,6 @@ func setupControlPlaneControllers(
 	}
 
 	if enableLegacyCRDs {
-		if err := (&organization.Reconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			return err
-		}
 		if err := (&environment.Reconciler{
 			Client:       mgr.GetClient(),
 			K8sClientMgr: k8sClientMgr,

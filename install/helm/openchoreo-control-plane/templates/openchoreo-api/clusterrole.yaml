@@ -30,7 +30,6 @@ rules:
   - gitcommitrequests
   - gitrepositorywebhooks
   - observabilityplanes
-  - organizations
   - projects
   - releasebindings
   - releases
@@ -48,6 +47,18 @@ rules:
   - workflowruns
   - workloads
   - secretreferences
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - create
   - delete
@@ -79,7 +90,6 @@ rules:
   - gitcommitrequests/status
   - gitrepositorywebhooks/status
   - observabilityplanes/status
-  - organizations/status
   - projects/status
   - releasebindings/status
   - releases/status

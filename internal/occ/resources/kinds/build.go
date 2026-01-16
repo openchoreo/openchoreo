@@ -21,7 +21,7 @@ type BuildResource struct {
 	*resources.BaseResource[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList]
 }
 
-// NewBuildResource constructs a BuildResource with CRDConfig and optionally sets organization, project, component, and deploymentTrack.
+// NewBuildResource constructs a BuildResource with CRDConfig and optionally sets namespace, project, component, and deploymentTrack.
 func NewBuildResource(cfg constants.CRDConfig, org string, project string, component string, deploymentTrack string) (*BuildResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
@@ -33,7 +33,7 @@ func NewBuildResource(cfg constants.CRDConfig, org string, project string, compo
 		resources.WithConfig[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](cfg),
 	}
 
-	// Add organization namespace if provided
+	// Add namespace namespace if provided
 	if org != "" {
 		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](org))
 	}
@@ -66,7 +66,7 @@ func NewBuildResource(cfg constants.CRDConfig, org string, project string, compo
 	}, nil
 }
 
-// WithNamespace sets the namespace for the build resource (usually the organization name)
+// WithNamespace sets the namespace for the build resource (usually the namespace name)
 func (b *BuildResource) WithNamespace(namespace string) {
 	b.BaseResource.WithNamespace(namespace)
 }
@@ -125,7 +125,7 @@ func (b *BuildResource) PrintTableItems(builds []resources.ResourceWrapper[*open
 		message := "No builds found"
 
 		if namespaceName != "" {
-			message += " in organization " + namespaceName
+			message += " in namespace " + namespaceName
 		}
 
 		if project, ok := labels[constants.LabelProject]; ok {
@@ -152,7 +152,7 @@ func (b *BuildResource) PrintTableItems(builds []resources.ResourceWrapper[*open
 			resources.FormatAge(build.GetCreationTimestamp().Time),
 			build.GetLabels()[constants.LabelComponent],
 			build.GetLabels()[constants.LabelProject],
-			build.GetLabels()[constants.LabelOrganization],
+			build.GetLabels()[constants.LabelNamespace],
 		})
 	}
 	return resources.PrintTable(HeadersBuild, rows)
@@ -187,7 +187,7 @@ func (b *BuildResource) Print(format resources.OutputFormat, filter *resources.R
 // CreateBuild creates a new Build CR.
 func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 	k8sName := resources.GenerateResourceName(
-		params.Organization,
+		params.Namespace,
 		params.Project,
 		params.Component,
 		params.DeploymentTrack,
@@ -198,10 +198,10 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 	build := &openchoreov1alpha1.Build{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k8sName,
-			Namespace: params.Organization,
+			Namespace: params.Namespace,
 			Labels: map[string]string{
 				constants.LabelName:            params.Name,
-				constants.LabelOrganization:    params.Organization,
+				constants.LabelNamespace:    params.Namespace,
 				constants.LabelProject:         params.Project,
 				constants.LabelComponent:       params.Component,
 				constants.LabelDeploymentTrack: params.DeploymentTrack,
@@ -225,7 +225,7 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 	}
 
 	fmt.Printf(FmtBuildCreateSuccess,
-		params.Name, params.Component, params.Project, params.Organization)
+		params.Name, params.Component, params.Project, params.Namespace)
 	return nil
 }
 
