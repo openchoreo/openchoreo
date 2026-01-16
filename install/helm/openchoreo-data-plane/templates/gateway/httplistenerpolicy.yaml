@@ -6,6 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: hook-failed
 spec:
   targetRefs:
   - group: gateway.networking.k8s.io
