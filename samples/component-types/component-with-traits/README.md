@@ -86,7 +86,7 @@ All resources will have:
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-traits/component-with-traits.yaml
 ```
 
-### Step 3: Verify ReleaseBinding status
+### Step 2: Verify ReleaseBinding status
 
 ```bash
 kubectl get releasebinding demo-app-with-traits-development -o yaml | grep -A 50 "^status:"
