@@ -1714,7 +1714,7 @@ prometheus:
         - name: 'openchoreo-alerts'
           webhook_configs:
             - url: 'http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus'
-              send_resolved: true
+              send_resolved: false
         - name: 'null'
 
   # @schema
