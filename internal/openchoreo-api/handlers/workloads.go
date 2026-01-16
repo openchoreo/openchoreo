@@ -104,9 +104,9 @@ func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "workload", "", "")
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
-		"project":      projectName,
-		"component":    componentName,
+		"namespace": namespaceName,
+		"project":   projectName,
+		"component": componentName,
 	})
 
 	// Call service to create/update workload

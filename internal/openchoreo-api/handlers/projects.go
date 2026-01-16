@@ -55,7 +55,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 
 	// Set audit context for successful creation
 	setAuditResource(ctx, "project", project.Name, project.Name)
-	addAuditMetadata(ctx, "organization", orgName)
+	addAuditMetadata(ctx, "namespace", namespaceName)
 
 	// Success response
 	logger.Info("Project created successfully", "org", namespaceName, "project", project.Name)
