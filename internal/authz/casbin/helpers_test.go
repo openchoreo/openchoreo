@@ -832,3 +832,37 @@ func TestIndexActions(t *testing.T) {
 		})
 	}
 }
+
+// TestNormalizeNamespace tests the normalizeNamespace helper function
+func TestNormalizeNamespace(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		want      string
+	}{
+		{
+			name:      "empty namespace converts to wildcard",
+			namespace: "",
+			want:      "*",
+		},
+		{
+			name:      "non-empty namespace remains unchanged",
+			namespace: "acme",
+			want:      "acme",
+		},
+		{
+			name:      "wildcard remains wildcard",
+			namespace: "*",
+			want:      "*",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeNamespace(tt.namespace)
+			if got != tt.want {
+				t.Errorf("normalizeNamespace(%q) = %q, want %q", tt.namespace, got, tt.want)
+			}
+		})
+	}
+}

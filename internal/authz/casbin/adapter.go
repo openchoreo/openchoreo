@@ -159,34 +159,22 @@ func insertActions(db *gorm.DB, actionRecords []Action, logger *slog.Logger) err
 }
 
 // prepareRoleRecords prepares role-to-action mapping records for insertion
-// Cluster roles use g grouping (ptype="g", V0=roleName, V1=action)
-// Namespace roles use g2 grouping (ptype="g2", V0=roleName, V1=namespace, V2=action)
+// All roles use g grouping with format: g, roleName, action, namespace
+// Cluster roles use "*" as namespace, namespace roles use their actual namespace
 func prepareRoleRecords(roleDefinitions []authzcore.Role) []CasbinRule {
 	ruleRecords := make([]CasbinRule, 0)
 	for _, roleDef := range roleDefinitions {
-		if roleDef.Namespace == "" {
-			for _, action := range roleDef.Actions {
-				// Cluster role: g, roleName, action
-				ruleRecords = append(ruleRecords, CasbinRule{
-					Ptype:      "g",
-					V0:         roleDef.Name,
-					V1:         action,
-					V2:         "",
-					V3:         "",
-					V4:         "",
-					V5:         "",
-					IsInternal: roleDef.IsInternal,
-				})
-			}
-			continue
+		namespace := roleDef.Namespace
+		if namespace == "" {
+			namespace = "*"
 		}
-		// Namespace role: g2, roleName, namespace, action
+
 		for _, action := range roleDef.Actions {
 			ruleRecords = append(ruleRecords, CasbinRule{
-				Ptype:      "g2",
+				Ptype:      "g",
 				V0:         roleDef.Name,
-				V1:         roleDef.Namespace,
-				V2:         action,
+				V1:         action,
+				V2:         namespace,
 				V3:         "",
 				V4:         "",
 				V5:         "",
@@ -228,10 +216,7 @@ func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping
 		resourcePath := hierarchyToResourcePath(mappingDef.Hierarchy)
 
 		// Determine role_ns: "*" for cluster roles, namespace for namespace-scoped roles
-		roleNs := "*"
-		if mappingDef.RoleRef.Namespace != "" {
-			roleNs = mappingDef.RoleRef.Namespace
-		}
+		roleNs := normalizeNamespace(mappingDef.RoleRef.Namespace)
 
 		policyRecords = append(policyRecords, CasbinRule{
 			Ptype:      "p",
