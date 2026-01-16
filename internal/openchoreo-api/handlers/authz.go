@@ -234,11 +234,13 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 	setAuditResource(ctx, "role_mapping", strconv.FormatUint(uint64(mapping.ID), 10), strconv.FormatUint(uint64(mapping.ID), 10))
-	addAuditMetadata(ctx, "role", mapping.RoleName)
-	addAuditMetadata(ctx, "entitlement", mapping.Entitlement)
-	addAuditMetadata(ctx, "hierarchy", mapping.Hierarchy)
-	addAuditMetadata(ctx, "effect", mapping.Effect)
-	addAuditMetadata(ctx, "context", mapping.Context)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"role":        mapping.RoleName,
+		"entitlement": mapping.Entitlement,
+		"hierarchy":   mapping.Hierarchy,
+		"effect":      mapping.Effect,
+		"context":     mapping.Context,
+	})
 
 	if err := h.services.AuthzService.AddRoleMapping(ctx, mapping); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -283,11 +285,13 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuditResource(ctx, "role_mapping", idStr, idStr)
-	addAuditMetadata(ctx, "role", req.RoleName)
-	addAuditMetadata(ctx, "entitlement", req.Entitlement)
-	addAuditMetadata(ctx, "hierarchy", req.Hierarchy)
-	addAuditMetadata(ctx, "effect", req.Effect)
-	addAuditMetadata(ctx, "context", req.Context)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"role":        req.RoleName,
+		"entitlement": req.Entitlement,
+		"hierarchy":   req.Hierarchy,
+		"effect":      req.Effect,
+		"context":     req.Context,
+	})
 
 	// Map DTO to domain model
 	mapping := &authz.RoleEntitlementMapping{

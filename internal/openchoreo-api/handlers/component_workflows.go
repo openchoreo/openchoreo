@@ -101,10 +101,12 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
-	addAuditMetadata(ctx, "component", componentName)
-	addAuditMetadata(ctx, "commit", commit)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+		"component":    componentName,
+		"commit":       commit,
+	})
 
 	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(ctx, orgName, projectName, componentName, commit)
 	setAuditResource(ctx, "component_workflow_run", workflowRun.Name, workflowRun.Name)

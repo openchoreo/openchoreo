@@ -52,3 +52,8 @@ func setAuditResource(ctx context.Context, resourceType, resourceID, resourceNam
 func addAuditMetadata(ctx context.Context, key string, value any) {
 	audit.AddMetadata(ctx, key, value)
 }
+
+// addAuditMetadataBatch adds multiple metadata key-value pairs for audit logging
+func addAuditMetadataBatch(ctx context.Context, metadata map[string]any) {
+	audit.AddMetadataBatch(ctx, metadata)
+}

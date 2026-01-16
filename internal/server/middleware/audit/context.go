@@ -51,6 +51,19 @@ func AddMetadata(ctx context.Context, key string, value any) {
 	}
 }
 
+// AddMetadataBatch adds multiple key-value pairs to the audit metadata
+// If metadata doesn't exist yet, it creates a new map
+func AddMetadataBatch(ctx context.Context, metadata map[string]any) {
+	if data := getAuditData(ctx); data != nil {
+		if data.Metadata == nil {
+			data.Metadata = make(map[string]any)
+		}
+		for key, value := range metadata {
+			data.Metadata[key] = value
+		}
+	}
+}
+
 // GetMetadata retrieves the audit metadata from the context
 // Returns nil if no metadata has been set
 func GetMetadata(ctx context.Context) map[string]any {

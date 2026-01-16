@@ -38,8 +38,10 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	setAuditResource(ctx, "component", req.Name, req.Name)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to create component
 	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
@@ -178,8 +180,10 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	setAuditResource(ctx, "component", componentName, componentName)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
@@ -271,8 +275,10 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 	}
 
 	setAuditResource(ctx, "component", componentName, componentName)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to update workflow parameters
 	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, orgName, projectName, componentName, &req)
@@ -374,10 +380,12 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	req.Sanitize()
 
 	setAuditResource(ctx, "component", componentName, componentName)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
-	addAuditMetadata(ctx, "source_environment", req.SourceEnvironment)
-	addAuditMetadata(ctx, "target_environment", req.TargetEnvironment)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization":       orgName,
+		"project":            projectName,
+		"source_environment": req.SourceEnvironment,
+		"target_environment": req.TargetEnvironment,
+	})
 
 	promoteReq := &services.PromoteComponentPayload{
 		PromoteComponentRequest: req,
@@ -462,9 +470,11 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	}
 
 	setAuditResource(ctx, "component_binding", bindingName, bindingName)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
-	addAuditMetadata(ctx, "component", componentName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+		"component":    componentName,
+	})
 
 	// Call service to update component binding
 	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, orgName, projectName, componentName, bindingName, &req)
@@ -1034,8 +1044,10 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	}
 
 	setAuditResource(ctx, "component", componentName, componentName)
-	addAuditMetadata(ctx, "organization", orgName)
-	addAuditMetadata(ctx, "project", projectName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to update component traits
 	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)
