@@ -37,12 +37,14 @@ var systemActions = []ActionData{
 	// Project
 	{Name: "project:view", IsInternal: false},
 	{Name: "project:create", IsInternal: false},
+	{Name: "project:delete", IsInternal: false},
 
 	// Component
 	{Name: "component:view", IsInternal: false},
 	{Name: "component:create", IsInternal: false},
 	{Name: "component:update", IsInternal: false},
 	{Name: "component:deploy", IsInternal: false},
+	{Name: "component:delete", IsInternal: false},
 
 	// ComponentRelease
 	{Name: "componentrelease:view", IsInternal: false},
