@@ -128,3 +128,35 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	logger.Debug("Retrieved project successfully", "org", orgName, "project", projectName)
 	writeSuccessResponse(w, http.StatusOK, project)
 }
+
+func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Info("DeleteProject handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	if orgName == "" || projectName == "" {
+		logger.Warn("Organization name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Call service to delete project
+	err := h.services.ProjectService.DeleteProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		logger.Error("Failed to delete project", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response - 204 No Content for successful delete
+	logger.Info("Project deleted successfully", "org", orgName, "project", projectName)
+	w.WriteHeader(http.StatusNoContent)
+}

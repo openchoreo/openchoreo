@@ -185,6 +185,42 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 	}
 }
 
+// DeleteProject deletes a project from the given organization
+func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName string) error {
+	s.logger.Debug("Deleting project", "org", orgName, "project", projectName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteProject, ResourceTypeProject, projectName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		return err
+	}
+
+	// Get the project first to ensure it exists
+	project := &openchoreov1alpha1.Project{}
+	key := client.ObjectKey{
+		Name:      projectName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, project); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return ErrProjectNotFound
+		}
+		s.logger.Error("Failed to get project", "error", err)
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Delete the project CR
+	if err := s.k8sClient.Delete(ctx, project); err != nil {
+		s.logger.Error("Failed to delete project CR", "error", err)
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	s.logger.Debug("Project deleted successfully", "org", orgName, "project", projectName)
+	return nil
+}
+
 // toProjectResponse converts a Project CR to a ProjectResponse
 func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) *models.ProjectResponse {
 	// Extract display name and description from annotations

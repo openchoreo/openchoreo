@@ -48,6 +48,7 @@ type ComponentResponse struct {
 	ProjectName       string                           `json:"projectName"`
 	OrgName           string                           `json:"orgName"`
 	CreatedAt         time.Time                        `json:"createdAt"`
+	DeletionTimestamp *time.Time                       `json:"deletionTimestamp,omitempty"`
 	Status            string                           `json:"status,omitempty"`
 	Workload          *openchoreov1alpha1.WorkloadSpec `json:"workload,omitempty"`
 	ComponentWorkflow *ComponentWorkflow               `json:"componentWorkflow,omitempty"`

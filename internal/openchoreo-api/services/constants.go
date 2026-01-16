@@ -8,10 +8,12 @@ type systemAction string
 const (
 	SystemActionCreateProject systemAction = "project:create"
 	SystemActionViewProject   systemAction = "project:view"
+	SystemActionDeleteProject systemAction = "project:delete"
 
 	SystemActionCreateComponent        systemAction = "component:create"
 	SystemActionViewComponent          systemAction = "component:view"
 	SystemActionUpdateComponent        systemAction = "component:update"
+	SystemActionDeleteComponent        systemAction = "component:delete"
 	SystemActionDeployComponent        systemAction = "component:deploy"
 	SystemActionCreateComponentRelease systemAction = "componentrelease:create"
 	SystemActionViewComponentRelease   systemAction = "componentrelease:view"

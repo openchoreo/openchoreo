@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"time"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1378,6 +1379,58 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	}, nil
 }
 
+// DeleteComponent deletes a component from the given project
+func (s *ComponentService) DeleteComponent(ctx context.Context, orgName, projectName, componentName string) error {
+	s.logger.Debug("Deleting component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		return err
+	}
+
+	// Verify project exists
+	_, err := s.projectService.getProject(ctx, orgName, projectName)
+	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return ErrProjectNotFound
+		}
+		return fmt.Errorf("failed to verify project: %w", err)
+	}
+
+	// Get the component first to ensure it exists and belongs to the project
+	component := &openchoreov1alpha1.Component{}
+	key := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return ErrComponentNotFound
+	}
+
+	// Delete the component CR
+	if err := s.k8sClient.Delete(ctx, component); err != nil {
+		s.logger.Error("Failed to delete component CR", "error", err)
+		return fmt.Errorf("failed to delete component: %w", err)
+	}
+
+	s.logger.Debug("Component deleted successfully", "org", orgName, "project", projectName, "component", componentName)
+	return nil
+}
+
 // ListComponents lists all components in the given project
 func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectName string) ([]*models.ComponentResponse, error) {
 	s.logger.Debug("Listing components", "org", orgName, "project", projectName)
@@ -1751,6 +1804,13 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		componentType = string(component.Spec.Type)
 	}
 
+	// Get deletion timestamp if the component is being deleted
+	var deletionTimestamp *time.Time
+	if component.DeletionTimestamp != nil {
+		t := component.DeletionTimestamp.Time
+		deletionTimestamp = &t
+	}
+
 	response := &models.ComponentResponse{
 		UID:               string(component.UID),
 		Name:              component.Name,
@@ -1761,6 +1821,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		ProjectName:       projectName,
 		OrgName:           component.Namespace,
 		CreatedAt:         component.CreationTimestamp.Time,
+		DeletionTimestamp: deletionTimestamp,
 		Status:            status,
 		ComponentWorkflow: componentWorkflow,
 	}

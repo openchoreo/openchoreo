@@ -1095,3 +1095,114 @@ func TestPatchComponent_MissingPathParameters(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteComponent_PathParameters tests path parameter extraction for DeleteComponent
+func TestDeleteComponent_PathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		url           string
+		orgName       string
+		projectName   string
+		componentName string
+	}{
+		{
+			name:          "Valid path with all parameters",
+			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+		},
+		{
+			name:          "Path with hyphens in names",
+			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component",
+			orgName:       "my-org",
+			projectName:   "my-project",
+			componentName: "my-component",
+		},
+		{
+			name:          "Path with underscores in names",
+			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component",
+			orgName:       "my_org",
+			projectName:   "my_project",
+			componentName: "my_component",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodDelete, tt.url, nil)
+			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("projectName", tt.projectName)
+			req.SetPathValue("componentName", tt.componentName)
+
+			// Verify all path values are set correctly
+			if req.PathValue("orgName") != tt.orgName {
+				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			}
+			if req.PathValue("projectName") != tt.projectName {
+				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
+			}
+			if req.PathValue("componentName") != tt.componentName {
+				t.Errorf("componentName = %v, want %v", req.PathValue("componentName"), tt.componentName)
+			}
+		})
+	}
+}
+
+// TestDeleteComponent_MissingPathParameters tests validation for missing required parameters
+func TestDeleteComponent_MissingPathParameters(t *testing.T) {
+	tests := []struct {
+		name          string
+		orgName       string
+		projectName   string
+		componentName string
+		wantValid     bool
+	}{
+		{
+			name:          "All parameters present",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     true,
+		},
+		{
+			name:          "Missing org name",
+			orgName:       "",
+			projectName:   "myproject",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing project name",
+			orgName:       "myorg",
+			projectName:   "",
+			componentName: "mycomponent",
+			wantValid:     false,
+		},
+		{
+			name:          "Missing component name",
+			orgName:       "myorg",
+			projectName:   "myproject",
+			componentName: "",
+			wantValid:     false,
+		},
+		{
+			name:          "All parameters missing",
+			orgName:       "",
+			projectName:   "",
+			componentName: "",
+			wantValid:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Simulate the validation logic from DeleteComponent handler
+			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+
+			if isValid != tt.wantValid {
+				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)
+			}
+		})
+	}
+}
