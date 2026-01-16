@@ -13,7 +13,29 @@ The service is deployed from the pre-built image:
 **Protocol:** WebSocket
 **Functionality:** Echoes back any message sent by the client.
 
-## Step 1: Deploy the Application
+## Step 1: Enable WebSockets at the Ingress Gateway
+
+Before deploying the WebSocket service, you need to enable WebSocket upgrades at the ingress gateway by applying the following HTTPListenerPolicy:
+
+```bash
+kubectl apply -f - <<EOF
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: HTTPListenerPolicy
+metadata:
+  name: default-httplistenerpolicy
+  namespace: openchoreo-data-plane
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: gateway-default
+  upgradeConfig:
+    enabledUpgrades:
+    - websocket
+EOF
+```
+
+## Step 2: Deploy the Application
 
 The following command will create the relevant resources in OpenChoreo:
 
@@ -24,7 +46,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 > [!NOTE]
 > Since this uses a pre-built image, the deployment will be faster compared to building from source.
 
-## Step 2: Test the Application
+## Step 3: Test the Application
 
 You can test the WebSocket service using `wscat` (install via `npm install -g wscat`).
 
