@@ -179,8 +179,11 @@ type JSONPatchOperation struct {
 
 	// Value is the value to set (for add/replace operations)
 	// Not used for remove operations
+	// Can be a literal value, a structure with embedded CEL expressions,
+	// or a standalone CEL expression.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	Value *runtime.RawExtension `json:"value,omitempty"`
 }
 

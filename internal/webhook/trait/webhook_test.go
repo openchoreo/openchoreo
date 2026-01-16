@@ -269,5 +269,27 @@ var _ = Describe("Trait Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid CEL expression"))
 		})
+
+		It("should admit patches with CEL expression as entire value", func() {
+			obj.Spec.Patches = []openchoreodevv1alpha1.TraitPatch{
+				{
+					Target: openchoreodevv1alpha1.PatchTarget{
+						Group:   "apps",
+						Version: "v1",
+						Kind:    "Deployment",
+					},
+					Operations: []openchoreodevv1alpha1.JSONPatchOperation{
+						{
+							Op:    "add",
+							Path:  "/metadata/labels",
+							Value: &runtime.RawExtension{Raw: []byte(`"${metadata.labels}"`)},
+						},
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })

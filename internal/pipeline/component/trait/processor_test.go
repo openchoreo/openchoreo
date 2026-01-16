@@ -980,6 +980,68 @@ spec:
 `,
 			wantErr: false,
 		},
+		{
+			name: "patch with CEL expression as entire value",
+			resourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: main
+            image: myapp:latest
+`,
+			traitYAML: `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: config-trait
+spec:
+  patches:
+    - forEach: ${parameters.containers}
+      var: container
+      target:
+        kind: Deployment
+        version: v1
+        group: apps
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${container.key}')]/envFrom
+          value: ${parameters.envFromList}
+`,
+			context: map[string]any{
+				"parameters": map[string]any{
+					"containers": map[string]any{
+						"main": map[string]any{},
+					},
+					"envFromList": []any{
+						map[string]any{"configMapRef": map[string]any{"name": "my-config"}},
+						map[string]any{"secretRef": map[string]any{"name": "my-secret"}},
+					},
+				},
+			},
+			wantResourcesYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+  spec:
+    template:
+      spec:
+        containers:
+          - name: main
+            image: myapp:latest
+            envFrom:
+              - configMapRef:
+                  name: my-config
+              - secretRef:
+                  name: my-secret
+`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
