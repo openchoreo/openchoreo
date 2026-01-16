@@ -3852,6 +3852,13 @@
       "additionalProperties": false,
       "description": "Common security configuration shared across all components",
       "properties": {
+        "authServerBaseUrl": {
+          "default": "",
+          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
+          "required": [],
+          "title": "authServerBaseUrl",
+          "type": "string"
+        },
         "authz": {
           "additionalProperties": false,
           "description": "Authorization (authz) configuration using Casbin",
@@ -3948,13 +3955,6 @@
           "required": [],
           "title": "oidc",
           "type": "object"
-        },
-        "authServerBaseUrl": {
-          "default": "",
-          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
-          "required": [],
-          "title": "authServerBaseUrl",
-          "type": "string"
         }
       },
       "required": [],

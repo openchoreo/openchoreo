@@ -2412,6 +2412,13 @@
       "additionalProperties": false,
       "description": "OpenSearch cluster post-install setup job configuration",
       "properties": {
+        "alertingWebhookUrl": {
+          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch",
+          "description": "Alerting webhook URL for setup configuration",
+          "required": [],
+          "title": "alertingWebhookUrl",
+          "type": "string"
+        },
         "dataRetentionTime": {
           "additionalProperties": false,
           "description": "Data retention time configuration for indices",
@@ -2464,13 +2471,6 @@
           "required": [],
           "title": "image",
           "type": "object"
-        },
-        "alertingWebhookUrl": {
-          "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch",
-          "description": "Alerting webhook URL for setup configuration",
-          "required": [],
-          "title": "alertingWebhookUrl",
-          "type": "string"
         }
       },
       "required": [],
@@ -3590,13 +3590,6 @@
               "required": [],
               "title": "clientSecret",
               "type": "string"
-            },
-            "tokenUrl": {
-              "default": "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token",
-              "description": "Token URL for obtaining access tokens from IDP",
-              "required": [],
-              "title": "tokenUrl",
-              "type": "string"
             }
           },
           "required": [],
@@ -3605,14 +3598,14 @@
         },
         "observerMcpUrl": {
           "default": "",
-          "description": "Observer MCP endpoint URL (leave empty for auto-discovery)",
+          "description": "Observer MCP endpoint URL",
           "required": [],
           "title": "observerMcpUrl",
           "type": "string"
         },
         "openchoreoMcpUrl": {
           "default": "",
-          "description": "OpenChoreo API MCP endpoint URL (leave empty for auto-discovery)",
+          "description": "OpenChoreo API MCP endpoint URL",
           "required": [],
           "title": "openchoreoMcpUrl",
           "type": "string"
@@ -3775,18 +3768,18 @@
               "title": "jwksUrl",
               "type": "string"
             },
-            "tokenUrl": {
-              "default": "",
-              "description": "OIDC token endpoint URL",
-              "required": [],
-              "title": "tokenUrl",
-              "type": "string"
-            },
             "jwksUrlTlsInsecureSkipVerify": {
               "default": "false",
               "description": "Skip TLS verification for JWKS URL",
               "required": [],
               "title": "jwksUrlTlsInsecureSkipVerify",
+              "type": "string"
+            },
+            "tokenUrl": {
+              "default": "",
+              "description": "OIDC token endpoint URL",
+              "required": [],
+              "title": "tokenUrl",
               "type": "string"
             }
           },
