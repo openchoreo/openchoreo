@@ -316,6 +316,7 @@ type CreateWorkloadParams struct {
 	ComponentName    string
 	ImageURL         string
 	OutputPath       string
+	DryRun           bool
 }
 
 // ScaffoldComponentParams defines parameters for scaffolding a component
