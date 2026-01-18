@@ -336,6 +336,7 @@ type GenerateComponentReleaseParams struct {
 	All           bool   // Generate for all components
 	ProjectName   string // Generate for all components in this project
 	ComponentName string // Generate for specific component
+	ReleaseName   string // Optional: custom release name (only valid with --component)
 	OutputPath    string // Optional: custom output directory
 	DryRun        bool   // Preview without writing files
 }

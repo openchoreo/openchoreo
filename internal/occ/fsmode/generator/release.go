@@ -28,6 +28,7 @@ type ReleaseOptions struct {
 	ComponentName string
 	ProjectName   string
 	Namespace     string
+	ReleaseName   string    // Optional: custom release name (if empty, auto-generated from component, date, version)
 	Version       string    // Optional: auto-generated if empty
 	Date          time.Time // Optional: uses current date if zero
 }
@@ -67,10 +68,18 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 		return nil, fmt.Errorf("failed to fetch traits: %w", err)
 	}
 
-	// 5. Generate release name
-	releaseName, err := GenerateReleaseName(comp.Name, opts.Date, opts.Version, g.index)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate release name: %w", err)
+	// 5. Determine release name
+	var releaseName string
+	if opts.ReleaseName != "" {
+		// Use custom release name if provided
+		releaseName = opts.ReleaseName
+	} else {
+		// Auto-generate release name
+		var err error
+		releaseName, err = GenerateReleaseName(comp.Name, opts.Date, opts.Version, g.index)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate release name: %w", err)
+		}
 	}
 
 	// 6. Build ComponentRelease

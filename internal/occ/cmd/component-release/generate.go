@@ -109,7 +109,7 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 		if params.ProjectName == "" {
 			return fmt.Errorf("project name is required when specifying --component")
 		}
-		return c.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig)
+		return c.generateForComponent(gen, params.ComponentName, params.ProjectName, namespace, baseDir, customOutputPath, params.ReleaseName, params.DryRun, releaseConfig)
 	}
 
 	// Project-only scope (all components in project)
@@ -167,11 +167,12 @@ func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerato
 	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
 }
 
-func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
 	release, err := gen.GenerateRelease(generator.ReleaseOptions{
 		ComponentName: component,
 		ProjectName:   project,
 		Namespace:     namespace,
+		ReleaseName:   customReleaseName,
 	})
 	if err != nil {
 		return err

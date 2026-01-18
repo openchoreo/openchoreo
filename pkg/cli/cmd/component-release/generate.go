@@ -36,6 +36,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.All,
 			flags.Project,
 			flags.Component,
+			flags.Name,
 			flags.OutputPath,
 			flags.DryRun,
 		},
@@ -46,13 +47,17 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			allSet := isFlagInArgs("--all")
 			projectSet := isFlagInArgs("--project")
 			componentSet := isFlagInArgs("--component")
+			nameSet := isFlagInArgs("--name")
 			outputPathSet := isFlagInArgs("--output-path")
 
 			// Validation logic:
-			// 1. If --all is set, reject --project or --component
+			// 1. If --all is set, reject --project, --component, or --name
 			if allSet {
 				if projectSet || componentSet {
 					return fmt.Errorf("--all cannot be combined with --project or --component")
+				}
+				if nameSet {
+					return fmt.Errorf("--all cannot be combined with --name")
 				}
 				// --all is valid on its own
 			} else if componentSet {
@@ -65,12 +70,22 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 					return fmt.Errorf("--output-path is required when specifying --component")
 				}
 				// --component with --project and --output-path is valid
+				// --name is optional when --component is specified
 			} else if projectSet {
 				// 4. --project alone is valid (processes all components in that project)
-				// Nothing to validate
+				// But cannot use --name with --project alone
+				if nameSet {
+					return fmt.Errorf("--name can only be used with --component (requires both --project and --component)")
+				}
+				// Nothing else to validate
 			} else {
 				// 5. None of the required flags were explicitly set
 				return fmt.Errorf("one of --all, --project, or --component must be specified")
+			}
+
+			// Validate --name is only used with --component
+			if nameSet && !componentSet {
+				return fmt.Errorf("--name requires --component to be specified")
 			}
 
 			// Build params with only explicitly set values (not context defaults)
@@ -88,6 +103,9 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			}
 			if componentSet {
 				params.ComponentName = fg.GetString(flags.Component)
+			}
+			if nameSet {
+				params.ReleaseName = fg.GetString(flags.Name)
 			}
 
 			return impl.GenerateComponentRelease(params)
