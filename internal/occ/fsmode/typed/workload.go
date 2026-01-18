@@ -37,10 +37,10 @@ func (w *Workload) GetContainers() map[string]interface{} {
 		}
 
 		if len(container.Command) > 0 {
-			containerMap["command"] = container.Command
+			containerMap["command"] = stringsToInterfaceSlice(container.Command)
 		}
 		if len(container.Args) > 0 {
-			containerMap["args"] = container.Args
+			containerMap["args"] = stringsToInterfaceSlice(container.Args)
 		}
 
 		// Convert env vars
@@ -110,4 +110,14 @@ func (w *Workload) GetContainers() map[string]interface{} {
 	}
 
 	return containers
+}
+
+// stringsToInterfaceSlice converts []string to []interface{} for JSON compatibility
+// This is needed because DeepCopyJSONValue cannot handle []string directly
+func stringsToInterfaceSlice(strs []string) []interface{} {
+	result := make([]interface{}, len(strs))
+	for i, s := range strs {
+		result[i] = s
+	}
+	return result
 }
