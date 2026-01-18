@@ -200,9 +200,10 @@ func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzc
 }
 
 type policyInfo struct {
-	resourcePath string
-	roleName     string
-	effect       string
+	resourcePath  string
+	roleName      string
+	roleNamespace string
+	effect        string
 }
 
 // filterPoliciesBySubjectAndScope retrieves and filters policies relevant to the subject and scope
@@ -227,7 +228,7 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 
 			resourcePath := policy[1]
 			roleName := policy[2]
-			// policy[3] is role_ns, not needed for profile building
+			roleNamespace := policy[3] // Capture role namespace
 			effect := policy[4]
 			// policy[5] is context
 
@@ -236,9 +237,10 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 			}
 
 			filteredPolicies = append(filteredPolicies, policyInfo{
-				resourcePath: resourcePath,
-				roleName:     roleName,
-				effect:       effect,
+				resourcePath:  resourcePath,
+				roleName:      roleName,
+				roleNamespace: roleNamespace,
+				effect:        effect,
 			})
 		}
 	}
@@ -253,31 +255,37 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 		effect string
 	}
 
-	roleToActions := make(map[string][]string)
+	roleToActions := make(map[authzcore.RoleRef][]string)
 	actionResources := make(map[string]map[resourceKey]bool)
 
 	for _, p := range policies {
+		roleKey := authzcore.RoleRef{
+			Name:      p.roleName,
+			Namespace: p.roleNamespace,
+		}
+
 		// Fetch role actions if not already cached
-		if _, ok := roleToActions[p.roleName]; !ok {
-			roleActions, err := ce.enforcer.GetFilteredGroupingPolicy(0, p.roleName)
+		if _, ok := roleToActions[roleKey]; !ok {
+			roleActions, err := ce.enforcer.GetFilteredGroupingPolicy(0, p.roleName, "", p.roleNamespace)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get actions for role '%s': %w", p.roleName, err)
+				return nil, fmt.Errorf("failed to get actions for role '%s' in namespace '%s': %w", p.roleName, p.roleNamespace, err)
 			}
 
 			var actions []string
 			for _, ra := range roleActions {
-				if len(ra) != 2 {
+				if len(ra) != 3 {
 					ce.logger.Warn("skipping malformed role-action mapping", "rule", ra)
 					continue
 				}
+				// ra[0] = role name, ra[1] = action, ra[2] = namespace (already filtered)
 				expandedActions := expandActionWildcard(ra[1], actionIdx)
 				actions = append(actions, expandedActions...)
 			}
-			roleToActions[p.roleName] = actions
+			roleToActions[roleKey] = actions
 		}
 
 		// Build action resources using the cached role actions
-		actions := roleToActions[p.roleName]
+		actions := roleToActions[roleKey]
 		for _, action := range actions {
 			if actionResources[action] == nil {
 				actionResources[action] = make(map[resourceKey]bool)

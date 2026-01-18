@@ -292,7 +292,7 @@ security:
     # description: Enable authorization using Casbin
     # default: false
     # @schema
-    enabled: true
+    enabled: false
     # @schema
     # type: string
     # description: Path to the Casbin database file

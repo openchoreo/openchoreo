@@ -282,7 +282,6 @@ func expandActionWildcard(actionPattern string, actionIndex actionIndex) []strin
 	if strings.HasSuffix(actionPattern, ":*") {
 		resourcePrefix := actionPattern[:len(actionPattern)-2]
 
-		// O(1) map lookup instead of O(A) iteration
 		if actions, ok := actionsByResource[resourcePrefix]; ok {
 			return actions
 		}

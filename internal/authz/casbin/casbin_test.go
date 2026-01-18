@@ -1263,13 +1263,24 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	// Setup: Create role and mappings
-	role := &authzcore.Role{
-		Name:    "viewer",
-		Actions: []string{"component:view"},
+	// Setup: Create cluster role
+	clusterRole := &authzcore.Role{
+		Name:      "viewer",
+		Namespace: "", // cluster role
+		Actions:   []string{"component:view"},
 	}
-	if err := enforcer.AddRole(ctx, role); err != nil {
-		t.Fatalf("AddRole() error = %v", err)
+	if err := enforcer.AddRole(ctx, clusterRole); err != nil {
+		t.Fatalf("AddRole(cluster) error = %v", err)
+	}
+
+	// Setup: Create namespace-scoped role
+	nsRole := &authzcore.Role{
+		Name:      "editor",
+		Namespace: "acme", // namespace role
+		Actions:   []string{"component:edit"},
+	}
+	if err := enforcer.AddRole(ctx, nsRole); err != nil {
+		t.Fatalf("AddRole(namespace) error = %v", err)
 	}
 
 	mapping1 := &authzcore.RoleEntitlementMapping{
@@ -1277,7 +1288,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleRef: authzcore.RoleRef{Name: "viewer"},
+		RoleRef: authzcore.RoleRef{Name: "viewer", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
 		},
@@ -1288,7 +1299,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleRef: authzcore.RoleRef{Name: "viewer"},
+		RoleRef: authzcore.RoleRef{Name: "viewer", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
 			Project:   "p1",
@@ -1300,9 +1311,21 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			Claim: "group",
 			Value: "group1",
 		},
-		RoleRef: authzcore.RoleRef{Name: "viewer"},
+		RoleRef: authzcore.RoleRef{Name: "viewer", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "other-org",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
+	// Namespace-scoped role mapping
+	mapping4 := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "group",
+			Value: "group1",
+		},
+		RoleRef: authzcore.RoleRef{Name: "editor", Namespace: "acme"},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -1315,6 +1338,9 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 	}
 	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping3); err != nil {
 		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, mapping4); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(ns) error = %v", err)
 	}
 
 	tests := []struct {
@@ -1330,8 +1356,8 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"group1"},
 			},
-			scopePath:       "org/acme",
-			wantPolicyCount: 2,
+			scopePath:       "ns/acme",
+			wantPolicyCount: 3,
 		},
 		{
 			name: "filter policies within project scope",
@@ -1340,8 +1366,8 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"group1"},
 			},
-			scopePath:       "org/acme/project/p1",
-			wantPolicyCount: 2,
+			scopePath:       "ns/acme/project/p1",
+			wantPolicyCount: 3,
 		},
 		{
 			name: "no matching entitlements",
@@ -1350,7 +1376,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementClaim:  "group",
 				EntitlementValues: []string{"nonexistent-group"},
 			},
-			scopePath:       "org/acme",
+			scopePath:       "ns/acme",
 			wantPolicyCount: 0,
 		},
 	}
@@ -1385,6 +1411,11 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 		Name:    "admin",
 		Actions: []string{"*"},
 	}
+	nsEditorRole := &authzcore.Role{
+		Name:      "editor",
+		Namespace: "acme",
+		Actions:   []string{"component:view"},
+	}
 
 	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
 		t.Fatalf("AddRole(viewer) error = %v", err)
@@ -1394,6 +1425,9 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 	}
 	if err := enforcer.AddRole(ctx, adminRole); err != nil {
 		t.Fatalf("AddRole(admin) error = %v", err)
+	}
+	if err := enforcer.AddRole(ctx, nsEditorRole); err != nil {
+		t.Fatalf("AddRole(nsEditor) error = %v", err)
 	}
 
 	// Create action index for testing
@@ -1419,8 +1453,8 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 		{
 			name: "multiple roles with different policies",
 			policies: []policyInfo{
-				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
-				{resourcePath: "org/acme/project/p1", roleName: "editor", effect: "allow"},
+				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{resourcePath: "ns/acme/project/p1", roleName: "editor", roleNamespace: "*", effect: "allow"},
 			},
 			expectedCapabilities: map[string]struct {
 				allowedCount int
@@ -1436,8 +1470,8 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 		{
 			name: "allow and deny effects on different resources",
 			policies: []policyInfo{
-				{resourcePath: "org/acme", roleName: "editor", effect: "allow"},
-				{resourcePath: "org/acme/project/secret", roleName: "editor", effect: "deny"},
+				{resourcePath: "ns/acme", roleName: "editor", roleNamespace: "*", effect: "allow"},
+				{resourcePath: "ns/acme/project/secret", roleName: "editor", roleNamespace: "*", effect: "deny"},
 			},
 			expectedCapabilities: map[string]struct {
 				allowedCount int
@@ -1452,7 +1486,7 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 		{
 			name: "wildcard action expansion",
 			policies: []policyInfo{
-				{resourcePath: "org/acme", roleName: "admin", effect: "allow"},
+				{resourcePath: "ns/acme", roleName: "admin", roleNamespace: "*", effect: "allow"},
 			},
 			expectedCapabilities: map[string]struct {
 				allowedCount int
@@ -1468,10 +1502,10 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "multiple policies with same role (duplicates)",
+			name: "multiple policies with same role",
 			policies: []policyInfo{
-				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
-				{resourcePath: "org/acme", roleName: "viewer", effect: "allow"},
+				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
 			},
 			expectedCapabilities: map[string]struct {
 				allowedCount int
@@ -1488,6 +1522,22 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				allowedCount int
 				deniedCount  int
 			}{},
+		},
+		{
+			name: "namespace role isolation - same role name different namespaces",
+			policies: []policyInfo{
+				{resourcePath: "ns/acme-v2", roleName: "editor", roleNamespace: "*", effect: "allow"},
+				{resourcePath: "ns/acme", roleName: "editor", roleNamespace: "acme", effect: "allow"},
+			},
+			expectedCapabilities: map[string]struct {
+				allowedCount int
+				deniedCount  int
+			}{
+				"component:view":   {allowedCount: 2, deniedCount: 0},
+				"component:create": {allowedCount: 1, deniedCount: 0},
+				"component:update": {allowedCount: 1, deniedCount: 0},
+				"component:delete": {allowedCount: 1, deniedCount: 0},
+			},
 		},
 	}
 
@@ -1616,39 +1666,52 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
+	// Cluster-scoped roles
 	viewerRole := &authzcore.Role{
-		Name:    "viewer",
-		Actions: []string{"component:view", "project:view"},
+		Name:      "viewer",
+		Namespace: "",
+		Actions:   []string{"component:view", "project:view"},
 	}
 	editorRole := &authzcore.Role{
-		Name:    "editor",
-		Actions: []string{"component:*", "project:create"},
+		Name:      "editor",
+		Namespace: "",
+		Actions:   []string{"component:view", "component:create", "component:update"},
 	}
+	// Namespace-scoped role
+	nsEditorRole := &authzcore.Role{
+		Name:      "editor",
+		Namespace: "acme",
+		Actions:   []string{"project:delete"},
+	}
+
 	if err := enforcer.AddRole(ctx, viewerRole); err != nil {
 		t.Fatalf("AddRole(viewer) error = %v", err)
 	}
 	if err := enforcer.AddRole(ctx, editorRole); err != nil {
 		t.Fatalf("AddRole(editor) error = %v", err)
 	}
+	if err := enforcer.AddRole(ctx, nsEditorRole); err != nil {
+		t.Fatalf("AddRole(nsEditor) error = %v", err)
+	}
 
 	// Setup: Add role entitlement mappings
-	viewerMapping := &authzcore.RoleEntitlementMapping{
+	clusterEditorMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleRef: authzcore.RoleRef{Name: "editor"},
+		RoleRef: authzcore.RoleRef{Name: "editor", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
-	editorMapping := &authzcore.RoleEntitlementMapping{
+	viewerMapping := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleRef: authzcore.RoleRef{Name: "viewer"},
+		RoleRef: authzcore.RoleRef{Name: "viewer", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
 			Project:   "p1",
@@ -1660,22 +1723,36 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			Claim: "groups",
 			Value: "dev-group",
 		},
-		RoleRef: authzcore.RoleRef{Name: "editor"},
+		RoleRef: authzcore.RoleRef{Name: "editor", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
 			Namespace: "acme",
 			Project:   "secret",
 		},
 		Effect: authzcore.PolicyEffectDeny,
 	}
+	nsEditorMapping := &authzcore.RoleEntitlementMapping{
+		Entitlement: authzcore.Entitlement{
+			Claim: "groups",
+			Value: "dev-group",
+		},
+		RoleRef: authzcore.RoleRef{Name: "editor", Namespace: "acme"},
+		Hierarchy: authzcore.ResourceHierarchy{
+			Namespace: "acme",
+		},
+		Effect: authzcore.PolicyEffectAllow,
+	}
 
+	if err := enforcer.AddRoleEntitlementMapping(ctx, clusterEditorMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(clusterEditor) error = %v", err)
+	}
 	if err := enforcer.AddRoleEntitlementMapping(ctx, viewerMapping); err != nil {
 		t.Fatalf("AddRoleEntitlementMapping(viewer) error = %v", err)
 	}
-	if err := enforcer.AddRoleEntitlementMapping(ctx, editorMapping); err != nil {
-		t.Fatalf("AddRoleEntitlementMapping(editor) error = %v", err)
-	}
 	if err := enforcer.AddRoleEntitlementMapping(ctx, denyMapping); err != nil {
 		t.Fatalf("AddRoleEntitlementMapping(deny) error = %v", err)
+	}
+	if err := enforcer.AddRoleEntitlementMapping(ctx, nsEditorMapping); err != nil {
+		t.Fatalf("AddRoleEntitlementMapping(nsEditor) error = %v", err)
 	}
 	type expectedCapability struct {
 		action       string
@@ -1692,7 +1769,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		expectedCapabilities []expectedCapability
 	}{
 		{
-			name: "get profile with org scope",
+			name: "get profile with namespace scope",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
 					Type:              user,
@@ -1714,12 +1791,11 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				{action: "project:view", allowedCount: 1, deniedCount: 0},
 				{action: "component:create", allowedCount: 1, deniedCount: 1},
 				{action: "component:update", allowedCount: 1, deniedCount: 1},
-				{action: "component:deploy", allowedCount: 1, deniedCount: 1},
-				{action: "project:create", allowedCount: 1, deniedCount: 1},
+				{action: "project:delete", allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{
-			name: "get profile for scope within an organization",
+			name: "get profile for scope within a namespace - no deny policies",
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
 					Type:              user,
@@ -1742,8 +1818,7 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				{action: "project:view", allowedCount: 1, deniedCount: 0},
 				{action: "component:create", allowedCount: 1, deniedCount: 0},
 				{action: "component:update", allowedCount: 1, deniedCount: 0},
-				{action: "component:deploy", allowedCount: 1, deniedCount: 0},
-				{action: "project:create", allowedCount: 1, deniedCount: 0},
+				{action: "project:delete", allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{
