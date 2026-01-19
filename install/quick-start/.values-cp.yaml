@@ -34,3 +34,15 @@ gateway:
     # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
     # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
     mountTmpVolume: true
+
+# Security configuration for quickstart
+security:
+  authz:
+    additionalRoleMappings:
+      # Quickstart CLI client credentials mapping
+      - role:
+          name: super-admin
+        entitlement:
+          claim: sub
+          value: openchoreo-cli-quickstart
+        effect: allow

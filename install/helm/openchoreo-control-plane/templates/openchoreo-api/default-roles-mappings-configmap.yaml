@@ -86,4 +86,27 @@ data:
           claim: sub
           value: openchoreo-rca-agent
         effect: allow
+      {{- range .Values.security.authz.additionalRoleMappings }}
+      - role:
+          name: {{ .role.name }}
+          {{- if .role.namespace }}
+          namespace: {{ .role.namespace }}
+          {{- end }}
+        entitlement:
+          claim: {{ .entitlement.claim }}
+          value: {{ .entitlement.value }}
+        effect: {{ .effect }}
+        {{- if .hierarchy }}
+        hierarchy:
+          {{- if .hierarchy.namespace }}
+          namespace: {{ .hierarchy.namespace }}
+          {{- end }}
+          {{- if .hierarchy.project }}
+          project: {{ .hierarchy.project }}
+          {{- end }}
+          {{- if .hierarchy.component }}
+          component: {{ .hierarchy.component }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
 {{- end }}

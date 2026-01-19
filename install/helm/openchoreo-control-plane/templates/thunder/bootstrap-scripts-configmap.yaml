@@ -449,5 +449,66 @@ data:
 
       log_info "Default CLI application created successfully"
     fi
+
+  55-system-app.sh: |
+    #!/bin/bash
+    set -e
+
+    log_info "Checking if system application already exists..."
+    existing_apps=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/applications')
+
+    # Extract application ID if it exists
+    app_id=$(echo "$existing_apps" | grep -o '"client_id":"{{ .Values.thunder.bootstrap.systemApp.clientId }}"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"{{ .Values.thunder.bootstrap.systemApp.clientId }}"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    # Define the application payload
+    APP_PAYLOAD='{
+      "name": "System Application",
+      "description": "Generic system application for automation and integrations",
+      "auth_flow_graph_id": "auth_flow_config_basic",
+      "inbound_auth_config": [
+        {
+          "type": "oauth2",
+          "config": {
+            "client_id": "{{ .Values.thunder.bootstrap.systemApp.clientId }}",
+            "client_secret": "{{ .Values.thunder.bootstrap.systemApp.clientSecret }}",
+            "grant_types": [
+              "client_credentials"
+            ],
+            "token_endpoint_auth_method": "client_secret_post",
+            "pkce_required": false,
+            "public_client": false,
+            "token": {
+              "access_token": {
+                "validity_period": 3600
+              }
+            }
+          }
+        }
+      ]
+    }'
+
+    if echo "$existing_apps" | grep -q '"client_id":"{{ .Values.thunder.bootstrap.systemApp.clientId }}"'; then
+      log_info "System application already exists (id: $app_id), updating..."
+      curl {{ $curlInsecure }} --location -X PUT "{{ $thunderUrl }}/applications/$app_id" \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "System application updated successfully"
+    else
+      log_info "System application does not exist, creating..."
+      curl {{ $curlInsecure }} --location '{{ $thunderUrl }}/applications' \
+        --header 'Content-Type: application/json' \
+        --data "$APP_PAYLOAD" \
+        --fail-with-body \
+        --max-time 30 \
+        --retry 3 \
+        --retry-delay 5
+
+      log_info "System application created successfully"
+    fi
 {{- end }}
 {{- end }}

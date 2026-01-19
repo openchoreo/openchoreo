@@ -3644,6 +3644,7 @@ thunder:
         - 52-default-apps.sh
         - 53-rca-agent-client.sh
         - 54-cli-app.sh
+        - 55-system-app.sh
     # @schema
     # type: array
     # description: Default users to create during bootstrap
@@ -3708,6 +3709,10 @@ thunder:
     rcaAgentClient:
       clientId: "openchoreo-rca-agent"
       clientSecret: "openchoreo-rca-agent-secret"
+    # Generic system application (client_credentials grant type) for invoking Thunder system APIs
+    systemApp:
+      clientId: "openchoreo-system-app"
+      clientSecret: "openchoreo-system-app-secret"
 
 # @schema
 # type: object

@@ -55,6 +55,7 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/quick-start/.helpers.sh ${USER_HOME}/.helpers.sh && \
     cp /tmp/install/quick-start/check-status.sh ${USER_HOME}/check-status.sh && \
     cp /tmp/install/quick-start/validate-installation.sh ${USER_HOME}/validate-installation.sh && \
+    cp /tmp/install/quick-start/occ-login.sh ${USER_HOME}/occ-login.sh && \
     cp /tmp/install/quick-start/deploy-react-starter.sh ${USER_HOME}/deploy-react-starter.sh && \
     cp /tmp/install/quick-start/deploy-gcp-demo.sh ${USER_HOME}/deploy-gcp-demo.sh && \
     cp /tmp/install/quick-start/build-deploy-greeter.sh ${USER_HOME}/build-deploy-greeter.sh && \

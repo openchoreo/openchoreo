@@ -158,6 +158,13 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     configure_observabilityplane_reference
 fi
 
+# Step 14: Configure OCC CLI login
+if [[ -f "${SCRIPT_DIR}/occ-login.sh" ]]; then
+    bash "${SCRIPT_DIR}/occ-login.sh"
+else
+    log_warning "occ-login.sh not found, skipping OCC CLI login"
+fi
+
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  Backstage UI: http://openchoreo.localhost:8080/"

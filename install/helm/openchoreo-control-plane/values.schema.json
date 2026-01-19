@@ -3814,10 +3814,33 @@
               ],
               "title": "rcaAgentClient",
               "type": "object"
+            },
+            "systemApp": {
+              "additionalProperties": false,
+              "description": "Generic system application (client_credentials grant type) for invoking Thunder system APIs",
+              "properties": {
+                "clientId": {
+                  "default": "openchoreo-system-app",
+                  "title": "clientId",
+                  "type": "string"
+                },
+                "clientSecret": {
+                  "default": "openchoreo-system-app-secret",
+                  "title": "clientSecret",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "clientId",
+                "clientSecret"
+              ],
+              "title": "systemApp",
+              "type": "object"
             }
           },
           "required": [
-            "rcaAgentClient"
+            "rcaAgentClient",
+            "systemApp"
           ],
           "title": "bootstrap",
           "type": "object"
