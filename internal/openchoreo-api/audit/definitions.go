@@ -14,7 +14,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Project operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects",
 			Action:   "create_project",
 			Category: audit.CategoryResource,
 		},
@@ -22,13 +22,13 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Component operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components",
 			Action:   "create_component",
 			Category: audit.CategoryResource,
 		},
 		{
 			Method:   "PATCH",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}",
 			Action:   "update_component",
 			Category: audit.CategoryResource,
 		},
@@ -36,7 +36,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// DataPlane operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/dataplanes",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/dataplanes",
 			Action:   "create_dataplane",
 			Category: audit.CategoryResource,
 		},
@@ -44,7 +44,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Environment operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/environments",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/environments",
 			Action:   "create_environment",
 			Category: audit.CategoryResource,
 		},
@@ -66,7 +66,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Component Release operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/component-releases",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases",
 			Action:   "create_component_release",
 			Category: audit.CategoryResource,
 		},
@@ -74,13 +74,13 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Deployment operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/deploy",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy",
 			Action:   "deploy_component",
 			Category: audit.CategoryResource,
 		},
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/promote",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote",
 			Action:   "promote_component",
 			Category: audit.CategoryResource,
 		},
@@ -88,7 +88,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Trait operations
 		{
 			Method:   "PUT",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits",
 			Action:   "update_component_traits",
 			Category: audit.CategoryResource,
 		},
@@ -96,7 +96,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Component Binding operations
 		{
 			Method:   "PATCH",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}",
 			Action:   "update_component_binding",
 			Category: audit.CategoryResource,
 		},
@@ -104,13 +104,13 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Workflow operations
 		{
 			Method:   "PATCH",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-parameters",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters",
 			Action:   "update_workflow_parameters",
 			Category: audit.CategoryResource,
 		},
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workflow-runs",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs",
 			Action:   "create_workflow_run",
 			Category: audit.CategoryResource,
 		},
@@ -118,7 +118,7 @@ func GetActionDefinitions() []audit.ActionDefinition {
 		// Workload operations
 		{
 			Method:   "POST",
-			Pattern:  "/api/v1/orgs/{orgName}/projects/{projectName}/components/{componentName}/workloads",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads",
 			Action:   "create_workload",
 			Category: audit.CategoryResource,
 		},

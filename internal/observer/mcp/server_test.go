@@ -21,7 +21,7 @@ const (
 	testComponentID     = "comp-123"
 	testEnvironmentID   = "env-dev"
 	testProjectID       = "proj-456"
-	testNamespaceName  = "namespace-789"
+	testNamespaceName   = "namespace-789"
 	testNamespace       = "default"
 	testServiceName     = "test-service"
 	testStartTime       = "2025-01-01T00:00:00Z"
@@ -42,7 +42,7 @@ type MockHandler struct {
 	componentLogsError            error
 	projectLogsError              error
 	gatewayLogsError              error
-	namespaceLogsError         error
+	namespaceLogsError            error
 	tracesError                   error
 	componentResourceMetricsError error
 }
@@ -344,9 +344,9 @@ var allToolSpecs = []toolTestSpec{
 		optionalParams:      []string{"search_phrase", "api_id_to_version_map", "gateway_vhosts", "limit", "sort_order", "log_type"},
 		testArgs: map[string]any{
 			"namespace_name": testNamespaceName,
-			"start_time":      testStartTime,
-			"end_time":        testEndTime,
-			"search_phrase":   "api",
+			"start_time":     testStartTime,
+			"end_time":       testEndTime,
+			"search_phrase":  "api",
 			"api_id_to_version_map": map[string]interface{}{
 				"api-1": "v1",
 				"api-2": "v2",
@@ -408,9 +408,9 @@ var allToolSpecs = []toolTestSpec{
 		optionalParams:      []string{"pod_labels", "search_phrase", "log_levels", "limit", "sort_order"},
 		testArgs: map[string]any{
 			"namespace_name": testNamespaceName,
-			"environment_id":  testEnvironmentID,
-			"start_time":      testStartTime,
-			"end_time":        testEndTime,
+			"environment_id": testEnvironmentID,
+			"start_time":     testStartTime,
+			"end_time":       testEndTime,
 			"pod_labels": map[string]interface{}{
 				"app":     "myapp",
 				"version": "v1.0",
@@ -953,8 +953,8 @@ func TestMinimalParameterSets(t *testing.T) {
 			toolName: "get_gateway_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 		},
 		{
@@ -962,9 +962,9 @@ func TestMinimalParameterSets(t *testing.T) {
 			toolName: "get_namespace_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"environment_id": testEnvironmentID,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 		},
 		{
@@ -1067,8 +1067,8 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			toolName: "get_gateway_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 			setupErr: func(h *MockHandler) {
 				h.gatewayLogsError = errors.New("invalid time range")
@@ -1079,9 +1079,9 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			toolName: "get_namespace_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"environment_id": testEnvironmentID,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 			setupErr: func(h *MockHandler) {
 				h.namespaceLogsError = errors.New("unauthorized")
@@ -1237,8 +1237,8 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			toolName: "get_gateway_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 			validateCall: func(t *testing.T, args []interface{}) {
 				params := args[0].(opensearch.GatewayQueryParams)
@@ -1256,9 +1256,9 @@ func TestOptionalParametersDefaults(t *testing.T) {
 			toolName: "get_namespace_logs",
 			args: map[string]any{
 				"namespace_name": testNamespaceName,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
+				"environment_id": testEnvironmentID,
+				"start_time":     testStartTime,
+				"end_time":       testEndTime,
 			},
 			validateCall: func(t *testing.T, args []interface{}) {
 				podLabels := args[1].(map[string]string)
@@ -1394,7 +1394,7 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"sort_order":     "string",
 		},
 		"get_gateway_logs": {
-			"namespace_name":       "string",
+			"namespace_name":        "string",
 			"start_time":            "string",
 			"end_time":              "string",
 			"search_phrase":         "string",
@@ -1406,14 +1406,14 @@ func TestSchemaPropertyTypes(t *testing.T) {
 		},
 		"get_namespace_logs": {
 			"namespace_name": "string",
-			"environment_id":  "string",
-			"start_time":      "string",
-			"end_time":        "string",
-			"pod_labels":      "object",
-			"search_phrase":   "string",
-			"log_levels":      "array",
-			"limit":           "number",
-			"sort_order":      "string",
+			"environment_id": "string",
+			"start_time":     "string",
+			"end_time":       "string",
+			"pod_labels":     "object",
+			"search_phrase":  "string",
+			"log_levels":     "array",
+			"limit":          "number",
+			"sort_order":     "string",
 		},
 		"get_traces": {
 			"project_uid":     "string",

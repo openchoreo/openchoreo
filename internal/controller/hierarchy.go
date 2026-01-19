@@ -91,7 +91,8 @@ func GetDeploymentPipeline(ctx context.Context, c client.Client, obj client.Obje
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyName: dpName,
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+			labels.LabelKeyName:          dpName,
 		},
 	}
 
@@ -113,7 +114,8 @@ func GetProject(ctx context.Context, c client.Client, obj client.Object) (*openc
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyName: GetProjectName(obj),
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+			labels.LabelKeyName:          GetProjectName(obj),
 		},
 	}
 
@@ -135,8 +137,9 @@ func GetComponent(ctx context.Context, c client.Client, obj client.Object) (*ope
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyProjectName: GetProjectName(obj),
-			labels.LabelKeyName:        GetComponentName(obj),
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+			labels.LabelKeyProjectName:   GetProjectName(obj),
+			labels.LabelKeyName:          GetComponentName(obj),
 		},
 	}
 
@@ -159,6 +162,7 @@ func GetDeploymentTrack(ctx context.Context, c client.Client, obj client.Object)
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
 			labels.LabelKeyProjectName:   GetProjectName(obj),
 			labels.LabelKeyComponentName: GetComponentName(obj),
 			labels.LabelKeyName:          GetDeploymentTrackName(obj),
@@ -185,7 +189,8 @@ func GetEnvironment(ctx context.Context, c client.Client, obj client.Object) (*o
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyName: GetEnvironmentName(obj),
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+			labels.LabelKeyName:          GetEnvironmentName(obj),
 		},
 	}
 
@@ -207,7 +212,8 @@ func GetEnvironmentByName(ctx context.Context, c client.Client, obj client.Objec
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyName: envName,
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+			labels.LabelKeyName:          envName,
 		},
 	}
 
@@ -246,6 +252,9 @@ func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*ope
 	dataPlaneList := &openchoreov1alpha1.DataPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
+		client.MatchingLabels{
+			labels.LabelKeyNamespaceName: GetNamespaceName(obj),
+		},
 	}
 
 	if err := c.List(ctx, dataPlaneList, listOpts...); err != nil {

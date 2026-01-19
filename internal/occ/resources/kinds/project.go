@@ -133,7 +133,7 @@ func (p *ProjectResource) CreateProject(params api.CreateProjectParams) error {
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
+				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
 			},
 		},

@@ -57,7 +57,7 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateProjectParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"name":         p.Name,
+				"name":      p.Name,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceProject, fields)
@@ -83,8 +83,8 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateComponentParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"name":         p.Name,
+				"project":   p.Project,
+				"name":      p.Name,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceComponent, fields)
@@ -95,7 +95,7 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.GetComponentParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
+				"project":   p.Project,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceComponent, fields)
@@ -113,9 +113,9 @@ func validateBuildParams(cmdType CommandType, params interface{}) error {
 			// All required fields
 			requiredFields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
-				"name":         p.Name,
+				"project":   p.Project,
+				"component": p.Component,
+				"name":      p.Name,
 			}
 
 			if !checkRequiredFields(requiredFields) {
@@ -127,8 +127,8 @@ func validateBuildParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.GetBuildParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceBuild, fields)
@@ -145,8 +145,8 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateDeploymentParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployment, fields)
@@ -156,8 +156,8 @@ func validateDeploymentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.GetDeploymentParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployment, fields)
@@ -174,8 +174,8 @@ func validateDeploymentTrackParams(cmdType CommandType, params interface{}) erro
 		if p, ok := params.(api.CreateDeploymentTrackParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
@@ -185,8 +185,8 @@ func validateDeploymentTrackParams(cmdType CommandType, params interface{}) erro
 		if p, ok := params.(api.GetDeploymentTrackParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeploymentTrack, fields)
@@ -203,7 +203,7 @@ func validateEnvironmentParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateEnvironmentParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"name":         p.Name,
+				"name":      p.Name,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceEnvironment, fields)
@@ -229,8 +229,8 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 		if p, ok := params.(api.CreateDeployableArtifactParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployableArtifact, fields)
@@ -240,8 +240,8 @@ func validateDeployableArtifactParams(cmdType CommandType, params interface{}) e
 		if p, ok := params.(api.GetDeployableArtifactParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDeployableArtifact, fields)
@@ -270,18 +270,18 @@ func validateLogParams(cmdType CommandType, params interface{}) error {
 			case "build":
 				buildFields := map[string]string{
 					"namespace": p.Namespace,
-					"build":        p.Build,
+					"build":     p.Build,
 				}
 				if !checkRequiredFields(buildFields) {
 					return generateHelpError(cmdType, ResourceLogs, buildFields)
 				}
 			case "deployment":
 				deployFields := map[string]string{
-					"namespace": p.Namespace,
-					"project":      p.Project,
-					"component":    p.Component,
-					"environment":  p.Environment,
-					"deployment":   p.Deployment,
+					"namespace":   p.Namespace,
+					"project":     p.Project,
+					"component":   p.Component,
+					"environment": p.Environment,
+					"deployment":  p.Deployment,
 				}
 				if !checkRequiredFields(deployFields) {
 					return generateHelpError(cmdType, ResourceLogs, deployFields)
@@ -310,7 +310,7 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateDataPlaneParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"name":         p.Name,
+				"name":      p.Name,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceDataPlane, fields)
@@ -341,8 +341,8 @@ func validateEndpointParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.GetEndpointParams); ok {
 			fields := map[string]string{
 				"namespace": p.Namespace,
-				"project":      p.Project,
-				"component":    p.Component,
+				"project":   p.Project,
+				"component": p.Component,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceEndpoint, fields)
@@ -397,7 +397,7 @@ func validateDeploymentPipelineParams(cmdType CommandType, params interface{}) e
 	case CmdCreate:
 		if p, ok := params.(api.CreateDeploymentPipelineParams); ok {
 			fields := map[string]string{
-				"namespace":      p.Namespace,
+				"namespace":         p.Namespace,
 				"name":              p.Name,
 				"environment-order": strings.Join(p.EnvironmentOrder, ","),
 			}
@@ -431,9 +431,9 @@ func validateWorkloadParams(cmdType CommandType, params interface{}) error {
 		if p, ok := params.(api.CreateWorkloadParams); ok {
 			fields := map[string]string{
 				"namespace": p.NamespaceName,
-				"project":      p.ProjectName,
-				"component":    p.ComponentName,
-				"image":        p.ImageURL,
+				"project":   p.ProjectName,
+				"component": p.ComponentName,
+				"image":     p.ImageURL,
 			}
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceWorkload, fields)

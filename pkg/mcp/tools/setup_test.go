@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	testNamespaceName       = "my-namespace"
+	testNamespaceName = "my-namespace"
 	testProjectName   = "my-project"
 	testComponentName = "my-component"
 	testEnvName       = "dev"

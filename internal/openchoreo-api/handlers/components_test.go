@@ -24,7 +24,7 @@ func TestListComponentReleases_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -104,19 +104,19 @@ func TestListReleaseBindings_QueryParameters(t *testing.T) {
 	}{
 		{
 			name:         "No environment filter",
-			url:          "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/release-bindings",
+			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings",
 			wantEnvCount: 0,
 			wantEnvs:     []string{},
 		},
 		{
 			name:         "Single environment filter",
-			url:          "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev",
+			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev",
 			wantEnvCount: 1,
 			wantEnvs:     []string{"dev"},
 		},
 		{
 			name:         "Multiple environment filters",
-			url:          "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev&environment=staging",
+			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev&environment=staging",
 			wantEnvCount: 2,
 			wantEnvs:     []string{"dev", "staging"},
 		},
@@ -224,7 +224,7 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -260,7 +260,7 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -268,7 +268,7 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/component-releases/myrelease-20251120-1/schema",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component/component-releases/myrelease-20251120-1/schema",
 			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
@@ -312,14 +312,14 @@ func TestGetComponentSchema_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/schema",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/schema",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/schema",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component/schema",
 			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
@@ -417,7 +417,7 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 	}{
 		{
 			name:            "Valid path with all parameters",
-			url:             "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/environments/development/resources",
+			url:             "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/environments/development/resources",
 			namespaceName:   "myorg",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
@@ -425,7 +425,7 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 		},
 		{
 			name:            "Path with hyphens in names",
-			url:             "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/environments/staging/resources",
+			url:             "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component/environments/staging/resources",
 			namespaceName:   "my-namespace",
 			projectName:     "my-project",
 			componentName:   "my-component",
@@ -688,21 +688,21 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component",
 			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component",
+			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component",
 			namespaceName: "my_org",
 			projectName:   "my_project",
 			componentName: "my_component",
@@ -741,14 +741,14 @@ func TestListComponentTraits_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/traits",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/traits",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component/traits",
 			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
@@ -938,21 +938,21 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent/traits",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/traits",
 			namespaceName: "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-namespace/projects/my-project/components/my-component/traits",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component/traits",
 			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component/traits",
+			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component/traits",
 			namespaceName: "my_org",
 			projectName:   "my_project",
 			componentName: "my_component",
@@ -1107,21 +1107,21 @@ func TestDeleteComponent_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/orgs/myorg/projects/myproject/components/mycomponent",
+			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent",
 			orgName:       "myorg",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/orgs/my-org/projects/my-project/components/my-component",
+			url:           "/api/v1/namespaces/my-org/projects/my-project/components/my-component",
 			orgName:       "my-org",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/orgs/my_org/projects/my_project/components/my_component",
+			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component",
 			orgName:       "my_org",
 			projectName:   "my_project",
 			componentName: "my_component",

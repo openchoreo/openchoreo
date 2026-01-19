@@ -22,7 +22,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
 		logger.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 
@@ -71,7 +71,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
 		logger.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 

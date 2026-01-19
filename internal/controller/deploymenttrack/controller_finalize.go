@@ -110,6 +110,7 @@ func (r *Reconciler) deleteBuildsAndWait(ctx context.Context, deploymentTrack *o
 	listOpts := []client.ListOption{
 		client.InNamespace(deploymentTrack.Namespace),
 		client.MatchingLabels{
+			labels.LabelKeyNamespaceName:       controller.GetNamespaceName(deploymentTrack),
 			labels.LabelKeyProjectName:         controller.GetProjectName(deploymentTrack),
 			labels.LabelKeyComponentName:       controller.GetComponentName(deploymentTrack),
 			labels.LabelKeyDeploymentTrackName: controller.GetName(deploymentTrack),

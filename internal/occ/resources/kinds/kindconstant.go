@@ -60,7 +60,7 @@ const (
 	HeaderAge             = "AGE"
 	HeaderType            = "TYPE"
 	HeaderProject         = "PROJECT"
-	HeaderNamespace    = "NAMESPACE"
+	HeaderNamespace       = "NAMESPACE"
 	HeaderComponent       = "COMPONENT"
 	HeaderEnvironment     = "ENVIRONMENT"
 	HeaderDeploymentTrack = "DEPLOYMENT TRACK"

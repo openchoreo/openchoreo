@@ -38,9 +38,8 @@ type Toolsets struct {
 
 // NamespaceToolsetHandler handles namespace operations
 type NamespaceToolsetHandler interface {
-	// TODO: chathurangas: Remove commented out code below
-	// GetNamespace(ctx context.Context, name string) (any, error)
-	// ListNamespaces(ctx context.Context) (any, error)
+	GetNamespace(ctx context.Context, name string) (any, error)
+	ListNamespaces(ctx context.Context) (any, error)
 	ListSecretReferences(ctx context.Context, namespaceName string) (any, error)
 }
 

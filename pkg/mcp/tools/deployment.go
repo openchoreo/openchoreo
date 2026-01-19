@@ -15,12 +15,12 @@ func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
 		Description: "Get the deployment pipeline configuration for a project. Shows the progression path for " +
 			"builds through environments (e.g., dev → staging → production) and promotion policies.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":     defaultStringProperty(),
-			"project_name": defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
+			"project_name":   defaultStringProperty(),
 		}, []string{"namespace_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName     string `json:"namespace_name"`
-		ProjectName string `json:"project_name"`
+		NamespaceName string `json:"namespace_name"`
+		ProjectName   string `json:"project_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.DeploymentToolset.GetProjectDeploymentPipeline(ctx, args.NamespaceName, args.ProjectName)
 		return handleToolResult(result, err)
@@ -33,13 +33,13 @@ func (t *Toolsets) RegisterGetComponentObserverURL(s *mcp.Server) {
 		Description: "Get the observability dashboard URL for a deployed component in a specific environment. " +
 			"Provides access to real-time logs, metrics, traces, and debugging tools.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":         defaultStringProperty(),
+			"namespace_name":   defaultStringProperty(),
 			"project_name":     defaultStringProperty(),
 			"component_name":   defaultStringProperty(),
 			"environment_name": defaultStringProperty(),
 		}, []string{"namespace_name", "project_name", "component_name", "environment_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName         string `json:"namespace_name"`
+		NamespaceName   string `json:"namespace_name"`
 		ProjectName     string `json:"project_name"`
 		ComponentName   string `json:"component_name"`
 		EnvironmentName string `json:"environment_name"`

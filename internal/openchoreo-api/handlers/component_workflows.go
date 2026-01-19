@@ -85,7 +85,7 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 
 	if namespaceName == "" {
 		log.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 
 	if namespaceName == "" {
 		log.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *Handler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request
 
 	if namespaceName == "" {
 		log.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 

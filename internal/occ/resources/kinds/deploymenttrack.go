@@ -178,10 +178,10 @@ func (d *DeploymentTrackResource) CreateDeploymentTrack(params api.CreateDeploym
 				AutoDeployAnnotation:            fmt.Sprintf("%t", params.AutoDeploy),
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
+				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
-				constants.LabelProject:      params.Project,
-				constants.LabelComponent:    params.Component,
+				constants.LabelProject:   params.Project,
+				constants.LabelComponent: params.Component,
 			},
 		},
 		Spec: openchoreov1alpha1.DeploymentTrackSpec{

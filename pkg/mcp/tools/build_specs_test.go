@@ -15,7 +15,7 @@ func buildToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -50,7 +50,7 @@ func buildToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "commit"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"commit":         "abc123",
@@ -72,7 +72,7 @@ func buildToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},

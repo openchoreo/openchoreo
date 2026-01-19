@@ -71,7 +71,7 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "default",
+					NamespaceName:   "default",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -191,7 +191,7 @@ func TestPipeline_Render(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test",
+					NamespaceName:   "test",
 					WorkflowRunName: "",
 				},
 			},
@@ -249,7 +249,7 @@ func TestPipeline_validateInput(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -665,7 +665,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "default",
+					NamespaceName:   "default",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -714,7 +714,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -798,7 +798,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -862,7 +862,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -920,7 +920,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1002,7 +1002,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "my-namespace",
+					NamespaceName:   "my-namespace",
 					WorkflowRunName: "run-12345",
 				},
 			},
@@ -1066,7 +1066,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1137,7 +1137,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1156,7 +1156,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1188,7 +1188,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			},
@@ -1288,7 +1288,7 @@ func TestPipeline_Render_DifferentResourceTypes(t *testing.T) {
 					},
 				},
 				Context: WorkflowContext{
-					NamespaceName:         "test-org",
+					NamespaceName:   "test-org",
 					WorkflowRunName: "test-run",
 				},
 			}

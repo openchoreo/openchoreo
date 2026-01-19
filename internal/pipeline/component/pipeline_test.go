@@ -72,7 +72,7 @@ func TestPipeline_Render(t *testing.T) {
         secretRef: registry-credentials
       gateway:
         publicVirtualHost: api.example.com
-        namespaceVirtualHost: internal.example.com
+        organizationVirtualHost: internal.example.com
       observer:
         url: https://observer.example.com
         authentication:

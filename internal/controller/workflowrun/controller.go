@@ -145,7 +145,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		WorkflowRun: workflowRun,
 		Workflow:    workflow,
 		Context: workflowpipeline.WorkflowContext{
-			NamespaceName:         workflowRun.Namespace,
+			NamespaceName:   workflowRun.Namespace,
 			WorkflowRunName: workflowRun.Name,
 		},
 	}

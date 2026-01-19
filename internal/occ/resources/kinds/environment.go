@@ -140,7 +140,7 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
+				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
 			},
 		},

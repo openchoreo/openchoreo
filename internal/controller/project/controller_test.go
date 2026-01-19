@@ -81,7 +81,8 @@ var _ = Describe("Project Controller", func() {
 				Name:      envName,
 				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyName: envName,
+					labels.LabelKeyNamespaceName: namespaceName,
+					labels.LabelKeyName:          envName,
 				},
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Environment",
@@ -116,7 +117,8 @@ var _ = Describe("Project Controller", func() {
 				Name:      deppipName,
 				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyName: deppipName,
+					labels.LabelKeyNamespaceName: namespaceName,
+					labels.LabelKeyName:          deppipName,
 				},
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Deployment pipeline",
@@ -162,7 +164,8 @@ var _ = Describe("Project Controller", func() {
 						Name:      projectName,
 						Namespace: namespaceName,
 						Labels: map[string]string{
-							labels.LabelKeyName: projectName,
+							labels.LabelKeyNamespaceName: namespaceName,
+							labels.LabelKeyName:          projectName,
 						},
 						Annotations: map[string]string{
 							controller.AnnotationKeyDisplayName: "Test Project",

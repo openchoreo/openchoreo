@@ -56,7 +56,8 @@ var _ = Describe("Environment Controller", Ordered, func() {
 				Name:      dpName,
 				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyName: dpName,
+					labels.LabelKeyNamespaceName: namespaceName,
+					labels.LabelKeyName:          dpName,
 				},
 			},
 		}
@@ -93,7 +94,8 @@ var _ = Describe("Environment Controller", Ordered, func() {
 						Name:      envName,
 						Namespace: namespaceName,
 						Labels: map[string]string{
-							labels.LabelKeyName: envName,
+							labels.LabelKeyNamespaceName: namespaceName,
+							labels.LabelKeyName:          envName,
 						},
 						Annotations: map[string]string{
 							controller.AnnotationKeyDisplayName: "Test Environment",
@@ -205,7 +207,8 @@ var _ = Describe("Environment Controller", Ordered, func() {
 					Name:      envName,
 					Namespace: namespaceName,
 					Labels: map[string]string{
-						labels.LabelKeyName: envName,
+						labels.LabelKeyNamespaceName: namespaceName,
+						labels.LabelKeyName:          envName,
 					},
 				},
 				Spec: openchoreov1alpha1.EnvironmentSpec{

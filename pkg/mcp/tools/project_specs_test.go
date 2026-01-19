@@ -29,8 +29,8 @@ func projectToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name"},
 			testArgs: map[string]any{
-				"namespace_name":     testNamespaceName,
-				"project_name": testProjectName,
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
 			},
 			expectedMethod: "GetProject",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -50,9 +50,9 @@ func projectToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			optionalParams:      []string{"description"},
 			testArgs: map[string]any{
-				"namespace_name":    testNamespaceName,
-				"name":        "new-project",
-				"description": "test project",
+				"namespace_name": testNamespaceName,
+				"name":           "new-project",
+				"description":    "test project",
 			},
 			expectedMethod: "CreateProject",
 			validateCall: func(t *testing.T, args []interface{}) {

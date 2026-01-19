@@ -204,7 +204,8 @@ func (s *DataPlaneService) buildDataPlaneCR(namespaceName string, req *models.Cr
 				controller.AnnotationKeyDescription: description,
 			},
 			Labels: map[string]string{
-				labels.LabelKeyName: req.Name,
+				labels.LabelKeyNamespaceName: namespaceName,
+				labels.LabelKeyName:          req.Name,
 			},
 		},
 		Spec: spec,

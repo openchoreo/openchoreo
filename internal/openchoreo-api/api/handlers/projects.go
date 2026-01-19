@@ -108,7 +108,7 @@ func toGenProject(p *models.ProjectResponse) gen.Project {
 	return gen.Project{
 		Uid:                uid,
 		Name:               p.Name,
-		NamespaceName:            p.NamespaceName,
+		NamespaceName:      p.NamespaceName,
 		DisplayName:        ptr.To(p.DisplayName),
 		Description:        ptr.To(p.Description),
 		DeploymentPipeline: ptr.To(p.DeploymentPipeline),

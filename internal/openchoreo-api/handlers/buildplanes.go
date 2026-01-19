@@ -11,7 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
-// There is only one buildplane per org
+// There is only one buildplane per org -- TODO: chathurangas: Check whether this is true for namespace based resource grouping
 
 func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -21,7 +21,7 @@ func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
 		log.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 
@@ -29,7 +29,7 @@ func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	buildPlane, err := h.services.BuildPlaneService.GetBuildPlane(ctx, namespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view build plane", "org", namespaceName)
+			log.Warn("Unauthorized to view build plane", "namespace", namespaceName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -51,7 +51,7 @@ func (h *Handler) ListBuildPlanes(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
 		log.Warn("Namespace name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_ORG_NAME")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 

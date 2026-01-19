@@ -31,7 +31,7 @@ const (
 	ResourceEnvironment        ResourceType = "environment"
 	ResourceDeployableArtifact ResourceType = "deployableartifact"
 	ResourceEndpoint           ResourceType = "endpoint"
-	ResourceNamespace       ResourceType = "namespace"
+	ResourceNamespace          ResourceType = "namespace"
 	ResourceDataPlane          ResourceType = "dataplane"
 	ResourceLogs               ResourceType = "logs"
 	ResourceApply              ResourceType = "apply"

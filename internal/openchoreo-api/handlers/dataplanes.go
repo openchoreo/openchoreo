@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListDataPlanes handles GET /api/v1/orgs/{namespaceName}/dataplanes
+// ListDataPlanes handles GET /api/v1/namespaces/{namespaceName}/dataplanes
 func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")
@@ -31,7 +31,7 @@ func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 	writeListResponse(w, dataplanes, len(dataplanes), 1, len(dataplanes))
 }
 
-// GetDataPlane handles GET /api/v1/orgs/{namespaceName}/dataplanes/{dpName}
+// GetDataPlane handles GET /api/v1/namespaces/{namespaceName}/dataplanes/{dpName}
 func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")
@@ -66,7 +66,7 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, dataplane)
 }
 
-// CreateDataPlane handles POST /api/v1/orgs/{namespaceName}/dataplanes
+// CreateDataPlane handles POST /api/v1/namespaces/{namespaceName}/dataplanes
 func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")

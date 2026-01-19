@@ -93,16 +93,16 @@ func (h *Handler) CreateComponent(
 func toGenComponent(c *models.ComponentResponse) gen.Component {
 	uid, _ := uuid.Parse(c.UID)
 	return gen.Component{
-		Uid:         uid,
-		Name:        c.Name,
-		Type:        c.Type,
-		ProjectName: c.ProjectName,
-		NamespaceName:     c.NamespaceName,
-		CreatedAt:   c.CreatedAt,
-		DisplayName: ptr.To(c.DisplayName),
-		Description: ptr.To(c.Description),
-		Status:      ptr.To(c.Status),
-		AutoDeploy:  ptr.To(c.AutoDeploy),
+		Uid:           uid,
+		Name:          c.Name,
+		Type:          c.Type,
+		ProjectName:   c.ProjectName,
+		NamespaceName: c.NamespaceName,
+		CreatedAt:     c.CreatedAt,
+		DisplayName:   ptr.To(c.DisplayName),
+		Description:   ptr.To(c.Description),
+		Status:        ptr.To(c.Status),
+		AutoDeploy:    ptr.To(c.AutoDeploy),
 		// TODO: Convert workload and componentWorkflow fields
 	}
 }

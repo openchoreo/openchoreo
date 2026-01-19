@@ -136,7 +136,7 @@ spec:
   secretStoreRef:
     name: default
   gateway:
-    namespaceVirtualHost: openchoreoapis.internal
+    organizationVirtualHost: openchoreoapis.internal
     publicVirtualHost: openchoreoapis.localhost
   kubernetesCluster:
     server: $SERVER_URL

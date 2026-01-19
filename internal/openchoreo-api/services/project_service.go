@@ -175,7 +175,8 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 				controller.AnnotationKeyDescription: req.Description,
 			},
 			Labels: map[string]string{
-				labels.LabelKeyName: req.Name,
+				labels.LabelKeyNamespaceName: namespaceName,
+				labels.LabelKeyName:          req.Name,
 			},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{

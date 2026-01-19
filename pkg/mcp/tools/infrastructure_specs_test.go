@@ -32,7 +32,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "env_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"env_name": testEnvName,
+				"env_name":       testEnvName,
 			},
 			expectedMethod: "GetEnvironment",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -65,7 +65,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "dp_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"dp_name":  "dp1",
+				"dp_name":        "dp1",
 			},
 			expectedMethod: "GetDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -98,7 +98,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "ct_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"ct_name":  "WebApplication",
+				"ct_name":        "WebApplication",
 			},
 			expectedMethod: "GetComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -130,8 +130,8 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "workflow_name"},
 			testArgs: map[string]any{
-				"namespace_name":      testNamespaceName,
-				"workflow_name": "workflow-1",
+				"namespace_name": testNamespaceName,
+				"workflow_name":  "workflow-1",
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -163,8 +163,8 @@ func infrastructureToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "trait_name"},
 			testArgs: map[string]any{
-				"namespace_name":   testNamespaceName,
-				"trait_name": "autoscaling",
+				"namespace_name": testNamespaceName,
+				"trait_name":     "autoscaling",
 			},
 			expectedMethod: "GetTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -185,11 +185,11 @@ func infrastructureToolSpecs() []toolTestSpec {
 				"display_name", "description", "observability_plane_ref",
 			},
 			testArgs: map[string]any{
-				"namespace_name":                  testNamespaceName,
-				"name":                      "new-dp",
-				"cluster_agent_client_ca":   "-----BEGIN CERTIFICATE-----\ntest-ca-cert-data\n-----END CERTIFICATE-----",
-				"public_virtual_host":       "public.example.com",
-				"namespace_virtual_host": "org.example.com",
+				"namespace_name":          testNamespaceName,
+				"name":                    "new-dp",
+				"cluster_agent_client_ca": "-----BEGIN CERTIFICATE-----\ntest-ca-cert-data\n-----END CERTIFICATE-----",
+				"public_virtual_host":     "public.example.com",
+				"namespace_virtual_host":  "org.example.com",
 			},
 			expectedMethod: "CreateDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -207,7 +207,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			optionalParams:      []string{"display_name", "description", "data_plane_ref", "is_production", "dns_prefix"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"name":           "new-env",
 				"display_name":   "New Environment",
 				"description":    "Test environment",
@@ -262,7 +262,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "cw_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"cw_name":  "build-workflow",
+				"cw_name":        "build-workflow",
 			},
 			expectedMethod: "GetComponentWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {

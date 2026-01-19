@@ -173,7 +173,7 @@ func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
 	// Create new context
 	newCtx := configContext.Context{
 		Name:              params.Name,
-		Namespace:      params.Namespace,
+		Namespace:         params.Namespace,
 		Project:           params.Project,
 		Component:         params.Component,
 		Environment:       params.Environment,
@@ -309,7 +309,7 @@ func applyIfNotSet(cmd *cobra.Command, flagName, value string) {
 // DefaultContextValues defines default values for context initialization
 type DefaultContextValues struct {
 	ContextName  string
-	Namespace string
+	Namespace    string
 	Project      string
 	DataPlane    string
 	Environment  string
@@ -322,7 +322,7 @@ type DefaultContextValues struct {
 func getDefaultContextValues() DefaultContextValues {
 	return DefaultContextValues{
 		ContextName:  getEnvOrDefault("CHOREO_DEFAULT_CONTEXT", "default"),
-		Namespace: getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
+		Namespace:    getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
 		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
@@ -363,7 +363,7 @@ func EnsureContext() error {
 			// Create default context
 			defaultContext := configContext.Context{
 				Name:         defaults.ContextName,
-				Namespace: defaults.Namespace,
+				Namespace:    defaults.Namespace,
 				Project:      defaults.Project,
 				DataPlane:    defaults.DataPlane,
 				Environment:  defaults.Environment,

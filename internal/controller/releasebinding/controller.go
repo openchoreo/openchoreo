@@ -259,6 +259,7 @@ func (r *Reconciler) buildMetadataContext(
 
 	// Build standard labels
 	standardLabels := map[string]string{
+		labels.LabelKeyNamespaceName:   namespaceName,
 		labels.LabelKeyProjectName:     projectName,
 		labels.LabelKeyComponentName:   componentName,
 		labels.LabelKeyEnvironmentName: environmentName,
@@ -475,6 +476,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		dataPlaneRelease.Labels = map[string]string{
+			labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
 			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
 			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
@@ -602,6 +604,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 			}
 
 			observabilityRelease.Labels = map[string]string{
+				labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
 				labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
 				labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 				labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,

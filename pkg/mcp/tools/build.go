@@ -31,13 +31,13 @@ func (t *Toolsets) RegisterTriggerBuild(s *mcp.Server) {
 		Description: "Trigger a new build for a component at a specific commit. Creates a container image that " +
 			"can be deployed to environments. Builds run asynchronously; use list_builds to monitor progress.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":       defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": defaultStringProperty(),
 			"commit":         stringProperty("Git commit SHA (full or short) or tag"),
 		}, []string{"namespace_name", "project_name", "component_name", "commit"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName       string `json:"namespace_name"`
+		NamespaceName string `json:"namespace_name"`
 		ProjectName   string `json:"project_name"`
 		ComponentName string `json:"component_name"`
 		Commit        string `json:"commit"`
@@ -53,12 +53,12 @@ func (t *Toolsets) RegisterListBuilds(s *mcp.Server) {
 		Description: "List all builds for a component showing build history, status (queued, running, " +
 			"succeeded, failed), commit information, and generated image tags.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":       defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": defaultStringProperty(),
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName       string `json:"namespace_name"`
+		NamespaceName string `json:"namespace_name"`
 		ProjectName   string `json:"project_name"`
 		ComponentName string `json:"component_name"`
 	}) (*mcp.CallToolResult, any, error) {
@@ -73,12 +73,12 @@ func (t *Toolsets) RegisterGetBuildObserverURL(s *mcp.Server) {
 		Description: "Get the observability dashboard URL for component builds. Provides access to real-time " +
 			"build logs, pipeline stages, and build history.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":       defaultStringProperty(),
+			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": defaultStringProperty(),
 		}, []string{"namespace_name", "project_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName       string `json:"namespace_name"`
+		NamespaceName string `json:"namespace_name"`
 		ProjectName   string `json:"project_name"`
 		ComponentName string `json:"component_name"`
 	}) (*mcp.CallToolResult, any, error) {

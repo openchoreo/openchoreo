@@ -15,8 +15,8 @@ func deploymentToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name"},
 			testArgs: map[string]any{
-				"namespace_name":     testNamespaceName,
-				"project_name": testProjectName,
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
 			},
 			expectedMethod: "GetProjectDeploymentPipeline",
 			validateCall: func(t *testing.T, args []interface{}) {

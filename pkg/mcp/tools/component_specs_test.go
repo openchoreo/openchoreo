@@ -32,8 +32,8 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name"},
 			testArgs: map[string]any{
-				"namespace_name":     testNamespaceName,
-				"project_name": testProjectName,
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
 			},
 			expectedMethod: "ListComponents",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -53,7 +53,7 @@ func componentBasicSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"additional_resources"},
 			testArgs: map[string]any{
-				"namespace_name":             testNamespaceName,
+				"namespace_name":       testNamespaceName,
 				"project_name":         testProjectName,
 				"component_name":       testComponentName,
 				"additional_resources": []interface{}{"deployments", "services"},
@@ -83,7 +83,7 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "environment_name"},
 			testArgs: map[string]any{
-				"namespace_name":         testNamespaceName,
+				"namespace_name":   testNamespaceName,
 				"project_name":     testProjectName,
 				"component_name":   testComponentName,
 				"environment_name": testEnvName,
@@ -105,7 +105,7 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -125,10 +125,10 @@ func componentBasicSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "name", "componentType"},
 			optionalParams:      []string{"display_name", "description"},
 			testArgs: map[string]any{
-				"namespace_name":      testNamespaceName,
-				"project_name":  testProjectName,
-				"name":          "new-component",
-				"componentType": "WebApplication",
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"name":           "new-component",
+				"componentType":  "WebApplication",
 			},
 			expectedMethod: "CreateComponent",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -145,7 +145,7 @@ func componentBasicSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"auto_deploy"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"auto_deploy":    true,
@@ -171,7 +171,7 @@ func componentReleaseSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -191,7 +191,7 @@ func componentReleaseSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"release_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"release_name":   testReleaseName,
@@ -213,7 +213,7 @@ func componentReleaseSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "release_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"release_name":   testReleaseName,
@@ -236,7 +236,7 @@ func componentReleaseSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"environments"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"environments":   []interface{}{"dev", "staging"},
@@ -271,7 +271,7 @@ func componentBindingSpecs() []toolTestSpec {
 				"trait_overrides", "configuration_overrides",
 			},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"binding_name":   "binding-1",
@@ -292,7 +292,7 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "release_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"release_name":   testReleaseName,
@@ -312,7 +312,7 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "source_env", "target_env"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"source_env":     "dev",
@@ -333,7 +333,7 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "workload_spec"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"workload_spec":  map[string]interface{}{"containers": []interface{}{}},
@@ -353,7 +353,7 @@ func componentBindingSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "binding_name", "release_state"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"binding_name":   "binding-1",
@@ -383,7 +383,7 @@ func componentSchemaSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -402,7 +402,7 @@ func componentSchemaSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "release_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"release_name":   testReleaseName,
@@ -424,7 +424,7 @@ func componentSchemaSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -443,7 +443,7 @@ func componentSchemaSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "traits"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"traits": []interface{}{
@@ -469,7 +469,7 @@ func componentSchemaSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "environment_name"},
 			testArgs: map[string]any{
-				"namespace_name":         testNamespaceName,
+				"namespace_name":   testNamespaceName,
 				"project_name":     testProjectName,
 				"component_name":   testComponentName,
 				"environment_name": testEnvName,
@@ -514,7 +514,7 @@ func componentWorkflowSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "cwName"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"cwName":   "build-workflow",
+				"cwName":         "build-workflow",
 			},
 			expectedMethod: "GetComponentWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -531,7 +531,7 @@ func componentWorkflowSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"commit"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"commit":         "abc1234",
@@ -551,7 +551,7 @@ func componentWorkflowSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 			},
@@ -571,7 +571,7 @@ func componentWorkflowSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name"},
 			optionalParams:      []string{"system_parameters", "parameters"},
 			testArgs: map[string]any{
-				"namespace_name":       testNamespaceName,
+				"namespace_name": testNamespaceName,
 				"project_name":   testProjectName,
 				"component_name": testComponentName,
 				"system_parameters": map[string]interface{}{

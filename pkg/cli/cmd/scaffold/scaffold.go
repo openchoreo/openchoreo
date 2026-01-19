@@ -65,7 +65,7 @@ func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Com
 				ComponentType: fg.GetString(flags.ScaffoldType),
 				Traits:        traits,
 				WorkflowName:  fg.GetString(flags.Workflow),
-				Namespace:  fg.GetString(flags.Namespace),
+				Namespace:     fg.GetString(flags.Namespace),
 				ProjectName:   fg.GetString(flags.Project),
 				OutputPath:    fg.GetString(flags.OutputFile),
 				SkipComments:  fg.GetBool(flags.SkipComments),

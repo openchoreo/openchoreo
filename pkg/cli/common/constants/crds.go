@@ -13,8 +13,7 @@ const (
 )
 
 const (
-	// TODO: chathurangas:
-	LabelNamespace    = "openchoreo.dev/namespace"
+	LabelNamespace       = "openchoreo.dev/namespace"
 	LabelProject         = "openchoreo.dev/project"
 	LabelComponent       = "openchoreo.dev/component"
 	LabelBuild           = "openchoreo.dev/build"
@@ -40,7 +39,7 @@ const (
 
 const (
 	OutputFormatYAML = "yaml"
-	NamespaceKind = "Namespace"
+	NamespaceKind    = "Namespace"
 	ProjectKind      = "Project"
 	ComponentKind    = "Component"
 	WorkloadKind     = "Workload"

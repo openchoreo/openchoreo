@@ -144,7 +144,7 @@ func (d *DeploymentPipelineResource) CreateDeploymentPipeline(params api.CreateD
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
+				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
 			},
 		},

@@ -18,7 +18,8 @@ func GetDataplaneOfEnv(ctx context.Context, c client.Client, env *openchoreov1al
 	listOpts := []client.ListOption{
 		client.InNamespace(env.GetNamespace()),
 		client.MatchingLabels{
-			labels.LabelKeyName: env.Spec.DataPlaneRef,
+			labels.LabelKeyNamespaceName: GetNamespaceName(env),
+			labels.LabelKeyName:          env.Spec.DataPlaneRef,
 		},
 	}
 

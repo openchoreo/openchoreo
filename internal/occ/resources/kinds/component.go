@@ -143,10 +143,10 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 				constants.AnnotationDescription: params.Description,
 			},
 			Labels: map[string]string{
-				constants.LabelName:         params.Name,
+				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
-				constants.LabelProject:      params.Project,
-				constants.LabelType:         string(params.Type),
+				constants.LabelProject:   params.Project,
+				constants.LabelType:      string(params.Type),
 			},
 		},
 		Spec: openchoreov1alpha1.ComponentSpec{
@@ -166,10 +166,10 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 			Name:      trackName,
 			Namespace: params.Namespace,
 			Labels: map[string]string{
-				constants.LabelName:         DefaultTrackName,
+				constants.LabelName:      DefaultTrackName,
 				constants.LabelNamespace: params.Namespace,
-				constants.LabelProject:      params.Project,
-				constants.LabelComponent:    params.Name,
+				constants.LabelProject:   params.Project,
+				constants.LabelComponent: params.Name,
 			},
 		},
 		Spec: openchoreov1alpha1.DeploymentTrackSpec{

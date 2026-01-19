@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListEnvironments handles GET /api/v1/orgs/{namespaceName}/environments
+// ListEnvironments handles GET /api/v1/namespaces/{namespaceName}/environments
 func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")
@@ -32,7 +32,7 @@ func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 	writeListResponse(w, environments, len(environments), 1, len(environments))
 }
 
-// GetEnvironment handles GET /api/v1/orgs/{namespaceName}/environments/{envName}
+// GetEnvironment handles GET /api/v1/namespaces/{namespaceName}/environments/{envName}
 func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")
@@ -67,7 +67,7 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, environment)
 }
 
-// CreateEnvironment handles POST /api/v1/orgs/{namespaceName}/environments
+// CreateEnvironment handles POST /api/v1/namespaces/{namespaceName}/environments
 func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")
@@ -113,7 +113,7 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusCreated, environment)
 }
 
-// GetEnvironmentObserverURL handles GET /api/v1/orgs/{namespaceName}/environments/{envName}/observer-url
+// GetEnvironmentObserverURL handles GET /api/v1/namespaces/{namespaceName}/environments/{envName}/observer-url
 func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")

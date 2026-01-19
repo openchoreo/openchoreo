@@ -21,16 +21,16 @@ func (h *Handler) ListNamespaces(
 ) (gen.ListNamespacesResponseObject, error) {
 	h.logger.Debug("ListNamespaces called")
 
-	orgs, err := h.services.NamespaceService.ListNamespaces(ctx)
+	namespaces, err := h.services.NamespaceService.ListNamespaces(ctx)
 	if err != nil {
 		h.logger.Error("Failed to list namespaces", "error", err)
 		return gen.ListNamespaces500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	// Convert to generated types
-	items := make([]gen.Namespace, 0, len(orgs))
-	for _, org := range orgs {
-		items = append(items, toGenNamespace(org))
+	items := make([]gen.Namespace, 0, len(namespaces))
+	for _, ns := range namespaces {
+		items = append(items, toGenNamespace(ns))
 	}
 
 	// TODO: Implement proper cursor-based pagination with Kubernetes continuation tokens
@@ -47,7 +47,7 @@ func (h *Handler) GetNamespace(
 ) (gen.GetNamespaceResponseObject, error) {
 	h.logger.Debug("GetNamespace called", "namespaceName", request.NamespaceName)
 
-	org, err := h.services.NamespaceService.GetNamespace(ctx, request.NamespaceName)
+	namespace, err := h.services.NamespaceService.GetNamespace(ctx, request.NamespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetNamespace403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -59,7 +59,7 @@ func (h *Handler) GetNamespace(
 		return gen.GetNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.GetNamespace200JSONResponse(toGenNamespace(org)), nil
+	return gen.GetNamespace200JSONResponse(toGenNamespace(namespace)), nil
 }
 
 // toGenNamespace converts models.NamespaceResponse to gen.Namespace

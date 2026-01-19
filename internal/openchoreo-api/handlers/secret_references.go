@@ -10,7 +10,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// ListSecretReferences handles GET /api/v1/orgs/{namespaceName}/secret-references
+// ListSecretReferences handles GET /api/v1/namespaces/{namespaceName}/secret-references
 func (h *Handler) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	namespaceName := r.PathValue("namespaceName")

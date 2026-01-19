@@ -33,12 +33,12 @@ func (t *Toolsets) RegisterGetProject(s *mcp.Server) {
 		Description: "Get detailed information about a specific project including deployment pipeline " +
 			"configuration and component summary.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":     defaultStringProperty(),
-			"project_name": stringProperty("Use list_projects to discover valid names"),
+			"namespace_name": defaultStringProperty(),
+			"project_name":   stringProperty("Use list_projects to discover valid names"),
 		}, []string{"namespace_name", "project_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName     string `json:"namespace_name"`
-		ProjectName string `json:"project_name"`
+		NamespaceName string `json:"namespace_name"`
+		ProjectName   string `json:"project_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ProjectToolset.GetProject(ctx, args.NamespaceName, args.ProjectName)
 		return handleToolResult(result, err)
@@ -57,9 +57,9 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
 			"description": stringProperty("Human-readable description"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName     string `json:"namespace_name"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		NamespaceName string `json:"namespace_name"`
+		Name          string `json:"name"`
+		Description   string `json:"description"`
 	}) (*mcp.CallToolResult, any, error) {
 		projectReq := &models.CreateProjectRequest{
 			Name:        args.Name,

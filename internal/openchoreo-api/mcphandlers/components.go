@@ -107,7 +107,7 @@ func (h *MCPHandler) PromoteComponent(ctx context.Context, namespaceName, projec
 		PromoteComponentRequest: *req,
 		ComponentName:           componentName,
 		ProjectName:             projectName,
-		NamespaceName:                 namespaceName,
+		NamespaceName:           namespaceName,
 	})
 	return binding, err
 }

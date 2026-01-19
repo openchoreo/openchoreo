@@ -90,9 +90,9 @@ type WorkloadDescriptorFileVar struct {
 // ConversionParams holds the parameters needed for workload conversion
 type ConversionParams struct {
 	NamespaceName string
-	ProjectName      string
-	ComponentName    string
-	ImageURL         string
+	ProjectName   string
+	ComponentName string
+	ImageURL      string
 }
 
 // ConvertWorkloadDescriptorToWorkloadCR converts a workload.yaml descriptor to a Workload CR

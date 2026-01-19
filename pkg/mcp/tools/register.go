@@ -10,6 +10,8 @@ import (
 // namespaceToolRegistrations returns the list of namespace toolset registration functions
 func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
+		t.RegisterListNamespaces,
+		t.RegisterGetNamespace,
 		t.RegisterListSecretReferences,
 	}
 }

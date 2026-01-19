@@ -11,6 +11,11 @@ import (
 
 // This file contains the helper functions to get the Choreo specific metadata from the Kubernetes objects.
 
+// GetNamespaceName returns the namespace name that the object belongs to.
+func GetNamespaceName(obj client.Object) string {
+	return getLabelValueOrEmpty(obj, labels.LabelKeyNamespaceName)
+}
+
 // GetProjectName returns the project name that the object belongs to.
 func GetProjectName(obj client.Object) string {
 	return getLabelValueOrEmpty(obj, labels.LabelKeyProjectName)

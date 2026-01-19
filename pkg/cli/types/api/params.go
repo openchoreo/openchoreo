@@ -15,14 +15,14 @@ type GetParams struct {
 
 // GetProjectParams defines parameters for listing projects
 type GetProjectParams struct {
-	Namespace string
+	Namespace    string
 	OutputFormat string
 	Name         string
 }
 
 // GetComponentParams defines parameters for listing components
 type GetComponentParams struct {
-	Namespace string
+	Namespace    string
 	Project      string
 	OutputFormat string
 	Name         string
@@ -37,7 +37,7 @@ type CreateNamespaceParams struct {
 
 // CreateProjectParams defines parameters for creating projects
 type CreateProjectParams struct {
-	Namespace       string
+	Namespace          string
 	Name               string
 	DisplayName        string
 	Description        string
@@ -49,7 +49,7 @@ type CreateComponentParams struct {
 	Name             string
 	DisplayName      string
 	Type             openchoreov1alpha1.DefinedComponentType
-	Namespace     string
+	Namespace        string
 	Project          string
 	Description      string
 	GitRepositoryURL string
@@ -87,7 +87,7 @@ type LoginParams struct {
 
 type LogParams struct {
 	Name            string
-	Namespace    string
+	Namespace       string
 	Project         string
 	Component       string
 	Build           string
@@ -103,7 +103,7 @@ type LogParams struct {
 type CreateBuildParams struct {
 	// Basic metadata
 	Name            string
-	Namespace    string
+	Namespace       string
 	Project         string
 	Component       string
 	DeploymentTrack string
@@ -119,7 +119,7 @@ type CreateBuildParams struct {
 
 // GetBuildParams defines parameters for listing builds
 type GetBuildParams struct {
-	Namespace    string
+	Namespace       string
 	Project         string
 	Component       string
 	DeploymentTrack string
@@ -130,7 +130,7 @@ type GetBuildParams struct {
 // CreateDeployableArtifactParams defines parameters for creating a deployable artifact
 type CreateDeployableArtifactParams struct {
 	Name            string
-	Namespace    string
+	Namespace       string
 	Project         string
 	Component       string
 	DeploymentTrack string
@@ -142,8 +142,8 @@ type CreateDeployableArtifactParams struct {
 type GetDeployableArtifactParams struct {
 	// Standard resource filters
 	Namespace string
-	Project      string
-	Component    string
+	Project   string
+	Component string
 
 	// Artifact-specific filters
 	DeploymentTrack string
@@ -163,8 +163,8 @@ type GetDeployableArtifactParams struct {
 type GetDeploymentParams struct {
 	// Standard resource filters
 	Namespace string
-	Project      string
-	Component    string
+	Project   string
+	Component string
 
 	// Deployment specific filters
 	Environment     string
@@ -179,7 +179,7 @@ type GetDeploymentParams struct {
 // CreateDeploymentParams defines parameters for creating a deployment
 type CreateDeploymentParams struct {
 	Name               string
-	Namespace       string
+	Namespace          string
 	Project            string
 	Component          string
 	Environment        string
@@ -190,7 +190,7 @@ type CreateDeploymentParams struct {
 // CreateDeploymentTrackParams defines parameters for creating a deployment track
 type CreateDeploymentTrackParams struct {
 	Name              string
-	Namespace      string
+	Namespace         string
 	Project           string
 	Component         string
 	DisplayName       string
@@ -202,7 +202,7 @@ type CreateDeploymentTrackParams struct {
 
 // GetDeploymentTrackParams defines parameters for listing deployment tracks
 type GetDeploymentTrackParams struct {
-	Namespace string
+	Namespace    string
 	Project      string
 	Component    string
 	OutputFormat string
@@ -212,7 +212,7 @@ type GetDeploymentTrackParams struct {
 // CreateEnvironmentParams defines parameters for creating an environment
 type CreateEnvironmentParams struct {
 	Name         string
-	Namespace string
+	Namespace    string
 	DisplayName  string
 	Description  string
 	DataPlaneRef string
@@ -222,32 +222,32 @@ type CreateEnvironmentParams struct {
 
 // GetEnvironmentParams defines parameters for listing environments
 type GetEnvironmentParams struct {
-	Namespace string
+	Namespace    string
 	OutputFormat string
 	Name         string
 }
 
 // CreateDataPlaneParams defines parameters for creating a data plane
 type CreateDataPlaneParams struct {
-	Name                    string
+	Name                 string
 	Namespace            string
-	DisplayName             string
-	Description             string
-	ClusterAgentClientCA    string
-	PublicVirtualHost       string
+	DisplayName          string
+	Description          string
+	ClusterAgentClientCA string
+	PublicVirtualHost    string
 	NamespaceVirtualHost string
 }
 
 // GetDataPlaneParams defines parameters for listing data planes
 type GetDataPlaneParams struct {
-	Namespace string
+	Namespace    string
 	OutputFormat string
 	Name         string
 }
 
 // GetEndpointParams defines parameters for listing endpoints
 type GetEndpointParams struct {
-	Namespace string
+	Namespace    string
 	Project      string
 	Component    string
 	Environment  string
@@ -257,7 +257,7 @@ type GetEndpointParams struct {
 
 type SetContextParams struct {
 	Name              string
-	Namespace      string
+	Namespace         string
 	Project           string
 	Component         string
 	Environment       string
@@ -274,7 +274,7 @@ type CreateDeploymentPipelineParams struct {
 	Name             string
 	DisplayName      string
 	Description      string
-	Namespace     string
+	Namespace        string
 	PromotionPaths   []PromotionPathParams
 	EnvironmentOrder []string // Ordered list of environment names for promotion path
 }
@@ -292,13 +292,13 @@ type TargetEnvironmentParams struct {
 
 type GetDeploymentPipelineParams struct {
 	Name         string
-	Namespace string
+	Namespace    string
 	OutputFormat string
 }
 
 type GetConfigurationGroupParams struct {
 	Name         string
-	Namespace string
+	Namespace    string
 	OutputFormat string
 }
 
@@ -310,13 +310,13 @@ type SetControlPlaneParams struct {
 
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor
 type CreateWorkloadParams struct {
-	FilePath         string
+	FilePath      string
 	NamespaceName string
-	ProjectName      string
-	ComponentName    string
-	ImageURL         string
-	OutputPath       string
-	DryRun           bool
+	ProjectName   string
+	ComponentName string
+	ImageURL      string
+	OutputPath    string
+	DryRun        bool
 }
 
 // ScaffoldComponentParams defines parameters for scaffolding a component
@@ -325,7 +325,7 @@ type ScaffoldComponentParams struct {
 	ComponentType string   // format: workloadType/componentTypeName
 	Traits        []string // trait names
 	WorkflowName  string
-	Namespace  string
+	Namespace     string
 	ProjectName   string
 	OutputPath    string
 	SkipComments  bool // skip structural comments and field descriptions

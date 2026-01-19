@@ -94,9 +94,8 @@ func (h *Handler) Routes() http.Handler {
 	api := routes.With(jwtAuth, auditMiddleware)
 
 	// Controlplane namespace operations
-	// TODO: chathurangas: Remove commented out code below
-	// api.HandleFunc("GET "+v1+"/namespaces", h.ListNamespaces)
-	// api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}", h.GetNamespace)
+	api.HandleFunc("GET "+v1+"/namespaces", h.ListNamespaces)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}", h.GetNamespace)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/secret-references", h.ListSecretReferences)
 
 	// Apply/Delete operations (kubectl-like)

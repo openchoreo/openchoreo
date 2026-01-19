@@ -48,6 +48,7 @@ func normalizeForK8s(s string) string {
 // MakeWorkflowLabels creates labels for the workflow
 func MakeWorkflowLabels(build *openchoreov1alpha1.Build) map[string]string {
 	labels := map[string]string{
+		dpkubernetes.LabelKeyNamespaceName: build.Namespace,
 		dpkubernetes.LabelKeyProjectName:   build.Spec.Owner.ProjectName,
 		dpkubernetes.LabelKeyComponentName: build.Spec.Owner.ComponentName,
 		dpkubernetes.LabelKeyBuildName:     build.Name,

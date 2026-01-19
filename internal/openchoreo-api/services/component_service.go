@@ -707,6 +707,7 @@ func (s *ComponentService) GetEnvironmentRelease(ctx context.Context, namespaceN
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 		client.MatchingLabels{
+			labels.LabelKeyNamespaceName:   namespaceName,
 			labels.LabelKeyProjectName:     projectName,
 			labels.LabelKeyComponentName:   componentName,
 			labels.LabelKeyEnvironmentName: environmentName,

@@ -46,7 +46,8 @@ var _ = Describe("Project Webhook", func() {
 				Name:      name,
 				Namespace: namespace,
 				Labels: map[string]string{
-					labels.LabelKeyName: name,
+					labels.LabelKeyName:          name,
+					labels.LabelKeyNamespaceName: namespaceName,
 				},
 			},
 			Spec: openchoreov1alpha1.ProjectSpec{

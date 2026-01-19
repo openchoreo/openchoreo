@@ -78,7 +78,8 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				Name:      envName,
 				Namespace: namespaceName,
 				Labels: map[string]string{
-					labels.LabelKeyName: envName,
+					labels.LabelKeyNamespaceName: namespaceName,
+					labels.LabelKeyName:          envName,
 				},
 				Annotations: map[string]string{
 					controller.AnnotationKeyDisplayName: "Test Environment",
@@ -128,7 +129,8 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 						Name:      pipelineName,
 						Namespace: namespaceName,
 						Labels: map[string]string{
-							labels.LabelKeyName: pipelineName,
+							labels.LabelKeyNamespaceName: namespaceName,
+							labels.LabelKeyName:          pipelineName,
 						},
 						Annotations: map[string]string{
 							controller.AnnotationKeyDisplayName: "Test Deployment pipeline",

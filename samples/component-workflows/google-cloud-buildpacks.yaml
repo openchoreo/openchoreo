@@ -10,7 +10,7 @@ spec:
   # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
   # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
   # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
-  # ${metadata.namespaceName}          - Namespace name (namespace)
+  # ${metadata.namespaceName}    - Namespace name (namespace)
   # ${systemParameters.*}        - System-provided values from systemParameters schema
   # ${parameters.*}              - Developer-provided values from parameters schema
 

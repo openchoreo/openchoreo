@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - namespaces
   verbs:
   - create
   - delete
@@ -69,18 +68,6 @@ rules:
   - workflowruns
   - workflows
   - workloads
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
   verbs:
   - create
   - delete

@@ -201,7 +201,7 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 			Namespace: params.Namespace,
 			Labels: map[string]string{
 				constants.LabelName:            params.Name,
-				constants.LabelNamespace:    params.Namespace,
+				constants.LabelNamespace:       params.Namespace,
 				constants.LabelProject:         params.Project,
 				constants.LabelComponent:       params.Component,
 				constants.LabelDeploymentTrack: params.DeploymentTrack,

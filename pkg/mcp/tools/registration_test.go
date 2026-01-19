@@ -55,7 +55,7 @@ func TestPartialToolsetRegistration(t *testing.T) {
 	// Define which toolsets to register
 	registeredToolsets := map[string]bool{
 		"namespace": true,
-		"project":      true,
+		"project":   true,
 	}
 
 	// Register only a subset of toolsets
