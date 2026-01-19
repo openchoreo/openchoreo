@@ -1,30 +1,96 @@
 # OpenChoreo API Configuration
-# This is the default configuration file for openchoreo-api
+# This is the default configuration file for local development.
+#
+# Configuration priority (highest to lowest):
+#   1. Environment variables (OC_API__SERVER__PORT=9090)
+#   2. This config file
+#   3. Built-in defaults
+#
+# Environment variable format: OC_API__<SECTION>__<FIELD>
+# Example: OC_API__SERVER__PORT=9090, OC_API__LOGGING__LEVEL=debug
 
-security:
-  user_types:
-    - type: "user"
-      display_name: "User"
-      priority: 1
-      auth_mechanisms:
-        - type: "oauth2"
-          entitlement:
-            claim: "groups"
-            display_name: "User Group"
-    - type: "service_account"
-      display_name: "Service Account"
-      priority: 2
-      auth_mechanisms:
-        - type: "oauth2"
-          entitlement:
-            claim: "sub"
-            display_name: "Client ID"
+server:
+  port: 8080
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
+  shutdown_timeout: 30s
 
-  # External clients configuration
-  external_clients:
+  middleware:
+    jwt:
+      # Disable JWT authentication for local development.
+      # Set to true and configure issuer/jwks for authenticated mode.
+      enabled: false
+      issuer: ""
+      audience: ""
+      clock_skew: 0s
+
+      jwks:
+        url: ""
+        refresh_interval: 1h
+        skip_tls_verify: false
+
+      # User type definitions for subject resolution.
+      # These define how to identify and extract entitlements from JWT tokens.
+      user_types:
+        - type: "user"
+          display_name: "User"
+          priority: 1
+          auth_mechanisms:
+            - type: "oauth2"
+              entitlement:
+                claim: "groups"
+                display_name: "User Group"
+        - type: "service_account"
+          display_name: "Service Account"
+          priority: 2
+          auth_mechanisms:
+            - type: "oauth2"
+              entitlement:
+                claim: "sub"
+                display_name: "Client ID"
+
+authorization:
+  # Disable authorization for local development.
+  # Set to true and configure database_path for authorized mode.
+  enabled: false
+  database_path: ""
+  roles_file: ""
+  cache_enabled: false
+  cache_ttl: 5m
+
+oauth:
+  # OIDC endpoints for client discovery (returned by /api/v1/client-configs).
+  oidc:
+    authorization_url: "http://sts.openchoreo.localhost/oauth2/authorize"
+    token_url: "http://sts.openchoreo.localhost/oauth2/token"
+
+  # External OAuth clients that can authenticate with this API.
+  clients:
     - name: "cli"
       client_id: "openchoreo-cli"
       scopes:
         - "openid"
         - "profile"
         - "email"
+
+mcp:
+  enabled: true
+  toolsets:
+    - organization
+    - project
+    - component
+    - build
+    - deployment
+    - infrastructure
+    - schema
+    - resource
+
+  oauth:
+    resource_url: "http://api.openchoreo.localhost"
+    auth_server_url: "http://sts.openchoreo.localhost"
+
+logging:
+  level: info
+  format: json
+  add_source: false

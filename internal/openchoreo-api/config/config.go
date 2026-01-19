@@ -5,53 +5,17 @@ package config
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
-
-// ConfigLegacy represents the legacy configuration structure for openchoreo-api.
-// Deprecated: Use Config with the unified configuration system instead.
-type ConfigLegacy struct {
-	Security SecurityConfig `yaml:"security"`
-}
-
-// SecurityConfig represents the authorization configuration section
-type SecurityConfig struct {
-	UserTypes       []subject.UserTypeConfig `yaml:"user_types"`
-	ExternalClients []ExternalClientConfig   `yaml:"external_clients"`
-}
 
 // ExternalClientConfig represents an external client configuration
 type ExternalClientConfig struct {
-	Name     string   `yaml:"name"`
-	ClientID string   `yaml:"client_id"`
-	Scopes   []string `yaml:"scopes"`
-}
-
-// LoadLegacy loads and validates the legacy configuration from the specified file path.
-// Deprecated: Use NewLoader with Config instead.
-func LoadLegacy(filePath string) (*ConfigLegacy, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var config ConfigLegacy
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
-	}
-
-	if err := subject.ValidateConfig(config.Security.UserTypes); err != nil {
-		return nil, fmt.Errorf("invalid user type config: %w", err)
-	}
-
-	subject.SortByPriority(config.Security.UserTypes)
-	return &config, nil
+	Name     string   `koanf:"name"`
+	ClientID string   `koanf:"client_id"`
+	Scopes   []string `koanf:"scopes"`
 }
 
 // Config is the top-level configuration for openchoreo-api.
@@ -61,7 +25,6 @@ type Config struct {
 	// Authorization defines authorization (Casbin) settings.
 	Authorization AuthorizationConfig `koanf:"authorization"`
 	// OAuth defines OAuth client configurations.
-	// TODO: This is IdP concern, not resource server. Discuss moving to IdP or fetching from IdP.
 	OAuth OAuthConfig `koanf:"oauth"`
 	// MCP defines Model Context Protocol server settings.
 	MCP MCPConfig `koanf:"mcp"`
@@ -70,15 +33,33 @@ type Config struct {
 }
 
 // OAuthConfig defines OAuth client configurations.
-// TODO: This is IdP concern, not resource server. Consider fetching from IdP instead.
 type OAuthConfig struct {
+	// OIDC defines OIDC endpoint URLs for client discovery.
+	OIDC OIDCConfig `koanf:"oidc"`
 	// Clients defines external OAuth clients that can authenticate with this API.
 	Clients []ExternalClientConfig `koanf:"clients"`
+}
+
+// OIDCConfig defines OIDC endpoint URLs for client discovery.
+type OIDCConfig struct {
+	// AuthorizationURL is the OAuth authorization endpoint URL.
+	AuthorizationURL string `koanf:"authorization_url"`
+	// TokenURL is the OAuth token endpoint URL.
+	TokenURL string `koanf:"token_url"`
+}
+
+// OIDCDefaults returns the default OIDC configuration.
+func OIDCDefaults() OIDCConfig {
+	return OIDCConfig{
+		AuthorizationURL: "http://sts.openchoreo.localhost/oauth2/authorize",
+		TokenURL:         "http://sts.openchoreo.localhost/oauth2/token",
+	}
 }
 
 // OAuthDefaults returns the default OAuth configuration.
 func OAuthDefaults() OAuthConfig {
 	return OAuthConfig{
+		OIDC:    OIDCDefaults(),
 		Clients: nil,
 	}
 }

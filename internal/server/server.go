@@ -46,7 +46,7 @@ func New(cfg Config, handler http.Handler, logger *slog.Logger) *Server {
 			WriteTimeout: cfg.WriteTimeout,
 			IdleTimeout:  cfg.IdleTimeout,
 		},
-		logger:          logger,
+		logger:          logger.With("module", "server"),
 		shutdownTimeout: shutdownTimeout,
 	}
 }

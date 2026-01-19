@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
-	"strings"
 
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
@@ -28,12 +26,12 @@ import (
 // Handler holds the services and provides HTTP handlers
 type Handler struct {
 	services *services.Services
-	config   *config.ConfigLegacy
+	config   *config.Config
 	logger   *slog.Logger
 }
 
 // New creates a new Handler instance
-func New(services *services.Services, cfg *config.ConfigLegacy, logger *slog.Logger) *Handler {
+func New(services *services.Services, cfg *config.Config, logger *slog.Logger) *Handler {
 	return &Handler{
 		services: services,
 		config:   cfg,
@@ -210,57 +208,32 @@ func (h *Handler) Routes() http.Handler {
 }
 
 func (h *Handler) listUserTypes(w http.ResponseWriter, r *http.Request) {
-	userTypes := h.config.Security.UserTypes
+	userTypes := config.ToSubjectUserTypeConfigs(h.config.Server.Middleware.JWT.UserTypes)
 	writeSuccessResponse(w, http.StatusOK, userTypes)
 }
 
-// InitJWTMiddleware initializes the JWT authentication middleware with configuration from environment.
+// InitJWTMiddleware initializes the JWT authentication middleware from unified configuration.
 // Exported for reuse by the new OpenAPI-generated server.
-//
-// TODO: Refactor to move JWT configuration to the config package. Reading environment variables
-// should not be the responsibility of the handlers package. Consider creating a config.JWTConfig
-// struct and a config.NewJWTMiddleware() function instead.
 func (h *Handler) InitJWTMiddleware() func(http.Handler) http.Handler {
-	// Get JWT configuration from environment variables
-	jwtDisabled := os.Getenv(config.EnvJWTDisabled) == "true"
-	jwksURL := os.Getenv(config.EnvJWKSURL)
-	jwtIssuer := os.Getenv(config.EnvJWTIssuer)
-	jwtAudience := os.Getenv(config.EnvJWTAudience) // Optional
-	jwksURLTLSInsecureSkipVerify := os.Getenv(config.EnvJWKSURLTLSInsecureSkipVerify) == "true"
+	jwtCfg := &h.config.Server.Middleware.JWT
 
-	// Create OAuth2 user type detector from configuration
-	var detector *jwt.Resolver
-	if len(h.config.Security.UserTypes) > 0 {
+	// Create OAuth2 user type resolver from configuration
+	var resolver *jwt.Resolver
+	if len(jwtCfg.UserTypes) > 0 {
+		subjectUserTypes := config.ToSubjectUserTypeConfigs(jwtCfg.UserTypes)
 		var err error
-		detector, err = jwt.NewResolver(h.config.Security.UserTypes)
+		resolver, err = jwt.NewResolver(subjectUserTypes)
 		if err != nil {
-			h.logger.Error("Failed to create OAuth2 user type detector", "error", err)
-			// Continue without detector - JWT middleware will still work but won't resolve SubjectContext
+			h.logger.Error("Failed to create OAuth2 user type resolver", "error", err)
+			// Continue without resolver - JWT middleware will still work but won't resolve SubjectContext
 		}
 	}
 
-	// Configure JWT middleware
-	jwtConfig := jwt.Config{
-		Disabled:                     jwtDisabled,
-		JWKSURL:                      jwksURL,
-		ValidateIssuer:               jwtIssuer,
-		ValidateAudience:             jwtAudience,
-		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
-		Detector:                     detector,
-		Logger:                       h.logger,
-	}
-
-	return jwt.Middleware(jwtConfig)
+	return jwt.Middleware(jwtCfg.ToJWTConfig(h.logger, resolver))
 }
 
 func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {
-	// Get MCP configuration from environment variables
-	serverBaseURL := os.Getenv(config.EnvServerBaseURL)
-	if serverBaseURL == "" {
-		serverBaseURL = config.DefaultServerBaseURL
-	}
-	resourceMetadataURL := serverBaseURL + "/.well-known/oauth-protected-resource"
-
+	resourceMetadataURL := h.config.MCP.OAuth.ResourceURL + "/.well-known/oauth-protected-resource"
 	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
 }
 
@@ -304,30 +277,11 @@ func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
 }
 
 func getMCPServerToolsets(h *Handler) *tools.Toolsets {
-	// Read toolsets from environment variable
-	toolsetsEnv := os.Getenv(config.EnvMCPToolsets)
-	if toolsetsEnv == "" {
-		// Default to all toolsets if not specified
-		toolsetsEnv = string(tools.ToolsetNamespace) + "," +
-			string(tools.ToolsetProject) + "," +
-			string(tools.ToolsetComponent) + "," +
-			string(tools.ToolsetBuild) + "," +
-			string(tools.ToolsetDeployment) + "," +
-			string(tools.ToolsetInfrastructure) + "," +
-			string(tools.ToolsetSchema) + "," +
-			string(tools.ToolsetResource)
-	}
-
-	// Parse toolsets
-	toolsetsMap := parseToolsets(toolsetsEnv)
+	// Get enabled toolsets from config (defaults are set in MCPDefaults())
+	toolsetsMap := h.config.MCP.ParseToolsets()
 
 	// Log enabled toolsets
-	enabledToolsets := make([]string, 0, len(toolsetsMap))
-	for ts := range toolsetsMap {
-		enabledToolsets = append(enabledToolsets, string(ts))
-	}
-	h.logger.Info("Initializing MCP server",
-		slog.Any("enabled_toolsets", enabledToolsets))
+	h.logger.Info("Initializing MCP server", slog.Any("enabled_toolsets", h.config.MCP.Toolsets))
 
 	handler := &mcphandlers.MCPHandler{Services: h.services}
 
@@ -364,20 +318,4 @@ func getMCPServerToolsets(h *Handler) *tools.Toolsets {
 		}
 	}
 	return toolsets
-}
-
-func parseToolsets(toolsetsStr string) map[tools.ToolsetType]bool {
-	toolsetsMap := make(map[tools.ToolsetType]bool)
-	if toolsetsStr == "" {
-		return toolsetsMap
-	}
-
-	toolsets := strings.Split(toolsetsStr, ",")
-	for _, ts := range toolsets {
-		ts = strings.TrimSpace(ts)
-		if ts != "" {
-			toolsetsMap[tools.ToolsetType(ts)] = true
-		}
-	}
-	return toolsetsMap
 }

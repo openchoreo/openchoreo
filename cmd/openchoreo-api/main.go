@@ -9,9 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/spf13/pflag"
 
@@ -79,8 +77,6 @@ func main() {
 	// Log startup with version info
 	logger.Info("Starting", version.GetLogKeyValues()...)
 
-	port, _ := flags.GetInt("server-port")
-
 	// Create shutdown context
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
@@ -90,24 +86,6 @@ func main() {
 		logger.Error("Failed to initialize Kubernetes client", slog.Any("error", err))
 		os.Exit(1)
 	}
-
-	// Load legacy configuration
-	// Deprecated: Will be removed once handlers migrate to unified config
-	legacyConfigPath := os.Getenv("OPENCHOREO_API_CONFIG_PATH")
-	if legacyConfigPath == "" {
-		legacyConfigPath = "config.yaml"
-	}
-
-	cfgLegacy, err := config.LoadLegacy(legacyConfigPath)
-	if err != nil {
-		logger.Error("Failed to load legacy configuration file",
-			slog.String("config_path", legacyConfigPath),
-			slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	logger.Info("Loaded legacy configuration from file",
-		slog.String("config_path", legacyConfigPath))
 
 	// Initialize authorization
 	pap, pdp, err := authz.Initialize(cfg.Authorization.ToAuthzConfig(), logger)
@@ -119,8 +97,8 @@ func main() {
 	// Initialize services with PAP and PDP
 	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, logger)
 
-	// Initialize legacy HTTP handlers with config for user type management
-	legacyHandler := handlers.New(services, cfgLegacy, logger.With("component", "legacy-handlers"))
+	// Initialize legacy HTTP handlers with unified config
+	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize OpenAPI handlers
@@ -142,15 +120,8 @@ func main() {
 	// - Header absent → Legacy handlers (existing implementation)
 	migrationRouter := router.OpenAPIMigrationRouter(openapiRoutes, legacyRoutes)
 
-	// Server configuration
-	serverCfg := server.Config{
-		Addr:            ":" + strconv.Itoa(port),
-		ReadTimeout:     15 * time.Second,
-		WriteTimeout:    15 * time.Second,
-		IdleTimeout:     60 * time.Second,
-		ShutdownTimeout: 30 * time.Second,
-	}
-	srv := server.New(serverCfg, migrationRouter, logger.With("component", "server"))
+	// Create server from configuration
+	srv := server.New(cfg.Server.ToServerConfig(), migrationRouter, logger)
 
 	// Start server
 	if err := srv.Run(ctx); err != nil {

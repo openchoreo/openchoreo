@@ -5,10 +5,8 @@ package handlers
 
 import (
 	"context"
-	"os"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 )
 
 // GetOpenIDConfiguration returns OpenID Connect configuration for CLI authentication
@@ -16,18 +14,7 @@ func (h *Handler) GetOpenIDConfiguration(
 	ctx context.Context,
 	request gen.GetOpenIDConfigurationRequestObject,
 ) (gen.GetOpenIDConfigurationResponseObject, error) {
-	// Read endpoints from environment variables
-	authorizationEndpoint := os.Getenv(config.EnvOIDCAuthorizationURL)
-	tokenEndpoint := os.Getenv(config.EnvOIDCTokenURL)
-
-	// Read new OIDC fields
-	issuer := os.Getenv(config.EnvJWTIssuer)
-	jwksURI := os.Getenv(config.EnvJWKSURL)
-	jwtDisabled := os.Getenv(config.EnvJWTDisabled) == "true"
-	securityEnabled := !jwtDisabled
-
-	// Build external clients from config file
-	// TODO: This is IdP concern, not resource server. Consider fetching from IdP instead.
+	// Build external clients from config
 	externalClients := make([]gen.ExternalClient, len(h.Config.OAuth.Clients))
 	for i, client := range h.Config.OAuth.Clients {
 		externalClients[i] = gen.ExternalClient{
@@ -37,9 +24,14 @@ func (h *Handler) GetOpenIDConfiguration(
 		}
 	}
 
+	// Get OIDC endpoints and security settings from config
+	issuer := h.Config.OAuth.OIDC.Issuer
+	jwksURI := h.Config.Middleware.JWT.JWKSURL
+	securityEnabled := !h.Config.Middleware.JWT.Disabled
+
 	response := gen.GetOpenIDConfiguration200JSONResponse{
-		AuthorizationEndpoint: authorizationEndpoint,
-		TokenEndpoint:         tokenEndpoint,
+		AuthorizationEndpoint: h.Config.OAuth.OIDC.AuthorizationURL,
+		TokenEndpoint:         h.Config.OAuth.OIDC.TokenURL,
 		ExternalClients:       externalClients,
 		SecurityEnabled:       securityEnabled,
 	}

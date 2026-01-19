@@ -17,14 +17,12 @@ COPY bin/dist/${TARGETOS}/${TARGETARCH}/openchoreo-api .
 # Copy default configuration file
 COPY cmd/openchoreo-api/config.yaml /etc/openchoreo/config.yaml
 
-# Set default configuration path
-ENV OPENCHOREO_API_CONFIG_PATH=/etc/openchoreo/config.yaml
-
 # Use non-root user for security (65532 is 'nonroot' user in distroless)
 USER 65532:65532
 
 # Expose the HTTP port (if your server listens on 8080)
 EXPOSE 8080
 
-# Entrypoint: run the binary
+# Run the binary with default config (CMD can be overridden at runtime)
 ENTRYPOINT ["/openchoreo-api"]
+CMD ["--config=/etc/openchoreo/config.yaml"]
