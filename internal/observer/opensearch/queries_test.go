@@ -206,13 +206,13 @@ func TestQueryBuilder_BuildGatewayLogsQuery(t *testing.T) {
 		t.Fatal("Expected bool query not found")
 	}
 
-	// Should have must conditions for time range, org filter, search phrase, and nested bool for APIs/vhosts
+	// Should have must conditions for time range, namespace filter, search phrase, and nested bool for APIs/vhosts
 	mustConditions, ok := boolQuery["must"].([]map[string]interface{})
 	if !ok {
 		t.Fatal("Expected must conditions not found")
 	}
 
-	// Verify minimum must conditions exist (time, org, search, nested bool)
+	// Verify minimum must conditions exist (time, namespace, search, nested bool)
 	if len(mustConditions) < 3 {
 		t.Errorf("Expected at least 3 must conditions, got %d", len(mustConditions))
 	}

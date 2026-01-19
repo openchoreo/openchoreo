@@ -12,13 +12,13 @@ The RCA agent receives alerts via a REST API, then uses a **ReAct (Reasoning + A
 
 The agent connects to two MCP (Model Context Protocol) servers:
 - **Observability MCP** – provides tools for traces, logs, and metrics
-- **OpenChoreo MCP** – provides tools for listing organizations, projects, environments, and components
+- **OpenChoreo MCP** – provides tools for projects, environments, and components
 
 ### Tool Filtering
 
 Only a whitelisted set of read-only tools are exposed to the agent:
 - `get_traces`, `get_component_logs`, `get_project_logs`, `get_component_resource_metrics`
-- `list_environments`, `list_organizations`, `list_projects`, `list_components`
+- `list_environments`, `list_projects`, `list_components`
 
 This prevents unintended modifications and limits the agent's scope to investigation.
 

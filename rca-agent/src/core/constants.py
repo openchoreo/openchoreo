@@ -4,7 +4,6 @@
 
 class OpenchoreoTools:
     LIST_ENVIRONMENTS = "list_environments"
-    LIST_NAMESPACES = "list_namespaces"
     LIST_PROJECTS = "list_projects"
     LIST_COMPONENTS = "list_components"
     LIST_COMPONENT_RELEASES = "list_component_releases"
