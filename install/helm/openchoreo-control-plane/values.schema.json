@@ -3629,11 +3629,13 @@
                     "properties": {
                       "client_id": {
                         "default": "openchoreo-cli",
+                        "required": [],
                         "title": "client_id",
                         "type": "string"
                       },
                       "name": {
                         "default": "cli",
+                        "required": [],
                         "title": "name",
                         "type": "string"
                       },
@@ -3647,11 +3649,21 @@
                               "type": "string"
                             },
                             {
+                              "required": [],
+                              "type": "string"
+                            },
+                            {
+                              "required": [],
+                              "type": "string"
+                            },
+                            {
+                              "required": [],
                               "type": "string"
                             }
                           ],
                           "required": []
                         },
+                        "required": [],
                         "title": "scopes",
                         "type": "array"
                       }
@@ -3666,6 +3678,7 @@
                 ],
                 "required": []
               },
+              "required": [],
               "title": "externalClients",
               "type": "array"
             },

@@ -2759,6 +2759,12 @@ opentelemetryCollectorCustomizations:
   # @schema
   tailSampling:
     # @schema
+    # type: boolean
+    # description: Enable tail sampling
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
     # type: string
     # description: Time to wait before making sampling decision
     # default: 10s
