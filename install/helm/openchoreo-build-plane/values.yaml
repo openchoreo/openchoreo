@@ -73,10 +73,17 @@ global:
     registry:
       # @schema
       # type: string
-      # description: Registry endpoint for pushing and pulling images. For external registry with baseDomain, automatically uses registry.<baseDomain>.
+      # description: Container registry host for pushing and pulling images. Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, or a private registry).
       # default: registry.openchoreo-build-plane.svc.cluster.local:5000
       # @schema
-      endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      host: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+
+      # @schema
+      # type: string
+      # description: Repository path prepended to image names. Can be any depth (e.g., "myorg", "myorg/myproject", "namespace/subpath/images"). Leave empty for root-level images.
+      # default: ""
+      # @schema
+      repoPath: ""
 
       # @schema
       # type: boolean

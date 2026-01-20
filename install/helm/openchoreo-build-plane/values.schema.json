@@ -989,10 +989,18 @@
               "additionalProperties": false,
               "description": "Container registry configuration",
               "properties": {
-                "endpoint": {
+                "host": {
                   "default": "registry.openchoreo-build-plane.svc.cluster.local:5000",
-                  "description": "Registry endpoint for pushing and pulling images. For external registry with baseDomain, automatically uses registry.\u003cbaseDomain\u003e.",
-                  "title": "endpoint",
+                  "description": "Container registry host for pushing and pulling images. Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, or a private registry).",
+                  "required": [],
+                  "title": "host",
+                  "type": "string"
+                },
+                "repoPath": {
+                  "default": "",
+                  "description": "Repository path prepended to image names. Can be any depth (e.g., \"myorg\", \"myorg/myproject\", \"namespace/subpath/images\"). Leave empty for root-level images.",
+                  "required": [],
+                  "title": "repoPath",
                   "type": "string"
                 },
                 "tlsVerify": {

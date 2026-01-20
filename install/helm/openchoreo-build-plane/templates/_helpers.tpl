@@ -171,13 +171,19 @@ Priority: registry.ingress.tls.secretName > global.tls.secretName > default
 
 {{/*
 Get the registry endpoint for workflow templates
-Returns external endpoint if global.baseDomain is set, otherwise uses configured endpoint
+Combines host and repoPath: host/repoPath (or just host if repoPath is empty)
+If global.baseDomain is set, uses registry.<baseDomain> as host
 */}}
 {{- define "openchoreo-build-plane.registryEndpoint" -}}
+{{- $host := .Values.global.defaultResources.registry.host -}}
 {{- if .Values.global.baseDomain -}}
-  {{- printf "registry.%s" .Values.global.baseDomain -}}
+  {{- $host = printf "registry.%s" .Values.global.baseDomain -}}
+{{- end -}}
+{{- $repoPath := .Values.global.defaultResources.registry.repoPath -}}
+{{- if $repoPath -}}
+  {{- printf "%s/%s" $host $repoPath -}}
 {{- else -}}
-  {{- .Values.global.defaultResources.registry.endpoint -}}
+  {{- $host -}}
 {{- end -}}
 {{- end -}}
 
