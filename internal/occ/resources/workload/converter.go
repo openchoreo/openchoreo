@@ -173,7 +173,7 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workloadName,
-			Namespace: params.OrganizationName,
+			Namespace: params.NamespaceName,
 		},
 		Spec: openchoreov1alpha1.WorkloadSpec{
 			Owner: openchoreov1alpha1.WorkloadOwner{

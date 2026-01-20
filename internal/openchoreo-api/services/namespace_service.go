@@ -47,7 +47,7 @@ func (s *NamespaceService) ListNamespaces(ctx context.Context) ([]*models.Namesp
 	for _, item := range namespaceList.Items {
 		// Authorization check for each namespace
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewNamespace, ResourceTypeNamespace, item.Name,
-			authz.ResourceHierarchy{Organization: item.Name}); err != nil {
+			authz.ResourceHierarchy{Namespace: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized namespaces
 				s.logger.Debug("Skipping unauthorized namespace", "namespace", item.Name)
@@ -69,7 +69,7 @@ func (s *NamespaceService) GetNamespace(ctx context.Context, namespaceName strin
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewNamespace, ResourceTypeNamespace, namespaceName,
-		authz.ResourceHierarchy{Organization: namespaceName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 

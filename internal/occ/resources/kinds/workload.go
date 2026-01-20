@@ -151,7 +151,7 @@ func (w *WorkloadResource) Print(format resources.OutputFormat, filter *resource
 // GenerateWorkloadCR generates a Workload CR without writing it (used in file-system mode)
 func (w *WorkloadResource) GenerateWorkloadCR(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	// Validate required parameters
-	if params.OrganizationName == "" {
+	if params.NamespaceName == "" {
 		return nil, fmt.Errorf("organization name is required (--organization)")
 	}
 	if params.ProjectName == "" {
