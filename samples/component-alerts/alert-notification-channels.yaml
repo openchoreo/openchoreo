@@ -1,0 +1,139 @@
+---
+# Example email Notification Channel for development environment
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  name: email-notificationchannel-development
+  namespace: default
+spec:
+  environment: development
+  type: email
+  emailConfig:
+    from: notifications@openchoreo.dev    # Replace with your SMTP sender email address
+    to:
+      - openchoreo-devops-group@acme.com  # Replace with your recipients' email addresses
+    smtp:
+      host: mail.acme.com                 # Replace with your SMTP host
+      port: 587                           # Replace with your SMTP port
+      auth:
+        username:
+          secretKeyRef:
+            name: email-notificationchannel-development-smtp-auth
+            key: username
+        password:
+          secretKeyRef:
+            name: email-notificationchannel-development-smtp-auth
+            key: password
+      tls:
+        insecureSkipVerify: true
+    template:
+      # Modify as needed with CEL expressions
+      subject: "OpenChoreo Observability Alert Notification - ${alertName}"
+      body: |
+        Alert triggered for your OpenChoreo observability alert rule: ${alertName}
+        Triggered at: ${alertTimestamp} UTC
+        Severity: ${alertSeverity}
+        Description: ${alertDescription}
+        Value: ${alertValue}
+        Threshold: ${alertThreshold}
+        Type: ${alertType}
+        Component: ${component}
+        Project: ${project}
+        Environment: ${environment}
+        Enabled AI Root Cause Analysis: ${alertAIRootCauseAnalysisEnabled}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: email-notificationchannel-development-smtp-auth
+  namespace: default
+type: Opaque
+stringData:
+  username: smtp-username   # Replace with your SMTP username
+  password: smtp-password   # Replace with your SMTP password
+
+---
+# Example webhook Notification Channel for development environment
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  name: webhook-notificationchannel-development
+  namespace: default
+spec:
+  environment: development
+  type: webhook
+  webhookConfig:
+    url: https://webhook.acme.com  # Replace with your webhook URL
+    headers:
+      Content-Type:
+        value: "application/json"
+      # Custom header for webhook authentication (if required)
+      X-API-Key:
+        valueFrom:
+          secretKeyRef:
+            name: webhook-notificationchannel-development-webhook-auth
+            key: api-key
+    # Optional: Payload template using CEL expressions (${...})
+    # If not provided, the raw alertDetails object will be sent as JSON
+    # For Slack, use the template below. For other webhooks, customize as needed.
+    payloadTemplate: |
+      {
+        "text": "Alert: ${alertName}",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "🚨 OpenChoreo Alert: ${alertName}"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Severity:*\n${alertSeverity}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Value:*\n${alertValue}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Threshold:*\n${alertThreshold}"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Component:*\n${component}"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Description:*\n${alertDescription}"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "Project: ${project} | Environment: ${environment} | Time: ${alertTimestamp}"
+              }
+            ]
+          }
+        ]
+      }
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-notificationchannel-development-webhook-auth
+  namespace: default
+type: Opaque
+stringData:
+  api-key: webhook-api-key    # Replace with your webhook API key

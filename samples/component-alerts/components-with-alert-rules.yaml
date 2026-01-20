@@ -1,0 +1,125 @@
+---
+# Component for frontend service with log based alert rule
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: frontend
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+
+  componentType: deployment/web-application
+  autoDeploy: true
+
+  parameters:
+    replicas: 1
+    port: 8080
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  # Attach alert rule as a trait
+  traits:
+    - name: observability-alert-rule
+      instanceName: frontend-rpc-unavailable-error-log-alert
+      parameters:
+        description: "Alert when frontend logs indicate rpc error: code = Unavailable"
+        severity: "critical"
+        source:
+          type: "log"
+          # Match the error log: 'rpc error: code = Unavailable'
+          query: "rpc error: code = Unavailable"
+        condition:
+          # More than 5 occurrences within 5 minutes
+          window: "5m"
+          interval: "1m"
+          operator: "gt"
+          threshold: 5
+
+---
+# Component for recommendation service with metric (cpu_usage) based alert rule
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: recommendation
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+
+  componentType: deployment/service
+  autoDeploy: true
+
+  parameters:
+    replicas: 1
+    port: 8080
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  # Attach alert rule as a trait
+  traits:
+    - name: observability-alert-rule
+      instanceName: recommendation-high-cpu-alert
+      parameters:
+        description: "Alert when recommendationservice CPU usage is greater than 80% for last 5 minutes"
+        severity: "critical"
+        source:
+          type: "metric"
+          # Logical metric name interpreted by the observability backend
+          metric: "cpu_usage"
+        condition:
+          window: "5m"
+          interval: "1m"
+          operator: "gt"
+          threshold: 80
+
+---
+# Component for cart service with metric (memory_usage) based alert rule
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: cart
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+
+  componentType: deployment/service
+  autoDeploy: true
+
+  parameters:
+    replicas: 1
+    port: 7070
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+  # Attach alert rule as a trait
+  traits:
+    - name: observability-alert-rule
+      instanceName: cartservice-high-memory-alert
+      parameters:
+        description: "Alert when cartservice memory usage is greater than 70% for last 2 minutes"
+        severity: "critical"
+        source:
+          type: "metric"
+          metric: "memory_usage"
+        condition:
+          window: "2m"
+          interval: "1m"
+          operator: "gt"
+          threshold: 70

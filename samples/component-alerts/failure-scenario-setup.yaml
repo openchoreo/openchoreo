@@ -1,0 +1,70 @@
+---
+# ReleaseBinding for frontend component with env variable misconfiguration
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: frontend-development
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+    componentName: frontend
+  environment: development
+  # override env variable PRODUCT_CATALOG_SERVICE_ADDR to http://localhost:8080 instead productcatalog:80
+  workloadOverrides:
+    containers:
+      main:
+        env:
+          - key: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "http://localhost:8080"
+  traitOverrides:
+    frontend-rpc-unavailable-error-log-alert:
+      enabled: true                                                 # Alert rules can be enabled/disabled per environment. Default is true.
+      enableAiRootCauseAnalysis: false                              # AI root cause analysis can be enabled/disabled per environment. Default is false.
+      notificationChannel: "email-notificationchannel-development"  # Notification channel can be specified per environment. If not specified, the default notification channel for the environment will be used. Here we are using the email notification channel for the development environment.
+
+---
+# ReleaseBinding for recommendation component with cpu limit misconfiguration
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: recommendation-development
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+    componentName: recommendation
+  environment: development
+  # override cpu request and limit to 10m instead 100m
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        cpu: "10m"
+      limits:
+        cpu: "10m"
+  traitOverrides:
+    recommendation-high-cpu-alert:
+      enabled: true
+      enableAiRootCauseAnalysis: true
+      notificationChannel: "webhook-notificationchannel-development"
+
+---
+# ReleaseBinding for cart component with memory limit misconfiguration
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: cart-development
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+    componentName: cart
+  environment: development
+  # override memory request to 100Mi and limit to 150Mi instead of 256Mi
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        memory: "100Mi"
+      limits:
+        memory: "150Mi"
+  # No traitOverrides are specified here. Using the defaults.
