@@ -4,7 +4,7 @@
 #   - name: custom-role
 #     namespace: ""                 # Empty for cluster role, namespace name for namespace-scoped role
 #     actions:
-#       - "organization:view"
+#       - "namespace:view"
 #       - "project:view"
 #
 # mappings:
@@ -32,7 +32,7 @@ roles:
     actions:
       - "component:view"
       - "componenttype:view"
-      - "organization:view"
+      - "namespace:view"
       - "project:view"
       - "dataplane:view"
       - "environment:view"
@@ -42,7 +42,7 @@ roles:
     actions:
       - "component:view"
       - "project:view"
-      - "organization:view"
+      - "namespace:view"
       - "componentrelease:view"
       - "releasebinding:view"
       - "componentworkflowrun:view"

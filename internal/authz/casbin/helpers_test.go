@@ -517,7 +517,7 @@ func TestExpandActionWildcard(t *testing.T) {
 		{Action: "component:delete"},
 		{Action: "project:view"},
 		{Action: "project:update"},
-		{Action: "organization:view"},
+		{Action: "namespace:view"},
 	}
 	actionIdx := indexActions(testActions)
 
@@ -539,7 +539,7 @@ func TestExpandActionWildcard(t *testing.T) {
 		{
 			name:          "full wildcard expands to all actions",
 			actionPattern: "*",
-			want:          []string{"component:create", "component:view", "component:delete", "project:view", "project:update", "organization:view"},
+			want:          []string{"component:create", "component:view", "component:delete", "project:view", "project:update", "namespace:view"},
 		},
 		{
 			name:          "wildcard for non-existent resource type returns empty",
@@ -777,7 +777,7 @@ func TestIndexActions(t *testing.T) {
 				{Action: "component:delete"},
 				{Action: "project:view"},
 				{Action: "project:create"},
-				{Action: "organization:view"},
+				{Action: "namespace:view"},
 			},
 			wantLen: 7,
 		},

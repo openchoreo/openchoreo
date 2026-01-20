@@ -23,7 +23,7 @@ func TestLoadActions(t *testing.T) {
 
 	// Verify some expected actions exist
 	expectedActions := []string{
-		"organization:view",
+		"namespace:view",
 		"project:view",
 		"project:create",
 		"component:view",

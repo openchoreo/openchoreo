@@ -58,7 +58,7 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 	// Setup: Create cluster role with multiple actions and wildcards
 	multiRole := &authzcore.Role{
 		Name:    "multi-role",
-		Actions: []string{"organization:view", "component:*", "project:view"},
+		Actions: []string{"namespace:view", "component:*", "project:view"},
 	}
 	if err := enforcer.AddRole(ctx, multiRole); err != nil {
 		t.Fatalf("failed to add multi-role: %v", err)
@@ -234,9 +234,9 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 			name:              "cluster role - basic authorization",
 			entitlementValues: []string{"test-group"},
 			resource:          authzcore.ResourceHierarchy{Namespace: "acme"},
-			action:            "organization:view",
+			action:            "namespace:view",
 			want:              true,
-			reason:            "organization:* should match organization:view",
+			reason:            "namespace:* should match namespace:view",
 		},
 		{
 			name:              "cluster role - hierarchical matching",
@@ -338,7 +338,7 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 			name:              "path matching - no false positive for similar names",
 			entitlementValues: []string{"test-group"},
 			resource:          authzcore.ResourceHierarchy{Namespace: "acme2"},
-			action:            "organization:view",
+			action:            "namespace:view",
 			want:              false,
 			reason:            "'acme' policy should not match 'acme2'",
 		},
@@ -1438,7 +1438,7 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 		{Action: "component:delete"},
 		{Action: "project:view"},
 		{Action: "project:create"},
-		{Action: "organization:view"},
+		{Action: "namespace:view"},
 	}
 	actionIdx := indexActions(testActions)
 
@@ -1492,13 +1492,13 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				allowedCount int
 				deniedCount  int
 			}{
-				"component:view":    {allowedCount: 1, deniedCount: 0},
-				"component:create":  {allowedCount: 1, deniedCount: 0},
-				"component:update":  {allowedCount: 1, deniedCount: 0},
-				"component:delete":  {allowedCount: 1, deniedCount: 0},
-				"project:view":      {allowedCount: 1, deniedCount: 0},
-				"project:create":    {allowedCount: 1, deniedCount: 0},
-				"organization:view": {allowedCount: 1, deniedCount: 0},
+				"component:view":   {allowedCount: 1, deniedCount: 0},
+				"component:create": {allowedCount: 1, deniedCount: 0},
+				"component:update": {allowedCount: 1, deniedCount: 0},
+				"component:delete": {allowedCount: 1, deniedCount: 0},
+				"project:view":     {allowedCount: 1, deniedCount: 0},
+				"project:create":   {allowedCount: 1, deniedCount: 0},
+				"namespace:view":   {allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{

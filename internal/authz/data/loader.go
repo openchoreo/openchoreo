@@ -31,8 +31,8 @@ type ActionData struct {
 // systemActions defines all available actions in the system
 // IsInternal indicates if the action is internal (not publicly visible)
 var systemActions = []ActionData{
-	// Organization
-	{Name: "organization:view", IsInternal: false},
+	// Namespace
+	{Name: "namespace:view", IsInternal: false},
 
 	// Project
 	{Name: "project:view", IsInternal: false},

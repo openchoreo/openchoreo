@@ -14,7 +14,7 @@ data:
     # roles:
     #   - name: custom-role
     #     actions:
-    #       - "organization:view"
+    #       - "namespace:view"
     #       - "project:view"
     #
     # mappings:
@@ -43,7 +43,7 @@ data:
         actions:
           - "component:view"
           - "componenttype:view"
-          - "organization:view"
+          - "namespace:view"
           - "project:view"
           - "dataplane:view"
           - "environment:view"
@@ -54,7 +54,7 @@ data:
         actions:
           - "component:view"
           - "project:view"
-          - "organization:view"
+          - "namespace:view"
           - "componentrelease:view"
           - "releasebinding:view"
           - "componentworkflowrun:view"
