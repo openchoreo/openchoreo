@@ -201,6 +201,11 @@ spec:
           - name: image
             valueFrom:
               path: /tmp/image.txt
+      volumes:
+        - name: registry-push-secret
+          secret:
+            optional: true
+            secretName: '{{ "{{" }}workflow.parameters.registry-push-secret{{ "}}" }}'
       container:
         args:
           - |-
@@ -217,6 +222,7 @@ spec:
             # 2. Registry
             #####################################################################
             REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
+            AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
 
             #####################################################################
             # 3. Podman storage configuration
@@ -237,13 +243,12 @@ spec:
             podman load -i /mnt/vol/app-image.tar
 
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
-            podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)
             #####################################################################
             echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
-
         command:
           - sh
           - -c
@@ -253,6 +258,9 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /etc/secrets/registry-push-secret
+            name: registry-push-secret
+            readOnly: true
     - name: workload-create-step
       inputs:
         parameters:
