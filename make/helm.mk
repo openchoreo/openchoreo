@@ -22,7 +22,7 @@ OBSERVABILITY_PLANE_CRDS := \
 # Define the generation targets for the helm charts that are required for the helm package and push.
 # Ex: make helm-generate.cilium, make helm-generate.choreo
 .PHONY: helm-generate.%
-helm-generate.%: yq ## Generate helm chart for the specified chart name.
+helm-generate.%: yq helm-schema ## Generate helm chart for the specified chart name.
 	@if [ -z "$(filter $*,$(HELM_CHART_NAMES))" ]; then \
     		$(call log_error, Invalid helm generate target '$*'); \
     		exit 1; \
@@ -65,6 +65,8 @@ helm-generate.%: yq ## Generate helm chart for the specified chart name.
 	esac
 	helm dependency update $(CHART_PATH)
 	helm lint $(CHART_PATH)
+	@$(call log_info, Generating values.schema.json for '$(CHART_NAME)')
+	$(HELM_SCHEMA) -c $(CHART_PATH) --no-dependencies -a
 
 
 

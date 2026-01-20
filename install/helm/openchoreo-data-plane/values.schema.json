@@ -9,7 +9,6 @@
         "enabled": {
           "default": false,
           "description": "Enable WSO2 API Platform gateway operator",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -24,7 +23,6 @@
                 "chartName": {
                   "default": "oci://ghcr.io/wso2/api-platform/helm-charts/gateway",
                   "description": "OCI chart reference for the API Platform gateway",
-                  "required": [],
                   "title": "chartName",
                   "type": "string"
                 }
@@ -60,24 +58,20 @@
                                   ],
                                   "description": "Allowed JWT signing algorithms",
                                   "items": {
-                                    "required": [],
                                     "type": "string"
                                   },
-                                  "required": [],
                                   "title": "AllowedAlgorithms",
                                   "type": "array"
                                 },
                                 "AuthHeaderScheme": {
                                   "default": "Bearer",
                                   "description": "Authorization header scheme prefix",
-                                  "required": [],
                                   "title": "AuthHeaderScheme",
                                   "type": "string"
                                 },
                                 "ErrorMessage": {
                                   "default": "Authentication failed.",
                                   "description": "Error message returned on authentication failure",
-                                  "required": [],
                                   "title": "ErrorMessage",
                                   "type": "string"
                                 },
@@ -94,14 +88,12 @@
                                 "HeaderName": {
                                   "default": "Authorization",
                                   "description": "HTTP header name for JWT token",
-                                  "required": [],
                                   "title": "HeaderName",
                                   "type": "string"
                                 },
                                 "JwksCacheTtl": {
                                   "default": "5m",
                                   "description": "Cache TTL for JWKS keys",
-                                  "required": [],
                                   "title": "JwksCacheTtl",
                                   "type": "string"
                                 },
@@ -109,21 +101,18 @@
                                   "default": 3,
                                   "description": "Number of retry attempts for JWKS fetch",
                                   "minimum": 1,
-                                  "required": [],
                                   "title": "JwksFetchRetryCount",
                                   "type": "integer"
                                 },
                                 "JwksFetchRetryInterval": {
                                   "default": "2s",
                                   "description": "Interval between JWKS fetch retries",
-                                  "required": [],
                                   "title": "JwksFetchRetryInterval",
                                   "type": "string"
                                 },
                                 "JwksFetchTimeout": {
                                   "default": "5s",
                                   "description": "Timeout for fetching JWKS",
-                                  "required": [],
                                   "title": "JwksFetchTimeout",
                                   "type": "string"
                                 },
@@ -133,7 +122,6 @@
                                     "properties": {
                                       "issuer": {
                                         "description": "JWT issuer identifier",
-                                        "required": [],
                                         "type": "string"
                                       },
                                       "jwks": {
@@ -143,35 +131,30 @@
                                       },
                                       "name": {
                                         "description": "Key manager name",
-                                        "required": [],
                                         "type": "string"
                                       }
                                     },
                                     "required": [],
                                     "type": "object"
                                   },
-                                  "required": [],
                                   "title": "KeyManagers",
                                   "type": "array"
                                 },
                                 "Leeway": {
                                   "default": "30s",
                                   "description": "Clock skew tolerance for JWT validation",
-                                  "required": [],
                                   "title": "Leeway",
                                   "type": "string"
                                 },
                                 "OnFailureStatusCode": {
                                   "default": 401,
                                   "description": "HTTP status code returned on authentication failure",
-                                  "required": [],
                                   "title": "OnFailureStatusCode",
                                   "type": "integer"
                                 },
                                 "ValidateIssuer": {
                                   "default": true,
                                   "description": "Validate the JWT issuer claim",
-                                  "required": [],
                                   "title": "ValidateIssuer",
                                   "type": "boolean"
                                 }
@@ -229,7 +212,6 @@
             "enabled": {
               "default": false,
               "description": "Enable CoreDNS rewrite of *.openchoreo.localhost to host.k3d.internal",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -241,14 +223,12 @@
         "enabled": {
           "default": true,
           "description": "Enable the cluster agent deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Interval between heartbeat messages to control plane",
-          "required": [],
           "title": "heartbeatInterval",
           "type": "string"
         },
@@ -270,14 +250,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/cluster-agent",
               "description": "Cluster agent image repository",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Image tag. Empty uses Chart.AppVersion.",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -302,7 +280,6 @@
         "name": {
           "default": "cluster-agent-dataplane",
           "description": "Name of the cluster agent deployment",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -319,7 +296,6 @@
         "planeID": {
           "default": "default-dataplane",
           "description": "Logical plane identifier shared across multiple CRs connecting to the same physical plane. Defaults to Helm release name if not specified.",
-          "required": [],
           "title": "planeID",
           "type": "string"
         },
@@ -351,21 +327,18 @@
             "fsGroup": {
               "default": 1000,
               "description": "Group ID for volume mounts",
-              "required": [],
               "title": "fsGroup",
               "type": "integer"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Run container as non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
             "runAsUser": {
               "default": 1000,
               "description": "User ID to run container as",
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -381,21 +354,18 @@
             "create": {
               "default": false,
               "description": "Create a PriorityClass for cluster agent",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-dataplane",
               "description": "PriorityClass name",
-              "required": [],
               "title": "name",
               "type": "string"
             },
             "value": {
               "default": 900000,
               "description": "Priority value (higher = more important)",
-              "required": [],
               "title": "value",
               "type": "integer"
             }
@@ -411,7 +381,6 @@
             "create": {
               "default": true,
               "description": "Create RBAC resources (ClusterRole, ClusterRoleBinding)",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -423,7 +392,6 @@
         "reconnectDelay": {
           "default": "5s",
           "description": "Delay before attempting reconnection after disconnect",
-          "required": [],
           "title": "reconnectDelay",
           "type": "string"
         },
@@ -431,7 +399,6 @@
           "default": 1,
           "description": "Number of cluster agent replicas (typically 1 per data plane)",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -446,14 +413,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU limit for the agent",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit for the agent",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -469,14 +434,12 @@
                 "cpu": {
                   "default": "50m",
                   "description": "CPU request for the agent",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for the agent",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -497,7 +460,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -511,10 +473,8 @@
                   ],
                   "description": "Capabilities to drop from container",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -526,7 +486,6 @@
             "readOnlyRootFilesystem": {
               "default": true,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             }
@@ -538,14 +497,12 @@
         "serverCANamespace": {
           "default": "openchoreo-control-plane",
           "description": "Namespace where cluster-gateway CA exists (control plane namespace)",
-          "required": [],
           "title": "serverCANamespace",
           "type": "string"
         },
         "serverUrl": {
           "default": "wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws",
           "description": "WebSocket URL of the cluster gateway in control plane",
-          "required": [],
           "title": "serverUrl",
           "type": "string"
         },
@@ -566,14 +523,12 @@
             "create": {
               "default": true,
               "description": "Create a service account for the cluster agent",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-dataplane",
               "description": "Service account name",
-              "required": [],
               "title": "name",
               "type": "string"
             }
@@ -589,77 +544,66 @@
             "caSecretName": {
               "default": "cluster-gateway-ca",
               "description": "CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretName",
               "type": "string"
             },
             "caSecretNamespace": {
               "default": "openchoreo-control-plane",
               "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretNamespace",
               "type": "string"
             },
             "caValue": {
               "default": "",
               "description": "Inline CA certificate in PEM format (for multi-cluster setup). Takes precedence over caSecretName/caSecretNamespace.",
-              "required": [],
               "title": "caValue",
               "type": "string"
             },
             "clientSecretName": {
               "default": "cluster-agent-tls",
               "description": "Secret name for client certificate (typically same as secretName)",
-              "required": [],
               "title": "clientSecretName",
               "type": "string"
             },
             "duration": {
               "default": "2160h",
               "description": "Certificate validity duration",
-              "required": [],
               "title": "duration",
               "type": "string"
             },
             "enabled": {
               "default": true,
               "description": "Enable TLS for agent-gateway communication",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "generateCerts": {
               "default": false,
               "description": "Generate client certificates locally using cert-manager (for multi-cluster setups where data plane is in different cluster)",
-              "required": [],
               "title": "generateCerts",
               "type": "boolean"
             },
             "renewBefore": {
               "default": "360h",
               "description": "Time before expiry to renew certificate",
-              "required": [],
               "title": "renewBefore",
               "type": "string"
             },
             "secretName": {
               "default": "cluster-agent-tls",
               "description": "Secret name for client certificate and key",
-              "required": [],
               "title": "secretName",
               "type": "string"
             },
             "serverCAConfigMap": {
               "default": "cluster-gateway-ca",
               "description": "ConfigMap name containing server CA certificate for verifying gateway",
-              "required": [],
               "title": "serverCAConfigMap",
               "type": "string"
             },
             "serverCAValue": {
               "default": "",
               "description": "Inline server CA certificate in PEM format (for multi-cluster setup). Takes precedence over copying from control plane.",
-              "required": [],
               "title": "serverCAValue",
               "type": "string"
             }
@@ -679,11 +623,9 @@
                   "PreferNoSchedule",
                   "NoExecute"
                 ],
-                "required": [],
-                "type": "string"
+                "required": []
               },
               "key": {
-                "required": [],
                 "type": "string"
               },
               "operator": {
@@ -691,18 +633,15 @@
                   "Exists",
                   "Equal"
                 ],
-                "required": [],
-                "type": "string"
+                "required": []
               },
               "value": {
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "tolerations",
           "type": "array"
         }
@@ -718,21 +657,18 @@
         "enabled": {
           "default": false,
           "description": "Enable External Secrets Operator for production secret management",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "external-secrets",
           "description": "Override the full name of External Secrets resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "nameOverride": {
           "default": "external-secrets",
           "description": "Override the name of External Secrets resources",
-          "required": [],
           "title": "nameOverride",
           "type": "string"
         }
@@ -748,14 +684,12 @@
         "enabled": {
           "default": true,
           "description": "Enable the fake secret store (development only - disable in production)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "name": {
           "default": "default",
           "description": "Name of the fake ClusterSecretStore resource",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -765,19 +699,16 @@
             "properties": {
               "key": {
                 "description": "Secret key name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Secret value (for development only)",
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "secrets",
           "type": "array"
         }
@@ -797,28 +728,24 @@
             "customParsers": {
               "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
               "description": "Custom parser definitions in Fluent Bit configuration format",
-              "required": [],
               "title": "customParsers",
               "type": "string"
             },
             "filters": {
               "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
               "description": "Filter plugin configuration for log processing",
-              "required": [],
               "title": "filters",
               "type": "string"
             },
             "inputs": {
               "default": "[INPUT]\n    Name tail\n    Buffer_Chunk_Size 32KB\n    Buffer_Max_Size 2MB\n    DB /var/lib/fluent-bit/db/tail-container-logs.db\n    Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-data-plane_*.log\n    Inotify_Watcher false\n    Mem_Buf_Limit 256MB\n    Path /var/log/containers/*.log\n    multiline.parser docker, cri\n    Read_from_Head On\n    Refresh_Interval 5\n    Skip_Long_Lines On\n    Tag kube.*\n",
               "description": "Input plugin configuration for log collection",
-              "required": [],
               "title": "inputs",
               "type": "string"
             },
             "outputs": {
               "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
-              "required": [],
               "title": "outputs",
               "type": "string"
             }
@@ -842,7 +769,6 @@
         "enabled": {
           "default": false,
           "description": "Enable Fluent Bit log collector deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -852,7 +778,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumeMounts",
           "type": "array"
         },
@@ -862,21 +787,18 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumes",
           "type": "array"
         },
         "fullnameOverride": {
           "default": "fluent-bit",
           "description": "Override the full name of Fluent Bit resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "hostNetwork": {
           "default": true,
           "description": "Use host network for Fluent Bit pods (required for node log access)",
-          "required": [],
           "title": "hostNetwork",
           "type": "boolean"
         },
@@ -886,7 +808,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "initContainers",
           "type": "array"
         },
@@ -895,7 +816,6 @@
           "description": "Port for Fluent Bit metrics endpoint",
           "maximum": 65535,
           "minimum": 1,
-          "required": [],
           "title": "metricsPort",
           "type": "integer"
         },
@@ -906,7 +826,6 @@
             "nodeAccess": {
               "default": true,
               "description": "Enable node-level access for reading container logs",
-              "required": [],
               "title": "nodeAccess",
               "type": "boolean"
             }
@@ -926,14 +845,12 @@
                 "cpu": {
                   "default": "200m",
                   "description": "CPU limit for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -949,14 +866,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -977,7 +892,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -988,10 +902,8 @@
                 "drop": {
                   "description": "Capabilities to drop",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -1003,14 +915,12 @@
             "readOnlyRootFilesystem": {
               "default": true,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Run container as non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
@@ -1018,7 +928,6 @@
               "default": 10000,
               "description": "User ID to run the container",
               "minimum": 0,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -1036,7 +945,6 @@
               "description": "Service port for Fluent Bit metrics",
               "maximum": 65535,
               "minimum": 1,
-              "required": [],
               "title": "port",
               "type": "integer"
             }
@@ -1052,7 +960,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Fluent Bit test framework",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1077,7 +984,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Agent Gateway for AI agent connectivity",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1108,21 +1014,18 @@
                 "registry": {
                   "default": "",
                   "description": "Container registry for the controller image. Empty uses default registry.",
-                  "required": [],
                   "title": "registry",
                   "type": "string"
                 },
                 "repository": {
                   "default": "kgateway",
                   "description": "Image repository name for the gateway controller",
-                  "required": [],
                   "title": "repository",
                   "type": "string"
                 },
                 "tag": {
                   "default": "",
                   "description": "Image tag. Empty uses Chart.AppVersion.",
-                  "required": [],
                   "title": "tag",
                   "type": "string"
                 }
@@ -1148,7 +1051,6 @@
               "default": 1,
               "description": "Number of gateway controller replicas",
               "minimum": 1,
-              "required": [],
               "title": "replicaCount",
               "type": "integer"
             },
@@ -1163,14 +1065,12 @@
                     "cpu": {
                       "default": "200m",
                       "description": "CPU limit for the controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "256Mi",
                       "description": "Memory limit for the controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1186,14 +1086,12 @@
                     "cpu": {
                       "default": "100m",
                       "description": "CPU request for the controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "128Mi",
                       "description": "Memory request for the controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1218,28 +1116,24 @@
                     "agwGrpc": {
                       "default": 9978,
                       "description": "Agent gateway gRPC port",
-                      "required": [],
                       "title": "agwGrpc",
                       "type": "integer"
                     },
                     "grpc": {
                       "default": 9977,
                       "description": "gRPC port for xDS communication",
-                      "required": [],
                       "title": "grpc",
                       "type": "integer"
                     },
                     "health": {
                       "default": 9093,
                       "description": "Health check endpoint port",
-                      "required": [],
                       "title": "health",
                       "type": "integer"
                     },
                     "metrics": {
                       "default": 9092,
                       "description": "Metrics endpoint port",
-                      "required": [],
                       "title": "metrics",
                       "type": "integer"
                     }
@@ -1272,7 +1166,6 @@
         "enabled": {
           "default": true,
           "description": "Enable Gateway CR creation",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -1283,14 +1176,12 @@
             "enabled": {
               "default": true,
               "description": "Enable Envoy proxy for traffic routing",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "mountTmpVolume": {
               "default": false,
               "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
-              "required": [],
               "title": "mountTmpVolume",
               "type": "boolean"
             }
@@ -1304,7 +1195,6 @@
           "description": "Port for the HTTP listener on the gateway",
           "maximum": 65535,
           "minimum": 1,
-          "required": [],
           "title": "httpPort",
           "type": "integer"
         },
@@ -1313,7 +1203,6 @@
           "description": "Port for the HTTPS listener on the gateway",
           "maximum": 65535,
           "minimum": 1,
-          "required": [],
           "title": "httpsPort",
           "type": "integer"
         },
@@ -1335,14 +1224,12 @@
             "registry": {
               "default": "cr.kgateway.dev/kgateway-dev",
               "description": "Container registry for gateway images",
-              "required": [],
               "title": "registry",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Image tag. Empty uses Chart.AppVersion.",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -1358,7 +1245,6 @@
             "enabled": {
               "default": true,
               "description": "Create self-signed ClusterIssuer (set to false in single cluster mode)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1374,21 +1260,18 @@
             "certName": {
               "default": "openchoreo-gateway-tls",
               "description": "Kubernetes Secret name for storing the TLS certificate",
-              "required": [],
               "title": "certName",
               "type": "string"
             },
             "clusterIssuer": {
               "default": "",
               "description": "Cert-manager ClusterIssuer name for certificate generation. Defaults to openchoreo-selfsigned-issuer if empty.",
-              "required": [],
               "title": "clusterIssuer",
               "type": "string"
             },
             "hostname": {
               "default": "*.openchoreoapis.localhost",
               "description": "Hostname pattern for the HTTPS listener certificate",
-              "required": [],
               "title": "hostname",
               "type": "string"
             }
@@ -1409,7 +1292,6 @@
         "enabled": {
           "default": true,
           "description": "Enable kgateway controller installation (set to false in single cluster mode for data-plane)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         }
@@ -1455,7 +1337,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Alertmanager for alert management (not used by OpenChoreo)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1467,7 +1348,6 @@
         "cleanPrometheusOperatorObjectNames": {
           "default": true,
           "description": "Produce cleaner resource names without redundant prefixes",
-          "required": [],
           "title": "cleanPrometheusOperatorObjectNames",
           "type": "boolean"
         },
@@ -1478,7 +1358,6 @@
             "enabled": {
               "default": false,
               "description": "Enable CoreDNS metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1494,7 +1373,6 @@
             "enabled": {
               "default": true,
               "description": "Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, etc.)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1510,7 +1388,6 @@
             "create": {
               "default": false,
               "description": "Create default alerting rules (disabled - OpenChoreo uses custom rules)",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -1522,14 +1399,12 @@
         "enabled": {
           "default": false,
           "description": "Enable the Prometheus monitoring stack for metrics collection",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "openchoreo-observability",
           "description": "Override the full name of Prometheus stack resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -1540,7 +1415,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Grafana dashboards (not used by OpenChoreo - use observability plane instead)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1559,37 +1433,30 @@
               ],
               "description": "Kubernetes resource types to collect metrics from",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "collectors",
               "type": "array"
             },
             "fullnameOverride": {
               "default": "kube-state-metrics",
               "description": "Override the full name of kube-state-metrics resources",
-              "required": [],
               "title": "fullnameOverride",
               "type": "string"
             },
             "metricAllowlist": {
               "description": "Specific metrics to collect (allowlist filter)",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "metricAllowlist",
               "type": "array"
             },
             "metricLabelsAllowlist": {
               "description": "Pod labels to include in metrics for filtering by OpenChoreo resources",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "metricLabelsAllowlist",
               "type": "array"
             }
@@ -1605,7 +1472,6 @@
             "enabled": {
               "default": false,
               "description": "Enable API server metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1621,7 +1487,6 @@
             "enabled": {
               "default": false,
               "description": "Enable controller manager metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1637,7 +1502,6 @@
             "enabled": {
               "default": false,
               "description": "Enable etcd metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1653,7 +1517,6 @@
             "enabled": {
               "default": false,
               "description": "Enable kube-proxy metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1669,7 +1532,6 @@
             "enabled": {
               "default": false,
               "description": "Enable scheduler metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1685,7 +1547,6 @@
             "enabled": {
               "default": false,
               "description": "Enable node-level metrics collection",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1701,14 +1562,12 @@
             "agentMode": {
               "default": true,
               "description": "Run Prometheus in agent mode for lightweight remote-write only operation",
-              "required": [],
               "title": "agentMode",
               "type": "boolean"
             },
             "enabled": {
               "default": true,
               "description": "Deploy a Prometheus instance (requires Prometheus Operator)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -1722,14 +1581,12 @@
                     "properties": {
                       "url": {
                         "description": "Remote write endpoint URL",
-                        "required": [],
                         "type": "string"
                       }
                     },
                     "required": [],
                     "type": "object"
                   },
-                  "required": [],
                   "title": "remoteWrite",
                   "type": "array"
                 }
@@ -1750,14 +1607,12 @@
             "enabled": {
               "default": true,
               "description": "Enable Prometheus Operator for managing Prometheus instances",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "fullnameOverride": {
               "default": "prometheus-operator",
               "description": "Override the full name of Prometheus Operator resources",
-              "required": [],
               "title": "fullnameOverride",
               "type": "string"
             },
@@ -1772,14 +1627,12 @@
                     "cpu": {
                       "default": "40m",
                       "description": "CPU limit for Prometheus Operator",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "50Mi",
                       "description": "Memory limit for Prometheus Operator",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1795,14 +1648,12 @@
                     "cpu": {
                       "default": "20m",
                       "description": "CPU request for Prometheus Operator",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "30Mi",
                       "description": "Memory request for Prometheus Operator",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1829,7 +1680,6 @@
     "kubernetesClusterDomain": {
       "default": "cluster.local",
       "description": "Kubernetes cluster DNS domain used for service discovery and certificate generation",
-      "required": [],
       "title": "kubernetesClusterDomain",
       "type": "string"
     },
@@ -1840,7 +1690,6 @@
         "enabled": {
           "default": true,
           "description": "Enable networking features (network policies, service mesh integration)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         }
@@ -1856,7 +1705,6 @@
         "enabled": {
           "default": true,
           "description": "Master switch for all observability features",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -1867,7 +1715,6 @@
             "enabled": {
               "default": false,
               "description": "Enable log collection. Set to true after observability plane is installed.",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -1882,7 +1729,6 @@
                     "enabled": {
                       "default": true,
                       "description": "Enable Fluent Bit as the log publisher",
-                      "required": [],
                       "title": "enabled",
                       "type": "boolean"
                     }
@@ -1908,7 +1754,6 @@
             "enabled": {
               "default": false,
               "description": "Enable metrics collection. Set to true after observability plane is installed.",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1920,7 +1765,6 @@
         "observabilityPlaneUrl": {
           "default": "",
           "description": "URL of the observability plane for sending telemetry data (OTLP endpoint)",
-          "required": [],
           "title": "observabilityPlaneUrl",
           "type": "string"
         }
@@ -1940,7 +1784,6 @@
             "create": {
               "default": true,
               "description": "Create ClusterRole for OpenTelemetry Collector",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
@@ -1950,33 +1793,26 @@
                 "properties": {
                   "apiGroups": {
                     "items": {
-                      "required": [],
                       "type": "string"
                     },
-                    "required": [],
                     "type": "array"
                   },
                   "resources": {
                     "items": {
-                      "required": [],
                       "type": "string"
                     },
-                    "required": [],
                     "type": "array"
                   },
                   "verbs": {
                     "items": {
-                      "required": [],
                       "type": "string"
                     },
-                    "required": [],
                     "type": "array"
                   }
                 },
                 "required": [],
                 "type": "object"
               },
-              "required": [],
               "title": "rules",
               "type": "array"
             }
@@ -1992,14 +1828,12 @@
             "create": {
               "default": false,
               "description": "Create a new ConfigMap (false to use existing)",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "existingName": {
               "default": "opentelemetry-collector-config",
               "description": "Name of existing ConfigMap containing collector configuration",
-              "required": [],
               "title": "existingName",
               "type": "string"
             }
@@ -2011,14 +1845,12 @@
         "enabled": {
           "default": false,
           "description": "Enable OpenTelemetry Collector deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "opentelemetry-collector",
           "description": "Override the full name of OpenTelemetry Collector resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -2029,7 +1861,6 @@
             "repository": {
               "default": "otel/opentelemetry-collector-contrib",
               "description": "OpenTelemetry Collector image repository (contrib version includes extra receivers/exporters)",
-              "required": [],
               "title": "repository",
               "type": "string"
             }
@@ -2061,14 +1892,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU limit for the collector",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "200Mi",
                   "description": "Memory limit for the collector",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2084,14 +1913,12 @@
                 "cpu": {
                   "default": "50m",
                   "description": "CPU request for the collector",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "100Mi",
                   "description": "Memory request for the collector",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2117,7 +1944,6 @@
         "enabled": {
           "default": false,
           "description": "[DEPRECATED] Enable the container registry. Use Build Plane registry instead.",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -2132,14 +1958,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU limit for the registry",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit for the registry",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2155,14 +1979,12 @@
                 "cpu": {
                   "default": "50m",
                   "description": "CPU request for the registry",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for the registry",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2185,7 +2007,6 @@
               "description": "NodePort for external access to the registry",
               "maximum": 32767,
               "minimum": 30000,
-              "required": [],
               "title": "nodePort",
               "type": "integer"
             }
@@ -2201,7 +2022,6 @@
             "size": {
               "default": "2Gi",
               "description": "Size of the persistent volume for storing container images",
-              "required": [],
               "title": "size",
               "type": "string"
             }
@@ -2222,7 +2042,6 @@
         "enabled": {
           "default": true,
           "description": "Enable security features (certificate issuers, TLS configuration)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         }
@@ -2238,7 +2057,6 @@
         "image": {
           "default": "bitnamilegacy/kubectl:1.32.4",
           "description": "Container image for kubectl-based wait jobs used in Helm hooks",
-          "required": [],
           "title": "image",
           "type": "string"
         }

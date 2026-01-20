@@ -1723,12 +1723,10 @@ clusterAgent:
   #     key:
   #       type: string
   #     operator:
-  #       type: string
   #       enum: [Exists, Equal]
   #     value:
   #       type: string
   #     effect:
-  #       type: string
   #       enum: [NoSchedule, PreferNoSchedule, NoExecute]
   # default: []
   # @schema

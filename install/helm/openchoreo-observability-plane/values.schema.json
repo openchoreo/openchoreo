@@ -21,7 +21,6 @@
             "enabled": {
               "default": false,
               "description": "Enable CoreDNS rewrite for *.openchoreo.localhost to host.k3d.internal",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -33,14 +32,12 @@
         "enabled": {
           "default": true,
           "description": "Enable cluster agent deployment for multi-cluster communication",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Interval between heartbeat messages to the control plane",
-          "required": [],
           "title": "heartbeatInterval",
           "type": "string"
         },
@@ -62,14 +59,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/cluster-agent",
               "description": "Container image repository for the cluster agent",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Container image tag (defaults to Chart.AppVersion if empty)",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -93,7 +88,6 @@
         "name": {
           "default": "cluster-agent-observabilityplane",
           "description": "Name of the cluster agent deployment and associated resources",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -110,7 +104,6 @@
         "planeID": {
           "default": "default-observabilityplane",
           "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified.\n",
-          "required": [],
           "title": "planeID",
           "type": "string"
         },
@@ -143,14 +136,12 @@
               "default": 1000,
               "description": "Filesystem group ID",
               "minimum": 0,
-              "required": [],
               "title": "fsGroup",
               "type": "integer"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Run as non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
@@ -158,7 +149,6 @@
               "default": 1000,
               "description": "User ID to run as",
               "minimum": 0,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -174,14 +164,12 @@
             "create": {
               "default": false,
               "description": "Create a priority class",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-observabilityplane",
               "description": "Name of the priority class",
-              "required": [],
               "title": "name",
               "type": "string"
             },
@@ -189,7 +177,6 @@
               "default": 900000,
               "description": "Priority value",
               "minimum": 0,
-              "required": [],
               "title": "value",
               "type": "integer"
             }
@@ -205,7 +192,6 @@
             "create": {
               "default": true,
               "description": "Create ClusterRole and ClusterRoleBinding for the agent",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -217,7 +203,6 @@
         "reconnectDelay": {
           "default": "5s",
           "description": "Delay before reconnecting after connection loss",
-          "required": [],
           "title": "reconnectDelay",
           "type": "string"
         },
@@ -225,7 +210,6 @@
           "default": 1,
           "description": "Number of cluster agent pod replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -240,14 +224,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU limit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -263,14 +245,12 @@
                 "cpu": {
                   "default": "50m",
                   "description": "CPU request",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -291,7 +271,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -302,10 +281,8 @@
                 "drop": {
                   "description": "Capabilities to drop",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -317,7 +294,6 @@
             "readOnlyRootFilesystem": {
               "default": true,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             }
@@ -329,14 +305,12 @@
         "serverCANamespace": {
           "default": "openchoreo-control-plane",
           "description": "Namespace where cluster-gateway CA ConfigMap exists",
-          "required": [],
           "title": "serverCANamespace",
           "type": "string"
         },
         "serverUrl": {
           "default": "wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws",
           "description": "WebSocket URL of the cluster gateway in the control plane",
-          "required": [],
           "title": "serverUrl",
           "type": "string"
         },
@@ -357,14 +331,12 @@
             "create": {
               "default": true,
               "description": "Create a dedicated service account",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-observabilityplane",
               "description": "Name of the service account",
-              "required": [],
               "title": "name",
               "type": "string"
             }
@@ -380,77 +352,66 @@
             "caSecretName": {
               "default": "cluster-gateway-ca",
               "description": "CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretName",
               "type": "string"
             },
             "caSecretNamespace": {
               "default": "openchoreo-control-plane",
               "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretNamespace",
               "type": "string"
             },
             "caValue": {
               "default": "",
               "description": "Inline CA certificate in PEM format (for multi-cluster, takes precedence)",
-              "required": [],
               "title": "caValue",
               "type": "string"
             },
             "clientSecretName": {
               "default": "cluster-agent-tls",
               "description": "Name of the client certificate Secret",
-              "required": [],
               "title": "clientSecretName",
               "type": "string"
             },
             "duration": {
               "default": "2160h",
               "description": "Certificate validity duration (e.g., 2160h = 90 days)",
-              "required": [],
               "title": "duration",
               "type": "string"
             },
             "enabled": {
               "default": true,
               "description": "Enable TLS for cluster agent communication",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "generateCerts": {
               "default": false,
               "description": "Generate client certificates using cert-manager (for multi-cluster setups)",
-              "required": [],
               "title": "generateCerts",
               "type": "boolean"
             },
             "renewBefore": {
               "default": "360h",
               "description": "Time before expiry to renew certificate (e.g., 360h = 15 days)",
-              "required": [],
               "title": "renewBefore",
               "type": "string"
             },
             "secretName": {
               "default": "cluster-agent-tls",
               "description": "Name of the Secret containing client certificate and key",
-              "required": [],
               "title": "secretName",
               "type": "string"
             },
             "serverCAConfigMap": {
               "default": "cluster-gateway-ca",
               "description": "Name of the ConfigMap containing server CA certificate",
-              "required": [],
               "title": "serverCAConfigMap",
               "type": "string"
             },
             "serverCAValue": {
               "default": "",
               "description": "Inline server CA certificate in PEM format (for multi-cluster setups)",
-              "required": [],
               "title": "serverCAValue",
               "type": "string"
             }
@@ -466,7 +427,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "tolerations",
           "type": "array"
         }
@@ -494,7 +454,6 @@
             "enabled": {
               "default": false,
               "description": "Enable cluster gateway integration for multi-cluster setups",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -505,14 +464,12 @@
                 "caConfigMap": {
                   "default": "cluster-gateway-ca",
                   "description": "Name of the ConfigMap containing the gateway CA certificate",
-                  "required": [],
                   "title": "caConfigMap",
                   "type": "string"
                 },
                 "caPath": {
                   "default": "/etc/cluster-gateway/ca.crt",
                   "description": "Path to the CA certificate file for gateway verification",
-                  "required": [],
                   "title": "caPath",
                   "type": "string"
                 }
@@ -524,7 +481,6 @@
             "url": {
               "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
               "description": "URL of the cluster gateway service in the control plane",
-              "required": [],
               "title": "url",
               "type": "string"
             }
@@ -540,7 +496,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation within the container",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -554,10 +509,8 @@
                   ],
                   "description": "Capabilities to drop from the container",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -569,7 +522,6 @@
             "readOnlyRootFilesystem": {
               "default": false,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             },
@@ -601,14 +553,12 @@
         "deploymentPlane": {
           "default": "observabilityplane",
           "description": "Identifier for this deployment plane type",
-          "required": [],
           "title": "deploymentPlane",
           "type": "string"
         },
         "enabled": {
           "default": true,
           "description": "Enable or disable the controller manager deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -630,14 +580,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/controller",
               "description": "Container image repository for the controller manager",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Container image tag (defaults to Chart.AppVersion if empty)",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -653,10 +601,8 @@
             "args": {
               "description": "Command line arguments passed to the controller manager",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "args",
               "type": "array"
             },
@@ -667,7 +613,6 @@
                 "enableWebhooks": {
                   "default": "false",
                   "description": "Enable or disable admission webhooks",
-                  "required": [],
                   "title": "enableWebhooks",
                   "type": "string"
                 }
@@ -684,7 +629,6 @@
         "name": {
           "default": "controller-manager",
           "description": "Name of the controller manager deployment and associated resources",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -706,7 +650,6 @@
               "default": 1000,
               "description": "Group ID for filesystem access",
               "minimum": 0,
-              "required": [],
               "title": "fsGroup",
               "type": "integer"
             },
@@ -714,14 +657,12 @@
               "default": 1000,
               "description": "Group ID to run the container process",
               "minimum": 0,
-              "required": [],
               "title": "runAsGroup",
               "type": "integer"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Require the container to run as a non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
@@ -729,7 +670,6 @@
               "default": 1000,
               "description": "User ID to run the container process",
               "minimum": 0,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -745,14 +685,12 @@
             "create": {
               "default": false,
               "description": "Create a priority class for the controller manager",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "observabilityplane-controller-manager",
               "description": "Name of the priority class",
-              "required": [],
               "title": "name",
               "type": "string"
             },
@@ -760,7 +698,6 @@
               "default": 900000,
               "description": "Priority value (higher values indicate higher priority)",
               "minimum": 0,
-              "required": [],
               "title": "value",
               "type": "integer"
             }
@@ -773,7 +710,6 @@
           "default": 1,
           "description": "Number of controller manager pod replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -788,14 +724,12 @@
                 "cpu": {
                   "default": "500m",
                   "description": "CPU limit for the controller manager",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "512Mi",
                   "description": "Memory limit for the controller manager",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -811,14 +745,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request for the controller manager",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory request for the controller manager",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -849,7 +781,6 @@
             "create": {
               "default": true,
               "description": "Create a dedicated service account for the controller manager",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -865,7 +796,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "tolerations",
           "type": "array"
         },
@@ -876,7 +806,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "topologySpreadConstraints",
           "type": "array"
         }
@@ -892,14 +821,12 @@
         "enabled": {
           "default": false,
           "description": "Enable Data Prepper for trace pipeline processing",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "data-prepper",
           "description": "Override the full name of Data Prepper resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -922,13 +849,11 @@
                           "properties": {
                             "batch_size": {
                               "default": 200,
-                              "required": [],
                               "title": "batch_size",
                               "type": "integer"
                             },
                             "buffer_size": {
                               "default": 12800,
-                              "required": [],
                               "title": "buffer_size",
                               "type": "integer"
                             }
@@ -949,7 +874,6 @@
                     },
                     "delay": {
                       "default": "100",
-                      "required": [],
                       "title": "delay",
                       "type": "string"
                     },
@@ -966,37 +890,31 @@
                                     "items": {
                                       "anyOf": [
                                         {
-                                          "required": [],
                                           "type": "string"
                                         }
                                       ],
                                       "required": []
                                     },
-                                    "required": [],
                                     "title": "hosts",
                                     "type": "array"
                                   },
                                   "index": {
                                     "default": "otel-traces-%{yyyy-MM-dd}",
-                                    "required": [],
                                     "title": "index",
                                     "type": "string"
                                   },
                                   "insecure": {
                                     "default": true,
-                                    "required": [],
                                     "title": "insecure",
                                     "type": "boolean"
                                   },
                                   "password": {
                                     "default": "ThisIsTheOpenSearchPassword1",
-                                    "required": [],
                                     "title": "password",
                                     "type": "string"
                                   },
                                   "username": {
                                     "default": "admin",
-                                    "required": [],
                                     "title": "username",
                                     "type": "string"
                                   }
@@ -1020,7 +938,6 @@
                         ],
                         "required": []
                       },
-                      "required": [],
                       "title": "sink",
                       "type": "array"
                     },
@@ -1032,7 +949,6 @@
                           "properties": {
                             "ssl": {
                               "default": false,
-                              "required": [],
                               "title": "ssl",
                               "type": "boolean"
                             }
@@ -1070,7 +986,6 @@
             "enabled": {
               "default": true,
               "description": "Enable pipeline configuration",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1090,14 +1005,12 @@
                 "cpu": {
                   "default": "1000m",
                   "description": "CPU limit for Data Prepper",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "500Mi",
                   "description": "Memory limit for Data Prepper",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1113,14 +1026,12 @@
                 "cpu": {
                   "default": "700m",
                   "description": "CPU request for Data Prepper",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "500Mi",
                   "description": "Memory request for Data Prepper",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1146,21 +1057,18 @@
         "enabled": {
           "default": false,
           "description": "Enable External Secrets Operator installation in this chart",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "external-secrets",
           "description": "Override the full name of External Secrets Operator resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "nameOverride": {
           "default": "external-secrets",
           "description": "Override the name of External Secrets Operator resources",
-          "required": [],
           "title": "nameOverride",
           "type": "string"
         }
@@ -1176,14 +1084,12 @@
         "enabled": {
           "default": false,
           "description": "Enable fake secret store (requires external-secrets.enabled to be true)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "name": {
           "default": "default",
           "description": "Name of the ClusterSecretStore resource",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -1193,19 +1099,16 @@
             "properties": {
               "key": {
                 "description": "Secret key name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Secret value",
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "secrets",
           "type": "array"
         }
@@ -1225,28 +1128,24 @@
             "customParsers": {
               "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
               "description": "Custom parser definitions in Fluent Bit configuration format",
-              "required": [],
               "title": "customParsers",
               "type": "string"
             },
             "filters": {
               "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
               "description": "Filter plugin configuration for log processing",
-              "required": [],
               "title": "filters",
               "type": "string"
             },
             "inputs": {
               "default": "[INPUT]\n    Name tail\n    Buffer_Chunk_Size 32KB\n    Buffer_Max_Size 2MB\n    DB /var/lib/fluent-bit/db/tail-container-logs.db\n    Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-observability-plane_*.log\n    Inotify_Watcher false\n    Mem_Buf_Limit 256MB\n    Path /var/log/containers/*.log\n    multiline.parser docker, cri\n    Read_from_Head On\n    Refresh_Interval 5\n    Skip_Long_Lines On\n    Tag kube.*\n",
               "description": "Input plugin configuration for log collection",
-              "required": [],
               "title": "inputs",
               "type": "string"
             },
             "outputs": {
               "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
-              "required": [],
               "title": "outputs",
               "type": "string"
             }
@@ -1270,7 +1169,6 @@
         "enabled": {
           "default": false,
           "description": "Enable Fluent Bit log collector deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -1280,7 +1178,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumeMounts",
           "type": "array"
         },
@@ -1290,21 +1187,18 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumes",
           "type": "array"
         },
         "fullnameOverride": {
           "default": "fluent-bit",
           "description": "Override the full name of Fluent Bit resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "hostNetwork": {
           "default": true,
           "description": "Use host network for Fluent Bit pods (required for node log access)",
-          "required": [],
           "title": "hostNetwork",
           "type": "boolean"
         },
@@ -1314,7 +1208,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "initContainers",
           "type": "array"
         },
@@ -1323,7 +1216,6 @@
           "description": "Port for Fluent Bit metrics endpoint",
           "maximum": 65535,
           "minimum": 1,
-          "required": [],
           "title": "metricsPort",
           "type": "integer"
         },
@@ -1334,7 +1226,6 @@
             "nodeAccess": {
               "default": true,
               "description": "Enable node-level access for reading container logs",
-              "required": [],
               "title": "nodeAccess",
               "type": "boolean"
             }
@@ -1354,14 +1245,12 @@
                 "cpu": {
                   "default": "200m",
                   "description": "CPU limit for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1377,14 +1266,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1405,7 +1292,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -1416,10 +1302,8 @@
                 "drop": {
                   "description": "Capabilities to drop",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -1431,14 +1315,12 @@
             "readOnlyRootFilesystem": {
               "default": true,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Run container as non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
@@ -1446,7 +1328,6 @@
               "default": 10000,
               "description": "User ID to run the container",
               "minimum": 0,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -1464,7 +1345,6 @@
               "description": "Service port for Fluent Bit metrics",
               "maximum": 65535,
               "minimum": 1,
-              "required": [],
               "title": "port",
               "type": "integer"
             }
@@ -1480,7 +1360,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Fluent Bit test framework",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -1501,7 +1380,6 @@
         "enabled": {
           "default": false,
           "description": "Enable gateway resource creation",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -1512,7 +1390,6 @@
             "mountTmpVolume": {
               "default": false,
               "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
-              "required": [],
               "title": "mountTmpVolume",
               "type": "boolean"
             }
@@ -1533,7 +1410,6 @@
         "baseDomain": {
           "default": "",
           "description": "Base domain for the observability plane used in gateway routing and ingress configuration",
-          "required": [],
           "title": "baseDomain",
           "type": "string"
         },
@@ -1602,14 +1478,12 @@
                     "cpu": {
                       "default": "200m",
                       "description": "CPU limit for KGateway controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "256Mi",
                       "description": "Memory limit for KGateway controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1625,14 +1499,12 @@
                     "cpu": {
                       "default": "100m",
                       "description": "CPU request for KGateway controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "128Mi",
                       "description": "Memory request for KGateway controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -1659,7 +1531,6 @@
                       "description": "gRPC port for the API gateway",
                       "maximum": 65535,
                       "minimum": 1,
-                      "required": [],
                       "title": "agwGrpc",
                       "type": "integer"
                     }
@@ -1692,14 +1563,12 @@
         "enabled": {
           "default": false,
           "description": "Enable KGateway API gateway",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "kgateway",
           "description": "Override the full name of KGateway resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         }
@@ -1711,7 +1580,6 @@
     "kubernetesClusterDomain": {
       "default": "cluster.local",
       "description": "Kubernetes cluster domain used for service discovery DNS resolution",
-      "required": [],
       "title": "kubernetesClusterDomain",
       "type": "string"
     },
@@ -1725,19 +1593,16 @@
             "properties": {
               "name": {
                 "description": "Environment variable name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Environment variable value",
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraEnvs",
           "type": "array"
         },
@@ -1759,14 +1624,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/observer",
               "description": "Container image repository for the Observer",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Container image tag (defaults to Chart.AppVersion if empty)",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -1790,14 +1653,12 @@
         "openSearchPassword": {
           "default": "ThisIsTheOpenSearchPassword1",
           "description": "Password for OpenSearch authentication",
-          "required": [],
           "title": "openSearchPassword",
           "type": "string"
         },
         "openSearchUsername": {
           "default": "admin",
           "description": "Username for OpenSearch authentication",
-          "required": [],
           "title": "openSearchUsername",
           "type": "string"
         },
@@ -1808,14 +1669,12 @@
             "address": {
               "default": "",
               "description": "Prometheus server address (auto-constructed from release name if empty)",
-              "required": [],
               "title": "address",
               "type": "string"
             },
             "timeout": {
               "default": "30s",
               "description": "Timeout for Prometheus queries",
-              "required": [],
               "title": "timeout",
               "type": "string"
             }
@@ -1828,7 +1687,6 @@
           "default": 1,
           "description": "Number of Observer pod replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -1843,14 +1701,12 @@
                 "cpu": {
                   "default": "200m",
                   "description": "CPU limit for the Observer",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "200Mi",
                   "description": "Memory limit for the Observer",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1866,14 +1722,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request for the Observer",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for the Observer",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -1902,12 +1756,10 @@
                           "properties": {
                             "claim": {
                               "description": "JWT claim name for entitlement",
-                              "required": [],
                               "type": "string"
                             },
                             "display_name": {
                               "description": "Human-readable name for the claim",
-                              "required": [],
                               "type": "string"
                             }
                           },
@@ -1916,36 +1768,30 @@
                         },
                         "type": {
                           "description": "Authentication mechanism type (oauth2, etc.)",
-                          "required": [],
                           "type": "string"
                         }
                       },
                       "required": [],
                       "type": "object"
                     },
-                    "required": [],
                     "type": "array"
                   },
                   "display_name": {
                     "description": "Human-readable name for the user type",
-                    "required": [],
                     "type": "string"
                   },
                   "priority": {
                     "description": "Detection priority (lower = higher priority)",
-                    "required": [],
                     "type": "integer"
                   },
                   "type": {
                     "description": "User type identifier (user, service_account, etc.)",
-                    "required": [],
                     "type": "string"
                   }
                 },
                 "required": [],
                 "type": "object"
               },
-              "required": [],
               "title": "userTypes",
               "type": "array"
             }
@@ -1963,7 +1809,6 @@
               "description": "Service port for the Observer API",
               "maximum": 65535,
               "minimum": 1,
-              "required": [],
               "title": "port",
               "type": "integer"
             },
@@ -1995,7 +1840,6 @@
         "enabled": {
           "default": false,
           "description": "Enable OpenSearch Helm chart deployment (alternative to operator-based openSearchCluster)",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -2005,19 +1849,16 @@
             "properties": {
               "name": {
                 "description": "Environment variable name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Environment variable value",
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraEnvs",
           "type": "array"
         },
@@ -2028,7 +1869,6 @@
             "tag": {
               "default": "3.3.0",
               "description": "OpenSearch image tag version",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -2040,14 +1880,12 @@
         "masterService": {
           "default": "opensearch",
           "description": "Name of the master service for cluster discovery",
-          "required": [],
           "title": "masterService",
           "type": "string"
         },
         "nameOverride": {
           "default": "opensearch",
           "description": "Override the name of OpenSearch resources",
-          "required": [],
           "title": "nameOverride",
           "type": "string"
         },
@@ -2058,14 +1896,12 @@
             "create": {
               "default": true,
               "description": "Create RBAC resources for OpenSearch",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "serviceAccountName": {
               "default": "opensearch",
               "description": "Name of the service account for OpenSearch",
-              "required": [],
               "title": "serviceAccountName",
               "type": "string"
             }
@@ -2077,7 +1913,6 @@
         "singleNode": {
           "default": true,
           "description": "Run OpenSearch as a single node (for development/testing)",
-          "required": [],
           "title": "singleNode",
           "type": "boolean"
         }
@@ -2093,14 +1928,12 @@
         "adminUserPassword": {
           "default": "ThisIsTheOpenSearchPassword1",
           "description": "Admin password for OpenSearch cluster",
-          "required": [],
           "title": "adminUserPassword",
           "type": "string"
         },
         "adminUsername": {
           "default": "admin",
           "description": "Admin username for OpenSearch cluster",
-          "required": [],
           "title": "adminUsername",
           "type": "string"
         },
@@ -2119,14 +1952,12 @@
                     "cpu": {
                       "default": "1000m",
                       "description": "CPU limit",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "1000Mi",
                       "description": "Memory limit",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -2142,14 +1973,12 @@
                     "cpu": {
                       "default": "100m",
                       "description": "CPU request",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "1000Mi",
                       "description": "Memory request",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -2175,7 +2004,6 @@
             "enable": {
               "default": false,
               "description": "Enable OpenSearch Dashboards",
-              "required": [],
               "title": "enable",
               "type": "boolean"
             },
@@ -2183,14 +2011,12 @@
               "default": 1,
               "description": "Number of dashboard replicas",
               "minimum": 0,
-              "required": [],
               "title": "replicas",
               "type": "integer"
             },
             "version": {
               "default": "3.3.0",
               "description": "OpenSearch Dashboards version",
-              "required": [],
               "title": "version",
               "type": "string"
             }
@@ -2202,7 +2028,6 @@
         "enabled": {
           "default": true,
           "description": "Enable OpenSearch cluster deployment via OpenSearch Operator",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -2213,14 +2038,12 @@
             "setVMMaxMapCount": {
               "default": true,
               "description": "Set vm.max_map_count sysctl for OpenSearch (required for production)",
-              "required": [],
               "title": "setVMMaxMapCount",
               "type": "boolean"
             },
             "version": {
               "default": "3.3.0",
               "description": "OpenSearch version to deploy",
-              "required": [],
               "title": "version",
               "type": "string"
             }
@@ -2232,7 +2055,6 @@
         "internalUsers": {
           "default": "# This is the internal user database\n# The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh\n\n_meta:\n  type: \"internalusers\"\n  config_version: 2\n\nadmin:\n  hash: \"%s\"\n  reserved: true\n  backend_roles:\n  - \"admin\"\n  description: \"Admin user\"\n",
           "description": "Internal users configuration in YAML format (bcrypt hashed passwords)",
-          "required": [],
           "title": "internalUsers",
           "type": "string"
         },
@@ -2247,7 +2069,6 @@
                 "diskSize": {
                   "default": "5Gi",
                   "description": "Persistent volume size for data nodes",
-                  "required": [],
                   "title": "diskSize",
                   "type": "string"
                 },
@@ -2255,7 +2076,6 @@
                   "default": 2,
                   "description": "Number of data node replicas",
                   "minimum": 1,
-                  "required": [],
                   "title": "replicas",
                   "type": "integer"
                 },
@@ -2270,14 +2090,12 @@
                         "cpu": {
                           "default": "1000m",
                           "description": "CPU limit",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "1000Mi",
                           "description": "Memory limit",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2293,14 +2111,12 @@
                         "cpu": {
                           "default": "100m",
                           "description": "CPU request",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "1000Mi",
                           "description": "Memory request",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2326,7 +2142,6 @@
                 "diskSize": {
                   "default": "1Gi",
                   "description": "Persistent volume size for master nodes",
-                  "required": [],
                   "title": "diskSize",
                   "type": "string"
                 },
@@ -2334,7 +2149,6 @@
                   "default": 3,
                   "description": "Number of master node replicas (should be odd for quorum)",
                   "minimum": 1,
-                  "required": [],
                   "title": "replicas",
                   "type": "integer"
                 },
@@ -2349,14 +2163,12 @@
                         "cpu": {
                           "default": "1000m",
                           "description": "CPU limit",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "900Mi",
                           "description": "Memory limit",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2372,14 +2184,12 @@
                         "cpu": {
                           "default": "100m",
                           "description": "CPU request",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "900Mi",
                           "description": "Memory request",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2415,7 +2225,6 @@
         "alertingWebhookUrl": {
           "default": "http://observer.openchoreo-observability-plane:8080/api/alerting/webhook/opensearch",
           "description": "Alerting webhook URL for setup configuration",
-          "required": [],
           "title": "alertingWebhookUrl",
           "type": "string"
         },
@@ -2426,21 +2235,18 @@
             "containerLogs": {
               "default": "30d",
               "description": "Retention period for container logs",
-              "required": [],
               "title": "containerLogs",
               "type": "string"
             },
             "rcaReports": {
               "default": "90d",
               "description": "Retention period for RCA reports",
-              "required": [],
               "title": "rcaReports",
               "type": "string"
             },
             "traces": {
               "default": "30d",
               "description": "Retention period for traces",
-              "required": [],
               "title": "traces",
               "type": "string"
             }
@@ -2456,14 +2262,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/init-observability-opensearch",
               "description": "Container image repository",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Container image tag (defaults to Chart.AppVersion if empty)",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -2488,7 +2292,6 @@
             "disableSecurity": {
               "default": "true",
               "description": "Disable security features in dashboards (for development)",
-              "required": [],
               "title": "disableSecurity",
               "type": "string"
             }
@@ -2500,7 +2303,6 @@
         "enabled": {
           "default": false,
           "description": "Enable OpenSearch Dashboards deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -2510,26 +2312,22 @@
             "properties": {
               "name": {
                 "description": "Environment variable name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Environment variable value",
-                "required": [],
                 "type": "string"
               }
             },
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraEnvs",
           "type": "array"
         },
         "fullnameOverride": {
           "default": "opensearch-dashboards",
           "description": "Override the full name of OpenSearch Dashboards resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -2540,7 +2338,6 @@
             "tag": {
               "default": "3.3.0",
               "description": "OpenSearch Dashboards image tag version",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -2552,14 +2349,12 @@
         "nameOverride": {
           "default": "opensearch-dashboards",
           "description": "Override the name of OpenSearch Dashboards resources",
-          "required": [],
           "title": "nameOverride",
           "type": "string"
         },
         "opensearchHosts": {
           "default": "http://opensearch:9200",
           "description": "URL of the OpenSearch cluster to connect to",
-          "required": [],
           "title": "opensearchHosts",
           "type": "string"
         },
@@ -2567,7 +2362,6 @@
           "default": 1,
           "description": "Number of OpenSearch Dashboards replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         }
@@ -2587,7 +2381,6 @@
             "create": {
               "default": true,
               "description": "Create a ClusterRole for the collector",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
@@ -2597,7 +2390,6 @@
                 "required": [],
                 "type": "object"
               },
-              "required": [],
               "title": "rules",
               "type": "array"
             }
@@ -2613,14 +2405,12 @@
             "create": {
               "default": false,
               "description": "Create ConfigMap (set to false to use existing ConfigMap)",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "existingName": {
               "default": "opentelemetry-collector-config",
               "description": "Name of existing ConfigMap to use for collector configuration",
-              "required": [],
               "title": "existingName",
               "type": "string"
             }
@@ -2632,14 +2422,12 @@
         "enabled": {
           "default": true,
           "description": "Enable OpenTelemetry Collector deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "opentelemetry-collector",
           "description": "Override the full name of OpenTelemetry Collector resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -2650,7 +2438,6 @@
             "repository": {
               "default": "otel/opentelemetry-collector-contrib",
               "description": "Container image repository (uses contrib distribution for extended features)",
-              "required": [],
               "title": "repository",
               "type": "string"
             }
@@ -2682,14 +2469,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU limit for the collector",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "200Mi",
                   "description": "Memory limit for the collector",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2705,14 +2490,12 @@
                 "cpu": {
                   "default": "50m",
                   "description": "CPU request for the collector",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "100Mi",
                   "description": "Memory request for the collector",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -2743,7 +2526,6 @@
               "default": 5,
               "description": "Number of consumers processing the queue",
               "minimum": 1,
-              "required": [],
               "title": "numConsumers",
               "type": "integer"
             },
@@ -2751,7 +2533,6 @@
               "default": 1000,
               "description": "Maximum queue size for pending exports",
               "minimum": 1,
-              "required": [],
               "title": "queueSize",
               "type": "integer"
             },
@@ -2782,7 +2563,6 @@
                   "default": 1000,
                   "description": "Cache size for non-sampled trace decisions",
                   "minimum": 0,
-                  "required": [],
                   "title": "nonSampledCacheSize",
                   "type": "integer"
                 },
@@ -2790,7 +2570,6 @@
                   "default": 10000,
                   "description": "Cache size for sampled trace decisions",
                   "minimum": 0,
-                  "required": [],
                   "title": "sampledCacheSize",
                   "type": "integer"
                 }
@@ -2802,7 +2581,6 @@
             "decisionWait": {
               "default": "10s",
               "description": "Time to wait before making sampling decision",
-              "required": [],
               "title": "decisionWait",
               "type": "string"
             },
@@ -2810,7 +2588,6 @@
               "default": 10,
               "description": "Expected new traces per second (for cache sizing)",
               "minimum": 1,
-              "required": [],
               "title": "expectedNewTracesPerSec",
               "type": "integer"
             },
@@ -2818,7 +2595,6 @@
               "default": 100,
               "description": "Number of traces to keep in memory",
               "minimum": 1,
-              "required": [],
               "title": "numTraces",
               "type": "integer"
             },
@@ -2826,7 +2602,6 @@
               "default": 10,
               "description": "Maximum spans per second rate limit",
               "minimum": 1,
-              "required": [],
               "title": "spansPerSecond",
               "type": "integer"
             }
@@ -2846,7 +2621,7 @@
       "properties": {
         "alertmanager": {
           "additionalProperties": true,
-          "description": "Alertmanager configuration (disabled by default in OpenChoreo)",
+          "description": "Alertmanager configuration for metric-based alerts",
           "properties": {
             "alertmanagerSpec": {
               "additionalProperties": true,
@@ -2859,7 +2634,6 @@
                     "name": {
                       "default": "alertmanager",
                       "description": "Name for Alertmanager pod metadata",
-                      "required": [],
                       "title": "name",
                       "type": "string"
                     }
@@ -2867,16 +2641,247 @@
                   "required": [],
                   "title": "podMetadata",
                   "type": "object"
+                },
+                "resources": {
+                  "additionalProperties": true,
+                  "description": "Resource requests and limits for Alertmanager",
+                  "properties": {
+                    "limits": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "100m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "200Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "memory",
+                        "cpu"
+                      ],
+                      "title": "limits",
+                      "type": "object"
+                    },
+                    "requests": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "cpu": {
+                          "default": "50m",
+                          "title": "cpu",
+                          "type": "string"
+                        },
+                        "memory": {
+                          "default": "100Mi",
+                          "title": "memory",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "memory",
+                        "cpu"
+                      ],
+                      "title": "requests",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "requests",
+                    "limits"
+                  ],
+                  "title": "resources",
+                  "type": "object"
                 }
               },
               "required": [],
               "title": "alertmanagerSpec",
               "type": "object"
             },
+            "config": {
+              "additionalProperties": true,
+              "description": "Alertmanager routing and receiver configuration",
+              "properties": {
+                "global": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "resolve_timeout": {
+                      "default": "5m",
+                      "title": "resolve_timeout",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "resolve_timeout"
+                  ],
+                  "title": "global",
+                  "type": "object"
+                },
+                "receivers": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "default": "openchoreo-alerts",
+                            "title": "name",
+                            "type": "string"
+                          },
+                          "webhook_configs": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "send_resolved": {
+                                      "default": false,
+                                      "title": "send_resolved",
+                                      "type": "boolean"
+                                    },
+                                    "url": {
+                                      "default": "http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus",
+                                      "title": "url",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "url",
+                                    "send_resolved"
+                                  ],
+                                  "type": "object"
+                                }
+                              ],
+                              "required": []
+                            },
+                            "title": "webhook_configs",
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "webhook_configs"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "default": "null",
+                            "title": "name",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name"
+                        ],
+                        "type": "object"
+                      }
+                    ],
+                    "required": []
+                  },
+                  "title": "receivers",
+                  "type": "array"
+                },
+                "route": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "group_by": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "title": "group_by",
+                      "type": "array"
+                    },
+                    "group_interval": {
+                      "default": "5m",
+                      "title": "group_interval",
+                      "type": "string"
+                    },
+                    "group_wait": {
+                      "default": "30s",
+                      "title": "group_wait",
+                      "type": "string"
+                    },
+                    "receiver": {
+                      "default": "null",
+                      "title": "receiver",
+                      "type": "string"
+                    },
+                    "repeat_interval": {
+                      "default": "12h",
+                      "title": "repeat_interval",
+                      "type": "string"
+                    },
+                    "routes": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "matchers": {
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    }
+                                  ],
+                                  "required": []
+                                },
+                                "title": "matchers",
+                                "type": "array"
+                              },
+                              "receiver": {
+                                "default": "openchoreo-alerts",
+                                "title": "receiver",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "receiver",
+                              "matchers"
+                            ],
+                            "type": "object"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "title": "routes",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "group_by",
+                    "group_wait",
+                    "group_interval",
+                    "repeat_interval",
+                    "receiver",
+                    "routes"
+                  ],
+                  "title": "route",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "global",
+                "route",
+                "receivers"
+              ],
+              "title": "config",
+              "type": "object"
+            },
             "enabled": {
-              "default": false,
+              "default": true,
               "description": "Enable Alertmanager deployment",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -2888,7 +2893,6 @@
         "cleanPrometheusOperatorObjectNames": {
           "default": true,
           "description": "Produce cleaner resource names without redundant suffixes",
-          "required": [],
           "title": "cleanPrometheusOperatorObjectNames",
           "type": "boolean"
         },
@@ -2899,7 +2903,6 @@
             "enabled": {
               "default": false,
               "description": "Enable CoreDNS metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -2915,7 +2918,6 @@
             "enabled": {
               "default": true,
               "description": "Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, etc.)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -2931,7 +2933,6 @@
             "create": {
               "default": false,
               "description": "Create default alerting rules",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -2943,14 +2944,12 @@
         "enabled": {
           "default": true,
           "description": "Enable Prometheus stack deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "openchoreo-observability",
           "description": "Override the full name of Prometheus stack resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -2961,14 +2960,12 @@
             "adminPassword": {
               "default": "admin",
               "description": "Grafana admin password",
-              "required": [],
               "title": "adminPassword",
               "type": "string"
             },
             "adminUser": {
               "default": "admin",
               "description": "Grafana admin username",
-              "required": [],
               "title": "adminUser",
               "type": "string"
             },
@@ -2981,7 +2978,6 @@
                   "properties": {
                     "apiVersion": {
                       "default": 1,
-                      "required": [],
                       "title": "apiVersion",
                       "type": "integer"
                     },
@@ -2993,31 +2989,26 @@
                             "properties": {
                               "access": {
                                 "default": "proxy",
-                                "required": [],
                                 "title": "access",
                                 "type": "string"
                               },
                               "isDefault": {
                                 "default": true,
-                                "required": [],
                                 "title": "isDefault",
                                 "type": "boolean"
                               },
                               "name": {
                                 "default": "Prometheus",
-                                "required": [],
                                 "title": "name",
                                 "type": "string"
                               },
                               "type": {
                                 "default": "prometheus",
-                                "required": [],
                                 "title": "type",
                                 "type": "string"
                               },
                               "url": {
                                 "default": "http://openchoreo-observability-prometheus:9091",
-                                "required": [],
                                 "title": "url",
                                 "type": "string"
                               }
@@ -3034,7 +3025,6 @@
                         ],
                         "required": []
                       },
-                      "required": [],
                       "title": "datasources",
                       "type": "array"
                     }
@@ -3056,23 +3046,45 @@
             "defaultDashboardsEnabled": {
               "default": false,
               "description": "Enable default Grafana dashboards",
-              "required": [],
               "title": "defaultDashboardsEnabled",
               "type": "boolean"
             },
             "enabled": {
               "default": false,
               "description": "Enable Grafana deployment",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "fullnameOverride": {
               "default": "grafana",
               "description": "Override the full name of Grafana resources",
-              "required": [],
               "title": "fullnameOverride",
               "type": "string"
+            },
+            "grafana.ini": {
+              "additionalProperties": false,
+              "properties": {
+                "unified_alerting": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "default": true,
+                      "title": "enabled",
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "enabled"
+                  ],
+                  "title": "unified_alerting",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "unified_alerting"
+              ],
+              "title": "grafana.ini",
+              "type": "object"
             },
             "sidecar": {
               "additionalProperties": true,
@@ -3085,7 +3097,6 @@
                     "enabled": {
                       "default": false,
                       "description": "Enable dashboard sidecar",
-                      "required": [],
                       "title": "enabled",
                       "type": "boolean"
                     }
@@ -3101,7 +3112,6 @@
                     "enabled": {
                       "default": false,
                       "description": "Enable datasource sidecar",
-                      "required": [],
                       "title": "enabled",
                       "type": "boolean"
                     }
@@ -3116,7 +3126,9 @@
               "type": "object"
             }
           },
-          "required": [],
+          "required": [
+            "grafana.ini"
+          ],
           "title": "grafana",
           "type": "object"
         },
@@ -3127,37 +3139,30 @@
             "collectors": {
               "description": "List of Kubernetes resources to collect metrics from",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "collectors",
               "type": "array"
             },
             "fullnameOverride": {
               "default": "kube-state-metrics",
               "description": "Override the full name of kube-state-metrics resources",
-              "required": [],
               "title": "fullnameOverride",
               "type": "string"
             },
             "metricAllowlist": {
               "description": "Allowlist of specific metrics to collect (improves performance)",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "metricAllowlist",
               "type": "array"
             },
             "metricLabelsAllowlist": {
               "description": "Labels to include from Kubernetes resources (OpenChoreo-specific labels)",
               "items": {
-                "required": [],
                 "type": "string"
               },
-              "required": [],
               "title": "metricLabelsAllowlist",
               "type": "array"
             }
@@ -3173,7 +3178,6 @@
             "enabled": {
               "default": false,
               "description": "Enable API server metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3189,7 +3193,6 @@
             "enabled": {
               "default": false,
               "description": "Enable controller manager metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3205,7 +3208,6 @@
             "enabled": {
               "default": false,
               "description": "Enable etcd metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3221,7 +3223,6 @@
             "enabled": {
               "default": false,
               "description": "Enable kube-proxy metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3237,7 +3238,6 @@
             "enabled": {
               "default": false,
               "description": "Enable scheduler metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3253,7 +3253,6 @@
             "enabled": {
               "default": true,
               "description": "Enable kube-state-metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3269,7 +3268,6 @@
             "enabled": {
               "default": true,
               "description": "Enable kubelet metrics scraping",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3285,7 +3283,6 @@
             "enabled": {
               "default": true,
               "description": "Enable Kubernetes component ServiceMonitors",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3301,7 +3298,6 @@
             "enabled": {
               "default": false,
               "description": "Enable node exporter deployment",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3317,7 +3313,6 @@
             "enabled": {
               "default": true,
               "description": "Enable Prometheus server deployment",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -3325,6 +3320,28 @@
               "additionalProperties": true,
               "description": "Prometheus specification configuration",
               "properties": {
+                "ruleNamespaceSelector": {
+                  "additionalProperties": true,
+                  "default": {},
+                  "description": "Namespace selector for PrometheusRules (empty = all namespaces)",
+                  "required": [],
+                  "title": "ruleNamespaceSelector",
+                  "type": "object"
+                },
+                "ruleSelector": {
+                  "additionalProperties": true,
+                  "default": {},
+                  "description": "Label selector for PrometheusRules (empty = all PrometheusRules)",
+                  "required": [],
+                  "title": "ruleSelector",
+                  "type": "object"
+                },
+                "ruleSelectorNilUsesHelmValues": {
+                  "default": false,
+                  "description": "Use Helm values for PrometheusRule selection when selector is nil",
+                  "title": "ruleSelectorNilUsesHelmValues",
+                  "type": "boolean"
+                },
                 "serviceMonitorNamespaceSelector": {
                   "additionalProperties": true,
                   "default": {},
@@ -3344,7 +3361,6 @@
                 "serviceMonitorSelectorNilUsesHelmValues": {
                   "default": false,
                   "description": "Use Helm values for ServiceMonitor selection when selector is nil",
-                  "required": [],
                   "title": "serviceMonitorSelectorNilUsesHelmValues",
                   "type": "boolean"
                 }
@@ -3362,7 +3378,6 @@
                   "description": "Prometheus server port",
                   "maximum": 65535,
                   "minimum": 1,
-                  "required": [],
                   "title": "port",
                   "type": "integer"
                 },
@@ -3371,7 +3386,6 @@
                   "description": "Config reloader web port",
                   "maximum": 65535,
                   "minimum": 1,
-                  "required": [],
                   "title": "reloaderWebPort",
                   "type": "integer"
                 }
@@ -3392,14 +3406,12 @@
             "enabled": {
               "default": true,
               "description": "Enable Prometheus Operator deployment",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "fullnameOverride": {
               "default": "prometheus-operator",
               "description": "Override the full name of Prometheus Operator resources",
-              "required": [],
               "title": "fullnameOverride",
               "type": "string"
             },
@@ -3414,14 +3426,12 @@
                     "cpu": {
                       "default": "40m",
                       "description": "CPU limit",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "50Mi",
                       "description": "Memory limit",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -3437,14 +3447,12 @@
                     "cpu": {
                       "default": "20m",
                       "description": "CPU request",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "30Mi",
                       "description": "Memory request",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -3470,7 +3478,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Thanos Ruler for long-term alerting",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -3491,14 +3498,12 @@
         "controlPlaneNamespace": {
           "default": "openchoreo-control-plane",
           "description": "Control plane namespace for service auto-discovery",
-          "required": [],
           "title": "controlPlaneNamespace",
           "type": "string"
         },
         "enabled": {
           "default": false,
           "description": "Enable RCA agent deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -3520,14 +3525,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/ai-rca-agent",
               "description": "Container image repository",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Container image tag (defaults to Chart.AppVersion if empty)",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -3543,14 +3546,12 @@
             "apiKey": {
               "default": "",
               "description": "LLM API key (set via --set rca.llm.apiKey during install)",
-              "required": [],
               "title": "apiKey",
               "type": "string"
             },
             "modelName": {
               "default": "",
               "description": "LLM model name (e.g., claude-sonnet-4-5, gpt-5, gemini-2.0-flash-exp)",
-              "required": [],
               "title": "modelName",
               "type": "string"
             }
@@ -3562,14 +3563,12 @@
         "logLevel": {
           "default": "INFO",
           "description": "Log level for the RCA agent",
-          "required": [],
           "title": "logLevel",
           "type": "string"
         },
         "name": {
           "default": "ai-rca-agent",
           "description": "Name of the RCA agent deployment",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -3580,14 +3579,12 @@
             "clientId": {
               "default": "openchoreo-rca-agent",
               "description": "OAuth2 client ID registered with the IDP",
-              "required": [],
               "title": "clientId",
               "type": "string"
             },
             "clientSecret": {
               "default": "openchoreo-rca-agent-secret",
               "description": "OAuth2 client secret (override via --set rca.oauth.clientSecret)",
-              "required": [],
               "title": "clientSecret",
               "type": "string"
             }
@@ -3599,14 +3596,12 @@
         "observerMcpUrl": {
           "default": "",
           "description": "Observer MCP endpoint URL",
-          "required": [],
           "title": "observerMcpUrl",
           "type": "string"
         },
         "openchoreoMcpUrl": {
           "default": "",
           "description": "OpenChoreo API MCP endpoint URL",
-          "required": [],
           "title": "openchoreoMcpUrl",
           "type": "string"
         },
@@ -3617,7 +3612,6 @@
             "address": {
               "default": "https://opensearch:9200",
               "description": "OpenSearch cluster address",
-              "required": [],
               "title": "address",
               "type": "string"
             }
@@ -3630,7 +3624,6 @@
           "default": 1,
           "description": "Number of RCA agent replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -3645,14 +3638,12 @@
                 "cpu": {
                   "default": "250m",
                   "description": "CPU limit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "1536Mi",
                   "description": "Memory limit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -3668,14 +3659,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "1024Mi",
                   "description": "Memory request",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -3698,7 +3687,6 @@
               "description": "Service port",
               "maximum": 65535,
               "minimum": 1,
-              "required": [],
               "title": "port",
               "type": "integer"
             },
@@ -3730,7 +3718,6 @@
         "enabled": {
           "default": true,
           "description": "Global security toggle - when disabled, authentication is turned off for all components",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -3741,7 +3728,6 @@
             "audience": {
               "default": "",
               "description": "Expected audience claim in JWT tokens",
-              "required": [],
               "title": "audience",
               "type": "string"
             }
@@ -3757,28 +3743,24 @@
             "issuer": {
               "default": "",
               "description": "OIDC issuer URL",
-              "required": [],
               "title": "issuer",
               "type": "string"
             },
             "jwksUrl": {
               "default": "",
               "description": "JWKS URL for token verification",
-              "required": [],
               "title": "jwksUrl",
               "type": "string"
             },
             "jwksUrlTlsInsecureSkipVerify": {
               "default": "false",
               "description": "Skip TLS verification for JWKS URL",
-              "required": [],
               "title": "jwksUrlTlsInsecureSkipVerify",
               "type": "string"
             },
             "tokenUrl": {
               "default": "",
               "description": "OIDC token endpoint URL",
-              "required": [],
               "title": "tokenUrl",
               "type": "string"
             }
@@ -3799,7 +3781,6 @@
         "enabled": {
           "default": false,
           "description": "Enable TLS certificate generation for the observability plane",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         }
@@ -3815,7 +3796,6 @@
         "image": {
           "default": "bitnamilegacy/kubectl:1.32.4",
           "description": "Container image for kubectl-based wait jobs",
-          "required": [],
           "title": "image",
           "type": "string"
         }

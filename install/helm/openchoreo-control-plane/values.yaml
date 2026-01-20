@@ -631,7 +631,6 @@ controllerManager:
         #   type: object
         #   properties:
         #     type:
-        #       type: string
         #       enum: [Percent, Pods]
         #     value:
         #       type: integer
@@ -660,7 +659,6 @@ controllerManager:
         #   type: object
         #   properties:
         #     type:
-        #       type: string
         #       enum: [Percent, Pods]
         #     value:
         #       type: integer
@@ -694,7 +692,6 @@ controllerManager:
   #       type: string
   #       description: Node label key for topology
   #     whenUnsatisfiable:
-  #       type: string
   #       enum: [DoNotSchedule, ScheduleAnyway]
   #     labelSelector:
   #       type: object
@@ -738,12 +735,10 @@ controllerManager:
   #     key:
   #       type: string
   #     operator:
-  #       type: string
   #       enum: [Exists, Equal]
   #     value:
   #       type: string
   #     effect:
-  #       type: string
   #       enum: [NoSchedule, PreferNoSchedule, NoExecute]
   # default: []
   # @schema
@@ -935,7 +930,6 @@ metricsService:
   #     port:
   #       type: integer
   #     protocol:
-  #       type: string
   #       enum: [TCP, UDP]
   #     targetPort:
   #       type: integer
@@ -966,7 +960,6 @@ webhookService:
   #     port:
   #       type: integer
   #     protocol:
-  #       type: string
   #       enum: [TCP, UDP]
   #     targetPort:
   #       type: integer

@@ -21,14 +21,12 @@
                     "cpu": {
                       "default": "50m",
                       "description": "CPU limit for the controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "64Mi",
                       "description": "Memory limit for the controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -44,14 +42,12 @@
                     "cpu": {
                       "default": "25m",
                       "description": "CPU request for the controller",
-                      "required": [],
                       "title": "cpu",
                       "type": "string"
                     },
                     "memory": {
                       "default": "32Mi",
                       "description": "Memory request for the controller",
-                      "required": [],
                       "title": "memory",
                       "type": "string"
                     }
@@ -77,7 +73,6 @@
             "keep": {
               "default": false,
               "description": "Keep CRDs on chart uninstall",
-              "required": [],
               "title": "keep",
               "type": "boolean"
             }
@@ -89,7 +84,6 @@
         "fullnameOverride": {
           "default": "argo",
           "description": "Override the full name of Argo Workflows resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -100,7 +94,6 @@
             "enabled": {
               "default": false,
               "description": "Enable the Argo Workflows server UI",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -120,7 +113,6 @@
                 "create": {
                   "default": true,
                   "description": "Create service account for workflows",
-                  "required": [],
                   "title": "create",
                   "type": "boolean"
                 }
@@ -137,10 +129,8 @@
         "workflowNamespaces": {
           "description": "Namespaces where Argo Workflows can submit workflows",
           "items": {
-            "required": [],
             "type": "string"
           },
-          "required": [],
           "title": "workflowNamespaces",
           "type": "array"
         }
@@ -167,7 +157,6 @@
             "enabled": {
               "default": false,
               "description": "Enable DNS rewrite for k3d setups",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -179,14 +168,12 @@
         "enabled": {
           "default": true,
           "description": "Enable the cluster agent for control plane communication",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Heartbeat interval for control plane connection",
-          "required": [],
           "title": "heartbeatInterval",
           "type": "string"
         },
@@ -208,14 +195,12 @@
             "repository": {
               "default": "ghcr.io/openchoreo/cluster-agent",
               "description": "Image repository for cluster agent",
-              "required": [],
               "title": "repository",
               "type": "string"
             },
             "tag": {
               "default": "",
               "description": "Image tag. If empty, uses Chart.AppVersion.",
-              "required": [],
               "title": "tag",
               "type": "string"
             }
@@ -239,7 +224,6 @@
         "name": {
           "default": "cluster-agent-buildplane",
           "description": "Name of the cluster agent deployment",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -253,7 +237,6 @@
         "planeID": {
           "default": "default-buildplane",
           "description": "Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.",
-          "required": [],
           "title": "planeID",
           "type": "string"
         },
@@ -281,19 +264,16 @@
           "properties": {
             "fsGroup": {
               "default": 1000,
-              "required": [],
               "title": "fsGroup",
               "type": "integer"
             },
             "runAsNonRoot": {
               "default": true,
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
             "runAsUser": {
               "default": 1000,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -313,21 +293,18 @@
             "create": {
               "default": false,
               "description": "Create priority class",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-buildplane",
               "description": "Priority class name",
-              "required": [],
               "title": "name",
               "type": "string"
             },
             "value": {
               "default": 900000,
               "description": "Priority value",
-              "required": [],
               "title": "value",
               "type": "integer"
             }
@@ -343,7 +320,6 @@
             "create": {
               "default": true,
               "description": "Create RBAC resources",
-              "required": [],
               "title": "create",
               "type": "boolean"
             }
@@ -355,7 +331,6 @@
         "reconnectDelay": {
           "default": "5s",
           "description": "Delay before reconnecting on disconnection",
-          "required": [],
           "title": "reconnectDelay",
           "type": "string"
         },
@@ -363,7 +338,6 @@
           "default": 1,
           "description": "Number of cluster agent replicas",
           "minimum": 0,
-          "required": [],
           "title": "replicas",
           "type": "integer"
         },
@@ -377,13 +351,11 @@
               "properties": {
                 "cpu": {
                   "default": "100m",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -401,13 +373,11 @@
               "properties": {
                 "cpu": {
                   "default": "50m",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -430,7 +400,6 @@
           "properties": {
             "allowPrivilegeEscalation": {
               "default": false,
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -441,13 +410,11 @@
                   "items": {
                     "anyOf": [
                       {
-                        "required": [],
                         "type": "string"
                       }
                     ],
                     "required": []
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -460,7 +427,6 @@
             },
             "readOnlyRootFilesystem": {
               "default": true,
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             }
@@ -476,14 +442,12 @@
         "serverCANamespace": {
           "default": "openchoreo-control-plane",
           "description": "Namespace where cluster-gateway CA exists",
-          "required": [],
           "title": "serverCANamespace",
           "type": "string"
         },
         "serverUrl": {
           "default": "wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws",
           "description": "WebSocket URL of the cluster gateway in control plane",
-          "required": [],
           "title": "serverUrl",
           "type": "string"
         },
@@ -501,14 +465,12 @@
             "create": {
               "default": true,
               "description": "Create service account",
-              "required": [],
               "title": "create",
               "type": "boolean"
             },
             "name": {
               "default": "cluster-agent-buildplane",
               "description": "Service account name",
-              "required": [],
               "title": "name",
               "type": "string"
             }
@@ -524,77 +486,66 @@
             "caSecretName": {
               "default": "cluster-gateway-ca",
               "description": "CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretName",
               "type": "string"
             },
             "caSecretNamespace": {
               "default": "openchoreo-control-plane",
               "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "required": [],
               "title": "caSecretNamespace",
               "type": "string"
             },
             "caValue": {
               "default": "",
               "description": "Inline CA certificate value (PEM format) for multi-cluster setup",
-              "required": [],
               "title": "caValue",
               "type": "string"
             },
             "clientSecretName": {
               "default": "cluster-agent-tls",
               "description": "Client certificate secret name",
-              "required": [],
               "title": "clientSecretName",
               "type": "string"
             },
             "duration": {
               "default": "2160h",
               "description": "Certificate duration",
-              "required": [],
               "title": "duration",
               "type": "string"
             },
             "enabled": {
               "default": true,
               "description": "Enable TLS for agent communication",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "generateCerts": {
               "default": false,
               "description": "Generate client certificates locally using cert-manager. Set to true for multi-cluster setup.",
-              "required": [],
               "title": "generateCerts",
               "type": "boolean"
             },
             "renewBefore": {
               "default": "360h",
               "description": "Certificate renewal window",
-              "required": [],
               "title": "renewBefore",
               "type": "string"
             },
             "secretName": {
               "default": "cluster-agent-tls",
               "description": "Secret containing client certificate and key",
-              "required": [],
               "title": "secretName",
               "type": "string"
             },
             "serverCAConfigMap": {
               "default": "cluster-gateway-ca",
               "description": "ConfigMap containing server CA certificate for verifying gateway",
-              "required": [],
               "title": "serverCAConfigMap",
               "type": "string"
             },
             "serverCAValue": {
               "default": "",
               "description": "Inline server CA certificate value (PEM format) for multi-cluster setup",
-              "required": [],
               "title": "serverCAValue",
               "type": "string"
             }
@@ -610,7 +561,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "tolerations",
           "type": "array"
         }
@@ -626,21 +576,18 @@
         "enabled": {
           "default": false,
           "description": "Install External Secrets Operator in the build plane",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "fullnameOverride": {
           "default": "external-secrets",
           "description": "Override the full name of External Secrets resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "nameOverride": {
           "default": "external-secrets",
           "description": "Override the name of External Secrets resources",
-          "required": [],
           "title": "nameOverride",
           "type": "string"
         }
@@ -656,14 +603,12 @@
         "enabled": {
           "default": true,
           "description": "Enable the fake secret store for development",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
         "name": {
           "default": "default",
           "description": "Name of the ClusterSecretStore resource",
-          "required": [],
           "title": "name",
           "type": "string"
         },
@@ -674,12 +619,10 @@
             "properties": {
               "key": {
                 "description": "Secret key name",
-                "required": [],
                 "type": "string"
               },
               "value": {
                 "description": "Secret value (fake/development only)",
-                "required": [],
                 "type": "string"
               }
             },
@@ -689,7 +632,6 @@
             ],
             "type": "object"
           },
-          "required": [],
           "title": "secrets",
           "type": "array"
         }
@@ -709,28 +651,24 @@
             "customParsers": {
               "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
               "description": "Custom parser definitions in Fluent Bit configuration format",
-              "required": [],
               "title": "customParsers",
               "type": "string"
             },
             "filters": {
               "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
               "description": "Filter plugin configuration for log processing",
-              "required": [],
               "title": "filters",
               "type": "string"
             },
             "inputs": {
               "default": "[INPUT]\n    Name tail\n    Buffer_Chunk_Size 32KB\n    Buffer_Max_Size 2MB\n    DB /var/lib/fluent-bit/db/tail-container-logs.db\n    Exclude_Path /var/log/containers/fluent-bit-*_openchoreo-build-plane_*.log\n    Inotify_Watcher false\n    Mem_Buf_Limit 256MB\n    Path /var/log/containers/*.log\n    multiline.parser docker, cri\n    Read_from_Head On\n    Refresh_Interval 5\n    Skip_Long_Lines On\n    Tag kube.*\n",
               "description": "Input plugin configuration for log collection",
-              "required": [],
               "title": "inputs",
               "type": "string"
             },
             "outputs": {
               "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
-              "required": [],
               "title": "outputs",
               "type": "string"
             }
@@ -754,7 +692,6 @@
         "enabled": {
           "default": false,
           "description": "Enable Fluent Bit log collector deployment",
-          "required": [],
           "title": "enabled",
           "type": "boolean"
         },
@@ -764,7 +701,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumeMounts",
           "type": "array"
         },
@@ -774,21 +710,18 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "extraVolumes",
           "type": "array"
         },
         "fullnameOverride": {
           "default": "fluent-bit",
           "description": "Override the full name of Fluent Bit resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
         "hostNetwork": {
           "default": true,
           "description": "Use host network for Fluent Bit pods (required for node log access)",
-          "required": [],
           "title": "hostNetwork",
           "type": "boolean"
         },
@@ -798,7 +731,6 @@
             "required": [],
             "type": "object"
           },
-          "required": [],
           "title": "initContainers",
           "type": "array"
         },
@@ -807,7 +739,6 @@
           "description": "Port for Fluent Bit metrics endpoint",
           "maximum": 65535,
           "minimum": 1,
-          "required": [],
           "title": "metricsPort",
           "type": "integer"
         },
@@ -818,7 +749,6 @@
             "nodeAccess": {
               "default": true,
               "description": "Enable node-level access for reading container logs",
-              "required": [],
               "title": "nodeAccess",
               "type": "boolean"
             }
@@ -838,14 +768,12 @@
                 "cpu": {
                   "default": "200m",
                   "description": "CPU limit for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "256Mi",
                   "description": "Memory limit for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -861,14 +789,12 @@
                 "cpu": {
                   "default": "100m",
                   "description": "CPU request for Fluent Bit",
-                  "required": [],
                   "title": "cpu",
                   "type": "string"
                 },
                 "memory": {
                   "default": "128Mi",
                   "description": "Memory request for Fluent Bit",
-                  "required": [],
                   "title": "memory",
                   "type": "string"
                 }
@@ -889,7 +815,6 @@
             "allowPrivilegeEscalation": {
               "default": false,
               "description": "Prevent privilege escalation",
-              "required": [],
               "title": "allowPrivilegeEscalation",
               "type": "boolean"
             },
@@ -900,10 +825,8 @@
                 "drop": {
                   "description": "Capabilities to drop",
                   "items": {
-                    "required": [],
                     "type": "string"
                   },
-                  "required": [],
                   "title": "drop",
                   "type": "array"
                 }
@@ -915,14 +838,12 @@
             "readOnlyRootFilesystem": {
               "default": true,
               "description": "Mount root filesystem as read-only",
-              "required": [],
               "title": "readOnlyRootFilesystem",
               "type": "boolean"
             },
             "runAsNonRoot": {
               "default": true,
               "description": "Run container as non-root user",
-              "required": [],
               "title": "runAsNonRoot",
               "type": "boolean"
             },
@@ -930,7 +851,6 @@
               "default": 10000,
               "description": "User ID to run the container",
               "minimum": 0,
-              "required": [],
               "title": "runAsUser",
               "type": "integer"
             }
@@ -948,7 +868,6 @@
               "description": "Service port for Fluent Bit metrics",
               "maximum": 65535,
               "minimum": 1,
-              "required": [],
               "title": "port",
               "type": "integer"
             }
@@ -964,7 +883,6 @@
             "enabled": {
               "default": false,
               "description": "Enable Fluent Bit test framework",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             }
@@ -988,7 +906,6 @@
           "examples": [
             "openchoreo.example.com"
           ],
-          "required": [],
           "title": "baseDomain",
           "type": "string"
         },
@@ -1010,7 +927,6 @@
                 "enabled": {
                   "default": true,
                   "description": "Enable buildpack image caching hook",
-                  "required": [],
                   "title": "enabled",
                   "type": "boolean"
                 },
@@ -1021,12 +937,10 @@
                     "properties": {
                       "cacheName": {
                         "description": "Local cache name for the image in the build plane registry",
-                        "required": [],
                         "type": "string"
                       },
                       "source": {
                         "description": "Source image to pull from remote registry",
-                        "required": [],
                         "type": "string"
                       }
                     },
@@ -1036,7 +950,6 @@
                     ],
                     "type": "object"
                   },
-                  "required": [],
                   "title": "images",
                   "type": "array"
                 }
@@ -1048,7 +961,6 @@
             "enabled": {
               "default": true,
               "description": "If true, applies the workflow templates",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -1059,14 +971,12 @@
                 "size": {
                   "default": "10Gi",
                   "description": "Size of the persistent volume for podman image layer cache",
-                  "required": [],
                   "title": "size",
                   "type": "string"
                 },
                 "storageClass": {
                   "default": "",
                   "description": "Storage class for the cache PVC. Uses cluster default if not set.",
-                  "required": [],
                   "title": "storageClass",
                   "type": "string"
                 }
@@ -1082,14 +992,12 @@
                 "endpoint": {
                   "default": "registry.openchoreo-build-plane.svc.cluster.local:5000",
                   "description": "Registry endpoint for pushing and pulling images. For external registry with baseDomain, automatically uses registry.\u003cbaseDomain\u003e.",
-                  "required": [],
                   "title": "endpoint",
                   "type": "string"
                 },
                 "tlsVerify": {
                   "default": false,
                   "description": "Enable TLS verification when pushing images to the registry. Set to false for self-signed certificates or local development.",
-                  "required": [],
                   "title": "tlsVerify",
                   "type": "boolean"
                 }
@@ -1106,7 +1014,6 @@
         "ingressClassName": {
           "default": "openchoreo-traefik",
           "description": "Ingress class name for registry ingress",
-          "required": [],
           "title": "ingressClassName",
           "type": "string"
         },
@@ -1117,14 +1024,12 @@
             "enabled": {
               "default": false,
               "description": "Enable TLS for registry ingress",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "secretName": {
               "default": "registry-tls",
               "description": "Secret containing TLS certificate for registry",
-              "required": [],
               "title": "secretName",
               "type": "string"
             }
@@ -1145,7 +1050,6 @@
         "fullnameOverride": {
           "default": "registry",
           "description": "Override the full name of registry resources",
-          "required": [],
           "title": "fullnameOverride",
           "type": "string"
         },
@@ -1163,14 +1067,12 @@
             "className": {
               "default": "",
               "description": "Ingress class name. Falls back to global.ingressClassName if not set.",
-              "required": [],
               "title": "className",
               "type": "string"
             },
             "enabled": {
               "default": false,
               "description": "Enable ingress for external registry access",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -1181,14 +1083,12 @@
                 "enabled": {
                   "default": false,
                   "description": "Enable TLS for registry ingress",
-                  "required": [],
                   "title": "enabled",
                   "type": "boolean"
                 },
                 "secretName": {
                   "default": "",
                   "description": "Secret containing TLS certificate",
-                  "required": [],
                   "title": "secretName",
                   "type": "string"
                 }
@@ -1209,14 +1109,12 @@
             "enabled": {
               "default": true,
               "description": "Enable persistent storage for registry",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
             "size": {
               "default": "10Gi",
               "description": "Size of the persistent volume for registry storage",
-              "required": [],
               "title": "size",
               "type": "string"
             }
@@ -1237,7 +1135,6 @@
         "image": {
           "default": "bitnamilegacy/kubectl:1.32.4",
           "description": "Container image used for wait jobs (must contain kubectl)",
-          "required": [],
           "title": "image",
           "type": "string"
         }
