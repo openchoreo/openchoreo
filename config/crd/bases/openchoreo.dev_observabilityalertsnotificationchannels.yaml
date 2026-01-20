@@ -29,7 +29,7 @@ spec:
       openAPIV3Schema:
         description: |-
           ObservabilityAlertsNotificationChannel is the Schema for the observabilityalertsnotificationchannels API.
-          It defines a channel for sending alert notifications. Currently only email notifications are supported.
+          It defines a channel for sending alert notifications. Currently email and webhook notifications are supported.
         properties:
           apiVersion:
             description: |-
@@ -52,16 +52,20 @@ spec:
             description: ObservabilityAlertsNotificationChannelSpec defines the desired
               state of ObservabilityAlertsNotificationChannel.
             properties:
-              config:
+              emailConfig:
                 description: |-
-                  Config contains the channel-specific configuration
-                  Currently only email configuration is supported
+                  EmailConfig contains the email notification channel configuration
+                  Required when type is "email"
                 properties:
                   from:
-                    description: From is the sender email address
+                    description: |-
+                      From is the sender email address
+                      Required when type is "email"
                     type: string
                   smtp:
-                    description: SMTP configuration for sending emails
+                    description: |-
+                      SMTP configuration for sending emails
+                      Required when type is "email"
                     properties:
                       auth:
                         description: Auth defines SMTP authentication credentials
@@ -104,13 +108,15 @@ spec:
                             type: object
                         type: object
                       host:
-                        description: Host is the SMTP server hostname
+                        description: |-
+                          Host is the SMTP server hostname
+                          Required when type is "email"
                         type: string
                       port:
-                        description: Port is the SMTP server port
+                        description: |-
+                          Port is the SMTP server port
+                          Required when type is "email"
                         format: int32
-                        maximum: 65535
-                        minimum: 1
                         type: integer
                       tls:
                         description: TLS configuration
@@ -120,9 +126,6 @@ spec:
                               verification (not recommended for production)
                             type: boolean
                         type: object
-                    required:
-                    - host
-                    - port
                     type: object
                   template:
                     description: Template defines the email template using CEL expressions
@@ -142,15 +145,13 @@ spec:
                     - subject
                     type: object
                   to:
-                    description: To is the list of recipient email addresses
+                    description: |-
+                      To is the list of recipient email addresses
+                      Required when type is "email"
                     items:
                       type: string
                     minItems: 1
                     type: array
-                required:
-                - from
-                - smtp
-                - to
                 type: object
               environment:
                 description: Environment is the name of the openchoreo environment
@@ -169,20 +170,79 @@ spec:
               type:
                 description: |-
                   Type specifies the type of notification channel
-                  Currently only "email" is supported
+                  Currently "email" and "webhook" are supported
                 enum:
                 - email
+                - webhook
                 type: string
+              webhookConfig:
+                description: |-
+                  WebhookConfig contains the webhook notification channel configuration
+                  Required when type is "webhook"
+                properties:
+                  headers:
+                    additionalProperties:
+                      description: WebhookHeaderValue defines a header value that
+                        can be provided inline or via secret reference
+                      properties:
+                        value:
+                          description: |-
+                            Value is the inline header value
+                            Mutually exclusive with valueFrom
+                          type: string
+                        valueFrom:
+                          description: |-
+                            ValueFrom references a secret containing the header value
+                            Mutually exclusive with value
+                          properties:
+                            secretKeyRef:
+                              description: SecretKeyRef references a specific key
+                                in a Kubernetes secret
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: exactly one of value or valueFrom must be set
+                        rule: has(self.value) != has(self.valueFrom)
+                    description: |-
+                      Headers are optional HTTP headers to include in the webhook request
+                      Headers can be provided inline or via secret references
+                    type: object
+                  url:
+                    description: |-
+                      URL is the webhook endpoint URL where alerts will be sent
+                      Required when type is "webhook"
+                    format: uri
+                    type: string
+                type: object
             required:
-            - config
             - environment
             - type
             type: object
             x-kubernetes-validations:
-            - message: email config fields (from, to, smtp) are required when type
-                is email
-              rule: 'self.type == ''email'' ? has(self.config.from) && has(self.config.to)
-                && has(self.config.smtp) : true'
+            - message: emailConfig is required when type is email
+              rule: 'self.type == ''email'' ? has(self.emailConfig) : true'
+            - message: webhookConfig is required when type is webhook
+              rule: 'self.type == ''webhook'' ? has(self.webhookConfig) : true'
+            - message: emailConfig fields (from, to, smtp.host, smtp.port) are required
+                when type is email, and smtp.port must be between 1 and 65535
+              rule: 'self.type == ''email'' && has(self.emailConfig) ? (has(self.emailConfig.from)
+                && size(self.emailConfig.from) > 0) && (has(self.emailConfig.to) &&
+                size(self.emailConfig.to) > 0) && (has(self.emailConfig.smtp) && has(self.emailConfig.smtp.host)
+                && size(self.emailConfig.smtp.host) > 0 && has(self.emailConfig.smtp.port)
+                && self.emailConfig.smtp.port >= 1 && self.emailConfig.smtp.port <=
+                65535) : true'
+            - message: webhookConfig.url is required when type is webhook
+              rule: 'self.type == ''webhook'' && has(self.webhookConfig) ? (has(self.webhookConfig.url)
+                && size(self.webhookConfig.url) > 0) : true'
           status:
             description: ObservabilityAlertsNotificationChannelStatus defines the
               observed state of ObservabilityAlertsNotificationChannel.

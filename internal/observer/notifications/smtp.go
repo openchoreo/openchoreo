@@ -26,10 +26,12 @@ type EmailConfig struct {
 	BodyTemplate    string
 }
 
-// NotificationChannelConfig combines SMTP and email configuration
+// NotificationChannelConfig combines SMTP, email, and webhook configuration
 type NotificationChannelConfig struct {
-	SMTP  SMTPConfig
-	Email EmailConfig
+	Type    string // "email" or "webhook"
+	SMTP    SMTPConfig
+	Email   EmailConfig
+	Webhook WebhookConfig
 }
 
 // SendEmailWithConfig sends an alert email using the provided configuration.

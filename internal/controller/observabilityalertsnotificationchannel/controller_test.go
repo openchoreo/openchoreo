@@ -66,14 +66,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: "development",
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},
@@ -174,18 +172,16 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"recipient1@example.com", "recipient2@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
-							Template: &openchoreodevv1alpha1.EmailTemplate{
-								Subject: "[${alert.severity}] - ${alert.name} Triggered",
-								Body:    "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}",
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"recipient1@example.com", "recipient2@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "[${alert.severity}] - ${alert.name} Triggered",
+							Body:    "Alert: ${alert.name} triggered at ${alert.startsAt}.\nSummary: ${alert.description}",
 						},
 					},
 				},
@@ -416,30 +412,28 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-								Auth: &openchoreodevv1alpha1.SMTPAuth{
-									Username: &openchoreodevv1alpha1.SecretValueFrom{
-										SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{
-											Name: "smtp-auth-secret",
-											Key:  "username",
-										},
-									},
-									Password: &openchoreodevv1alpha1.SecretValueFrom{
-										SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{
-											Name: "smtp-auth-secret",
-											Key:  "password",
-										},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{
+									SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{
+										Name: "smtp-auth-secret",
+										Key:  "username",
 									},
 								},
-								TLS: &openchoreodevv1alpha1.SMTPTLSConfig{
-									InsecureSkipVerify: true,
+								Password: &openchoreodevv1alpha1.SecretValueFrom{
+									SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{
+										Name: "smtp-auth-secret",
+										Key:  "password",
+									},
 								},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{
+								InsecureSkipVerify: true,
 							},
 						},
 					},
@@ -533,14 +527,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Environment:  "development",
 					IsEnvDefault: true,
 					Type:         openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "sender@example.com",
-							To:   []string{"recipient@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 465,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "sender@example.com",
+						To:   []string{"recipient@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 465,
 						},
 					},
 				},
@@ -580,14 +572,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: "development",
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},
@@ -707,14 +697,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},
@@ -762,14 +750,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},
@@ -870,14 +856,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},
@@ -937,14 +921,12 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
-					Config: openchoreodevv1alpha1.NotificationChannelConfig{
-						EmailConfig: openchoreodevv1alpha1.EmailConfig{
-							From: "test@example.com",
-							To:   []string{"test@example.com"},
-							SMTP: openchoreodevv1alpha1.SMTPConfig{
-								Host: "smtp.example.com",
-								Port: 587,
-							},
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: "test@example.com",
+						To:   []string{"test@example.com"},
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
 						},
 					},
 				},

@@ -8,7 +8,7 @@ metadata:
 spec:
   environment: development
   type: email
-  config:
+  emailConfig:
     from: test@example.com
     to:
       - test@example.com
@@ -38,3 +38,33 @@ metadata:
 data:
   username: dGVzdEBleGFtcGxlLmNvbQ==
   password: dGVzdEBleGFtcGxlLmNvbQ==
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertsNotificationChannel
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: observabilityalertsnotificationchannel-webhook-sample
+spec:
+  environment: development
+  type: webhook
+  webhookConfig:
+    url: https://example.com/webhook/alerts
+    headers:
+      Authorization:
+        value: "Bearer your-token-here"
+      X-Custom-Header:
+        valueFrom:
+          secretKeyRef:
+            name: observability-sample-webhook-auth
+            key: api-key
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: observability-sample-webhook-auth
+data:
+  api-key: eW91ci1hcGkta2V5LWhlcmU=

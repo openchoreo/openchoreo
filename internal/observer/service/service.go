@@ -1161,38 +1161,59 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 		return fmt.Errorf("failed to get notification channel config: %w", err)
 	}
 
-	// Render the incoming alert payload for human-friendly notifications
-	payload, err := json.MarshalIndent(requestBody, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal alert payload: %w", err)
-	}
+	// Send notification based on channel type
+	switch channelConfig.Type {
+	case "webhook":
+		// For webhooks, send the alertDetails JSON object directly
+		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, requestBody); err != nil {
+			s.logger.Error("Failed to send alert notification webhook",
+				"error", err,
+				"channelName", notificationChannelName,
+				"webhookURL", channelConfig.Webhook.URL)
+			return fmt.Errorf("failed to send alert notification webhook: %w", err)
+		}
+		s.logger.Info("Alert notification sent successfully via webhook",
+			"ruleName", ruleName,
+			"channelName", notificationChannelName,
+			"webhookURL", channelConfig.Webhook.URL)
+		return nil
 
-	// Build subject and body using templates if available, otherwise use defaults
-	subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
-	if channelConfig.Email.SubjectTemplate != "" {
-		subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
-	}
+	case "email":
+		// Render the incoming alert payload for human-friendly notifications
+		payload, err := json.MarshalIndent(requestBody, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal alert payload: %w", err)
+		}
 
-	emailBody := fmt.Sprintf("An alert was received at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
-	if channelConfig.Email.BodyTemplate != "" {
-		emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
-	}
+		// Build subject and body using templates if available, otherwise use defaults
+		subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
+		if channelConfig.Email.SubjectTemplate != "" {
+			subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
+		}
 
-	// Send the notification using the fetched config
-	if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
-		s.logger.Error("Failed to send alert notification email",
-			"error", err,
+		emailBody := fmt.Sprintf("An alert was received at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
+		if channelConfig.Email.BodyTemplate != "" {
+			emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
+		}
+
+		// Send the notification using the fetched config
+		if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
+			s.logger.Error("Failed to send alert notification email",
+				"error", err,
+				"channelName", notificationChannelName,
+				"recipients", channelConfig.Email.To)
+			return fmt.Errorf("failed to send alert notification email: %w", err)
+		}
+
+		s.logger.Info("Alert notification sent successfully",
+			"ruleName", ruleName,
 			"channelName", notificationChannelName,
 			"recipients", channelConfig.Email.To)
-		return fmt.Errorf("failed to send alert notification email: %w", err)
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported notification channel type: %s", channelConfig.Type)
 	}
-
-	s.logger.Info("Alert notification sent successfully",
-		"ruleName", ruleName,
-		"channelName", notificationChannelName,
-		"recipients", channelConfig.Email.To)
-
-	return nil
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1239,56 +1260,108 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 		}
 	}
 
-	// Parse recipients from ConfigMap (stored as string representation of array)
-	var recipients []string
-	if toStr, ok := configMap.Data["to"]; ok {
-		// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
-		// Parse it back to a slice
-		recipients = parseRecipientsList(toStr)
+	// Get channel type from ConfigMap
+	channelType := configMap.Data["type"]
+	if channelType == "" {
+		return nil, fmt.Errorf("notification channel type not found in ConfigMap")
 	}
 
 	config := &notifications.NotificationChannelConfig{
-		SMTP: notifications.SMTPConfig{
+		Type: channelType,
+	}
+
+	// Parse configuration based on channel type
+	switch channelType {
+	case "email":
+		// Parse recipients from ConfigMap (stored as string representation of array)
+		var recipients []string
+		if toStr, ok := configMap.Data["to"]; ok {
+			// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
+			// Parse it back to a slice
+			recipients = parseRecipientsList(toStr)
+		}
+
+		config.SMTP = notifications.SMTPConfig{
 			Host: configMap.Data["smtp.host"],
 			Port: smtpPort,
 			From: configMap.Data["from"],
-		},
-		Email: notifications.EmailConfig{
+		}
+		config.Email = notifications.EmailConfig{
 			To:              recipients,
 			SubjectTemplate: configMap.Data["template.subject"],
 			BodyTemplate:    configMap.Data["template.body"],
-		},
-	}
-
-	// Read SMTP credentials directly from the secret
-	if secret != nil && secret.Data != nil {
-		s.logger.Debug("Reading SMTP credentials from secret",
-			"secretName", secret.Name,
-			"secretNamespace", secret.Namespace)
-
-		if username, ok := secret.Data["smtp.auth.username"]; ok {
-			config.SMTP.Username = string(username)
-			s.logger.Debug("SMTP username loaded")
-		} else {
-			s.logger.Warn("SMTP username key not found in secret")
 		}
-		if password, ok := secret.Data["smtp.auth.password"]; ok {
-			config.SMTP.Password = string(password)
-			s.logger.Debug("SMTP password loaded")
-		} else {
-			s.logger.Warn("SMTP password key not found in secret")
-		}
-	} else {
-		s.logger.Warn("Secret is nil or has no data",
-			"secretNil", secret == nil)
-	}
 
-	s.logger.Debug("Final SMTP config",
-		"host", config.SMTP.Host,
-		"port", config.SMTP.Port,
-		"from", config.SMTP.From,
-		"hasUsername", config.SMTP.Username != "",
-		"hasPassword", config.SMTP.Password != "")
+		// Read SMTP credentials directly from the secret
+		if secret != nil && secret.Data != nil {
+			s.logger.Debug("Reading SMTP credentials from secret",
+				"secretName", secret.Name,
+				"secretNamespace", secret.Namespace)
+
+			if username, ok := secret.Data["smtp.auth.username"]; ok {
+				config.SMTP.Username = string(username)
+				s.logger.Debug("SMTP username loaded")
+			} else {
+				s.logger.Warn("SMTP username key not found in secret")
+			}
+			if password, ok := secret.Data["smtp.auth.password"]; ok {
+				config.SMTP.Password = string(password)
+				s.logger.Debug("SMTP password loaded")
+			} else {
+				s.logger.Warn("SMTP password key not found in secret")
+			}
+		} else {
+			s.logger.Warn("Secret is nil or has no data",
+				"secretNil", secret == nil)
+		}
+
+		s.logger.Debug("Final SMTP config",
+			"host", config.SMTP.Host,
+			"port", config.SMTP.Port,
+			"from", config.SMTP.From,
+			"hasUsername", config.SMTP.Username != "",
+			"hasPassword", config.SMTP.Password != "")
+
+	case "webhook":
+		// Parse webhook URL
+		webhookURL := configMap.Data["webhook.url"]
+		if webhookURL == "" {
+			return nil, fmt.Errorf("webhook URL not found in ConfigMap")
+		}
+
+		// Parse headers from ConfigMap and Secret
+		headers := make(map[string]string)
+		if headerKeysStr, ok := configMap.Data["webhook.headers"]; ok && headerKeysStr != "" {
+			headerKeys := strings.Split(headerKeysStr, ",")
+			for _, key := range headerKeys {
+				key = strings.TrimSpace(key)
+				if key == "" {
+					continue
+				}
+				// Try to get inline value from ConfigMap first
+				if inlineValue, ok := configMap.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+					headers[key] = inlineValue
+				} else if secret != nil && secret.Data != nil {
+					// Try to get value from Secret (for secret-referenced headers)
+					if secretValue, ok := secret.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+						headers[key] = string(secretValue)
+					}
+				}
+			}
+		}
+
+		config.Webhook = notifications.WebhookConfig{
+			URL:     webhookURL,
+			Headers: headers,
+		}
+
+		s.logger.Debug("Final webhook config",
+			"url", config.Webhook.URL,
+			"headerCount", len(config.Webhook.Headers))
+
+	default:
+		return nil, fmt.Errorf("unsupported notification channel type: %s", channelType)
+	}
 
 	return config, nil
 }
