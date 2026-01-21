@@ -126,32 +126,41 @@ global:
 
       # @schema
       # type: array
-      # description: List of buildpack images to cache
+      # description: List of buildpack images to cache. Each entry has an id for lookup, remoteImage for external registry, and cachedImage for local cache.
       # items:
       #   type: object
       #   additionalProperties: false
       #   required:
-      #     - source
-      #     - cacheName
+      #     - id
+      #     - remoteImage
+      #     - cachedImage
       #   properties:
-      #     source:
+      #     id:
       #       type: string
-      #       description: Source image to pull from remote registry
-      #     cacheName:
+      #       description: Unique identifier for lookup in workflow templates
+      #     remoteImage:
       #       type: string
-      #       description: Local cache name for the image in the build plane registry
+      #       description: Image reference from remote registry (used when caching is disabled)
+      #     cachedImage:
+      #       type: string
+      #       description: Image path in the local build plane registry (used when caching is enabled)
       # @schema
       images:
-        - source: "docker.io/buildpacksio/lifecycle:0.20.5"
-          cacheName: "buildpacks-cache/lifecycle:0.20.5"
-        - source: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
-          cacheName: "buildpacks-cache/google-builder:latest"
-        - source: "gcr.io/buildpacks/google-22/run:latest"
-          cacheName: "buildpacks-cache/google-run:latest"
-        - source: "ghcr.io/openchoreo/buildpack/ballerina:18"
-          cacheName: "buildpacks-cache/ballerina-builder:18"
-        - source: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
-          cacheName: "buildpacks-cache/ballerina-run:18"
+        - id: "lifecycle"
+          remoteImage: "docker.io/buildpacksio/lifecycle:0.20.5"
+          cachedImage: "buildpacks-cache/lifecycle:0.20.5"
+        - id: "google-builder"
+          remoteImage: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+          cachedImage: "buildpacks-cache/google-builder:latest"
+        - id: "google-run"
+          remoteImage: "gcr.io/buildpacks/google-22/run:latest"
+          cachedImage: "buildpacks-cache/google-run:latest"
+        - id: "ballerina-builder"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18"
+          cachedImage: "buildpacks-cache/ballerina-builder:18"
+        - id: "ballerina-run"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
+          cachedImage: "buildpacks-cache/ballerina-run:18"
 
 # @schema
 # type: object

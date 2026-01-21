@@ -157,19 +157,24 @@ spec:
             until podman info --format '{{ "{{" }}.Host.RemoteSocket.Exists{{ "}}" }}' 2>/dev/null | grep -q true; do sleep 1; done
 
             #####################################################################
-            # 2. Registry configuration and pull pre-cached images
+            # 2. Pull buildpack images
             #####################################################################
-            REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
+            BUILDER="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-builder" "context" .) }}"
+            RUN_IMAGE="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-run" "context" .) }}"
 
-            # Pull pre-cached buildpack images from registry
-            BUILDER="${REGISTRY_ENDPOINT}/buildpacks-cache/ballerina-builder:18"
-            RUN_IMAGE="${REGISTRY_ENDPOINT}/buildpacks-cache/ballerina-run:18"
-
-            echo "Pulling cached builder: $BUILDER"
+            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
+            echo "Pulling builder from cache: $BUILDER"
             podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
 
-            echo "Pulling cached run image: $RUN_IMAGE"
+            echo "Pulling run image from cache: $RUN_IMAGE"
             podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMAGE"
+            {{- else }}
+            echo "Pulling builder from remote: $BUILDER"
+            podman pull "$BUILDER"
+
+            echo "Pulling run image from remote: $RUN_IMAGE"
+            podman pull "$RUN_IMAGE"
+            {{- end }}
 
             #####################################################################
             # 3. Build with Ballerina Buildpacks

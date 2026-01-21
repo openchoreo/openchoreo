@@ -110,7 +110,7 @@ spec:
           }
 
           {{- range .Values.global.defaultResources.buildpackCache.images }}
-          push_image "{{ .source }}" "{{ .cacheName }}"
+          push_image "{{ .remoteImage }}" "{{ .cachedImage }}"
           {{- end }}
 
           echo ""
