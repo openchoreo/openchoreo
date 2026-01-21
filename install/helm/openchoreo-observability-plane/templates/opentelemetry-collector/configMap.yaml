@@ -80,15 +80,14 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
+          {{- $processors := list }}
           {{- if eq .Values.global.installationMode "singleCluster" }}
-          {{- if .Values.opentelemetryCollectorCustomizations.tailSampling.enabled }}
-          processors: [k8sattributes, tail_sampling]
-          {{- else }}
-          processors: [k8sattributes]
+          {{- $processors = append $processors "k8sattributes" }}
           {{- end }}
-          {{- else }}
           {{- if .Values.opentelemetryCollectorCustomizations.tailSampling.enabled }}
-          processors: [tail_sampling]
+          {{- $processors = append $processors "tail_sampling" }}
           {{- end }}
+          {{- if $processors }}
+          processors: [{{ join ", " $processors }}]
           {{- end }}
           exporters: [opensearch]
