@@ -14,8 +14,9 @@ import (
 
 // WebhookConfig holds webhook configuration for sending alerts
 type WebhookConfig struct {
-	URL     string
-	Headers map[string]string
+	URL             string
+	Headers         map[string]string
+	PayloadTemplate string // Optional JSON template with CEL expressions
 }
 
 // SendWebhookWithConfig sends an alert webhook using the provided configuration.
@@ -59,6 +60,11 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 
 	// Check response status
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		// Read response body for better error messages
+		var responseBody bytes.Buffer
+		if _, readErr := responseBody.ReadFrom(resp.Body); readErr == nil && responseBody.Len() > 0 {
+			return fmt.Errorf("webhook request failed with status code: %d, response: %s", resp.StatusCode, responseBody.String())
+		}
 		return fmt.Errorf("webhook request failed with status code: %d", resp.StatusCode)
 	}
 

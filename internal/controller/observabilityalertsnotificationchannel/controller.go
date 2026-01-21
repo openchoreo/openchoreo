@@ -213,6 +213,10 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 	// Add webhook-specific config if type is webhook
 	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeWebhook && channel.Spec.WebhookConfig != nil {
 		configMap.Data["webhook.url"] = channel.Spec.WebhookConfig.URL
+		// Store payload template if provided
+		if channel.Spec.WebhookConfig.PayloadTemplate != "" {
+			configMap.Data["webhook.payloadTemplate"] = channel.Spec.WebhookConfig.PayloadTemplate
+		}
 		// Store inline header values in ConfigMap, header names for secret-referenced values
 		if len(channel.Spec.WebhookConfig.Headers) > 0 {
 			headerKeys := make([]string, 0, len(channel.Spec.WebhookConfig.Headers))

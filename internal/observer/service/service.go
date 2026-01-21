@@ -1164,18 +1164,42 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 	// Send notification based on channel type
 	switch channelConfig.Type {
 	case "webhook":
-		// For webhooks, send the alertDetails JSON object directly
-		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, requestBody); err != nil {
+		// Transform payload if template is provided, otherwise use raw alertDetails
+		var payload map[string]interface{}
+		if channelConfig.Webhook.PayloadTemplate != "" {
+			// Render the template using CEL expressions
+			renderedTemplate := s.renderTemplate(channelConfig.Webhook.PayloadTemplate, requestBody)
+
+			// Parse the rendered template as JSON
+			if err := json.Unmarshal([]byte(renderedTemplate), &payload); err != nil {
+				s.logger.Error("Failed to parse rendered webhook payload template as JSON",
+					"error", err,
+					"renderedTemplate", renderedTemplate,
+					"channelName", notificationChannelName)
+				return fmt.Errorf("failed to parse webhook payload template as JSON: %w", err)
+			}
+			s.logger.Debug("Webhook payload template rendered and parsed",
+				"channelName", notificationChannelName,
+				"payload", payload)
+		} else {
+			// No template provided, use raw alertDetails
+			payload = requestBody
+		}
+
+		// Send the webhook with the transformed payload
+		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, payload); err != nil {
 			s.logger.Error("Failed to send alert notification webhook",
 				"error", err,
 				"channelName", notificationChannelName,
-				"webhookURL", channelConfig.Webhook.URL)
+				"webhookURL", channelConfig.Webhook.URL,
+				"payload", payload)
 			return fmt.Errorf("failed to send alert notification webhook: %w", err)
 		}
-		s.logger.Info("Alert notification sent successfully via webhook",
+		s.logger.Debug("Alert notification sent successfully via webhook",
 			"ruleName", ruleName,
 			"channelName", notificationChannelName,
-			"webhookURL", channelConfig.Webhook.URL)
+			"webhookURL", channelConfig.Webhook.URL,
+			"usedTemplate", channelConfig.Webhook.PayloadTemplate != "")
 		return nil
 
 	case "email":
@@ -1350,14 +1374,19 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 			}
 		}
 
+		// Parse payload template if provided
+		payloadTemplate := configMap.Data["webhook.payloadTemplate"]
+
 		config.Webhook = notifications.WebhookConfig{
-			URL:     webhookURL,
-			Headers: headers,
+			URL:             webhookURL,
+			Headers:         headers,
+			PayloadTemplate: payloadTemplate,
 		}
 
 		s.logger.Debug("Final webhook config",
 			"url", config.Webhook.URL,
-			"headerCount", len(config.Webhook.Headers))
+			"headerCount", len(config.Webhook.Headers),
+			"hasPayloadTemplate", payloadTemplate != "")
 
 	default:
 		return nil, fmt.Errorf("unsupported notification channel type: %s", channelType)

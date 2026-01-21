@@ -132,6 +132,14 @@ type WebhookConfig struct {
 	// Headers can be provided inline or via secret references
 	// +optional
 	Headers map[string]WebhookHeaderValue `json:"headers,omitempty"`
+
+	// PayloadTemplate is an optional JSON payload template using CEL expressions
+	// If not provided, the raw alertDetails object will be sent as JSON
+	// CEL expressions use ${...} syntax and have access to alert fields:
+	// - ${alert.ruleName}, ${alert.description}, ${alert.severity}, ${alert.value}, etc.
+	// Example for Slack: {"text": "Alert: ${alert.ruleName}", "blocks": [...]}
+	// +optional
+	PayloadTemplate string `json:"payloadTemplate,omitempty"`
 }
 
 // NotificationChannelConfig is deprecated. Use EmailConfig and WebhookConfig directly in the spec instead.
