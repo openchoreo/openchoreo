@@ -47,7 +47,7 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
 	for _, item := range orgList.Items {
 		// Authorization check for each organization
-		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewOrganization, ResourceTypeOrganization, item.Name,
+		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewNamespace, ResourceTypeNamespace, item.Name,
 			authz.ResourceHierarchy{Namespace: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized organizations
@@ -69,7 +69,7 @@ func (s *OrganizationService) GetOrganization(ctx context.Context, orgName strin
 	s.logger.Debug("Getting organization", "org", orgName)
 
 	// Authorization check
-	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewOrganization, ResourceTypeOrganization, orgName,
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewNamespace, ResourceTypeNamespace, orgName,
 		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}

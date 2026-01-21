@@ -24,7 +24,7 @@ const (
 	SystemActionCreateWorkload systemAction = "workload:create"
 	SystemActionViewWorkload   systemAction = "workload:view"
 
-	SystemActionViewOrganization systemAction = "organization:view"
+	SystemActionViewNamespace systemAction = "namespace:view"
 
 	SystemActionCreateRole        systemAction = "role:create"
 	SystemActionViewRole          systemAction = "role:view"
@@ -65,7 +65,7 @@ const (
 	ResourceTypeComponentRelease     ResourceType = "componentRelease"
 	ResourceTypeReleaseBinding       ResourceType = "releaseBinding"
 	ResourceTypeWorkload             ResourceType = "workload"
-	ResourceTypeOrganization         ResourceType = "organization"
+	ResourceTypeNamespace            ResourceType = "namespace"
 	ResourceTypeRole                 ResourceType = "role"
 	ResourceTypeRoleMapping          ResourceType = "roleMapping"
 	ResourceTypeComponentType        ResourceType = "componentType"
