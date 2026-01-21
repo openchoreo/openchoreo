@@ -305,6 +305,48 @@ security:
     # default: /etc/openchoreo/authz/default-roles-mappings.yaml
     # @schema
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
+    # @schema
+    # type: array
+    # description: Additional role mappings to be added to the default mappings
+    # items:
+    #   type: object
+    #   properties:
+    #     role:
+    #       type: object
+    #       properties:
+    #         name:
+    #           type: string
+    #           description: Role name
+    #         namespace:
+    #           type: string
+    #           description: Namespace for namespace-scoped role, empty for cluster role
+    #     entitlement:
+    #       type: object
+    #       properties:
+    #         claim:
+    #           type: string
+    #           description: JWT claim from your IDP
+    #         value:
+    #           type: string
+    #           description: Value to match from the claim
+    #     effect:
+    #       enum: [allow, deny]
+    #       description: Effect of the mapping
+    #     hierarchy:
+    #       type: object
+    #       properties:
+    #         namespace:
+    #           type: string
+    #           description: Namespace (organization) name
+    #         project:
+    #           type: string
+    #           description: Project name (requires namespace)
+    #         component:
+    #           type: string
+    #           description: Component name (requires namespace and project)
+    # default: []
+    # @schema
+    additionalRoleMappings: []
   # @schema
   # type: string
   # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port

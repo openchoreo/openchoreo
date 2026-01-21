@@ -3566,6 +3566,72 @@
           "additionalProperties": false,
           "description": "Authorization (authz) configuration using Casbin",
           "properties": {
+            "additionalRoleMappings": {
+              "default": [],
+              "description": "Additional role mappings to be added to the default mappings",
+              "items": {
+                "properties": {
+                  "effect": {
+                    "description": "Effect of the mapping",
+                    "enum": [
+                      "allow",
+                      "deny"
+                    ],
+                    "required": []
+                  },
+                  "entitlement": {
+                    "properties": {
+                      "claim": {
+                        "description": "JWT claim from your IDP",
+                        "type": "string"
+                      },
+                      "value": {
+                        "description": "Value to match from the claim",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "hierarchy": {
+                    "properties": {
+                      "component": {
+                        "description": "Component name (requires namespace and project)",
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "description": "Namespace (organization) name",
+                        "type": "string"
+                      },
+                      "project": {
+                        "description": "Project name (requires namespace)",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "role": {
+                    "properties": {
+                      "name": {
+                        "description": "Role name",
+                        "type": "string"
+                      },
+                      "namespace": {
+                        "description": "Namespace for namespace-scoped role, empty for cluster role",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "additionalRoleMappings",
+              "type": "array"
+            },
             "databasePath": {
               "default": "/var/lib/openchoreo/data/casbin.db",
               "description": "Path to the Casbin database file",
