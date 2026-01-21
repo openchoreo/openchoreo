@@ -2587,7 +2587,6 @@
             "enabled": {
               "default": true,
               "description": "Enable tail sampling",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -2658,13 +2657,11 @@
                       "properties": {
                         "cpu": {
                           "default": "100m",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "200Mi",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2681,13 +2678,11 @@
                       "properties": {
                         "cpu": {
                           "default": "50m",
-                          "required": [],
                           "title": "cpu",
                           "type": "string"
                         },
                         "memory": {
                           "default": "100Mi",
-                          "required": [],
                           "title": "memory",
                           "type": "string"
                         }
@@ -2721,7 +2716,6 @@
                   "properties": {
                     "resolve_timeout": {
                       "default": "5m",
-                      "required": [],
                       "title": "resolve_timeout",
                       "type": "string"
                     }
@@ -2740,7 +2734,6 @@
                         "properties": {
                           "name": {
                             "default": "openchoreo-alerts",
-                            "required": [],
                             "title": "name",
                             "type": "string"
                           },
@@ -2752,13 +2745,11 @@
                                   "properties": {
                                     "send_resolved": {
                                       "default": false,
-                                      "required": [],
                                       "title": "send_resolved",
                                       "type": "boolean"
                                     },
                                     "url": {
                                       "default": "http://observer.openchoreo-observability-plane.svc.cluster.local:8080/api/alerting/webhook/prometheus",
-                                      "required": [],
                                       "title": "url",
                                       "type": "string"
                                     }
@@ -2772,7 +2763,6 @@
                               ],
                               "required": []
                             },
-                            "required": [],
                             "title": "webhook_configs",
                             "type": "array"
                           }
@@ -2788,7 +2778,6 @@
                         "properties": {
                           "name": {
                             "default": "null",
-                            "required": [],
                             "title": "name",
                             "type": "string"
                           }
@@ -2801,7 +2790,6 @@
                     ],
                     "required": []
                   },
-                  "required": [],
                   "title": "receivers",
                   "type": "array"
                 },
@@ -2812,37 +2800,31 @@
                       "items": {
                         "anyOf": [
                           {
-                            "required": [],
                             "type": "string"
                           }
                         ],
                         "required": []
                       },
-                      "required": [],
                       "title": "group_by",
                       "type": "array"
                     },
                     "group_interval": {
                       "default": "5m",
-                      "required": [],
                       "title": "group_interval",
                       "type": "string"
                     },
                     "group_wait": {
                       "default": "30s",
-                      "required": [],
                       "title": "group_wait",
                       "type": "string"
                     },
                     "receiver": {
                       "default": "null",
-                      "required": [],
                       "title": "receiver",
                       "type": "string"
                     },
                     "repeat_interval": {
                       "default": "12h",
-                      "required": [],
                       "title": "repeat_interval",
                       "type": "string"
                     },
@@ -2856,19 +2838,16 @@
                                 "items": {
                                   "anyOf": [
                                     {
-                                      "required": [],
                                       "type": "string"
                                     }
                                   ],
                                   "required": []
                                 },
-                                "required": [],
                                 "title": "matchers",
                                 "type": "array"
                               },
                               "receiver": {
                                 "default": "openchoreo-alerts",
-                                "required": [],
                                 "title": "receiver",
                                 "type": "string"
                               }
@@ -2882,7 +2861,6 @@
                         ],
                         "required": []
                       },
-                      "required": [],
                       "title": "routes",
                       "type": "array"
                     }
@@ -3097,7 +3075,6 @@
                   "properties": {
                     "enabled": {
                       "default": true,
-                      "required": [],
                       "title": "enabled",
                       "type": "boolean"
                     }
@@ -3368,7 +3345,6 @@
                 "ruleSelectorNilUsesHelmValues": {
                   "default": false,
                   "description": "Use Helm values for PrometheusRule selection when selector is nil",
-                  "required": [],
                   "title": "ruleSelectorNilUsesHelmValues",
                   "type": "boolean"
                 },
