@@ -56,10 +56,10 @@ type Config struct {
 	// If set, the token's "iss" claim must match this value
 	ValidateIssuer string
 
-	// ValidateAudience enables audience validation (optional)
-	// If set, the token's "aud" claim must contain this value
+	// ValidateAudiences enables audience validation (optional)
+	// If set, the token's "aud" claim must contain at least one of these values
 	// If empty, audience validation is skipped
-	ValidateAudience string
+	ValidateAudiences []string
 
 	// SignatureAlgorithm specifies the expected signature algorithm (optional)
 	// Common values: RS256, RS384, RS512, HS256, HS384, HS512, ES256, ES384, ES512

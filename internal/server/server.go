@@ -21,6 +21,9 @@ type Config struct {
 	WriteTimeout    time.Duration
 	IdleTimeout     time.Duration
 	ShutdownTimeout time.Duration
+	TLSEnabled      bool
+	TLSCertFile     string
+	TLSKeyFile      string
 }
 
 // Server wraps an HTTP server with lifecycle management.
@@ -28,6 +31,9 @@ type Server struct {
 	httpServer      *http.Server
 	logger          *slog.Logger
 	shutdownTimeout time.Duration
+	tlsEnabled      bool
+	tlsCertFile     string
+	tlsKeyFile      string
 }
 
 // New creates a new Server with the given configuration and handler.
@@ -48,6 +54,9 @@ func New(cfg Config, handler http.Handler, logger *slog.Logger) *Server {
 		},
 		logger:          logger.With("module", "server"),
 		shutdownTimeout: shutdownTimeout,
+		tlsEnabled:      cfg.TLSEnabled,
+		tlsCertFile:     cfg.TLSCertFile,
+		tlsKeyFile:      cfg.TLSKeyFile,
 	}
 }
 
@@ -57,8 +66,14 @@ func (s *Server) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 
 	go func() {
-		s.logger.Info("server starting", "addr", s.httpServer.Addr)
-		if err := s.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		s.logger.Info("server starting", "addr", s.httpServer.Addr, "tls", s.tlsEnabled)
+		var err error
+		if s.tlsEnabled {
+			err = s.httpServer.ListenAndServeTLS(s.tlsCertFile, s.tlsKeyFile)
+		} else {
+			err = s.httpServer.ListenAndServe()
+		}
+		if !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()

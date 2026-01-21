@@ -241,6 +241,12 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 	jwtAudience := os.Getenv(apiconfig.EnvJWTAudience)
 	jwksURLTLSInsecureSkipVerify := os.Getenv(apiconfig.EnvJWKSURLTLSInsecureSkipVerify) == "true"
 
+	// Convert single audience string to slice (for backward compatibility)
+	var jwtAudiences []string
+	if jwtAudience != "" {
+		jwtAudiences = []string{jwtAudience}
+	}
+
 	// Create OAuth2 user type detector from configuration
 	var detector *jwt.Resolver
 	if len(cfg.Auth.UserTypes) > 0 {
@@ -258,7 +264,7 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 		Disabled:                     jwtDisabled,
 		JWKSURL:                      jwksURL,
 		ValidateIssuer:               jwtIssuer,
-		ValidateAudience:             jwtAudience,
+		ValidateAudiences:            jwtAudiences,
 		JWKSURLTLSInsecureSkipVerify: jwksURLTLSInsecureSkipVerify,
 		Detector:                     detector,
 		Logger:                       logger,

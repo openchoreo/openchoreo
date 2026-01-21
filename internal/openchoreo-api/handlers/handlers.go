@@ -77,15 +77,13 @@ func (h *Handler) Routes() http.Handler {
 	// Audit logging middleware - applies to protected routes only
 	auditMiddleware := h.initAuditMiddleware()
 
-	// MCP endpoint
-	toolsets := getMCPServerToolsets(h)
-
-	// MCP middleware
-	mcpMiddleware := h.initMCPMiddleware()
-
-	// MCP endpoint with chained middleware (logger -> auth401 -> jwt -> handler)
-	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
-	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+	// MCP endpoint (only if enabled)
+	if h.config.MCP.Enabled {
+		toolsets := getMCPServerToolsets(h)
+		mcpMiddleware := h.initMCPMiddleware()
+		mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
+		mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(toolsets))
+	}
 
 	// Create protected route group with JWT auth and audit logging
 	// Middleware order: logger -> jwt -> audit -> handler
@@ -208,19 +206,19 @@ func (h *Handler) Routes() http.Handler {
 }
 
 func (h *Handler) listUserTypes(w http.ResponseWriter, r *http.Request) {
-	userTypes := config.ToSubjectUserTypeConfigs(h.config.Server.Middleware.JWT.UserTypes)
+	userTypes := h.config.Security.ToSubjectUserTypeConfigs()
 	writeSuccessResponse(w, http.StatusOK, userTypes)
 }
 
 // InitJWTMiddleware initializes the JWT authentication middleware from unified configuration.
 // Exported for reuse by the new OpenAPI-generated server.
 func (h *Handler) InitJWTMiddleware() func(http.Handler) http.Handler {
-	jwtCfg := &h.config.Server.Middleware.JWT
+	jwtCfg := &h.config.Security.Authentication.JWT
 
 	// Create OAuth2 user type resolver from configuration
 	var resolver *jwt.Resolver
-	if len(jwtCfg.UserTypes) > 0 {
-		subjectUserTypes := config.ToSubjectUserTypeConfigs(jwtCfg.UserTypes)
+	subjectUserTypes := h.config.Security.ToSubjectUserTypeConfigs()
+	if len(subjectUserTypes) > 0 {
 		var err error
 		resolver, err = jwt.NewResolver(subjectUserTypes)
 		if err != nil {
@@ -229,11 +227,11 @@ func (h *Handler) InitJWTMiddleware() func(http.Handler) http.Handler {
 		}
 	}
 
-	return jwt.Middleware(jwtCfg.ToJWTConfig(h.logger, resolver))
+	return jwt.Middleware(jwtCfg.ToJWTMiddlewareConfig(h.logger, resolver))
 }
 
 func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {
-	resourceMetadataURL := h.config.MCP.OAuth.ResourceURL + "/.well-known/oauth-protected-resource"
+	resourceMetadataURL := h.config.Server.PublicURL + "/.well-known/oauth-protected-resource"
 	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
 }
 

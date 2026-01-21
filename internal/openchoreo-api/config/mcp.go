@@ -4,6 +4,8 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
@@ -14,16 +16,6 @@ type MCPConfig struct {
 	Enabled bool `koanf:"enabled"`
 	// Toolsets is the list of enabled MCP toolsets.
 	Toolsets []string `koanf:"toolsets"`
-	// OAuth defines OAuth settings for MCP protected resource metadata.
-	OAuth MCPOAuthConfig `koanf:"oauth"`
-}
-
-// MCPOAuthConfig defines OAuth settings for MCP.
-type MCPOAuthConfig struct {
-	// ResourceURL is the base URL of the MCP resource (typically the API server URL).
-	ResourceURL string `koanf:"resource_url"`
-	// AuthServerURL is the base URL of the authorization server.
-	AuthServerURL string `koanf:"auth_server_url"`
 }
 
 // MCPDefaults returns the default MCP configuration.
@@ -40,27 +32,30 @@ func MCPDefaults() MCPConfig {
 			string(tools.ToolsetSchema),
 			string(tools.ToolsetResource),
 		},
-		OAuth: MCPOAuthConfig{
-			ResourceURL:   "http://api.openchoreo.localhost",
-			AuthServerURL: "http://sts.openchoreo.localhost",
-		},
 	}
+}
+
+// validToolsets is the set of valid MCP toolset names.
+var validToolsets = map[string]bool{
+	string(tools.ToolsetOrganization):   true,
+	string(tools.ToolsetProject):        true,
+	string(tools.ToolsetComponent):      true,
+	string(tools.ToolsetBuild):          true,
+	string(tools.ToolsetDeployment):     true,
+	string(tools.ToolsetInfrastructure): true,
+	string(tools.ToolsetSchema):         true,
+	string(tools.ToolsetResource):       true,
 }
 
 // Validate validates the MCP configuration.
 func (c *MCPConfig) Validate(path *config.Path) config.ValidationErrors {
 	var errs config.ValidationErrors
 
-	if !c.Enabled {
-		return errs // skip validation if disabled
-	}
-
-	if c.OAuth.ResourceURL == "" {
-		errs = append(errs, config.Required(path.Child("oauth").Child("resource_url")))
-	}
-
-	if c.OAuth.AuthServerURL == "" {
-		errs = append(errs, config.Required(path.Child("oauth").Child("auth_server_url")))
+	for i, ts := range c.Toolsets {
+		if !validToolsets[ts] {
+			errs = append(errs, config.Invalid(path.Child("toolsets").Index(i),
+				fmt.Sprintf("unknown toolset %q; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource", ts)))
+		}
 	}
 
 	return errs

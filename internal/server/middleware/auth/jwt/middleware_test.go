@@ -234,8 +234,8 @@ func TestMiddleware_ValidAudience(t *testing.T) {
 	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:       []byte(testSecret),
-		ValidateAudience: "expected-audience",
+		SigningKey:        []byte(testSecret),
+		ValidateAudiences: []string{"expected-audience"},
 	}
 
 	middleware := Middleware(config)
@@ -264,8 +264,8 @@ func TestMiddleware_InvalidAudience(t *testing.T) {
 	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:       []byte(testSecret),
-		ValidateAudience: "expected-audience",
+		SigningKey:        []byte(testSecret),
+		ValidateAudiences: []string{"expected-audience"},
 	}
 
 	middleware := Middleware(config)
@@ -295,7 +295,7 @@ func TestMiddleware_NoAudienceValidationWhenNotConfigured(t *testing.T) {
 
 	config := Config{
 		SigningKey: []byte(testSecret),
-		// ValidateAudience is not set
+		// ValidateAudiences is not set
 	}
 
 	middleware := Middleware(config)
@@ -507,8 +507,8 @@ func TestMiddleware_ArrayAudience(t *testing.T) {
 	token := createTestToken(claims)
 
 	config := Config{
-		SigningKey:       []byte(testSecret),
-		ValidateAudience: "expected-audience",
+		SigningKey:        []byte(testSecret),
+		ValidateAudiences: []string{"expected-audience"},
 	}
 
 	middleware := Middleware(config)

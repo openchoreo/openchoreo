@@ -14,24 +14,24 @@ func (h *Handler) GetOpenIDConfiguration(
 	ctx context.Context,
 	request gen.GetOpenIDConfigurationRequestObject,
 ) (gen.GetOpenIDConfigurationResponseObject, error) {
-	// Build external clients from config
-	externalClients := make([]gen.ExternalClient, len(h.Config.OAuth.Clients))
-	for i, client := range h.Config.OAuth.Clients {
-		externalClients[i] = gen.ExternalClient{
-			Name:     client.Name,
+	// Build external clients from config (Identity.Clients is a map)
+	externalClients := make([]gen.ExternalClient, 0, len(h.Config.Identity.Clients))
+	for name, client := range h.Config.Identity.Clients {
+		externalClients = append(externalClients, gen.ExternalClient{
+			Name:     name,
 			ClientId: client.ClientID,
 			Scopes:   client.Scopes,
-		}
+		})
 	}
 
 	// Get OIDC endpoints and security settings from config
-	issuer := h.Config.OAuth.OIDC.Issuer
-	jwksURI := h.Config.Middleware.JWT.JWKSURL
-	securityEnabled := !h.Config.Middleware.JWT.Disabled
+	issuer := h.Config.Identity.OIDC.Issuer
+	jwksURI := h.Config.Security.Authentication.JWT.JWKS.URL
+	securityEnabled := h.Config.Security.Authentication.JWT.Enabled
 
 	response := gen.GetOpenIDConfiguration200JSONResponse{
-		AuthorizationEndpoint: h.Config.OAuth.OIDC.AuthorizationURL,
-		TokenEndpoint:         h.Config.OAuth.OIDC.TokenURL,
+		AuthorizationEndpoint: h.Config.Identity.OIDC.AuthorizationEndpoint,
+		TokenEndpoint:         h.Config.Identity.OIDC.TokenEndpoint,
 		ExternalClients:       externalClients,
 		SecurityEnabled:       securityEnabled,
 	}

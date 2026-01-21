@@ -15,9 +15,9 @@ func (h *Handler) OAuthProtectedResourceMetadata(w http.ResponseWriter, r *http.
 	// Create metadata handler using unified configuration
 	handler := oauth.NewMetadataHandler(oauth.MetadataHandlerConfig{
 		ResourceName: "OpenChoreo MCP Server",
-		ResourceURL:  h.config.MCP.OAuth.ResourceURL + "/mcp",
+		ResourceURL:  h.config.Server.PublicURL + "/mcp",
 		AuthorizationServers: []string{
-			h.config.MCP.OAuth.AuthServerURL,
+			h.config.Identity.OIDC.Issuer,
 		},
 		Logger: h.logger,
 	})

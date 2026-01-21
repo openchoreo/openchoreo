@@ -88,7 +88,7 @@ func main() {
 	}
 
 	// Initialize authorization
-	pap, pdp, err := authz.Initialize(cfg.Authorization.ToAuthzConfig(), logger)
+	pap, pdp, err := authz.Initialize(cfg.Security.Authorization.ToAuthzConfig(), logger)
 	if err != nil {
 		logger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)

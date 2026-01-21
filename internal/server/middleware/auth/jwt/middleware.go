@@ -229,28 +229,41 @@ func validateClaims(claims jwt.MapClaims, config Config) error {
 	}
 
 	// Validate audience only if configured
-	if config.ValidateAudience != "" {
+	if len(config.ValidateAudiences) > 0 {
 		aud, ok := claims["aud"]
 		if !ok {
 			return errors.New("missing audience claim")
 		}
 
-		// Audience can be string or []string
+		// Audience claim can be string or []string
+		// Token is valid if ANY of its audiences match ANY of the configured audiences
 		valid := false
 		switch v := aud.(type) {
 		case string:
-			valid = v == config.ValidateAudience
-		case []interface{}:
-			for _, a := range v {
-				if str, ok := a.(string); ok && str == config.ValidateAudience {
+			for _, expected := range config.ValidateAudiences {
+				if v == expected {
 					valid = true
 					break
+				}
+			}
+		case []interface{}:
+			for _, a := range v {
+				if str, ok := a.(string); ok {
+					for _, expected := range config.ValidateAudiences {
+						if str == expected {
+							valid = true
+							break
+						}
+					}
+					if valid {
+						break
+					}
 				}
 			}
 		}
 
 		if !valid {
-			return fmt.Errorf("invalid audience: expected %s", config.ValidateAudience)
+			return fmt.Errorf("invalid audience: expected one of %v", config.ValidateAudiences)
 		}
 	}
 

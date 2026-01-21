@@ -30,7 +30,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			Priority:    1,
 			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
-					Type: "oauth2",
+					Type: "jwt",
 					Entitlement: subject.EntitlementConfig{
 						Claim:       "group",
 						DisplayName: "User Group",
@@ -44,7 +44,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 			Priority:    2,
 			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
-					Type: "oauth2",
+					Type: "jwt",
 					Entitlement: subject.EntitlementConfig{
 						Claim:       "service_account",
 						DisplayName: "Service Account ID",
@@ -159,7 +159,7 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 }
 
 func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
-	// User type without OAuth2 mechanism (using API key instead)
+	// User type without JWT mechanism (using API key instead)
 	userTypes := []subject.UserTypeConfig{
 		{
 			Type:        "user",
@@ -179,23 +179,23 @@ func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
 
 	_, err := NewResolver(userTypes)
 	if err == nil {
-		t.Error("NewDetector() should fail when no user types have OAuth2 mechanism")
+		t.Error("NewResolver() should fail when no user types have JWT mechanism")
 	}
-	if err != nil && err.Error() != "no user types have OAuth2 auth mechanism configured" {
-		t.Errorf("NewDetector() error = %v, want error about no OAuth2 mechanism", err)
+	if err != nil && err.Error() != "no user types have JWT auth mechanism configured" {
+		t.Errorf("NewResolver() error = %v, want error about no JWT mechanism", err)
 	}
 }
 
 func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
-	// Mix of OAuth2 and non-OAuth2 user types
+	// Mix of JWT and non-JWT user types
 	userTypes := []subject.UserTypeConfig{
 		{
 			Type:        "user",
-			DisplayName: "OAuth2 User",
+			DisplayName: "JWT User",
 			Priority:    1,
 			AuthMechanisms: []subject.AuthMechanismConfig{
 				{
-					Type: "oauth2",
+					Type: "jwt",
 					Entitlement: subject.EntitlementConfig{
 						Claim:       "groups",
 						DisplayName: "User Groups",
@@ -221,10 +221,10 @@ func TestJWTDetectorFiltersNonJWTUserTypes(t *testing.T) {
 
 	detector, err := NewResolver(userTypes)
 	if err != nil {
-		t.Fatalf("NewDetector() should succeed with at least one OAuth2 user type: %v", err)
+		t.Fatalf("NewResolver() should succeed with at least one JWT user type: %v", err)
 	}
 
-	// Should only detect OAuth2 user type
+	// Should only detect JWT user type
 	token := createTestJWT(jwt.MapClaims{"groups": "admin"})
 	result, err := detector.ResolveUserType(token)
 	if err != nil {

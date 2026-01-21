@@ -1,81 +1,164 @@
 # OpenChoreo API Configuration
-# This is the default configuration file for local development.
 #
 # Configuration priority (highest to lowest):
-#   1. Environment variables (OC_API__SERVER__PORT=9090)
-#   2. This config file
+#   1. Environment variables
+#   2. Config file
 #   3. Built-in defaults
 #
 # Environment variable format: OC_API__<SECTION>__<FIELD>
-# Example: OC_API__SERVER__PORT=9090, OC_API__LOGGING__LEVEL=debug
+# Examples:
+#   OC_API__SERVER__PORT=9090
+#   OC_API__LOGGING__LEVEL=debug
+#   OC_API__SECURITY__AUTHENTICATION__JWT__ENABLED=true
 
 server:
-  port: 8080
-  read_timeout: 15s
-  write_timeout: 15s
-  idle_timeout: 60s
-  shutdown_timeout: 30s
+  # Address to bind the HTTP server to.
+  bind_address: "0.0.0.0"
 
-  middleware:
+  # Port to listen on for HTTP requests.
+  port: 8080
+
+  # Public URL where this API is externally accessible.
+  # Used for OAuth resource metadata and self-referential links.
+  public_url: "http://api.openchoreo.localhost:8080"
+
+  timeouts:
+    # Maximum duration for reading the entire request, including the body.
+    read: 15s
+
+    # Maximum duration before timing out writes of the response.
+    write: 15s
+
+    # Maximum amount of time to wait for the next request when keep-alives are enabled.
+    idle: 60s
+
+    # Maximum duration to wait for active connections to close during shutdown.
+    shutdown: 30s
+
+  tls:
+    # Enable TLS for the HTTP server.
+    enabled: false
+
+    # Path to the TLS certificate file.
+    cert_file: ""
+
+    # Path to the TLS private key file.
+    key_file: ""
+
+  # Middleware configuration placeholder for future settings (e.g., request_id).
+  middleware: { }
+
+security:
+  authentication:
     jwt:
-      # Disable JWT authentication for local development.
-      # Set to true and configure issuer/jwks for authenticated mode.
+      # Enable JWT authentication.
+      # When disabled, all requests are treated as unauthenticated.
       enabled: false
+
+      # Override the issuer (iss) claim validation.
+      # If empty, uses identity.oidc.issuer.
       issuer: ""
-      audience: ""
+
+      # List of acceptable audiences (aud) for the JWT.
+      # Tokens must contain at least one of these audiences.
+      audiences: [ ]
+
+      # Allowed clock skew when validating token expiration times.
+      # Compensates for clock differences between servers.
       clock_skew: 0s
 
       jwks:
+        # Override the JWKS URL for token verification.
+        # If empty, discovered from identity.oidc.issuer via OIDC discovery.
         url: ""
+
+        # How often to refresh the JWKS from the remote URL.
         refresh_interval: 1h
+
+        # Skip TLS certificate verification when fetching JWKS.
         skip_tls_verify: false
 
-      # User type definitions for subject resolution.
-      # These define how to identify and extract entitlements from JWT tokens.
-      user_types:
-        - type: "user"
-          display_name: "User"
-          priority: 1
-          auth_mechanisms:
-            - type: "oauth2"
-              entitlement:
-                claim: "groups"
-                display_name: "User Group"
-        - type: "service_account"
-          display_name: "Service Account"
-          priority: 2
-          auth_mechanisms:
-            - type: "oauth2"
-              entitlement:
-                claim: "sub"
-                display_name: "Client ID"
+  # Subject types define how to classify and extract identity information
+  # from authenticated tokens. Each subject type can have different
+  # entitlement extraction rules based on the authentication mechanism.
+  subjects:
+    user:
+      # Human-readable name for this subject type.
+      display_name: "User"
 
-authorization:
-  # Disable authorization for local development.
-  # Set to true and configure database_path for authorized mode.
-  enabled: false
-  database_path: ""
-  roles_file: ""
-  cache_enabled: false
-  cache_ttl: 5m
+      # Priority for subject type resolution when multiple types match.
+      # Lower numbers have higher priority.
+      priority: 1
 
-oauth:
-  # OIDC endpoints for client discovery (returned by /api/v1/client-configs).
+      # Authentication mechanisms and how to extract entitlements from each.
+      mechanisms:
+        jwt:
+          entitlement:
+            # JWT claim containing the user's entitlements/roles.
+            claim: "groups"
+
+            # Human-readable name for the entitlement type.
+            display_name: "User Group"
+
+    service_account:
+      display_name: "Service Account"
+      priority: 2
+      mechanisms:
+        jwt:
+          entitlement:
+            claim: "sub"
+            display_name: "Client ID"
+
+  authorization:
+    # Enable authorization checks using Casbin.
+    # When disabled, all authenticated requests are permitted.
+    enabled: false
+
+    # Path to the SQLite database file for storing authorization policies.
+    database_path: ""
+
+    # Path to the YAML file containing role definitions and mappings.
+    roles_file: ""
+
+    cache:
+      # Enable caching of authorization decisions.
+      enabled: false
+
+      # How long to cache authorization decisions.
+      ttl: 5m
+
+identity:
   oidc:
-    authorization_url: "http://sts.openchoreo.localhost/oauth2/authorize"
-    token_url: "http://sts.openchoreo.localhost/oauth2/token"
+    # OIDC provider issuer URL.
+    # Used for token validation and as the base for OAuth metadata.
+    issuer: "http://sts.openchoreo.localhost"
 
-  # External OAuth clients that can authenticate with this API.
+    # OAuth authorization endpoint URL.
+    authorization_endpoint: "http://sts.openchoreo.localhost/oauth2/authorize"
+
+    # OAuth token endpoint URL.
+    token_endpoint: "http://sts.openchoreo.localhost/oauth2/token"
+
+  # OAuth client configurations for external integrations.
+  # These are returned by the client discovery endpoint for CLI, CI/CD, etc.
   clients:
-    - name: "cli"
+    cli:
+      # OAuth client ID for the CLI application.
       client_id: "openchoreo-cli"
+
+      # OAuth scopes to request during authentication.
       scopes:
         - "openid"
         - "profile"
         - "email"
 
 mcp:
+  # Enable the Model Context Protocol (MCP) server.
+  # MCP provides AI-friendly tool interfaces for the API.
   enabled: true
+
+  # List of enabled MCP toolsets.
+  # Each toolset exposes a group of related operations.
   toolsets:
     - organization
     - project
@@ -86,11 +169,12 @@ mcp:
     - schema
     - resource
 
-  oauth:
-    resource_url: "http://api.openchoreo.localhost"
-    auth_server_url: "http://sts.openchoreo.localhost"
-
 logging:
+  # Minimum log level: debug, info, warn, error
   level: info
+
+  # Log output format: json, text
   format: json
+
+  # Include source file and line number in log entries.
   add_source: false
