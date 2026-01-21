@@ -4,9 +4,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -50,4 +52,42 @@ func (h *Handler) GetNamespace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeSuccessResponse(w, http.StatusOK, namespace)
+}
+
+// CreateNamespace handles POST /api/v1/namespaces
+func (h *Handler) CreateNamespace(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Parse request body
+	var req models.CreateNamespaceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to decode create namespace request", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	// Validate required fields
+	if req.Name == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	// Create namespace
+	namespace, err := h.services.NamespaceService.CreateNamespace(ctx, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrNamespaceAlreadyExists) {
+			writeErrorResponse(w, http.StatusConflict, "Namespace already exists", services.CodeNamespaceExists)
+			return
+		}
+		h.logger.Error("Failed to create namespace", "error", err, "namespace", req.Name)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create namespace", services.CodeInternalError)
+		return
+	}
+
+	h.logger.Info("Namespace created successfully", "namespace", req.Name)
+	writeSuccessResponse(w, http.StatusCreated, namespace)
 }

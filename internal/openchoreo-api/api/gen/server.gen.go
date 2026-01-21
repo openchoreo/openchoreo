@@ -78,6 +78,9 @@ type ServerInterface interface {
 	// List namespaces
 	// (GET /api/v1/namespaces)
 	ListNamespaces(w http.ResponseWriter, r *http.Request, params ListNamespacesParams)
+	// Create namespace
+	// (POST /api/v1/namespaces)
+	CreateNamespace(w http.ResponseWriter, r *http.Request)
 	// Get namespace
 	// (GET /api/v1/namespaces/{namespaceName})
 	GetNamespace(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
@@ -752,6 +755,26 @@ func (siw *ServerInterfaceWrapper) ListNamespaces(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListNamespaces(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNamespace operation middleware
+func (siw *ServerInterfaceWrapper) CreateNamespace(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNamespace(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3364,6 +3387,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.UpdateRole)
 	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/delete", wrapper.DeleteResource)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces", wrapper.ListNamespaces)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces", wrapper.CreateNamespace)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}", wrapper.GetNamespace)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/buildplanes", wrapper.ListBuildPlanes)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/component-types", wrapper.ListComponentTypes)
@@ -4319,6 +4343,68 @@ func (response ListNamespaces403JSONResponse) VisitListNamespacesResponse(w http
 type ListNamespaces500JSONResponse struct{ InternalErrorJSONResponse }
 
 func (response ListNamespaces500JSONResponse) VisitListNamespacesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRequestObject struct {
+	Body *CreateNamespaceJSONRequestBody
+}
+
+type CreateNamespaceResponseObject interface {
+	VisitCreateNamespaceResponse(w http.ResponseWriter) error
+}
+
+type CreateNamespace201JSONResponse Namespace
+
+func (response CreateNamespace201JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespace400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateNamespace400JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespace401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateNamespace401JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespace403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateNamespace403JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespace409JSONResponse ErrorResponse
+
+func (response CreateNamespace409JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespace500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateNamespace500JSONResponse) VisitCreateNamespaceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -7366,6 +7452,9 @@ type StrictServerInterface interface {
 	// List namespaces
 	// (GET /api/v1/namespaces)
 	ListNamespaces(ctx context.Context, request ListNamespacesRequestObject) (ListNamespacesResponseObject, error)
+	// Create namespace
+	// (POST /api/v1/namespaces)
+	CreateNamespace(ctx context.Context, request CreateNamespaceRequestObject) (CreateNamespaceResponseObject, error)
 	// Get namespace
 	// (GET /api/v1/namespaces/{namespaceName})
 	GetNamespace(ctx context.Context, request GetNamespaceRequestObject) (GetNamespaceResponseObject, error)
@@ -8066,6 +8155,37 @@ func (sh *strictHandler) ListNamespaces(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListNamespacesResponseObject); ok {
 		if err := validResponse.VisitListNamespacesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNamespace operation middleware
+func (sh *strictHandler) CreateNamespace(w http.ResponseWriter, r *http.Request) {
+	var request CreateNamespaceRequestObject
+
+	var body CreateNamespaceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNamespace(ctx, request.(CreateNamespaceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNamespace")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNamespaceResponseObject); ok {
+		if err := validResponse.VisitCreateNamespaceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

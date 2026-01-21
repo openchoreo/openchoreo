@@ -152,6 +152,13 @@ type NamespaceResponse struct {
 	Status      string    `json:"status,omitempty"`
 }
 
+// CreateNamespaceRequest represents a request to create a new namespace
+type CreateNamespaceRequest struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 // EnvironmentResponse represents an environment in API responses
 type EnvironmentResponse struct {
 	UID          string    `json:"uid"`

@@ -605,6 +605,18 @@ type CreateEnvironmentRequest struct {
 	Name string `json:"name"`
 }
 
+// CreateNamespaceRequest Request body for creating a new control plane namespace
+type CreateNamespaceRequest struct {
+	// Description Namespace description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name Namespace name (unique identifier, must be a valid Kubernetes namespace name)
+	Name string `json:"name"`
+}
+
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
 	// DeploymentPipeline Deployment pipeline to use (defaults to namespace default)
@@ -954,7 +966,9 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// Namespace Namespace resource
+// Namespace Namespace resource representing an OpenChoreo control plane namespace.
+// Control plane namespaces hold organization resources like Projects, Components, and Environments.
+// These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
 type Namespace struct {
 	// CreatedAt Creation timestamp
 	CreatedAt time.Time `json:"createdAt"`
@@ -1845,6 +1859,9 @@ type UpdateRoleJSONRequestBody = UpdateRoleRequest
 
 // DeleteResourceJSONRequestBody defines body for DeleteResource for application/json ContentType.
 type DeleteResourceJSONRequestBody = KubernetesResource
+
+// CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
+type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
 
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest

@@ -95,6 +95,7 @@ func (h *Handler) Routes() http.Handler {
 
 	// Controlplane namespace operations
 	api.HandleFunc("GET "+v1+"/namespaces", h.ListNamespaces)
+	api.HandleFunc("POST "+v1+"/namespaces", h.CreateNamespace)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}", h.GetNamespace)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/secret-references", h.ListSecretReferences)
 

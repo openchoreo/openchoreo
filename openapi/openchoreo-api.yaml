@@ -174,7 +174,11 @@ paths:
     get:
       operationId: listNamespaces
       summary: List namespaces
-      description: Returns a paginated list of namespaces the user has access to.
+      description: |
+        Returns a paginated list of OpenChoreo control plane namespaces the user has access to.
+        Only namespaces with the label `openchoreo.dev/controlplane-namespace=true` are returned.
+        This filters out system namespaces (e.g., openchoreo-control-plane, kube-system) and 
+        data plane runtime namespaces.
       tags: [Namespaces]
       parameters:
         - $ref: '#/components/parameters/LimitParam'
@@ -190,6 +194,41 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createNamespace
+      summary: Create namespace
+      description: |
+        Creates a new OpenChoreo control plane namespace.
+        The namespace is automatically labeled with `openchoreo.dev/controlplane-namespace=true`.
+      tags: [Namespaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNamespaceRequest'
+      responses:
+        '201':
+          description: Namespace created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Namespace already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -2727,7 +2766,10 @@ components:
 
     Namespace:
       type: object
-      description: Namespace resource
+      description: |
+        Namespace resource representing an OpenChoreo control plane namespace.
+        Control plane namespaces hold organization resources like Projects, Components, and Environments.
+        These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
       required:
         - name
         - createdAt
@@ -2757,6 +2799,30 @@ components:
           type: string
           description: Namespace status
           example: Ready
+
+    CreateNamespaceRequest:
+      type: object
+      description: Request body for creating a new control plane namespace
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Namespace name (unique identifier, must be a valid Kubernetes namespace name)
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 63
+          example: my-org
+        displayName:
+          type: string
+          description: Human-readable display name
+          maxLength: 100
+          example: My Organization
+        description:
+          type: string
+          description: Namespace description
+          maxLength: 500
+          example: Organization namespace for development team
 
     # -------------------------------------------------------------------------
     # Projects

@@ -16,6 +16,7 @@ var (
 	ErrTraitAlreadyExists           = errors.New("trait already exists")
 	ErrTraitNotFound                = errors.New("trait not found")
 	ErrNamespaceNotFound            = errors.New("namespace not found")
+	ErrNamespaceAlreadyExists       = errors.New("namespace already exists")
 	ErrEnvironmentNotFound          = errors.New("environment not found")
 	ErrEnvironmentAlreadyExists     = errors.New("environment already exists")
 	ErrDataPlaneNotFound            = errors.New("dataplane not found")
@@ -48,6 +49,7 @@ const (
 	CodeTraitExists                  = "TRAIT_EXISTS"
 	CodeTraitNotFound                = "TRAIT_NOT_FOUND"
 	CodeNamespaceNotFound            = "NAMESPACE_NOT_FOUND"
+	CodeNamespaceExists              = "NAMESPACE_EXISTS"
 	CodeEnvironmentNotFound          = "ENVIRONMENT_NOT_FOUND"
 	CodeEnvironmentExists            = "ENVIRONMENT_EXISTS"
 	CodeDataPlaneNotFound            = "DATAPLANE_NOT_FOUND"

@@ -46,5 +46,15 @@ const (
 	// created by the observabilityalertsnotificationchannel controller.
 	LabelKeyNotificationChannelName = "openchoreo.dev/notification-channel-name"
 
+	// LabelKeyControlPlaneNamespace identifies a namespace as an OpenChoreo control plane namespace
+	// that groups user resources (Projects, Components, Environments, etc.)
+	// This label distinguishes control plane namespaces from:
+	// - System namespaces (openchoreo-control-plane, openchoreo-data-plane, kube-system, etc.)
+	// - User-created namespaces unrelated to OpenChoreo
+	// - Data plane runtime namespaces (e.g., dp-*)
+	LabelKeyControlPlaneNamespace = "openchoreo.dev/controlplane-namespace"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
+	// LabelValueTrue is the standard "true" value for boolean labels
+	LabelValueTrue = "true"
 )

@@ -24,7 +24,8 @@ const (
 	SystemActionCreateWorkload systemAction = "workload:create"
 	SystemActionViewWorkload   systemAction = "workload:view"
 
-	SystemActionViewNamespace systemAction = "namespace:view"
+	SystemActionCreateNamespace systemAction = "namespace:create"
+	SystemActionViewNamespace   systemAction = "namespace:view"
 
 	SystemActionCreateRole        systemAction = "role:create"
 	SystemActionViewRole          systemAction = "role:view"

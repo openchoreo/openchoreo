@@ -10,10 +10,13 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -33,14 +36,19 @@ func NewNamespaceService(k8sClient client.Client, logger *slog.Logger, authzPDP 
 	}
 }
 
-// ListNamespaces lists all namespaces
+// ListNamespaces lists all control plane namespaces
+// Only namespaces with the openchoreo.dev/controlplane-namespace=true label are returned
 func (s *NamespaceService) ListNamespaces(ctx context.Context) ([]*models.NamespaceResponse, error) {
-	s.logger.Debug("Listing namespaces")
+	s.logger.Debug("Listing control plane namespaces")
 
 	var namespaceList corev1.NamespaceList
-	if err := s.k8sClient.List(ctx, &namespaceList); err != nil {
-		s.logger.Error("Failed to list namespaces", "error", err)
-		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+	// Filter to only include control plane namespaces
+	labelSelector := client.MatchingLabels{
+		labels.LabelKeyControlPlaneNamespace: labels.LabelValueTrue,
+	}
+	if err := s.k8sClient.List(ctx, &namespaceList, labelSelector); err != nil {
+		s.logger.Error("Failed to list control plane namespaces", "error", err)
+		return nil, fmt.Errorf("failed to list control plane namespaces: %w", err)
 	}
 
 	namespaces := make([]*models.NamespaceResponse, 0, len(namespaceList.Items))
@@ -87,6 +95,49 @@ func (s *NamespaceService) GetNamespace(ctx context.Context, namespaceName strin
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
 
+	return s.toNamespaceResponse(namespace), nil
+}
+
+// CreateNamespace creates a new control plane namespace
+func (s *NamespaceService) CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (*models.NamespaceResponse, error) {
+	s.logger.Debug("Creating namespace", "name", req.Name)
+
+	// Authorization check - use system action for creating namespaces
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateNamespace, ResourceTypeNamespace, req.Name,
+		authz.ResourceHierarchy{Namespace: req.Name}); err != nil {
+		return nil, err
+	}
+
+	// Create namespace object with control plane label
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: req.Name,
+			Labels: map[string]string{
+				labels.LabelKeyControlPlaneNamespace: labels.LabelValueTrue,
+			},
+			Annotations: make(map[string]string),
+		},
+	}
+
+	// Add display name and description if provided
+	if req.DisplayName != "" {
+		namespace.Annotations[controller.AnnotationKeyDisplayName] = req.DisplayName
+	}
+	if req.Description != "" {
+		namespace.Annotations[controller.AnnotationKeyDescription] = req.Description
+	}
+
+	// Create the namespace
+	if err := s.k8sClient.Create(ctx, namespace); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			s.logger.Warn("Namespace already exists", "namespace", req.Name)
+			return nil, ErrNamespaceAlreadyExists
+		}
+		s.logger.Error("Failed to create namespace", "namespace", req.Name, "error", err)
+		return nil, fmt.Errorf("failed to create namespace: %w", err)
+	}
+
+	s.logger.Info("Namespace created successfully", "namespace", req.Name)
 	return s.toNamespaceResponse(namespace), nil
 }
 
