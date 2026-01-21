@@ -101,8 +101,12 @@ spec:
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
             creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
           data:
-            - secretKey: .dockerconfigjson
+            - secretKey: registrysecret
               remoteRef:
-                key: .dockerconfigjson
+                key: registry-push-secret
 {{ end }}
