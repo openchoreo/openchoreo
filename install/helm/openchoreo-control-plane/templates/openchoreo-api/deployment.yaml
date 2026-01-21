@@ -7,6 +7,9 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: api-server
+  annotations:
+    # Trigger rollout when config changes
+    checksum/config: {{ include (print $.Template.BasePath "/openchoreo-api/configmap.yaml") . | sha256sum }}
 spec:
   replicas: {{ .Values.openchoreoApi.replicas }}
   selector:
@@ -18,6 +21,9 @@ spec:
       labels:
         app.kubernetes.io/component: api-server
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Trigger pod restart when config changes
+        checksum/config: {{ include (print $.Template.BasePath "/openchoreo-api/configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.openchoreoApi.serviceAccountName" . }}
       {{- if .Values.openchoreoApi.priorityClass.create }}
@@ -47,41 +53,12 @@ spec:
       - name: api-server
         image: "{{ .Values.openchoreoApi.image.repository }}:{{ .Values.openchoreoApi.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openchoreoApi.image.pullPolicy }}
+        args:
+          - --config=/etc/openchoreo/config.yaml
         ports:
-        - containerPort: 8080
+        - containerPort: {{ .Values.openchoreoApi.config.server.port | default 8080 }}
           name: http
           protocol: TCP
-        env:
-        - name: MCP_TOOLSETS
-          value: {{ .Values.openchoreoApi.mcp.toolsets | quote }}
-        - name: SERVER_BASE_URL
-          value: {{ .Values.openchoreoApi.serverBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.apiHost" .) (include "openchoreo.port" .)) | quote }}
-        - name: AUTH_SERVER_BASE_URL
-          value: {{ .Values.security.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) | quote }}
-        - name: JWT_ISSUER
-          value: {{ .Values.security.oidc.issuer | quote }}
-        - name: JWKS_URL
-          value: {{ .Values.security.oidc.jwksUrl | default (printf "%s/oauth2/jwks" (include "openchoreo.thunderInternalUrl" .)) | quote }}
-        - name: JWT_AUDIENCE
-          value: {{ .Values.security.jwt.audience | quote }}
-        - name: JWT_DISABLED
-          value: {{ not .Values.security.enabled | quote }}
-        - name: OIDC_AUTHORIZATION_URL
-          value: {{ .Values.security.oidc.authorizationUrl |  default (printf "%s/oauth2/authorize" (.Values.security.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)))) | quote }}
-        - name: OIDC_TOKEN_URL
-          value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (.Values.openchoreoApi.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)))) | quote }}
-        - name: AUTHZ_ENABLED
-          value: {{ .Values.security.authz.enabled | quote }}
-        - name: AUTHZ_DATABASE_PATH
-          value: {{ .Values.security.authz.databasePath | quote }}
-        - name: AUTHZ_DEFAULT_AUTHZ_DATA_FILE_PATH
-          value: {{ .Values.security.authz.defaultAuthzDataFilePath | quote }}
-        - name: DATABASE_PATH
-          value: {{ .Values.openchoreoApi.database.path | quote }}
-        - name: OPENCHOREO_API_CONFIG_PATH
-          value: /etc/openchoreo/config.yaml
-        - name: LOG_LEVEL
-          value: {{ .Values.openchoreoApi.logLevel | default "info" | quote }}
         volumeMounts:
         - name: data
           mountPath: /var/lib/openchoreo/data

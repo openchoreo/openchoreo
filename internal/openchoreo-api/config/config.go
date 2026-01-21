@@ -38,8 +38,9 @@ func Defaults() Config {
 
 // flagMappings maps CLI flag names to config paths.
 var flagMappings = map[string]string{
-	"server-port": "server.port",
-	"log-level":   "logging.level",
+	"server-bind-address": "server.bind_address",
+	"server-port":         "server.port",
+	"log-level":           "logging.level",
 }
 
 // NewLoader creates a configuration loader with all sources loaded.

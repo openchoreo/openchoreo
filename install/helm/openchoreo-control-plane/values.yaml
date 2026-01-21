@@ -1161,29 +1161,71 @@ openchoreoApi:
 
   # @schema
   # type: object
-  # description: MCP (Model Context Protocol) configuration
+  # description: OpenChoreo API specific configuration. Shared settings come from global security.* values.
+  # Note: JWT (enabled, issuer, audience), authorization (enabled, paths), identity (clients)
+  #       are read from security.* for consistency with other components.
   # @schema
-  mcp:
-    # @schema
-    # type: string
-    # description: Comma-separated list of enabled MCP toolsets
-    # default: namespace,project,component,build,deployment,infrastructure
-    # @schema
-    toolsets: "namespace,project,component,build,deployment,infrastructure"
-
-  # @schema
-  # description: Log level for the API server
-  # enum: [debug, info, warn, error]
-  # default: info
-  # @schema
-  logLevel: info
-
-  # @schema
-  # type: string
-  # description: Base URL for the API server (used for OAuth metadata). If not set, defaults to protocol://api.baseDomain:port
-  # default: ""
-  # @schema
-  serverBaseUrl: ""
+  config:
+    server:
+      bind_address: "0.0.0.0"
+      port: 8080
+      # public_url is computed from global.baseDomain
+      timeouts:
+        read: "15s"
+        write: "15s"
+        idle: "60s"
+        shutdown: "30s"
+      tls:
+        enabled: false
+        cert_file: ""
+        key_file: ""
+    security:
+      authentication:
+        jwt:
+          # enabled, issuer, audiences come from security.enabled, security.oidc.issuer, security.jwt.audience
+          clock_skew: "0s"
+          jwks:
+            # url is computed from security.oidc.jwksUrl or internal Thunder service
+            refresh_interval: "1h"
+            skip_tls_verify: false
+      subjects:
+        user:
+          display_name: "User"
+          priority: 1
+          mechanisms:
+            jwt:
+              entitlement:
+                claim: "groups"
+                display_name: "User Group"
+        service_account:
+          display_name: "Service Account"
+          priority: 2
+          mechanisms:
+            jwt:
+              entitlement:
+                claim: "sub"
+                display_name: "Client ID"
+      authorization:
+        # enabled, database_path, roles_file come from security.authz.*
+        cache:
+          enabled: false
+          ttl: "5m"
+    # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients
+    mcp:
+      enabled: true
+      toolsets:
+        - "namespace"
+        - "project"
+        - "component"
+        - "build"
+        - "deployment"
+        - "infrastructure"
+        - "schema"
+        - "resource"
+    logging:
+      level: "info"
+      format: "json"
+      add_source: false
 
   # @schema
   # type: object

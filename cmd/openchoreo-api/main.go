@@ -151,7 +151,8 @@ func setupFlags() (*pflag.FlagSet, *cliFlags) {
 	cli := &cliFlags{}
 
 	// Config flags - values loaded for configurations
-	flags.Int("server-port", config.ServerDefaults().Port, "HTTP server port")
+	flags.String("server-bind-address", config.ServerDefaults().BindAddress, "Server bind address")
+	flags.Int("server-port", config.ServerDefaults().Port, "Server port")
 	flags.String("log-level", config.LoggingDefaults().Level, "Log level (debug, info, warn, error)")
 
 	// Direct flags - bound to variables for immediate use

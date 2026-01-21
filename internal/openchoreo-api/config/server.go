@@ -87,11 +87,11 @@ func (c *MiddlewareConfig) Validate(path *config.Path) config.ValidationErrors {
 func ServerDefaults() ServerConfig {
 	return ServerConfig{
 		BindAddress: "0.0.0.0",
-		Port:       8080,
-		PublicURL:  "http://localhost:8080",
-		Timeouts:   TimeoutsDefaults(),
-		TLS:        TLSDefaults(),
-		Middleware: MiddlewareDefaults(),
+		Port:        8080,
+		PublicURL:   "http://localhost:8080",
+		Timeouts:    TimeoutsDefaults(),
+		TLS:         TLSDefaults(),
+		Middleware:  MiddlewareDefaults(),
 	}
 }
 

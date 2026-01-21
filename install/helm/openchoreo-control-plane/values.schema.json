@@ -2859,6 +2859,411 @@
           "title": "autoscaling",
           "type": "object"
         },
+        "config": {
+          "additionalProperties": false,
+          "description": "OpenChoreo API specific configuration. Shared settings come from global security.* values.",
+          "properties": {
+            "logging": {
+              "additionalProperties": false,
+              "properties": {
+                "add_source": {
+                  "default": false,
+                  "title": "add_source",
+                  "type": "boolean"
+                },
+                "format": {
+                  "default": "json",
+                  "title": "format",
+                  "type": "string"
+                },
+                "level": {
+                  "default": "info",
+                  "title": "level",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "format",
+                "add_source"
+              ],
+              "title": "logging",
+              "type": "object"
+            },
+            "mcp": {
+              "additionalProperties": false,
+              "description": "identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients",
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "toolsets": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "required": []
+                  },
+                  "title": "toolsets",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "enabled",
+                "toolsets"
+              ],
+              "title": "mcp",
+              "type": "object"
+            },
+            "security": {
+              "additionalProperties": false,
+              "properties": {
+                "authentication": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "jwt": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "clock_skew": {
+                          "default": "0s",
+                          "description": "enabled, issuer, audiences come from security.enabled, security.oidc.issuer, security.jwt.audience",
+                          "title": "clock_skew",
+                          "type": "string"
+                        },
+                        "jwks": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "refresh_interval": {
+                              "default": "1h",
+                              "description": "url is computed from security.oidc.jwksUrl or internal Thunder service",
+                              "title": "refresh_interval",
+                              "type": "string"
+                            },
+                            "skip_tls_verify": {
+                              "default": false,
+                              "title": "skip_tls_verify",
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "refresh_interval",
+                            "skip_tls_verify"
+                          ],
+                          "title": "jwks",
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "clock_skew",
+                        "jwks"
+                      ],
+                      "title": "jwt",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "jwt"
+                  ],
+                  "title": "authentication",
+                  "type": "object"
+                },
+                "authorization": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cache": {
+                      "additionalProperties": false,
+                      "description": "enabled, database_path, roles_file come from security.authz.*",
+                      "properties": {
+                        "enabled": {
+                          "default": false,
+                          "title": "enabled",
+                          "type": "boolean"
+                        },
+                        "ttl": {
+                          "default": "5m",
+                          "title": "ttl",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "ttl"
+                      ],
+                      "title": "cache",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "cache"
+                  ],
+                  "title": "authorization",
+                  "type": "object"
+                },
+                "subjects": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "service_account": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "display_name": {
+                          "default": "Service Account",
+                          "title": "display_name",
+                          "type": "string"
+                        },
+                        "mechanisms": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "jwt": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "entitlement": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "claim": {
+                                      "default": "sub",
+                                      "title": "claim",
+                                      "type": "string"
+                                    },
+                                    "display_name": {
+                                      "default": "Client ID",
+                                      "title": "display_name",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "claim",
+                                    "display_name"
+                                  ],
+                                  "title": "entitlement",
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "entitlement"
+                              ],
+                              "title": "jwt",
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "jwt"
+                          ],
+                          "title": "mechanisms",
+                          "type": "object"
+                        },
+                        "priority": {
+                          "default": 2,
+                          "title": "priority",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "display_name",
+                        "priority",
+                        "mechanisms"
+                      ],
+                      "title": "service_account",
+                      "type": "object"
+                    },
+                    "user": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "display_name": {
+                          "default": "User",
+                          "title": "display_name",
+                          "type": "string"
+                        },
+                        "mechanisms": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "jwt": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "entitlement": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "claim": {
+                                      "default": "groups",
+                                      "title": "claim",
+                                      "type": "string"
+                                    },
+                                    "display_name": {
+                                      "default": "User Group",
+                                      "title": "display_name",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "claim",
+                                    "display_name"
+                                  ],
+                                  "title": "entitlement",
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "entitlement"
+                              ],
+                              "title": "jwt",
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "jwt"
+                          ],
+                          "title": "mechanisms",
+                          "type": "object"
+                        },
+                        "priority": {
+                          "default": 1,
+                          "title": "priority",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "display_name",
+                        "priority",
+                        "mechanisms"
+                      ],
+                      "title": "user",
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "user",
+                    "service_account"
+                  ],
+                  "title": "subjects",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "authentication",
+                "subjects",
+                "authorization"
+              ],
+              "title": "security",
+              "type": "object"
+            },
+            "server": {
+              "additionalProperties": false,
+              "properties": {
+                "bind_address": {
+                  "default": "0.0.0.0",
+                  "title": "bind_address",
+                  "type": "string"
+                },
+                "port": {
+                  "default": 8080,
+                  "title": "port",
+                  "type": "integer"
+                },
+                "timeouts": {
+                  "additionalProperties": false,
+                  "description": "public_url is computed from global.baseDomain",
+                  "properties": {
+                    "idle": {
+                      "default": "60s",
+                      "title": "idle",
+                      "type": "string"
+                    },
+                    "read": {
+                      "default": "15s",
+                      "title": "read",
+                      "type": "string"
+                    },
+                    "shutdown": {
+                      "default": "30s",
+                      "title": "shutdown",
+                      "type": "string"
+                    },
+                    "write": {
+                      "default": "15s",
+                      "title": "write",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "read",
+                    "write",
+                    "idle",
+                    "shutdown"
+                  ],
+                  "title": "timeouts",
+                  "type": "object"
+                },
+                "tls": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cert_file": {
+                      "default": "",
+                      "title": "cert_file",
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "default": false,
+                      "title": "enabled",
+                      "type": "boolean"
+                    },
+                    "key_file": {
+                      "default": "",
+                      "title": "key_file",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "enabled",
+                    "cert_file",
+                    "key_file"
+                  ],
+                  "title": "tls",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "bind_address",
+                "port",
+                "timeouts",
+                "tls"
+              ],
+              "title": "server",
+              "type": "object"
+            }
+          },
+          "required": [
+            "server",
+            "security",
+            "mcp",
+            "logging"
+          ],
+          "title": "config",
+          "type": "object"
+        },
         "containerSecurityContext": {
           "additionalProperties": false,
           "description": "Container security context",
@@ -3089,33 +3494,6 @@
           },
           "required": [],
           "title": "ingress",
-          "type": "object"
-        },
-        "logLevel": {
-          "default": "info",
-          "description": "Log level for the API server",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
-          "required": [],
-          "title": "logLevel"
-        },
-        "mcp": {
-          "additionalProperties": false,
-          "description": "MCP (Model Context Protocol) configuration",
-          "properties": {
-            "toolsets": {
-              "default": "namespace,project,component,build,deployment,infrastructure",
-              "description": "Comma-separated list of enabled MCP toolsets",
-              "title": "toolsets",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "mcp",
           "type": "object"
         },
         "metrics": {
@@ -3460,12 +3838,6 @@
           "required": [],
           "title": "security",
           "type": "object"
-        },
-        "serverBaseUrl": {
-          "default": "",
-          "description": "Base URL for the API server (used for OAuth metadata). If not set, defaults to protocol://api.baseDomain:port",
-          "title": "serverBaseUrl",
-          "type": "string"
         },
         "service": {
           "additionalProperties": false,

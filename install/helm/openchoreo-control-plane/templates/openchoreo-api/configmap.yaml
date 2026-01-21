@@ -1,4 +1,10 @@
 {{- if .Values.openchoreoApi.enabled }}
+{{- /* Computed defaults from helpers */ -}}
+{{- $publicUrl := printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.apiHost" .) (include "openchoreo.port" .) }}
+{{- $oidcIssuer := .Values.security.authServerBaseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
+{{- $jwksUrl := .Values.security.oidc.jwksUrl | default (printf "%s/oauth2/jwks" (include "openchoreo.thunderInternalUrl" .)) }}
+{{- $authzUrl := .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" $oidcIssuer) }}
+{{- $tokenUrl := .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" $oidcIssuer) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,9 +15,59 @@ metadata:
     app.kubernetes.io/component: api-server
 data:
   config.yaml: |
+    server:
+      bind_address: {{ .Values.openchoreoApi.config.server.bind_address | quote }}
+      port: {{ .Values.openchoreoApi.config.server.port }}
+      public_url: {{ $publicUrl | quote }}
+      timeouts:
+        {{- toYaml .Values.openchoreoApi.config.server.timeouts | nindent 8 }}
+      tls:
+        {{- toYaml .Values.openchoreoApi.config.server.tls | nindent 8 }}
+      middleware: {}
+
     security:
-      user_types:
-        {{- toYaml .Values.openchoreoApi.security.userTypes | nindent 8 }}
-      external_clients:
-        {{- toYaml .Values.security.oidc.externalClients | nindent 8 }}
+      authentication:
+        jwt:
+          enabled: {{ .Values.security.enabled }}
+          issuer: {{ .Values.security.oidc.issuer | default $oidcIssuer | quote }}
+          audiences:
+            {{- if .Values.security.jwt.audience }}
+            - {{ .Values.security.jwt.audience | quote }}
+            {{- else }}
+            []
+            {{- end }}
+          clock_skew: {{ .Values.openchoreoApi.config.security.authentication.jwt.clock_skew | quote }}
+          jwks:
+            url: {{ $jwksUrl | quote }}
+            refresh_interval: {{ .Values.openchoreoApi.config.security.authentication.jwt.jwks.refresh_interval | quote }}
+            skip_tls_verify: {{ .Values.openchoreoApi.config.security.authentication.jwt.jwks.skip_tls_verify }}
+      subjects:
+        {{- toYaml .Values.openchoreoApi.config.security.subjects | nindent 8 }}
+      authorization:
+        enabled: {{ .Values.security.authz.enabled }}
+        database_path: {{ .Values.security.authz.databasePath | quote }}
+        roles_file: {{ .Values.security.authz.defaultAuthzDataFilePath | quote }}
+        cache:
+          {{- toYaml .Values.openchoreoApi.config.security.authorization.cache | nindent 10 }}
+
+    identity:
+      oidc:
+        issuer: {{ $oidcIssuer | quote }}
+        authorization_endpoint: {{ $authzUrl | quote }}
+        token_endpoint: {{ $tokenUrl | quote }}
+      clients:
+        {{- range .Values.security.oidc.externalClients }}
+        {{ .name }}:
+          client_id: {{ .client_id | quote }}
+          scopes:
+            {{- toYaml .scopes | nindent 12 }}
+        {{- end }}
+
+    mcp:
+      enabled: {{ .Values.openchoreoApi.config.mcp.enabled }}
+      toolsets:
+        {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
+
+    logging:
+      {{- toYaml .Values.openchoreoApi.config.logging | nindent 6 }}
 {{- end }}
