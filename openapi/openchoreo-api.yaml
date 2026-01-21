@@ -149,18 +149,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
-  /api/v1/client-configs:
+  /api/v1/.well-known/openid-configuration:
     get:
-      operationId: getClientConfigs
-      summary: Get external client configurations
+      operationId: getOpenIDConfiguration
+      summary: Get OpenID configuration
       description: |
-        Returns a list of external client configurations for authentication.
-        Includes client IDs and scopes for different client types (CLI, etc.).
+        Returns OpenID Connect configuration for CLI authentication.
+        Includes OAuth2 endpoints, external client configurations, and security status.
       tags: [Operations]
       security: []
       responses:
         '200':
-          description: List of client configurations
+          description: OpenID configuration
           content:
             application/json:
               schema:
@@ -2589,12 +2589,21 @@ components:
 
     ClientConfigList:
       type: object
-      description: Client configurations response
+      description: OpenID Connect configuration response
       required:
         - token_endpoint
         - authorization_endpoint
         - external_clients
+        - security_enabled
       properties:
+        issuer:
+          type: string
+          description: OIDC issuer URL
+          example: https://auth.openchoreo.dev
+        jwks_uri:
+          type: string
+          description: JWKS endpoint URL for token validation
+          example: https://auth.openchoreo.dev/oauth2/jwks
         token_endpoint:
           type: string
           description: OAuth2 token endpoint URL
@@ -2603,6 +2612,10 @@ components:
           type: string
           description: OAuth2 authorization endpoint URL
           example: https://auth.openchoreo.dev/authorize
+        security_enabled:
+          type: boolean
+          description: Whether authentication is enabled on the server
+          example: true
         external_clients:
           type: array
           description: Array of external client configurations

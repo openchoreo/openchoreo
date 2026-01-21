@@ -17,12 +17,18 @@ type OIDCConfig struct {
 	TokenEndpoint         string   `json:"token_endpoint"`
 	ClientID              string   `json:"client_id"`
 	Scopes                []string `json:"scopes"`
+	SecurityEnabled       bool     `json:"security_enabled"`
+	Issuer                string   `json:"issuer,omitempty"`
+	JwksURI               string   `json:"jwks_uri,omitempty"`
 }
 
-// ClientConfigsResponse represents the response from /api/v1/client-configs
-type ClientConfigsResponse struct {
+// OpenIDConfigurationResponse represents the response from /api/v1/.well-known/openid-configuration
+type OpenIDConfigurationResponse struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 	TokenEndpoint         string `json:"token_endpoint"`
+	SecurityEnabled       bool   `json:"security_enabled"`
+	Issuer                string `json:"issuer,omitempty"`
+	JwksURI               string `json:"jwks_uri,omitempty"`
 	ExternalClients       []struct {
 		Name     string   `json:"name"`
 		ClientID string   `json:"client_id"`
@@ -30,11 +36,11 @@ type ClientConfigsResponse struct {
 	} `json:"external_clients"`
 }
 
-// FetchOIDCConfig fetches client configuration for CLI from the new endpoint
+// FetchOIDCConfig fetches client configuration for CLI from the OpenID configuration endpoint
 func FetchOIDCConfig(apiURL string) (*OIDCConfig, error) {
 	req, err := http.NewRequest(
 		http.MethodGet,
-		apiURL+"/api/v1/client-configs",
+		apiURL+"/api/v1/.well-known/openid-configuration",
 		nil,
 	)
 	if err != nil {
@@ -46,25 +52,25 @@ func FetchOIDCConfig(apiURL string) (*OIDCConfig, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch client configs: %w", err)
+		return nil, fmt.Errorf("failed to fetch OIDC config: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("client configs request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("OIDC config request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	var configsResp ClientConfigsResponse
+	var configsResp OpenIDConfigurationResponse
 	if err := json.NewDecoder(resp.Body).Decode(&configsResp); err != nil {
-		return nil, fmt.Errorf("failed to decode client configs: %w", err)
+		return nil, fmt.Errorf("failed to decode OIDC config: %w", err)
 	}
 
 	if configsResp.AuthorizationEndpoint == "" {
-		return nil, fmt.Errorf("authorization_endpoint not found in client configs")
+		return nil, fmt.Errorf("authorization_endpoint not found in OIDC config")
 	}
 	if configsResp.TokenEndpoint == "" {
-		return nil, fmt.Errorf("token_endpoint not found in client configs")
+		return nil, fmt.Errorf("token_endpoint not found in OIDC config")
 	}
 
 	// Find CLI client configuration by name
@@ -76,6 +82,9 @@ func FetchOIDCConfig(apiURL string) (*OIDCConfig, error) {
 				TokenEndpoint:         configsResp.TokenEndpoint,
 				ClientID:              client.ClientID,
 				Scopes:                client.Scopes,
+				SecurityEnabled:       configsResp.SecurityEnabled,
+				Issuer:                configsResp.Issuer,
+				JwksURI:               configsResp.JwksURI,
 			}
 			break
 		}

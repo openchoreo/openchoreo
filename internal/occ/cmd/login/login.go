@@ -87,6 +87,12 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("failed to fetch OIDC config from API: %w", err)
 	}
 
+	// Check if security is disabled on the server
+	if !oidcConfig.SecurityEnabled {
+		fmt.Println("Security is disabled on the server. Authentication is not required.")
+		return nil
+	}
+
 	authClient := &auth.ClientCredentialsAuth{
 		TokenEndpoint: oidcConfig.TokenEndpoint,
 		ClientID:      clientID,
@@ -176,6 +182,13 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to fetch OIDC config: %w", err)
 	}
+
+	// Check if security is disabled on the server
+	if !oidcConfig.SecurityEnabled {
+		fmt.Println("Security is disabled on the server. Authentication is not required.")
+		return nil
+	}
+
 	fmt.Printf("✓ OIDC configuration retrieved\n")
 
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d%s", auth.CallbackPort, auth.CallbackPath)
@@ -247,6 +260,23 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 }
 
 func (i *AuthImpl) IsLoggedIn() bool {
+	// Check if security is disabled on the server
+	controlPlane, err := config.GetCurrentControlPlane()
+
+	if err != nil {
+		return false
+	}
+
+	if controlPlane != nil {
+		oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
+		if err != nil {
+			return false
+		}
+		if !oidcConfig.SecurityEnabled {
+			return true // Always "logged in" when security is disabled
+		}
+	}
+
 	credential, err := config.GetCurrentCredential()
 	if err != nil {
 		return false

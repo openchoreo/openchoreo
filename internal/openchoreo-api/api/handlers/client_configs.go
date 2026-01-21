@@ -11,14 +11,20 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 )
 
-// GetClientConfigs returns client configurations
-func (h *Handler) GetClientConfigs(
+// GetOpenIDConfiguration returns OpenID Connect configuration for CLI authentication
+func (h *Handler) GetOpenIDConfiguration(
 	ctx context.Context,
-	request gen.GetClientConfigsRequestObject,
-) (gen.GetClientConfigsResponseObject, error) {
+	request gen.GetOpenIDConfigurationRequestObject,
+) (gen.GetOpenIDConfigurationResponseObject, error) {
 	// Read endpoints from environment variables
 	authorizationEndpoint := os.Getenv(config.EnvOIDCAuthorizationURL)
 	tokenEndpoint := os.Getenv(config.EnvOIDCTokenURL)
+
+	// Read new OIDC fields
+	issuer := os.Getenv(config.EnvJWTIssuer)
+	jwksURI := os.Getenv(config.EnvJWKSURL)
+	jwtDisabled := os.Getenv(config.EnvJWTDisabled) == "true"
+	securityEnabled := !jwtDisabled
 
 	// Build external clients from config file
 	externalClients := make([]gen.ExternalClient, len(h.Config.Security.ExternalClients))
@@ -30,10 +36,19 @@ func (h *Handler) GetClientConfigs(
 		}
 	}
 
-	response := gen.GetClientConfigs200JSONResponse{
+	response := gen.GetOpenIDConfiguration200JSONResponse{
 		AuthorizationEndpoint: authorizationEndpoint,
 		TokenEndpoint:         tokenEndpoint,
 		ExternalClients:       externalClients,
+		SecurityEnabled:       securityEnabled,
+	}
+
+	// Set optional fields only if they have values
+	if issuer != "" {
+		response.Issuer = &issuer
+	}
+	if jwksURI != "" {
+		response.JwksUri = &jwksURI
 	}
 
 	return response, nil

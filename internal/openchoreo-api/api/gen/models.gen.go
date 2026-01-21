@@ -227,13 +227,22 @@ type CapabilityResource struct {
 	Path *string `json:"path,omitempty"`
 }
 
-// ClientConfigList Client configurations response
+// ClientConfigList OpenID Connect configuration response
 type ClientConfigList struct {
 	// AuthorizationEndpoint OAuth2 authorization endpoint URL
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
 	// ExternalClients Array of external client configurations
 	ExternalClients []ExternalClient `json:"external_clients"`
+
+	// Issuer OIDC issuer URL
+	Issuer *string `json:"issuer,omitempty"`
+
+	// JwksUri JWKS endpoint URL for token validation
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// SecurityEnabled Whether authentication is enabled on the server
+	SecurityEnabled bool `json:"security_enabled"`
 
 	// TokenEndpoint OAuth2 token endpoint URL
 	TokenEndpoint string `json:"token_endpoint"`
