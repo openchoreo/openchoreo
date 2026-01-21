@@ -33,6 +33,8 @@ func NewPlaneAPI(connMgr *ConnectionManager, logger *slog.Logger) *PlaneAPI {
 func (api *PlaneAPI) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/planes/notify", api.handlePlaneNotification)
 	mux.HandleFunc("POST /api/v1/planes/{type}/{id}/reconnect", api.handleReconnect)
+	mux.HandleFunc("GET /api/v1/planes/{type}/{id}/status", api.handleGetPlaneStatus)
+	mux.HandleFunc("GET /api/v1/planes/status", api.handleGetAllPlaneStatus)
 }
 
 func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +117,41 @@ func (api *PlaneAPI) handleReconnect(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"disconnectedAgents": disconnectedCount,
 		"success":            true,
+	}); err != nil {
+		api.logger.Error("failed to encode response", "error", err)
+	}
+}
+
+// handleGetPlaneStatus returns connection status for a specific plane
+// This endpoint is called by the controller to update DataPlane CR status
+func (api *PlaneAPI) handleGetPlaneStatus(w http.ResponseWriter, r *http.Request) {
+	planeType := r.PathValue("type")
+	planeID := r.PathValue("id")
+
+	if planeType == "" || planeID == "" {
+		http.Error(w, "missing planeType or planeID in path", http.StatusBadRequest)
+		return
+	}
+
+	status := api.connMgr.GetPlaneStatus(planeType, planeID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(status); err != nil {
+		api.logger.Error("failed to encode response", "error", err)
+	}
+}
+
+// handleGetAllPlaneStatus returns connection status for all planes
+// This endpoint is called by the controller to get status of all planes at once
+func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Request) {
+	statuses := api.connMgr.GetAllPlaneStatuses()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"planes": statuses,
+		"total":  len(statuses),
 	}); err != nil {
 		api.logger.Error("failed to encode response", "error", err)
 	}

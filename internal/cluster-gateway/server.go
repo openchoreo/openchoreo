@@ -10,7 +10,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -24,11 +23,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
@@ -108,11 +104,16 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/ws", s.handleWebSocket)
 	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
 
-	// Register plane lifecycle API (for controller notifications)
+	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s.logger)
 	planeAPI.RegisterRoutes(mux)
-	s.logger.Info("plane lifecycle API registered",
-		"endpoints", []string{"/api/v1/planes/notify", "/api/v1/planes/{type}/{id}/reconnect"},
+	s.logger.Info("plane API registered",
+		"endpoints", []string{
+			"/api/v1/planes/notify",
+			"/api/v1/planes/{type}/{id}/reconnect",
+			"/api/v1/planes/{type}/{id}/status",
+			"/api/v1/planes/status",
+		},
 	)
 
 	s.httpServer = &http.Server{
@@ -684,230 +685,4 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeID str
 	}
 
 	return nil
-}
-
-// getAllPlaneClientCAs retrieves client CA configurations from ALL CRs with matching planeType and planeID
-// Returns map of "namespace/name" -> CA data ([]byte)
-func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	result := make(map[string][]byte)
-
-	switch planeType {
-	case planeTypeDataPlane:
-		var dataplanes openchoreov1alpha1.DataPlaneList
-		if err := s.k8sClient.List(ctx, &dataplanes); err != nil {
-			return nil, fmt.Errorf("failed to list DataPlanes: %w", err)
-		}
-
-		for _, dp := range dataplanes.Items {
-			effectivePlaneID := dp.Spec.PlaneID
-			if effectivePlaneID == "" {
-				effectivePlaneID = dp.Name
-			}
-
-			if effectivePlaneID != planeID {
-				continue
-			}
-
-			crKey := fmt.Sprintf("%s/%s", dp.Namespace, dp.Name)
-			caData, err := s.extractCAFromPlane(&dp.Spec.ClusterAgent, dp.Namespace)
-			if err != nil {
-				s.logger.Warn("failed to extract CA from DataPlane",
-					"cr", crKey,
-					"error", err,
-				)
-				continue
-			}
-			result[crKey] = caData
-		}
-
-	case planeTypeBuildPlane:
-		var buildplanes openchoreov1alpha1.BuildPlaneList
-		if err := s.k8sClient.List(ctx, &buildplanes); err != nil {
-			return nil, fmt.Errorf("failed to list BuildPlanes: %w", err)
-		}
-
-		for _, bp := range buildplanes.Items {
-			effectivePlaneID := bp.Spec.PlaneID
-			if effectivePlaneID == "" {
-				effectivePlaneID = bp.Name
-			}
-
-			if effectivePlaneID != planeID {
-				continue
-			}
-
-			crKey := fmt.Sprintf("%s/%s", bp.Namespace, bp.Name)
-			caData, err := s.extractCAFromPlane(&bp.Spec.ClusterAgent, bp.Namespace)
-			if err != nil {
-				s.logger.Warn("failed to extract CA from BuildPlane",
-					"cr", crKey,
-					"error", err,
-				)
-				continue
-			}
-			result[crKey] = caData
-		}
-
-	case planeTypeObservabilityPlane:
-		var obsplanes openchoreov1alpha1.ObservabilityPlaneList
-		if err := s.k8sClient.List(ctx, &obsplanes); err != nil {
-			return nil, fmt.Errorf("failed to list ObservabilityPlanes: %w", err)
-		}
-
-		for _, op := range obsplanes.Items {
-			effectivePlaneID := op.Spec.PlaneID
-			if effectivePlaneID == "" {
-				effectivePlaneID = op.Name
-			}
-
-			if effectivePlaneID != planeID {
-				continue
-			}
-
-			crKey := fmt.Sprintf("%s/%s", op.Namespace, op.Name)
-			caData, err := s.extractCAFromPlane(&op.Spec.ClusterAgent, op.Namespace)
-			if err != nil {
-				s.logger.Warn("failed to extract CA from ObservabilityPlane",
-					"cr", crKey,
-					"error", err,
-				)
-				continue
-			}
-			result[crKey] = caData
-		}
-
-	default:
-		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
-	}
-
-	s.logger.Info("retrieved client CAs from CRs",
-		"planeType", planeType,
-		"planeID", planeID,
-		"totalCRs", len(result),
-	)
-
-	if len(result) > 0 {
-		for crKey := range result {
-			s.logger.Info("discovered CR for plane",
-				"planeType", planeType,
-				"planeID", planeID,
-				"cr", crKey,
-			)
-		}
-	} else {
-		s.logger.Warn("no CRs found for connecting agent",
-			"planeType", planeType,
-			"planeID", planeID,
-			"note", "agent will connect but without proper CA verification",
-		)
-	}
-
-	return result, nil
-}
-
-// extractCAFromPlane extracts CA data from a plane's ClusterAgent configuration
-func (s *Server) extractCAFromPlane(clusterAgent *openchoreov1alpha1.ClusterAgentConfig, namespace string) ([]byte, error) {
-	if clusterAgent == nil {
-		return nil, nil
-	}
-	return s.extractCADataWithNamespace(&clusterAgent.ClientCA, namespace)
-}
-
-// extractCAData extracts CA certificate data from ValueFrom configuration
-// planeNamespace is used as default namespace for SecretRef if not specified
-func (s *Server) extractCADataWithNamespace(valueFrom *openchoreov1alpha1.ValueFrom, planeNamespace string) ([]byte, error) {
-	if valueFrom.Value != "" {
-		return []byte(valueFrom.Value), nil
-	}
-
-	if valueFrom.SecretRef != nil {
-		return s.extractCAFromSecret(valueFrom.SecretRef, planeNamespace)
-	}
-
-	return nil, fmt.Errorf("no valid CA data found in ValueFrom")
-}
-
-func parseCACertificates(pemData []byte) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-
-	for len(pemData) > 0 {
-		block, rest := pem.Decode(pemData)
-		if block == nil {
-			break
-		}
-
-		if block.Type == "CERTIFICATE" {
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse certificate: %w", err)
-			}
-			certs = append(certs, cert)
-		}
-
-		pemData = rest
-	}
-
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no certificates found in PEM data")
-	}
-
-	return certs, nil
-}
-
-// extractCAFromSecret extracts CA certificate data from a Kubernetes secret
-// planeNamespace is used as default if secretRef.Namespace is not specified
-func (s *Server) extractCAFromSecret(secretRef *openchoreov1alpha1.SecretKeyReference, planeNamespace string) ([]byte, error) {
-	if secretRef.Name == "" {
-		return nil, fmt.Errorf("secret name is required")
-	}
-
-	if secretRef.Key == "" {
-		return nil, fmt.Errorf("secret key is required")
-	}
-
-	// Determine namespace: use specified namespace, or default to plane's namespace
-	namespace := secretRef.Namespace
-	if namespace == "" {
-		namespace = planeNamespace
-	}
-
-	s.logger.Debug("loading CA certificate from secret",
-		"secretName", secretRef.Name,
-		"namespace", namespace,
-		"key", secretRef.Key,
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	var secret corev1.Secret
-	secretKey := types.NamespacedName{
-		Name:      secretRef.Name,
-		Namespace: namespace,
-	}
-
-	if err := s.k8sClient.Get(ctx, secretKey, &secret); err != nil {
-		return nil, fmt.Errorf("failed to get secret %s/%s: %w", namespace, secretRef.Name, err)
-	}
-
-	caData, ok := secret.Data[secretRef.Key]
-	if !ok {
-		return nil, fmt.Errorf("key %s not found in secret %s/%s", secretRef.Key, namespace, secretRef.Name)
-	}
-
-	if len(caData) == 0 {
-		return nil, fmt.Errorf("CA data is empty in secret %s/%s key %s", namespace, secretRef.Name, secretRef.Key)
-	}
-
-	s.logger.Info("loaded CA certificate from secret",
-		"secretName", secretRef.Name,
-		"namespace", namespace,
-		"key", secretRef.Key,
-		"dataSize", len(caData),
-	)
-
-	return caData, nil
 }

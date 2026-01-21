@@ -50,6 +50,14 @@ type NotificationResponse struct {
 	Success            bool `json:"success"`
 }
 
+type PlaneConnectionStatus struct {
+	PlaneType       string    `json:"planeType"`
+	PlaneID         string    `json:"planeID"`
+	Connected       bool      `json:"connected"`
+	ConnectedAgents int       `json:"connectedAgents"`
+	LastSeen        time.Time `json:"lastSeen,omitempty"`
+}
+
 // TransientError represents a transient error that should be retried
 // Examples: network errors, 5xx status codes, timeouts
 type TransientError struct {
@@ -298,4 +306,35 @@ func (c *Client) ForceReconnect(ctx context.Context, planeType, planeID string) 
 	}
 
 	return &response, nil
+}
+
+// GetPlaneStatus retrieves the connection status for a specific plane from the gateway
+// This is used by controllers to query agent connection status and update CR status fields
+func (c *Client) GetPlaneStatus(ctx context.Context, planeType, planeID string) (*PlaneConnectionStatus, error) {
+	url := fmt.Sprintf("%s/api/v1/planes/%s/%s/status", c.baseURL, planeType, planeID)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		// Network errors are transient and should be retried
+		return nil, &TransientError{
+			Message: "failed to get plane status",
+			Err:     err,
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, classifyHTTPError(resp.StatusCode)
+	}
+
+	var status PlaneConnectionStatus
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &status, nil
 }

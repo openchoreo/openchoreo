@@ -266,3 +266,101 @@ func (ac *AgentConnection) Close() error {
 
 	return ac.Conn.Close()
 }
+
+// PlaneConnectionStatus holds connection status for a specific plane
+type PlaneConnectionStatus struct {
+	PlaneType       string    `json:"planeType"`
+	PlaneID         string    `json:"planeID"`
+	Connected       bool      `json:"connected"`
+	ConnectedAgents int       `json:"connectedAgents"`
+	LastSeen        time.Time `json:"lastSeen,omitempty"`
+}
+
+// GetPlaneStatus returns connection status for a specific plane
+func (cm *ConnectionManager) GetPlaneStatus(planeType, planeID string) *PlaneConnectionStatus {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	conns, exists := cm.connections[planeIdentifier]
+
+	status := &PlaneConnectionStatus{
+		PlaneType:       planeType,
+		PlaneID:         planeID,
+		Connected:       exists && len(conns) > 0,
+		ConnectedAgents: len(conns),
+	}
+
+	if len(conns) > 0 {
+		// Lock the first connection to read LastSeen safely
+		conns[0].mu.Lock()
+		mostRecent := conns[0].LastSeen
+		conns[0].mu.Unlock()
+
+		for _, conn := range conns[1:] {
+			conn.mu.Lock()
+			if conn.LastSeen.After(mostRecent) {
+				mostRecent = conn.LastSeen
+			}
+			conn.mu.Unlock()
+		}
+		status.LastSeen = mostRecent
+	}
+
+	return status
+}
+
+// GetAllPlaneStatuses returns connection status for all planes
+func (cm *ConnectionManager) GetAllPlaneStatuses() []PlaneConnectionStatus {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	statuses := make([]PlaneConnectionStatus, 0, len(cm.connections))
+
+	for planeIdentifier, conns := range cm.connections {
+		// Parse planeType and planeID from identifier
+		// Format: "{planeType}/{planeID}"
+		parts := splitPlaneIdentifier(planeIdentifier)
+		if len(parts) != 2 {
+			continue
+		}
+
+		status := PlaneConnectionStatus{
+			PlaneType:       parts[0],
+			PlaneID:         parts[1],
+			Connected:       len(conns) > 0,
+			ConnectedAgents: len(conns),
+		}
+
+		if len(conns) > 0 {
+			// Lock the first connection to read LastSeen safely
+			conns[0].mu.Lock()
+			mostRecent := conns[0].LastSeen
+			conns[0].mu.Unlock()
+
+			for _, conn := range conns[1:] {
+				conn.mu.Lock()
+				if conn.LastSeen.After(mostRecent) {
+					mostRecent = conn.LastSeen
+				}
+				conn.mu.Unlock()
+			}
+			status.LastSeen = mostRecent
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	return statuses
+}
+
+// splitPlaneIdentifier splits "planeType/planeID" into parts
+func splitPlaneIdentifier(identifier string) []string {
+	// Simple split on first "/"
+	for i, ch := range identifier {
+		if ch == '/' {
+			return []string{identifier[:i], identifier[i+1:]}
+		}
+	}
+	return []string{identifier}
+}

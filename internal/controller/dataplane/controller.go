@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -81,8 +82,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Handle create
 	// Ignore reconcile if the Dataplane is already available since this is a one-time create
+	// However, we still want to update agent connection status periodically
 	if r.shouldIgnoreReconcile(dataPlane) {
-		return ctrl.Result{}, nil
+		if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
+			logger.Error(err, "failed to get agent connection status")
+			// Don't fail reconciliation for status query errors
+		} else if err := r.Status().Update(ctx, dataPlane); err != nil {
+			logger.Error(err, "failed to update DataPlane status")
+		}
+
+		// Requeue to refresh agent connection status
+		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
 	}
 
 	// Set the observed generation
@@ -93,11 +103,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		&dataPlane.Status.Conditions,
 		NewDataPlaneCreatedCondition(dataPlane.Generation),
 	)
-
-	// Update status if needed
-	if err := controller.UpdateStatusConditions(ctx, r.Client, old, dataPlane); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	// Notify gateway of DataPlane reconciliation (create/update)
 	// Using "updated" since Reconcile handles both CREATE and UPDATE events
@@ -110,13 +115,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
+	// Query agent connection status from gateway and add to dataPlane status
+	// This must be done BEFORE updating status to avoid conflicts
+	if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
+		logger.Error(err, "failed to get agent connection status")
+		// Don't fail reconciliation for status query errors
+	} else if err := r.Status().Update(ctx, dataPlane); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", dataPlane.Name))
 
-	return ctrl.Result{}, nil
+	// Requeue to refresh agent connection status
+	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(dataPlane *openchoreov1alpha1.DataPlane) bool {
-	return meta.FindStatusCondition(dataPlane.Status.Conditions, string(controller.TypeAvailable)) != nil
+	return meta.FindStatusCondition(dataPlane.Status.Conditions, string(controller.TypeCreated)) != nil
 }
 
 // invalidateCache invalidates the cached Kubernetes client for this DataPlane
@@ -175,6 +190,72 @@ func (r *Reconciler) notifyGateway(ctx context.Context, dataPlane *openchoreov1a
 		"event", event,
 		"planeID", effectivePlaneID,
 		"disconnectedAgents", resp.DisconnectedAgents,
+	)
+
+	return nil
+}
+
+// populateAgentConnectionStatus queries the cluster-gateway for agent connection status
+// and populates the DataPlane status fields (without persisting to API server)
+func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, dataPlane *openchoreov1alpha1.DataPlane) error {
+	logger := log.FromContext(ctx).WithValues("dataplane", dataPlane.Name)
+
+	// Skip if gateway client not configured
+	if r.GatewayClient == nil {
+		return nil
+	}
+
+	effectivePlaneID := dataPlane.Spec.PlaneID
+	if effectivePlaneID == "" {
+		effectivePlaneID = dataPlane.Name
+	}
+
+	// Query gateway for connection status
+	status, err := r.GatewayClient.GetPlaneStatus(ctx, "dataplane", effectivePlaneID)
+	if err != nil {
+		// Log error but don't fail reconciliation
+		// If gateway is unreachable, we'll try again on next requeue
+		logger.Error(err, "failed to get plane connection status from gateway", "planeID", effectivePlaneID)
+		return err
+	}
+
+	// Populate DataPlane status fields (caller will persist to API server)
+	now := metav1.Now()
+	if dataPlane.Status.AgentConnection == nil {
+		dataPlane.Status.AgentConnection = &openchoreov1alpha1.AgentConnectionStatus{}
+	}
+
+	// Track previous connection state to detect transitions
+	previouslyConnected := dataPlane.Status.AgentConnection.Connected
+
+	dataPlane.Status.AgentConnection.Connected = status.Connected
+	dataPlane.Status.AgentConnection.ConnectedAgents = status.ConnectedAgents
+
+	if status.Connected {
+		dataPlane.Status.AgentConnection.LastHeartbeatTime = &metav1.Time{Time: status.LastSeen}
+
+		// Only update LastConnectedTime on transition from disconnected to connected
+		if !previouslyConnected {
+			dataPlane.Status.AgentConnection.LastConnectedTime = &now
+		}
+
+		if status.ConnectedAgents == 1 {
+			dataPlane.Status.AgentConnection.Message = "1 agent connected"
+		} else {
+			dataPlane.Status.AgentConnection.Message = fmt.Sprintf("%d agents connected (HA mode)", status.ConnectedAgents)
+		}
+	} else {
+		// Only update LastDisconnectedTime on transition from connected to disconnected
+		if previouslyConnected {
+			dataPlane.Status.AgentConnection.LastDisconnectedTime = &now
+		}
+		dataPlane.Status.AgentConnection.Message = "No agents connected"
+	}
+
+	logger.Info("populated agent connection status",
+		"planeID", effectivePlaneID,
+		"connected", status.Connected,
+		"connectedAgents", status.ConnectedAgents,
 	)
 
 	return nil

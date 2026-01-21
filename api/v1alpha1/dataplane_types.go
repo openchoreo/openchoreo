@@ -104,12 +104,41 @@ type DataPlaneSpec struct {
 	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
 }
 
+// AgentConnectionStatus tracks the status of cluster agent connections
+type AgentConnectionStatus struct {
+	// Connected indicates whether any cluster agent is currently connected
+	Connected bool `json:"connected"`
+
+	// ConnectedAgents is the number of cluster agents currently connected
+	ConnectedAgents int `json:"connectedAgents"`
+
+	// LastConnectedTime is when an agent last successfully connected
+	// +optional
+	LastConnectedTime *metav1.Time `json:"lastConnectedTime,omitempty"`
+
+	// LastDisconnectedTime is when the last agent disconnected
+	// +optional
+	LastDisconnectedTime *metav1.Time `json:"lastDisconnectedTime,omitempty"`
+
+	// LastHeartbeatTime is when the control plane last received any communication from an agent
+	// +optional
+	LastHeartbeatTime *metav1.Time `json:"lastHeartbeatTime,omitempty"`
+
+	// Message provides additional information about the agent connection status
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // DataPlaneStatus defines the observed state of DataPlane.
 type DataPlaneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
 	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+
+	// AgentConnection tracks the status of cluster agent connections to this data plane
+	// +optional
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,13 @@ const (
 	TypeCreated     = "Created"
 	TypeReady       = "Ready"
 	TypeTerminating = "Terminating"
+)
+
+// Status update intervals
+const (
+	// StatusUpdateInterval is the interval at which controllers should refresh status fields
+	// This is used for periodic status updates like agent connection status
+	StatusUpdateInterval = 1 * time.Minute
 )
 
 // UpdateCondition updates or adds a condition to any resource that has a Status with Conditions
