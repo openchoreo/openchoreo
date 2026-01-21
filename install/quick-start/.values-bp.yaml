@@ -17,9 +17,9 @@ registry:
 global:
   defaultResources:
     registry:
-      # Registry endpoint accessible from within the cluster
+      # Container registry host for pushing images
       # host.k3d.internal allows pods to access the LoadBalancer service
-      endpoint: "host.k3d.internal:10082"
+      host: "host.k3d.internal:10082"
 
 # External Secrets Operator
 # Disabled in quick-start since Data Plane already has ESO in single-cluster mode

@@ -21,7 +21,8 @@ registry:
 global:
   defaultResources:
     registry:
-      endpoint: "host.k3d.internal:10082"
+      # Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, etc).
+      host: "host.k3d.internal:10082"
 
 # Disable External Secrets since it's already in the Data Plane (single cluster)
 external-secrets:
