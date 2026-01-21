@@ -239,7 +239,7 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		}
 	}
 
-	return &models.ProjectResponse{
+	response := &models.ProjectResponse{
 		UID:                string(project.UID),
 		Name:               project.Name,
 		OrgName:            project.Namespace,
@@ -249,4 +249,11 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		CreatedAt:          project.CreationTimestamp.Time,
 		Status:             status,
 	}
+
+	// Include deletion timestamp if the project is marked for deletion
+	if project.DeletionTimestamp != nil {
+		response.DeletionTimestamp = &project.DeletionTimestamp.Time
+	}
+
+	return response
 }
