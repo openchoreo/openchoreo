@@ -72,6 +72,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "Test Subject",
+							Body:    "Test Body",
 						},
 					},
 				},
@@ -178,6 +187,11 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
 						},
 						Template: &openchoreodevv1alpha1.EmailTemplate{
 							Subject: "[${alert.severity}] - ${alert.name} Triggered",
@@ -435,6 +449,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{
 								InsecureSkipVerify: true,
 							},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "Test Auth Subject",
+							Body:    "Test Auth Body",
 						},
 					},
 				},
@@ -703,6 +721,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "Finalizer Test Subject",
+							Body:    "Finalizer Test Body",
 						},
 					},
 				},
@@ -756,6 +783,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "Delete Finalizer Subject",
+							Body:    "Delete Finalizer Body",
 						},
 					},
 				},
@@ -862,6 +898,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "No Resources Finalizer Subject",
+							Body:    "No Resources Finalizer Body",
 						},
 					},
 				},
@@ -927,6 +972,15 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 						SMTP: openchoreodevv1alpha1.SMTPConfig{
 							Host: "smtp.example.com",
 							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "No Finalizer Subject",
+							Body:    "No Finalizer Body",
 						},
 					},
 				},

@@ -105,6 +105,9 @@ spec:
                                 - name
                                 type: object
                             type: object
+                        required:
+                        - password
+                        - username
                         type: object
                       host:
                         description: |-
@@ -121,10 +124,18 @@ spec:
                         description: TLS configuration
                         properties:
                           insecureSkipVerify:
+                            default: false
                             description: InsecureSkipVerify skips TLS certificate
                               verification (not recommended for production)
                             type: boolean
+                        required:
+                        - insecureSkipVerify
                         type: object
+                    required:
+                    - auth
+                    - host
+                    - port
+                    - tls
                     type: object
                   template:
                     description: Template defines the email template using CEL expressions
@@ -151,6 +162,11 @@ spec:
                       type: string
                     minItems: 1
                     type: array
+                required:
+                - from
+                - smtp
+                - template
+                - to
                 type: object
               environment:
                 description: Environment is the name of the openchoreo environment
@@ -229,6 +245,8 @@ spec:
                       Required when type is "webhook"
                     format: uri
                     type: string
+                required:
+                - url
                 type: object
             required:
             - environment

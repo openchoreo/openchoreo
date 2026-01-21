@@ -21,7 +21,7 @@ spec:
     frontend-rpc-unavailable-error-log-alert:
       enabled: true                                                 # Alert rules can be enabled/disabled per environment. Default is true.
       enableAiRootCauseAnalysis: false                              # AI root cause analysis can be enabled/disabled per environment. Default is false.
-      notificationChannel: "email-notificationchannel-development"  # Notification channel can be specified per environment. If not specified, the default notification channel for the environment will be used. Here we are using the email notification channel for the development environment.
+      notificationChannel: "email-notification-channel-development" # Notification channel can be specified per environment. If not specified, the default notification channel for the environment will be used. Here we are using the email notification channel for the development environment.
 
 ---
 # ReleaseBinding for recommendation component with cpu limit misconfiguration
@@ -46,7 +46,7 @@ spec:
     recommendation-high-cpu-alert:
       enabled: true
       enableAiRootCauseAnalysis: true
-      notificationChannel: "webhook-notificationchannel-development"
+      notificationChannel: "webhook-notification-channel-development"
 
 ---
 # ReleaseBinding for cart component with memory limit misconfiguration

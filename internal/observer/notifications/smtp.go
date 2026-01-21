@@ -21,15 +21,15 @@ type SMTPConfig struct {
 
 // EmailConfig holds email-specific configuration
 type EmailConfig struct {
+	SMTP            SMTPConfig
 	To              []string
 	SubjectTemplate string
 	BodyTemplate    string
 }
 
-// NotificationChannelConfig combines SMTP, email, and webhook configuration
+// NotificationChannelConfig combines email and webhook configuration
 type NotificationChannelConfig struct {
 	Type    string // "email" or "webhook"
-	SMTP    SMTPConfig
 	Email   EmailConfig
 	Webhook WebhookConfig
 }
@@ -42,22 +42,22 @@ func SendEmailWithConfig(_ context.Context, config *NotificationChannelConfig, s
 	}
 
 	// Skip sending if no SMTP host is configured
-	if config.SMTP.Host == "" || config.SMTP.Host == "smtp.example.com" {
+	if config.Email.SMTP.Host == "" || config.Email.SMTP.Host == "smtp.example.com" {
 		return nil
 	}
 
-	addr := fmt.Sprintf("%s:%d", config.SMTP.Host, config.SMTP.Port)
+	addr := fmt.Sprintf("%s:%d", config.Email.SMTP.Host, config.Email.SMTP.Port)
 	var auth smtp.Auth
-	if config.SMTP.Username != "" && config.SMTP.Password != "" {
-		auth = smtp.PlainAuth("", config.SMTP.Username, config.SMTP.Password, config.SMTP.Host)
+	if config.Email.SMTP.Username != "" && config.Email.SMTP.Password != "" {
+		auth = smtp.PlainAuth("", config.Email.SMTP.Username, config.Email.SMTP.Password, config.Email.SMTP.Host)
 	}
 
 	message := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s",
-		config.SMTP.From,
+		config.Email.SMTP.From,
 		strings.Join(to, ","),
 		subject,
 		body,
 	)
 
-	return smtp.SendMail(addr, auth, config.SMTP.From, to, []byte(message))
+	return smtp.SendMail(addr, auth, config.Email.SMTP.From, to, []byte(message))
 }

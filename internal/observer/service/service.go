@@ -1215,7 +1215,7 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 			subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
 		}
 
-		emailBody := fmt.Sprintf("An alert was received at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
+		emailBody := fmt.Sprintf("An alert was triggered at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
 		if channelConfig.Email.BodyTemplate != "" {
 			emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
 		}
@@ -1229,10 +1229,10 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 			return fmt.Errorf("failed to send alert notification email: %w", err)
 		}
 
-		s.logger.Info("Alert notification sent successfully",
+		s.logger.Debug("Alert notification sent successfully",
 			"ruleName", ruleName,
 			"channelName", notificationChannelName,
-			"recipients", channelConfig.Email.To)
+			"recipients count", len(channelConfig.Email.To))
 		return nil
 
 	default:
@@ -1305,12 +1305,12 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 			recipients = parseRecipientsList(toStr)
 		}
 
-		config.SMTP = notifications.SMTPConfig{
-			Host: configMap.Data["smtp.host"],
-			Port: smtpPort,
-			From: configMap.Data["from"],
-		}
 		config.Email = notifications.EmailConfig{
+			SMTP: notifications.SMTPConfig{
+				Host: configMap.Data["smtp.host"],
+				Port: smtpPort,
+				From: configMap.Data["from"],
+			},
 			To:              recipients,
 			SubjectTemplate: configMap.Data["template.subject"],
 			BodyTemplate:    configMap.Data["template.body"],
@@ -1323,13 +1323,13 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 				"secretNamespace", secret.Namespace)
 
 			if username, ok := secret.Data["smtp.auth.username"]; ok {
-				config.SMTP.Username = string(username)
+				config.Email.SMTP.Username = string(username)
 				s.logger.Debug("SMTP username loaded")
 			} else {
 				s.logger.Warn("SMTP username key not found in secret")
 			}
 			if password, ok := secret.Data["smtp.auth.password"]; ok {
-				config.SMTP.Password = string(password)
+				config.Email.SMTP.Password = string(password)
 				s.logger.Debug("SMTP password loaded")
 			} else {
 				s.logger.Warn("SMTP password key not found in secret")
@@ -1340,17 +1340,17 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 		}
 
 		s.logger.Debug("Final SMTP config",
-			"host", config.SMTP.Host,
-			"port", config.SMTP.Port,
-			"from", config.SMTP.From,
-			"hasUsername", config.SMTP.Username != "",
-			"hasPassword", config.SMTP.Password != "")
+			"host", config.Email.SMTP.Host,
+			"port", config.Email.SMTP.Port,
+			"from", config.Email.SMTP.From,
+			"hasUsername", config.Email.SMTP.Username != "",
+			"hasPassword", config.Email.SMTP.Password != "")
 
 	case "webhook":
 		// Parse webhook URL
 		webhookURL := configMap.Data["webhook.url"]
 		if webhookURL == "" {
-			return nil, fmt.Errorf("webhook URL not found in ConfigMap")
+			return nil, fmt.Errorf("Alert webhook URL not found in ConfigMap")
 		}
 
 		// Parse headers from ConfigMap and Secret

@@ -55,7 +55,7 @@ This sample builds on top of the `gcp-microservices-demo` in `samples/gcp-micros
      ```bash
      kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
      ```
-   - **Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ReleaseBinding` `traitOverrides`. If you want to connect these alert rules to specific notification channels, you can use the `ReleaseBinding` resources in step 5 with `traitOverrides` that reference the notification channel names (e.g., `email-notificationchannel-development` or `webhook-notificationchannel-development`). If not specified, the default notification channel for the environment will be used.
+   - **Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ReleaseBinding` `traitOverrides`. If you want to connect these alert rules to specific notification channels, you can use the `ReleaseBinding` resources in step 5 with `traitOverrides` that reference the notification channel names (e.g., `email-notification-channel-development` or `webhook-notification-channel-development`). If not specified, the default notification channel for the environment will be used.
 
 5. Deploy the `failure-scenario-setup` to setup the failure scenario for frontend, recommendation and cart components
    - This creates `ReleaseBinding`s that:
@@ -67,11 +67,11 @@ This sample builds on top of the `gcp-microservices-demo` in `samples/gcp-micros
        - **Frontend alert** (`frontend-rpc-unavailable-error-log-alert`):
          - `enabled: true` - Alert rule is enabled (default is `true`)
          - `enableAiRootCauseAnalysis: false` - AI root cause analysis disabled (default is `false`)
-         - `notificationChannel: "email-notificationchannel-development"` - Uses email notification channel
+         - `notificationChannel: "email-notification-channel-development"` - Uses email notification channel
        - **Recommendation alert** (`recommendation-high-cpu-alert`):
          - `enabled: true` - Alert rule is enabled
          - `enableAiRootCauseAnalysis: true` - AI root cause analysis enabled
-         - `notificationChannel: "webhook-notificationchannel-development"` - Uses webhook notification channel
+         - `notificationChannel: "webhook-notification-channel-development"` - Uses webhook notification channel
        - **Cart alert** (`cartservice-high-memory-alert`):
          - No `traitOverrides` specified - Uses default values (enabled, no AI analysis, default notification channel for environment)
    - Apply:

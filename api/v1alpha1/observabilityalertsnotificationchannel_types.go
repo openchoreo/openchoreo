@@ -33,64 +33,64 @@ type SecretValueFrom struct {
 type EmailConfig struct {
 	// From is the sender email address
 	// Required when type is "email"
-	// +optional
-	From string `json:"from,omitempty"`
+	// +kubebuilder:validation:Required
+	From string `json:"from"`
 
 	// To is the list of recipient email addresses
 	// Required when type is "email"
-	// +optional
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	To []string `json:"to,omitempty"`
+	To []string `json:"to"`
 
 	// SMTP configuration for sending emails
 	// Required when type is "email"
-	// +optional
-	SMTP SMTPConfig `json:"smtp,omitempty"`
+	// +kubebuilder:validation:Required
+	SMTP SMTPConfig `json:"smtp"`
 
 	// Template defines the email template using CEL expressions
-	// +optional
-	Template *EmailTemplate `json:"template,omitempty"`
+	// +kubebuilder:validation:Required
+	Template *EmailTemplate `json:"template"`
 }
 
 // SMTPConfig defines SMTP server configuration
 type SMTPConfig struct {
 	// Host is the SMTP server hostname
 	// Required when type is "email"
-	// +optional
-	Host string `json:"host,omitempty"`
+	// +kubebuilder:validation:Required
+	Host string `json:"host"`
 
 	// Port is the SMTP server port
 	// Required when type is "email"
-	// +optional
-	Port int32 `json:"port,omitempty"`
+	// +kubebuilder:validation:Required
+	Port int32 `json:"port"`
 
 	// Auth defines SMTP authentication credentials
-	// +optional
-	Auth *SMTPAuth `json:"auth,omitempty"`
+	// +kubebuilder:validation:Required
+	Auth *SMTPAuth `json:"auth"`
 
 	// TLS configuration
-	// +optional
-	TLS *SMTPTLSConfig `json:"tls,omitempty"`
+	// +kubebuilder:validation:Required
+	TLS *SMTPTLSConfig `json:"tls"`
 }
 
 // SMTPAuth defines SMTP authentication configuration
 type SMTPAuth struct {
 	// Username for SMTP authentication
 	// Can be provided inline or via secret reference
-	// +optional
-	Username *SecretValueFrom `json:"username,omitempty"`
+	// +kubebuilder:validation:Required
+	Username *SecretValueFrom `json:"username"`
 
 	// Password for SMTP authentication
 	// Can be provided inline or via secret reference
-	// +optional
-	Password *SecretValueFrom `json:"password,omitempty"`
+	// +kubebuilder:validation:Required
+	Password *SecretValueFrom `json:"password"`
 }
 
 // SMTPTLSConfig defines TLS configuration for SMTP
 type SMTPTLSConfig struct {
 	// InsecureSkipVerify skips TLS certificate verification (not recommended for production)
-	// +optional
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	// +kubebuilder:default=false
+	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
 
 // EmailTemplate defines the email template with CEL expressions
@@ -124,9 +124,9 @@ type WebhookHeaderValue struct {
 type WebhookConfig struct {
 	// URL is the webhook endpoint URL where alerts will be sent
 	// Required when type is "webhook"
-	// +optional
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=uri
-	URL string `json:"url,omitempty"`
+	URL string `json:"url"`
 
 	// Headers are optional HTTP headers to include in the webhook request
 	// Headers can be provided inline or via secret references

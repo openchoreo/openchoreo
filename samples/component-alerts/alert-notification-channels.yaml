@@ -3,7 +3,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ObservabilityAlertsNotificationChannel
 metadata:
-  name: email-notificationchannel-development
+  name: email-notification-channel-development
   namespace: default
 spec:
   environment: development
@@ -18,11 +18,11 @@ spec:
       auth:
         username:
           secretKeyRef:
-            name: email-notificationchannel-development-smtp-auth
+            name: email-notification-channel-development-smtp-auth
             key: username
         password:
           secretKeyRef:
-            name: email-notificationchannel-development-smtp-auth
+            name: email-notification-channel-development-smtp-auth
             key: password
       tls:
         insecureSkipVerify: true
@@ -46,7 +46,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: email-notificationchannel-development-smtp-auth
+  name: email-notification-channel-development-smtp-auth
   namespace: default
 type: Opaque
 stringData:
@@ -58,7 +58,7 @@ stringData:
 apiVersion: openchoreo.dev/v1alpha1
 kind: ObservabilityAlertsNotificationChannel
 metadata:
-  name: webhook-notificationchannel-development
+  name: webhook-notification-channel-development
   namespace: default
 spec:
   environment: development
@@ -72,7 +72,7 @@ spec:
       X-API-Key:
         valueFrom:
           secretKeyRef:
-            name: webhook-notificationchannel-development-webhook-auth
+            name: webhook-notification-channel-development-webhook-auth
             key: api-key
     # Optional: Payload template using CEL expressions (${...})
     # If not provided, the raw alertDetails object will be sent as JSON
@@ -132,7 +132,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: webhook-notificationchannel-development-webhook-auth
+  name: webhook-notification-channel-development-webhook-auth
   namespace: default
 type: Opaque
 stringData:
