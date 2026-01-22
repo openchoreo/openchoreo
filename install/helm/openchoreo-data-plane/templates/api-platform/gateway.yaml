@@ -1,6 +1,6 @@
 {{- if index .Values "api-platform" "enabled" }}
-apiVersion: api.api-platform.wso2.com/v1
-kind: GatewayConfiguration
+apiVersion: gateway.api-platform.wso2.com/v1alpha1
+kind: Gateway
 metadata:
   name: api-platform-default
 spec:
@@ -21,4 +21,7 @@ spec:
         
   storage:
     type: sqlite
+
+  configRef:
+    name: api-platform-default-gateway-values
 {{- end }}

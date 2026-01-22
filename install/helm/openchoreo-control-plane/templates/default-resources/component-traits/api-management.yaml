@@ -61,27 +61,22 @@ spec:
               - host: api-platform-default-gateway-router.openchoreo-data-plane
                 port: 8080
 
-    # Create APIConfiguration resource
+    # Create RestAPI resource
     - template:
-        apiVersion: api.api-platform.wso2.com/v1
-        kind: APIConfiguration
+        apiVersion: gateway.api-platform.wso2.com/v1alpha1
+        kind: RestApi
         metadata:
           name: ${metadata.name}
           namespace: ${metadata.namespace}
         spec:
-          gatewayRefs: ${envOverrides.gatewayRefs}
-          apiConfiguration:
-            version: api-platform.wso2.com/v1
-            kind: http/rest
-            spec:
-              name: ${parameters.apiName}
-              version: ${parameters.apiVersion}
-              context: ${parameters.context}
-              upstream:
-                main:
-                  url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
-              policies: ${parameters.policies}
-              operations: ${parameters.operations}
+          displayName: ${parameters.apiName}
+          version: ${parameters.apiVersion}
+          context: ${parameters.context}
+          upstream:
+            main:
+              url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
+          policies: ${parameters.policies}
+          operations: ${parameters.operations}
 
   patches:
     # Patch HTTPRoute to route through API Gateway instead of directly to service

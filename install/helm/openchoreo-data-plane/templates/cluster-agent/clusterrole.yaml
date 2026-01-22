@@ -90,10 +90,10 @@ rules:
   - clustersecretstores
   verbs: ["*"]
 # API Platform resources (if using API Platform)
-- apiGroups: ["api.api-platform.wso2.com"]
+- apiGroups: ["gateway.api-platform.wso2.com"]
   resources:
-  - apiconfigurations
-  - gatewayconfigurations
+  - gateways
+  - restapis
   verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
