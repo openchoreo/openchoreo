@@ -2436,34 +2436,6 @@ backstage:
 
   # @schema
   # type: object
-  # description: Feature flags for OpenChoreo functionality
-  # @schema
-  features:
-    # @schema
-    # type: object
-    # description: Workflow feature configuration
-    # @schema
-    workflows:
-      # @schema
-      # type: boolean
-      # description: Enable workflows feature
-      # default: true
-      # @schema
-      enabled: true
-    # @schema
-    # type: object
-    # description: Observability feature configuration
-    # @schema
-    observability:
-      # @schema
-      # type: boolean
-      # description: Enable observability feature
-      # default: true
-      # @schema
-      enabled: true
-
-  # @schema
-  # type: object
   # description: Database configuration for Backstage
   # @schema
   database:

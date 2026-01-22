@@ -384,15 +384,15 @@
         },
         "features": {
           "additionalProperties": false,
-          "description": "Feature flags for OpenChoreo functionality",
+          "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
           "properties": {
             "observability": {
               "additionalProperties": false,
-              "description": "Observability feature configuration",
+              "description": "Observability plane features (Metrics, Traces, Runtime Logs)",
               "properties": {
                 "enabled": {
                   "default": true,
-                  "description": "Enable observability feature",
+                  "description": "Enable Metrics, Traces, Runtime Logs tabs and RuntimeHealthCard in entity pages",
                   "title": "enabled",
                   "type": "boolean"
                 }
@@ -403,11 +403,11 @@
             },
             "workflows": {
               "additionalProperties": false,
-              "description": "Workflow feature configuration",
+              "description": "Build plane / Workflows functionality configuration",
               "properties": {
                 "enabled": {
                   "default": true,
-                  "description": "Enable workflows feature",
+                  "description": "Enable Workflows tab and WorkflowsOverviewCard in entity pages",
                   "title": "enabled",
                   "type": "boolean"
                 }
