@@ -47,17 +47,17 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	component, err := h.services.ComponentService.CreateComponent(ctx, namespaceName, projectName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create component", "org", namespaceName, "project", projectName, "component", req.Name)
+			logger.Warn("Unauthorized to create component", "namespace", namespaceName, "project", projectName, "component", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentAlreadyExists) {
-			logger.Warn("Component already exists", "org", namespaceName, "project", projectName, "component", req.Name)
+			logger.Warn("Component already exists", "namespace", namespaceName, "project", projectName, "component", req.Name)
 			writeErrorResponse(w, http.StatusConflict, "Component already exists", services.CodeComponentExists)
 			return
 		}
@@ -67,7 +67,7 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Component created successfully", "org", namespaceName, "project", projectName, "component", component.Name)
+	logger.Debug("Component created successfully", "namespace", namespaceName, "project", projectName, "component", component.Name)
 	writeSuccessResponse(w, http.StatusCreated, component)
 }
 
@@ -89,7 +89,7 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 	components, err := h.services.ComponentService.ListComponents(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -103,7 +103,7 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 	copy(componentValues, components)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed components successfully", "org", namespaceName, "project", projectName, "count", len(components))
+	logger.Debug("Listed components successfully", "namespace", namespaceName, "project", projectName, "count", len(components))
 	writeListResponse(w, componentValues, len(components), 1, len(components))
 }
 
@@ -133,17 +133,17 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	component, err := h.services.ComponentService.GetComponent(ctx, namespaceName, projectName, componentName, additionalResources)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to view component", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -153,7 +153,7 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved component successfully", "org", namespaceName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved component successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
@@ -163,30 +163,30 @@ func (h *Handler) DeleteComponent(w http.ResponseWriter, r *http.Request) {
 	logger.Info("DeleteComponent handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
-	if orgName == "" || projectName == "" || componentName == "" {
-		logger.Warn("Organization name, project name, and component name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Namespace name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to delete component
-	err := h.services.ComponentService.DeleteComponent(ctx, orgName, projectName, componentName)
+	err := h.services.ComponentService.DeleteComponent(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to delete component", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to delete component", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -196,7 +196,7 @@ func (h *Handler) DeleteComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response - 204 No Content for successful delete
-	logger.Info("Component deleted successfully", "org", orgName, "project", projectName, "component", componentName)
+	logger.Info("Component deleted successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -224,24 +224,24 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "component", componentName, componentName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": namespaceName,
-		"project":      projectName,
+		"namespace": namespaceName,
+		"project":   projectName,
 	})
 
 	component, err := h.services.ComponentService.PatchComponent(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update component", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to update component", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -250,7 +250,7 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Patched component successfully", "org", namespaceName, "project", projectName, "component", componentName)
+	logger.Debug("Patched component successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
@@ -271,17 +271,17 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 	schema, err := h.services.ComponentService.GetComponentSchema(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
-			logger.Warn("ComponentType not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("ComponentType not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
@@ -290,7 +290,7 @@ func (h *Handler) GetComponentSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved component schema successfully", "org", namespaceName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved component schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -319,25 +319,25 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 
 	setAuditResource(ctx, "component", componentName, componentName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
-		"project":      projectName,
+		"namespace": namespaceName,
+		"project":   projectName,
 	})
 
 	// Call service to update workflow parameters
 	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowSchemaInvalid) {
-			logger.Warn("Invalid workflow parameters", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Invalid workflow parameters", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusBadRequest, "Invalid workflow parameters", services.CodeWorkflowSchemaInvalid)
 			return
 		}
@@ -371,12 +371,12 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	bindings, err := h.services.ComponentService.GetComponentBindings(ctx, namespaceName, projectName, componentName, environments)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -388,9 +388,9 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	// Success response
 	envCount := len(environments)
 	if envCount == 0 {
-		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
+		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
 	} else {
-		logger.Debug("Retrieved component bindings successfully", "org", namespaceName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
+		logger.Debug("Retrieved component bindings successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
 	}
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
@@ -440,22 +440,22 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to promote component", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to promote component", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDeploymentPipelineNotFound) {
-			logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Deployment pipeline not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Deployment pipeline not found", services.CodeDeploymentPipelineNotFound)
 			return
 		}
@@ -465,7 +465,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, services.ErrReleaseBindingNotFound) {
-			logger.Warn("Source release binding not found", "org", namespaceName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
+			logger.Warn("Source release binding not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
 			writeErrorResponse(w, http.StatusNotFound, "Source release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
@@ -475,7 +475,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Component promoted successfully", "org", namespaceName, "project", projectName, "component", componentName,
+	logger.Debug("Component promoted successfully", "namespace", namespaceName, "project", projectName, "component", componentName,
 		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
 	writeSuccessResponse(w, http.StatusOK, targetReleaseBinding)
 }
@@ -523,17 +523,17 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, namespaceName, projectName, componentName, bindingName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrBindingNotFound) {
-			logger.Warn("Binding not found", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Binding not found", "namespace", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusNotFound, "Binding not found", services.CodeBindingNotFound)
 			return
 		}
@@ -543,7 +543,7 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Success response
-	logger.Debug("Component binding updated successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
+	logger.Debug("Component binding updated successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	writeSuccessResponse(w, http.StatusOK, binding)
 }
 
@@ -568,22 +568,22 @@ func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request
 	observerResponse, err := h.services.ComponentService.GetComponentObserverURL(ctx, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Error in retrieving the log URL: Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Error in retrieving the log URL: Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Error in retrieving the log URL: Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Environment not found", "org", namespaceName, "environment", environmentName)
+			logger.Warn("Error in retrieving the log URL: Environment not found", "namespace", namespaceName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDataPlaneNotFound) {
-			logger.Warn("Error in retrieving the log URL: DataPlane not found", "org", namespaceName, "environment", environmentName)
+			logger.Warn("Error in retrieving the log URL: DataPlane not found", "namespace", namespaceName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
@@ -593,7 +593,7 @@ func (h *Handler) GetComponentObserverURL(w http.ResponseWriter, r *http.Request
 	}
 
 	// Success response
-	logger.Debug("Retrieved component observer URL successfully", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
+	logger.Debug("Retrieved component observer URL successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 	writeSuccessResponse(w, http.StatusOK, observerResponse)
 }
 
@@ -617,12 +617,12 @@ func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
 	observerResponse, err := h.services.ComponentService.GetBuildObserverURL(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Error in retrieving the log URL: Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Error in retrieving the log URL: Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Error in retrieving the log URL: Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Error in retrieving the log URL: Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Error in retrieving the log URL: Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -632,7 +632,7 @@ func (h *Handler) GetBuildObserverURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved build observer URL successfully", "org", namespaceName, "project", projectName, "component", componentName)
+	logger.Debug("Retrieved build observer URL successfully", "namespace", namespaceName, "project", projectName, "component", componentName)
 	writeSuccessResponse(w, http.StatusOK, observerResponse)
 }
 
@@ -663,22 +663,22 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 	componentRelease, err := h.services.ComponentService.CreateComponentRelease(ctx, namespaceName, projectName, componentName, req.ReleaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create component release", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to create component release", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrWorkloadNotFound) {
-			logger.Warn("Workload not found - component not built", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Workload not found - component not built", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusBadRequest, "Component has not been built yet", services.CodeWorkloadNotFound)
 			return
 		}
@@ -687,7 +687,7 @@ func (h *Handler) CreateComponentRelease(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	logger.Debug("Component release created successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", componentRelease.Name)
+	logger.Debug("Component release created successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", componentRelease.Name)
 	writeSuccessResponse(w, http.StatusCreated, componentRelease)
 }
 
@@ -708,12 +708,12 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 	releases, err := h.services.ComponentService.ListComponentReleases(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -722,7 +722,7 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logger.Debug("Listed component releases successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(releases))
+	logger.Debug("Listed component releases successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "count", len(releases))
 	writeListResponse(w, releases, len(releases), 1, len(releases))
 }
 
@@ -744,22 +744,22 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 	release, err := h.services.ComponentService.GetComponentRelease(ctx, namespaceName, projectName, componentName, releaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component release", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Unauthorized to view component release", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Component release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -768,7 +768,7 @@ func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved component release successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+	logger.Debug("Retrieved component release successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	writeSuccessResponse(w, http.StatusOK, release)
 }
 
@@ -790,22 +790,22 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 	schema, err := h.services.ComponentService.GetComponentReleaseSchema(ctx, namespaceName, projectName, componentName, releaseName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component release schema", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Unauthorized to view component release schema", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+			logger.Warn("Component release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -814,7 +814,7 @@ func (h *Handler) GetComponentReleaseSchema(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	logger.Debug("Retrieved component release schema successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
+	logger.Debug("Retrieved component release schema successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", releaseName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -836,17 +836,17 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 	release, err := h.services.ComponentService.GetEnvironmentRelease(ctx, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrReleaseNotFound) {
-			logger.Warn("Release not found", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
+			logger.Warn("Release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
 			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
 			return
 		}
@@ -855,7 +855,7 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	logger.Debug("Retrieved release successfully", "org", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
+	logger.Debug("Retrieved release successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "resourceCount", len(release.Spec.Resources))
 	writeSuccessResponse(w, http.StatusOK, release)
 }
 
@@ -886,22 +886,22 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 	binding, err := h.services.ComponentService.PatchReleaseBinding(ctx, namespaceName, projectName, componentName, bindingName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update release binding", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Unauthorized to update release binding", "namespace", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrReleaseBindingNotFound) {
-			logger.Warn("Release binding not found", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
+			logger.Warn("Release binding not found", "namespace", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 			writeErrorResponse(w, http.StatusNotFound, "Release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
@@ -910,7 +910,7 @@ func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Patched release binding successfully", "org", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
+	logger.Debug("Patched release binding successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "binding", bindingName)
 	writeSuccessResponse(w, http.StatusOK, binding)
 }
 
@@ -933,12 +933,12 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 	bindings, err := h.services.ComponentService.ListReleaseBindings(ctx, namespaceName, projectName, componentName, environments)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -947,7 +947,7 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Listed release bindings successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
+	logger.Debug("Listed release bindings successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "count", len(bindings))
 	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
 }
 
@@ -983,22 +983,22 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 	binding, err := h.services.ComponentService.DeployRelease(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to deploy component", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to deploy component", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentReleaseNotFound) {
-			logger.Warn("Component release not found", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName)
+			logger.Warn("Component release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName)
 			writeErrorResponse(w, http.StatusNotFound, "Component release not found", services.CodeComponentReleaseNotFound)
 			return
 		}
@@ -1007,7 +1007,7 @@ func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Deployed release successfully", "org", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
+	logger.Debug("Deployed release successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "release", req.ReleaseName, "environment", binding.Environment)
 	writeSuccessResponse(w, http.StatusCreated, binding)
 }
 
@@ -1030,17 +1030,17 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 	traits, err := h.services.ComponentService.ListComponentTraits(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component traits", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to view component traits", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -1050,7 +1050,7 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Listed component traits successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
+	logger.Debug("Listed component traits successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
 	writeListResponse(w, traits, len(traits), 1, len(traits))
 }
 
@@ -1096,22 +1096,22 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, namespaceName, projectName, componentName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to update component traits", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to update component traits", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrTraitNotFound) {
-			logger.Warn("Trait not found", "org", namespaceName, "project", projectName, "component", componentName, "error", err)
+			logger.Warn("Trait not found", "namespace", namespaceName, "project", projectName, "component", componentName, "error", err)
 			writeErrorResponse(w, http.StatusNotFound, err.Error(), services.CodeTraitNotFound)
 			return
 		}
@@ -1121,6 +1121,6 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Success response
-	logger.Debug("Updated component traits successfully", "org", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
+	logger.Debug("Updated component traits successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "count", len(traits))
 	writeListResponse(w, traits, len(traits), 1, len(traits))
 }

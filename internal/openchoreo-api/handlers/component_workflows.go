@@ -32,7 +32,7 @@ func (h *Handler) ListComponentWorkflows(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Debug("Listed ComponentWorkflows successfully", "org", namespaceName, "count", len(cwfs))
+	log.Debug("Listed ComponentWorkflows successfully", "namespace", namespaceName, "count", len(cwfs))
 	writeListResponse(w, cwfs, len(cwfs), 1, len(cwfs))
 }
 
@@ -53,12 +53,12 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 	schema, err := h.services.ComponentWorkflowService.GetComponentWorkflowSchema(ctx, namespaceName, cwName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view component workflow schema", "org", namespaceName, "componentWorkflow", cwName)
+			log.Warn("Unauthorized to view component workflow schema", "namespace", namespaceName, "componentWorkflow", cwName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrComponentWorkflowNotFound) {
-			log.Warn("ComponentWorkflow not found", "org", namespaceName, "name", cwName)
+			log.Warn("ComponentWorkflow not found", "namespace", namespaceName, "name", cwName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentWorkflow not found", services.CodeComponentWorkflowNotFound)
 			return
 		}
@@ -67,7 +67,7 @@ func (h *Handler) GetComponentWorkflowSchema(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	log.Debug("Retrieved ComponentWorkflow schema successfully", "org", namespaceName, "name", cwName)
+	log.Debug("Retrieved ComponentWorkflow schema successfully", "namespace", namespaceName, "name", cwName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }
 
@@ -112,7 +112,7 @@ func (h *Handler) CreateComponentWorkflowRun(w http.ResponseWriter, r *http.Requ
 	setAuditResource(ctx, "component_workflow_run", workflowRun.Name, workflowRun.Name)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to trigger component workflow", "org", namespaceName, "project", projectName, "component", componentName)
+			log.Warn("Unauthorized to trigger component workflow", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -215,7 +215,7 @@ func (h *Handler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request
 	workflowRun, err := h.services.ComponentWorkflowService.GetComponentWorkflowRun(ctx, namespaceName, projectName, componentName, runName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
-			log.Warn("Component workflow run not found", "org", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Warn("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
 			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
 			return
 		}

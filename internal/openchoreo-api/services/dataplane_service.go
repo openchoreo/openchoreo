@@ -35,9 +35,9 @@ func NewDataPlaneService(k8sClient client.Client, logger *slog.Logger, authzPDP 
 	}
 }
 
-// ListDataPlanes lists all dataplanes in the specified organization
+// ListDataPlanes lists all dataplanes in the specified namespace
 func (s *DataPlaneService) ListDataPlanes(ctx context.Context, namespaceName string) ([]*models.DataPlaneResponse, error) {
-	s.logger.Debug("Listing dataplanes", "org", namespaceName)
+	s.logger.Debug("Listing dataplanes", "namespace", namespaceName)
 
 	var dpList openchoreov1alpha1.DataPlaneList
 	listOpts := []client.ListOption{
@@ -45,7 +45,7 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, namespaceName str
 	}
 
 	if err := s.k8sClient.List(ctx, &dpList, listOpts...); err != nil {
-		s.logger.Error("Failed to list dataplanes", "error", err, "org", namespaceName)
+		s.logger.Error("Failed to list dataplanes", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to list dataplanes: %w", err)
 	}
 
@@ -54,7 +54,7 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, namespaceName str
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpList.Items[i].Name,
 			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized dataplane", "org", namespaceName, "dataplane", dpList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized dataplane", "namespace", namespaceName, "dataplane", dpList.Items[i].Name)
 				continue
 			}
 			return nil, err
@@ -62,13 +62,13 @@ func (s *DataPlaneService) ListDataPlanes(ctx context.Context, namespaceName str
 		dataplanes = append(dataplanes, s.toDataPlaneResponse(&dpList.Items[i]))
 	}
 
-	s.logger.Debug("Listed dataplanes", "count", len(dataplanes), "org", namespaceName)
+	s.logger.Debug("Listed dataplanes", "count", len(dataplanes), "namespace", namespaceName)
 	return dataplanes, nil
 }
 
 // GetDataPlane retrieves a specific dataplane
 func (s *DataPlaneService) GetDataPlane(ctx context.Context, namespaceName, dpName string) (*models.DataPlaneResponse, error) {
-	s.logger.Debug("Getting dataplane", "org", namespaceName, "dataplane", dpName)
+	s.logger.Debug("Getting dataplane", "namespace", namespaceName, "dataplane", dpName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDataPlane, ResourceTypeDataPlane, dpName,
 		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
@@ -83,10 +83,10 @@ func (s *DataPlaneService) GetDataPlane(ctx context.Context, namespaceName, dpNa
 
 	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("DataPlane not found", "org", namespaceName, "dataplane", dpName)
+			s.logger.Warn("DataPlane not found", "namespace", namespaceName, "dataplane", dpName)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", dpName)
+		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", dpName)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
@@ -95,7 +95,7 @@ func (s *DataPlaneService) GetDataPlane(ctx context.Context, namespaceName, dpNa
 
 // CreateDataPlane creates a new dataplane
 func (s *DataPlaneService) CreateDataPlane(ctx context.Context, namespaceName string, req *models.CreateDataPlaneRequest) (*models.DataPlaneResponse, error) {
-	s.logger.Debug("Creating dataplane", "org", namespaceName, "dataplane", req.Name)
+	s.logger.Debug("Creating dataplane", "namespace", namespaceName, "dataplane", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
@@ -112,7 +112,7 @@ func (s *DataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to check dataplane existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("DataPlane already exists", "org", namespaceName, "dataplane", req.Name)
+		s.logger.Warn("DataPlane already exists", "namespace", namespaceName, "dataplane", req.Name)
 		return nil, ErrDataPlaneAlreadyExists
 	}
 
@@ -123,11 +123,11 @@ func (s *DataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to create dataplane: %w", err)
 	}
 
-	s.logger.Debug("DataPlane created successfully", "org", namespaceName, "dataplane", req.Name)
+	s.logger.Debug("DataPlane created successfully", "namespace", namespaceName, "dataplane", req.Name)
 	return s.toDataPlaneResponse(dataplaneCR), nil
 }
 
-// dataPlaneExists checks if a dataplane exists in the given organization
+// dataPlaneExists checks if a dataplane exists in the given namespace
 func (s *DataPlaneService) dataPlaneExists(ctx context.Context, namespaceName, dpName string) (bool, error) {
 	dp := &openchoreov1alpha1.DataPlane{}
 	key := client.ObjectKey{

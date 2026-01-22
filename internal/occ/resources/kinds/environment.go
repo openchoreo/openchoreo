@@ -20,7 +20,7 @@ type EnvironmentResource struct {
 }
 
 // NewEnvironmentResource constructs an EnvironmentResource with CRDConfig and optionally sets namespace.
-func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentResource, error) {
+func NewEnvironmentResource(cfg constants.CRDConfig, namespace string) (*EnvironmentResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -32,8 +32,8 @@ func NewEnvironmentResource(cfg constants.CRDConfig, org string) (*EnvironmentRe
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Environment, *openchoreov1alpha1.EnvironmentList](namespace))
 	}
 
 	return &EnvironmentResource{

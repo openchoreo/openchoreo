@@ -273,10 +273,10 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 		{
 			name:              "cluster role - hierarchy out of scope",
 			entitlementValues: []string{"test-group"},
-			resource:          authzcore.ResourceHierarchy{Namespace: "other-org", Project: "p1"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "other-namespace", Project: "p1"},
 			action:            "component:view",
 			want:              false,
-			reason:            "policy scoped to 'acme', not 'other-org'",
+			reason:            "policy scoped to 'acme', not 'other-namespace'",
 		},
 		{
 			name:              "cluster role - multiple groups, one matches",
@@ -289,7 +289,7 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 		{
 			name:              "global wildcard - access any namespace",
 			entitlementValues: []string{"global-admin-group"},
-			resource:          authzcore.ResourceHierarchy{Namespace: "any-org", Project: "any-project"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "any-namespace", Project: "any-project"},
 			action:            "project:delete",
 			want:              true,
 			reason:            "global wildcard grants access to all resources",
@@ -782,28 +782,28 @@ func TestCasbinEnforcer_Evaluate_CrossNamespaceIsolation_Focused(t *testing.T) {
 		t.Fatalf("failed to add ns-engineer mapping for acme: %v", err)
 	}
 
-	// Setup: Namespace role with SAME NAME in 'other-org'
+	// Setup: Namespace role with SAME NAME in 'other-namespace'
 	nsRoleOther := &authzcore.Role{
 		Name:      "ns-engineer",
-		Namespace: "other-org",
+		Namespace: "other-namespace",
 		Actions:   []string{"component:delete", "project:delete"},
 	}
 	if err := enforcer.AddRole(ctx, nsRoleOther); err != nil {
-		t.Fatalf("failed to add ns-engineer role for other-org: %v", err)
+		t.Fatalf("failed to add ns-engineer role for other-namespace: %v", err)
 	}
 	nsMappingOther := &authzcore.RoleEntitlementMapping{
 		Entitlement: authzcore.Entitlement{
 			Claim: "groups",
 			Value: "other-engineer-group",
 		},
-		RoleRef: authzcore.RoleRef{Name: "ns-engineer", Namespace: "other-org"},
+		RoleRef: authzcore.RoleRef{Name: "ns-engineer", Namespace: "other-namespace"},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "other-org",
+			Namespace: "other-namespace",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
 	if err := enforcer.AddRoleEntitlementMapping(ctx, nsMappingOther); err != nil {
-		t.Fatalf("failed to add ns-engineer mapping for other-org: %v", err)
+		t.Fatalf("failed to add ns-engineer mapping for other-namespace: %v", err)
 	}
 
 	tests := []struct {
@@ -823,48 +823,48 @@ func TestCasbinEnforcer_Evaluate_CrossNamespaceIsolation_Focused(t *testing.T) {
 			want:              true,
 			reason:            "namespace role should work in its own namespace",
 		},
-		// Test acme role CANNOT access other-org
+		// Test acme role CANNOT access other-namespace
 		{
 			name:              "acme role - no access to other namespace",
 			entitlementValues: []string{"acme-engineer-group"},
-			resource:          authzcore.ResourceHierarchy{Namespace: "other-org", Project: "p1", Component: "c1"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "other-namespace", Project: "p1", Component: "c1"},
 			action:            "component:deploy",
 			want:              false,
-			reason:            "namespace role for 'acme' should NOT grant access to 'other-org'",
+			reason:            "namespace role for 'acme' should NOT grant access to 'other-namespace'",
 		},
 		{
-			name:              "other-org role - works in own namespace",
+			name:              "other-namespace role - works in own namespace",
 			entitlementValues: []string{"other-engineer-group"},
-			resource:          authzcore.ResourceHierarchy{Namespace: "other-org", Project: "p1", Component: "c1"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "other-namespace", Project: "p1", Component: "c1"},
 			action:            "component:delete",
 			want:              true,
 			reason:            "namespace role should work in its own namespace",
 		},
-		// Test other-org role CANNOT access acme
+		// Test other-namespace role CANNOT access acme
 		{
-			name:              "other-org role - no access to acme namespace",
+			name:              "other-namespace role - no access to acme namespace",
 			entitlementValues: []string{"other-engineer-group"},
 			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
 			action:            "project:delete",
 			want:              false,
-			reason:            "namespace role for 'other-org' should NOT grant access to 'acme'",
+			reason:            "namespace role for 'other-namespace' should NOT grant access to 'acme'",
 		},
 		// Test roles with same name are independent
 		{
-			name:              "same role name - acme permissions don't leak to other-org",
+			name:              "same role name - acme permissions don't leak to other-namespace",
 			entitlementValues: []string{"acme-engineer-group"},
 			resource:          authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1", Component: "c1"},
 			action:            "component:delete",
 			want:              false,
-			reason:            "acme ns-engineer role doesn't have delete (only other-org does)",
+			reason:            "acme ns-engineer role doesn't have delete (only other-namespace does)",
 		},
 		{
-			name:              "same role name - other-org permissions don't leak to acme",
+			name:              "same role name - other-namespace permissions don't leak to acme",
 			entitlementValues: []string{"other-engineer-group"},
-			resource:          authzcore.ResourceHierarchy{Namespace: "other-org", Project: "p1", Component: "c1"},
+			resource:          authzcore.ResourceHierarchy{Namespace: "other-namespace", Project: "p1", Component: "c1"},
 			action:            "component:deploy",
 			want:              false,
-			reason:            "other-org ns-engineer role doesn't have deploy (only acme does)",
+			reason:            "other-namespace ns-engineer role doesn't have deploy (only acme does)",
 		},
 	}
 
@@ -1072,24 +1072,24 @@ func TestCasbinEnforcer_Evaluate_RoleInteractions_Focused(t *testing.T) {
 			name:              "same group both roles - namespace role limited to acme",
 			entitlementValues: []string{"engineering"},
 			resource: authzcore.ResourceHierarchy{
-				Namespace: "other-org",
+				Namespace: "other-namespace",
 				Project:   "p1",
 				Component: "c1",
 			},
 			action: "component:deploy",
 			want:   false,
-			reason: "namespace 'deployer' role limited to 'acme', should NOT work in 'other-org'",
+			reason: "namespace 'deployer' role limited to 'acme', should NOT work in 'other-namespace'",
 		},
 		{
-			name:              "same group both roles - cluster role should work in other-org",
+			name:              "same group both roles - cluster role should work in other-namespace",
 			entitlementValues: []string{"engineering"},
 			resource: authzcore.ResourceHierarchy{
-				Namespace: "other-org",
+				Namespace: "other-namespace",
 				Project:   "p1",
 			},
 			action: "project:view",
 			want:   false,
-			reason: "cluster role mapped only to 'acme' namespace, not 'other-org'",
+			reason: "cluster role mapped only to 'acme' namespace, not 'other-namespace'",
 		},
 		{
 			name:              "same group both roles - neither has delete permission",
@@ -1313,7 +1313,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		},
 		RoleRef: authzcore.RoleRef{Name: "viewer", Namespace: ""},
 		Hierarchy: authzcore.ResourceHierarchy{
-			Namespace: "other-org",
+			Namespace: "other-namespace",
 		},
 		Effect: authzcore.PolicyEffectAllow,
 	}
@@ -2273,7 +2273,7 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 			t.Fatalf("AddGroupingPolicies() error = %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "in-use-role", "*", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "in-use-role", "*", "allow", "{}")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -2319,7 +2319,7 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 			t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "in-use-role", testNs, "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "in-use-role", testNs, "allow", "{}")
 		if err != nil {
 			t.Fatalf("failed to add mapping: %v", err)
 		}
@@ -2342,7 +2342,7 @@ func TestCasbinEnforcer_ForceRemoveRole_ClusterRole(t *testing.T) {
 			t.Fatalf("AddGroupingPolicy() error = %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "orgs/acme", "force-removable", "*", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "force-removable", "*", "allow", "{}")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -2414,7 +2414,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 		t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 	}
 
-	_, err = enforcer.enforcer.AddPolicy("groups:admins", "orgs/acme", "ns-admin", testNs, "allow", "{}")
+	_, err = enforcer.enforcer.AddPolicy("groups:admins", "namespaces/acme", "ns-admin", testNs, "allow", "{}")
 	if err != nil {
 		t.Fatalf("failed to add mapping: %v", err)
 	}

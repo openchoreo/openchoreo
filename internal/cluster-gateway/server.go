@@ -359,7 +359,7 @@ func (s *Server) handleHTTPTunnelResponse(planeName string, resp *messaging.HTTP
 // handleHTTPProxy handles HTTP proxy requests to data plane services
 // URL format: /api/proxy/{planeType}/{planeID}/{namespace}/{crName}/{target}/{path...}
 // Examples:
-//   - /api/proxy/dataplane/prod-cluster/org-a/org-a-dataplane/k8s/api/v1/pods
+//   - /api/proxy/dataplane/prod-cluster/namespace-a/namespace-a-dataplane/k8s/api/v1/pods
 //   - /api/proxy/buildplane/default/default/default/k8s/api/v1/namespaces
 //
 // Note: crNamespace and crName are metadata only (for logging, future authorization)

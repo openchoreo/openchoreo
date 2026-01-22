@@ -15,7 +15,7 @@ import (
 const (
 	testNamespace = "test-namespace"
 	testPipeline  = "test-pipeline"
-	testOrg       = "test-org"
+	testOrg       = "test-namespace"
 )
 
 var _ = Describe("Project Webhook", func() {

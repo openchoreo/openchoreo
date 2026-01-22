@@ -29,7 +29,7 @@ Install an AI Assistant (AI Agent) and configure the OpenChoreo MCP server.
 ## Guides
 
 ### 1. [Getting Started](./getting-started/)
-Learn the basics of connecting your AI assistant to OpenChoreo and performing simple operations like listing organizations and projects.
+Learn the basics of connecting your AI assistant to OpenChoreo and performing simple operations like listing namespaces and projects.
 
 **Prerequisites:** All prerequisites above must be completed.
 

@@ -1887,7 +1887,7 @@ paths:
       description: Returns the authorization profile for the authenticated subject.
       tags: [Authorization]
       parameters:
-        - name: org
+        - name: namespace
           in: query
           required: false
           description: Namespace scope
@@ -2768,7 +2768,7 @@ components:
       type: object
       description: |
         Namespace resource representing an OpenChoreo control plane namespace.
-        Control plane namespaces hold organization resources like Projects, Components, and Environments.
+        Control plane namespaces hold resources like Projects, Components, and Environments.
         These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
       required:
         - name
@@ -2789,7 +2789,7 @@ components:
         namespace:
           type: string
           description: Kubernetes namespace for the namespace
-          example: org-my-namespace
+          example: my-namespace
         createdAt:
           type: string
           format: date-time
@@ -2812,17 +2812,17 @@ components:
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           minLength: 1
           maxLength: 63
-          example: my-org
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
           maxLength: 100
-          example: My Organization
+          example: My Namespace
         description:
           type: string
           description: Namespace description
           maxLength: 500
-          example: Organization namespace for development team
+          example: Namespace for development team
 
     # -------------------------------------------------------------------------
     # Projects
@@ -3463,7 +3463,7 @@ components:
         namespace:
           type: string
           description: Kubernetes namespace for the build plane
-          example: org-my-namespace
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -3518,7 +3518,7 @@ components:
         namespace:
           type: string
           description: Kubernetes namespace for the observability plane
-          example: org-my-namespace
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -4619,7 +4619,7 @@ components:
         path:
           type: string
           description: Full resource path
-          example: org/acme/project/payment
+          example: namespace/acme/project/payment
         constraints:
           type: object
           description: Additional instance-level restrictions
@@ -4704,7 +4704,7 @@ components:
             namespace:
               type: string
               description: Kubernetes namespace
-              example: org-my-namespace
+              example: my-namespace
           additionalProperties: true
         spec:
           type: object
@@ -4735,7 +4735,7 @@ components:
         namespace:
           type: string
           description: Applied resource namespace
-          example: org-my-namespace
+          example: my-namespace
         operation:
           type: string
           description: Operation performed
@@ -4766,7 +4766,7 @@ components:
         namespace:
           type: string
           description: Deleted resource namespace
-          example: org-my-namespace
+          example: my-namespace
         operation:
           type: string
           description: Operation result
@@ -4805,7 +4805,7 @@ components:
         namespace:
           type: string
           description: Kubernetes namespace
-          example: org-my-namespace
+          example: my-namespace
         displayName:
           type: string
           description: Human-readable display name
@@ -4857,7 +4857,7 @@ components:
         namespace:
           type: string
           description: Secret store namespace
-          example: org-my-namespace
+          example: my-namespace
         kind:
           type: string
           description: Secret store kind

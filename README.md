@@ -29,7 +29,7 @@ Platform engineers use the following abstractions to create their internal devel
 </div>
 </br>
 
-- **Organization**
+- **Namespace**
   - A logical grouping of users and resources, typically aligned to a company, business unit, or team. 
 - **Data Plane**
   - A Kubernetes cluster to host one or more of your deployment environments.
@@ -82,7 +82,6 @@ At runtime, OpenChoreo turns each Project (Bounded Context) into a Cell - a secu
   - Handles outbound Internet access from components in the Cell. Connections to external services are routed through this egress path. 
 - **Westbound Ingress**
   - Handles traffic entering the Cell from within the organization, be it from another cell or just from the internal network. 
-  - Endpoints with `visibility: organization` are exposed through this ingress path.
 - **Eastbound Egress**
   - Handles outbound traffic to other cells or to the internal network.
 

@@ -26,7 +26,7 @@ func (h *Handler) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Namespace not found", services.CodeNamespaceNotFound)
 			return
 		}
-		h.logger.Error("Failed to list secret references", "error", err, "org", namespaceName)
+		h.logger.Error("Failed to list secret references", "error", err, "namespace", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list secret references", services.CodeInternalError)
 		return
 	}

@@ -16,7 +16,7 @@
 #       value: developers             # Value to match from the claim
 #     effect: allow                   # "allow" (default) or "deny"
 #     hierarchy:                      # Optional: scope this mapping to specific resources
-#       namespace: my-org             # Namespace (organization) name
+#       namespace: my-namespace       # Namespace name
 #       project: my-project           # Project name (requires namespace)
 #       component: my-component       # Component name (requires namespace and project)
 

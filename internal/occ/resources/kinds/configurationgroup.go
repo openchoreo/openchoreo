@@ -18,7 +18,7 @@ type ConfigurationGroupResource struct {
 }
 
 // NewConfigurationGroupResource constructs a ConfigurationGroupResource with CRDConfig and optionally sets namespace.
-func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*ConfigurationGroupResource, error) {
+func NewConfigurationGroupResource(cfg constants.CRDConfig, namespace string) (*ConfigurationGroupResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
@@ -30,14 +30,14 @@ func NewConfigurationGroupResource(cfg constants.CRDConfig, org string) (*Config
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.ConfigurationGroup, *openchoreov1alpha1.ConfigurationGroupList](namespace))
 	}
 
 	// Create labels for filtering
 	labels := map[string]string{}
-	if org != "" {
-		labels[constants.LabelNamespace] = org
+	if namespace != "" {
+		labels[constants.LabelNamespace] = namespace
 	}
 
 	// Add labels if any were set

@@ -20,14 +20,14 @@ type WorkloadResource struct {
 }
 
 // NewWorkloadResource constructs a WorkloadResource with CRDConfig and optionally sets namespace.
-func NewWorkloadResource(cfg constants.CRDConfig, org string) (*WorkloadResource, error) {
+func NewWorkloadResource(cfg constants.CRDConfig, namespace string) (*WorkloadResource, error) {
 	options := []resources.ResourceBaseOption{
 		resources.WithResourceConfig(cfg),
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithResourceNamespace(org))
+	if namespace != "" {
+		options = append(options, resources.WithResourceNamespace(namespace))
 	}
 
 	return &WorkloadResource{
@@ -152,7 +152,7 @@ func (w *WorkloadResource) Print(format resources.OutputFormat, filter *resource
 func (w *WorkloadResource) GenerateWorkloadCR(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	// Validate required parameters
 	if params.NamespaceName == "" {
-		return nil, fmt.Errorf("organization name is required (--organization)")
+		return nil, fmt.Errorf("namespace name is required (--namespace)")
 	}
 	if params.ProjectName == "" {
 		return nil, fmt.Errorf("project name is required (--project)")

@@ -38,7 +38,7 @@ func (h *Handler) ListTraits(w http.ResponseWriter, r *http.Request) {
 	copy(traitValues, traits)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed Traits successfully", "org", namespaceName, "count", len(traits))
+	logger.Debug("Listed Traits successfully", "namespace", namespaceName, "count", len(traits))
 	writeListResponse(w, traitValues, len(traits), 1, len(traits))
 }
 
@@ -60,12 +60,12 @@ func (h *Handler) GetTraitSchema(w http.ResponseWriter, r *http.Request) {
 	schema, err := h.services.TraitService.GetTraitSchema(ctx, namespaceName, traitName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view trait schema", "org", namespaceName, "trait", traitName)
+			logger.Warn("Unauthorized to view trait schema", "namespace", namespaceName, "trait", traitName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrTraitNotFound) {
-			logger.Warn("Trait not found", "org", namespaceName, "name", traitName)
+			logger.Warn("Trait not found", "namespace", namespaceName, "name", traitName)
 			writeErrorResponse(w, http.StatusNotFound, "Trait not found", services.CodeTraitNotFound)
 			return
 		}
@@ -75,6 +75,6 @@ func (h *Handler) GetTraitSchema(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved Trait schema successfully", "org", namespaceName, "name", traitName)
+	logger.Debug("Retrieved Trait schema successfully", "namespace", namespaceName, "name", traitName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

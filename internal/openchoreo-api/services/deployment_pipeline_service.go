@@ -40,7 +40,7 @@ func NewDeploymentPipelineService(k8sClient client.Client, projectService *Proje
 
 // GetProjectDeploymentPipeline retrieves the deployment pipeline for a given project
 func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (*models.DeploymentPipelineResponse, error) {
-	s.logger.Debug("Getting project deployment pipeline", "org", namespaceName, "project", projectName)
+	s.logger.Debug("Getting project deployment pipeline", "namespace", namespaceName, "project", projectName)
 
 	// First verify the project exists and get its deployment pipeline reference
 	project, err := s.projectService.getProject(ctx, namespaceName, projectName)
@@ -73,7 +73,7 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 
 	if err := s.k8sClient.Get(ctx, key, pipeline); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Deployment pipeline not found", "org", namespaceName, "project", projectName, "pipeline", pipelineName)
+			s.logger.Warn("Deployment pipeline not found", "namespace", namespaceName, "project", projectName, "pipeline", pipelineName)
 			return nil, ErrDeploymentPipelineNotFound
 		}
 		s.logger.Error("Failed to get deployment pipeline", "error", err)

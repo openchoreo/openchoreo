@@ -31,11 +31,11 @@ func namespaceToolSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			requiredParams:      []string{"name"},
 			optionalParams:      []string{},
-			testArgs:            map[string]any{"name": "test-org"},
+			testArgs:            map[string]any{"name": "test-namespace"},
 			expectedMethod:      "GetNamespace",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != "test-org" {
-					t.Errorf("Expected org name 'test-org', got %v", args[0])
+				if args[0] != "test-namespace" {
+					t.Errorf("Expected namespace 'test-namespace', got %v", args[0])
 				}
 			},
 		},
@@ -51,7 +51,7 @@ func namespaceToolSpecs() []toolTestSpec {
 			expectedMethod: "ListSecretReferences",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},

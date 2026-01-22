@@ -21,7 +21,7 @@ type DeploymentPipelineResource struct {
 }
 
 // NewDeploymentPipelineResource constructs a DeploymentPipelineResource with CRDConfig and optionally sets namespace.
-func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*DeploymentPipelineResource, error) {
+func NewDeploymentPipelineResource(cfg constants.CRDConfig, namespace string) (*DeploymentPipelineResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
@@ -33,14 +33,14 @@ func NewDeploymentPipelineResource(cfg constants.CRDConfig, org string) (*Deploy
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentPipeline, *openchoreov1alpha1.DeploymentPipelineList](namespace))
 	}
 
 	// Create labels for filtering
 	labels := map[string]string{}
-	if org != "" {
-		labels[constants.LabelNamespace] = org
+	if namespace != "" {
+		labels[constants.LabelNamespace] = namespace
 	}
 
 	// Add labels if any were set

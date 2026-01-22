@@ -36,7 +36,7 @@ func (c *ConfigContextImpl) GetContexts() error {
 	}
 
 	// Create headers and rows for table
-	headers := []string{"", "NAME", "ORGANIZATION", "PROJECT", "COMPONENT", "ENVIRONMENT", "DATAPLANE"}
+	headers := []string{"", "NAME", "NAMESPACE", "PROJECT", "COMPONENT", "ENVIRONMENT", "DATAPLANE"}
 	rows := make([][]string, 0, len(cfg.Contexts))
 
 	for _, ctx := range cfg.Contexts {

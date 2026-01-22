@@ -44,17 +44,17 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 	workloads, err := h.services.ComponentService.GetComponentWorkloads(ctx, namespaceName, projectName, componentName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view workloads", "org", namespaceName, "project", projectName, "component", componentName)
+			log.Warn("Unauthorized to view workloads", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			log.Warn("Project not found", "org", namespaceName, "project", projectName)
+			log.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			log.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			log.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
@@ -113,17 +113,17 @@ func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
 	createdWorkload, err := h.services.ComponentService.CreateComponentWorkload(ctx, namespaceName, projectName, componentName, &workloadSpec)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to create workload", "org", namespaceName, "project", projectName, "component", componentName)
+			log.Warn("Unauthorized to create workload", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			log.Warn("Project not found", "org", namespaceName, "project", projectName)
+			log.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			log.Warn("Component not found", "org", namespaceName, "project", projectName, "component", componentName)
+			log.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}

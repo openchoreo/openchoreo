@@ -31,17 +31,17 @@ func NewObservabilityPlaneService(k8sClient client.Client, logger *slog.Logger) 
 
 // ListObservabilityPlanes retrieves all observability planes for an namespace
 func (s *ObservabilityPlaneService) ListObservabilityPlanes(ctx context.Context, namespaceName string) ([]models.ObservabilityPlaneResponse, error) {
-	s.logger.Debug("Listing observability planes", "org", namespaceName)
+	s.logger.Debug("Listing observability planes", "namespace", namespaceName)
 
 	// List all observability planes in the namespace namespace
 	var observabilityPlanes openchoreov1alpha1.ObservabilityPlaneList
 	err := s.k8sClient.List(ctx, &observabilityPlanes, client.InNamespace(namespaceName))
 	if err != nil {
-		s.logger.Error("Failed to list observability planes", "error", err, "org", namespaceName)
+		s.logger.Error("Failed to list observability planes", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}
 
-	s.logger.Debug("Found observability planes", "count", len(observabilityPlanes.Items), "org", namespaceName)
+	s.logger.Debug("Found observability planes", "count", len(observabilityPlanes.Items), "namespace", namespaceName)
 
 	// Convert to response format
 	observabilityPlaneResponses := make([]models.ObservabilityPlaneResponse, 0, len(observabilityPlanes.Items))

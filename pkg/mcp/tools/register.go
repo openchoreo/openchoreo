@@ -16,7 +16,7 @@ func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	}
 }
 
-// projectToolRegistrations returns the list of org-project toolset registration functions
+// projectToolRegistrations returns the list of project toolset registration functions
 func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListProjects,

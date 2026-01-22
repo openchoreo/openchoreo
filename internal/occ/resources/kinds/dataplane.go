@@ -20,7 +20,7 @@ type DataPlaneResource struct {
 }
 
 // NewDataPlaneResource constructs a DataPlaneResource with CRDConfig and optionally sets namespace.
-func NewDataPlaneResource(cfg constants.CRDConfig, org string) (*DataPlaneResource, error) {
+func NewDataPlaneResource(cfg constants.CRDConfig, namespace string) (*DataPlaneResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -32,8 +32,8 @@ func NewDataPlaneResource(cfg constants.CRDConfig, org string) (*DataPlaneResour
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DataPlane, *openchoreov1alpha1.DataPlaneList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DataPlane, *openchoreov1alpha1.DataPlaneList](namespace))
 	}
 
 	return &DataPlaneResource{

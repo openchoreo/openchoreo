@@ -26,7 +26,7 @@ import (
 
 var _ = Describe("Project Controller", func() {
 	const (
-		namespaceName = "test-org"
+		namespaceName = "test-namespace"
 		dpName        = "test-dataplane"
 		envName       = "test-env"
 		deppipName    = "test-deployment-pipeline"

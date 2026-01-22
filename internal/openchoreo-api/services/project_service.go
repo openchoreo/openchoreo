@@ -37,7 +37,7 @@ func NewProjectService(k8sClient client.Client, logger *slog.Logger, authzPDP au
 
 // CreateProject creates a new project in the given namespace
 func (s *ProjectService) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
-	s.logger.Debug("Creating project", "org", namespaceName, "project", req.Name)
+	s.logger.Debug("Creating project", "namespace", namespaceName, "project", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
@@ -55,7 +55,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, namespaceName string
 		return nil, fmt.Errorf("failed to check project existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Project already exists", "org", namespaceName, "project", req.Name)
+		s.logger.Warn("Project already exists", "namespace", namespaceName, "project", req.Name)
 		return nil, ErrProjectAlreadyExists
 	}
 
@@ -66,13 +66,13 @@ func (s *ProjectService) CreateProject(ctx context.Context, namespaceName string
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	s.logger.Debug("Project created successfully", "org", namespaceName, "project", req.Name)
+	s.logger.Debug("Project created successfully", "namespace", namespaceName, "project", req.Name)
 	return s.toProjectResponse(projectCR), nil
 }
 
 // ListProjects lists all projects in the given namespace
 func (s *ProjectService) ListProjects(ctx context.Context, namespaceName string) ([]*models.ProjectResponse, error) {
-	s.logger.Debug("Listing projects", "org", namespaceName)
+	s.logger.Debug("Listing projects", "namespace", namespaceName)
 
 	var projectList openchoreov1alpha1.ProjectList
 	listOpts := []client.ListOption{
@@ -91,7 +91,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, namespaceName string)
 			authz.ResourceHierarchy{Namespace: namespaceName, Project: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized projects silently (user doesn't have permission to see this project)
-				s.logger.Debug("Skipping unauthorized project", "org", namespaceName, "project", item.Name)
+				s.logger.Debug("Skipping unauthorized project", "namespace", namespaceName, "project", item.Name)
 				continue
 			}
 			// system failures, return the error
@@ -100,7 +100,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, namespaceName string)
 		projects = append(projects, s.toProjectResponse(&item))
 	}
 
-	s.logger.Debug("Listed projects", "org", namespaceName, "count", len(projects))
+	s.logger.Debug("Listed projects", "namespace", namespaceName, "count", len(projects))
 	return projects, nil
 }
 
@@ -116,7 +116,7 @@ func (s *ProjectService) GetProject(ctx context.Context, namespaceName, projectN
 
 // getProject is the internal helper without authorization (INTERNAL USE ONLY)
 func (s *ProjectService) getProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error) {
-	s.logger.Debug("Getting project", "org", namespaceName, "project", projectName)
+	s.logger.Debug("Getting project", "namespace", namespaceName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
@@ -126,7 +126,7 @@ func (s *ProjectService) getProject(ctx context.Context, namespaceName, projectN
 
 	if err := s.k8sClient.Get(ctx, key, project); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			s.logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			return nil, ErrProjectNotFound
 		}
 		s.logger.Error("Failed to get project", "error", err)
@@ -185,13 +185,13 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 	}
 }
 
-// DeleteProject deletes a project from the given organization
-func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName string) error {
-	s.logger.Debug("Deleting project", "org", orgName, "project", projectName)
+// DeleteProject deletes a project from the given namespace
+func (s *ProjectService) DeleteProject(ctx context.Context, namespaceName, projectName string) error {
+	s.logger.Debug("Deleting project", "namespace", namespaceName, "project", projectName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName}); err != nil {
 		return err
 	}
 
@@ -199,12 +199,12 @@ func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, project); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			s.logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			return ErrProjectNotFound
 		}
 		s.logger.Error("Failed to get project", "error", err)
@@ -217,7 +217,7 @@ func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName
 		return fmt.Errorf("failed to delete project: %w", err)
 	}
 
-	s.logger.Debug("Project deleted successfully", "org", orgName, "project", projectName)
+	s.logger.Debug("Project deleted successfully", "namespace", namespaceName, "project", projectName)
 	return nil
 }
 

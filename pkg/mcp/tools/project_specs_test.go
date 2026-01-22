@@ -18,7 +18,7 @@ func projectToolSpecs() []toolTestSpec {
 			expectedMethod:      "ListProjects",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -35,7 +35,7 @@ func projectToolSpecs() []toolTestSpec {
 			expectedMethod: "GetProject",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 				if args[1] != testProjectName {
 					t.Errorf("Expected project name %q, got %v", testProjectName, args[1])
@@ -57,7 +57,7 @@ func projectToolSpecs() []toolTestSpec {
 			expectedMethod: "CreateProject",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 				// args[1] is *models.CreateProjectRequest
 			},

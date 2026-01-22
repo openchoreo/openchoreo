@@ -97,7 +97,7 @@ spec:
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.orgName}
+          namespace: openchoreo-ci-${metadata.namespaceName}
         spec:
           refreshInterval: 15s
           secretStoreRef:

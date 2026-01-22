@@ -233,7 +233,7 @@ func (b *BaseResource[T, L]) PrintTableItems(items []ResourceWrapper[T]) error {
 	}
 
 	// Basic table implementation for any client.Object
-	headers := []string{"NAME", "ORGANIZATION", "AGE"}
+	headers := []string{"NAME", "NAMESPACE", "AGE"}
 	rows := make([][]string, 0, len(items))
 
 	for _, wrapper := range items {

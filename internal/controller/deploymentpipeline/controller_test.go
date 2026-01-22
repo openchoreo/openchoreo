@@ -25,7 +25,7 @@ import (
 
 var _ = Describe("DeploymentPipeline Controller", func() {
 	const (
-		namespaceName = "test-org"
+		namespaceName = "test-namespace"
 		dpName        = "test-dataplane"
 		envName       = "test-env"
 	)

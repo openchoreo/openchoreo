@@ -125,7 +125,7 @@ type YourNewToolsetHandler interface {
 
 ```go
 type Toolsets struct {
-    OrganizationToolset   OrganizationToolsetHandler
+    NamespaceToolset      NamespaceToolsetHandler
     ProjectToolset        ProjectToolsetHandler
     ComponentToolset      ComponentToolsetHandler
     BuildToolset          BuildToolsetHandler
@@ -218,8 +218,8 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
     
     for toolsetType := range toolsetsMap {
         switch toolsetType {
-        case mcp.ToolsetOrganization:
-            toolsets.OrganizationToolset = &mcphandlers.MCPHandler{Services: h.services}
+        case mcp.ToolsetNamespace:
+            toolsets.NamespaceToolset = &mcphandlers.MCPHandler{Services: h.services}
         case mcp.ToolsetProject:
             toolsets.ProjectToolset = &mcphandlers.MCPHandler{Services: h.services}
         case mcp.ToolsetComponent:
@@ -242,7 +242,7 @@ func getMCPServerToolsets(h *Handler) *mcp.Toolsets {
 
 Now users can enable your toolset by setting:
 ```bash
-export MCP_TOOLSETS="organization,project,yournew"
+export MCP_TOOLSETS="namespace,project,yournew"
 ```
 
 ## Schema Helper Functions

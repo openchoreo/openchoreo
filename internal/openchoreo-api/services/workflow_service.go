@@ -39,7 +39,7 @@ func NewWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP a
 
 // ListWorkflows lists all Workflows in the given namespace
 func (s *WorkflowService) ListWorkflows(ctx context.Context, namespaceName string) ([]*models.WorkflowResponse, error) {
-	s.logger.Debug("Listing Workflows", "org", namespaceName)
+	s.logger.Debug("Listing Workflows", "namespace", namespaceName)
 
 	var wfList openchoreov1alpha1.WorkflowList
 	listOpts := []client.ListOption{
@@ -57,7 +57,7 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, namespaceName strin
 			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized items
-				s.logger.Debug("Skipping unauthorized workflow", "org", namespaceName, "workflow", wfList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized workflow", "namespace", namespaceName, "workflow", wfList.Items[i].Name)
 				continue
 			}
 			return nil, err
@@ -65,13 +65,13 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, namespaceName strin
 		wfs = append(wfs, s.toWorkflowResponse(&wfList.Items[i]))
 	}
 
-	s.logger.Debug("Listed Workflows", "org", namespaceName, "count", len(wfs))
+	s.logger.Debug("Listed Workflows", "namespace", namespaceName, "count", len(wfs))
 	return wfs, nil
 }
 
 // GetWorkflow retrieves a specific Workflow
 func (s *WorkflowService) GetWorkflow(ctx context.Context, namespaceName, wfName string) (*models.WorkflowResponse, error) {
-	s.logger.Debug("Getting Workflow", "org", namespaceName, "name", wfName)
+	s.logger.Debug("Getting Workflow", "namespace", namespaceName, "name", wfName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
 		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
@@ -86,7 +86,7 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, namespaceName, wfName
 
 	if err := s.k8sClient.Get(ctx, key, wf); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workflow not found", "org", namespaceName, "name", wfName)
+			s.logger.Warn("Workflow not found", "namespace", namespaceName, "name", wfName)
 			return nil, ErrWorkflowNotFound
 		}
 		s.logger.Error("Failed to get Workflow", "error", err)
@@ -98,7 +98,7 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, namespaceName, wfName
 
 // GetWorkflowSchema retrieves the JSON schema for a Workflow
 func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, wfName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting Workflow schema", "org", namespaceName, "name", wfName)
+	s.logger.Debug("Getting Workflow schema", "namespace", namespaceName, "name", wfName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
@@ -114,7 +114,7 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 
 	if err := s.k8sClient.Get(ctx, key, wf); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Workflow not found", "org", namespaceName, "name", wfName)
+			s.logger.Warn("Workflow not found", "namespace", namespaceName, "name", wfName)
 			return nil, ErrWorkflowNotFound
 		}
 		s.logger.Error("Failed to get Workflow", "error", err)
@@ -140,7 +140,7 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved Workflow schema successfully", "org", namespaceName, "name", wfName)
+	s.logger.Debug("Retrieved Workflow schema successfully", "namespace", namespaceName, "name", wfName)
 	return jsonSchema, nil
 }
 

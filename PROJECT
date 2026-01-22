@@ -10,13 +10,6 @@ repo: github.com/openchoreo/openchoreo
 resources:
 - api:
     crdVersion: v1
-  controller: true
-  domain: openchoreo.dev
-  kind: Organization
-  path: github.com/openchoreo/openchoreo/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
     namespaced: true
   controller: true
   domain: openchoreo.dev

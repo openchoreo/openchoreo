@@ -37,7 +37,7 @@ func NewEnvironmentService(k8sClient client.Client, logger *slog.Logger, authzPD
 
 // ListEnvironments lists all environments in the specified namespace
 func (s *EnvironmentService) ListEnvironments(ctx context.Context, namespaceName string) ([]*models.EnvironmentResponse, error) {
-	s.logger.Debug("Listing environments", "org", namespaceName)
+	s.logger.Debug("Listing environments", "namespace", namespaceName)
 
 	var envList openchoreov1alpha1.EnvironmentList
 	listOpts := []client.ListOption{
@@ -45,7 +45,7 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, namespaceName
 	}
 
 	if err := s.k8sClient.List(ctx, &envList, listOpts...); err != nil {
-		s.logger.Error("Failed to list environments", "error", err, "org", namespaceName)
+		s.logger.Error("Failed to list environments", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 
@@ -55,7 +55,7 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, namespaceName
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envList.Items[i].Name,
 			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized environment", "org", namespaceName, "environment", envList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized environment", "namespace", namespaceName, "environment", envList.Items[i].Name)
 				continue
 			}
 			// Return other errors
@@ -64,13 +64,13 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, namespaceName
 		environments = append(environments, s.toEnvironmentResponse(&envList.Items[i]))
 	}
 
-	s.logger.Debug("Listed environments", "count", len(environments), "org", namespaceName)
+	s.logger.Debug("Listed environments", "count", len(environments), "namespace", namespaceName)
 	return environments, nil
 }
 
 // getEnvironment is the internal helper without authorization (INTERNAL USE ONLY)
 func (s *EnvironmentService) getEnvironment(ctx context.Context, namespaceName, envName string) (*models.EnvironmentResponse, error) {
-	s.logger.Debug("Getting environment", "org", namespaceName, "env", envName)
+	s.logger.Debug("Getting environment", "namespace", namespaceName, "env", envName)
 
 	env := &openchoreov1alpha1.Environment{}
 	key := client.ObjectKey{
@@ -80,10 +80,10 @@ func (s *EnvironmentService) getEnvironment(ctx context.Context, namespaceName, 
 
 	if err := s.k8sClient.Get(ctx, key, env); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Environment not found", "org", namespaceName, "env", envName)
+			s.logger.Warn("Environment not found", "namespace", namespaceName, "env", envName)
 			return nil, ErrEnvironmentNotFound
 		}
-		s.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
+		s.logger.Error("Failed to get environment", "error", err, "namespace", namespaceName, "env", envName)
 		return nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
@@ -102,7 +102,7 @@ func (s *EnvironmentService) GetEnvironment(ctx context.Context, namespaceName, 
 
 // CreateEnvironment creates a new environment
 func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceName string, req *models.CreateEnvironmentRequest) (*models.EnvironmentResponse, error) {
-	s.logger.Debug("Creating environment", "org", namespaceName, "env", req.Name)
+	s.logger.Debug("Creating environment", "namespace", namespaceName, "env", req.Name)
 
 	// Sanitize input
 	req.Sanitize()
@@ -120,7 +120,7 @@ func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to check environment existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Environment already exists", "org", namespaceName, "env", req.Name)
+		s.logger.Warn("Environment already exists", "namespace", namespaceName, "env", req.Name)
 		return nil, ErrEnvironmentAlreadyExists
 	}
 
@@ -131,7 +131,7 @@ func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceNam
 		return nil, fmt.Errorf("failed to create environment: %w", err)
 	}
 
-	s.logger.Debug("Environment created successfully", "org", namespaceName, "env", req.Name)
+	s.logger.Debug("Environment created successfully", "namespace", namespaceName, "env", req.Name)
 	return s.toEnvironmentResponse(environmentCR), nil
 }
 
@@ -239,11 +239,11 @@ type EnvironmentObserverResponse struct {
 
 // GetEnvironmentObserverURL retrieves the observer URL for the environment
 func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (*EnvironmentObserverResponse, error) {
-	s.logger.Debug("Getting environment observer URL", "org", namespaceName, "env", envName)
+	s.logger.Debug("Getting environment observer URL", "namespace", namespaceName, "env", envName)
 
 	env, err := s.getEnvironment(ctx, namespaceName, envName)
 	if err != nil {
-		s.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
+		s.logger.Error("Failed to get environment", "error", err, "namespace", namespaceName, "env", envName)
 		return nil, err
 	}
 
@@ -262,10 +262,10 @@ func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, name
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "org", namespaceName, "dataplane", env.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", env.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 

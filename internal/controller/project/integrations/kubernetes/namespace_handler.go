@@ -90,18 +90,18 @@ func (h *namespaceHandler) Delete(ctx context.Context, deployCtx *dataplane.Proj
 }
 
 // MakeNamespaceNames generates Kubernetes namespace names for each environment in the project
-// NamespaceName has the format dp-<organization-name>-<project-name>-<environment-name>-<hash>
+// NamespaceName has the format dp-<namespace-name>-<project-name>-<environment-name>-<hash>
 func MakeNamespaceNames(environmentNames []string, project openchoreov1alpha1.Project) []string {
 	namespaceNames := make([]string, 0, len(environmentNames))
 
-	organizationName := controller.GetNamespaceName(&project)
+	namespaceName := controller.GetNamespaceName(&project)
 	projectName := controller.GetName(&project)
 	for _, env := range environmentNames {
 		environmentName := env
 		// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
-		namespaceName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
-			"dp", organizationName, projectName, environmentName)
-		namespaceNames = append(namespaceNames, namespaceName)
+		k8sNamespaceName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
+			"dp", namespaceName, projectName, environmentName)
+		namespaceNames = append(namespaceNames, k8sNamespaceName)
 	}
 
 	return namespaceNames

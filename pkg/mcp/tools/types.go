@@ -153,7 +153,7 @@ type InfrastructureToolsetHandler interface {
 	// ObservabilityPlane operations
 	ListObservabilityPlanes(ctx context.Context, namespaceName string) (any, error)
 
-	// ComponentWorkflow operations (org-level)
+	// ComponentWorkflow operations (namespace-level)
 	ListComponentWorkflows(ctx context.Context, namespaceName string) (any, error)
 	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
 }

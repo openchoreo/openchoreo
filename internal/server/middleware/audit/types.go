@@ -59,7 +59,7 @@ type ActionDefinition struct {
 	// Method is the HTTP method (GET, POST, PUT, DELETE, etc.)
 	Method string
 	// Pattern is the route pattern to match (using Go 1.22+ ServeMux patterns)
-	// Examples: "/api/v1/orgs/{org}/projects", "POST /api/v1/components/{id}"
+	// Examples: "/api/v1/namespaces/{namespace}/projects", "POST /api/v1/components/{id}"
 	Pattern string
 	// Action is the semantic action name for audit logging
 	Action string

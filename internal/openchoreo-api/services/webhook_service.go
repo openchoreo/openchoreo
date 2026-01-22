@@ -59,12 +59,12 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 	// Trigger builds for affected components
 	triggeredComponents := make([]string, 0)
 	for _, comp := range affectedComponents {
-		namespaceName := comp.Namespace // Assuming namespace is the org name
+		namespaceName := comp.Namespace
 		projectName := comp.Spec.Owner.ProjectName
 		componentName := comp.Name
 
 		logger.Info("Triggering build for component",
-			"org", namespaceName,
+			"namespace", namespaceName,
 			"project", projectName,
 			"component", componentName,
 			"commit", event.Commit)

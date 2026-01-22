@@ -20,7 +20,7 @@ type DeploymentTrackResource struct {
 }
 
 // NewDeploymentTrackResource constructs a DeploymentTrackResource with CRDConfig and optionally sets namespace, project, and component.
-func NewDeploymentTrackResource(cfg constants.CRDConfig, org string, project string, component string) (*DeploymentTrackResource, error) {
+func NewDeploymentTrackResource(cfg constants.CRDConfig, namespace string, project string, component string) (*DeploymentTrackResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -32,8 +32,8 @@ func NewDeploymentTrackResource(cfg constants.CRDConfig, org string, project str
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.DeploymentTrack, *openchoreov1alpha1.DeploymentTrackList](namespace))
 	}
 
 	// Create labels for filtering

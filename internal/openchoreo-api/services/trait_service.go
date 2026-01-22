@@ -40,7 +40,7 @@ func NewTraitService(k8sClient client.Client, logger *slog.Logger, authzPDP auth
 
 // ListTraits lists all Traits in the given namespace
 func (s *TraitService) ListTraits(ctx context.Context, namespaceName string) ([]*models.TraitResponse, error) {
-	s.logger.Debug("Listing Traits", "org", namespaceName)
+	s.logger.Debug("Listing Traits", "namespace", namespaceName)
 
 	var traitList openchoreov1alpha1.TraitList
 	listOpts := []client.ListOption{
@@ -57,7 +57,7 @@ func (s *TraitService) ListTraits(ctx context.Context, namespaceName string) ([]
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitList.Items[i].Name,
 			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
-				s.logger.Debug("Skipping unauthorized trait", "org", namespaceName, "trait", traitList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized trait", "namespace", namespaceName, "trait", traitList.Items[i].Name)
 				continue
 			}
 			return nil, err
@@ -65,13 +65,13 @@ func (s *TraitService) ListTraits(ctx context.Context, namespaceName string) ([]
 		traits = append(traits, s.toTraitResponse(&traitList.Items[i]))
 	}
 
-	s.logger.Debug("Listed Traits", "org", namespaceName, "count", len(traits))
+	s.logger.Debug("Listed Traits", "namespace", namespaceName, "count", len(traits))
 	return traits, nil
 }
 
 // GetTrait retrieves a specific Trait
 func (s *TraitService) GetTrait(ctx context.Context, namespaceName, traitName string) (*models.TraitResponse, error) {
-	s.logger.Debug("Getting Trait", "org", namespaceName, "name", traitName)
+	s.logger.Debug("Getting Trait", "namespace", namespaceName, "name", traitName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
 		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
@@ -86,7 +86,7 @@ func (s *TraitService) GetTrait(ctx context.Context, namespaceName, traitName st
 
 	if err := s.k8sClient.Get(ctx, key, trait); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Trait not found", "org", namespaceName, "name", traitName)
+			s.logger.Warn("Trait not found", "namespace", namespaceName, "name", traitName)
 			return nil, ErrTraitNotFound
 		}
 		s.logger.Error("Failed to get Trait", "error", err)
@@ -98,7 +98,7 @@ func (s *TraitService) GetTrait(ctx context.Context, namespaceName, traitName st
 
 // GetTraitSchema retrieves the JSON schema for an Trait
 func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*extv1.JSONSchemaProps, error) {
-	s.logger.Debug("Getting Trait schema", "org", namespaceName, "name", traitName)
+	s.logger.Debug("Getting Trait schema", "namespace", namespaceName, "name", traitName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewTrait, ResourceTypeTrait, traitName,
 		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
@@ -114,7 +114,7 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 
 	if err := s.k8sClient.Get(ctx, key, trait); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Trait not found", "org", namespaceName, "name", traitName)
+			s.logger.Warn("Trait not found", "namespace", namespaceName, "name", traitName)
 			return nil, ErrTraitNotFound
 		}
 		s.logger.Error("Failed to get Trait", "error", err)
@@ -152,7 +152,7 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
 	}
 
-	s.logger.Debug("Retrieved Trait schema successfully", "org", namespaceName, "name", traitName)
+	s.logger.Debug("Retrieved Trait schema successfully", "namespace", namespaceName, "name", traitName)
 	return jsonSchema, nil
 }
 

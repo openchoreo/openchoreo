@@ -2571,7 +2571,7 @@
                   "type": "string"
                 },
                 "displayName": {
-                  "default": "Default Organization",
+                  "default": "Default Namspace",
                   "description": "Display name for the default namespace",
                   "required": [],
                   "title": "displayName",

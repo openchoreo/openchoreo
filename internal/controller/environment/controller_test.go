@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("Environment Controller", Ordered, func() {
-	const namespaceName = "test-org"
+	const namespaceName = "test-namespace"
 	const dpName = "test-dataplane"
 
 	namespaceNamespacedName := types.NamespacedName{

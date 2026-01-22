@@ -30,7 +30,7 @@ func (h *Handler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Listed Workflows successfully", "org", namespaceName, "count", len(wfs))
+	logger.Debug("Listed Workflows successfully", "namespace", namespaceName, "count", len(wfs))
 	writeListResponse(w, wfs, len(wfs), 1, len(wfs))
 }
 
@@ -50,12 +50,12 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 	schema, err := h.services.WorkflowService.GetWorkflowSchema(ctx, namespaceName, workflowName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view workflow schema", "org", namespaceName, "workflow", workflowName)
+			logger.Warn("Unauthorized to view workflow schema", "namespace", namespaceName, "workflow", workflowName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowNotFound) {
-			logger.Warn("Workflow not found", "org", namespaceName, "name", workflowName)
+			logger.Warn("Workflow not found", "namespace", namespaceName, "name", workflowName)
 			writeErrorResponse(w, http.StatusNotFound, "Workflow not found", services.CodeWorkflowNotFound)
 			return
 		}
@@ -64,6 +64,6 @@ func (h *Handler) GetWorkflowSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved Workflow schema successfully", "org", namespaceName, "name", workflowName)
+	logger.Debug("Retrieved Workflow schema successfully", "namespace", namespaceName, "name", workflowName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

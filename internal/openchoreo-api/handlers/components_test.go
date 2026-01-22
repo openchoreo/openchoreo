@@ -24,8 +24,8 @@ func TestListComponentReleases_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/component-releases",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -104,19 +104,19 @@ func TestListReleaseBindings_QueryParameters(t *testing.T) {
 	}{
 		{
 			name:         "No environment filter",
-			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings",
+			url:          "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/release-bindings",
 			wantEnvCount: 0,
 			wantEnvs:     []string{},
 		},
 		{
 			name:         "Single environment filter",
-			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev",
+			url:          "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/release-bindings?environment=dev",
 			wantEnvCount: 1,
 			wantEnvs:     []string{"dev"},
 		},
 		{
 			name:         "Multiple environment filters",
-			url:          "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/release-bindings?environment=dev&environment=staging",
+			url:          "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/release-bindings?environment=dev&environment=staging",
 			wantEnvCount: 2,
 			wantEnvs:     []string{"dev", "staging"},
 		},
@@ -224,8 +224,8 @@ func TestGetComponentRelease_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/component-releases/myrelease-v1",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -260,8 +260,8 @@ func TestGetComponentReleaseSchema_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/component-releases/myrelease-v1/schema",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -312,8 +312,8 @@ func TestGetComponentSchema_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/schema",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/schema",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -358,13 +358,13 @@ func TestGetComponentSchema_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
+			name:          "Missing namespace name",
 			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -372,14 +372,14 @@ func TestGetComponentSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
@@ -417,8 +417,8 @@ func TestGetReleaseResources_PathParameters(t *testing.T) {
 	}{
 		{
 			name:            "Valid path with all parameters",
-			url:             "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/environments/development/resources",
-			namespaceName:   "myorg",
+			url:             "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/environments/development/resources",
+			namespaceName:   "mynamespace",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "development",
@@ -470,14 +470,14 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:            "All parameters present",
-			namespaceName:   "myorg",
+			namespaceName:   "mynamespace",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "development",
 			wantValid:       true,
 		},
 		{
-			name:            "Missing org name",
+			name:            "Missing namespace name",
 			namespaceName:   "",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
@@ -486,7 +486,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing project name",
-			namespaceName:   "myorg",
+			namespaceName:   "mynamespace",
 			projectName:     "",
 			componentName:   "mycomponent",
 			environmentName: "development",
@@ -494,7 +494,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing component name",
-			namespaceName:   "myorg",
+			namespaceName:   "mynamespace",
 			projectName:     "myproject",
 			componentName:   "",
 			environmentName: "development",
@@ -502,7 +502,7 @@ func TestGetReleaseResources_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:            "Missing environment name",
-			namespaceName:   "myorg",
+			namespaceName:   "mynamespace",
 			projectName:     "myproject",
 			componentName:   "mycomponent",
 			environmentName: "",
@@ -542,14 +542,14 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
+			name:          "Missing namespace name",
 			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -558,7 +558,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			releaseName:   "myrelease-v1",
@@ -566,7 +566,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing component name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			releaseName:   "myrelease-v1",
@@ -574,7 +574,7 @@ func TestGetComponentReleaseSchema_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing release name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			releaseName:   "",
@@ -688,8 +688,8 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -702,8 +702,8 @@ func TestPatchComponent_PathParameters(t *testing.T) {
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component",
-			namespaceName: "my_org",
+			url:           "/api/v1/namespaces/my_namespace/projects/my_project/components/my_component",
+			namespaceName: "my_namespace",
 			projectName:   "my_project",
 			componentName: "my_component",
 		},
@@ -741,8 +741,8 @@ func TestListComponentTraits_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/traits",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/traits",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -787,13 +787,13 @@ func TestListComponentTraits_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
+			name:          "Missing namespace name",
 			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -801,14 +801,14 @@ func TestListComponentTraits_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
@@ -938,8 +938,8 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent/traits",
-			namespaceName: "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent/traits",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
@@ -952,8 +952,8 @@ func TestUpdateComponentTraits_PathParameters(t *testing.T) {
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component/traits",
-			namespaceName: "my_org",
+			url:           "/api/v1/namespaces/my_namespace/projects/my_project/components/my_component/traits",
+			namespaceName: "my_namespace",
 			projectName:   "my_project",
 			componentName: "my_component",
 		},
@@ -991,13 +991,13 @@ func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
+			name:          "Missing namespace name",
 			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -1005,14 +1005,14 @@ func TestUpdateComponentTraits_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
@@ -1049,13 +1049,13 @@ func TestPatchComponent_MissingPathParameters(t *testing.T) {
 	}{
 		{
 			name:          "All parameters present",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
+			name:          "Missing namespace name",
 			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
@@ -1063,14 +1063,14 @@ func TestPatchComponent_MissingPathParameters(t *testing.T) {
 		},
 		{
 			name:          "Missing project name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			namespaceName: "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
@@ -1101,28 +1101,28 @@ func TestDeleteComponent_PathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
 		url           string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 	}{
 		{
 			name:          "Valid path with all parameters",
-			url:           "/api/v1/namespaces/myorg/projects/myproject/components/mycomponent",
-			orgName:       "myorg",
+			url:           "/api/v1/namespaces/mynamespace/projects/myproject/components/mycomponent",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 		},
 		{
 			name:          "Path with hyphens in names",
-			url:           "/api/v1/namespaces/my-org/projects/my-project/components/my-component",
-			orgName:       "my-org",
+			url:           "/api/v1/namespaces/my-namespace/projects/my-project/components/my-component",
+			namespaceName: "my-namespace",
 			projectName:   "my-project",
 			componentName: "my-component",
 		},
 		{
 			name:          "Path with underscores in names",
-			url:           "/api/v1/namespaces/my_org/projects/my_project/components/my_component",
-			orgName:       "my_org",
+			url:           "/api/v1/namespaces/my_namespace/projects/my_project/components/my_component",
+			namespaceName: "my_namespace",
 			projectName:   "my_project",
 			componentName: "my_component",
 		},
@@ -1131,13 +1131,13 @@ func TestDeleteComponent_PathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodDelete, tt.url, nil)
-			req.SetPathValue("orgName", tt.orgName)
+			req.SetPathValue("namespaceName", tt.namespaceName)
 			req.SetPathValue("projectName", tt.projectName)
 			req.SetPathValue("componentName", tt.componentName)
 
 			// Verify all path values are set correctly
-			if req.PathValue("orgName") != tt.orgName {
-				t.Errorf("orgName = %v, want %v", req.PathValue("orgName"), tt.orgName)
+			if req.PathValue("namespaceName") != tt.namespaceName {
+				t.Errorf("namespaceName = %v, want %v", req.PathValue("namespaceName"), tt.namespaceName)
 			}
 			if req.PathValue("projectName") != tt.projectName {
 				t.Errorf("projectName = %v, want %v", req.PathValue("projectName"), tt.projectName)
@@ -1153,42 +1153,42 @@ func TestDeleteComponent_PathParameters(t *testing.T) {
 func TestDeleteComponent_MissingPathParameters(t *testing.T) {
 	tests := []struct {
 		name          string
-		orgName       string
+		namespaceName string
 		projectName   string
 		componentName string
 		wantValid     bool
 	}{
 		{
 			name:          "All parameters present",
-			orgName:       "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     true,
 		},
 		{
-			name:          "Missing org name",
-			orgName:       "",
+			name:          "Missing namespace name",
+			namespaceName: "",
 			projectName:   "myproject",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing project name",
-			orgName:       "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "",
 			componentName: "mycomponent",
 			wantValid:     false,
 		},
 		{
 			name:          "Missing component name",
-			orgName:       "myorg",
+			namespaceName: "mynamespace",
 			projectName:   "myproject",
 			componentName: "",
 			wantValid:     false,
 		},
 		{
 			name:          "All parameters missing",
-			orgName:       "",
+			namespaceName: "",
 			projectName:   "",
 			componentName: "",
 			wantValid:     false,
@@ -1198,7 +1198,7 @@ func TestDeleteComponent_MissingPathParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the validation logic from DeleteComponent handler
-			isValid := tt.orgName != "" && tt.projectName != "" && tt.componentName != ""
+			isValid := tt.namespaceName != "" && tt.projectName != "" && tt.componentName != ""
 
 			if isValid != tt.wantValid {
 				t.Errorf("Validation result = %v, want %v", isValid, tt.wantValid)

@@ -3,7 +3,7 @@ info:
   title: OpenChoreo Observer API
   description: |
     The OpenChoreo Observer API provides endpoints for querying build logs, component logs,
-    traces, and metrics from components, projects, gateways, and organizations.
+    traces, and metrics from components, projects, gateways, and namespaces.
     It integrates with OpenSearch for logs, build logs, and traces,
     and with Prometheus for metrics.
   version: 1.0.0
@@ -220,30 +220,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/logs/org/{orgId}:
+  /api/logs/namespace/{namespaceName}:
     post:
       tags:
         - Logs
-      summary: Get organization logs
-      description: Retrieve logs for an entire organization
-      operationId: getOrganizationLogs
+      summary: Get namespace logs
+      description: Retrieve logs for an entire namespace
+      operationId: getNamespaceLogs
       parameters:
-        - name: orgId
+        - name: namespaceName
           in: path
           required: true
-          description: The unique identifier of the organization
+          description: The unique identifier of the namespace
           schema:
             type: string
-            example: "org-789"
+            example: "namespace-789"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OrganizationLogsRequest'
+              $ref: '#/components/schemas/NamespaceLogsRequest'
       responses:
         '200':
-          description: Successfully retrieved organization logs
+          description: Successfully retrieved namespace logs
           content:
             application/json:
               schema:
@@ -697,7 +697,7 @@ components:
       required:
         - startTime
         - endTime
-        - organizationId
+        - namespace
       properties:
         startTime:
           type: string
@@ -709,10 +709,10 @@ components:
           format: date-time
           description: End time for log query in RFC3339 format
           example: "2025-01-10T23:59:59Z"
-        organizationId:
+        namespaceName:
           type: string
-          description: Organization identifier
-          example: "org-789"
+          description: Namespace identifier
+          example: "namespace-789"
         searchPhrase:
           type: string
           description: Search phrase to filter logs
@@ -750,7 +750,7 @@ components:
           enum: [runtime, build]
           example: "runtime"
 
-    OrganizationLogsRequest:
+    NamespaceLogsRequest:
       allOf:
         - $ref: '#/components/schemas/ComponentLogsRequest'
         - type: object

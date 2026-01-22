@@ -23,7 +23,7 @@ func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 	}
 	dataplanes, err := h.services.DataPlaneService.ListDataPlanes(ctx, namespaceName)
 	if err != nil {
-		h.logger.Error("Failed to list dataplanes", "error", err, "org", namespaceName)
+		h.logger.Error("Failed to list dataplanes", "error", err, "namespace", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list dataplanes", services.CodeInternalError)
 		return
 	}
@@ -50,7 +50,7 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 	dataplane, err := h.services.DataPlaneService.GetDataPlane(ctx, namespaceName, dpName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to view dataplane", "org", namespaceName, "dataplane", dpName)
+			h.logger.Warn("Unauthorized to view dataplane", "namespace", namespaceName, "dataplane", dpName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -58,7 +58,7 @@ func (h *Handler) GetDataPlane(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
-		h.logger.Error("Failed to get dataplane", "error", err, "org", namespaceName, "dataplane", dpName)
+		h.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", dpName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get dataplane", services.CodeInternalError)
 		return
 	}
@@ -96,7 +96,7 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 	dataplane, err := h.services.DataPlaneService.CreateDataPlane(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to create dataplane", "org", namespaceName, "dataplane", req.Name)
+			h.logger.Warn("Unauthorized to create dataplane", "namespace", namespaceName, "dataplane", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -104,7 +104,7 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusConflict, "DataPlane already exists", services.CodeDataPlaneExists)
 			return
 		}
-		h.logger.Error("Failed to create dataplane", "error", err, "org", namespaceName, "dataplane", req.Name)
+		h.logger.Error("Failed to create dataplane", "error", err, "namespace", namespaceName, "dataplane", req.Name)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create dataplane", services.CodeInternalError)
 		return
 	}

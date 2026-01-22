@@ -39,12 +39,12 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	project, err := h.services.ProjectService.CreateProject(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create project", "org", namespaceName, "project", req.Name)
+			logger.Warn("Unauthorized to create project", "namespace", namespaceName, "project", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectAlreadyExists) {
-			logger.Warn("Project already exists", "org", namespaceName, "project", req.Name)
+			logger.Warn("Project already exists", "namespace", namespaceName, "project", req.Name)
 			writeErrorResponse(w, http.StatusConflict, "Project already exists", services.CodeProjectExists)
 			return
 		}
@@ -58,7 +58,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	addAuditMetadata(ctx, "namespace", namespaceName)
 
 	// Success response
-	logger.Info("Project created successfully", "org", namespaceName, "project", project.Name)
+	logger.Info("Project created successfully", "namespace", namespaceName, "project", project.Name)
 	writeSuccessResponse(w, http.StatusCreated, project)
 }
 
@@ -88,7 +88,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 	copy(projectValues, projects)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed projects successfully", "org", namespaceName, "count", len(projects))
+	logger.Debug("Listed projects successfully", "namespace", namespaceName, "count", len(projects))
 	writeListResponse(w, projectValues, len(projects), 1, len(projects))
 }
 
@@ -110,12 +110,12 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	project, err := h.services.ProjectService.GetProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view project", "org", namespaceName, "project", projectName)
+			logger.Warn("Unauthorized to view project", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", namespaceName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -125,7 +125,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Retrieved project successfully", "org", namespaceName, "project", projectName)
+	logger.Debug("Retrieved project successfully", "namespace", namespaceName, "project", projectName)
 	writeSuccessResponse(w, http.StatusOK, project)
 }
 
@@ -135,24 +135,24 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	logger.Info("DeleteProject handler called")
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
-	if orgName == "" || projectName == "" {
-		logger.Warn("Organization name and project name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and project name are required", "INVALID_PARAMS")
+	if namespaceName == "" || projectName == "" {
+		logger.Warn("Namespace name and project name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and project name are required", "INVALID_PARAMS")
 		return
 	}
 
 	// Call service to delete project
-	err := h.services.ProjectService.DeleteProject(ctx, orgName, projectName)
+	err := h.services.ProjectService.DeleteProject(ctx, namespaceName, projectName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to delete project", "org", orgName, "project", projectName)
+			logger.Warn("Unauthorized to delete project", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
@@ -162,6 +162,6 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response - 204 No Content for successful delete
-	logger.Info("Project deleted successfully", "org", orgName, "project", projectName)
+	logger.Info("Project deleted successfully", "namespace", namespaceName, "project", projectName)
 	w.WriteHeader(http.StatusNoContent)
 }

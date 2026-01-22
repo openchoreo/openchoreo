@@ -24,7 +24,7 @@ func (h *Handler) ListEnvironments(w http.ResponseWriter, r *http.Request) {
 
 	environments, err := h.services.EnvironmentService.ListEnvironments(ctx, namespaceName)
 	if err != nil {
-		h.logger.Error("Failed to list environments", "error", err, "org", namespaceName)
+		h.logger.Error("Failed to list environments", "error", err, "namespace", namespaceName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list environments", services.CodeInternalError)
 		return
 	}
@@ -51,7 +51,7 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, namespaceName, envName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to view environment", "org", namespaceName, "env", envName)
+			h.logger.Warn("Unauthorized to view environment", "namespace", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -59,7 +59,7 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
-		h.logger.Error("Failed to get environment", "error", err, "org", namespaceName, "env", envName)
+		h.logger.Error("Failed to get environment", "error", err, "namespace", namespaceName, "env", envName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get environment", services.CodeInternalError)
 		return
 	}
@@ -97,7 +97,7 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	environment, err := h.services.EnvironmentService.CreateEnvironment(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to create environment", "org", namespaceName, "env", req.Name)
+			h.logger.Warn("Unauthorized to create environment", "namespace", namespaceName, "env", req.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -105,7 +105,7 @@ func (h *Handler) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusConflict, "Environment already exists", services.CodeEnvironmentExists)
 			return
 		}
-		h.logger.Error("Failed to create environment", "error", err, "org", namespaceName, "env", req.Name)
+		h.logger.Error("Failed to create environment", "error", err, "namespace", namespaceName, "env", req.Name)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create environment", services.CodeInternalError)
 		return
 	}
@@ -132,16 +132,16 @@ func (h *Handler) GetEnvironmentObserverURL(w http.ResponseWriter, r *http.Reque
 	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, namespaceName, envName)
 	if err != nil {
 		if errors.Is(err, services.ErrEnvironmentNotFound) {
-			h.logger.Warn("Environment not found", "org", namespaceName, "env", envName)
+			h.logger.Warn("Environment not found", "namespace", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDataPlaneNotFound) {
-			h.logger.Warn("DataPlane not found", "org", namespaceName, "env", envName)
+			h.logger.Warn("DataPlane not found", "namespace", namespaceName, "env", envName)
 			writeErrorResponse(w, http.StatusNotFound, "DataPlane not found", services.CodeDataPlaneNotFound)
 			return
 		}
-		h.logger.Error("Failed to get environment observer URL", "error", err, "org", namespaceName, "env", envName)
+		h.logger.Error("Failed to get environment observer URL", "error", err, "namespace", namespaceName, "env", envName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get environment observer URL", services.CodeInternalError)
 		return
 	}

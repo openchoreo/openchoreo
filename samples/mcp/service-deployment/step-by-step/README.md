@@ -29,7 +29,7 @@ You'll learn to:
 First, verify that your OpenChoreo instance has the necessary infrastructure.
 Prompt:
 ```
-List the environments in my "default" organization
+List the environments in my "default" namespace
 ```
 
 **Expected:** You should see at least "development" environment. If not, create one following the [platform configuration samples](../../../platform-config/new-environments/).
@@ -40,7 +40,7 @@ Let's create a project called "greeter" for our application.
 
 Prompt:
 ```
-Create a new project called "greeter" in the "default" organization with description "Simple greeter service in Go"
+Create a new project called "greeter" in the "default" namespace with description "Simple greeter service in Go"
 ```
 
 **What agent will do:**

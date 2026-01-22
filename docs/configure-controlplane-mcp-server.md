@@ -15,7 +15,7 @@ The MCP server implementation consists of three main components:
 Tools are organized into **Toolsets** - logical groupings of related functionality. Each toolset has its own handler interface.
 
 **Available Toolsets:**
-- `ToolsetOrganization` (`organization`) - Organization operations (get organization details)
+- `ToolsetNamespace` (`namespace`) - Namespace operations (get namespace details)
 - `ToolsetProject` (`project`) - Project operations (list, get, create projects)
 - `ToolsetComponent` (`component`) - Component operations (list, get, create components, bindings, workloads, releases, release bindings, deployment, promotion)
 - `ToolsetBuild` (`build`) - Build operations (trigger builds, list builds, build templates, build planes)
@@ -33,20 +33,20 @@ Toolsets can be configured via the `MCP_TOOLSETS` environment variable. This all
 Set the `MCP_TOOLSETS` environment variable to a comma-separated list of toolsets:
 
 ```bash
-# Enable only organization and project toolsets
-export MCP_TOOLSETS="organization,project"
+# Enable only namespace and project toolsets
+export MCP_TOOLSETS="namespace,project"
 
 # Enable all toolsets (default)
-export MCP_TOOLSETS="organization,project,component,build,deployment,infrastructure,schema,resource"
+export MCP_TOOLSETS="namespace,project,component,build,deployment,infrastructure,schema,resource"
 
 # Enable specific toolsets for your use case
-export MCP_TOOLSETS="organization,project,component"
+export MCP_TOOLSETS="namespace,project,component"
 ```
 
 ### Default Behavior
 
 If `MCP_TOOLSETS` is not set, the system defaults to enabling all toolsets:
-- `organization`
+- `namespace`
 - `project`
 - `component`
 - `build`
@@ -63,8 +63,8 @@ In production deployments, configure toolsets via Helm values:
 openchoreoApi:
   mcp:
     # Enable all toolsets (default)
-    toolsets: "organization,project,component,build,deployment,infrastructure,schema,resource"
+    toolsets: "namespace,project,component,build,deployment,infrastructure,schema,resource"
     
     # Or enable specific toolsets based on your requirements
-    # toolsets: "organization,project,component"
+    # toolsets: "namespace,project,component"
 ```

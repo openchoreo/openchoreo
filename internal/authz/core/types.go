@@ -171,7 +171,7 @@ type ActionCapability struct {
 
 // CapabilityResource represents a resource with permission details (SIMPLIFIED)
 type CapabilityResource struct {
-	Path        string       `json:"path"`        // Full resource path: "org/acme/project/payment"
+	Path        string       `json:"path"`        // Full resource path: "namespace/acme/project/payment"
 	Constraints *interface{} `json:"constraints"` // represents additional instance level restrictions
 
 }

@@ -39,7 +39,7 @@ func buildToolSpecs() []toolTestSpec {
 			expectedMethod: "ListBuildTemplates",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -96,7 +96,7 @@ func buildToolSpecs() []toolTestSpec {
 			expectedMethod: "ListBuildPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},

@@ -38,7 +38,7 @@ func (h *Handler) ListComponentTypes(w http.ResponseWriter, r *http.Request) {
 	copy(ctValues, cts)
 
 	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed ComponentTypes successfully", "org", namespaceName, "count", len(cts))
+	logger.Debug("Listed ComponentTypes successfully", "namespace", namespaceName, "count", len(cts))
 	writeListResponse(w, ctValues, len(cts), 1, len(cts))
 }
 
@@ -60,12 +60,12 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	schema, err := h.services.ComponentTypeService.GetComponentTypeSchema(ctx, namespaceName, ctName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view component type schema", "org", namespaceName, "componentType", ctName)
+			logger.Warn("Unauthorized to view component type schema", "namespace", namespaceName, "componentType", ctName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrComponentTypeNotFound) {
-			logger.Warn("ComponentType not found", "org", namespaceName, "name", ctName)
+			logger.Warn("ComponentType not found", "namespace", namespaceName, "name", ctName)
 			writeErrorResponse(w, http.StatusNotFound, "ComponentType not found", services.CodeComponentTypeNotFound)
 			return
 		}
@@ -75,6 +75,6 @@ func (h *Handler) GetComponentTypeSchema(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Success response
-	logger.Debug("Retrieved ComponentType schema successfully", "org", namespaceName, "name", ctName)
+	logger.Debug("Retrieved ComponentType schema successfully", "namespace", namespaceName, "name", ctName)
 	writeSuccessResponse(w, http.StatusOK, schema)
 }

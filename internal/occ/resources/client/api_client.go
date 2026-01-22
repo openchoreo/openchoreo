@@ -237,7 +237,7 @@ func (c *APIClient) ListNamespaces(ctx context.Context) ([]NamespaceResponse, er
 
 // ListProjects retrieves all projects for an namespace from the API
 func (c *APIClient) ListProjects(ctx context.Context, namespaceName string) ([]ProjectResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects", namespaceName)
+	path := fmt.Sprintf("/api/v1/namespaces/%s/projects", namespaceName)
 	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make list projects request: %w", err)
@@ -263,7 +263,7 @@ func (c *APIClient) ListProjects(ctx context.Context, namespaceName string) ([]P
 
 // ListComponents retrieves all components for an namespace and project from the API
 func (c *APIClient) ListComponents(ctx context.Context, namespaceName, projectName string) ([]ComponentResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", namespaceName, projectName)
+	path := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components", namespaceName, projectName)
 	resp, err := c.get(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make list components request: %w", err)
@@ -289,19 +289,19 @@ func (c *APIClient) ListComponents(ctx context.Context, namespaceName, projectNa
 
 // GetComponentTypeSchema fetches ComponentType schema from the API
 func (c *APIClient) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/component-types/%s/schema", namespaceName, ctName)
+	path := fmt.Sprintf("/api/v1/namespaces/%s/component-types/%s/schema", namespaceName, ctName)
 	return c.getSchema(ctx, path)
 }
 
 // GetTraitSchema fetches Trait schema from the API
 func (c *APIClient) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/traits/%s/schema", namespaceName, traitName)
+	path := fmt.Sprintf("/api/v1/namespaces/%s/traits/%s/schema", namespaceName, traitName)
 	return c.getSchema(ctx, path)
 }
 
 // GetComponentWorkflowSchema fetches ComponentWorkflow schema from the API
 func (c *APIClient) GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (*json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/component-workflows/%s/schema", namespaceName, cwName)
+	path := fmt.Sprintf("/api/v1/namespaces/%s/component-workflows/%s/schema", namespaceName, cwName)
 	return c.getSchema(ctx, path)
 }
 

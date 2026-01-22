@@ -20,7 +20,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListEnvironments",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -53,7 +53,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListDataPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -86,7 +86,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListComponentTypes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -119,7 +119,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListWorkflows",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -152,7 +152,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListTraits",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -194,7 +194,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "CreateDataPlane",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 				// args[1] is *models.CreateDataPlaneRequest
 			},
@@ -217,7 +217,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "CreateEnvironment",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 				// args[1] is *models.CreateEnvironmentRequest
 			},
@@ -234,7 +234,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListObservabilityPlanes",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},
@@ -250,7 +250,7 @@ func infrastructureToolSpecs() []toolTestSpec {
 			expectedMethod: "ListComponentWorkflows",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
-					t.Errorf("Expected org name %q, got %v", testNamespaceName, args[0])
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
 			},
 		},

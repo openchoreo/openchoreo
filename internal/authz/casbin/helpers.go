@@ -19,7 +19,7 @@ const (
 )
 
 // resourceMatch checks if a requested resource matches a policy resource using hierarchical prefix matching.
-// For example, policy "org/acme" matches request "org/acme/project/p1/component/c1"
+// For example, policy "namespace/acme" matches request "namespace/acme/project/p1/component/c1"
 // This allows policies to apply to all resources under a hierarchical scope.
 func resourceMatch(requestResource, policyResource string) bool {
 	// Full wildcard matches any resource
@@ -32,7 +32,7 @@ func resourceMatch(requestResource, policyResource string) bool {
 	}
 
 	// Hierarchical prefix match: policy resource is a prefix of the requested resource
-	// e.g., policy "org/acme" matches request "org/acme/project/p1"
+	// e.g., policy "namespace/acme" matches request "namespace/acme/project/p1"
 	return strings.HasPrefix(requestResource, policyResource+"/")
 }
 
@@ -255,13 +255,13 @@ func isWithinScope(policyResource, scopePath string) bool {
 	}
 
 	// Policy is broader (parent) - grants permissions that include the scope
-	// e.g., policy "org/acme" includes scope "org/acme/project/p1"
+	// e.g., policy "namespace/acme" includes scope "namespace/acme/project/p1"
 	if strings.HasPrefix(scopePath, policyResource+"/") {
 		return true
 	}
 
 	// Policy is narrower (child) - grants permissions within the scope
-	// e.g., scope "org/acme" includes policy "org/acme/project/p1"
+	// e.g., scope "namespace/acme" includes policy "namespace/acme/project/p1"
 	if strings.HasPrefix(policyResource, scopePath+"/") {
 		return true
 	}

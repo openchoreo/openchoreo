@@ -22,7 +22,7 @@ type BuildResource struct {
 }
 
 // NewBuildResource constructs a BuildResource with CRDConfig and optionally sets namespace, project, component, and deploymentTrack.
-func NewBuildResource(cfg constants.CRDConfig, org string, project string, component string, deploymentTrack string) (*BuildResource, error) {
+func NewBuildResource(cfg constants.CRDConfig, namespace string, project string, component string, deploymentTrack string) (*BuildResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -34,8 +34,8 @@ func NewBuildResource(cfg constants.CRDConfig, org string, project string, compo
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Build, *openchoreov1alpha1.BuildList](namespace))
 	}
 
 	// Create labels for filtering

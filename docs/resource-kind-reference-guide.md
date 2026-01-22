@@ -65,8 +65,8 @@ erDiagram
 
 To represent the Choreo hierarchical resource model in Kubernetes, the following rules will be followed:
 
-1. The Organization will be represented as a Cluster-wide CRD that will mapped to a Kubernetes Namespace.
-2. The resources within an organization (e.g., Components, Projects, Environments, DataPlanes) will be represented as a Namespaced resources in Kubernetes.
+1. Kubernetes Namespaces are used as the top-level boundary in OpenChoreo to group projects and other resources.
+2. The resources within a namespace (e.g., Components, Projects, Environments, DataPlanes) will be represented as Namespaced resources in Kubernetes.
 3. The relationships between namespaced resources will be represented using Kubernetes labels.
 4. Any other metadata will be represented as annotations in the Kubernetes resources (e.g., Display Name, Description).
 
@@ -103,7 +103,7 @@ to get the data plane information.
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
-  # Unique name of the data plane within the organization (namespace).
+  # Unique name of the data plane within the namespace.
   #
   # +required
   # +immutable
@@ -111,7 +111,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the data plane.
     #
@@ -162,7 +162,7 @@ The `spec.dataPlaneRef` field should point to a existing `DataPlane` resource th
 apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
 metadata:
-  # Unique name of the environment within the organization (namespace).
+  # Unique name of the environment within the namespace.
   #
   # +required
   # +immutable
@@ -170,7 +170,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the environment.
     #
@@ -197,6 +197,7 @@ spec:
   isProduction: true/false
   # Override the DNS prefix for the domain names used by the environment.
   # The format of the domain names will be as follows:
+  # TODO: chathurangas: update this
   # Public:`<organizationUuid>-<dnsPrefix>.<region>.<dataPlanePublicVirtualHost>`
   # Sandbox:`<organizationUuid>-<dnsPrefix>.-sandbox.<region>.<dataPlanePublicVirtualHost>`
   # Organization: `<organizationUuid>-<dnsPrefix>-internal.<region>.<dataPlaneOrganizationVirtualHost>`
@@ -214,7 +215,7 @@ spec:
 ### DeploymentPipeline
 
 The `DeploymentPipeline` resource kind represents an ordered set of environments that a deployment will go through to reach a critical environment.
-Each organization will have a default deployment pipelines that will be used for all deployments unless a custom deployment pipeline is specified.
+Each namespace will have a default deployment pipeline that will be used for all deployments unless a custom deployment pipeline is specified.
 
 **Field Reference:**
 
@@ -222,7 +223,7 @@ Each organization will have a default deployment pipelines that will be used for
 apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
-  # Unique name of the deployment pipeline within the organization (namespace).
+  # Unique name of the deployment pipeline within the namespace.
   #
   # +required
   # +immutable
@@ -230,7 +231,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the deployment pipeline.
     #
@@ -284,7 +285,7 @@ The `Project` resource kind represents a project in Choreo which enforces a prom
 apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
-  # Unique name of the project within the organization (namespace).
+  # Unique name of the project within the namespace.
   #
   # +required
   # +immutable
@@ -292,7 +293,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the project.
     #
@@ -335,7 +336,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the component.
     #
@@ -438,7 +439,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the deployment track.
     #
@@ -511,7 +512,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the build.
     #
@@ -645,7 +646,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the deployable artifact.
     #
@@ -1058,7 +1059,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the deployment.
     #
@@ -1157,7 +1158,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the deployment revision.
     #
@@ -1217,7 +1218,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the endpoint.
     #
@@ -1398,8 +1399,8 @@ spec:
 
 ### ConfigurationGroup
 
-The `ConfigurationGroup` resource kind represents configuration groupings and mappings for an organization across its environments. `ConfigurationGroups` include both configs which are not senstive as well as secrets which are sensitive. 
-This resource is created manually for an organization by the user and its values are referred to in the  `DeployableArtifact` resource kind.
+The `ConfigurationGroup` resource kind represents configuration groupings and mappings for a namespace across its environments. `ConfigurationGroups` include both configs which are not senstive as well as secrets which are sensitive. 
+This resource is created manually for a namespace by the user and its values are referred to in the  `DeployableArtifact` resource kind.
 
 **Field Reference:**
 
@@ -1407,7 +1408,7 @@ This resource is created manually for an organization by the user and its values
 apiVersion: openchoreo.dev/v1alpha1
 kind: ConfigurationGroup
 metadata:
-  # Unique name of the configuration group within the organisation (namespace).
+  # Unique name of the configuration group within the namespace.
   #
   # +required
   # +immutable
@@ -1415,7 +1416,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the configuration group.
     #
@@ -1502,8 +1503,8 @@ spec:
 
 ### Secret
 
-The `Secret` resource kind represents a configuration parameters that are stored in a selected key vault which can be used to store both system secrets and the environment specific secrets in a given data plane.
-The system secrets has predefined key-value pairs that are used by the system components.
+The `Secret` resource kind represents configuration parameters that are stored in a selected key vault which can be used to store both system secrets and the environment specific secrets in a given data plane.
+The system secrets have predefined key-value pairs that are used by the system components.
 
 **Field Reference:**
 
@@ -1511,7 +1512,7 @@ The system secrets has predefined key-value pairs that are used by the system co
 apiVersion: openchoreo.dev/v1alpha1
 kind: Secret
 metadata:
-  # Unique name of the secret within the organization (namespace).
+  # Unique name of the secret within the namespace.
   #
   # +required
   # +immutable
@@ -1519,7 +1520,7 @@ metadata:
   # Namespace name that the resource belongs to.
   #
   # +immutable
-  namespace: test-org
+  namespace: test-namespace
   annotations:
     # Display name of the secret.
     #

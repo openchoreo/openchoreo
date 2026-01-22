@@ -20,7 +20,7 @@ type ProjectResource struct {
 }
 
 // NewProjectResource constructs a ProjectResource with CRDConfig and optionally sets namespace.
-func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, error) {
+func NewProjectResource(cfg constants.CRDConfig, namespace string) (*ProjectResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -32,8 +32,8 @@ func NewProjectResource(cfg constants.CRDConfig, org string) (*ProjectResource, 
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Project, *openchoreov1alpha1.ProjectList](namespace))
 	}
 
 	return &ProjectResource{

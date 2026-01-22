@@ -967,7 +967,7 @@ type MessageResponse struct {
 }
 
 // Namespace Namespace resource representing an OpenChoreo control plane namespace.
-// Control plane namespaces hold organization resources like Projects, Components, and Environments.
+// Control plane namespaces hold resources like Projects, Components, and Environments.
 // These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
 type Namespace struct {
 	// CreatedAt Creation timestamp
@@ -1662,8 +1662,8 @@ type Unauthorized = ErrorResponse
 
 // GetSubjectProfileParams defines parameters for GetSubjectProfile.
 type GetSubjectProfileParams struct {
-	// Org Namespace scope
-	Org *string `form:"org,omitempty" json:"org,omitempty"`
+	// Namespace Namespace scope
+	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
 
 	// Project Project scope
 	Project *string `form:"project,omitempty" json:"project,omitempty"`

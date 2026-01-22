@@ -65,7 +65,7 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, names
 		secretReferences = append(secretReferences, s.toSecretReferenceResponse(&secretRefList.Items[i]))
 	}
 
-	s.logger.Debug("Listed secret references", "count", len(secretReferences), "org", namespaceName)
+	s.logger.Debug("Listed secret references", "count", len(secretReferences), "namespace", namespaceName)
 	return secretReferences, nil
 }
 

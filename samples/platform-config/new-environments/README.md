@@ -3,7 +3,7 @@ This guide demonstrates how to create new environments in Choreo.
 
 The Environment resource kind helps organize and manage different stages of the application lifecycle, such as development, testing, and production. The environment is bound to a specific data plane in Choreo. 
 
-We will create four such environments in the new organization created earlier.
+We will create four such environments in your namespace.
 
 ### Environment Hierarchy
 

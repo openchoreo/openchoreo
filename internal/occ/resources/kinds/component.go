@@ -21,7 +21,7 @@ type ComponentResource struct {
 }
 
 // NewComponentResource constructs a ComponentResource with CRDConfig and optionally sets namespace and project.
-func NewComponentResource(cfg constants.CRDConfig, org string, project string) (*ComponentResource, error) {
+func NewComponentResource(cfg constants.CRDConfig, namespace string, project string) (*ComponentResource, error) {
 	cli, err := resources.GetClient()
 	if err != nil {
 		return nil, fmt.Errorf(ErrCreateKubeClient, err)
@@ -33,8 +33,8 @@ func NewComponentResource(cfg constants.CRDConfig, org string, project string) (
 	}
 
 	// Add namespace namespace if provided
-	if org != "" {
-		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](org))
+	if namespace != "" {
+		options = append(options, resources.WithNamespace[*openchoreov1alpha1.Component, *openchoreov1alpha1.ComponentList](namespace))
 	}
 
 	// Add project label if provided

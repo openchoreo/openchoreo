@@ -385,11 +385,11 @@ func (siw *ServerInterfaceWrapper) GetSubjectProfile(w http.ResponseWriter, r *h
 	// Parameter object where we will unmarshal all parameters from the context
 	var params GetSubjectProfileParams
 
-	// ------------- Optional query parameter "org" -------------
+	// ------------- Optional query parameter "namespace" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "org", r.URL.Query(), &params.Org)
+	err = runtime.BindQueryParameter("form", true, false, "namespace", r.URL.Query(), &params.Namespace)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "org", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespace", Err: err})
 		return
 	}
 

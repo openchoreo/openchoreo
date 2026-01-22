@@ -29,12 +29,12 @@ func (m *MockCoreToolsetHandler) recordCall(method string, args ...interface{}) 
 
 func (m *MockCoreToolsetHandler) GetNamespace(ctx context.Context, name string) (any, error) {
 	m.recordCall("GetNamespace", name)
-	return `{"name":"test-org"}`, nil
+	return `{"name":"test-namespace"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListNamespaces(ctx context.Context) (any, error) {
 	m.recordCall("ListNamespaces")
-	return `[{"name":"test-org"}]`, nil
+	return `[{"name":"test-namespace"}]`, nil
 }
 
 func (m *MockCoreToolsetHandler) ListSecretReferences(ctx context.Context, namespaceName string) (any, error) {
