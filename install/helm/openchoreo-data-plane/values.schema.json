@@ -25,162 +25,16 @@
                   "description": "OCI chart reference for the API Platform gateway",
                   "title": "chartName",
                   "type": "string"
+                },
+                "chartVersion": {
+                  "default": "0.3.0",
+                  "description": "Version of the API Platform gateway chart",
+                  "title": "chartVersion",
+                  "type": "string"
                 }
               },
               "required": [],
               "title": "helm",
-              "type": "object"
-            },
-            "values": {
-              "additionalProperties": true,
-              "description": "Values to pass to the gateway sub-chart",
-              "properties": {
-                "gateway": {
-                  "additionalProperties": true,
-                  "description": "Gateway-specific configuration",
-                  "properties": {
-                    "config": {
-                      "additionalProperties": true,
-                      "description": "Gateway runtime configuration",
-                      "properties": {
-                        "policy_configurations": {
-                          "additionalProperties": true,
-                          "description": "Policy configurations for API security and management",
-                          "properties": {
-                            "JWTAuth_v010": {
-                              "additionalProperties": true,
-                              "description": "JWT authentication policy configuration (version 0.1.0)",
-                              "properties": {
-                                "AllowedAlgorithms": {
-                                  "default": [
-                                    "RS256",
-                                    "ES256"
-                                  ],
-                                  "description": "Allowed JWT signing algorithms",
-                                  "items": {
-                                    "type": "string"
-                                  },
-                                  "title": "AllowedAlgorithms",
-                                  "type": "array"
-                                },
-                                "AuthHeaderScheme": {
-                                  "default": "Bearer",
-                                  "description": "Authorization header scheme prefix",
-                                  "title": "AuthHeaderScheme",
-                                  "type": "string"
-                                },
-                                "ErrorMessage": {
-                                  "default": "Authentication failed.",
-                                  "description": "Error message returned on authentication failure",
-                                  "title": "ErrorMessage",
-                                  "type": "string"
-                                },
-                                "ErrorMessageFormat": {
-                                  "default": "json",
-                                  "description": "Format for error messages",
-                                  "enum": [
-                                    "json",
-                                    "text"
-                                  ],
-                                  "required": [],
-                                  "title": "ErrorMessageFormat"
-                                },
-                                "HeaderName": {
-                                  "default": "Authorization",
-                                  "description": "HTTP header name for JWT token",
-                                  "title": "HeaderName",
-                                  "type": "string"
-                                },
-                                "JwksCacheTtl": {
-                                  "default": "5m",
-                                  "description": "Cache TTL for JWKS keys",
-                                  "title": "JwksCacheTtl",
-                                  "type": "string"
-                                },
-                                "JwksFetchRetryCount": {
-                                  "default": 3,
-                                  "description": "Number of retry attempts for JWKS fetch",
-                                  "minimum": 1,
-                                  "title": "JwksFetchRetryCount",
-                                  "type": "integer"
-                                },
-                                "JwksFetchRetryInterval": {
-                                  "default": "2s",
-                                  "description": "Interval between JWKS fetch retries",
-                                  "title": "JwksFetchRetryInterval",
-                                  "type": "string"
-                                },
-                                "JwksFetchTimeout": {
-                                  "default": "5s",
-                                  "description": "Timeout for fetching JWKS",
-                                  "title": "JwksFetchTimeout",
-                                  "type": "string"
-                                },
-                                "KeyManagers": {
-                                  "description": "List of key managers for JWT validation",
-                                  "items": {
-                                    "properties": {
-                                      "issuer": {
-                                        "description": "JWT issuer identifier",
-                                        "type": "string"
-                                      },
-                                      "jwks": {
-                                        "description": "JWKS configuration",
-                                        "required": [],
-                                        "type": "object"
-                                      },
-                                      "name": {
-                                        "description": "Key manager name",
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [],
-                                    "type": "object"
-                                  },
-                                  "title": "KeyManagers",
-                                  "type": "array"
-                                },
-                                "Leeway": {
-                                  "default": "30s",
-                                  "description": "Clock skew tolerance for JWT validation",
-                                  "title": "Leeway",
-                                  "type": "string"
-                                },
-                                "OnFailureStatusCode": {
-                                  "default": 401,
-                                  "description": "HTTP status code returned on authentication failure",
-                                  "title": "OnFailureStatusCode",
-                                  "type": "integer"
-                                },
-                                "ValidateIssuer": {
-                                  "default": true,
-                                  "description": "Validate the JWT issuer claim",
-                                  "title": "ValidateIssuer",
-                                  "type": "boolean"
-                                }
-                              },
-                              "required": [],
-                              "title": "JWTAuth_v010",
-                              "type": "object"
-                            }
-                          },
-                          "required": [],
-                          "title": "policy_configurations",
-                          "type": "object"
-                        }
-                      },
-                      "required": [],
-                      "title": "config",
-                      "type": "object"
-                    }
-                  },
-                  "required": [],
-                  "title": "gateway",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "values",
               "type": "object"
             }
           },
