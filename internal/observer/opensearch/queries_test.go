@@ -139,6 +139,7 @@ func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
 	params := QueryParams{
+		ComponentIDs:  []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b", "5e2a7c9f-8b4d-4f1e-9c3a-6f8b2d4e7a1c"},
 		StartTime:     "2024-01-01T00:00:00Z",
 		EndTime:       "2024-01-01T23:59:59Z",
 		SearchPhrase:  "info",
@@ -148,9 +149,7 @@ func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 		SortOrder:     "asc",
 	}
 
-	componentIDs := []string{"8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b", "3f7b9e1a-4c6d-4e8f-a2b5-7d1c3e8f4a9b", "5e2a7c9f-8b4d-4f1e-9c3a-6f8b2d4e7a1c"}
-
-	query := qb.BuildProjectLogsQuery(params, componentIDs)
+	query := qb.BuildProjectLogsQuery(params)
 
 	// Verify query structure
 	if query["size"] != 50 {
@@ -163,14 +162,24 @@ func TestQueryBuilder_BuildProjectLogsQuery(t *testing.T) {
 		t.Fatal("Expected bool query not found")
 	}
 
-	// Verify should conditions for component IDs
+	// Verify must conditions exist
+	if _, ok := boolQuery["must"].([]map[string]interface{}); !ok {
+		t.Fatal("Expected must conditions not found")
+	}
+
+	// Verify should conditions at the same level as must
 	shouldConditions, ok := boolQuery["should"].([]map[string]interface{})
 	if !ok {
 		t.Fatal("Expected should conditions not found")
 	}
 
-	if len(shouldConditions) != len(componentIDs) {
-		t.Errorf("Expected %d should conditions, got %d", len(componentIDs), len(shouldConditions))
+	if len(shouldConditions) != len(params.ComponentIDs) {
+		t.Errorf("Expected %d should conditions, got %d", len(params.ComponentIDs), len(shouldConditions))
+	}
+
+	// Verify minimum_should_match is set
+	if boolQuery["minimum_should_match"] != 1 {
+		t.Errorf("Expected minimum_should_match 1, got %v", boolQuery["minimum_should_match"])
 	}
 }
 

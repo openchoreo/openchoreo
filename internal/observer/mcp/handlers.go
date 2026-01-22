@@ -22,8 +22,8 @@ func (h *MCPHandler) GetComponentLogs(ctx context.Context, params opensearch.Com
 }
 
 // GetProjectLogs retrieves logs for a specific project
-func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	return h.Service.GetProjectLogs(ctx, params, componentIDs)
+func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error) {
+	return h.Service.GetProjectLogs(ctx, params)
 }
 
 // GetGatewayLogs retrieves gateway logs

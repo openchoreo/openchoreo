@@ -73,8 +73,8 @@ func (m *MockHandler) GetComponentLogs(ctx context.Context, params opensearch.Co
 	return logsData, nil
 }
 
-func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	m.recordCall("GetProjectLogs", params, componentIDs)
+func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error) {
+	m.recordCall("GetProjectLogs", params)
 	if m.projectLogsError != nil {
 		return nil, m.projectLogsError
 	}
@@ -294,16 +294,12 @@ var allToolSpecs = []toolTestSpec{
 		},
 		expectedMethod: "GetProjectLogs",
 		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 2 {
-				t.Fatal("Expected at least two arguments")
+			if len(args) < 1 {
+				t.Fatal("Expected at least one argument")
 			}
 			params, ok := args[0].(opensearch.QueryParams)
 			if !ok {
 				t.Fatalf("Expected QueryParams, got %T", args[0])
-			}
-			componentIDs, ok := args[1].([]string)
-			if !ok {
-				t.Fatalf("Expected []string for component_ids, got %T", args[1])
 			}
 			if params.ProjectID != testProjectID {
 				t.Errorf("Expected project_id %q, got %q", testProjectID, params.ProjectID)
@@ -331,7 +327,7 @@ var allToolSpecs = []toolTestSpec{
 				t.Errorf("Expected sort_order 'asc', got %q", params.SortOrder)
 			}
 			expectedComponentIDs := []string{"comp-1", "comp-2"}
-			if diff := cmp.Diff(expectedComponentIDs, componentIDs); diff != "" {
+			if diff := cmp.Diff(expectedComponentIDs, params.ComponentIDs); diff != "" {
 				t.Errorf("component_ids mismatch (-want +got):\n%s", diff)
 			}
 		},
@@ -1225,10 +1221,10 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				"end_time":       testEndTime,
 			},
 			validateCall: func(t *testing.T, args []interface{}) {
-				componentIDs := args[1].([]string)
+				params := args[0].(opensearch.QueryParams)
 				// Verify component_ids is nil/empty when not provided
-				if len(componentIDs) != 0 {
-					t.Errorf("Expected nil or empty component_ids, got %v", componentIDs)
+				if len(params.ComponentIDs) != 0 {
+					t.Errorf("Expected nil or empty component_ids, got %v", params.ComponentIDs)
 				}
 			},
 		},

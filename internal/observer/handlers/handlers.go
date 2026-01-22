@@ -500,6 +500,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Build query parameters
 	params := opensearch.QueryParams{
+		ComponentIDs:  req.ComponentIDs,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
 		SearchPhrase:  req.SearchPhrase,
@@ -515,7 +516,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Execute query
 	ctx := r.Context()
-	result, err := h.service.GetProjectLogs(ctx, params, req.ComponentIDs)
+	result, err := h.service.GetProjectLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get project logs", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)

@@ -260,7 +260,7 @@ func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map
 }
 
 // BuildProjectLogsQuery builds a query for project logs with wildcard search
-func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs []string) map[string]interface{} {
+func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{
 		{
 			"term": map[string]interface{}{
@@ -296,10 +296,10 @@ func (qb *QueryBuilder) BuildProjectLogsQuery(params QueryParams, componentIDs [
 	}
 
 	// Add component ID filters as "should" conditions
-	if len(componentIDs) > 0 {
+	if len(params.ComponentIDs) > 0 {
 		shouldConditions := []map[string]interface{}{}
 
-		for _, componentID := range componentIDs {
+		for _, componentID := range params.ComponentIDs {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"term": map[string]interface{}{
 					labels.OSComponentID + ".keyword": componentID,

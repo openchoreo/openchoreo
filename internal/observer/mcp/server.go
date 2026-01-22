@@ -15,7 +15,7 @@ import (
 
 type Handler interface {
 	GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error)
-	GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error)
+	GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error)
 	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error)
 	GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error)
 	GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error)
@@ -179,12 +179,13 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 			LogLevels:     logLevels,
 			Versions:      args.Versions,
 			VersionIDs:    args.VersionIDs,
+			ComponentIDs:  args.ComponentIDs,
 			Limit:         limit,
 			SortOrder:     sortOrder,
 			LogType:       args.LogType,
 		}
 
-		result, err := handler.GetProjectLogs(ctx, params, args.ComponentIDs)
+		result, err := handler.GetProjectLogs(ctx, params)
 		return handleToolResult(result, err)
 	})
 

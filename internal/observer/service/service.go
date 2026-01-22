@@ -176,11 +176,11 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 }
 
 // GetProjectLogs retrieves logs for a specific project using V2 wildcard search
-func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (*LogResponse, error) {
+func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (*LogResponse, error) {
 	s.logger.Info("Getting project logs",
 		"project_id", params.ProjectID,
 		"environment_id", params.EnvironmentID,
-		"component_ids", componentIDs,
+		"component_ids", params.ComponentIDs,
 		"search_phrase", params.SearchPhrase)
 
 	// Generate indices based on time range
@@ -191,7 +191,7 @@ func (s *LoggingService) GetProjectLogs(ctx context.Context, params opensearch.Q
 	}
 
 	// Build query with wildcard search
-	query := s.queryBuilder.BuildProjectLogsQuery(params, componentIDs)
+	query := s.queryBuilder.BuildProjectLogsQuery(params)
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
