@@ -7,8 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -17,6 +21,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
@@ -27,9 +32,10 @@ const (
 type BuildPlaneReconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
+	Recorder      record.EventRecorder
 	ClientMgr     *kubernetesClient.KubeMultiClientManager
-	GatewayClient *gatewayClient.Client
-	CacheVersion  string // Cache key version prefix (e.g., "v2")
+	GatewayClient *gatewayClient.Client // Client for notifying cluster-gateway
+	CacheVersion  string                // Cache key version prefix (e.g., "v2")
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=buildplanes,verbs=get;list;watch;create;update;patch;delete
@@ -41,6 +47,7 @@ type BuildPlaneReconciler struct {
 func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Fetch the BuildPlane instance
 	buildPlane := &openchoreov1alpha1.BuildPlane{}
 	if err := r.Get(ctx, req.NamespacedName, buildPlane); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -51,11 +58,16 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	// Keep a copy of the old BuildPlane object
+	old := buildPlane.DeepCopy()
+
+	// Handle the deletion of the buildplane
 	if !buildPlane.DeletionTimestamp.IsZero() {
 		logger.Info("Finalizing buildplane")
-		return r.finalize(ctx, buildPlane)
+		return r.finalize(ctx, old, buildPlane)
 	}
 
+	// Ensure the finalizer is added to the buildplane
 	if finalizerAdded, err := r.ensureFinalizer(ctx, buildPlane); err != nil || finalizerAdded {
 		return ctrl.Result{}, err
 	}
@@ -63,9 +75,35 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	// Invalidate cached Kubernetes client on UPDATE
 	// This ensures that any changes to the BuildPlane CR (kubeconfig, credentials, etc.)
 	// trigger a new client to be created with the updated configuration
-	if r.ClientMgr != nil && r.CacheVersion != "" {
+	if r.ClientMgr != nil && r.CacheVersion != "" && !r.shouldIgnoreReconcile(buildPlane) {
 		r.invalidateCache(ctx, buildPlane)
 	}
+
+	// Handle create
+	// Ignore reconcile if the BuildPlane is already available since this is a one-time create
+	// However, we still want to update agent connection status periodically
+	if r.shouldIgnoreReconcile(buildPlane) {
+		if err := r.populateAgentConnectionStatus(ctx, buildPlane); err != nil {
+			logger.Error(err, "failed to get agent connection status")
+			// Don't fail reconciliation for status query errors
+		}
+
+		if err := r.Status().Update(ctx, buildPlane); err != nil {
+			logger.Error(err, "failed to update BuildPlane status")
+		}
+
+		// Requeue to refresh agent connection status
+		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	}
+
+	// Set the observed generation
+	buildPlane.Status.ObservedGeneration = buildPlane.Generation
+
+	// Update the status condition to indicate the build plane is created/ready
+	meta.SetStatusCondition(
+		&buildPlane.Status.Conditions,
+		NewBuildPlaneCreatedCondition(buildPlane.Generation),
+	)
 
 	// Notify gateway of BuildPlane reconciliation (create/update)
 	// Using "updated" since Reconcile handles both CREATE and UPDATE events
@@ -78,7 +116,27 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	return ctrl.Result{}, nil
+	// Query agent connection status from gateway and add to buildPlane status
+	// This must be done BEFORE updating status to avoid conflicts
+	if err := r.populateAgentConnectionStatus(ctx, buildPlane); err != nil {
+		logger.Error(err, "failed to get agent connection status")
+		// Don't fail reconciliation for status query errors
+	}
+
+	// Update status with both conditions and agent connection status in a single update
+	// We use Status().Update() directly instead of UpdateStatusConditions to preserve agentConnection field
+	if err := r.Status().Update(ctx, buildPlane); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	r.Recorder.Event(buildPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", buildPlane.Name))
+
+	// Requeue to refresh agent connection status
+	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+}
+
+func (r *BuildPlaneReconciler) shouldIgnoreReconcile(buildPlane *openchoreov1alpha1.BuildPlane) bool {
+	return meta.FindStatusCondition(buildPlane.Status.Conditions, string(controller.TypeCreated)) != nil
 }
 
 // ensureFinalizer ensures that the finalizer is added to the buildplane.
@@ -95,7 +153,7 @@ func (r *BuildPlaneReconciler) ensureFinalizer(ctx context.Context, buildPlane *
 	return false, nil
 }
 
-func (r *BuildPlaneReconciler) finalize(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (ctrl.Result, error) {
+func (r *BuildPlaneReconciler) finalize(ctx context.Context, _, buildPlane *openchoreov1alpha1.BuildPlane) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
 
 	if !controllerutil.ContainsFinalizer(buildPlane, BuildPlaneCleanupFinalizer) {
@@ -187,8 +245,90 @@ func (r *BuildPlaneReconciler) notifyGateway(ctx context.Context, buildPlane *op
 	return nil
 }
 
+// populateAgentConnectionStatus queries the cluster-gateway for agent connection status
+// and populates the BuildPlane status fields (without persisting to API server)
+func (r *BuildPlaneReconciler) populateAgentConnectionStatus(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) error {
+	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
+
+	// Skip if gateway client not configured
+	if r.GatewayClient == nil {
+		return nil
+	}
+
+	effectivePlaneID := buildPlane.Spec.PlaneID
+	if effectivePlaneID == "" {
+		effectivePlaneID = buildPlane.Name
+	}
+
+	// Query gateway for connection status
+	status, err := r.GatewayClient.GetPlaneStatus(ctx, "buildplane", effectivePlaneID)
+	if err != nil {
+		// Log error but don't fail reconciliation
+		// If gateway is unreachable, we'll try again on next requeue
+		logger.Error(err, "failed to get plane connection status from gateway", "planeID", effectivePlaneID)
+		return err
+	}
+
+	// Populate BuildPlane status fields (caller will persist to API server)
+	now := metav1.Now()
+	if buildPlane.Status.AgentConnection == nil {
+		buildPlane.Status.AgentConnection = &openchoreov1alpha1.AgentConnectionStatus{}
+	}
+
+	// Track previous connection state to detect transitions
+	previouslyConnected := buildPlane.Status.AgentConnection.Connected
+
+	buildPlane.Status.AgentConnection.Connected = status.Connected
+	buildPlane.Status.AgentConnection.ConnectedAgents = status.ConnectedAgents
+
+	if status.Connected {
+		buildPlane.Status.AgentConnection.LastHeartbeatTime = &metav1.Time{Time: status.LastSeen}
+
+		// Only update LastConnectedTime on transition from disconnected to connected
+		if !previouslyConnected {
+			buildPlane.Status.AgentConnection.LastConnectedTime = &now
+		}
+
+		if status.ConnectedAgents == 1 {
+			buildPlane.Status.AgentConnection.Message = "1 agent connected"
+		} else {
+			buildPlane.Status.AgentConnection.Message = fmt.Sprintf("%d agents connected (HA mode)", status.ConnectedAgents)
+		}
+	} else {
+		// Only update LastDisconnectedTime on transition from connected to disconnected
+		if previouslyConnected {
+			buildPlane.Status.AgentConnection.LastDisconnectedTime = &now
+		}
+		buildPlane.Status.AgentConnection.Message = "No agents connected"
+	}
+
+	logger.Info("populated agent connection status",
+		"planeID", effectivePlaneID,
+		"connected", status.Connected,
+		"connectedAgents", status.ConnectedAgents,
+	)
+
+	return nil
+}
+
+// NewBuildPlaneCreatedCondition returns a condition indicating the build plane is created
+func NewBuildPlaneCreatedCondition(generation int64) metav1.Condition {
+	return metav1.Condition{
+		Type:               string(controller.TypeCreated),
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: generation,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "BuildPlaneCreated",
+		Message:            "Buildplane is created",
+	}
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *BuildPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("buildplane-controller")
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.BuildPlane{}).
 		Named("buildplane").
