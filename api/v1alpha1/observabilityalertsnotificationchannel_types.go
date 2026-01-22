@@ -62,6 +62,8 @@ type SMTPConfig struct {
 	// Port is the SMTP server port
 	// Required when type is "email"
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 
 	// Auth defines SMTP authentication credentials
@@ -76,12 +78,12 @@ type SMTPConfig struct {
 // SMTPAuth defines SMTP authentication configuration
 type SMTPAuth struct {
 	// Username for SMTP authentication
-	// Can be provided inline or via secret reference
+	// Provided via secret reference (TODO: Support inline username)
 	// +kubebuilder:validation:Required
 	Username *SecretValueFrom `json:"username"`
 
 	// Password for SMTP authentication
-	// Can be provided inline or via secret reference
+	// Provided via secret reference (TODO: Support inline password)
 	// +kubebuilder:validation:Required
 	Password *SecretValueFrom `json:"password"`
 }
@@ -157,8 +159,6 @@ type NotificationChannelConfig struct {
 // ObservabilityAlertsNotificationChannelSpec defines the desired state of ObservabilityAlertsNotificationChannel.
 // +kubebuilder:validation:XValidation:rule="self.type == 'email' ? has(self.emailConfig) : true",message="emailConfig is required when type is email"
 // +kubebuilder:validation:XValidation:rule="self.type == 'webhook' ? has(self.webhookConfig) : true",message="webhookConfig is required when type is webhook"
-// +kubebuilder:validation:XValidation:rule="self.type == 'email' && has(self.emailConfig) ? (has(self.emailConfig.from) && size(self.emailConfig.from) > 0) && (has(self.emailConfig.to) && size(self.emailConfig.to) > 0) && (has(self.emailConfig.smtp) && has(self.emailConfig.smtp.host) && size(self.emailConfig.smtp.host) > 0 && has(self.emailConfig.smtp.port) && self.emailConfig.smtp.port >= 1 && self.emailConfig.smtp.port <= 65535) : true",message="emailConfig fields (from, to, smtp.host, smtp.port) are required when type is email, and smtp.port must be between 1 and 65535"
-// +kubebuilder:validation:XValidation:rule="self.type == 'webhook' && has(self.webhookConfig) ? (has(self.webhookConfig.url) && size(self.webhookConfig.url) > 0) : true",message="webhookConfig.url is required when type is webhook"
 type ObservabilityAlertsNotificationChannelSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
