@@ -911,49 +911,6 @@
           "additionalProperties": false,
           "description": "Configuration for the default workflow templates required for building container images",
           "properties": {
-            "buildpackCache": {
-              "additionalProperties": false,
-              "description": "Buildpack image caching. When enabled, caches buildpack images in a local registry to speed up builds. Requires a local registry to be installed and configured.",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable buildpack image caching. Requires a local registry. When disabled, workflows pull buildpack images from remote registries.",
-                  "title": "enabled",
-                  "type": "boolean"
-                },
-                "images": {
-                  "description": "List of buildpack images to cache. Each entry has an id for lookup, remoteImage for external registry, and cachedImage for local cache.",
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "cachedImage": {
-                        "description": "Image path in the local build plane registry (used when caching is enabled)",
-                        "type": "string"
-                      },
-                      "id": {
-                        "description": "Unique identifier for lookup in workflow templates",
-                        "type": "string"
-                      },
-                      "remoteImage": {
-                        "description": "Image reference from remote registry (used when caching is disabled)",
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "remoteImage",
-                      "cachedImage"
-                    ],
-                    "type": "object"
-                  },
-                  "title": "images",
-                  "type": "array"
-                }
-              },
-              "required": [],
-              "title": "buildpackCache",
-              "type": "object"
-            },
             "enabled": {
               "default": true,
               "description": "If true, applies the workflow templates",

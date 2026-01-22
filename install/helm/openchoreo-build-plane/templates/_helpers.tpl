@@ -140,57 +140,6 @@ Returns placeholder if host is empty (for lint/template).
 {{- end -}}
 
 {{/*
-Get buildpack image by ID
-Returns the appropriate image reference based on buildpackCache.enabled setting.
-When caching is enabled, returns the cached image path prefixed with registry endpoint.
-When caching is disabled, returns the remote image reference directly.
-
-Usage:
-  {{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-builder" "context" .) }}
-
-Parameters:
-  - id: The unique identifier of the buildpack image (e.g., "google-builder", "ballerina-run")
-  - context: The Helm context (usually .)
-*/}}
-{{- define "openchoreo-build-plane.buildpackImage" -}}
-{{- $id := .id -}}
-{{- $ctx := .context -}}
-{{- $cacheEnabled := $ctx.Values.global.defaultResources.buildpackCache.enabled -}}
-{{- $registryEndpoint := include "openchoreo-build-plane.registryEndpoint" $ctx -}}
-{{- range $ctx.Values.global.defaultResources.buildpackCache.images -}}
-  {{- if eq .id $id -}}
-    {{- if $cacheEnabled -}}
-      {{- printf "%s/%s" $registryEndpoint .cachedImage -}}
-    {{- else -}}
-      {{- .remoteImage -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get buildpack remote image by ID
-Always returns the remote image reference, regardless of cache setting.
-Useful for tagging cached images back to their original name.
-
-Usage:
-  {{ include "openchoreo-build-plane.buildpackRemoteImage" (dict "id" "lifecycle" "context" .) }}
-
-Parameters:
-  - id: The unique identifier of the buildpack image
-  - context: The Helm context (usually .)
-*/}}
-{{- define "openchoreo-build-plane.buildpackRemoteImage" -}}
-{{- $id := .id -}}
-{{- $ctx := .context -}}
-{{- range $ctx.Values.global.defaultResources.buildpackCache.images -}}
-  {{- if eq .id $id -}}
-    {{- .remoteImage -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-build-plane.clusterAgent.name" -}}

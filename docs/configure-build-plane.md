@@ -30,8 +30,6 @@ global:
     registry:
       host: "registry.openchoreo-build-plane.svc.cluster.local:5000"
       tlsVerify: false
-    buildpackCache:
-      enabled: true
 ```
 
 ### Option 2: Use an External Registry
@@ -43,10 +41,8 @@ global:
   defaultResources:
     registry:
       host: "gcr.io/my-project"
-      repoPath: "openchoreo"  # optional prefix
+      repoPath: "openchoreo"
       tlsVerify: true
-    buildpackCache:
-      enabled: false
 ```
 
 #### Registry Authentication
@@ -77,4 +73,3 @@ helm install openchoreo-build-plane oci://ghcr.io/openchoreo/helm-charts/opencho
 | `global.defaultResources.registry.host` | Container registry host (REQUIRED) | `""` |
 | `global.defaultResources.registry.repoPath` | Repository path prefix | `""` |
 | `global.defaultResources.registry.tlsVerify` | Enable TLS verification | `false` |
-| `global.defaultResources.buildpackCache.enabled` | Cache buildpack images locally | `false` |

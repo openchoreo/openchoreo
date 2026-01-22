@@ -159,22 +159,14 @@ spec:
             #####################################################################
             # 2. Pull buildpack images
             #####################################################################
-            BUILDER="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-builder" "context" .) }}"
-            RUN_IMAGE="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-run" "context" .) }}"
+            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
+            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
 
-            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
-            echo "Pulling builder from cache: $BUILDER"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
-
-            echo "Pulling run image from cache: $RUN_IMAGE"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMAGE"
-            {{- else }}
-            echo "Pulling builder from remote: $BUILDER"
+            echo "Pulling builder: $BUILDER"
             podman pull "$BUILDER"
 
-            echo "Pulling run image from remote: $RUN_IMAGE"
+            echo "Pulling run image: $RUN_IMAGE"
             podman pull "$RUN_IMAGE"
-            {{- end }}
 
             #####################################################################
             # 3. Build with Ballerina Buildpacks

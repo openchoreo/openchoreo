@@ -159,33 +159,18 @@ spec:
             #####################################################################
             # 2. Pull buildpack images
             #####################################################################
-            BUILDER="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-builder" "context" .) }}"
-            RUN_IMG="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-run" "context" .) }}"
-            LIFECYCLE_IMG="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "lifecycle" "context" .) }}"
+            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
+            LIFECYCLE_IMG="docker.io/buildpacksio/lifecycle:0.20.5"
 
-            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
-            echo "Pulling builder from cache: $BUILDER"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
-
-            echo "Pulling run image from cache: $RUN_IMG"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMG"
-
-            echo "Pulling lifecycle from cache: $LIFECYCLE_IMG"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$LIFECYCLE_IMG"
-
-            # Tag lifecycle image to expected name (referenced by builder image)
-            LIFECYCLE_REMOTE="{{ include "openchoreo-build-plane.buildpackRemoteImage" (dict "id" "lifecycle" "context" .) }}"
-            podman tag "$LIFECYCLE_IMG" "$LIFECYCLE_REMOTE"
-            {{- else }}
-            echo "Pulling builder from remote: $BUILDER"
+            echo "Pulling builder: $BUILDER"
             podman pull "$BUILDER"
 
-            echo "Pulling run image from remote: $RUN_IMG"
+            echo "Pulling run image: $RUN_IMG"
             podman pull "$RUN_IMG"
 
-            echo "Pulling lifecycle from remote: $LIFECYCLE_IMG"
+            echo "Pulling lifecycle: $LIFECYCLE_IMG"
             podman pull "$LIFECYCLE_IMG"
-            {{- end }}
 
             #####################################################################
             # 3. Build with Google Buildpacks
