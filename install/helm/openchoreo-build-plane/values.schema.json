@@ -900,15 +900,6 @@
       "additionalProperties": false,
       "description": "Global configuration values shared across all components",
       "properties": {
-        "baseDomain": {
-          "default": "",
-          "description": "Base domain for external access. When set, registry will be accessible at registry.\u003cbaseDomain\u003e.",
-          "examples": [
-            "openchoreo.example.com"
-          ],
-          "title": "baseDomain",
-          "type": "string"
-        },
         "commonLabels": {
           "additionalProperties": true,
           "description": "Common labels to add to every resource",
@@ -922,11 +913,11 @@
           "properties": {
             "buildpackCache": {
               "additionalProperties": false,
-              "description": "Pre-populates the local registry with buildpack images during install/upgrade to speed up builds",
+              "description": "Buildpack image caching. When enabled, caches buildpack images in a local registry to speed up builds. Requires a local registry to be installed and configured.",
               "properties": {
                 "enabled": {
-                  "default": true,
-                  "description": "Enable buildpack image caching hook",
+                  "default": false,
+                  "description": "Enable buildpack image caching. Requires a local registry. When disabled, workflows pull buildpack images from remote registries.",
                   "title": "enabled",
                   "type": "boolean"
                 },
@@ -995,8 +986,8 @@
               "description": "Container registry configuration",
               "properties": {
                 "host": {
-                  "default": "registry.openchoreo-build-plane.svc.cluster.local:5000",
-                  "description": "Container registry host for pushing and pulling images. Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, or a private registry).",
+                  "default": "",
+                  "description": "Container registry host for pushing built images (REQUIRED). Examples include ECR (123456789.dkr.ecr.us-east-1.amazonaws.com), GCR (gcr.io/my-project), Docker Hub (docker.io), or a local registry (registry.openchoreo-build-plane.svc.cluster.local).",
                   "title": "host",
                   "type": "string"
                 },
@@ -1013,7 +1004,9 @@
                   "type": "boolean"
                 }
               },
-              "required": [],
+              "required": [
+                "host"
+              ],
               "title": "registry",
               "type": "object"
             }
@@ -1021,122 +1014,10 @@
           "required": [],
           "title": "defaultResources",
           "type": "object"
-        },
-        "ingressClassName": {
-          "default": "openchoreo-traefik",
-          "description": "Ingress class name for registry ingress",
-          "title": "ingressClassName",
-          "type": "string"
-        },
-        "tls": {
-          "additionalProperties": false,
-          "description": "TLS configuration. When enabled, TLS host is auto-derived from baseDomain (registry.\u003cbaseDomain\u003e).",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable TLS for registry ingress",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "secretName": {
-              "default": "registry-tls",
-              "description": "Secret containing TLS certificate for registry",
-              "title": "secretName",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "tls",
-          "type": "object"
         }
       },
       "required": [],
       "title": "global",
-      "type": "object"
-    },
-    "registry": {
-      "additionalProperties": true,
-      "description": "Container Registry sub-chart configuration using Twuni Docker Registry Helm Chart. Hosts container images built by Argo Workflows in the Build Plane. See https://github.com/twuni/docker-registry.helm for all options.",
-      "properties": {
-        "fullnameOverride": {
-          "default": "registry",
-          "description": "Override the full name of registry resources",
-          "title": "fullnameOverride",
-          "type": "string"
-        },
-        "ingress": {
-          "additionalProperties": true,
-          "description": "Ingress for external registry access. Auto-enabled when global.baseDomain is set.",
-          "properties": {
-            "annotations": {
-              "additionalProperties": true,
-              "description": "Annotations to add to the ingress resource",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "className": {
-              "default": "",
-              "description": "Ingress class name. Falls back to global.ingressClassName if not set.",
-              "title": "className",
-              "type": "string"
-            },
-            "enabled": {
-              "default": false,
-              "description": "Enable ingress for external registry access",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "tls": {
-              "additionalProperties": false,
-              "description": "TLS configuration for registry ingress",
-              "properties": {
-                "enabled": {
-                  "default": false,
-                  "description": "Enable TLS for registry ingress",
-                  "title": "enabled",
-                  "type": "boolean"
-                },
-                "secretName": {
-                  "default": "",
-                  "description": "Secret containing TLS certificate",
-                  "title": "secretName",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "tls",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "ingress",
-          "type": "object"
-        },
-        "persistence": {
-          "additionalProperties": true,
-          "description": "Persistence configuration for registry data",
-          "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Enable persistent storage for registry",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "size": {
-              "default": "10Gi",
-              "description": "Size of the persistent volume for registry storage",
-              "title": "size",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "persistence",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "registry",
       "type": "object"
     },
     "waitJob": {

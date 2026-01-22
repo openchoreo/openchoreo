@@ -113,8 +113,9 @@ install_data_plane
 create_control_plane_certificate
 create_data_plane_certificate
 
-# Step 7: Install OpenChoreo Build Plane (optional)
+# Step 7: Install Container Registry and Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    install_registry
     install_build_plane
 fi
 

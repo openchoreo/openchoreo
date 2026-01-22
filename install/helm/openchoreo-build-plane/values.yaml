@@ -18,41 +18,6 @@ global:
   commonLabels: {}
 
   # @schema
-  # type: string
-  # description: Base domain for external access. When set, registry will be accessible at registry.<baseDomain>.
-  # examples:
-  #   - openchoreo.example.com
-  # @schema
-  baseDomain: ""
-
-  # @schema
-  # type: string
-  # description: Ingress class name for registry ingress
-  # default: openchoreo-traefik
-  # @schema
-  ingressClassName: openchoreo-traefik
-
-  # @schema
-  # type: object
-  # additionalProperties: false
-  # description: TLS configuration. When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>).
-  # @schema
-  tls:
-    # @schema
-    # type: boolean
-    # description: Enable TLS for registry ingress
-    # default: false
-    # @schema
-    enabled: false
-
-    # @schema
-    # type: string
-    # description: Secret containing TLS certificate for registry
-    # default: registry-tls
-    # @schema
-    secretName: "registry-tls"
-
-  # @schema
   # type: object
   # additionalProperties: false
   # description: Configuration for the default workflow templates required for building container images
@@ -73,10 +38,10 @@ global:
     registry:
       # @schema
       # type: string
-      # description: Container registry host for pushing and pulling images. Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, or a private registry).
-      # default: registry.openchoreo-build-plane.svc.cluster.local:5000
+      # description: Container registry host for pushing built images (REQUIRED). Examples include ECR (123456789.dkr.ecr.us-east-1.amazonaws.com), GCR (gcr.io/my-project), Docker Hub (docker.io), or a local registry (registry.openchoreo-build-plane.svc.cluster.local).
+      # required: true
       # @schema
-      host: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      host: ""
 
       # @schema
       # type: string
@@ -114,15 +79,15 @@ global:
     # @schema
     # type: object
     # additionalProperties: false
-    # description: Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
+    # description: Buildpack image caching. When enabled, caches buildpack images in a local registry to speed up builds. Requires a local registry to be installed and configured.
     # @schema
     buildpackCache:
       # @schema
       # type: boolean
-      # description: Enable buildpack image caching hook
-      # default: true
+      # description: Enable buildpack image caching. Requires a local registry. When disabled, workflows pull buildpack images from remote registries.
+      # default: false
       # @schema
-      enabled: true
+      enabled: false
 
       # @schema
       # type: array
@@ -317,84 +282,6 @@ external-secrets:
   # default: external-secrets
   # @schema
   nameOverride: external-secrets
-
-# @schema
-# type: object
-# additionalProperties: true
-# description: Container Registry sub-chart configuration using Twuni Docker Registry Helm Chart. Hosts container images built by Argo Workflows in the Build Plane. See https://github.com/twuni/docker-registry.helm for all options.
-# @schema
-registry:
-  # @schema
-  # type: string
-  # description: Override the full name of registry resources
-  # default: registry
-  # @schema
-  fullnameOverride: registry
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Persistence configuration for registry data
-  # @schema
-  persistence:
-    # @schema
-    # type: boolean
-    # description: Enable persistent storage for registry
-    # default: true
-    # @schema
-    enabled: true
-
-    # @schema
-    # type: string
-    # description: Size of the persistent volume for registry storage
-    # default: 10Gi
-    # @schema
-    size: 10Gi
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Ingress for external registry access. Auto-enabled when global.baseDomain is set.
-  # @schema
-  ingress:
-    # @schema
-    # type: boolean
-    # description: Enable ingress for external registry access
-    # default: false
-    # @schema
-    enabled: false
-
-    # @schema
-    # type: string
-    # description: Ingress class name. Falls back to global.ingressClassName if not set.
-    # @schema
-    className: ""
-
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Annotations to add to the ingress resource
-    # @schema
-    annotations: {}
-
-    # @schema
-    # type: object
-    # additionalProperties: false
-    # description: TLS configuration for registry ingress
-    # @schema
-    tls:
-      # @schema
-      # type: boolean
-      # description: Enable TLS for registry ingress
-      # default: false
-      # @schema
-      enabled: false
-
-      # @schema
-      # type: string
-      # description: Secret containing TLS certificate
-      # @schema
-      secretName: ""
 
 # @schema
 # type: object

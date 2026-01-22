@@ -6,19 +6,10 @@ argo-workflows:
   server:
     enabled: false
 
-# Container Registry configuration
-# Exposes registry as LoadBalancer for developer access
-registry:
-  service:
-    type: LoadBalancer
-    port: 5000
-
-# Global configuration for workflow templates
 global:
   defaultResources:
+    enabled: true
     registry:
-      # Container registry host for pushing images
-      # host.k3d.internal allows pods to access the LoadBalancer service
       host: "host.k3d.internal:10082"
 
 # External Secrets Operator

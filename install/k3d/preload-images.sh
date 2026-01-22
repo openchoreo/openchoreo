@@ -7,7 +7,15 @@ set -eo pipefail
 
 # Get the absolute path of the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HELM_DIR="${SCRIPT_DIR}/../helm"
+
+# Determine helm directory
+# In the container with DEV_MODE, helm charts are mounted at /helm
+# In the repo structure, helm charts are at install/helm (relative to install/k3d)
+if [[ -d "/helm" ]]; then
+    HELM_DIR="/helm"
+else
+    HELM_DIR="${SCRIPT_DIR}/../helm"
+fi
 
 # Default values
 CLUSTER_NAME=""
@@ -273,21 +281,44 @@ get_helm_chart_images() {
     local values_file="$2"
     local release_name="$3"
 
-    # Build helm template command (works for both local and OCI charts)
-    local helm_cmd="helm template ${release_name} ${chart_ref}"
+    local helm_args=("template" "$release_name")
+
+    # Handle chart reference (may include --version flag from resolve_chart_location)
+    # shellcheck disable=SC2206
+    helm_args+=($chart_ref)
 
     # Add values file if provided
     if [[ -n "$values_file" ]]; then
         if [[ ! -f "$values_file" ]]; then
-            log_warning "Values file not found: $values_file"
+            log_warning "Values file not found: $values_file" >&2
         else
-            helm_cmd="${helm_cmd} --values ${values_file}"
+            helm_args+=("--values" "$values_file")
+        fi
+    fi
+
+    # For local charts, verify the chart directory exists
+    # chart_ref may be a path (local) or OCI URL
+    local chart_path="${chart_ref%% *}"  # Get first word (path without --version flag)
+    if [[ "$chart_path" != oci://* && "$chart_path" != http://* && "$chart_path" != https://* ]]; then
+        if [[ ! -d "$chart_path" ]]; then
+            log_warning "Chart directory not found: $chart_path" >&2
+            return 0
         fi
     fi
 
     # Extract images from rendered templates
     # Filter out CEL template expressions using grep -vE '^\$\{'
-    ${helm_cmd} 2>/dev/null | \
+    local output
+    local exit_code=0
+    output=$(helm "${helm_args[@]}" 2>&1) || exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+        log_warning "helm template failed for $chart_path:" >&2
+        echo "$output" | head -5 >&2
+        return 0
+    fi
+
+    echo "$output" | \
         grep -E '^\s+image:' | \
         sed 's/.*image: *//' | \
         sed 's/"//g' | \

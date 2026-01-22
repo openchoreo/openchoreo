@@ -10,18 +10,10 @@ argo-workflows:
     authModes:
       - server
 
-# Container Registry configuration for single-cluster
-# Expose registry as LoadBalancer for developer access via localhost:10082
-registry:
-  service:
-    type: LoadBalancer
-    port: 5000
-
-# All components access via host.k3d.internal:10082
 global:
   defaultResources:
+    enabled: true
     registry:
-      # Can be any registry (e.g., docker.io, gcr.io, ghcr.io, quay.io, etc).
       host: "host.k3d.internal:10082"
 
 # Disable External Secrets since it's already in the Data Plane (single cluster)

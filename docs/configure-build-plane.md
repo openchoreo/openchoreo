@@ -1,26 +1,80 @@
-# Configuring the Build Plane in OpenChoreo
+# Configuring the Build Plane
 
-This guide walks you through setting up a **Build Plane** in OpenChoreo.
+The Build Plane executes CI workflows using Argo Workflows. Built container images are pushed to a container registry.
 
-## Overview
+## Container Registry
 
-An organization can have only **one Build Plane**, which is responsible for executing build workloads. These workloads run in a dedicated namespace named: `openchoreo-ci-<your-org>`
+The Build Plane requires a container registry to store built images. You have two options:
 
-> [!NOTE]
-> `BuildPlane` CRD support is on the roadmap and will be available in a future release. Currently, the Build Plane runs within a **Data Plane** cluster.
+### Option 1: Install a Local Registry
 
-## Using a DataPlane as the Build Plane
+For local development, install a container registry in the same cluster:
 
-Until native support for the `BuildPlane` custom resource is available, you can designate a `DataPlane` to act as the Build Plane.
+```bash
+helm repo add twuni https://twuni.github.io/docker-registry.helm
+helm repo update
 
-### Steps
+helm install registry twuni/docker-registry \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --set persistence.enabled=true \
+  --set persistence.size=10Gi \
+  --set service.type=ClusterIP
+```
 
-1. Ensure Argo Workflows is installed in the target DataPlane cluster.
-2. Add the following label to the `DataPlane` resource:
+Then configure the build plane:
 
-   ```yaml
-   openchoreo.dev/build-plane: "true"
-   ```
+```yaml
+global:
+  defaultResources:
+    registry:
+      host: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      tlsVerify: false
+    buildpackCache:
+      enabled: true
+```
 
-> [!IMPORTANT]
-> You must configure only one DataPlane as the Build Plane.
+### Option 2: Use an External Registry
+
+For production, use an external registry (ECR, GCR, GHCR, Docker Hub):
+
+```yaml
+global:
+  defaultResources:
+    registry:
+      host: "gcr.io/my-project"
+      repoPath: "openchoreo"  # optional prefix
+      tlsVerify: true
+    buildpackCache:
+      enabled: false
+```
+
+#### Registry Authentication
+
+Create a secret with registry credentials:
+
+```bash
+kubectl create secret docker-registry registry-push-secret \
+  --namespace openchoreo-build-plane \
+  --docker-server=gcr.io \
+  --docker-username=_json_key \
+  --docker-password="$(cat service-account.json)"
+```
+
+## Installation
+
+```bash
+helm install openchoreo-build-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-build-plane \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --set global.defaultResources.registry.host=<your-registry-host>
+```
+
+## Configuration Options
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `global.defaultResources.registry.host` | Container registry host (REQUIRED) | `""` |
+| `global.defaultResources.registry.repoPath` | Repository path prefix | `""` |
+| `global.defaultResources.registry.tlsVerify` | Enable TLS verification | `false` |
+| `global.defaultResources.buildpackCache.enabled` | Cache buildpack images locally | `false` |
