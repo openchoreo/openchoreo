@@ -341,11 +341,6 @@ func TestMergeWorkloadOverrides(t *testing.T) {
 									{Key: "ENV1", Value: "value1"},
 								},
 							},
-							"sidecar": {
-								Env: []v1alpha1.EnvVar{
-									{Key: "SIDECAR_ENV", Value: "sidecar_value"},
-								},
-							},
 						},
 					},
 				},

@@ -25,12 +25,6 @@ func MergeWorkloadOverrides(baseWorkload *openchoreov1alpha1.Workload, overrides
 			baseContainer.Env = mergeEnvConfigs(baseContainer.Env, overrideContainer.Env)
 			baseContainer.Files = mergeFileConfigs(baseContainer.Files, overrideContainer.Files)
 			merged.Spec.Containers[containerName] = baseContainer
-		} else {
-			newContainer := openchoreov1alpha1.Container{
-				Env:   overrideContainer.Env,
-				Files: overrideContainer.Files,
-			}
-			merged.Spec.Containers[containerName] = newContainer
 		}
 	}
 
