@@ -2,6 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
   name: generic-workflow-docker-build
+  namespace: openchoreo-ci-default
 spec:
   arguments:
     parameters:
@@ -119,7 +120,7 @@ spec:
             #####################################################################
             # 2. Registry
             #####################################################################
-            REGISTRY_ENDPOINT="host.k3d.internal:10082"
+            REGISTRY_ENDPOINT="registry.openchoreo-build-plane.svc.cluster.local:5000"
             
             #####################################################################
             # 3. Podman storage configuration
