@@ -38,7 +38,25 @@ gateway:
 # Security configuration for quickstart
 security:
   authz:
-    additionalRoleMappings:
+    defaultRoleMappings:
+      - role:
+          name: super-admin
+        entitlement:
+          claim: groups
+          value: platformEngineer
+        effect: allow
+      - role:
+          name: backstage-catalog-reader
+        entitlement:
+          claim: sub
+          value: openchoreo-backstage-client
+        effect: allow
+      - role:
+          name: rca-agent
+        entitlement:
+          claim: sub
+          value: openchoreo-rca-agent
+        effect: allow
       # Quickstart CLI client credentials mapping
       - role:
           name: super-admin

@@ -3566,9 +3566,20 @@
           "additionalProperties": false,
           "description": "Authorization (authz) configuration using Casbin",
           "properties": {
-            "additionalRoleMappings": {
-              "default": [],
-              "description": "Additional role mappings to be added to the default mappings",
+            "databasePath": {
+              "default": "/var/lib/openchoreo/data/casbin.db",
+              "description": "Path to the Casbin database file",
+              "title": "databasePath",
+              "type": "string"
+            },
+            "defaultAuthzDataFilePath": {
+              "default": "/etc/openchoreo/authz/default-roles-mappings.yaml",
+              "description": "Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap",
+              "title": "defaultAuthzDataFilePath",
+              "type": "string"
+            },
+            "defaultRoleMappings": {
+              "description": "Default entitlement-to-role mappings",
               "items": {
                 "properties": {
                   "effect": {
@@ -3600,7 +3611,7 @@
                         "type": "string"
                       },
                       "namespace": {
-                        "description": "Namespace (organization) name",
+                        "description": "Namespace name",
                         "type": "string"
                       },
                       "project": {
@@ -3629,20 +3640,30 @@
                 "required": [],
                 "type": "object"
               },
-              "title": "additionalRoleMappings",
+              "title": "defaultRoleMappings",
               "type": "array"
             },
-            "databasePath": {
-              "default": "/var/lib/openchoreo/data/casbin.db",
-              "description": "Path to the Casbin database file",
-              "title": "databasePath",
-              "type": "string"
-            },
-            "defaultAuthzDataFilePath": {
-              "default": "/etc/openchoreo/authz/default-roles-mappings.yaml",
-              "description": "Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap",
-              "title": "defaultAuthzDataFilePath",
-              "type": "string"
+            "defaultRoles": {
+              "description": "Default roles and their permissions",
+              "items": {
+                "properties": {
+                  "actions": {
+                    "description": "List of actions/permissions for this role",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "name": {
+                    "description": "Role name",
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "defaultRoles",
+              "type": "array"
             },
             "enabled": {
               "default": false,

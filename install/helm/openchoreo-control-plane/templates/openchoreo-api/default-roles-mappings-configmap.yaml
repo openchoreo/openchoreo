@@ -9,104 +9,11 @@ metadata:
     app.kubernetes.io/component: api-server
 data:
   default-roles-mappings.yaml: |
-    # Default roles and mappings that can be seeded at installation time
-    # Examples
-    # roles:
-    #   - name: custom-role
-    #     actions:
-    #       - "namespace:view"
-    #       - "project:view"
-    #
-    # mappings:
-    #   - role:
-    #       name: custom-role             # Role name
-    #       namespace: ""                 # Empty for cluster role, namespace name for namespace-scoped role
-    #     entitlement:
-    #       claim: groups                 # JWT claim from your IDP
-    #       value: developers             # Value to match from the claim
-    #     effect: allow                   # "allow" (default) or "deny"
-    #     hierarchy:                      # Optional: scope this mapping to specific resources
-    #       namespace: my-org             # Namespace (organization) name
-    #       project: my-project           # Project name (requires namespace)
-    #       component: my-component       # Component name (requires namespace and project)
-
     # Default roles
     roles:
-      # Super admin role with full permissions to all resources
-      - name: super-admin
-        actions:
-          - "*"
-
-      # Backstage catalog provider role for reading catalog data from the control plane
-      # DO NOT REMOVE: Required for Backstage integration
-      - name: backstage-catalog-reader
-        actions:
-          - "component:view"
-          - "componenttype:view"
-          - "namespace:view"
-          - "project:view"
-          - "dataplane:view"
-          - "environment:view"
-
-      # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
-      # DO NOT REMOVE: Required for RCA agent integration
-      - name: rca-agent
-        actions:
-          - "component:view"
-          - "project:view"
-          - "namespace:view"
-          - "componentrelease:view"
-          - "releasebinding:view"
-          - "componentworkflowrun:view"
-          - "environment:view"
-          - "logs:view"
-          - "metrics:view"
-          - "alerts:view"
-          - "traces:view"
+      {{- toYaml .Values.security.authz.defaultRoles | nindent 6 }}
 
     # Default entitlement-to-role mappings
     mappings:
-      - role:
-          name: super-admin
-        entitlement:
-          claim: groups
-          value: platformEngineer
-        effect: allow
-      # DO NOT REMOVE: Required for Backstage integration
-      - role:
-          name: backstage-catalog-reader
-        entitlement:
-          claim: sub
-          value: openchoreo-backstage-client
-        effect: allow
-      # DO NOT REMOVE: Required for RCA agent integration
-      - role:
-          name: rca-agent
-        entitlement:
-          claim: sub
-          value: openchoreo-rca-agent
-        effect: allow
-      {{- range .Values.security.authz.additionalRoleMappings }}
-      - role:
-          name: {{ .role.name }}
-          {{- if .role.namespace }}
-          namespace: {{ .role.namespace }}
-          {{- end }}
-        entitlement:
-          claim: {{ .entitlement.claim }}
-          value: {{ .entitlement.value }}
-        effect: {{ .effect }}
-        {{- if .hierarchy }}
-        hierarchy:
-          {{- if .hierarchy.namespace }}
-          namespace: {{ .hierarchy.namespace }}
-          {{- end }}
-          {{- if .hierarchy.project }}
-          project: {{ .hierarchy.project }}
-          {{- end }}
-          {{- if .hierarchy.component }}
-          component: {{ .hierarchy.component }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
+      {{- toYaml .Values.security.authz.defaultRoleMappings | nindent 6 }}
 {{- end }}

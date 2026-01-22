@@ -307,7 +307,49 @@ security:
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
     # @schema
     # type: array
-    # description: Additional role mappings to be added to the default mappings
+    # description: Default roles and their permissions
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Role name
+    #     actions:
+    #       type: array
+    #       description: List of actions/permissions for this role
+    #       items:
+    #         type: string
+    # @schema
+    defaultRoles:
+      - name: super-admin
+        actions:
+          - "*"
+        # DO NOT REMOVE: Required for Backstage integration
+      - name: backstage-catalog-reader
+        actions:
+          - "component:view"
+          - "componenttype:view"
+          - "namespace:view"
+          - "project:view"
+          - "dataplane:view"
+          - "environment:view"
+        # DO NOT REMOVE: Required for RCA agent functionality
+      - name: rca-agent
+        actions:
+          - "component:view"
+          - "project:view"
+          - "namespace:view"
+          - "componentrelease:view"
+          - "releasebinding:view"
+          - "componentworkflowrun:view"
+          - "environment:view"
+          - "logs:view"
+          - "metrics:view"
+          - "alerts:view"
+          - "traces:view"
+    # @schema
+    # type: array
+    # description: Default entitlement-to-role mappings
     # items:
     #   type: object
     #   properties:
@@ -337,16 +379,35 @@ security:
     #       properties:
     #         namespace:
     #           type: string
-    #           description: Namespace (organization) name
+    #           description: Namespace name
     #         project:
     #           type: string
     #           description: Project name (requires namespace)
     #         component:
     #           type: string
     #           description: Component name (requires namespace and project)
-    # default: []
     # @schema
-    additionalRoleMappings: []
+    defaultRoleMappings:
+      - role:
+          name: super-admin
+        entitlement:
+          claim: groups
+          value: platformEngineer
+        effect: allow
+        # DO NOT REMOVE: Required for Backstage integration
+      - role:
+          name: backstage-catalog-reader
+        entitlement:
+          claim: sub
+          value: openchoreo-backstage-client
+        effect: allow
+        # DO NOT REMOVE: Required for RCA agent functionality
+      - role:
+          name: rca-agent
+        entitlement:
+          claim: sub
+          value: openchoreo-rca-agent
+        effect: allow
   # @schema
   # type: string
   # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
