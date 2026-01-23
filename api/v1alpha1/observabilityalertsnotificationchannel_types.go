@@ -138,8 +138,8 @@ type WebhookConfig struct {
 	// PayloadTemplate is an optional JSON payload template using CEL expressions
 	// If not provided, the raw alertDetails object will be sent as JSON
 	// CEL expressions use ${...} syntax and have access to alert fields:
-	// - ${alert.ruleName}, ${alert.description}, ${alert.severity}, ${alert.value}, etc.
-	// Example for Slack: {"text": "Alert: ${alert.ruleName}", "blocks": [...]}
+	// - ${alertName}, ${alertDescription}, ${alertSeverity}, ${alertValue}, etc.
+	// Example for Slack: {"text": "Alert: ${alertName}", "blocks": [...]}
 	// +optional
 	PayloadTemplate string `json:"payloadTemplate,omitempty"`
 }
