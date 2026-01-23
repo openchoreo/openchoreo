@@ -1,0 +1,139 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: google-cloud-buildpacks-gitops-release
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Google Cloud Buildpacks workflow that builds a container image and performs GitOps release in a single workflow"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
+  # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
+  # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
+  # ${metadata.orgName}          - Organization name (namespace)
+  # ${systemParameters.*}        - System-provided values from systemParameters schema
+  # ${parameters.*}              - Developer-provided values from parameters schema
+
+  # Schema definition for component workflows
+  schema:
+    # System parameters - Required structured parameters for component workflows
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+
+    # Developer-configurable parameters
+    parameters:
+      buildpacks:
+        builderImage: string | default="gcr.io/buildpacks/builder:v1" description="Buildpacks builder image to use"
+        env: '[]string | default=[] description="Environment variables for the build (KEY=VALUE format)"'
+      gitops:
+        repositoryUrl: string | description="GitOps repository URL"
+        branch: string | default=main description="GitOps repository branch"
+        targetEnvironment: string | default=development description="Target environment name for deployment"
+        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
+      workloadDescriptorPath: string | default=workload.yaml description="Path to workload descriptor file relative to appPath"
+
+  # Rendered workflow resource for ComponentWorkflowRun executions
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.orgName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          - name: org-name
+            value: ${metadata.orgName}
+          # Source repository parameters
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          # Buildpacks parameters
+          - name: builder-image
+            value: ${parameters.buildpacks.builderImage}
+          - name: build-env
+            value: ${parameters.buildpacks.env}
+          # GitOps parameters
+          - name: gitops-repo-url
+            value: ${parameters.gitops.repositoryUrl}
+          - name: gitops-branch
+            value: ${parameters.gitops.branch}
+          - name: gitops-target-environment
+            value: ${parameters.gitops.targetEnvironment}
+          - name: gitops-deployment-pipeline
+            value: ${parameters.gitops.deploymentPipeline}
+          # GitOps git secret (for private repos and PR creation)
+          - name: gitops-git-secret
+            value: ${metadata.workflowRunName}-gitops-git-secret
+          - name: workload-descriptor-path
+            value: ${parameters.workloadDescriptorPath}
+          # PE-controlled hardcoded parameters
+          - name: registry-url
+            value: host.k3d.internal:10082
+          - name: build-timeout
+            value: "30m"
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}-image
+          - name: image-tag
+            value: v1
+          # Source git secret (for private repos)
+          - name: source-git-secret
+            value: ${metadata.workflowRunName}-source-git-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks-gitops-release
+  # External secrets for accessing private repositories
+  resources:
+    - id: source-git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-source-git-secret
+          namespace: openchoreo-ci-${metadata.orgName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-source-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token
+    - id: gitops-git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-gitops-git-secret
+          namespace: openchoreo-ci-${metadata.orgName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-gitops-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: gitops-token
