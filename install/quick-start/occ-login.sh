@@ -119,8 +119,3 @@ fi
 log_info "Logging in with CLI credentials..."
 export OCC_CLIENT_ID="${CLI_CLIENT_ID}"
 export OCC_CLIENT_SECRET="${CLI_CLIENT_SECRET}"
-occ login --client-credentials --url "${CHOREO_API_ENDPOINT}"
-
-log_success "OCC CLI logged in successfully!"
-log_info "You can now use OCC CLI commands, e.g.:"
-log_info "  occ get projects"

@@ -175,10 +175,15 @@ log_info "      Password: Admin@123"
 log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
 log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
 echo ""
+log_info "OCC CLI Login:"
+log_info "  Run the following command to login:"
+log_info "    occ login --client-credentials --url http://api.openchoreo.localhost:8080"
+echo ""
 log_info "Next Steps:"
 log_info "  Deploy sample applications:"
 log_info "    ./deploy-react-starter.sh      # Simple React web application"
 log_info "    ./deploy-gcp-demo.sh           # GCP Microservices Demo (11 services)"
+
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     log_info "    ./build-deploy-greeter.sh      # Build from source (Go greeter service)"
 fi
