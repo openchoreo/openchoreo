@@ -279,7 +279,8 @@ func componentBindingSpecs() []toolTestSpec {
 			},
 			expectedMethod: "PatchReleaseBinding",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testProjectName || args[2] != testComponentName || args[3] != "binding-1" {
+				if args[0] != testNamespaceName || args[1] != testProjectName ||
+					args[2] != testComponentName || args[3] != "binding-1" {
 					t.Errorf("Expected (%s, %s, %s, binding-1), got (%v, %v, %v, %v)",
 						testNamespaceName, testProjectName, testComponentName, args[0], args[1], args[2], args[3])
 				}

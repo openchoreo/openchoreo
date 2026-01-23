@@ -39,7 +39,7 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "component", req.Name, req.Name)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
+		"organization": namespaceName,
 		"project":      projectName,
 	})
 
@@ -424,7 +424,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 
 	setAuditResource(ctx, "component", componentName, componentName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization":       orgName,
+		"organization":       namespaceName,
 		"project":            projectName,
 		"source_environment": req.SourceEnvironment,
 		"target_environment": req.TargetEnvironment,
@@ -514,7 +514,7 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 
 	setAuditResource(ctx, "component_binding", bindingName, bindingName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
+		"organization": namespaceName,
 		"project":      projectName,
 		"component":    componentName,
 	})
@@ -1088,7 +1088,7 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 
 	setAuditResource(ctx, "component", componentName, componentName)
 	addAuditMetadataBatch(ctx, map[string]any{
-		"organization": orgName,
+		"organization": namespaceName,
 		"project":      projectName,
 	})
 

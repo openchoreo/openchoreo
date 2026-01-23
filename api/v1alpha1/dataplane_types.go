@@ -36,8 +36,8 @@ type ClusterAgentConfig struct {
 	ClientCA ValueFrom `json:"clientCA"`
 }
 
+// GatewaySpec defines the gateway configuration for the data plane.
 // TODO: chathurangas: organization vhost = inter-project vhost. This is not being used. Refactor later
-// GatewaySpec defines the gateway configuration for the data plane
 type GatewaySpec struct {
 	// Public virtual host for the gateway
 	PublicVirtualHost string `json:"publicVirtualHost"`

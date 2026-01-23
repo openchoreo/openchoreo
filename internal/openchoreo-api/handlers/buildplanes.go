@@ -11,8 +11,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
-// There is only one buildplane per org -- TODO: chathurangas: Check whether this is true for namespace based resource grouping
-
 func (h *Handler) GetBuildPlane(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)

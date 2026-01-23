@@ -403,7 +403,9 @@ func (t *Toolsets) RegisterDeployRelease(s *mcp.Server) {
 		deployReq := &models.DeployReleaseRequest{
 			ReleaseName: args.ReleaseName,
 		}
-		result, err := t.ComponentToolset.DeployRelease(ctx, args.NamespaceName, args.ProjectName, args.ComponentName, deployReq)
+		result, err := t.ComponentToolset.DeployRelease(
+			ctx, args.NamespaceName, args.ProjectName, args.ComponentName, deployReq,
+		)
 		return handleToolResult(result, err)
 	})
 }

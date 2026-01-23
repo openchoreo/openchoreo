@@ -40,6 +40,7 @@ type Toolsets struct {
 type NamespaceToolsetHandler interface {
 	GetNamespace(ctx context.Context, name string) (any, error)
 	ListNamespaces(ctx context.Context) (any, error)
+	CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error)
 	ListSecretReferences(ctx context.Context, namespaceName string) (any, error)
 }
 
@@ -53,7 +54,9 @@ type ProjectToolsetHandler interface {
 
 // ComponentToolsetHandler handles component operations
 type ComponentToolsetHandler interface {
-	CreateComponent(ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest) (any, error)
+	CreateComponent(
+		ctx context.Context, namespaceName, projectName string, req *models.CreateComponentRequest,
+	) (any, error)
 	ListComponents(ctx context.Context, namespaceName, projectName string) (any, error)
 	GetComponent(
 		ctx context.Context, namespaceName, projectName, componentName string, additionalResources []string,
@@ -83,17 +86,23 @@ type ComponentToolsetHandler interface {
 		ctx context.Context, namespaceName, projectName, componentName string, req *models.PromoteComponentRequest,
 	) (any, error)
 	// Workload operations
-	CreateWorkload(ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{}) (any, error)
+	CreateWorkload(
+		ctx context.Context, namespaceName, projectName, componentName string, workloadSpec interface{},
+	) (any, error)
 	// Schema operations
 	GetComponentSchema(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
-	GetComponentReleaseSchema(ctx context.Context, namespaceName, projectName, componentName, releaseName string) (any, error)
+	GetComponentReleaseSchema(
+		ctx context.Context, namespaceName, projectName, componentName, releaseName string,
+	) (any, error)
 	// Trait operations
 	ListComponentTraits(ctx context.Context, namespaceName, projectName, componentName string) (any, error)
 	UpdateComponentTraits(
 		ctx context.Context, namespaceName, projectName, componentName string, req *models.UpdateComponentTraitsRequest,
 	) (any, error)
 	// Release operations
-	GetEnvironmentRelease(ctx context.Context, namespaceName, projectName, componentName, environmentName string) (any, error)
+	GetEnvironmentRelease(
+		ctx context.Context, namespaceName, projectName, componentName, environmentName string,
+	) (any, error)
 	// Component patch operations
 	PatchComponent(
 		ctx context.Context, namespaceName, projectName, componentName string, req *models.PatchComponentRequest,

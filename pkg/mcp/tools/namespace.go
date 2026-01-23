@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 func (t *Toolsets) RegisterListNamespaces(s *mcp.Server) {
@@ -32,6 +34,31 @@ func (t *Toolsets) RegisterGetNamespace(s *mcp.Server) {
 		Name string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.NamespaceToolset.GetNamespace(ctx, args.Name)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_namespace",
+		Description: "Create a new namespace. Namespaces are top-level containers for organizing " +
+			"projects, components, and other resources.",
+		InputSchema: createSchema(map[string]any{
+			"name":         stringProperty("The name of the namespace to create"),
+			"display_name": stringProperty("Optional display name for the namespace"),
+			"description":  stringProperty("Optional description of the namespace"),
+		}, []string{"name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name        string `json:"name"`
+		DisplayName string `json:"display_name,omitempty"`
+		Description string `json:"description,omitempty"`
+	}) (*mcp.CallToolResult, any, error) {
+		createReq := &models.CreateNamespaceRequest{
+			Name:        args.Name,
+			DisplayName: args.DisplayName,
+			Description: args.Description,
+		}
+		result, err := t.NamespaceToolset.CreateNamespace(ctx, createReq)
 		return handleToolResult(result, err)
 	})
 }

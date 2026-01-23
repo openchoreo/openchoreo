@@ -21,6 +21,10 @@ func (h *MCPHandler) ListNamespaces(ctx context.Context) (any, error) {
 	return h.listNamespaces(ctx)
 }
 
+func (h *MCPHandler) CreateNamespace(ctx context.Context, req *models.CreateNamespaceRequest) (any, error) {
+	return h.Services.NamespaceService.CreateNamespace(ctx, req)
+}
+
 func (h *MCPHandler) listNamespaces(ctx context.Context) (ListNamespacesResponse, error) {
 	namespaces, err := h.Services.NamespaceService.ListNamespaces(ctx)
 	if err != nil {

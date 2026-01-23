@@ -37,6 +37,13 @@ func (m *MockCoreToolsetHandler) ListNamespaces(ctx context.Context) (any, error
 	return `[{"name":"test-namespace"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) CreateNamespace(
+	ctx context.Context, req *models.CreateNamespaceRequest,
+) (any, error) {
+	m.recordCall("CreateNamespace", req)
+	return `{"name":"new-namespace"}`, nil
+}
+
 func (m *MockCoreToolsetHandler) ListSecretReferences(ctx context.Context, namespaceName string) (any, error) {
 	m.recordCall("ListSecretReferences", namespaceName)
 	return `[{"name":"secret-ref-1"}]`, nil
@@ -288,7 +295,9 @@ func (m *MockCoreToolsetHandler) ListComponentWorkflows(ctx context.Context, nam
 	return `[{"name":"build-workflow"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error) {
+func (m *MockCoreToolsetHandler) GetComponentWorkflowSchema(
+	ctx context.Context, namespaceName, cwName string,
+) (any, error) {
 	m.recordCall("GetComponentWorkflowSchema", namespaceName, cwName)
 	return emptyObjectSchema, nil
 }
@@ -320,7 +329,9 @@ func (m *MockCoreToolsetHandler) ListComponentTypes(ctx context.Context, namespa
 	return `[{"name":"WebApplication"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error) {
+func (m *MockCoreToolsetHandler) GetComponentTypeSchema(
+	ctx context.Context, namespaceName, ctName string,
+) (any, error) {
 	m.recordCall("GetComponentTypeSchema", namespaceName, ctName)
 	return emptyObjectSchema, nil
 }
@@ -330,7 +341,9 @@ func (m *MockCoreToolsetHandler) ListWorkflows(ctx context.Context, namespaceNam
 	return `[{"name":"workflow-1"}]`, nil
 }
 
-func (m *MockCoreToolsetHandler) GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error) {
+func (m *MockCoreToolsetHandler) GetWorkflowSchema(
+	ctx context.Context, namespaceName, workflowName string,
+) (any, error) {
 	m.recordCall("GetWorkflowSchema", namespaceName, workflowName)
 	return emptyObjectSchema, nil
 }

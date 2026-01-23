@@ -40,6 +40,23 @@ func namespaceToolSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "create_namespace",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"create", "namespace"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"name"},
+			optionalParams:      []string{"display_name", "description"},
+			testArgs: map[string]any{
+				"name":         "new-namespace",
+				"display_name": "New Namespace",
+				"description":  "test namespace",
+			},
+			expectedMethod: "CreateNamespace",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// args[0] is *models.CreateNamespaceRequest
+			},
+		},
+		{
 			name:                "list_secret_references",
 			toolset:             "namespace",
 			descriptionKeywords: []string{"list", "secret", "reference"},

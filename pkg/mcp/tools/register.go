@@ -12,6 +12,7 @@ func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListNamespaces,
 		t.RegisterGetNamespace,
+		t.RegisterCreateNamespace,
 		t.RegisterListSecretReferences,
 	}
 }

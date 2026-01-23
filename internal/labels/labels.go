@@ -6,7 +6,7 @@ package labels
 // This file contains the all the labels that are used to store Choreo specific the metadata in the Kubernetes objects.
 
 const (
-	// TODO: chathurangas: check whether this should be openchoreo.dev/namespace or the corev1/namespace API
+	// LabelKeyNamespaceName identifies the OpenChoreo namespace for resources.
 	LabelKeyNamespaceName       = "openchoreo.dev/namespace"
 	LabelKeyProjectName         = "openchoreo.dev/project"
 	LabelKeyComponentName       = "openchoreo.dev/component"

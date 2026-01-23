@@ -7,7 +7,7 @@ spec:
     parameters:
       - name: component-name
       - name: project-name
-      - name: org-name
+      - name: namespace-name
       - name: git-repo
       - name: branch
       - name: commit
@@ -338,7 +338,7 @@ spec:
             GIT_REVISION={{inputs.parameters.git-revision}}
             CONTAINER_IMAGE={{inputs.parameters.container-image}}
             TARGET_ENV={{workflow.parameters.gitops-target-environment}}
-            ORG_NAME={{workflow.parameters.org-name}}
+            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
             USE_PIPELINE={{workflow.parameters.gitops-deployment-pipeline}}
             WORKLOAD_DESCRIPTOR_CONTENT={{inputs.parameters.descriptor-content}}
             RELEASE_NAME="${COMPONENT_NAME}-${GIT_REVISION}"
@@ -349,7 +349,7 @@ spec:
             occ config set-context gitops-context \
               --mode file-system \
               --root-directory-path /mnt/vol/gitops \
-              --organization "${ORG_NAME}"
+              --namespace "${NAMESPACE_NAME}"
 
             # Use the gitops-context
             occ config use-context gitops-context

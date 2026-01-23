@@ -196,11 +196,11 @@ spec:
   # +immutable
   isProduction: true/false
   # Override the DNS prefix for the domain names used by the environment.
-  # The format of the domain names will be as follows:
-  # TODO: chathurangas: update this
-  # Public:`<organizationUuid>-<dnsPrefix>.<region>.<dataPlanePublicVirtualHost>`
-  # Sandbox:`<organizationUuid>-<dnsPrefix>.-sandbox.<region>.<dataPlanePublicVirtualHost>`
-  # Organization: `<organizationUuid>-<dnsPrefix>-internal.<region>.<dataPlaneOrganizationVirtualHost>`
+  # Note: DNSPrefix is currently defined in the API but not actively used in domain name construction.
+  # The actual domain names are constructed as follows:
+  # - Environment-level routes: `<environmentName>.<dataPlanePublicVirtualHost>`
+  # - Component-level routes: `<component-env-hash>.<dataPlanePublicVirtualHost>`
+  # where component-env-hash is a generated hash based on component and environment names.
   #
   #
   # If not provided, the environment name will be used as the dns prefix.
