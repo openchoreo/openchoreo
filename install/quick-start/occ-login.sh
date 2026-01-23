@@ -49,7 +49,14 @@ fi
 
 log_success "System token obtained"
 
-# Step 2: Create CLI application
+# Step 2: Check if CLI application already exists
+log_info "Checking if CLI application exists..."
+EXISTING_APPS=$(curl -s -X GET "${THUNDER_ENDPOINT}/applications" \
+  -H "Authorization: Bearer ${SYSTEM_TOKEN}")
+
+APP_ID=$(echo "${EXISTING_APPS}" | jq -r --arg cid "${CLI_CLIENT_ID}" '.applications[] | select(.client_id == $cid) | .id // empty')
+
+# Application payload
 APP_PAYLOAD=$(cat <<EOF
 {
   "name": "QuickStart CLI Application",
@@ -76,10 +83,25 @@ APP_PAYLOAD=$(cat <<EOF
 EOF
 )
 
-APP_RESPONSE=$(curl -s -X POST "${THUNDER_ENDPOINT}/applications" \
-  -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d "${APP_PAYLOAD}")
+if [ -n "$APP_ID" ] && [ "$APP_ID" != "null" ]; then
+  # Application exists, update it
+  log_info "CLI application already exists (id: ${APP_ID}), updating..."
+  APP_RESPONSE=$(curl -s -X PUT "${THUNDER_ENDPOINT}/applications/${APP_ID}" \
+    -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "${APP_PAYLOAD}")
+
+  log_success "CLI application updated"
+else
+  # Application doesn't exist, create it
+  log_info "Creating CLI application..."
+  APP_RESPONSE=$(curl -s -X POST "${THUNDER_ENDPOINT}/applications" \
+    -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "${APP_PAYLOAD}")
+
+  log_success "CLI application created"
+fi
 
 CLI_CLIENT_SECRET=$(echo "${APP_RESPONSE}" | jq -r '.inbound_auth_config[] | select(.type == "oauth2") | .config.client_secret // empty')
 
