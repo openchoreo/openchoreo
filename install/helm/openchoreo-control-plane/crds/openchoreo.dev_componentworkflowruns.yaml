@@ -272,6 +272,54 @@ spec:
                 - kind
                 - name
                 type: object
+              tasks:
+                description: |-
+                  Tasks contains the list of workflow tasks with their execution status.
+                  This provides a vendor-neutral view of the workflow steps regardless of the underlying
+                  workflow engine (e.g., Argo Workflows, Tekton).
+                  Tasks are ordered by their execution sequence.
+                items:
+                  description: |-
+                    WorkflowTask represents a single task/step in a workflow execution.
+                    This provides a vendor-neutral abstraction over workflow engine-specific steps
+                    (e.g., Argo Workflow nodes, Tekton TaskRuns).
+                  properties:
+                    finishedAt:
+                      description: FinishedAt is the timestamp when the task finished
+                        execution.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        Message provides additional details about the task status.
+                        This is typically populated when the task fails or errors.
+                      type: string
+                    name:
+                      description: |-
+                        Name is the name of the task/step.
+                        For Argo Workflows, this corresponds to the templateName.
+                      minLength: 1
+                      type: string
+                    phase:
+                      description: Phase represents the current execution phase of
+                        the task.
+                      enum:
+                      - Pending
+                      - Running
+                      - Succeeded
+                      - Failed
+                      - Skipped
+                      - Error
+                      type: string
+                    startedAt:
+                      description: StartedAt is the timestamp when the task started
+                        execution.
+                      format: date-time
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
             type: object
         required:
         - spec

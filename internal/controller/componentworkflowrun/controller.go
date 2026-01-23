@@ -246,6 +246,10 @@ func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	runResource *argoproj.Workflow,
 ) ctrl.Result {
+	// Extract and update tasks from argo workflow nodes
+	// This should be extended to support other workflow engines in the future
+	componentWorkflowRun.Status.Tasks = extractArgoTasksFromWorkflowNodes(runResource.Status.Nodes)
+
 	switch runResource.Status.Phase {
 	case argoproj.WorkflowRunning:
 		setWorkflowRunningCondition(componentWorkflowRun)
@@ -638,4 +642,100 @@ func extractRunResourceNamespace(resource map[string]any) (string, error) {
 	}
 
 	return namespace, nil
+}
+
+// taskWithOrder holds a task with its execution order for sorting.
+type taskWithOrder struct {
+	task  openchoreodevv1alpha1.WorkflowTask
+	order int
+}
+
+// extractArgoTasksFromWorkflowNodes extracts workflow tasks from Argo Workflow nodes.
+// It filters nodes by type "Pod" (actual step executions) and orders them by their
+// step index extracted from the node name (e.g., "workflow-name[0].step-name").
+func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1alpha1.WorkflowTask {
+	if nodes == nil {
+		return nil
+	}
+
+	// Collect Pod nodes with their order index
+	var tasksWithOrder []taskWithOrder
+
+	for _, node := range nodes {
+		// Only consider Pod nodes - these are the actual step executions
+		if node.Type != argoproj.NodeTypePod {
+			continue
+		}
+
+		// Extract order from node name (e.g., "workflow-name[0].step-name" -> 0)
+		order := extractArgoStepOrderFromNodeName(node.Name)
+
+		task := openchoreodevv1alpha1.WorkflowTask{
+			Name:    node.TemplateName,
+			Phase:   string(node.Phase),
+			Message: node.Message,
+		}
+
+		// Set timestamps if available
+		if !node.StartedAt.IsZero() {
+			startedAt := node.StartedAt
+			task.StartedAt = &startedAt
+		}
+		if !node.FinishedAt.IsZero() {
+			finishedAt := node.FinishedAt
+			task.FinishedAt = &finishedAt
+		}
+
+		tasksWithOrder = append(tasksWithOrder, taskWithOrder{task: task, order: order})
+	}
+
+	// Sort by order using insertion sort
+	for i := 1; i < len(tasksWithOrder); i++ {
+		key := tasksWithOrder[i]
+		j := i - 1
+		for j >= 0 && tasksWithOrder[j].order > key.order {
+			tasksWithOrder[j+1] = tasksWithOrder[j]
+			j--
+		}
+		tasksWithOrder[j+1] = key
+	}
+
+	// Extract sorted tasks
+	tasks := make([]openchoreodevv1alpha1.WorkflowTask, len(tasksWithOrder))
+	for i, t := range tasksWithOrder {
+		tasks[i] = t.task
+	}
+
+	return tasks
+}
+
+// extractArgoStepOrderFromNodeName extracts the step order from a node name.
+// Node names follow the pattern: "workflow-name[N].step-name" where N is the order.
+// Returns -1 if the order cannot be extracted.
+func extractArgoStepOrderFromNodeName(nodeName string) int {
+	// Find the bracket containing the order number
+	startIdx := -1
+	endIdx := -1
+	for i := len(nodeName) - 1; i >= 0; i-- {
+		if nodeName[i] == ']' && endIdx == -1 {
+			endIdx = i
+		}
+		if nodeName[i] == '[' && endIdx != -1 {
+			startIdx = i
+			break
+		}
+	}
+
+	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+		return -1
+	}
+
+	// Parse the number between brackets
+	orderStr := nodeName[startIdx+1 : endIdx]
+	var order int
+	if _, err := fmt.Sscanf(orderStr, "%d", &order); err != nil {
+		return -1
+	}
+
+	return order
 }

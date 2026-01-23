@@ -127,6 +127,13 @@ type ComponentWorkflowRunStatus struct {
 	// These are tracked for cleanup when the ComponentWorkflowRun is deleted.
 	// +optional
 	Resources *[]ResourceReference `json:"resources,omitempty"`
+
+	// Tasks contains the list of workflow tasks with their execution status.
+	// This provides a vendor-neutral view of the workflow steps regardless of the underlying
+	// workflow engine (e.g., Argo Workflows, Tekton).
+	// Tasks are ordered by their execution sequence.
+	// +optional
+	Tasks []WorkflowTask `json:"tasks,omitempty"`
 }
 
 // ComponentWorkflowImage contains information about a container image produced by a component workflow execution.
@@ -134,6 +141,35 @@ type ComponentWorkflowImage struct {
 	// Image is the fully qualified image name (e.g., registry.example.com/myapp:v1.0.0)
 	// +optional
 	Image string `json:"image,omitempty"`
+}
+
+// WorkflowTask represents a single task/step in a workflow execution.
+// This provides a vendor-neutral abstraction over workflow engine-specific steps
+// (e.g., Argo Workflow nodes, Tekton TaskRuns).
+type WorkflowTask struct {
+	// Name is the name of the task/step.
+	// For Argo Workflows, this corresponds to the templateName.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Phase represents the current execution phase of the task.
+	// +kubebuilder:validation:Enum=Pending;Running;Succeeded;Failed;Skipped;Error
+	// +optional
+	Phase string `json:"phase,omitempty"`
+
+	// StartedAt is the timestamp when the task started execution.
+	// +optional
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+
+	// FinishedAt is the timestamp when the task finished execution.
+	// +optional
+	FinishedAt *metav1.Time `json:"finishedAt,omitempty"`
+
+	// Message provides additional details about the task status.
+	// This is typically populated when the task fails or errors.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // ResourceReference tracks a resource applied to the build plane cluster for cleanup purposes.
