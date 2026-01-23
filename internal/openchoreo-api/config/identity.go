@@ -42,6 +42,8 @@ type OIDCConfig struct {
 	// Issuer is the OIDC provider issuer URL.
 	// Used for token validation and as the base for OAuth metadata.
 	Issuer string `koanf:"issuer"`
+	// JWKSURL is the URL to fetch JSON Web Key Set for token verification.
+	JWKSURL string `koanf:"jwks_url"`
 	// AuthorizationEndpoint is the OAuth authorization endpoint URL.
 	AuthorizationEndpoint string `koanf:"authorization_endpoint"`
 	// TokenEndpoint is the OAuth token endpoint URL.
@@ -52,6 +54,7 @@ type OIDCConfig struct {
 func OIDCDefaults() OIDCConfig {
 	return OIDCConfig{
 		Issuer:                "http://sts.openchoreo.localhost",
+		JWKSURL:               "http://sts.openchoreo.localhost/oauth2/jwks",
 		AuthorizationEndpoint: "http://sts.openchoreo.localhost/oauth2/authorize",
 		TokenEndpoint:         "http://sts.openchoreo.localhost/oauth2/token",
 	}

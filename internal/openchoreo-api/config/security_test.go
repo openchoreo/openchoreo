@@ -110,38 +110,14 @@ func TestJWTConfig_Validate(t *testing.T) {
 			name: "disabled skips all validation",
 			cfg: JWTConfig{
 				Enabled: false,
-				// Missing required fields but should pass because disabled
 			},
 			expectedErrors: nil,
 		},
 		{
-			name: "enabled requires issuer and jwks url",
+			name: "enabled with defaults is valid",
 			cfg: JWTConfig{
 				Enabled: true,
-			},
-			expectedErrors: config.ValidationErrors{
-				{Field: "jwt.issuer", Message: "is required"},
-				{Field: "jwt.jwks.url", Message: "is required"},
-			},
-		},
-		{
-			name: "enabled with issuer still requires jwks url",
-			cfg: JWTConfig{
-				Enabled: true,
-				Issuer:  "https://issuer.example.com",
-			},
-			expectedErrors: config.ValidationErrors{
-				{Field: "jwt.jwks.url", Message: "is required"},
-			},
-		},
-		{
-			name: "enabled with all required fields is valid",
-			cfg: JWTConfig{
-				Enabled: true,
-				Issuer:  "https://issuer.example.com",
-				JWKS: JWKSConfig{
-					URL: "https://issuer.example.com/.well-known/jwks.json",
-				},
+				// issuer and jwks_url now come from identity.oidc
 			},
 			expectedErrors: nil,
 		},
@@ -149,11 +125,7 @@ func TestJWTConfig_Validate(t *testing.T) {
 			name: "negative clock_skew is invalid",
 			cfg: JWTConfig{
 				Enabled:   true,
-				Issuer:    "https://issuer.example.com",
 				ClockSkew: -1 * time.Second,
-				JWKS: JWKSConfig{
-					URL: "https://issuer.example.com/.well-known/jwks.json",
-				},
 			},
 			expectedErrors: config.ValidationErrors{
 				{Field: "jwt.clock_skew", Message: "must be non-negative"},
@@ -163,9 +135,7 @@ func TestJWTConfig_Validate(t *testing.T) {
 			name: "negative jwks refresh_interval is invalid",
 			cfg: JWTConfig{
 				Enabled: true,
-				Issuer:  "https://issuer.example.com",
 				JWKS: JWKSConfig{
-					URL:             "https://issuer.example.com/.well-known/jwks.json",
 					RefreshInterval: -1 * time.Hour,
 				},
 			},

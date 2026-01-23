@@ -90,14 +90,12 @@ func (c *AuthenticationConfig) Validate(path *config.Path) config.ValidationErro
 type JWTConfig struct {
 	// Enabled enables JWT authentication.
 	Enabled bool `koanf:"enabled"`
-	// Issuer is the expected token issuer (iss claim).
-	Issuer string `koanf:"issuer"`
 	// Audiences is the list of acceptable token audiences (aud claim).
 	// Token must contain at least one of these audiences. Optional.
 	Audiences []string `koanf:"audiences"`
 	// ClockSkew is the allowed clock skew for token validation.
 	ClockSkew time.Duration `koanf:"clock_skew"`
-	// JWKS defines JSON Web Key Set settings.
+	// JWKS defines JSON Web Key Set operational settings.
 	JWKS JWKSConfig `koanf:"jwks"`
 }
 
@@ -118,10 +116,6 @@ func (c *JWTConfig) Validate(path *config.Path) config.ValidationErrors {
 		return errs // skip validation if disabled
 	}
 
-	if c.Issuer == "" {
-		errs = append(errs, config.Required(path.Child("issuer")))
-	}
-
 	if err := config.MustBeNonNegative(path.Child("clock_skew"), c.ClockSkew); err != nil {
 		errs = append(errs, err)
 	}
@@ -132,13 +126,14 @@ func (c *JWTConfig) Validate(path *config.Path) config.ValidationErrors {
 }
 
 // ToJWTMiddlewareConfig converts to the JWT middleware library config.
-func (c *JWTConfig) ToJWTMiddlewareConfig(logger *slog.Logger, resolver *jwt.Resolver) jwt.Config {
+// The oidc parameter provides issuer and JWKS URL from identity configuration.
+func (c *JWTConfig) ToJWTMiddlewareConfig(oidc *OIDCConfig, logger *slog.Logger, resolver *jwt.Resolver) jwt.Config {
 	return jwt.Config{
 		Disabled:                     !c.Enabled,
-		JWKSURL:                      c.JWKS.URL,
+		JWKSURL:                      oidc.JWKSURL,
 		JWKSRefreshInterval:          c.JWKS.RefreshInterval,
 		JWKSURLTLSInsecureSkipVerify: c.JWKS.SkipTLSVerify,
-		ValidateIssuer:               c.Issuer,
+		ValidateIssuer:               oidc.Issuer,
 		ValidateAudiences:            c.Audiences,
 		ClockSkew:                    c.ClockSkew,
 		Detector:                     resolver,
@@ -146,10 +141,9 @@ func (c *JWTConfig) ToJWTMiddlewareConfig(logger *slog.Logger, resolver *jwt.Res
 	}
 }
 
-// JWKSConfig defines JWKS (JSON Web Key Set) settings.
+// JWKSConfig defines JWKS (JSON Web Key Set) operational settings.
+// Note: The JWKS URL comes from identity.oidc.jwks_url.
 type JWKSConfig struct {
-	// URL is the JWKS endpoint URL.
-	URL string `koanf:"url"`
 	// RefreshInterval is how often to refresh keys from the JWKS URL.
 	RefreshInterval time.Duration `koanf:"refresh_interval"`
 	// SkipTLSVerify skips TLS certificate verification for JWKS URL.
@@ -168,10 +162,6 @@ func JWKSDefaults() JWKSConfig {
 // Validate validates the JWKS configuration.
 func (c *JWKSConfig) Validate(path *config.Path) config.ValidationErrors {
 	var errs config.ValidationErrors
-
-	if c.URL == "" {
-		errs = append(errs, config.Required(path.Child("url")))
-	}
 
 	if err := config.MustBeNonNegative(path.Child("refresh_interval"), c.RefreshInterval); err != nil {
 		errs = append(errs, err)

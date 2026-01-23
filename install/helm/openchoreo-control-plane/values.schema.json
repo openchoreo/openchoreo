@@ -2951,7 +2951,7 @@
                       "properties": {
                         "clock_skew": {
                           "default": "0s",
-                          "description": "enabled, issuer, audiences come from security.enabled, security.oidc.issuer, security.jwt.audience",
+                          "description": "enabled and audiences come from security.enabled and security.jwt.audience\nissuer and jwks_url come from identity.oidc (computed from security.oidc.*)",
                           "title": "clock_skew",
                           "type": "string"
                         },
@@ -2960,7 +2960,6 @@
                           "properties": {
                             "refresh_interval": {
                               "default": "1h",
-                              "description": "url is computed from security.oidc.jwksUrl or internal Thunder service",
                               "title": "refresh_interval",
                               "type": "string"
                             },

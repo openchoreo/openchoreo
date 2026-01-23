@@ -1182,10 +1182,10 @@ openchoreoApi:
     security:
       authentication:
         jwt:
-          # enabled, issuer, audiences come from security.enabled, security.oidc.issuer, security.jwt.audience
+          # enabled and audiences come from security.enabled and security.jwt.audience
+          # issuer and jwks_url come from identity.oidc (computed from security.oidc.*)
           clock_skew: "0s"
           jwks:
-            # url is computed from security.oidc.jwksUrl or internal Thunder service
             refresh_interval: "1h"
             skip_tls_verify: false
       subjects:

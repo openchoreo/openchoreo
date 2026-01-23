@@ -55,10 +55,6 @@ security:
       # When disabled, all requests are treated as unauthenticated.
       enabled: false
 
-      # Override the issuer (iss) claim validation.
-      # If empty, uses identity.oidc.issuer.
-      issuer: ""
-
       # List of acceptable audiences (aud) for the JWT.
       # Tokens must contain at least one of these audiences.
       audiences: [ ]
@@ -68,10 +64,6 @@ security:
       clock_skew: 0s
 
       jwks:
-        # Override the JWKS URL for token verification.
-        # If empty, discovered from identity.oidc.issuer via OIDC discovery.
-        url: ""
-
         # How often to refresh the JWKS from the remote URL.
         refresh_interval: 1h
 
@@ -132,6 +124,9 @@ identity:
     # OIDC provider issuer URL.
     # Used for token validation and as the base for OAuth metadata.
     issuer: "http://sts.openchoreo.localhost"
+
+    # JWKS URL for fetching JSON Web Keys for token verification.
+    jwks_url: "http://sts.openchoreo.localhost/oauth2/jwks"
 
     # OAuth authorization endpoint URL.
     authorization_endpoint: "http://sts.openchoreo.localhost/oauth2/authorize"

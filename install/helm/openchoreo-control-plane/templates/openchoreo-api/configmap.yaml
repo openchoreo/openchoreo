@@ -29,7 +29,6 @@ data:
       authentication:
         jwt:
           enabled: {{ .Values.security.enabled }}
-          issuer: {{ .Values.security.oidc.issuer | default $oidcIssuer | quote }}
           audiences:
             {{- if .Values.security.jwt.audience }}
             - {{ .Values.security.jwt.audience | quote }}
@@ -38,7 +37,6 @@ data:
             {{- end }}
           clock_skew: {{ .Values.openchoreoApi.config.security.authentication.jwt.clock_skew | quote }}
           jwks:
-            url: {{ $jwksUrl | quote }}
             refresh_interval: {{ .Values.openchoreoApi.config.security.authentication.jwt.jwks.refresh_interval | quote }}
             skip_tls_verify: {{ .Values.openchoreoApi.config.security.authentication.jwt.jwks.skip_tls_verify }}
       subjects:
@@ -53,6 +51,7 @@ data:
     identity:
       oidc:
         issuer: {{ $oidcIssuer | quote }}
+        jwks_url: {{ $jwksUrl | quote }}
         authorization_endpoint: {{ $authzUrl | quote }}
         token_endpoint: {{ $tokenUrl | quote }}
       clients:

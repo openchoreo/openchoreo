@@ -26,7 +26,7 @@ func (h *Handler) GetOpenIDConfiguration(
 
 	// Get OIDC endpoints and security settings from config
 	issuer := h.Config.Identity.OIDC.Issuer
-	jwksURI := h.Config.Security.Authentication.JWT.JWKS.URL
+	jwksURI := h.Config.Identity.OIDC.JWKSURL
 	securityEnabled := h.Config.Security.Authentication.JWT.Enabled
 
 	response := gen.GetOpenIDConfiguration200JSONResponse{
