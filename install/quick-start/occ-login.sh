@@ -115,7 +115,13 @@ if [ -z "$CLI_CLIENT_SECRET" ] || [ "$CLI_CLIENT_SECRET" = "null" ]; then
   exit 1
 fi
 
-# Step 4: Login with CLI credentials
-log_info "Logging in with CLI credentials..."
+# Step 4: Save CLI credentials to file
+log_info "Saving CLI credentials..."
+ENV_FILE="${SCRIPT_DIR}/.occ-credentials"
+
+cat > "${ENV_FILE}" <<EOF
+# OCC CLI Credentials
+# Source this file to set environment variables: source ${ENV_FILE}
 export OCC_CLIENT_ID="${CLI_CLIENT_ID}"
 export OCC_CLIENT_SECRET="${CLI_CLIENT_SECRET}"
+EOF
