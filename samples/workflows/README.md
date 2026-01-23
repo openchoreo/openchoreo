@@ -10,7 +10,6 @@ Generic Workflows are useful for:
 - **End-to-End Testing** - Integration and acceptance test suites
 - **Package Publishing** - Publishing libraries to npm, PyPI, Maven, etc.
 - **Docker Builds** - Container image builds not tied to a Component
-- **Scheduled Jobs** - Recurring tasks and maintenance operations
 
 ## Sample Files
 
@@ -27,8 +26,6 @@ This directory includes a Docker build workflow as an example:
 This sample implements a Docker build pipeline that clones a Git repository, builds a container image using Podman, and pushes it to an internal registry. The workflow accepts parameters for the repository URL, branch, commit, Dockerfile path, and build context - allowing you to build images from any repository without modifying the workflow definition.
 
 The Workflow CR (`workflow-docker-build.yaml`) defines the parameter schema and acts as a reusable template. Each time you need to build an image, you create a WorkflowRun with specific parameter values (repository, branch, etc.). The controller then generates an Argo Workflow in the Build Plane that executes the actual steps defined in the ClusterWorkflowTemplate.
-
-This decouples the "what to build" (WorkflowRun parameters) from "how to build" (ClusterWorkflowTemplate steps), making the workflow reusable across different repositories and triggerable on-demand without being tied to any specific Component.
 
 ## How to Run
 
