@@ -6,11 +6,6 @@ metadata:
   namespace: default
 spec:
   schema:
-    types:
-      GatewayRef:
-        name: "string"
-        namespace: "string"
-
     parameters:
       # Developer-facing parameters - static across environments
       apiName: "string"
@@ -34,17 +29,6 @@ spec:
         #   params:
         #     issuers:
         #     - ThunderKeyManager
-
-    envOverrides:
-      # Platform engineers can override per environment
-      gatewayRefs:
-        '[]GatewayRef | default=[{"name": "api-platform-default", "namespace": "openchoreo-data-plane"}]'
-        # Gateway references - can be overridden per environment
-        # Example:
-        # - name: api-platform-default
-        #   namespace: openchoreo-data-plane
-        # - name: edge-gateway
-        #   namespace: openchoreo-edge
 
   creates:
     # Create Backend resource that references the API gateway.
