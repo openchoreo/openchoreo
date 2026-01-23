@@ -76,6 +76,57 @@ global:
       # @schema
       storageClass: ""
 
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Pre-populates the local registry with buildpack images during install/upgrade to speed up builds
+    # @schema
+    buildpackCache:
+      # @schema
+      # type: boolean
+      # description: Enable buildpack image caching. When enabled, images are pulled from cache registry instead of remote.
+      # default: false
+      # @schema
+      enabled: false
+
+      # @schema
+      # type: array
+      # description: List of buildpack images to cache. Each entry has an id for lookup, remoteImage for external registry, and cachedImage for local cache.
+      # items:
+      #   type: object
+      #   additionalProperties: false
+      #   required:
+      #     - id
+      #     - remoteImage
+      #     - cachedImage
+      #   properties:
+      #     id:
+      #       type: string
+      #       description: Unique identifier for lookup in workflow templates
+      #     remoteImage:
+      #       type: string
+      #       description: Image reference from remote registry (used when caching is disabled)
+      #     cachedImage:
+      #       type: string
+      #       description: Image path in the local build plane registry (used when caching is enabled)
+      # @schema
+      images:
+        - id: "lifecycle"
+          remoteImage: "docker.io/buildpacksio/lifecycle:0.20.5"
+          cachedImage: "buildpacks-cache/lifecycle:0.20.5"
+        - id: "google-builder"
+          remoteImage: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+          cachedImage: "buildpacks-cache/google-builder:latest"
+        - id: "google-run"
+          remoteImage: "gcr.io/buildpacks/google-22/run:latest"
+          cachedImage: "buildpacks-cache/google-run:latest"
+        - id: "ballerina-builder"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18"
+          cachedImage: "buildpacks-cache/ballerina-builder:18"
+        - id: "ballerina-run"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
+          cachedImage: "buildpacks-cache/ballerina-run:18"
+
 # @schema
 # type: object
 # additionalProperties: true

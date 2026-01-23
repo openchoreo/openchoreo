@@ -49,6 +49,8 @@ global:
     enabled: true
     registry:
       host: "host.k3d.internal:10082"
+    buildpackCache:
+      enabled: true
 
 fluent-bit:
   enabled: true

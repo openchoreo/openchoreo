@@ -157,20 +157,19 @@ spec:
             until podman info --format '{{ "{{" }}.Host.RemoteSocket.Exists{{ "}}" }}' 2>/dev/null | grep -q true; do sleep 1; done
 
             #####################################################################
-            # 2. Pull buildpack images
+            # 2. Build with Ballerina Buildpacks
             #####################################################################
-            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
-            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
+            BUILDER="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-builder" "context" .) }}"
+            RUN_IMAGE="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-run" "context" .) }}"
 
-            echo "Pulling builder: $BUILDER"
-            podman pull "$BUILDER"
+            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
+            echo "Pulling cached builder: $BUILDER"
+            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
 
-            echo "Pulling run image: $RUN_IMAGE"
-            podman pull "$RUN_IMAGE"
+            echo "Pulling cached run image: $RUN_IMAGE"
+            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMAGE"
+            {{- end }}
 
-            #####################################################################
-            # 3. Build with Ballerina Buildpacks
-            #####################################################################
             /usr/local/bin/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
