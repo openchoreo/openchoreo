@@ -1,4 +1,4 @@
-# Generic Workflow Samples
+# Generic Workflows
 
 This directory contains Generic Workflow definitions that can be used independently of Components. Unlike ComponentWorkflows (which are tied to Component builds), Generic Workflows provide a flexible way to run any type of workflow directly.
 
