@@ -31,7 +31,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
-	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -1268,83 +1267,11 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 		return fmt.Errorf("failed to get notification channel config: %w", err)
 	}
 
-	// Send notification based on channel type
-	switch channelConfig.Type {
-	case "webhook":
-		// Transform payload if template is provided, otherwise use raw alertDetails
-		var payload map[string]interface{}
-		if channelConfig.Webhook.PayloadTemplate != "" {
-			// Render the template using CEL expressions
-			renderedTemplate := s.renderTemplate(channelConfig.Webhook.PayloadTemplate, requestBody)
+	// Build CEL inputs from alert data. (TODO: Introduce a struct; avoid duplication of requestBody and celInputs)
+	celInputs := s.buildCELInputs(requestBody)
 
-			// Parse the rendered template as JSON
-			if err := json.Unmarshal([]byte(renderedTemplate), &payload); err != nil {
-				s.logger.Error("Failed to parse rendered webhook payload template as JSON",
-					"error", err,
-					"renderedTemplate", renderedTemplate,
-					"channelName", notificationChannelName)
-				return fmt.Errorf("failed to parse webhook payload template as JSON: %w", err)
-			}
-			s.logger.Debug("Webhook payload template rendered and parsed",
-				"channelName", notificationChannelName,
-				"payload", payload)
-		} else {
-			// No template provided, use raw alertDetails
-			payload = requestBody
-		}
-
-		// Send the webhook with the transformed payload
-		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, payload); err != nil {
-			s.logger.Error("Failed to send alert notification webhook",
-				"error", err,
-				"channelName", notificationChannelName,
-				"webhookURL", channelConfig.Webhook.URL,
-				"payload", payload)
-			return fmt.Errorf("failed to send alert notification webhook: %w", err)
-		}
-		s.logger.Debug("Alert notification sent successfully via webhook",
-			"ruleName", ruleName,
-			"channelName", notificationChannelName,
-			"webhookURL", channelConfig.Webhook.URL,
-			"usedTemplate", channelConfig.Webhook.PayloadTemplate != "")
-		return nil
-
-	case "email":
-		// Render the incoming alert payload for human-friendly notifications
-		payload, err := json.MarshalIndent(requestBody, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal alert payload: %w", err)
-		}
-
-		// Build subject and body using templates if available, otherwise use defaults
-		subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
-		if channelConfig.Email.SubjectTemplate != "" {
-			subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
-		}
-
-		emailBody := fmt.Sprintf("An alert was triggered at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
-		if channelConfig.Email.BodyTemplate != "" {
-			emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
-		}
-
-		// Send the notification using the fetched config
-		if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
-			s.logger.Error("Failed to send alert notification email",
-				"error", err,
-				"channelName", notificationChannelName,
-				"recipients", channelConfig.Email.To)
-			return fmt.Errorf("failed to send alert notification email: %w", err)
-		}
-
-		s.logger.Debug("Alert notification sent successfully",
-			"ruleName", ruleName,
-			"channelName", notificationChannelName,
-			"recipients count", len(channelConfig.Email.To))
-		return nil
-
-	default:
-		return fmt.Errorf("unsupported notification channel type: %s", channelConfig.Type)
-	}
+	// Send notification using the notifications package
+	return notifications.SendAlertNotification(ctx, channelConfig, celInputs, s.logger)
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1519,11 +1446,9 @@ func parseRecipientsList(s string) []string {
 	return parts
 }
 
-// renderTemplate performs CEL expression rendering by evaluating ${...} expressions using the template engine.
-// If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
-func (s *LoggingService) renderTemplate(templateStr string, data map[string]interface{}) string {
-	// Build the CEL input context with the alert data
-	celInputs := map[string]any{
+// buildCELInputs builds the CEL input context from alert data
+func (s *LoggingService) buildCELInputs(data map[string]interface{}) map[string]any {
+	return map[string]any{
 		"alertName":                       data["ruleName"],
 		"alertTimestamp":                  data["timestamp"],
 		"alertSeverity":                   data["severity"],
@@ -1539,53 +1464,6 @@ func (s *LoggingService) renderTemplate(templateStr string, data map[string]inte
 		"environmentId":                   data["environmentUid"],
 		"alertAIRootCauseAnalysisEnabled": data["enableAiRootCauseAnalysis"],
 	}
-
-	s.logger.Debug("CEL template rendering inputs", "alertData", celInputs)
-
-	// Find all CEL expressions in the template
-	expressions, err := template.FindCELExpressions(templateStr)
-	if err != nil {
-		s.logger.Warn("Failed to parse CEL expressions in template, returning original template",
-			"error", err,
-			"template", templateStr)
-		return templateStr
-	}
-
-	// If no expressions found, return the template as-is
-	if len(expressions) == 0 {
-		return templateStr
-	}
-
-	// Create a new template engine for CEL evaluation
-	engine := template.NewEngine()
-
-	result := templateStr
-	for _, match := range expressions {
-		// Try to render this single expression
-		rendered, err := engine.Render(match.FullExpr, celInputs)
-		if err != nil {
-			s.logger.Warn("Failed to resolve CEL expression, keeping original expression",
-				"expression", match.FullExpr,
-				"innerExpr", match.InnerExpr,
-				"error", err)
-			// Keep the original expression in the result
-			continue
-		}
-
-		// Convert rendered result to string
-		var replacement string
-		switch v := rendered.(type) {
-		case string:
-			replacement = v
-		default:
-			replacement = fmt.Sprintf("%v", v)
-		}
-
-		// Replace only the first occurrence of this expression
-		result = strings.Replace(result, match.FullExpr, replacement, 1)
-	}
-
-	return result
 }
 
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
