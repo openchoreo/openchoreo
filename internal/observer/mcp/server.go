@@ -17,7 +17,6 @@ type Handler interface {
 	GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (any, error)
 	GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error)
 	GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error)
-	GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error)
 	GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (any, error)
 	GetComponentResourceMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
 	GetComponentHTTPMetrics(ctx context.Context, componentID, environmentID, projectID, startTime, endTime string) (any, error)
@@ -232,65 +231,6 @@ func registerTools(s *mcpsdk.Server, handler Handler) {
 		}
 
 		result, err := handler.GetGatewayLogs(ctx, params)
-		return handleToolResult(result, err)
-	})
-
-	// Get Organization Logs
-	mcpsdk.AddTool(s, &mcpsdk.Tool{
-		Name:        "get_organization_logs",
-		Description: "Retrieve logs across an entire OpenChoreo organization with Kubernetes pod label filtering. An organization is the top-level grouping containing multiple projects. This advanced tool enables cross-project log analysis and infrastructure-level debugging using custom pod label selectors.",
-		InputSchema: createSchema(map[string]any{
-			"organization_id": defaultStringProperty(),
-			"environment_id":  defaultStringProperty(),
-			"start_time":      stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
-			"end_time":        stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
-			"namespace":       stringProperty("Optional: Kubernetes namespace to filter"),
-			"pod_labels":      objectProperty("Optional: Map of Kubernetes pod labels to filter (e.g., {'app': 'backend', 'tier': 'database'}). Enables targeting specific workloads"),
-			"search_phrase":   stringProperty("Optional: Text to search within log messages"),
-			"log_levels":      arrayProperty("Optional: Array of log levels to filter (e.g., ['ERROR', 'WARN']). Common values: ERROR, WARN, INFO, DEBUG, TRACE. Default: []"),
-			"versions":        arrayProperty("Optional: Array of component version strings to filter"),
-			"version_ids":     arrayProperty("Optional: Array of internal version identifiers to filter"),
-			"limit":           limitLogsProperty(),
-			"sort_order":      sortOrderProperty(),
-			"log_type":        stringProperty("Optional: Type of logs - 'application' for runtime logs or 'build' for build process logs. Default: 'application'"),
-			"build_id":        stringProperty("Optional: Build identifier for retrieving build logs"),
-			"build_uuid":      stringProperty("Optional: Build UUID for retrieving build logs"),
-		}, []string{"organization_id", "environment_id", "start_time", "end_time"}),
-	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		OrganizationID string            `json:"organization_id"`
-		EnvironmentID  string            `json:"environment_id"`
-		StartTime      string            `json:"start_time"`
-		EndTime        string            `json:"end_time"`
-		Namespace      string            `json:"namespace"`
-		PodLabels      map[string]string `json:"pod_labels"`
-		SearchPhrase   string            `json:"search_phrase"`
-		LogLevels      []string          `json:"log_levels"`
-		Versions       []string          `json:"versions"`
-		VersionIDs     []string          `json:"version_ids"`
-		Limit          int               `json:"limit"`
-		SortOrder      string            `json:"sort_order"`
-		LogType        string            `json:"log_type"`
-		BuildID        string            `json:"build_id"`
-		BuildUUID      string            `json:"build_uuid"`
-	}) (*mcpsdk.CallToolResult, any, error) {
-		limit, sortOrder, logLevels := setDefaults(args.Limit, args.SortOrder, args.LogLevels)
-
-		params := opensearch.QueryParams{
-			StartTime:      args.StartTime,
-			EndTime:        args.EndTime,
-			EnvironmentID:  args.EnvironmentID,
-			OrganizationID: args.OrganizationID,
-			Namespace:      args.Namespace,
-			SearchPhrase:   args.SearchPhrase,
-			LogLevels:      logLevels,
-			Versions:       args.Versions,
-			VersionIDs:     args.VersionIDs,
-			Limit:          limit,
-			SortOrder:      sortOrder,
-			LogType:        args.LogType,
-		}
-
-		result, err := handler.GetOrganizationLogs(ctx, params, args.PodLabels)
 		return handleToolResult(result, err)
 	})
 

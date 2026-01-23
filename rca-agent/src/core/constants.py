@@ -12,7 +12,6 @@ class OpenchoreoTools:
 
 class ObservabilityTools:
     GET_TRACES = "get_traces"
-    GET_ORGANIZATION_LOGS = "get_organization_logs"
     GET_PROJECT_LOGS = "get_project_logs"
     GET_COMPONENT_LOGS = "get_component_logs"
     GET_COMPONENT_RESOURCE_METRICS = "get_component_resource_metrics"

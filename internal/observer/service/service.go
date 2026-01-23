@@ -260,49 +260,6 @@ func (s *LoggingService) GetGatewayLogs(ctx context.Context, params opensearch.G
 	}, nil
 }
 
-// GetOrganizationLogs retrieves logs for an organization with custom filters
-func (s *LoggingService) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (*LogResponse, error) {
-	s.logger.Info("Getting organization logs",
-		"organization_id", params.OrganizationID,
-		"environment_id", params.EnvironmentID,
-		"pod_labels", podLabels,
-		"search_phrase", params.SearchPhrase)
-
-	// Generate indices based on time range
-	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
-	if err != nil {
-		s.logger.Error("Failed to generate indices", "error", err)
-		return nil, fmt.Errorf("failed to generate indices: %w", err)
-	}
-
-	// Build organization-specific query
-	query := s.queryBuilder.BuildOrganizationLogsQuery(params, podLabels)
-
-	// Execute search
-	response, err := s.osClient.Search(ctx, indices, query)
-	if err != nil {
-		s.logger.Error("Failed to execute organization logs search", "error", err)
-		return nil, fmt.Errorf("failed to execute search: %w", err)
-	}
-
-	// Parse log entries
-	logs := make([]opensearch.LogEntry, 0, len(response.Hits.Hits))
-	for _, hit := range response.Hits.Hits {
-		entry := opensearch.ParseLogEntry(hit)
-		logs = append(logs, entry)
-	}
-
-	s.logger.Info("Organization logs retrieved",
-		"count", len(logs),
-		"total", response.Hits.Total.Value)
-
-	return &LogResponse{
-		Logs:       logs,
-		TotalCount: response.Hits.Total.Value,
-		Took:       response.Took,
-	}, nil
-}
-
 func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.TracesRequestParams) (*opensearch.TraceResponse, error) {
 	s.logger.Debug("Fetching traces from OpenSearch")
 
