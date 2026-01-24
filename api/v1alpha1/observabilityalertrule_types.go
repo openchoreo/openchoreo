@@ -23,14 +23,14 @@ const (
 )
 
 // ObservabilityAlertSourceType identifies the origin of the telemetry data.
-// +kubebuilder:validation:Enum=log;metrics
+// +kubebuilder:validation:Enum=log;metric
 type ObservabilityAlertSourceType string
 
 const (
 	// ObservabilityAlertSourceTypeLog represents log-based alerting.
 	ObservabilityAlertSourceTypeLog ObservabilityAlertSourceType = "log"
-	// ObservabilityAlertSourceTypeMetrics represents metrics-based alerting.
-	ObservabilityAlertSourceTypeMetrics ObservabilityAlertSourceType = "metrics"
+	// ObservabilityAlertSourceTypeMetric represents metric-based alerting.
+	ObservabilityAlertSourceTypeMetric ObservabilityAlertSourceType = "metric"
 )
 
 // ObservabilityAlertConditionOperator describes how a computed signal is evaluated.
@@ -52,7 +52,7 @@ const (
 
 // ObservabilityAlertSource describes where and how events are pulled for evaluation.
 type ObservabilityAlertSource struct {
-	// Type specifies the telemetry source type (log, metrics).
+	// Type specifies the telemetry source type (log, metric).
 	// +kubebuilder:validation:Required
 	Type ObservabilityAlertSourceType `json:"type"`
 
@@ -62,7 +62,7 @@ type ObservabilityAlertSource struct {
 	Query string `json:"query,omitempty"`
 
 	// Metric specifies the metric to alert on.
-	// This is required for metrics-based alerting.
+	// This is required for metric-based alerting.
 	// +optional
 	Metric string `json:"metric,omitempty"`
 }

@@ -6,6 +6,7 @@ package delete
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -18,6 +19,7 @@ func NewDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		Short:   constants.Delete.Short,
 		Long:    constants.Delete.Long,
 		Example: constants.Delete.Example,
+		PreRunE: auth.RequireLogin(impl),
 	}
 
 	// Add the file and wait flags directly to deleteCmd

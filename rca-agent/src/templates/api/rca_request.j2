@@ -31,6 +31,9 @@ An alert has been triggered in OpenChoreo. Systematically investigate and identi
 {% if alert.rule.source.query -%}
 - **Query:** `{{ alert.rule.source.query }}`
 {% endif -%}
+{% if alert.rule.source.metric -%}
+- **Metric:** `{{ alert.rule.source.metric }}`
+{% endif -%}
 
 {% endif -%}
 {% if alert.rule.condition -%}

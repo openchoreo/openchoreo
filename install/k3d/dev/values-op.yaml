@@ -23,11 +23,9 @@ openSearch:
   enabled: true
   singleNode: true
 
-rca:
-  oauth:
-    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
-
 security:
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
     jwksUrlTlsInsecureSkipVerify: true
+    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+

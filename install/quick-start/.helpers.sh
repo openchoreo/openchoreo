@@ -412,13 +412,20 @@ install_helm_chart() {
 
     log_info "Installing/upgrading Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
 
-    # Determine chart reference based on dev mode
+    # Determine chart reference based on dev mode and chart type
+    # Third-party charts (containing "/") are used as-is (e.g., "twuni/docker-registry")
+    # OpenChoreo charts are prefixed with HELM_REPO (e.g., "openchoreo-control-plane")
     local chart_ref
-    if [[ "$DEV_MODE" == "true" && -d "$DEV_HELM_CHARTS_DIR/$chart_name" ]]; then
+    local is_third_party=false
+    if [[ "$chart_name" == *"/"* ]]; then
+        # Third-party chart with repo prefix (e.g., twuni/docker-registry)
+        chart_ref="$chart_name"
+        is_third_party=true
+    elif [[ "$DEV_MODE" == "true" && -d "$DEV_HELM_CHARTS_DIR/$chart_name" ]]; then
         chart_ref="$DEV_HELM_CHARTS_DIR/$chart_name"
         log_info "Using local chart from $chart_ref"
     else
-        # For OCI repositories, construct the full chart reference
+        # OpenChoreo chart from OCI registry
         chart_ref="${HELM_REPO}/${chart_name}"
     fi
 
@@ -439,7 +446,8 @@ install_helm_chart() {
         helm_args+=("--wait")
     fi
 
-    if [[ -n "$OPENCHOREO_CHART_VERSION" && "$DEV_MODE" != "true" ]]; then
+    # Only add version for OpenChoreo charts, not third-party charts
+    if [[ -n "$OPENCHOREO_CHART_VERSION" && "$DEV_MODE" != "true" && "$is_third_party" != "true" ]]; then
         helm_args+=("--version" "$OPENCHOREO_CHART_VERSION")
     fi
 
@@ -469,9 +477,6 @@ install_helm_chart() {
         wait "$helm_pid" 2>/dev/null
         local helm_exit_code=$?
 
-        # Clean up temp files
-        rm -rf "$temp_dir"
-
         if [[ $helm_exit_code -eq 0 ]]; then
             log_success "Helm release '$release_name' installed/upgraded successfully"
         else
@@ -480,6 +485,12 @@ install_helm_chart() {
                 cat "$helm_output_file"
             fi
             log_warning "Please use 'kubectl get pods -n $namespace' to list pods, then use 'kubectl describe pod <pod-name> -n $namespace' on failing pods to investigate issues."
+        fi
+
+        # Clean up temp files after reading output
+        rm -rf "$temp_dir"
+
+        if [[ $helm_exit_code -ne 0 ]]; then
             return 1
         fi
     else
@@ -662,6 +673,20 @@ configure_observabilityplane_reference() {
         log_info "Configuring OpenChoreo Build Plane with observabilityplane reference..."
         kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
     fi
+}
+
+# Install Container Registry (required for Build Plane)
+install_registry() {
+    log_info "Installing Container Registry..."
+
+    # Add twuni helm repo if not present
+    if ! helm repo list 2>/dev/null | grep -q "twuni"; then
+        helm repo add twuni https://twuni.github.io/docker-registry.helm
+    fi
+    helm repo update twuni
+
+    install_helm_chart "registry" "twuni/docker-registry" "$BUILD_PLANE_NS" "true" "true" "true" "300" \
+        "--values" "$HOME/.values-registry.yaml"
 }
 
 # Install OpenChoreo Build Plane (optional)

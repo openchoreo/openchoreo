@@ -28,6 +28,12 @@ spec:
               key: password
         - name: OBSERVER_ALERTING_WEBHOOK_URL
           value: "{{ .Values.openSearchClusterSetup.alertingWebhookUrl }}"
+        - name: CONTAINER_LOGS_MIN_INDEX_AGE
+          value: "{{ .Values.openSearchClusterSetup.dataRetentionTime.containerLogs }}"
+        - name: OTEL_TRACES_MIN_INDEX_AGE
+          value: "{{ .Values.openSearchClusterSetup.dataRetentionTime.traces }}"
+        - name: RCA_REPORTS_MIN_INDEX_AGE
+          value: "{{ .Values.openSearchClusterSetup.dataRetentionTime.rcaReports }}"
         image: "{{ .Values.openSearchClusterSetup.image.repository }}:{{ .Values.openSearchClusterSetup.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.openSearchClusterSetup.image.pullPolicy | default "IfNotPresent" }}
         resources:

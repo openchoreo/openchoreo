@@ -32,6 +32,7 @@ GOLANGCI_LINT ?= $(TOOL_BIN)/golangci-lint
 HELMIFY ?= $(TOOL_BIN)/helmify
 YQ ?= $(TOOL_BIN)/yq
 OAPI_CODEGEN ?= $(TOOL_BIN)/oapi-codegen
+HELM_SCHEMA ?= $(TOOL_BIN)/helm-schema
 KUBEBUILDER_HELM_GEN ?= go run $(PROJECT_DIR)/tools/helm-gen
 
 ## Tool Versions
@@ -42,6 +43,7 @@ GOLANGCI_LINT_VERSION ?= v1.64.8
 HELMIFY_VERSION ?= v0.4.17
 YQ_VERSION ?= v4.45.1
 OAPI_CODEGEN_VERSION ?= v2.5.1
+HELM_SCHEMA_VERSION ?= 0.20.0-1
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -77,4 +79,9 @@ $(YQ): $(TOOL_BIN)
 oapi-codegen: $(OAPI_CODEGEN) ## Download oapi-codegen locally if necessary.
 $(OAPI_CODEGEN): $(TOOL_BIN)
 	$(call go_install_tool,$(OAPI_CODEGEN),github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen,$(OAPI_CODEGEN_VERSION))
+
+.PHONY: helm-schema
+helm-schema: $(HELM_SCHEMA) ## Download helm-schema locally if necessary.
+$(HELM_SCHEMA): $(TOOL_BIN)
+	$(call go_install_tool,$(HELM_SCHEMA),github.com/dadav/helm-schema/cmd/helm-schema,$(HELM_SCHEMA_VERSION))
 

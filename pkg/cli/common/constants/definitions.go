@@ -20,13 +20,13 @@ type Command struct {
 var (
 	Login = Command{
 		Use:   "login",
-		Short: "Login to Choreo",
-		Long:  "Login to Choreo using your kubeconfig file's context.",
+		Short: "Login to OpenChoreo CLI",
+		Long:  "Login to OpenChoreo CLI",
 	}
 
 	Logout = Command{
 		Use:   "logout",
-		Short: "Logout from Choreo",
+		Short: "Logout from OpenChoreo CLI",
 	}
 
 	Version = Command{
@@ -37,8 +37,8 @@ var (
 
 	Create = Command{
 		Use:   "create",
-		Short: "Create Choreo resources",
-		Long: fmt.Sprintf(`Create Choreo resources like organizations, projects, and components.
+		Short: "Create OpenChoreo resources",
+		Long: fmt.Sprintf(`Create OpenChoreo resources like organizations, projects, and components.
 
 Examples:
   # Create a project in an organization
@@ -51,9 +51,9 @@ Examples:
 
 	List = Command{
 		Use:     "get",
-		Short:   "List Choreo resources",
+		Short:   "List OpenChoreo resources",
 		Aliases: []string{"list"},
-		Long: fmt.Sprintf(`List Choreo resources like organizations, projects, and components.
+		Long: fmt.Sprintf(`List OpenChoreo resources like organizations, projects, and components.
 
 Examples:
   # List all organizations

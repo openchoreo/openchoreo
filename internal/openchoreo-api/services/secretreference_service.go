@@ -73,7 +73,7 @@ func (s *SecretReferenceService) ListSecretReferences(ctx context.Context, orgNa
 	secretReferences := make([]*models.SecretReferenceResponse, 0, len(secretRefList.Items))
 	for i := range secretRefList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewSecretReference, ResourceTypeSecretReference, secretRefList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized secret reference", "org", orgName, "secretReference", secretRefList.Items[i].Name)
 				continue

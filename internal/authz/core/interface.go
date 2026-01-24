@@ -22,20 +22,20 @@ type PAP interface {
 	// AddRole creates a new role with the specified name and actions
 	AddRole(ctx context.Context, role *Role) error
 
-	// RemoveRole deletes a role by name
-	RemoveRole(ctx context.Context, roleName string) error
+	// RemoveRole deletes a role identified by RoleRef
+	RemoveRole(ctx context.Context, roleRef *RoleRef) error
 
 	// ForceRemoveRole deletes a role and all its associated role-entitlement mappings
-	ForceRemoveRole(ctx context.Context, roleName string) error
+	ForceRemoveRole(ctx context.Context, roleRef *RoleRef) error
 
-	// GetRole retrieves a role by name
-	GetRole(ctx context.Context, roleName string) (*Role, error)
+	// GetRole retrieves a role identified by RoleRef
+	GetRole(ctx context.Context, roleRef *RoleRef) (*Role, error)
 
 	// UpdateRole updates an existing role's actions
 	UpdateRole(ctx context.Context, role *Role) error
 
-	// ListRoles returns all defined roles
-	ListRoles(ctx context.Context) ([]*Role, error)
+	// ListRoles returns roles based on the provided filter
+	ListRoles(ctx context.Context, filter *RoleFilter) ([]*Role, error)
 
 	// AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error

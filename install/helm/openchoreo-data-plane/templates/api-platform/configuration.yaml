@@ -1,0 +1,572 @@
+{{- if index .Values "api-platform" "enabled" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-platform-default-gateway-values
+data:
+  values.yaml: |
+    nameOverride: ""
+    fullnameOverride: ""
+
+    imagePullSecrets: []
+
+    commonLabels: {}
+    commonAnnotations: {}
+
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""
+
+    ## moved to each component's deployment block below
+
+    # Component-level configuration
+
+    gateway:
+      # Shared configuration for gateway-controller and policy-engine
+      # This config is mounted to both components as /configs/config.yaml
+      config:
+        gateway_controller:
+          auth:
+            basic:
+              enabled: true
+              users:
+                - username: "admin"
+                  password: "admin"
+                  password_hashed: false
+                  roles: ["admin"]
+          # Server configuration
+          server:
+            # REST API port for gateway management
+            api_port: 9090
+
+            # xDS gRPC port for Envoy communication
+            xds_port: 18000
+
+            # Graceful shutdown timeout
+            shutdown_timeout: 15s
+
+          # Policy xDS Server configuration
+          policyserver:
+            # Enable or disable the policy xDS server
+            enabled: true
+
+            # Policy xDS gRPC port for policy distribution
+            port: 18001
+
+            # TLS configuration for secure policy xDS communication
+            tls:
+              # Enable or disable TLS
+              enabled: false
+
+              # Path to TLS certificate file (required if TLS is enabled)
+              cert_file: "./certs/server.crt"
+
+              # Path to TLS private key file (required if TLS is enabled)
+              key_file: "./certs/server.key"
+
+          # Storage configuration
+          storage:
+            # Storage type: "sqlite", "postgres" (future), or "memory"
+            # - sqlite: Use SQLite embedded database for persistence
+            # - postgres: Use PostgreSQL database for persistence (future support)
+            # - memory: No persistent storage, all configs lost on restart (useful for testing)
+            type: sqlite
+
+            # SQLite configuration (used when type=sqlite)
+            sqlite:
+              path: ./data/gateway.db
+
+          # Policy configuration
+          policies:
+            # Directory containing policy definitions
+            definitions_path: ./default-policies
+
+          # Router (Envoy) configuration
+          router:
+            # Gateway host for incoming requests
+            gateway_host: "*"
+
+            # Access logs configuration
+            access_logs:
+              # Enable or disable access logs
+              enabled: true
+
+              # Log format: "json" or "text"
+              # - json: Structured JSON format (recommended for log aggregation)
+              # - text: Human-readable text format
+              format: json
+
+              # JSON format fields - key-value pairs for structured logging
+              # Uses Envoy command operators: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+              json_fields:
+                start_time: "%START_TIME%"
+                method: "%REQ(:METHOD)%"
+                path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                protocol: "%PROTOCOL%"
+                response_code: "%RESPONSE_CODE%"
+                response_flags: "%RESPONSE_FLAGS%"
+                response_flags_long: "%RESPONSE_FLAGS_LONG%"
+                bytes_received: "%BYTES_RECEIVED%"
+                bytes_sent: "%BYTES_SENT%"
+                duration: "%DURATION%"
+                upstream_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+                x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+                user_agent: "%REQ(USER-AGENT)%"
+                request_id: "%REQ(X-REQUEST-ID)%"
+                authority: "%REQ(:AUTHORITY)%"
+                upstream_host: "%UPSTREAM_HOST%"
+                upstream_cluster: "%UPSTREAM_CLUSTER%"
+
+              # Text format template - used when format is "text"
+              # Uses Envoy command operators: https://www.envoyproxy.io/docs/envoy/latest/configuration/observability/access_log/usage
+              text_format: |
+                [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%" %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT% %DURATION% "%REQ(X-FORWARDED-FOR)%" "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+
+            # Listener port for incoming HTTP traffic (Envoy proxy port)
+            listener_port: 8080
+
+            # HTTPS listener configuration
+            https_enabled: true  # Enable/disable HTTPS listener
+            https_port: 8443      # HTTPS listener port
+
+            # Downstream TLS configuration (for HTTPS listener)
+            downstream_tls:
+              # Path to server certificate (PEM format)
+              cert_path: "./listener-certs/default-listener.crt"
+
+              # Path to server private key (PEM format)
+              key_path: "./listener-certs/default-listener.key"
+
+              # Minimum TLS protocol version (TLS1_0, TLS1_1, TLS1_2, TLS1_3)
+              minimum_protocol_version: TLS1_2
+
+              # Maximum TLS protocol version (TLS1_0, TLS1_1, TLS1_2, TLS1_3)
+              maximum_protocol_version: TLS1_3
+
+              # Cipher suites (comma-separated)
+              ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES128-SHA,ECDHE-RSA-AES128-SHA,AES128-GCM-SHA256,AES128-SHA,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-ECDSA-AES256-SHA,ECDHE-RSA-AES256-SHA,AES256-GCM-SHA384,AES256-SHA"
+
+            # Upstream configuration
+            envoy_upstream:
+              # TLS configuration for upstream connections
+              tls:
+                minimum_protocol_version: TLS1_2
+                maximum_protocol_version: TLS1_3
+                ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES128-SHA,ECDHE-RSA-AES128-SHA,AES128-GCM-SHA256,AES128-SHA,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384,ECDHE-ECDSA-AES256-SHA,ECDHE-RSA-AES256-SHA,AES256-GCM-SHA384,AES256-SHA"
+                trusted_cert_path: /etc/ssl/certs/ca-certificates.crt
+                custom_certs_path: ./certificates  # Directory containing custom trusted certificates (e.g., self-signed certs)
+                verify_host_name: true
+                disable_ssl_verification: false
+
+              # Timeout configurations for upstream connections
+              timeouts:
+                route_timeout_in_seconds: 60
+                max_route_timeout_in_seconds: 60
+                route_idle_timeout_in_seconds: 300
+
+            # Policy Engine ext_proc filter configuration
+            policy_engine:
+              # Enable or disable policy engine ext_proc filter
+              enabled: true
+
+              # Policy engine host (hostname or IP address)
+              host: policy-engine
+
+              # Policy engine ext_proc port
+              port: 9001
+
+              # Timeout for gRPC service connection (in milliseconds)
+              timeout_ms: 60000
+
+              # Failure mode: false = fail closed (deny requests on error), true = fail open (allow requests on error)
+              failure_mode_allow: false
+
+              # Route cache action: DEFAULT, RETAIN, or CLEAR
+              # RETAIN: Maintain the route cache across requests (recommended for performance)
+              route_cache_action: RETAIN
+
+              # Allow per-route override of ext_proc configuration
+              allow_mode_override: true
+
+              # Request header processing mode: DEFAULT, SEND, or SKIP
+              # SEND: Forward request headers to policy engine for processing
+              request_header_mode: SEND
+
+              # Message timeout for policy engine processing (in milliseconds)
+              message_timeout_ms: 60000
+
+              # TLS configuration for policy engine connection
+              tls:
+                # Enable TLS for secure communication with policy engine
+                enabled: false
+
+                # Client certificate path (for mutual TLS authentication)
+                cert_path: ""
+
+                # Client private key path (for mutual TLS authentication)
+                key_path: ""
+
+                # CA certificate path (for server certificate validation)
+                ca_path: ""
+
+                # Server name for SNI (optional, defaults to host)
+                server_name: ""
+
+                # Skip server certificate verification (insecure, development only)
+                skip_verify: false
+
+          # Logging configuration
+          logging:
+            # Log level: "debug", "info", "warn", or "error"
+            level: debug
+
+            # Log format: "json" or "console"
+            # - json: Structured JSON format (recommended for production)
+            # - console: Human-readable console format (recommended for development)
+            format: json
+
+        policy_engine:
+          server:
+            # Port for ext_proc gRPC server (receives requests from Envoy)
+            extproc_port: 9001
+
+          # Admin HTTP server configuration
+          admin:
+            # Enable admin HTTP server for debugging endpoints
+            enabled: true
+
+            # Port for admin HTTP server
+            port: 9002
+
+            # IP addresses allowed to access the admin API
+            # Defaults to localhost only for security
+            allowed_ips:
+              - "*"
+              - "127.0.0.1"
+
+          config_mode:
+            # Configuration mode: "file" or "xds"
+            # - file: Load policy chains from static YAML file
+            # - xds: Subscribe to xDS server for dynamic configuration updates
+            mode: xds
+
+          # xDS client configuration
+          xds:
+            # Enable xDS client
+            enabled: true
+
+            # xDS server address (typically the gateway-controller xDS server)
+            server_address: gateway-controller:18001
+
+            # Node identifier for this policy engine instance
+            # Used by xDS server to identify this client
+            node_id: policy-engine-1
+
+            # Cluster identifier for this policy engine instance
+            # Used for grouping multiple policy engine instances
+            cluster: policy-engine-cluster
+
+            # Connection timeout for establishing initial connection
+            connect_timeout: 10s
+
+            # Request timeout for individual xDS requests
+            request_timeout: 5s
+
+            # Initial delay before reconnecting after connection failure
+            initial_reconnect_delay: 1s
+
+            # Maximum delay between reconnection attempts (exponential backoff)
+            max_reconnect_delay: 60s
+
+            # TLS configuration for xDS connection
+            tls:
+              enabled: false
+              # cert_path: /path/to/client-cert.pem
+              # key_path: /path/to/client-key.pem
+              # ca_path: /path/to/ca-cert.pem
+
+          # File-based configuration (not used in xDS mode)
+          file_config:
+            path: ""
+
+          # Logging configuration
+          logging:
+            # Log level: debug, info, warn, error
+            level: debug
+
+            # Log format: json, text
+            format: json
+
+        policy_configurations: 
+          jwtauth_v010:
+            keymanagers:
+            - name: ThunderKeyManager
+              issuer: thunder
+              jwks:
+                remote:
+                  uri: http://thunder-service.openchoreo-control-plane:8090/oauth2/jwks
+                  skipTlsVerify: true
+            jwkscachettl: "5m"
+            jwksfetchtimeout: "5s"
+            jwksfetchretrycount: 3
+            jwksfetchretryinterval: "2s"
+            allowedalgorithms:
+              - RS256
+              - ES256
+            leeway: "30s"
+            authheaderscheme: Bearer
+            headername: Authorization
+            onfailurestatuscode: 401
+            errormessageformat: json
+            errormessage: "Authentication failed."
+            validateissuer: true
+
+
+      # metadata for the generated shared ConfigMap (annotations / labels)
+      configMap:
+        annotations: {}
+        labels: {}
+
+      controller:
+        image:
+          repository: ghcr.io/wso2/api-platform/gateway-controller
+          tag: "0.3.0"
+          pullPolicy: Always
+        imagePullSecrets: []
+        service:
+          type: ClusterIP
+          annotations: {}
+          labels: {}
+          ports:
+            rest: 9090
+            xds: 18000
+            policy: 18001
+        controlPlane:
+          host: host.docker.internal
+          port: 8443
+          token:
+            value: ""
+            secretName: ""
+            key: token
+        # TLS certificate configuration for downstream (listener) HTTPS
+        tls:
+          # Enable TLS certificate management
+          enabled: true
+          # Certificate provisioning method: "cert-manager", "secret", or "none"
+          # - cert-manager: Use cert-manager to automatically provision certificates
+          # - secret: Use an existing Kubernetes secret containing tls.crt and tls.key
+          # - none: No TLS configuration (certificates must be provided manually)
+          certificateProvider: cert-manager
+          # cert-manager configuration (used when certificateProvider=cert-manager)
+          certManager:
+            # Create a Certificate resource
+            create: true
+            # Create a self-signed Issuer automatically
+            # If true, a self-signed Issuer will be created with the release name
+            # If false, you must provide an existing Issuer/ClusterIssuer via issuerRef
+            createIssuer: true
+            # Issuer reference for cert-manager
+            # Note: If createIssuer=true, the 'name' field is ignored and the chart generates a unique name
+            # Only set this if createIssuer=false to reference an existing Issuer/ClusterIssuer
+            issuerRef:
+              name: selfsigned-issuer  # Ignored when createIssuer=true
+              # Use "Issuer" for namespace-scoped issuer (recommended)
+              # Use "ClusterIssuer" for cluster-wide issuer
+              kind: Issuer
+              # group: cert-manager.io  # Optional, defaults to cert-manager.io
+            # Certificate common name
+            commonName: localhost
+            # DNS names for the certificate
+            dnsNames:
+              - localhost
+              - "*.localhost"
+            # Certificate duration (default: 2160h = 90 days)
+            duration: 2160h
+            # Certificate renewal time (default: 720h = 30 days before expiry)
+            renewBefore: 720h
+          # Secret configuration (used when certificateProvider=secret)
+          secret:
+            # Name of existing secret containing tls.crt and tls.key
+            name: gateway-tls
+            # Key names in the secret
+            certKey: tls.crt
+            keyKey: tls.key
+        # Upstream certificate configuration for backend TLS verification
+        upstreamCerts:
+          # Enable custom upstream certificates
+          enabled: false
+          # Existing secret containing custom CA certificates
+          # Secret should contain one or more keys with PEM-encoded certificates
+          secretName: ""
+          # Existing ConfigMap containing custom CA certificates
+          # ConfigMap should contain one or more keys with PEM-encoded certificates
+          configMapName: ""
+        logging:
+          level: info
+        storage:
+          type: sqlite
+          sqlitePath: ./data/gateway.db
+        persistence:
+          enabled: true
+          existingClaim: ""
+          accessModes:
+            - ReadWriteOnce
+          size: 100Mi
+          storageClass: ""
+        deployment:
+          enabled: true
+          replicaCount: 1
+          volumeMountPath: /app/data
+          extraEnv: []
+          env:
+            xdsServerAddress: ""
+          extraVolumeMounts: []
+          extraVolumes: []
+          labels: {}
+          annotations: {}
+          podAnnotations: {}
+          podLabels: {}
+          priorityClassName: ""
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: rest
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: rest
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Resource limits and requests
+          # Uncomment and adjust based on your workload
+          resources: {}
+            # limits:
+            #   cpu: 500m
+            #   memory: 512Mi
+            # requests:
+            #   cpu: 250m
+            #   memory: 256Mi
+          podSecurityContext: {}
+          securityContext: {}
+          nodeSelector: {}
+          tolerations: []
+          affinity: {}
+
+      router:
+        image:
+          repository: ghcr.io/wso2/api-platform/gateway-router
+          tag: "0.3.0"
+          pullPolicy: Always
+        imagePullSecrets: []
+        service:
+          type: ClusterIP
+          annotations: {}
+          labels: {}
+          ports:
+            http: 8080
+            https: 8443
+            admin: 9901
+        deployment:
+          enabled: true
+          replicaCount: 1
+          env:
+            xdsServerHost: ""
+            xdsServerPort: ""
+          extraEnv: []
+          labels: {}
+          annotations: {}
+          podAnnotations: {}
+          podLabels: {}
+          priorityClassName: ""
+          livenessProbe:
+            httpGet:
+              path: /server_info
+              port: admin
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /server_info
+              port: admin
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          # Resource limits and requests
+          # Uncomment and adjust based on your workload
+          resources: {}
+            # limits:
+            #   cpu: 1000m
+            #   memory: 1Gi
+            # requests:
+            #   cpu: 500m
+            #   memory: 512Mi
+          podSecurityContext: {}
+          securityContext: {}
+          nodeSelector: {}
+          tolerations: []
+          affinity: {}
+
+      policyEngine:
+        image:
+          repository: ghcr.io/wso2/api-platform/policy-engine
+          tag: "0.3.0"
+          pullPolicy: Always
+        imagePullSecrets: []
+        service:
+          type: ClusterIP
+          annotations: {}
+          labels: {}
+          ports:
+            ext: 9001
+            admin: 9002
+        deployment:
+          enabled: true
+          replicaCount: 1
+          env:
+            xdsServerAddress: ""
+          extraEnv: []
+          labels: {}
+          annotations: {}
+          podAnnotations: {}
+          podLabels: {}
+          priorityClassName: ""
+          # Basic health checks — adjust if policy-engine exposes HTTP health endpoints
+          livenessProbe:
+            tcpSocket:
+              port: ext
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: ext
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Resource limits and requests
+          # Uncomment and adjust based on your workload
+          resources: {}
+            # limits:
+            #   cpu: 500m
+            #   memory: 512Mi
+            # requests:
+            #   cpu: 250m
+            #   memory: 256Mi
+          podSecurityContext: {}
+          securityContext: {}
+          nodeSelector: {}
+          tolerations: []
+          affinity: {}
+{{- end }}

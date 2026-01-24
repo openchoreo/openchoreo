@@ -31,6 +31,12 @@ const (
 
 	// EnvLogLevel is the log level for the API server (debug, info, warn, error)
 	EnvLogLevel = "LOG_LEVEL"
+
+	// EnvOIDCAuthorizationURL is the OIDC authorization endpoint URL
+	EnvOIDCAuthorizationURL = "OIDC_AUTHORIZATION_URL"
+
+	// EnvOIDCTokenURL is the OIDC token endpoint URL
+	EnvOIDCTokenURL = "OIDC_TOKEN_URL" // #nosec G101 -- This is an environment variable name, not a credential
 )
 
 // Default values for configuration

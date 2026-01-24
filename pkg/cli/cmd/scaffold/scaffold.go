@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -44,6 +45,7 @@ func newScaffoldComponentCmd(impl api.CommandImplementationInterface) *cobra.Com
 	return (&builder.CommandBuilder{
 		Command: constants.ScaffoldComponent,
 		Flags:   componentFlags,
+		PreRunE: auth.RequireLogin(impl),
 		RunE: func(fg *builder.FlagGetter) error {
 			// Parse traits from comma-separated string
 			traitsStr := fg.GetString(flags.Traits)

@@ -17,7 +17,9 @@ import (
 	"sync"
 	"time"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -28,10 +30,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
-	logLevelDebug = "debug"
+	logLevelDebug            = "debug"
+	alertRuleActionCreated   = "created"
+	alertRuleActionUpdated   = "updated"
+	alertRuleActionUnchanged = "unchanged"
 )
 
 // OpenSearchClient interface for testing
@@ -367,8 +373,8 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string,
 	switch sourceType {
 	case "log":
 		return s.UpsertOpenSearchAlertRule(ctx, rule)
-	// case "metric": (not implemented yet)
-	// 	return s.UpsertMetricAlertRule(ctx, rule)
+	case "metric":
+		return s.UpsertPrometheusAlertRule(ctx, rule)
 	default:
 		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
 	}
@@ -404,7 +410,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 		return nil, fmt.Errorf("failed to search for alert rule: %w", err)
 	}
 
-	action := "created"
+	action := alertRuleActionCreated
 	backendID := monitorID
 	lastUpdateTime := int64(0)
 
@@ -424,7 +430,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 			s.logger.Debug("Alert rule unchanged, skipping update.",
 				"rule_name", rule.Metadata.Name,
 				"monitor_id", backendID)
-			action = "unchanged"
+			action = alertRuleActionUnchanged
 			// Use current time since we're not updating
 			lastUpdateTime = time.Now().UnixMilli()
 		} else {
@@ -437,7 +443,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 			if err != nil {
 				return nil, fmt.Errorf("failed to update alert rule: %w", err)
 			}
-			action = "updated"
+			action = alertRuleActionUpdated
 		}
 	} else {
 		s.logger.Debug("Alert rule does not exist. Creating the alert rule.",
@@ -521,8 +527,8 @@ func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string,
 	switch sourceType {
 	case "log":
 		return s.DeleteOpenSearchAlertRule(ctx, ruleName)
-	// case "metric": (not implemented yet)
-	// 	return s.DeleteMetricAlertRule(ctx, ruleName)
+	case "metric":
+		return s.DeleteMetricAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("invalid alert rule source type: %s", sourceType)
 	}
@@ -562,6 +568,173 @@ func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName
 		Status:     "deleted",
 		LogicalID:  ruleName,
 		BackendID:  monitorID,
+		Action:     "deleted",
+		LastSynced: now,
+	}, nil
+}
+
+// UpsertPrometheusAlertRule creates or updates a metric-based alert rule as a PrometheusRule CR
+func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Create the alert rule builder
+	alertRuleBuilder := prometheus.NewAlertRuleBuilder(s.config.Alerting.ObservabilityNamespace)
+
+	// Build the PrometheusRule CR
+	prometheusRule, err := alertRuleBuilder.BuildPrometheusRule(rule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build PrometheusRule: %w", err)
+	}
+
+	// Log the generated rule for debugging
+	if len(prometheusRule.Spec.Groups) > 0 && len(prometheusRule.Spec.Groups[0].Rules) > 0 {
+		group := prometheusRule.Spec.Groups[0]
+		rule := group.Rules[0]
+		s.logger.Debug("Generated PrometheusRule",
+			"name", prometheusRule.Name,
+			"namespace", prometheusRule.Namespace,
+			"groupName", group.Name,
+			"interval", group.Interval,
+			"alertName", rule.Alert,
+			"expression", rule.Expr.String(),
+			"for", rule.For,
+			"labels", rule.Labels)
+	}
+
+	// Check if the PrometheusRule already exists
+	existingRule := &monitoringv1.PrometheusRule{}
+	err = s.k8sClient.Get(ctx, client.ObjectKey{
+		Namespace: s.config.Alerting.ObservabilityNamespace,
+		Name:      rule.Metadata.Name,
+	}, existingRule)
+
+	action := alertRuleActionCreated
+	now := time.Now()
+
+	if err == nil {
+		// Rule exists, check if update is needed
+		if s.prometheusRulesAreEqual(existingRule, prometheusRule) {
+			s.logger.Debug("PrometheusRule unchanged, skipping update",
+				"rule_name", rule.Metadata.Name,
+				"namespace", s.config.Alerting.ObservabilityNamespace)
+			return &types.AlertingRuleSyncResponse{
+				Status:     "synced",
+				LogicalID:  rule.Metadata.Name,
+				BackendID:  string(existingRule.UID),
+				Action:     alertRuleActionUnchanged,
+				LastSynced: now.UTC().Format(time.RFC3339),
+			}, nil
+		}
+
+		// Update the existing rule
+		existingRule.Spec = prometheusRule.Spec
+		existingRule.Labels = prometheusRule.Labels
+		if err := s.k8sClient.Update(ctx, existingRule); err != nil {
+			return nil, fmt.Errorf("failed to update PrometheusRule: %w", err)
+		}
+		action = alertRuleActionUpdated
+		s.logger.Debug("PrometheusRule updated",
+			"rule_name", rule.Metadata.Name,
+			"namespace", s.config.Alerting.ObservabilityNamespace)
+	} else if apierrors.IsNotFound(err) {
+		// Create new rule
+		if err := s.k8sClient.Create(ctx, prometheusRule); err != nil {
+			return nil, fmt.Errorf("failed to create PrometheusRule: %w", err)
+		}
+		s.logger.Debug("PrometheusRule created",
+			"rule_name", rule.Metadata.Name,
+			"namespace", s.config.Alerting.ObservabilityNamespace)
+	} else {
+		return nil, fmt.Errorf("failed to get existing PrometheusRule: %w", err)
+	}
+
+	// Get the UID of the created/updated rule
+	if action == alertRuleActionCreated {
+		// Re-fetch to get the UID
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{
+			Namespace: s.config.Alerting.ObservabilityNamespace,
+			Name:      rule.Metadata.Name,
+		}, prometheusRule); err != nil {
+			s.logger.Warn("Failed to re-fetch PrometheusRule for UID", "error", err)
+		}
+	}
+
+	backendID := string(prometheusRule.UID)
+	if action == alertRuleActionUpdated {
+		backendID = string(existingRule.UID)
+	}
+
+	return &types.AlertingRuleSyncResponse{
+		Status:     "synced",
+		LogicalID:  rule.Metadata.Name,
+		BackendID:  backendID,
+		Action:     action,
+		LastSynced: now.UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// prometheusRulesAreEqual compares two PrometheusRule specs to determine if they are equal
+func (s *LoggingService) prometheusRulesAreEqual(existing, new *monitoringv1.PrometheusRule) bool {
+	// Compare specs using JSON marshaling for deep comparison
+	existingJSON, err := json.Marshal(existing.Spec)
+	if err != nil {
+		s.logger.Warn("Failed to marshal existing PrometheusRule spec", "error", err)
+		return false
+	}
+
+	newJSON, err := json.Marshal(new.Spec)
+	if err != nil {
+		s.logger.Warn("Failed to marshal new PrometheusRule spec", "error", err)
+		return false
+	}
+
+	return string(existingJSON) == string(newJSON)
+}
+
+// DeleteMetricAlertRule deletes a metric-based alert rule (PrometheusRule CR)
+func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+	if s.k8sClient == nil {
+		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Try to get the existing PrometheusRule
+	existingRule := &monitoringv1.PrometheusRule{}
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Namespace: s.config.Alerting.ObservabilityNamespace,
+		Name:      ruleName,
+	}, existingRule)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if apierrors.IsNotFound(err) {
+		// Rule doesn't exist
+		return &types.AlertingRuleSyncResponse{
+			Status:     "not_found",
+			LogicalID:  ruleName,
+			BackendID:  "",
+			Action:     "not_found",
+			LastSynced: now,
+		}, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get PrometheusRule: %w", err)
+	}
+
+	// Delete the PrometheusRule
+	backendID := string(existingRule.UID)
+	if err := s.k8sClient.Delete(ctx, existingRule); err != nil {
+		return nil, fmt.Errorf("failed to delete PrometheusRule: %w", err)
+	}
+
+	s.logger.Debug("PrometheusRule deleted successfully",
+		"rule_name", ruleName,
+		"namespace", s.config.Alerting.ObservabilityNamespace)
+
+	return &types.AlertingRuleSyncResponse{
+		Status:     "deleted",
+		LogicalID:  ruleName,
+		BackendID:  backendID,
 		Action:     "deleted",
 		LastSynced: now,
 	}, nil
@@ -988,38 +1161,83 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 		return fmt.Errorf("failed to get notification channel config: %w", err)
 	}
 
-	// Render the incoming alert payload for human-friendly notifications
-	payload, err := json.MarshalIndent(requestBody, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal alert payload: %w", err)
-	}
+	// Send notification based on channel type
+	switch channelConfig.Type {
+	case "webhook":
+		// Transform payload if template is provided, otherwise use raw alertDetails
+		var payload map[string]interface{}
+		if channelConfig.Webhook.PayloadTemplate != "" {
+			// Render the template using CEL expressions
+			renderedTemplate := s.renderTemplate(channelConfig.Webhook.PayloadTemplate, requestBody)
 
-	// Build subject and body using templates if available, otherwise use defaults
-	subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
-	if channelConfig.Email.SubjectTemplate != "" {
-		subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
-	}
+			// Parse the rendered template as JSON
+			if err := json.Unmarshal([]byte(renderedTemplate), &payload); err != nil {
+				s.logger.Error("Failed to parse rendered webhook payload template as JSON",
+					"error", err,
+					"renderedTemplate", renderedTemplate,
+					"channelName", notificationChannelName)
+				return fmt.Errorf("failed to parse webhook payload template as JSON: %w", err)
+			}
+			s.logger.Debug("Webhook payload template rendered and parsed",
+				"channelName", notificationChannelName,
+				"payload", payload)
+		} else {
+			// No template provided, use raw alertDetails
+			payload = requestBody
+		}
 
-	emailBody := fmt.Sprintf("An alert was received at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
-	if channelConfig.Email.BodyTemplate != "" {
-		emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
-	}
-
-	// Send the notification using the fetched config
-	if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
-		s.logger.Error("Failed to send alert notification email",
-			"error", err,
+		// Send the webhook with the transformed payload
+		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, payload); err != nil {
+			s.logger.Error("Failed to send alert notification webhook",
+				"error", err,
+				"channelName", notificationChannelName,
+				"webhookURL", channelConfig.Webhook.URL,
+				"payload", payload)
+			return fmt.Errorf("failed to send alert notification webhook: %w", err)
+		}
+		s.logger.Debug("Alert notification sent successfully via webhook",
+			"ruleName", ruleName,
 			"channelName", notificationChannelName,
-			"recipients", channelConfig.Email.To)
-		return fmt.Errorf("failed to send alert notification email: %w", err)
+			"webhookURL", channelConfig.Webhook.URL,
+			"usedTemplate", channelConfig.Webhook.PayloadTemplate != "")
+		return nil
+
+	case "email":
+		// Render the incoming alert payload for human-friendly notifications
+		payload, err := json.MarshalIndent(requestBody, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal alert payload: %w", err)
+		}
+
+		// Build subject and body using templates if available, otherwise use defaults
+		subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
+		if channelConfig.Email.SubjectTemplate != "" {
+			subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
+		}
+
+		emailBody := fmt.Sprintf("An alert was triggered at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
+		if channelConfig.Email.BodyTemplate != "" {
+			emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
+		}
+
+		// Send the notification using the fetched config
+		if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
+			s.logger.Error("Failed to send alert notification email",
+				"error", err,
+				"channelName", notificationChannelName,
+				"recipients", channelConfig.Email.To)
+			return fmt.Errorf("failed to send alert notification email: %w", err)
+		}
+
+		s.logger.Debug("Alert notification sent successfully",
+			"ruleName", ruleName,
+			"channelName", notificationChannelName,
+			"recipients count", len(channelConfig.Email.To))
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported notification channel type: %s", channelConfig.Type)
 	}
-
-	s.logger.Info("Alert notification sent successfully",
-		"ruleName", ruleName,
-		"channelName", notificationChannelName,
-		"recipients", channelConfig.Email.To)
-
-	return nil
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1066,56 +1284,113 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 		}
 	}
 
-	// Parse recipients from ConfigMap (stored as string representation of array)
-	var recipients []string
-	if toStr, ok := configMap.Data["to"]; ok {
-		// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
-		// Parse it back to a slice
-		recipients = parseRecipientsList(toStr)
+	// Get channel type from ConfigMap
+	channelType := configMap.Data["type"]
+	if channelType == "" {
+		return nil, fmt.Errorf("notification channel type not found in ConfigMap")
 	}
 
 	config := &notifications.NotificationChannelConfig{
-		SMTP: notifications.SMTPConfig{
-			Host: configMap.Data["smtp.host"],
-			Port: smtpPort,
-			From: configMap.Data["from"],
-		},
-		Email: notifications.EmailConfig{
+		Type: channelType,
+	}
+
+	// Parse configuration based on channel type
+	switch channelType {
+	case "email":
+		// Parse recipients from ConfigMap (stored as string representation of array)
+		var recipients []string
+		if toStr, ok := configMap.Data["to"]; ok {
+			// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
+			// Parse it back to a slice
+			recipients = parseRecipientsList(toStr)
+		}
+
+		config.Email = notifications.EmailConfig{
+			SMTP: notifications.SMTPConfig{
+				Host: configMap.Data["smtp.host"],
+				Port: smtpPort,
+				From: configMap.Data["from"],
+			},
 			To:              recipients,
 			SubjectTemplate: configMap.Data["template.subject"],
 			BodyTemplate:    configMap.Data["template.body"],
-		},
-	}
-
-	// Read SMTP credentials directly from the secret
-	if secret != nil && secret.Data != nil {
-		s.logger.Debug("Reading SMTP credentials from secret",
-			"secretName", secret.Name,
-			"secretNamespace", secret.Namespace)
-
-		if username, ok := secret.Data["smtp.auth.username"]; ok {
-			config.SMTP.Username = string(username)
-			s.logger.Debug("SMTP username loaded")
-		} else {
-			s.logger.Warn("SMTP username key not found in secret")
 		}
-		if password, ok := secret.Data["smtp.auth.password"]; ok {
-			config.SMTP.Password = string(password)
-			s.logger.Debug("SMTP password loaded")
-		} else {
-			s.logger.Warn("SMTP password key not found in secret")
-		}
-	} else {
-		s.logger.Warn("Secret is nil or has no data",
-			"secretNil", secret == nil)
-	}
 
-	s.logger.Debug("Final SMTP config",
-		"host", config.SMTP.Host,
-		"port", config.SMTP.Port,
-		"from", config.SMTP.From,
-		"hasUsername", config.SMTP.Username != "",
-		"hasPassword", config.SMTP.Password != "")
+		// Read SMTP credentials directly from the secret
+		if secret != nil && secret.Data != nil {
+			s.logger.Debug("Reading SMTP credentials from secret",
+				"secretName", secret.Name,
+				"secretNamespace", secret.Namespace)
+
+			if username, ok := secret.Data["smtp.auth.username"]; ok {
+				config.Email.SMTP.Username = string(username)
+				s.logger.Debug("SMTP username loaded")
+			} else {
+				s.logger.Warn("SMTP username key not found in secret")
+			}
+			if password, ok := secret.Data["smtp.auth.password"]; ok {
+				config.Email.SMTP.Password = string(password)
+				s.logger.Debug("SMTP password loaded")
+			} else {
+				s.logger.Warn("SMTP password key not found in secret")
+			}
+		} else {
+			s.logger.Warn("Secret is nil or has no data",
+				"secretNil", secret == nil)
+		}
+
+		s.logger.Debug("Final SMTP config",
+			"host", config.Email.SMTP.Host,
+			"port", config.Email.SMTP.Port,
+			"from", config.Email.SMTP.From,
+			"hasUsername", config.Email.SMTP.Username != "",
+			"hasPassword", config.Email.SMTP.Password != "")
+
+	case "webhook":
+		// Parse webhook URL
+		webhookURL := configMap.Data["webhook.url"]
+		if webhookURL == "" {
+			return nil, fmt.Errorf("Alert webhook URL not found in ConfigMap")
+		}
+
+		// Parse headers from ConfigMap and Secret
+		headers := make(map[string]string)
+		if headerKeysStr, ok := configMap.Data["webhook.headers"]; ok && headerKeysStr != "" {
+			headerKeys := strings.Split(headerKeysStr, ",")
+			for _, key := range headerKeys {
+				key = strings.TrimSpace(key)
+				if key == "" {
+					continue
+				}
+				// Try to get inline value from ConfigMap first
+				if inlineValue, ok := configMap.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+					headers[key] = inlineValue
+				} else if secret != nil && secret.Data != nil {
+					// Try to get value from Secret (for secret-referenced headers)
+					if secretValue, ok := secret.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+						headers[key] = string(secretValue)
+					}
+				}
+			}
+		}
+
+		// Parse payload template if provided
+		payloadTemplate := configMap.Data["webhook.payloadTemplate"]
+
+		config.Webhook = notifications.WebhookConfig{
+			URL:             webhookURL,
+			Headers:         headers,
+			PayloadTemplate: payloadTemplate,
+		}
+
+		s.logger.Debug("Final webhook config",
+			"url", config.Webhook.URL,
+			"headerCount", len(config.Webhook.Headers),
+			"hasPayloadTemplate", payloadTemplate != "")
+
+	default:
+		return nil, fmt.Errorf("unsupported notification channel type: %s", channelType)
+	}
 
 	return config, nil
 }
@@ -1137,42 +1412,73 @@ func parseRecipientsList(s string) []string {
 	return parts
 }
 
-// renderTemplate performs simple template rendering by replacing ${key} with values from the map
-func (s *LoggingService) renderTemplate(template string, data map[string]interface{}) string {
-	result := template
-
-	// Replace known placeholders
-	replacements := map[string]string{
-		"${alert.name}":        getString(data, "ruleName"),
-		"${alert.ruleName}":    getString(data, "ruleName"),
-		"${alert.value}":       getStringFromAny(data["alertValue"]),
-		"${alert.timestamp}":   getString(data, "timestamp"),
-		"${alert.componentId}": getString(data, "componentUid"),
-		"${alert.projectId}":   getString(data, "projectUid"),
-		"${alert.envId}":       getString(data, "environmentUid"),
+// renderTemplate performs CEL expression rendering by evaluating ${...} expressions using the template engine.
+// If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
+func (s *LoggingService) renderTemplate(templateStr string, data map[string]interface{}) string {
+	// Build the CEL input context with the alert data
+	celInputs := map[string]any{
+		"alertName":                       data["ruleName"],
+		"alertTimestamp":                  data["timestamp"],
+		"alertSeverity":                   data["severity"],
+		"alertDescription":                data["description"],
+		"alertThreshold":                  data["threshold"],
+		"alertValue":                      data["value"],
+		"alertType":                       data["type"],
+		"component":                       data["component"],
+		"project":                         data["project"],
+		"environment":                     data["environment"],
+		"componentId":                     data["componentUid"],
+		"projectId":                       data["projectUid"],
+		"environmentId":                   data["environmentUid"],
+		"alertAIRootCauseAnalysisEnabled": data["enableAiRootCauseAnalysis"],
 	}
 
-	for placeholder, value := range replacements {
-		result = strings.ReplaceAll(result, placeholder, value)
+	s.logger.Debug("CEL template rendering inputs", "alertData", celInputs)
+
+	// Find all CEL expressions in the template
+	expressions, err := template.FindCELExpressions(templateStr)
+	if err != nil {
+		s.logger.Warn("Failed to parse CEL expressions in template, returning original template",
+			"error", err,
+			"template", templateStr)
+		return templateStr
+	}
+
+	// If no expressions found, return the template as-is
+	if len(expressions) == 0 {
+		return templateStr
+	}
+
+	// Create a new template engine for CEL evaluation
+	engine := template.NewEngine()
+
+	result := templateStr
+	for _, match := range expressions {
+		// Try to render this single expression
+		rendered, err := engine.Render(match.FullExpr, celInputs)
+		if err != nil {
+			s.logger.Warn("Failed to resolve CEL expression, keeping original expression",
+				"expression", match.FullExpr,
+				"innerExpr", match.InnerExpr,
+				"error", err)
+			// Keep the original expression in the result
+			continue
+		}
+
+		// Convert rendered result to string
+		var replacement string
+		switch v := rendered.(type) {
+		case string:
+			replacement = v
+		default:
+			replacement = fmt.Sprintf("%v", v)
+		}
+
+		// Replace only the first occurrence of this expression
+		result = strings.Replace(result, match.FullExpr, replacement, 1)
 	}
 
 	return result
-}
-
-// getString safely extracts a string value from the map
-func getString(m map[string]interface{}, key string) string {
-	if v, ok := m[key].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// getStringFromAny converts any value to string representation
-func getStringFromAny(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	return fmt.Sprintf("%v", v)
 }
 
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
@@ -1237,8 +1543,9 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 		}
 
 		ruleInfo["source"] = map[string]interface{}{
-			"type":  string(alertRule.Spec.Source.Type),
-			"query": alertRule.Spec.Source.Query,
+			"type":   string(alertRule.Spec.Source.Type),
+			"query":  alertRule.Spec.Source.Query,
+			"metric": alertRule.Spec.Source.Metric,
 		}
 
 		ruleInfo["condition"] = map[string]interface{}{
@@ -1258,7 +1565,7 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 		"environmentUid": requestBody["environmentUid"],
 		"alert": map[string]interface{}{
 			"id":        alertID,
-			"value":     requestBody["alertValue"],
+			"value":     requestBody["value"],
 			"timestamp": requestBody["timestamp"],
 			"rule":      ruleInfo,
 		},
@@ -1311,18 +1618,61 @@ func (s *LoggingService) ParseOpenSearchAlertPayload(requestBody map[string]inte
 	return ruleName, ruleNamespace, alertValue, timestamp, nil
 }
 
+// ParsePrometheusAlertPayload parses the Prometheus Alertmanager webhook payload
+// Returns: ruleName, ruleNamespace, alertValue, timestamp, error
+func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]interface{}) (string, string, string, string, error) {
+	// Alertmanager sends alerts in an array
+	alerts, ok := requestBody["alerts"].([]interface{})
+	if !ok || len(alerts) == 0 {
+		return "", "", "", "", fmt.Errorf("no alerts found in Prometheus payload")
+	}
+
+	// Get the first alert
+	alert, ok := alerts[0].(map[string]interface{})
+	if !ok {
+		return "", "", "", "", fmt.Errorf("invalid alert format in Prometheus payload")
+	}
+	// Ignore alert if not in "firing" state
+	status, _ := alert["status"].(string)
+	if status != "firing" {
+		return "", "", "", "", fmt.Errorf("alert is not in firing state")
+	}
+
+	// Extract from annotations (where we put rule_name, rule_namespace, alert_value)
+	annotations, _ := alert["annotations"].(map[string]interface{})
+	ruleName, _ := annotations["rule_name"].(string)
+	ruleNamespace, _ := annotations["rule_namespace"].(string)
+	alertValue, _ := annotations["alert_value"].(string)
+
+	// Extract timestamp from startsAt
+	timestamp, _ := alert["startsAt"].(string)
+
+	if ruleName == "" {
+		return "", "", "", "", fmt.Errorf("rule_name is required in Prometheus alert annotations")
+	}
+	if ruleNamespace == "" {
+		return "", "", "", "", fmt.Errorf("rule_namespace is required in Prometheus alert annotations")
+	}
+
+	return ruleName, ruleNamespace, alertValue, timestamp, nil
+}
+
 // EnrichAlertDetails enriches the alert details with the ObservabilityAlertRule CR details
 func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"timestamp":                 timestamp,
-		"severity":                  alertRule.Spec.Severity,
+		"severity":                  string(alertRule.Spec.Severity),
 		"ruleName":                  alertRule.Spec.Name,
-		"ruleType":                  alertRule.Spec.Source.Type,
-		"ruleThreshold":             alertRule.Spec.Condition.Threshold,
-		"alertValue":                alertValue,
+		"description":               alertRule.Spec.Description,
+		"type":                      string(alertRule.Spec.Source.Type),
+		"threshold":                 strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		"value":                     alertValue,
 		"componentUid":              alertRule.Labels["openchoreo.dev/component-uid"],
 		"environmentUid":            alertRule.Labels["openchoreo.dev/environment-uid"],
 		"projectUid":                alertRule.Labels["openchoreo.dev/project-uid"],
+		"component":                 alertRule.Labels["openchoreo.dev/component"],
+		"project":                   alertRule.Labels["openchoreo.dev/project"],
+		"environment":               alertRule.Labels["openchoreo.dev/environment"],
 		"notificationChannel":       alertRule.Spec.NotificationChannel,
 		"enableAiRootCauseAnalysis": alertRule.Spec.EnableAiRootCauseAnalysis,
 	}, nil

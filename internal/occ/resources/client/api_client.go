@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/constants"
 )
 
@@ -189,14 +189,22 @@ func (r ListComponentsResponse) GetMetadata() ResponseMetadata {
 
 // NewAPIClient creates a new API client with control plane auto-detection
 func NewAPIClient() (*APIClient, error) {
-	cfg, err := getStoredControlPlaneConfig()
+	// Get control plane
+	controlPlane, err := config.GetCurrentControlPlane()
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect control plane: %w", err)
+		return nil, fmt.Errorf("failed to get control plane: %w", err)
+	}
+
+	// Get credential and token (may not exist yet if not logged in)
+	token := ""
+	credential, err := config.GetCurrentCredential()
+	if err == nil && credential != nil {
+		token = credential.Token
 	}
 
 	return &APIClient{
-		baseURL:    cfg.Endpoint,
-		token:      cfg.Token,
+		baseURL:    controlPlane.URL,
+		token:      token,
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
@@ -528,6 +536,15 @@ func (c *APIClient) delete(ctx context.Context, path string, body interface{}) (
 }
 
 func (c *APIClient) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	// Check if token needs refresh before making request
+	if c.token != "" && auth.IsTokenExpired(c.token) {
+		newToken, err := auth.RefreshToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to refresh token: %w", err)
+		}
+		c.token = newToken
+	}
+
 	url := c.baseURL + path
 
 	var bodyReader io.Reader
@@ -558,18 +575,4 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body int
 	}
 
 	return resp, nil
-}
-
-// getStoredControlPlaneConfig reads control plane config from stored configuration
-func getStoredControlPlaneConfig() (*configContext.ControlPlane, error) {
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if cfg.ControlPlane == nil {
-		return nil, fmt.Errorf("no control plane configured")
-	}
-
-	return cfg.ControlPlane, nil
 }

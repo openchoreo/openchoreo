@@ -227,6 +227,27 @@ type CapabilityResource struct {
 	Path *string `json:"path,omitempty"`
 }
 
+// ClientConfigList OpenID Connect configuration response
+type ClientConfigList struct {
+	// AuthorizationEndpoint OAuth2 authorization endpoint URL
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+
+	// ExternalClients Array of external client configurations
+	ExternalClients []ExternalClient `json:"external_clients"`
+
+	// Issuer OIDC issuer URL
+	Issuer *string `json:"issuer,omitempty"`
+
+	// JwksUri JWKS endpoint URL for token validation
+	JwksUri *string `json:"jwks_uri,omitempty"`
+
+	// SecurityEnabled Whether authentication is enabled on the server
+	SecurityEnabled bool `json:"security_enabled"`
+
+	// TokenEndpoint OAuth2 token endpoint URL
+	TokenEndpoint string `json:"token_endpoint"`
+}
+
 // Component Component resource
 type Component struct {
 	// AutoDeploy Whether to automatically deploy to default environment
@@ -873,6 +894,18 @@ type ExposedEndpoint struct {
 
 	// Uri Full URI
 	Uri *string `json:"uri,omitempty"`
+}
+
+// ExternalClient External client configuration
+type ExternalClient struct {
+	// ClientId OAuth2 client ID for this client type
+	ClientId string `json:"client_id"`
+
+	// Name Name of the external client
+	Name string `json:"name"`
+
+	// Scopes OAuth2 scopes for this client
+	Scopes []string `json:"scopes"`
 }
 
 // FileVar File mount variable

@@ -44,18 +44,69 @@ spec:
           - name: git-revision
             valueFrom:
               path: /tmp/git-revision.txt
+      volumes:
+        - name: git-secret
+          secret:
+            secretName: '{{ "{{" }}workflow.parameters.git-secret{{ "}}" }}'
+            optional: true
       container:
         args:
           - |-
             set -e
 
+            #####################################################################
+            # 1. Initialize variables
+            #####################################################################
             BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
-            REPO={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
+            REPO_URL={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
             COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
 
+            #####################################################################
+            # 2. Read authentication token
+            #####################################################################
+            TOKEN_FILE="/etc/secrets/git-secret/git-token"
+            GIT_TOKEN=""
+            if [ -f "$TOKEN_FILE" ]; then
+              GIT_TOKEN="$(cat "$TOKEN_FILE")"
+            fi
+
+            #####################################################################
+            # 3. Build authenticated repository URL
+            #####################################################################
+            CLONE_URL="$REPO_URL"
+            if [ -n "$GIT_TOKEN" ]; then
+              case "$REPO_URL" in
+                https://*)
+                  HOST=$(echo "$REPO_URL" | sed -E 's|https://([^/]+)/.*|\1|')
+                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|https://[^/]+/(.*)|\1|')
+                  ;;
+                git@*)
+                  HOST=$(echo "$REPO_URL" | sed -E 's|git@([^:]+):.*|\1|')
+                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|git@[^:]+:(.*)|\1|')
+                  ;;
+              esac
+
+              # Map host to authentication prefix
+              case "$HOST" in
+                github.com)    AUTH_PREFIX="x-access-token" ;;
+                gitlab.com)    AUTH_PREFIX="oauth2" ;;
+                bitbucket.org) AUTH_PREFIX="x-token-auth" ;;
+                *)             AUTH_PREFIX="" ;;
+              esac
+
+              if [ -n "$AUTH_PREFIX" ]; then
+                CLONE_URL="https://${AUTH_PREFIX}:${GIT_TOKEN}@${HOST}/${REPO_PATH}"
+              fi
+            fi
+
+            echo "Cloning repository..."
+
+            #####################################################################
+            # 4. Clone repository
+            #####################################################################
             if [[ -n "$COMMIT" ]]; then
                 echo "Cloning specific commit: $COMMIT"
-                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                git clone --no-checkout --depth 1 "$CLONE_URL" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
@@ -63,7 +114,7 @@ spec:
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
             else
                 echo "Cloning branch: $BRANCH with latest commit"
-                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                git clone --single-branch --branch $BRANCH --depth 1 "$CLONE_URL" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
@@ -76,6 +127,9 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /etc/secrets/git-secret
+            name: git-secret
+            readOnly: true
     - name: build-step
       inputs:
         parameters:
@@ -126,6 +180,11 @@ spec:
           - name: image
             valueFrom:
               path: /tmp/image.txt
+      volumes:
+        - name: registry-push-secret
+          secret:
+            optional: true
+            secretName: '{{ "{{" }}workflow.parameters.registry-push-secret{{ "}}" }}'
       container:
         args:
           - |-
@@ -142,6 +201,7 @@ spec:
             # 2. Registry
             #####################################################################
             REGISTRY_ENDPOINT="{{ include "openchoreo-build-plane.registryEndpoint" . }}"
+            AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
 
             #####################################################################
             # 3. Podman storage configuration
@@ -162,7 +222,12 @@ spec:
             podman load -i /mnt/vol/app-image.tar
 
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
-            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+
+            if [ -f "$AUTH_FILE" ]; then
+              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+            else
+              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
+            fi
 
             #####################################################################
             # 5. Emit image reference (for later steps/kubelet pulls)
@@ -177,6 +242,9 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /etc/secrets/registry-push-secret
+            name: registry-push-secret
+            readOnly: true
     - name: workload-create-step
       inputs:
         parameters:

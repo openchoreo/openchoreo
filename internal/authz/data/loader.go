@@ -31,18 +31,20 @@ type ActionData struct {
 // systemActions defines all available actions in the system
 // IsInternal indicates if the action is internal (not publicly visible)
 var systemActions = []ActionData{
-	// Organization
-	{Name: "organization:view", IsInternal: false},
+	// Namespace
+	{Name: "namespace:view", IsInternal: false},
 
 	// Project
 	{Name: "project:view", IsInternal: false},
 	{Name: "project:create", IsInternal: false},
+	{Name: "project:delete", IsInternal: false},
 
 	// Component
 	{Name: "component:view", IsInternal: false},
 	{Name: "component:create", IsInternal: false},
 	{Name: "component:update", IsInternal: false},
 	{Name: "component:deploy", IsInternal: false},
+	{Name: "component:delete", IsInternal: false},
 
 	// ComponentRelease
 	{Name: "componentrelease:view", IsInternal: false},
@@ -112,6 +114,11 @@ var systemActions = []ActionData{
 
 	// alerts
 	{Name: "alerts:view", IsInternal: false},
+
+	// RCA Report
+	{Name: "rcareport:view", IsInternal: false},
+	{Name: "rcareport:update", IsInternal: false},
+	{Name: "rcareport:delete", IsInternal: false},
 }
 
 // LoadActions returns the system-defined actions
@@ -190,8 +197,8 @@ func validateRoles(roles []authzcore.Role) error {
 // validateMappings ensures the mappings data is valid
 func validateMappings(mappings []authzcore.RoleEntitlementMapping) error {
 	for i, mapping := range mappings {
-		if mapping.RoleName == "" {
-			return fmt.Errorf("mapping at index %d has empty role_name", i)
+		if mapping.RoleRef.Name == "" {
+			return fmt.Errorf("mapping at index %d has empty role_ref.name", i)
 		}
 		if mapping.Entitlement.Claim == "" {
 			return fmt.Errorf("mapping at index %d has empty entitlement claim", i)

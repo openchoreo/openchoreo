@@ -1,5 +1,5 @@
-# Use distroless for minimal secure image
-FROM gcr.io/distroless/static:nonroot
+# Use Alpine for minimal image with shell support
+FROM alpine:latest
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -8,14 +8,20 @@ LABEL org.opencontainers.image.source="https://github.com/openchoreo/openchoreo"
 LABEL org.opencontainers.image.description="OpenChoreo CLI"
 LABEL org.opencontainers.image.license="Apache-2.0"
 
-# Set working directory in the container
-WORKDIR /
-
 # Copy the pre-built binary produced by the Makefile into the image
-COPY bin/dist/${TARGETOS}/${TARGETARCH}/occ .
+COPY bin/dist/${TARGETOS}/${TARGETARCH}/occ /usr/local/bin/occ
 
-# Use non-root user for security (65532 is 'nonroot' user in distroless)
-USER 65532:65532
+# Create home directory for nobody user with proper permissions
+RUN mkdir -p /home/nobody && chown -R nobody:nobody /home/nobody
+
+# Set HOME environment variable
+ENV HOME=/home/nobody
+
+# Use non-root user for security (nobody user in Alpine)
+USER nobody:nobody
+
+# Set working directory in the container
+WORKDIR /home/nobody
 
 # Entrypoint: run the binary
-ENTRYPOINT ["/occ"]
+ENTRYPOINT ["occ"]

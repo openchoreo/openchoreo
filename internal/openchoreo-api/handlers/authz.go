@@ -14,6 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
+// TODO: binoyperies: Need refactor role CRUDs to accommodate namespace-scoped roles, once the ns concept is added.
+
 // UpdateRoleRequest represents the request body for updating a role
 type UpdateRoleRequest struct {
 	Actions []string `json:"actions"`
@@ -21,7 +23,7 @@ type UpdateRoleRequest struct {
 
 // UpdateRoleMappingRequest represents the request body for updating a role-entitlement mapping
 type UpdateRoleMappingRequest struct {
-	RoleName    string                  `json:"role_name"`
+	RoleRef     authz.RoleRef           `json:"role"`
 	Entitlement authz.Entitlement       `json:"entitlement"`
 	Hierarchy   authz.ResourceHierarchy `json:"hierarchy"`
 	Effect      authz.PolicyEffectType  `json:"effect"`
@@ -82,7 +84,10 @@ func (h *Handler) AddRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.services.AuthzService.AddRole(r.Context(), role); err != nil {
+	ctx := r.Context()
+	setAuditResource(ctx, "role", role.Name, role.Name)
+
+	if err := h.services.AuthzService.AddRole(ctx, role); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to create role", "role", role.Name)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -111,6 +116,9 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	setAuditResource(ctx, "role", roleName, roleName)
+
 	var req UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
@@ -122,7 +130,7 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		Actions: req.Actions,
 	}
 
-	if err := h.services.AuthzService.UpdateRole(r.Context(), role); err != nil {
+	if err := h.services.AuthzService.UpdateRole(ctx, role); err != nil {
 		h.logger.Error("Failed to update role", "error", err, "role", roleName)
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -140,6 +148,8 @@ func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	addAuditMetadata(ctx, "actions", req.Actions)
+
 	writeSuccessResponse(w, http.StatusOK, map[string]string{"message": "Role updated successfully"})
 }
 
@@ -152,9 +162,12 @@ func (h *Handler) RemoveRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	setAuditResource(ctx, "role", roleName, roleName)
+
 	force := r.URL.Query().Get("force") == "true" // nolint:goconst
 
-	if err := h.services.AuthzService.RemoveRole(r.Context(), roleName, force); err != nil {
+	if err := h.services.AuthzService.RemoveRole(ctx, roleName, force); err != nil {
 		h.logger.Error("Failed to remove role", "error", err, "role", roleName, "force", force)
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to delete role", "role", roleName)
@@ -221,7 +234,18 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.services.AuthzService.AddRoleMapping(r.Context(), mapping); err != nil {
+	ctx := r.Context()
+	setAuditResource(ctx, "role_mapping", strconv.FormatUint(uint64(mapping.ID), 10), strconv.FormatUint(uint64(mapping.ID), 10))
+	addAuditMetadataBatch(ctx, map[string]any{
+		"role":        mapping.RoleRef.Name,
+		"role_ns":     mapping.RoleRef.Namespace,
+		"entitlement": mapping.Entitlement,
+		"hierarchy":   mapping.Hierarchy,
+		"effect":      mapping.Effect,
+		"context":     mapping.Context,
+	})
+
+	if err := h.services.AuthzService.AddRoleMapping(ctx, mapping); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to create role mapping")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -244,6 +268,7 @@ func (h *Handler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 // UpdateRoleMapping handles PUT /api/v1/authz/role-mappings/{mappingId}
 func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	idStr := r.PathValue("mappingId")
 	if idStr == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Mapping ID is required", services.CodeInvalidInput)
@@ -262,10 +287,20 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setAuditResource(ctx, "role_mapping", idStr, idStr)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"role":        req.RoleRef.Name,
+		"role_ns":     req.RoleRef.Namespace,
+		"entitlement": req.Entitlement,
+		"hierarchy":   req.Hierarchy,
+		"effect":      req.Effect,
+		"context":     req.Context,
+	})
+
 	// Map DTO to domain model
 	mapping := &authz.RoleEntitlementMapping{
 		ID:          uint(id),
-		RoleName:    req.RoleName,
+		RoleRef:     req.RoleRef,
 		Entitlement: req.Entitlement,
 		Hierarchy:   req.Hierarchy,
 		Effect:      req.Effect,
@@ -303,6 +338,7 @@ func (h *Handler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
 
 // RemoveRoleMapping handles DELETE /api/v1/authz/role-mappings/{mappingId}
 func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	idStr := r.PathValue("mappingId")
 	if idStr == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Mapping ID is required", services.CodeInvalidInput)
@@ -314,6 +350,8 @@ func (h *Handler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid mapping ID", services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "role_mapping", idStr, idStr)
 
 	if err := h.services.AuthzService.RemoveRoleMappingByID(r.Context(), uint(id)); err != nil {
 		if errors.Is(err, services.ErrForbidden) {
@@ -405,10 +443,9 @@ func (h *Handler) BatchEvaluate(w http.ResponseWriter, r *http.Request) {
 // GetSubjectProfile handles GET /api/v1/authz/profile
 func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	// Extract query parameters
-	org := r.URL.Query().Get("org")
+	namespace := r.URL.Query().Get("namespace")
 	project := r.URL.Query().Get("project")
 	component := r.URL.Query().Get("component")
-	orgUnits := r.URL.Query()["ou"]
 
 	subjectCtx, ok := auth.GetSubjectContextFromContext(r.Context())
 	if !ok || subjectCtx == nil {
@@ -421,10 +458,9 @@ func (h *Handler) GetSubjectProfile(w http.ResponseWriter, r *http.Request) {
 	request := &authz.ProfileRequest{
 		SubjectContext: authzSubjectCtx,
 		Scope: authz.ResourceHierarchy{
-			Organization:      org,
-			OrganizationUnits: orgUnits,
-			Project:           project,
-			Component:         component,
+			Namespace: namespace,
+			Project:   project,
+			Component: component,
 		},
 	}
 

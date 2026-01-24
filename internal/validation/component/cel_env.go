@@ -82,11 +82,9 @@ func BuildComponentCELEnv(opts SchemaOptions) (*cel.Env, error) {
 // BuildTraitCELEnv creates a schema-aware CEL environment for trait validation.
 // Variables are derived from TraitContext struct fields:
 //   - parameters, envOverrides: Schema-aware types (or empty object if not provided)
-//   - trait, metadata, dataplane: Types derived via reflection
-//
-// Note: Traits don't have access to workload or configurations (not in TraitContext)
+//   - trait, metadata, dataplane, workload, configurations: Types derived via reflection
 func BuildTraitCELEnv(opts SchemaOptions) (*cel.Env, error) {
-	baseEnv, err := createBaseEnv(false)
+	baseEnv, err := createBaseEnv(true)
 	if err != nil {
 		return nil, err
 	}

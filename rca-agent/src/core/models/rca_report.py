@@ -228,7 +228,8 @@ class IssueIdentified(BaseModel):
         description="Identified root causes in order of significance. Each contains its own supporting evidence.",
     )
     timeline: list[TimelineEvent] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description="Chronological sequence of significant system events discovered through analysis",
     )
     excluded_causes: list[ExcludedCause] = Field(
@@ -273,6 +274,7 @@ class RCAReport(BaseModel):
     )
 
     investigation_path: list[InvestigationStep] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description="Sequential steps the agent took during investigation. Include only significant investigative actions",
     )

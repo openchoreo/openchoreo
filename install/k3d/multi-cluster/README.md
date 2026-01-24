@@ -158,12 +158,21 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 kubectl --context k3d-openchoreo-bp wait --for=condition=available deployment/cert-manager \
   -n cert-manager --timeout=120s
 
+# Install Container Registry (required for Build Plane)
+helm repo add twuni https://twuni.github.io/docker-registry.helm
+helm repo update
+
+helm install registry twuni/docker-registry \
+  --kube-context k3d-openchoreo-bp \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --values install/k3d/multi-cluster/values-registry.yaml
+
 # Install Build Plane Helm chart
 helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
   --dependency-update \
   --kube-context k3d-openchoreo-bp \
   --namespace openchoreo-build-plane \
-  --create-namespace \
   --values install/k3d/multi-cluster/values-bp.yaml
 ```
 

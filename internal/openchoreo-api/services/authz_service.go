@@ -37,7 +37,7 @@ func (s *AuthzService) ListRoles(ctx context.Context) ([]*authz.Role, error) {
 		return nil, err
 	}
 
-	roles, err := s.pap.ListRoles(ctx)
+	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{IncludeAll: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -55,7 +55,7 @@ func (s *AuthzService) GetRole(ctx context.Context, roleName string) (*authz.Rol
 		return nil, err
 	}
 
-	role, err := s.pap.GetRole(ctx, roleName)
+	role, err := s.pap.GetRole(ctx, &authz.RoleRef{Name: roleName})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -90,13 +90,14 @@ func (s *AuthzService) RemoveRole(ctx context.Context, roleName string, force bo
 		return err
 	}
 
+	roleRef := &authz.RoleRef{Name: roleName}
 	if force {
-		if err := s.pap.ForceRemoveRole(ctx, roleName); err != nil {
+		if err := s.pap.ForceRemoveRole(ctx, roleRef); err != nil {
 			return fmt.Errorf("failed to force remove role: %w", err)
 		}
 		s.logger.Debug("Authorization role and mappings removed", "role", roleName)
 	} else {
-		if err := s.pap.RemoveRole(ctx, roleName); err != nil {
+		if err := s.pap.RemoveRole(ctx, roleRef); err != nil {
 			return fmt.Errorf("failed to remove role: %w", err)
 		}
 		s.logger.Debug("Authorization role removed", "role", roleName)
@@ -140,7 +141,7 @@ func (s *AuthzService) ListRoleMappings(ctx context.Context, roleName, claim, va
 		filter = &authz.RoleEntitlementMappingFilter{}
 
 		if roleName != "" {
-			filter.RoleName = &roleName
+			filter.RoleRef = &authz.RoleRef{Name: roleName}
 		}
 
 		if claim != "" && value != "" {
@@ -165,10 +166,11 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 	s.logger.Debug("Adding authorization role entitlement mapping",
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
-		"role", mapping.RoleName,
+		"role", mapping.RoleRef.Name,
+		"role namespace", mapping.RoleRef.Namespace,
 		"hierarchy", mapping.Hierarchy)
 
-	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionCreateRoleMapping, ResourceTypeRoleMapping, mapping.RoleName,
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionCreateRoleMapping, ResourceTypeRoleMapping, mapping.RoleRef.Name,
 		authz.ResourceHierarchy{}); err != nil {
 		return err
 	}
@@ -185,7 +187,7 @@ func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.Rol
 		"mapping_id", mapping.ID,
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
-		"role", mapping.RoleName,
+		"role", mapping.RoleRef.Name,
 		"hierarchy", mapping.Hierarchy)
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionUpdateRoleMapping, ResourceTypeRoleMapping, fmt.Sprintf("%d", mapping.ID),

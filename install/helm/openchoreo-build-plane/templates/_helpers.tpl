@@ -123,61 +123,48 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
-Get the registry hostname
-Derived from global.baseDomain as: registry.<baseDomain>
-*/}}
-{{- define "openchoreo-build-plane.registryHost" -}}
-{{- if .Values.global.baseDomain -}}
-  {{- printf "registry.%s" .Values.global.baseDomain -}}
-{{- else -}}
-  {{- "" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Check if registry ingress should be enabled
-Enabled when: registry.ingress.enabled=true OR global.baseDomain is set
-*/}}
-{{- define "openchoreo-build-plane.registryIngressEnabled" -}}
-{{- if or .Values.registry.ingress.enabled .Values.global.baseDomain -}}
-true
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the registry ingress class name
-*/}}
-{{- define "openchoreo-build-plane.registryIngressClassName" -}}
-{{- if .Values.registry.ingress.className -}}
-  {{- .Values.registry.ingress.className -}}
-{{- else -}}
-  {{- .Values.global.ingressClassName -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the registry TLS secret name
-Priority: registry.ingress.tls.secretName > global.tls.secretName > default
-*/}}
-{{- define "openchoreo-build-plane.registryTlsSecretName" -}}
-{{- if .Values.registry.ingress.tls.secretName -}}
-  {{- .Values.registry.ingress.tls.secretName -}}
-{{- else if .Values.global.tls.secretName -}}
-  {{- .Values.global.tls.secretName -}}
-{{- else -}}
-  {{- "registry-tls" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the registry endpoint for workflow templates
-Returns external endpoint if global.baseDomain is set, otherwise uses configured endpoint
+Get the registry endpoint for workflow templates.
+Returns placeholder if host is empty (for lint/template).
 */}}
 {{- define "openchoreo-build-plane.registryEndpoint" -}}
-{{- if .Values.global.baseDomain -}}
-  {{- printf "registry.%s" .Values.global.baseDomain -}}
+{{- $host := .Values.global.defaultResources.registry.host -}}
+{{- if not $host -}}
+  {{- $host = "REGISTRY_HOST_NOT_SET" -}}
+{{- end -}}
+{{- $repoPath := .Values.global.defaultResources.registry.repoPath -}}
+{{- if $repoPath -}}
+  {{- printf "%s/%s" $host $repoPath -}}
 {{- else -}}
-  {{- .Values.global.defaultResources.registry.endpoint -}}
+  {{- $host -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get buildpack image by ID
+Returns the appropriate image reference based on buildpackCache.enabled setting.
+When caching is enabled, returns the cached image path prefixed with registry endpoint.
+When caching is disabled, returns the remote image reference directly.
+
+Usage:
+  {{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-builder" "context" .) }}
+
+Parameters:
+  - id: The unique identifier of the buildpack image (e.g., "google-builder", "ballerina-run")
+  - context: The Helm context (usually .)
+*/}}
+{{- define "openchoreo-build-plane.buildpackImage" -}}
+{{- $id := .id -}}
+{{- $ctx := .context -}}
+{{- $cacheEnabled := $ctx.Values.global.defaultResources.buildpackCache.enabled -}}
+{{- $registryEndpoint := include "openchoreo-build-plane.registryEndpoint" $ctx -}}
+{{- range $ctx.Values.global.defaultResources.buildpackCache.images -}}
+  {{- if eq .id $id -}}
+    {{- if $cacheEnabled -}}
+      {{- printf "%s/%s" $registryEndpoint .cachedImage -}}
+    {{- else -}}
+      {{- .remoteImage -}}
+    {{- end -}}
+  {{- end -}}
 {{- end -}}
 {{- end -}}
 

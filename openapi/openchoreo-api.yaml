@@ -149,6 +149,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
+  /api/v1/.well-known/openid-configuration:
+    get:
+      operationId: getOpenIDConfiguration
+      summary: Get OpenID configuration
+      description: |
+        Returns OpenID Connect configuration for CLI authentication.
+        Includes OAuth2 endpoints, external client configurations, and security status.
+      tags: [Operations]
+      security: []
+      responses:
+        '200':
+          description: OpenID configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientConfigList'
+
   # =============================================================================
   # Organization Endpoints
   # =============================================================================
@@ -2543,6 +2560,67 @@ components:
           description: Supported OAuth scopes
           items:
             type: string
+
+    # -------------------------------------------------------------------------
+    # Client Configuration
+    # -------------------------------------------------------------------------
+    ExternalClient:
+      type: object
+      description: External client configuration
+      required:
+        - name
+        - client_id
+        - scopes
+      properties:
+        name:
+          type: string
+          description: Name of the external client
+          example: cli
+        client_id:
+          type: string
+          description: OAuth2 client ID for this client type
+          example: openchoreo-cli
+        scopes:
+          type: array
+          description: OAuth2 scopes for this client
+          items:
+            type: string
+          example: ["openid", "profile", "email"]
+
+    ClientConfigList:
+      type: object
+      description: OpenID Connect configuration response
+      required:
+        - token_endpoint
+        - authorization_endpoint
+        - external_clients
+        - security_enabled
+      properties:
+        issuer:
+          type: string
+          description: OIDC issuer URL
+          example: https://auth.openchoreo.dev
+        jwks_uri:
+          type: string
+          description: JWKS endpoint URL for token validation
+          example: https://auth.openchoreo.dev/oauth2/jwks
+        token_endpoint:
+          type: string
+          description: OAuth2 token endpoint URL
+          example: https://auth.openchoreo.dev/oauth2/token
+        authorization_endpoint:
+          type: string
+          description: OAuth2 authorization endpoint URL
+          example: https://auth.openchoreo.dev/authorize
+        security_enabled:
+          type: boolean
+          description: Whether authentication is enabled on the server
+          example: true
+        external_clients:
+          type: array
+          description: Array of external client configurations
+          items:
+            $ref: '#/components/schemas/ExternalClient'
 
     # -------------------------------------------------------------------------
     # User Type Configuration

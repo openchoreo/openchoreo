@@ -113,8 +113,9 @@ install_data_plane
 create_control_plane_certificate
 create_data_plane_certificate
 
-# Step 7: Install OpenChoreo Build Plane (optional)
+# Step 7: Install Container Registry and Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    install_registry
     install_build_plane
 fi
 
@@ -158,6 +159,13 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     configure_observabilityplane_reference
 fi
 
+# Step 14: Configure OCC CLI login
+if [[ -f "${SCRIPT_DIR}/occ-login.sh" ]]; then
+    bash "${SCRIPT_DIR}/occ-login.sh"
+else
+    log_warning "occ-login.sh not found, skipping OCC CLI login"
+fi
+
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  Backstage UI: http://openchoreo.localhost:8080/"
@@ -167,10 +175,16 @@ log_info "      Password: Admin@123"
 log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
 log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
 echo ""
+log_info "OCC CLI Login:"
+log_info "  Run the following commands to login:"
+log_info "    source .occ-credentials"
+log_info "    occ login --client-credentials --url http://api.openchoreo.localhost:8080"
+echo ""
 log_info "Next Steps:"
 log_info "  Deploy sample applications:"
 log_info "    ./deploy-react-starter.sh      # Simple React web application"
 log_info "    ./deploy-gcp-demo.sh           # GCP Microservices Demo (11 services)"
+
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     log_info "    ./build-deploy-greeter.sh      # Build from source (Go greeter service)"
 fi

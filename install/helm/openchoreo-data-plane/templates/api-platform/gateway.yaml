@@ -1,0 +1,27 @@
+{{- if index .Values "api-platform" "enabled" }}
+apiVersion: gateway.api-platform.wso2.com/v1alpha1
+kind: Gateway
+metadata:
+  name: api-platform-default
+spec:
+  gatewayClassName: "production"
+
+  apiSelector:
+    scope: Cluster
+
+  infrastructure:
+    replicas: 1
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+        
+  storage:
+    type: sqlite
+
+  configRef:
+    name: api-platform-default-gateway-values
+{{- end }}

@@ -269,9 +269,9 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponentWorkflowRun,
 		buildID,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -366,9 +366,9 @@ func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -465,8 +465,8 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -602,7 +602,7 @@ func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeOrg,
 		req.OrgName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
+			Namespace: req.OrgName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -689,8 +689,8 @@ func (h *Handler) GetTraces(w http.ResponseWriter, r *http.Request) {
 		observerAuthz.ResourceTypeProject,
 		req.ProjectName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -812,9 +812,9 @@ func (h *Handler) GetComponentHTTPMetrics(w http.ResponseWriter, r *http.Request
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -904,9 +904,9 @@ func (h *Handler) GetComponentResourceMetrics(w http.ResponseWriter, r *http.Req
 		observerAuthz.ResourceTypeComponent,
 		req.ComponentName,
 		authzcore.ResourceHierarchy{
-			Organization: req.OrgName,
-			Project:      req.ProjectName,
-			Component:    req.ComponentName,
+			Namespace: req.OrgName,
+			Project:   req.ProjectName,
+			Component: req.ComponentName,
 		},
 	); err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
@@ -1042,6 +1042,14 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	// Parse the webhook payload according to the alerting vendor and retrieve alert details
 	ruleName, ruleNamespace, alertValue, timestamp, err := h.parseWebhookPayload(w, r)
 	if err != nil {
+		// Check if alert is not in firing state (ignore 'resolved' alerts from Prometheus)
+		if err.Error() == "alert is not in firing state" {
+			h.logger.Debug("Only alerts in firing state are processed. Non firing state (e.g. resolved alerts) are ignored.")
+			h.writeJSON(w, http.StatusOK, map[string]interface{}{
+				"message": "Alert ignored (not in firing state)",
+			})
+			return
+		}
 		h.logger.Error("Failed to parse webhook payload", "error", err)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Failed to read request body")
 		return
@@ -1113,6 +1121,9 @@ func (h *Handler) parseWebhookPayload(w http.ResponseWriter, r *http.Request) (r
 		return "", "", "", "", err
 	}
 
+	// Debug log the request body for troubleshooting
+	h.logger.Debug("Alert webhook received", "requestBody", string(bodyBytes))
+
 	alertSource := httputil.GetPathParam(r, "alertSource")
 	if alertSource == "" { // TODO: Add supported alert sources (e.g. opensearch, prometheus)
 		h.logger.Error("Alert source is required")
@@ -1123,8 +1134,8 @@ func (h *Handler) parseWebhookPayload(w http.ResponseWriter, r *http.Request) (r
 	switch alertSource {
 	case "opensearch":
 		return h.service.ParseOpenSearchAlertPayload(requestBody)
-	// case "prometheus":
-	// return h.service.ParsePrometheusAlertPayload(requestBody)
+	case "prometheus":
+		return h.service.ParsePrometheusAlertPayload(requestBody)
 	default:
 		h.logger.Error("Unsupported alert source", "alertSource", alertSource)
 		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, "Unsupported alert source")

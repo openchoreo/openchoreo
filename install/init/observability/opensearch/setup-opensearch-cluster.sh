@@ -275,3 +275,230 @@ elif [ "$webhookCheckResponseCode" -eq 404 ]; then
 else
     echo "Error checking webhook destination. HTTP response code: $webhookCheckResponseCode"
 fi
+# 4. Add/Update ISM Policies
+# Reference: https://docs.opensearch.org/latest/im-plugin/ism/api/
+echo -e "\nManaging ISM Policies..."
+
+# Read retention periods from environment variables or use defaults
+containerLogsRetention="${CONTAINER_LOGS_MIN_INDEX_AGE:-30d}"
+otelTracesRetention="${OTEL_TRACES_MIN_INDEX_AGE:-30d}"
+rcaReportsRetention="${RCA_REPORTS_MIN_INDEX_AGE:-90d}"
+
+# container logs
+containerLogsIsmPolicy='{
+  "policy": {
+    "description": "Delete container logs older than '"$containerLogsRetention"'",
+    "default_state": "active",
+    "states": [
+      {
+        "name": "active",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "'"$containerLogsRetention"'"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": ["container-logs-*"],
+        "priority": 100
+      }
+    ]
+  }
+}'
+
+# OpenTelemetry traces
+otelTracesIsmPolicy='{
+  "policy": {
+    "description": "Delete OTEL traces older than '"$otelTracesRetention"'",
+    "default_state": "active",
+    "states": [
+      {
+        "name": "active",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "'"$otelTracesRetention"'"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": ["otel-traces-*"],
+        "priority": 100
+      }
+    ]
+  }
+}'
+
+# RCA reports
+rcaReportsIsmPolicy='{
+  "policy": {
+    "description": "Delete RCA reports older than '"$rcaReportsRetention"'",
+    "default_state": "active",
+    "states": [
+      {
+        "name": "active",
+        "actions": [],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "'"$rcaReportsRetention"'"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          {
+            "delete": {}
+          }
+        ],
+        "transitions": []
+      }
+    ],
+    "ism_template": [
+      {
+        "index_patterns": ["rca-reports-*"],
+        "priority": 100
+      }
+    ]
+  }
+}'
+
+# Array to hold policy names and their definitions
+# Format: (ismPolicyName1 ismPolicyDefinition1 ismPolicyName2 ismPolicyDefinition2 ...)
+ismPolicies=("container-logs" "containerLogsIsmPolicy" "otel-traces" "otelTracesIsmPolicy" "rca-reports" "rcaReportsIsmPolicy")
+
+# Function to normalize JSON for comparison (removes whitespace differences)
+normalize_json() {
+    echo "$1" | jq -c -S '.'
+}
+
+# Create or update ISM policies through a loop
+for ((i=0; i<${#ismPolicies[@]}; i+=2)); do
+    ismPolicyName="${ismPolicies[i]}"
+    ismPolicyDefinition="${ismPolicies[i+1]}"
+    ismPolicyContent="${!ismPolicyDefinition}"
+
+    echo "Processing ISM policy: $ismPolicyName"
+
+    # Check if policy exists
+    checkResponse=$(curl --location "$openSearchHost/_plugins/_ism/policies/$ismPolicyName" \
+                         --header "Authorization: Basic $authnToken" \
+                         --insecure \
+                         --silent \
+                         --write-out "\n%{http_code}")
+
+    httpCode=$(echo "$checkResponse" | tail -n1)
+    responseBody=$(echo "$checkResponse" | head -n-1)
+
+    if [ "$httpCode" -eq 200 ]; then
+        echo "Policy $ismPolicyName exists. Checking for updates..."
+
+        # Extract and normalize policy definitions for comparison
+        # Remove OpenSearch-generated metadata fields that change on every update or are auto-added
+        existingPolicy=$(echo "$responseBody" | jq -c -S '
+            .policy | 
+            del(.policy_id, .last_updated_time, .schema_version, .error_notification) | 
+            del(.ism_template[]?.last_updated_time) |
+            walk(if type == "object" then del(.retry) else . end)
+        ')
+        desiredPolicy=$(echo "$ismPolicyContent" | jq -c -S '.policy')
+
+        # Compare normalized JSON
+        if [ "$existingPolicy" = "$desiredPolicy" ]; then
+            echo "Policy $ismPolicyName is up to date. No changes needed."
+        else
+            echo "Policy $ismPolicyName has changes. Updating policy..."
+
+            # Get current sequence number and primary term for optimistic concurrency control
+            seqNo=$(echo "$responseBody" | jq -r '._seq_no')
+            primaryTerm=$(echo "$responseBody" | jq -r '._primary_term')
+
+            updateResponse=$(curl --data "$ismPolicyContent" \
+                                  --header "Authorization: Basic $authnToken" \
+                                  --header "Content-Type: application/json" \
+                                  --insecure \
+                                  --request PUT \
+                                  --show-error \
+                                  --silent \
+                                  --write-out "\n%{http_code}" \
+                                  "$openSearchHost/_plugins/_ism/policies/$ismPolicyName?if_seq_no=$seqNo&if_primary_term=$primaryTerm")
+
+            updateHttpCode=$(echo "$updateResponse" | tail -n1)
+            updateResponseBody=$(echo "$updateResponse" | head -n-1)
+
+            if [ "$updateHttpCode" -eq 200 ]; then
+                echo "Successfully updated ISM policy $ismPolicyName. HTTP response code: $updateHttpCode"
+                echo "Response: $updateResponseBody"
+            else
+                echo "Failed to update ISM policy $ismPolicyName. HTTP response code: $updateHttpCode"
+                echo "Response: $updateResponseBody"
+            fi
+        fi
+
+    elif [ "$httpCode" -eq 404 ]; then
+        echo "Policy $ismPolicyName does not exist. Creating new policy..."
+
+        # Create the ISM policy
+        createResponse=$(curl --data "$ismPolicyContent" \
+                              --header "Authorization: Basic $authnToken" \
+                              --header "Content-Type: application/json" \
+                              --insecure \
+                              --request PUT \
+                              --show-error \
+                              --silent \
+                              --write-out "\n%{http_code}" \
+                              "$openSearchHost/_plugins/_ism/policies/$ismPolicyName")
+
+        createHttpCode=$(echo "$createResponse" | tail -n1)
+        createResponseBody=$(echo "$createResponse" | head -n-1)
+
+        if [ "$createHttpCode" -eq 201 ] || [ "$createHttpCode" -eq 200 ]; then
+            echo "Successfully created ISM policy $ismPolicyName. HTTP response code: $createHttpCode"
+            echo "Response: $createResponseBody"
+
+        else
+            echo "Failed to create ISM policy $ismPolicyName. HTTP response code: $createHttpCode"
+            echo "Response: $createResponseBody"
+        fi
+
+    else
+        echo "Error checking ISM policy $ismPolicyName. HTTP response code: $httpCode"
+        echo "Response: $responseBody"
+    fi
+
+    echo ""
+done
+
+echo "ISM policy management complete"

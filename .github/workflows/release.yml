@@ -16,7 +16,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: Download occ artifact from the build workflow
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v12
         with:
           workflow: build-and-test.yml
           commit: ${{ env.GIT_SHA_LONG }}

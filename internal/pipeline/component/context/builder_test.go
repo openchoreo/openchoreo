@@ -84,6 +84,7 @@ metadata:
 				},
 				"workload": map[string]any{
 					"containers": map[string]any{},
+					"endpoints":  map[string]any{},
 				},
 				"configurations": map[string]any{},
 			},
@@ -153,6 +154,7 @@ spec:
 				},
 				"workload": map[string]any{
 					"containers": map[string]any{},
+					"endpoints":  map[string]any{},
 				},
 				"configurations": map[string]any{},
 			},
@@ -204,6 +206,7 @@ metadata:
 							"image": "myapp:latest",
 						},
 					},
+					"endpoints": map[string]any{},
 				},
 				"configurations": map[string]any{
 					"app": map[string]any{
@@ -304,14 +307,16 @@ metadata:
 				input.ReleaseBinding = settings
 			}
 
-			// Parse workload
+			// Parse workload and compute workload data + configurations (like pipeline would do)
+			var workload *v1alpha1.Workload
 			if tt.workloadYAML != "" {
-				workload := &v1alpha1.Workload{}
+				workload = &v1alpha1.Workload{}
 				if err := yaml.Unmarshal([]byte(tt.workloadYAML), workload); err != nil {
 					t.Fatalf("Failed to parse Workload YAML: %v", err)
 				}
-				input.Workload = workload
 			}
+			input.WorkloadData = ExtractWorkloadData(workload)
+			input.Configurations = ExtractConfigurationsFromWorkload(nil, workload)
 
 			got, err := BuildComponentContext(input)
 			if (err != nil) != tt.wantErr {
@@ -410,6 +415,11 @@ metadata:
 						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
+				"workload": map[string]any{
+					"containers": map[string]any{},
+					"endpoints":  map[string]any{},
+				},
+				"configurations": map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -485,6 +495,11 @@ spec:
 						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 					},
 				},
+				"workload": map[string]any{
+					"containers": map[string]any{},
+					"endpoints":  map[string]any{},
+				},
+				"configurations": map[string]any{},
 			},
 			wantErr: false,
 		},
@@ -563,6 +578,11 @@ spec:
 				}
 				input.ReleaseBinding = settings
 			}
+
+			// Compute workload data and configurations (like pipeline would do)
+			// These tests don't have workloads, so both will be empty
+			input.WorkloadData = ExtractWorkloadData(nil)
+			input.Configurations = ExtractConfigurationsFromWorkload(nil, nil)
 
 			traitCtx, err := BuildTraitContext(input)
 			if (err != nil) != tt.wantErr {

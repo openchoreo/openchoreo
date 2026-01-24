@@ -60,7 +60,7 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 	componentTypes := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
 	for i := range ctList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized component type", "org", orgName, "componentType", ctList.Items[i].Name)
 				continue
@@ -86,7 +86,7 @@ func (s *ComponentTypeService) GetComponentType(ctx context.Context, orgName, ct
 	s.logger.Debug("Getting ComponentType", "org", orgName, "name", ctName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +113,7 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, orgNa
 	s.logger.Debug("Getting ComponentType schema", "org", orgName, "name", ctName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

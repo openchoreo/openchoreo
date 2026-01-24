@@ -32,14 +32,15 @@ type ResponseMetadata struct {
 
 // ProjectResponse represents a project in API responses
 type ProjectResponse struct {
-	UID                string    `json:"uid"`
-	Name               string    `json:"name"`
-	OrgName            string    `json:"orgName"`
-	DisplayName        string    `json:"displayName,omitempty"`
-	Description        string    `json:"description,omitempty"`
-	DeploymentPipeline string    `json:"deploymentPipeline,omitempty"`
-	CreatedAt          time.Time `json:"createdAt"`
-	Status             string    `json:"status,omitempty"`
+	UID                string     `json:"uid"`
+	Name               string     `json:"name"`
+	OrgName            string     `json:"orgName"`
+	DisplayName        string     `json:"displayName,omitempty"`
+	Description        string     `json:"description,omitempty"`
+	DeploymentPipeline string     `json:"deploymentPipeline,omitempty"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	Status             string     `json:"status,omitempty"`
+	DeletionTimestamp  *time.Time `json:"deletionTimestamp,omitempty"`
 }
 
 // ComponentResponse represents a component in API responses
@@ -53,6 +54,7 @@ type ComponentResponse struct {
 	ProjectName       string                           `json:"projectName"`
 	OrgName           string                           `json:"orgName"`
 	CreatedAt         time.Time                        `json:"createdAt"`
+	DeletionTimestamp *time.Time                       `json:"deletionTimestamp,omitempty"`
 	Status            string                           `json:"status,omitempty"`
 	Workload          *openchoreov1alpha1.WorkloadSpec `json:"workload,omitempty"`
 	ComponentWorkflow *ComponentWorkflow               `json:"componentWorkflow,omitempty"`

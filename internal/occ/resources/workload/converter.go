@@ -172,7 +172,8 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 			Kind:       "Workload",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: workloadName,
+			Name:      workloadName,
+			Namespace: params.OrganizationName,
 		},
 		Spec: openchoreov1alpha1.WorkloadSpec{
 			Owner: openchoreov1alpha1.WorkloadOwner{
@@ -390,7 +391,8 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 		APIVersion string `json:"apiVersion" yaml:"apiVersion"`
 		Kind       string `json:"kind" yaml:"kind"`
 		Metadata   struct {
-			Name string `json:"name" yaml:"name"`
+			Name      string `json:"name" yaml:"name"`
+			Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
 			Owner       openchoreov1alpha1.WorkloadOwner                 `json:"owner" yaml:"owner"`
@@ -398,16 +400,15 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
 			Connections map[string]openchoreov1alpha1.WorkloadConnection `json:"connections,omitempty" yaml:"connections,omitempty"`
 		} `json:"spec" yaml:"spec"`
-		Status openchoreov1alpha1.WorkloadStatus `json:"status,omitempty" yaml:"status,omitempty"`
 	}
 
 	// Create the ordered structure
 	ordered := orderedWorkload{
 		APIVersion: workload.APIVersion,
 		Kind:       workload.Kind,
-		Status:     workload.Status,
 	}
 	ordered.Metadata.Name = workload.Name
+	ordered.Metadata.Namespace = workload.Namespace
 	ordered.Spec.Owner = workload.Spec.Owner
 	ordered.Spec.Containers = workload.Spec.Containers
 	ordered.Spec.Endpoints = workload.Spec.Endpoints

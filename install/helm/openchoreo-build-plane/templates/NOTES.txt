@@ -1,6 +1,3 @@
 OpenChoreo Build Plane installed successfully!
 
-Registry:
-  Internal: registry.{{ .Release.Namespace }}.svc.cluster.local:5000
-
 Next: Register this Build Plane with the Control Plane using the BuildPlane CRD.

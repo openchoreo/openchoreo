@@ -19,3 +19,12 @@ security:
           entitlement:
             claim: "sub"
             display_name: "Client ID"
+
+  # External clients configuration
+  external_clients:
+    - name: "cli"
+      client_id: "openchoreo-cli"
+      scopes:
+        - "openid"
+        - "profile"
+        - "email"

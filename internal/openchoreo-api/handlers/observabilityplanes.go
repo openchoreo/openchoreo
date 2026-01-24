@@ -6,7 +6,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 // ListObservabilityPlanes retrieves all observability planes for an organization

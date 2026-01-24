@@ -1,5 +1,37 @@
 # RCA Agent for OpenChoreo
 
+An autonomous Root Cause Analysis agent that investigates alerts using observability data and LLMs.
+
+## Architecture
+
+### Overview
+
+The RCA agent receives alerts via a REST API, then uses a **ReAct (Reasoning + Acting)** loop to investigate by querying observability data through MCP servers. It produces a structured `RCAReport` with root causes, evidence, and recommendations.
+
+### MCP Integration
+
+The agent connects to two MCP (Model Context Protocol) servers:
+- **Observability MCP** – provides tools for traces, logs, and metrics
+- **OpenChoreo MCP** – provides tools for listing organizations, projects, environments, and components
+
+### Tool Filtering
+
+Only a whitelisted set of read-only tools are exposed to the agent:
+- `get_traces`, `get_component_logs`, `get_project_logs`, `get_component_resource_metrics`
+- `list_environments`, `list_organizations`, `list_projects`, `list_components`
+
+This prevents unintended modifications and limits the agent's scope to investigation.
+
+### Middleware
+
+**OutputProcessorMiddleware** intercepts tool responses and transforms raw data before it reaches the LLM—computing metric statistics, detecting anomalies, building trace hierarchies, and grouping logs by component.
+
+### Request Flow
+
+1. `POST /analyze` queues analysis as a background task
+2. Agent executes a ReAct loop, calling MCP tools and processing responses through middleware
+3. Produces an `RCAReport` stored in OpenSearch
+
 ## Local Development
 
 The following instructions are for local development. For deploying on OpenChoreo, refer docs.

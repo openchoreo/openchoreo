@@ -13,10 +13,9 @@ import (
 type HierarchyResourcePrefix string
 
 const (
-	OrganizationResourcePrefix     HierarchyResourcePrefix = "org"
-	OrganizationUnitResourcePrefix HierarchyResourcePrefix = "ou"
-	ProjectResourcePrefix          HierarchyResourcePrefix = "project"
-	ComponentResourcePrefix        HierarchyResourcePrefix = "component"
+	NamespaceResourcePrefix HierarchyResourcePrefix = "ns"
+	ProjectResourcePrefix   HierarchyResourcePrefix = "project"
+	ComponentResourcePrefix HierarchyResourcePrefix = "component"
 )
 
 // resourceMatch checks if a requested resource matches a policy resource using hierarchical prefix matching.
@@ -111,24 +110,27 @@ func actionMatch(requestAction, roleAction string) bool {
 	return false
 }
 
-// actionMatchWrapper is a wrapper for actionMatch to work with Casbin's MatchingFunc interface
-// This is used for the g (role-action) matcher
-func actionMatchWrapper(arg1, arg2 string) bool {
-	return actionMatch(arg1, arg2)
+func roleActionMatchWrapper(requestValue, storedRuleValue string) bool {
+	// If storedRuleValue looks like an action (contains ":" or is a wildcard "*"),
+	// use action matching with wildcard support
+	if strings.Contains(storedRuleValue, ":") || storedRuleValue == "*" {
+		return actionMatch(requestValue, storedRuleValue)
+	}
+	// Otherwise, it's a role name or namespace - use exact matching
+	return requestValue == storedRuleValue
 }
 
 // hierarchyToResourcePath converts ResourceHierarchy to a hierarchical resource path string
 func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
-	path := ""
-
-	if hierarchy.Organization != "" {
-		path = fmt.Sprintf("%s/%s", OrganizationResourcePrefix, hierarchy.Organization)
+	// Empty hierarchy means global wildcard
+	if hierarchy.Namespace == "" && hierarchy.Project == "" && hierarchy.Component == "" {
+		return "*"
 	}
 
-	for _, ou := range hierarchy.OrganizationUnits {
-		if ou != "" {
-			path = fmt.Sprintf("%s/%s/%s", path, OrganizationUnitResourcePrefix, ou)
-		}
+	path := ""
+
+	if hierarchy.Namespace != "" {
+		path = fmt.Sprintf("%s/%s", NamespaceResourcePrefix, hierarchy.Namespace)
 	}
 
 	if hierarchy.Project != "" {
@@ -140,11 +142,6 @@ func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
 	}
 
 	path = strings.Trim(path, "/")
-
-	// Empty hierarchy means global wildcard
-	if path == "" {
-		return "*"
-	}
 
 	return path
 }
@@ -165,10 +162,8 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 		value := segments[i+1]
 
 		switch HierarchyResourcePrefix(prefix) {
-		case OrganizationResourcePrefix:
-			hierarchy.Organization = value
-		case OrganizationUnitResourcePrefix:
-			hierarchy.OrganizationUnits = append(hierarchy.OrganizationUnits, value)
+		case NamespaceResourcePrefix:
+			hierarchy.Namespace = value
 		case ProjectResourcePrefix:
 			hierarchy.Project = value
 		case ComponentResourcePrefix:
@@ -287,7 +282,6 @@ func expandActionWildcard(actionPattern string, actionIndex actionIndex) []strin
 	if strings.HasSuffix(actionPattern, ":*") {
 		resourcePrefix := actionPattern[:len(actionPattern)-2]
 
-		// O(1) map lookup instead of O(A) iteration
 		if actions, ok := actionsByResource[resourcePrefix]; ok {
 			return actions
 		}
@@ -309,4 +303,74 @@ func validateProfileRequest(req *authzcore.ProfileRequest) error {
 		return fmt.Errorf("%w: subject context is required", authzcore.ErrInvalidRequest)
 	}
 	return nil
+}
+
+func validateRoleEntitlementMapping(mapping *authzcore.RoleEntitlementMapping) error {
+	if mapping == nil {
+		return fmt.Errorf("%w: role-entitlement mapping is nil", authzcore.ErrInvalidRequest)
+	}
+	if mapping.RoleRef.Name == "" {
+		return fmt.Errorf("%w: role name is required", authzcore.ErrInvalidRequest)
+	}
+	if mapping.Entitlement.Claim == "" {
+		return fmt.Errorf("%w: entitlement claim is required", authzcore.ErrInvalidRequest)
+	}
+	if mapping.Entitlement.Value == "" {
+		return fmt.Errorf("%w: entitlement value is required", authzcore.ErrInvalidRequest)
+	}
+	if mapping.RoleRef.Namespace != "" && mapping.RoleRef.Namespace != mapping.Hierarchy.Namespace {
+		return fmt.Errorf("%w: role namespace and mapping hierarchy namespace must match for namespace-scoped roles", authzcore.ErrInvalidRequest)
+	}
+	return nil
+}
+
+// formatSubject creates a subject string from claim and value
+// Format: "claim:value"
+func formatSubject(claim, value string) (string, error) {
+	if claim == "" || value == "" {
+		return "", fmt.Errorf("claim and value cannot be empty")
+	}
+	return fmt.Sprintf("%s:%s", claim, value), nil
+}
+
+// parseSubject extracts claim and value from a subject string
+// Expected format: "claim:value"
+func parseSubject(subject string) (claim, value string, err error) {
+	parts := strings.SplitN(subject, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid subject format: expected 'claim:value', got '%s'", subject)
+	}
+	return parts[0], parts[1], nil
+}
+
+func validateRoleRef(roleRef *authzcore.RoleRef) error {
+	if roleRef == nil {
+		return fmt.Errorf("role reference cannot be nil")
+	}
+	if roleRef.Name == "" {
+		return fmt.Errorf("role name cannot be empty")
+	}
+	return nil
+}
+
+func ValidateCreateRoleRequest(req *authzcore.Role) error {
+	if req == nil {
+		return fmt.Errorf("%w: create role request is nil", authzcore.ErrInvalidRequest)
+	}
+	if req.Name == "" {
+		return fmt.Errorf("role name cannot be empty")
+	}
+
+	if len(req.Actions) == 0 {
+		return fmt.Errorf("role must have at least one action")
+	}
+	return nil
+}
+
+// normalizeNamespace converts empty namespace to "*" for cluster-scoped resources
+func normalizeNamespace(namespace string) string {
+	if namespace == "" {
+		return "*"
+	}
+	return namespace
 }

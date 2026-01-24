@@ -44,7 +44,7 @@ func (s *ProjectService) CreateProject(ctx context.Context, orgName string, req 
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateProject, ResourceTypeProject, req.Name,
-		authz.ResourceHierarchy{Organization: orgName, Project: req.Name}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: req.Name}); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string, opts 
 	for _, item := range projectList.Items {
 		// Authorization check for each project
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, item.Name,
-			authz.ResourceHierarchy{Organization: orgName, Project: item.Name}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName, Project: item.Name}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized projects silently (user doesn't have permission to see this project)
 				s.logger.Debug("Skipping unauthorized project", "org", orgName, "project", item.Name)
@@ -119,7 +119,7 @@ func (s *ProjectService) ListProjects(ctx context.Context, orgName string, opts 
 func (s *ProjectService) GetProject(ctx context.Context, orgName, projectName string) (*models.ProjectResponse, error) {
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewProject, ResourceTypeProject, projectName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
 		return nil, err
 	}
 	return s.getProject(ctx, orgName, projectName)
@@ -196,6 +196,42 @@ func (s *ProjectService) buildProjectCR(orgName string, req *models.CreateProjec
 	}
 }
 
+// DeleteProject deletes a project from the given organization
+func (s *ProjectService) DeleteProject(ctx context.Context, orgName, projectName string) error {
+	s.logger.Debug("Deleting project", "org", orgName, "project", projectName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteProject, ResourceTypeProject, projectName,
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
+		return err
+	}
+
+	// Get the project first to ensure it exists
+	project := &openchoreov1alpha1.Project{}
+	key := client.ObjectKey{
+		Name:      projectName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, project); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Project not found", "org", orgName, "project", projectName)
+			return ErrProjectNotFound
+		}
+		s.logger.Error("Failed to get project", "error", err)
+		return fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Delete the project CR
+	if err := s.k8sClient.Delete(ctx, project); err != nil {
+		s.logger.Error("Failed to delete project CR", "error", err)
+		return fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	s.logger.Debug("Project deleted successfully", "org", orgName, "project", projectName)
+	return nil
+}
+
 // toProjectResponse converts a Project CR to a ProjectResponse
 func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) *models.ProjectResponse {
 	// Extract display name and description from annotations
@@ -214,7 +250,7 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		}
 	}
 
-	return &models.ProjectResponse{
+	response := &models.ProjectResponse{
 		UID:                string(project.UID),
 		Name:               project.Name,
 		OrgName:            project.Namespace,
@@ -224,4 +260,11 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		CreatedAt:          project.CreationTimestamp.Time,
 		Status:             status,
 	}
+
+	// Include deletion timestamp if the project is marked for deletion
+	if project.DeletionTimestamp != nil {
+		response.DeletionTimestamp = &project.DeletionTimestamp.Time
+	}
+
+	return response
 }

@@ -9,7 +9,7 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
 | **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait` |
+| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait`, `workload`, `configurations` |
 
 ## ComponentContext
 
@@ -192,8 +192,19 @@ DataPlane configuration for the target environment.
 # Access pattern: ${dataplane.<field>}
 
 dataplane:
-  secretStore: "my-secret-store"        # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
+  secretStore: "my-secret-store"              # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
+  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
+```
+
+**Optional fields:** `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional. If not configured on the DataPlane, the field will be absent from the context. Use `has()` to guard conditional logic:
+
+```yaml
+# Guard with has() for conditional inclusion
+includeWhen: ${has(dataplane.secretStore)}
+
+# Or use ternary for conditional values
+secretStoreRef: ${has(dataplane.secretStore) ? {"name": dataplane.secretStore} : oc_omit()}
 ```
 
 **Example usage:**
@@ -212,7 +223,7 @@ spec:
 
 ### workload
 
-Workload specification containing container information from the build process.
+Workload specification containing container and endpoint information from the build process.
 
 ```yaml
 # Access patterns (both work):
@@ -229,7 +240,19 @@ workload:
       image: "envoy:latest"
       command: []
       args: []
+  endpoints:
+    http:                               # ${workload.endpoints.http}
+      type: "HTTP"                      # ${workload.endpoints.http.type}
+      port: 8080                        # ${workload.endpoints.http.port}
+      schema:                           # ${workload.endpoints.http.schema} (optional)
+        type: "openapi"
+        content: "..."
+    grpc:
+      type: "gRPC"
+      port: 9090
 ```
+
+**Endpoint types:** HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP
 
 **Example usage:**
 
@@ -254,6 +277,18 @@ containers: |
     "image": container.image,
     "command": size(container.command) > 0 ? container.command : oc_omit(),
     "args": size(container.args) > 0 ? container.args : oc_omit()
+  })}
+```
+
+**Iterating over endpoints:**
+
+```yaml
+# Using transformList to convert endpoints map to list of ports
+ports: |
+  ${workload.endpoints.transformList(name, ep, {
+    "name": name,
+    "port": ep.port,
+    "protocol": ep.type == "UDP" ? "UDP" : "TCP"
   })}
 ```
 
@@ -424,14 +459,15 @@ metadata:
 
 ### dataplane
 
-DataPlane configuration for the target environment. Same structure as ComponentContext.
+DataPlane configuration for the target environment. Same structure as ComponentContext. The fields `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional; use `has()` to guard conditional logic.
 
 ```yaml
 # Access pattern: ${dataplane.<field>}
 
 dataplane:
-  secretStore: "my-secret-store"        # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"  # ${dataplane.publicVirtualHost}
+  secretStore: "my-secret-store"              # ${dataplane.secretStore}
+  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
+  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
 ```
 
 ### parameters
@@ -502,7 +538,50 @@ spec:
   storageClassName: ${envOverrides.storageClass}
 ```
 
-**Note:** TraitContext does NOT have access to `workload` or `configurations`. These are only available in ComponentContext.
+### workload
+
+Workload specification containing container and endpoint information. Same structure as ComponentContext workload. See [workload](#workload) section above for full details.
+
+```yaml
+# Access pattern: ${workload.<field>}
+
+workload:
+  containers:
+    app:
+      image: "myregistry/myapp:v1.0"
+      command: ["./start.sh"]
+      args: ["--port", "8080"]
+  endpoints:
+    http:
+      type: "HTTP"
+      port: 8080
+```
+
+### configurations
+
+Configuration items (environment variables and files) extracted from workload. Same structure as ComponentContext configurations. See [configurations](#configurations) section above for full details and helper methods.
+
+```yaml
+# Access pattern: ${configurations.<containerName>.<field>}
+
+configurations:
+  app:
+    configs:
+      envs: [...]
+      files: [...]
+    secrets:
+      envs: [...]
+      files: [...]
+```
+
+**Available helper methods** (same as ComponentContext):
+- `configurations.toContainerEnvFrom(containerName)`
+- `configurations.toConfigEnvsByContainer()`
+- `configurations.toSecretEnvsByContainer()`
+- `configurations.toConfigFileList()`
+- `configurations.toSecretFileList()`
+- `configurations.toContainerVolumeMounts(containerName)`
+- `configurations.toVolumes()`
 
 ## Special Variables
 
@@ -583,8 +662,8 @@ The entire rendered Kubernetes resource is available, including:
 | `parameters.*` | ✅ (from Component.Spec.Parameters) | ✅ (from Trait instance) |
 | `envOverrides.*` | ✅ (from ReleaseBinding.ComponentTypeEnvOverrides) | ✅ (from ReleaseBinding.TraitOverrides) |
 | `dataplane.*` | ✅ | ✅ |
-| `workload.*` | ✅ | ❌ |
-| `configurations.*` | ✅ | ❌ |
+| `workload.*` | ✅ | ✅ |
+| `configurations.*` | ✅ | ✅ |
 | `trait.*` | ❌ | ✅ |
 | Loop variable | ✅ (in forEach) | ✅ (in forEach) |
 | `resource` | ❌ | ✅ (in where only) |

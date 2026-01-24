@@ -1,0 +1,43 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: echo-websocket-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  autoDeploy: true
+  componentType: deployment/service
+
+  parameters:
+    exposed: true
+    replicas: 1
+    port: 8080
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+
+---
+
+# Defines a workload that specifies the developer contract which describes the source code including
+# what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: echo-websocket-service-workload
+  namespace: default
+spec:
+  owner:
+    componentName: echo-websocket-service
+    projectName: default
+  containers:
+    main:
+      image: "jmalloc/echo-server:latest"
+      env:
+        - key: PORT
+          value: "8080"

@@ -321,7 +321,14 @@ func ValidatePatchTarget(
 			whereCEL = target.Where
 		}
 
-		if err := validator.ValidateBooleanExpression(whereCEL, env); err != nil {
+		// Extend environment with 'resource' variable for where clause validation.
+		// At runtime, 'resource' is bound to the target resource being filtered.
+		whereEnv, err := env.Extend(cel.Variable("resource", cel.DynType))
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(
+				basePath.Child("where"),
+				fmt.Errorf("failed to extend environment with resource variable: %w", err)))
+		} else if err := validator.ValidateBooleanExpression(whereCEL, whereEnv); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				basePath.Child("where"),
 				target.Where,

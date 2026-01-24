@@ -8,8 +8,5 @@ dependencies:
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
-- name: docker-registry
-  repository: https://twuni.github.io/docker-registry.helm
-  version: 3.0.0
-digest: sha256:8f511b9d5a2b51c1995223c72e5cf2c2487982447283611e9d1a86622f156241
-generated: "2026-01-07T16:48:12.961473+05:30"
+digest: sha256:83ec7926970bccc3088994f98ab33561c944129617eb8c5a2155b885b46d446b
+generated: "2026-01-22T20:44:05.32818+05:30"

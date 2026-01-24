@@ -18,41 +18,6 @@ global:
   commonLabels: {}
 
   # @schema
-  # type: string
-  # description: Base domain for external access. When set, registry will be accessible at registry.<baseDomain>.
-  # examples:
-  #   - openchoreo.example.com
-  # @schema
-  baseDomain: ""
-
-  # @schema
-  # type: string
-  # description: Ingress class name for registry ingress
-  # default: openchoreo-traefik
-  # @schema
-  ingressClassName: openchoreo-traefik
-
-  # @schema
-  # type: object
-  # additionalProperties: false
-  # description: TLS configuration. When enabled, TLS host is auto-derived from baseDomain (registry.<baseDomain>).
-  # @schema
-  tls:
-    # @schema
-    # type: boolean
-    # description: Enable TLS for registry ingress
-    # default: false
-    # @schema
-    enabled: false
-
-    # @schema
-    # type: string
-    # description: Secret containing TLS certificate for registry
-    # default: registry-tls
-    # @schema
-    secretName: "registry-tls"
-
-  # @schema
   # type: object
   # additionalProperties: false
   # description: Configuration for the default workflow templates required for building container images
@@ -73,10 +38,24 @@ global:
     registry:
       # @schema
       # type: string
-      # description: Registry endpoint for pushing and pulling images. For external registry with baseDomain, automatically uses registry.<baseDomain>.
-      # default: registry.openchoreo-build-plane.svc.cluster.local:5000
+      # description: Container registry host for pushing built images (REQUIRED). Examples include ECR (123456789.dkr.ecr.us-east-1.amazonaws.com), GCR (gcr.io/my-project), Docker Hub (docker.io), or a local registry (registry.openchoreo-build-plane.svc.cluster.local).
+      # required: true
       # @schema
-      endpoint: "registry.openchoreo-build-plane.svc.cluster.local:5000"
+      host: ""
+
+      # @schema
+      # type: string
+      # description: Repository path prepended to image names. Can be any depth (e.g., "myorg", "myorg/myproject", "namespace/subpath/images"). Leave empty for root-level images.
+      # default: ""
+      # @schema
+      repoPath: ""
+
+      # @schema
+      # type: boolean
+      # description: Enable TLS verification when pushing images to the registry. Set to false for self-signed certificates or local development.
+      # default: false
+      # @schema
+      tlsVerify: false
 
     # @schema
     # type: object
@@ -105,39 +84,48 @@ global:
     buildpackCache:
       # @schema
       # type: boolean
-      # description: Enable buildpack image caching hook
-      # default: true
+      # description: Enable buildpack image caching. When enabled, images are pulled from cache registry instead of remote.
+      # default: false
       # @schema
-      enabled: true
+      enabled: false
 
       # @schema
       # type: array
-      # description: List of buildpack images to cache
+      # description: List of buildpack images to cache. Each entry has an id for lookup, remoteImage for external registry, and cachedImage for local cache.
       # items:
       #   type: object
       #   additionalProperties: false
       #   required:
-      #     - source
-      #     - cacheName
+      #     - id
+      #     - remoteImage
+      #     - cachedImage
       #   properties:
-      #     source:
+      #     id:
       #       type: string
-      #       description: Source image to pull from remote registry
-      #     cacheName:
+      #       description: Unique identifier for lookup in workflow templates
+      #     remoteImage:
       #       type: string
-      #       description: Local cache name for the image in the build plane registry
+      #       description: Image reference from remote registry (used when caching is disabled)
+      #     cachedImage:
+      #       type: string
+      #       description: Image path in the local build plane registry (used when caching is enabled)
       # @schema
       images:
-        - source: "docker.io/buildpacksio/lifecycle:0.20.5"
-          cacheName: "buildpacks-cache/lifecycle:0.20.5"
-        - source: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
-          cacheName: "buildpacks-cache/google-builder:latest"
-        - source: "gcr.io/buildpacks/google-22/run:latest"
-          cacheName: "buildpacks-cache/google-run:latest"
-        - source: "ghcr.io/openchoreo/buildpack/ballerina:18"
-          cacheName: "buildpacks-cache/ballerina-builder:18"
-        - source: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
-          cacheName: "buildpacks-cache/ballerina-run:18"
+        - id: "lifecycle"
+          remoteImage: "docker.io/buildpacksio/lifecycle:0.20.5"
+          cachedImage: "buildpacks-cache/lifecycle:0.20.5"
+        - id: "google-builder"
+          remoteImage: "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+          cachedImage: "buildpacks-cache/google-builder:latest"
+        - id: "google-run"
+          remoteImage: "gcr.io/buildpacks/google-22/run:latest"
+          cachedImage: "buildpacks-cache/google-run:latest"
+        - id: "ballerina-builder"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18"
+          cachedImage: "buildpacks-cache/ballerina-builder:18"
+        - id: "ballerina-run"
+          remoteImage: "ghcr.io/openchoreo/buildpack/ballerina:18-run"
+          cachedImage: "buildpacks-cache/ballerina-run:18"
 
 # @schema
 # type: object
@@ -297,84 +285,6 @@ external-secrets:
 
 # @schema
 # type: object
-# additionalProperties: true
-# description: Container Registry sub-chart configuration using Twuni Docker Registry Helm Chart. Hosts container images built by Argo Workflows in the Build Plane. See https://github.com/twuni/docker-registry.helm for all options.
-# @schema
-registry:
-  # @schema
-  # type: string
-  # description: Override the full name of registry resources
-  # default: registry
-  # @schema
-  fullnameOverride: registry
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Persistence configuration for registry data
-  # @schema
-  persistence:
-    # @schema
-    # type: boolean
-    # description: Enable persistent storage for registry
-    # default: true
-    # @schema
-    enabled: true
-
-    # @schema
-    # type: string
-    # description: Size of the persistent volume for registry storage
-    # default: 10Gi
-    # @schema
-    size: 10Gi
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Ingress for external registry access. Auto-enabled when global.baseDomain is set.
-  # @schema
-  ingress:
-    # @schema
-    # type: boolean
-    # description: Enable ingress for external registry access
-    # default: false
-    # @schema
-    enabled: false
-
-    # @schema
-    # type: string
-    # description: Ingress class name. Falls back to global.ingressClassName if not set.
-    # @schema
-    className: ""
-
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Annotations to add to the ingress resource
-    # @schema
-    annotations: {}
-
-    # @schema
-    # type: object
-    # additionalProperties: false
-    # description: TLS configuration for registry ingress
-    # @schema
-    tls:
-      # @schema
-      # type: boolean
-      # description: Enable TLS for registry ingress
-      # default: false
-      # @schema
-      enabled: false
-
-      # @schema
-      # type: string
-      # description: Secret containing TLS certificate
-      # @schema
-      secretName: ""
-
-# @schema
-# type: object
 # additionalProperties: false
 # description: Fake Secret Store configuration for local development. Creates a ClusterSecretStore with static secrets for testing purposes. Not for production use.
 # @schema
@@ -411,8 +321,6 @@ fakeSecretStore:
   #       description: Secret value (fake/development only)
   # @schema
   secrets:
-    - key: github-pat
-      value: "fake-github-token-for-development"
     - key: npm-token
       value: "fake-npm-token-for-development"
     - key: docker-username

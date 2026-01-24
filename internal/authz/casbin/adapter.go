@@ -24,9 +24,9 @@ type CasbinRule struct {
 	V0         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - entitlement, g - role
 	V1         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - resource path, g - action
 	V2         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - role name
-	V3         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - effect (allow/deny)
-	V4         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - context info
-	V5         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // extra field
+	V3         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - role namespace
+	V4         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - effect (allow/deny)
+	V5         string `gorm:"type:text;uniqueIndex:idx_casbin_rule"`  // p - context info
 	IsInternal bool   `gorm:"column:internal;default:false;not null"` // Filter flag
 }
 
@@ -159,15 +159,22 @@ func insertActions(db *gorm.DB, actionRecords []Action, logger *slog.Logger) err
 }
 
 // prepareRoleRecords prepares role-to-action mapping records for insertion
+// All roles use g grouping with format: g, roleName, action, namespace
+// Cluster roles use "*" as namespace, namespace roles use their actual namespace
 func prepareRoleRecords(roleDefinitions []authzcore.Role) []CasbinRule {
 	ruleRecords := make([]CasbinRule, 0)
 	for _, roleDef := range roleDefinitions {
+		namespace := roleDef.Namespace
+		if namespace == "" {
+			namespace = "*"
+		}
+
 		for _, action := range roleDef.Actions {
 			ruleRecords = append(ruleRecords, CasbinRule{
 				Ptype:      "g",
 				V0:         roleDef.Name,
 				V1:         action,
-				V2:         "",
+				V2:         namespace,
 				V3:         "",
 				V4:         "",
 				V5:         "",
@@ -208,14 +215,17 @@ func prepareMappingRecords(mappingDefinitions []authzcore.RoleEntitlementMapping
 		}
 		resourcePath := hierarchyToResourcePath(mappingDef.Hierarchy)
 
+		// Determine role_ns: "*" for cluster roles, namespace for namespace-scoped roles
+		roleNs := normalizeNamespace(mappingDef.RoleRef.Namespace)
+
 		policyRecords = append(policyRecords, CasbinRule{
 			Ptype:      "p",
 			V0:         entitlement,
 			V1:         resourcePath,
-			V2:         mappingDef.RoleName,
-			V3:         string(mappingDef.Effect),
-			V4:         emptyContextJSON,
-			V5:         "",
+			V2:         mappingDef.RoleRef.Name,
+			V3:         roleNs,
+			V4:         string(mappingDef.Effect),
+			V5:         emptyContextJSON,
 			IsInternal: mappingDef.IsInternal,
 		})
 	}

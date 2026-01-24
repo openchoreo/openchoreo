@@ -1,0 +1,543 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: docker-gitops-release
+spec:
+  arguments:
+    parameters:
+      - name: component-name
+      - name: project-name
+      - name: org-name
+      - name: git-repo
+      - name: branch
+      - name: commit
+      - name: app-path
+      - name: docker-context
+      - name: dockerfile-path
+      - name: gitops-repo-url
+      - name: gitops-branch
+      - name: gitops-target-environment
+      - name: gitops-deployment-pipeline
+      - name: workload-descriptor-path
+      - name: registry-url
+      - name: image-name
+      - name: image-tag
+      - name: source-git-secret
+      - name: gitops-git-secret
+  entrypoint: build-and-release-workflow
+  templates:
+    - name: build-and-release-workflow
+      steps:
+        # ===== BUILD PHASE =====
+        - - name: clone-source
+            template: clone-source
+        - - name: build-image
+            template: build-image
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{steps.clone-source.outputs.parameters.git-revision}}'
+        - - name: push-image
+            template: push-image
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{steps.clone-source.outputs.parameters.git-revision}}'
+        - - name: extract-descriptor
+            template: extract-descriptor
+        # ===== RELEASE PHASE =====
+        - - name: clone-gitops
+            template: clone-gitops
+        - - name: create-feature-branch
+            template: create-feature-branch
+        - - name: generate-gitops-resources
+            template: generate-gitops-resources
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{steps.clone-source.outputs.parameters.git-revision}}'
+                - name: container-image
+                  value: '{{steps.push-image.outputs.parameters.image}}'
+                - name: descriptor-content
+                  value: '{{steps.extract-descriptor.outputs.parameters.descriptor-content}}'
+        - - name: git-commit-push-pr
+            template: git-commit-push-pr
+            arguments:
+              parameters:
+                - name: git-revision
+                  value: '{{steps.clone-source.outputs.parameters.git-revision}}'
+                - name: container-image
+                  value: '{{steps.push-image.outputs.parameters.image}}'
+
+    # ===== BUILD PHASE TEMPLATES =====
+
+    # Step 1: Clone source repository (supports private repos via git token)
+    - name: clone-source
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            BRANCH={{workflow.parameters.branch}}
+            REPO={{workflow.parameters.git-repo}}
+            COMMIT={{workflow.parameters.commit}}
+
+            # Check if git token exists for private repo authentication
+            if [ -f /mnt/secrets/source-git/git-token ]; then
+                GIT_TOKEN=$(cat /mnt/secrets/source-git/git-token)
+                # Inject token into repo URL for authentication (x-access-token format for GitHub)
+                REPO=$(echo "$REPO" | sed "s|https://|https://x-access-token:${GIT_TOKEN}@|")
+                echo "Using git token for authentication"
+            else
+                echo "No git token found, assuming public repository"
+            fi
+
+            if [[ -n "$COMMIT" ]]; then
+                echo "Cloning specific commit: $COMMIT"
+                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                git config --global advice.detachedHead false
+                git fetch --depth 1 origin "$COMMIT"
+                git checkout "$COMMIT"
+                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+            else
+                echo "Cloning branch: $BRANCH with latest commit"
+                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
+            fi
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: source-git-credentials
+            mountPath: /mnt/secrets/source-git
+            readOnly: true
+      outputs:
+        parameters:
+          - name: git-revision
+            valueFrom:
+              path: /tmp/git-revision.txt
+
+    # Step 2: Build Docker image
+    - name: build-image
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            WORKDIR=/mnt/vol/source
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
+            DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
+
+            #####################################################################
+            # 1.  Podman daemon + storage.conf
+            #####################################################################
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            #####################################################################
+            # 2.  Docker Build
+            #####################################################################
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $WORKDIR/$DOCKER_CONTEXT
+            podman save -o /mnt/vol/app-image.tar $IMAGE
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+
+    # Step 3: Push Docker image to registry
+    - name: push-image
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+            #####################################################################
+            # 1. Inputs
+            #####################################################################
+            GIT_REVISION={{inputs.parameters.git-revision}}
+            IMAGE_NAME={{workflow.parameters.image-name}}
+            IMAGE_TAG={{workflow.parameters.image-tag}}
+            SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
+
+            #####################################################################
+            # 2. Registry
+            #####################################################################
+            REGISTRY_ENDPOINT={{workflow.parameters.registry-url}}
+
+            #####################################################################
+            # 3. Podman storage configuration
+            #####################################################################
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            #####################################################################
+            # 4. Load the tarred image and push to registry
+            #####################################################################
+            podman load -i /mnt/vol/app-image.tar
+
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+
+            #####################################################################
+            # 5. Emit image reference (for later steps/kubelet pulls)
+            #####################################################################
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: image
+            valueFrom:
+              path: /tmp/image.txt
+
+    # Step 4: Extract workload descriptor from source repository
+    - name: extract-descriptor
+      container:
+        image: alpine:latest
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            WORKLOAD_DESCRIPTOR_PATH={{workflow.parameters.workload-descriptor-path}}
+            APP_PATH={{workflow.parameters.app-path}}
+
+            # Full path to descriptor file
+            DESCRIPTOR_FILE="/mnt/vol/source${APP_PATH}/${WORKLOAD_DESCRIPTOR_PATH}"
+
+            if [ -f "$DESCRIPTOR_FILE" ]; then
+                echo "Found workload descriptor at: $DESCRIPTOR_FILE"
+                # Read descriptor and base64 encode it to preserve formatting
+                cat "$DESCRIPTOR_FILE" | base64 -w 0 > /tmp/descriptor-content.txt
+            else
+                echo "Warning: Workload descriptor not found at: $DESCRIPTOR_FILE"
+                echo "Will generate basic workload without descriptor"
+                # Empty string for no descriptor
+                echo -n "" > /tmp/descriptor-content.txt
+            fi
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: descriptor-content
+            valueFrom:
+              path: /tmp/descriptor-content.txt
+
+    # ===== RELEASE PHASE TEMPLATES =====
+
+    # Step 5: Clone GitOps repository (uses PAT for authentication)
+    - name: clone-gitops
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            REPO={{workflow.parameters.gitops-repo-url}}
+            BRANCH={{workflow.parameters.gitops-branch}}
+            GIT_TOKEN=$(cat /mnt/secrets/gitops-git/git-token)
+
+            # Inject token into repo URL for authentication (x-access-token format for GitHub)
+            REPO_WITH_CREDS=$(echo "$REPO" | sed "s|https://|https://x-access-token:${GIT_TOKEN}@|")
+
+            echo "Cloning GitOps repository: $REPO (branch: $BRANCH)"
+            git clone --single-branch --branch $BRANCH --depth 1 "$REPO_WITH_CREDS" /mnt/vol/gitops
+
+            cd /mnt/vol/gitops
+            git config user.name "OpenChoreo GitOps"
+            git config user.email "gitops@openchoreo.dev"
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: gitops-git-credentials
+            mountPath: /mnt/secrets/gitops-git
+            readOnly: true
+
+    # Step 6: Create feature branch
+    - name: create-feature-branch
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            COMPONENT_NAME={{workflow.parameters.component-name}}
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            BRANCH_NAME="release/${COMPONENT_NAME}-${TIMESTAMP}"
+
+            echo "Creating feature branch: $BRANCH_NAME"
+            git checkout -b $BRANCH_NAME
+
+            echo -n $BRANCH_NAME > /tmp/branch-name.txt
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: branch-name
+            valueFrom:
+              path: /tmp/branch-name.txt
+
+    # Step 7: Generate GitOps Resources (Workload, ComponentRelease, ReleaseBinding)
+    - name: generate-gitops-resources
+      inputs:
+        parameters:
+          - name: git-revision
+          - name: container-image
+          - name: descriptor-content
+      container:
+        image: ghcr.io/openchoreo/openchoreo-cli:latest-dev
+        imagePullPolicy: Always
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            # Set variables
+            PROJECT_NAME={{workflow.parameters.project-name}}
+            COMPONENT_NAME={{workflow.parameters.component-name}}
+            GIT_REVISION={{inputs.parameters.git-revision}}
+            CONTAINER_IMAGE={{inputs.parameters.container-image}}
+            TARGET_ENV={{workflow.parameters.gitops-target-environment}}
+            ORG_NAME={{workflow.parameters.org-name}}
+            USE_PIPELINE={{workflow.parameters.gitops-deployment-pipeline}}
+            WORKLOAD_DESCRIPTOR_CONTENT={{inputs.parameters.descriptor-content}}
+            RELEASE_NAME="${COMPONENT_NAME}-${GIT_REVISION}"
+            BINDING_NAME="${TARGET_ENV}-${COMPONENT_NAME}"
+
+            echo "===== Initializing OCC Context ====="
+            # Initialize occ context for file-system mode (only once)
+            occ config set-context gitops-context \
+              --mode file-system \
+              --root-directory-path /mnt/vol/gitops \
+              --organization "${ORG_NAME}"
+
+            # Use the gitops-context
+            occ config use-context gitops-context
+
+            echo "===== Step 1: Generating Workload ====="
+            echo "Component: $COMPONENT_NAME"
+            echo "Project: $PROJECT_NAME"
+            echo "Image: $CONTAINER_IMAGE"
+            echo "Target environment: $TARGET_ENV"
+
+            # Check if workload descriptor is provided
+            if [ -n "$WORKLOAD_DESCRIPTOR_CONTENT" ]; then
+                echo "Using provided workload descriptor"
+                # Decode base64 descriptor and write to file
+                echo "$WORKLOAD_DESCRIPTOR_CONTENT" | base64 -d > /tmp/workload-descriptor.yaml
+
+                echo "Workload descriptor content:"
+                cat /tmp/workload-descriptor.yaml
+
+                # Generate workload with descriptor
+                occ create workload \
+                  --project "$PROJECT_NAME" \
+                  --component "$COMPONENT_NAME" \
+                  --image "$CONTAINER_IMAGE" \
+                  --descriptor /tmp/workload-descriptor.yaml
+            else
+                echo "No workload descriptor provided, generating basic workload"
+                # Generate basic workload without descriptor
+                occ create workload \
+                  --project "$PROJECT_NAME" \
+                  --component "$COMPONENT_NAME" \
+                  --image "$CONTAINER_IMAGE"
+            fi
+            echo "Workload generated successfully"
+
+            echo "===== Step 2: Generating ComponentRelease ====="
+            echo "Release name: $RELEASE_NAME"
+            echo "Component: $COMPONENT_NAME"
+            echo "Project: $PROJECT_NAME"
+            # TODO: Fix the occ properly to determine the output path from the repo itself
+            OUTPUT_PATH="projects/$PROJECT_NAME/components/$COMPONENT_NAME/releases"
+            echo " - output-path: $OUTPUT_PATH"
+            
+            occ component-release generate \
+              --name "$RELEASE_NAME" \
+              --component "$COMPONENT_NAME" \
+              --project "$PROJECT_NAME" \
+              --output-path "$OUTPUT_PATH"
+
+            echo "ComponentRelease generated successfully"
+
+            echo "===== Step 3: Generating ReleaseBinding ====="
+            echo "Binding name: $BINDING_NAME"
+            echo "Component: $COMPONENT_NAME"
+            echo "Component release: $RELEASE_NAME"
+            echo "Target environment: $TARGET_ENV"
+            echo "Project: $PROJECT_NAME"
+            echo "Use pipeline: $USE_PIPELINE"
+
+            occ release-binding generate \
+              --component "$COMPONENT_NAME" \
+              --component-release "$RELEASE_NAME" \
+              --target-env "$TARGET_ENV" \
+              --project "$PROJECT_NAME" \
+              --use-pipeline "$USE_PIPELINE"
+
+            echo "ReleaseBinding generated successfully"
+            echo "===== All GitOps resources generated successfully ====="
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+
+    # Step 8: Commit, Push, and Create Pull Request
+    - name: git-commit-push-pr
+      inputs:
+        parameters:
+          - name: git-revision
+          - name: container-image
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            # Set variables
+            COMPONENT_NAME={{workflow.parameters.component-name}}
+            PROJECT_NAME={{workflow.parameters.project-name}}
+            GIT_REVISION={{inputs.parameters.git-revision}}
+            CONTAINER_IMAGE={{inputs.parameters.container-image}}
+            REPO={{workflow.parameters.gitops-repo-url}}
+            BASE_BRANCH={{workflow.parameters.gitops-branch}}
+            GIT_TOKEN=$(cat /mnt/secrets/gitops-git/git-token)
+
+            echo "===== Step 1: Committing Changes ====="
+            git add .
+
+            # Check if there are changes to commit
+            if git diff --cached --quiet; then
+                echo "No changes to commit - skipping push and PR creation"
+                exit 0
+            fi
+
+            # Create commit message
+            git commit -m "Release ${COMPONENT_NAME} (${GIT_REVISION})
+
+            Project: ${PROJECT_NAME}
+            Component: ${COMPONENT_NAME}
+            Image: ${CONTAINER_IMAGE}
+            Revision: ${GIT_REVISION}
+
+            Generated by OpenChoreo GitOps Workflow"
+
+            echo "Changes committed successfully"
+
+            echo "===== Step 2: Pushing to Remote ====="
+            # Inject token into repo URL for authentication
+            REPO_WITH_CREDS=$(echo "$REPO" | sed "s|https://|https://x-access-token:${GIT_TOKEN}@|")
+
+            # Get current branch name
+            BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+            echo "Pushing branch $BRANCH to remote"
+            git push "$REPO_WITH_CREDS" $BRANCH
+
+            echo "Branch pushed successfully"
+
+            echo "===== Step 3: Creating Pull Request ====="
+            # Install GitHub CLI
+            apk add --no-cache curl
+            curl -fsSL https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz | tar -xz
+            mv gh_2.62.0_linux_amd64/bin/gh /usr/local/bin/
+
+            export GH_TOKEN=$GIT_TOKEN
+
+            # Create PR
+            gh pr create \
+              --title "Release ${COMPONENT_NAME} (${GIT_REVISION})" \
+              --body "$(cat <<EOF
+            ## Summary
+            - Component: **${COMPONENT_NAME}**
+            - Project: **${PROJECT_NAME}**
+            - Revision: \`${GIT_REVISION}\`
+            - Image: \`${CONTAINER_IMAGE}\`
+
+            ## Changes
+            - Generated/updated Workload manifest
+            - Created ComponentRelease
+            - Created/updated ReleaseBinding
+
+            ## Test Plan
+            - [ ] Review generated manifests
+            - [ ] Verify component configuration
+            - [ ] Check deployment pipeline settings
+            - [ ] Merge and monitor deployment
+
+            Generated by [OpenChoreo](https://openchoreo.dev) GitOps Workflow
+            EOF
+            )" \
+              --base "$BASE_BRANCH" \
+              --head "$BRANCH"
+
+            echo "Pull request created successfully"
+            echo "===== Git operations completed successfully ====="
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: gitops-git-credentials
+            mountPath: /mnt/secrets/gitops-git
+            readOnly: true
+
+  ttlStrategy:
+    secondsAfterCompletion: 3600
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+  volumes:
+    - name: source-git-credentials
+      secret:
+        secretName: '{{workflow.parameters.source-git-secret}}'
+    - name: gitops-git-credentials
+      secret:
+        secretName: '{{workflow.parameters.gitops-git-secret}}'

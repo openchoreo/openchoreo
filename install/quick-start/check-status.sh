@@ -49,7 +49,7 @@ get_component_config() {
         "api_server") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=openchoreo-control-plane,app.kubernetes.io/component=api-server" ;;
         "gateway_controller") echo "$CONTROL_PLANE_NS:app.kubernetes.io/name=gateway" ;;
         "argo_workflow_controller") echo "$BUILD_PLANE_NS:app.kubernetes.io/name=argo-workflows-workflow-controller" ;;
-        "registry") echo "$BUILD_PLANE_NS:app=registry" ;;
+        "registry") echo "$BUILD_PLANE_NS:app=docker-registry" ;;
         "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=opensearch-master" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;

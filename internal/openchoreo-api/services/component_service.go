@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"reflect"
 	"strings"
+	"time"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,7 +115,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -365,7 +366,7 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 		}
 		// Authorization check for each release
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, item.Name,
-			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized releases
 				s.logger.Debug("Skipping unauthorized component release", "org", orgName, "project", projectName, "component", componentName, "release", item.Name)
@@ -401,7 +402,7 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -468,7 +469,7 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, orgNam
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentRelease, ResourceTypeComponentRelease, releaseName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -834,7 +835,7 @@ func (s *ComponentService) PatchReleaseBinding(ctx context.Context, orgName, pro
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateReleaseBinding, ResourceTypeReleaseBinding, bindingName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -1162,7 +1163,7 @@ func (s *ComponentService) ListReleaseBindings(ctx context.Context, orgName, pro
 
 		// Authorization check for each release binding
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewReleaseBinding, ResourceTypeReleaseBinding, binding.Name,
-			authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized release bindings
 				s.logger.Debug("Skipping unauthorized release binding", "org", orgName, "project", projectName, "component", componentName, "binding", binding.Name)
@@ -1192,7 +1193,7 @@ func (s *ComponentService) DeployRelease(ctx context.Context, orgName, projectNa
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -1361,7 +1362,7 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponent, ResourceTypeComponent, req.Name,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: req.Name}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: req.Name}); err != nil {
 		return nil, err
 	}
 
@@ -1409,6 +1410,48 @@ func (s *ComponentService) CreateComponent(ctx context.Context, orgName, project
 	}, nil
 }
 
+// DeleteComponent deletes a component from the given project
+func (s *ComponentService) DeleteComponent(ctx context.Context, orgName, projectName, componentName string) error {
+	s.logger.Debug("Deleting component", "org", orgName, "project", projectName, "component", componentName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
+		return err
+	}
+
+	// Get the component first to ensure it exists and belongs to the project
+	component := &openchoreov1alpha1.Component{}
+	key := client.ObjectKey{
+		Name:      componentName,
+		Namespace: orgName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			return ErrComponentNotFound
+		}
+		s.logger.Error("Failed to get component", "error", err)
+		return fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Verify component belongs to the specified project
+	if component.Spec.Owner.ProjectName != projectName {
+		s.logger.Warn("Component belongs to different project", "org", orgName, "expected_project", projectName, "actual_project", component.Spec.Owner.ProjectName)
+		return ErrComponentNotFound
+	}
+
+	// Delete the component CR
+	if err := s.k8sClient.Delete(ctx, component); err != nil {
+		s.logger.Error("Failed to delete component CR", "error", err)
+		return fmt.Errorf("failed to delete component: %w", err)
+	}
+
+	s.logger.Debug("Component deleted successfully", "org", orgName, "project", projectName, "component", componentName)
+	return nil
+}
+
 // ListComponents lists all components in the given project
 func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectName string, opts *models.ListOptions) (*models.ListResponse[*models.ComponentResponse], error) {
 	if opts == nil {
@@ -1445,7 +1488,7 @@ func (s *ComponentService) ListComponents(ctx context.Context, orgName, projectN
 		if item.Spec.Owner.ProjectName == projectName {
 			// Authorization check for each component
 			if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, item.Name,
-				authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: item.Name}); err != nil {
+				authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: item.Name}); err != nil {
 				if errors.Is(err, ErrForbidden) {
 					// Skip unauthorized components
 					s.logger.Debug("Skipping unauthorized component", "org", orgName, "project", projectName, "component", item.Name)
@@ -1475,7 +1518,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, orgName, projectNam
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -1571,7 +1614,7 @@ func (s *ComponentService) PatchComponent(ctx context.Context, orgName, projectN
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -1799,6 +1842,13 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		componentType = string(component.Spec.Type)
 	}
 
+	// Get deletion timestamp if the component is being deleted
+	var deletionTimestamp *time.Time
+	if component.DeletionTimestamp != nil {
+		t := component.DeletionTimestamp.Time
+		deletionTimestamp = &t
+	}
+
 	response := &models.ComponentResponse{
 		UID:               string(component.UID),
 		Name:              component.Name,
@@ -1809,6 +1859,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		ProjectName:       projectName,
 		OrgName:           component.Namespace,
 		CreatedAt:         component.CreationTimestamp.Time,
+		DeletionTimestamp: deletionTimestamp,
 		Status:            status,
 		ComponentWorkflow: componentWorkflow,
 	}
@@ -2026,7 +2077,7 @@ func (s *ComponentService) PromoteComponent(ctx context.Context, req *PromoteCom
 
 	// Authorization check (promote uses same permission as deploy)
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeployComponent, ResourceTypeComponent, req.ComponentName,
-		authz.ResourceHierarchy{Organization: req.OrgName, Project: req.ProjectName, Component: req.ComponentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: req.OrgName, Project: req.ProjectName, Component: req.ComponentName}); err != nil {
 		return nil, err
 	}
 
@@ -2394,7 +2445,7 @@ func (s *ComponentService) GetComponentWorkloads(ctx context.Context, orgName, p
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkload, ResourceTypeWorkload, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -2475,7 +2526,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, orgName,
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkload, ResourceTypeWorkload, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -2807,7 +2858,7 @@ func (s *ComponentService) ListComponentTraits(ctx context.Context, orgName, pro
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 
@@ -2873,7 +2924,7 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, orgName, p
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionUpdateComponent, ResourceTypeComponent, componentName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName, Component: componentName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
 		return nil, err
 	}
 

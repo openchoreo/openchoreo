@@ -63,21 +63,21 @@ func NewVersionCmd() *cobra.Command {
 
 // fetchServerVersion fetches the version information from the configured control plane.
 func fetchServerVersion() (*serverVersionResponse, error) {
-	// Load stored config to get control plane endpoint
-	storedConfig, err := config.LoadStoredConfig()
+	// Get control plane
+	controlPlane, err := config.GetCurrentControlPlane()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, fmt.Errorf("failed to get control plane: %w", err)
 	}
 
-	if storedConfig.ControlPlane == nil || storedConfig.ControlPlane.Endpoint == "" {
-		return nil, fmt.Errorf("control plane not configured")
+	if controlPlane.URL == "" {
+		return nil, fmt.Errorf("control plane URL not configured")
 	}
 
 	// Create HTTP request with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	url := storedConfig.ControlPlane.Endpoint + "/version"
+	url := controlPlane.URL + "/version"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

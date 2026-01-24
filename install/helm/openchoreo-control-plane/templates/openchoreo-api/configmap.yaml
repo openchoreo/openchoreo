@@ -12,4 +12,6 @@ data:
     security:
       user_types:
         {{- toYaml .Values.openchoreoApi.security.userTypes | nindent 8 }}
+      external_clients:
+        {{- toYaml .Values.security.oidc.externalClients | nindent 8 }}
 {{- end }}

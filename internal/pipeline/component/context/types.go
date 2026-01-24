@@ -80,17 +80,18 @@ type ComponentContextInput struct {
 	// ReleaseBinding contains release reference and environment-specific overrides.
 	ReleaseBinding *v1alpha1.ReleaseBinding
 
-	// Workload contains the workload specification with the built image.
-	Workload *v1alpha1.Workload
-
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`
 
-	// SecretReferences is a map of SecretReference objects needed for rendering.
-	// Keyed by SecretReference name.
-	// Optional - can be nil if no secret references need to be resolved.
-	SecretReferences map[string]*v1alpha1.SecretReference
+	// WorkloadData is the pre-computed workload data (containers, endpoints).
+	// Should be computed once by the caller using ExtractWorkloadData and shared.
+	WorkloadData WorkloadData
+
+	// Configurations is the pre-computed configurations map from workload.
+	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
+	// and shared across ComponentContext and all TraitContexts.
+	Configurations ContainerConfigurationsMap
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
@@ -111,6 +112,15 @@ type TraitContextInput struct {
 	// ReleaseBinding contains release reference and environment-specific overrides.
 	// Can be nil if no overrides are needed.
 	ReleaseBinding *v1alpha1.ReleaseBinding
+
+	// WorkloadData is the pre-computed workload data (containers, endpoints).
+	// Should be computed once by the caller using ExtractWorkloadData and shared.
+	WorkloadData WorkloadData
+
+	// Configurations is the pre-computed configurations map from workload.
+	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
+	// and shared across ComponentContext and all TraitContexts.
+	Configurations ContainerConfigurationsMap
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
@@ -178,6 +188,7 @@ type DataPlaneData struct {
 // WorkloadData contains workload information for templates.
 type WorkloadData struct {
 	Containers map[string]ContainerData `json:"containers"`
+	Endpoints  map[string]EndpointData  `json:"endpoints"`
 }
 
 // ContainerData contains container information.
@@ -185,6 +196,19 @@ type ContainerData struct {
 	Image   string   `json:"image,omitempty"`
 	Command []string `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
+}
+
+// EndpointData contains endpoint information.
+type EndpointData struct {
+	Type   string      `json:"type"`
+	Port   int32       `json:"port"`
+	Schema *SchemaData `json:"schema,omitempty"`
+}
+
+// SchemaData contains API schema information for an endpoint.
+type SchemaData struct {
+	Type    string `json:"type,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 // ContainerConfigurationsMap maps container names to their configuration collections.
@@ -246,6 +270,15 @@ type TraitContext struct {
 	// DataPlane provides data plane configuration.
 	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
 	DataPlane DataPlaneData `json:"dataplane"`
+
+	// Workload contains workload specification (containers, endpoints).
+	// Accessed via ${workload.containers}, ${workload.endpoints}
+	Workload WorkloadData `json:"workload"`
+
+	// Configurations are extracted configuration items from workload.
+	// Keyed by container name, contains configs and secrets.
+	// Accessed via ${configurations["containerName"].configs.envs}, etc.
+	Configurations ContainerConfigurationsMap `json:"configurations"`
 }
 
 // TraitMetadata contains trait-specific metadata.

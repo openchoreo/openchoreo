@@ -12,6 +12,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+const (
+	alertRuleSourceTypeLog    = "log"
+	alertRuleSourceTypeMetric = "metric"
+)
+
 // Validates that the limit is a positive integer and does not exceed 10000
 func validateLimit(limit *int) error {
 	if *limit == 0 {
@@ -128,11 +133,17 @@ func validateAlertingRule(req types.AlertingRuleRequest) error {
 	}
 
 	// Source validations
-	if req.Source.Type != "log" { // TODO: Add validation for metric-based alert rules
-		return fmt.Errorf("source.type must be 'log'")
+	if req.Source.Type != alertRuleSourceTypeLog && req.Source.Type != alertRuleSourceTypeMetric {
+		return fmt.Errorf("source.type must be 'log' or 'metric'")
 	}
-	if req.Source.Type == "log" && strings.TrimSpace(req.Source.Query) == "" {
+	if req.Source.Type == alertRuleSourceTypeLog && strings.TrimSpace(req.Source.Query) == "" {
 		return fmt.Errorf("source.query is required for log-based alert rules")
+	}
+	if req.Source.Type == alertRuleSourceTypeMetric && strings.TrimSpace(req.Source.Metric) == "" {
+		return fmt.Errorf("source.metric is required for metric-based alert rules")
+	}
+	if req.Source.Type == alertRuleSourceTypeMetric && req.Source.Metric != "cpu_usage" && req.Source.Metric != "memory_usage" {
+		return fmt.Errorf("source.metric must be 'cpu_usage' or 'memory_usage' for metric-based alert rules")
 	}
 
 	// Condition validations

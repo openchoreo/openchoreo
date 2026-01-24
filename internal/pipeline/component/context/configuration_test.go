@@ -545,7 +545,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := extractConfigurationsFromWorkload(tt.secretReferences, tt.workload)
+			got := ExtractConfigurationsFromWorkload(tt.secretReferences, tt.workload)
 
 			// Convert to map[string]any for comparison with expected values
 			gotAny, err := structToMap(got)
@@ -554,7 +554,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tt.want, gotAny, sortSliceByName()); diff != "" {
-				t.Errorf("extractConfigurationsFromWorkload() mismatch (-want +got):\n%s", diff)
+				t.Errorf("ExtractConfigurationsFromWorkload() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

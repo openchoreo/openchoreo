@@ -36,8 +36,7 @@ spec:
           echo ""
 
           # 2. Wait for registry to be ready (only for local registries)
-          if [ "${REGISTRY_ENDPOINT}" = "registry.openchoreo-build-plane:5000" ] || \
-             [ "${REGISTRY_ENDPOINT}" = "host.k3d.internal:10082" ]; then
+          if echo "${REGISTRY_ENDPOINT}" | grep -qE "^(registry\.|localhost|host\.k3d\.internal)"; then
             echo "Waiting for local registry to be ready..."
             MAX_RETRIES=60
             RETRY_COUNT=0
@@ -110,7 +109,7 @@ spec:
           }
 
           {{- range .Values.global.defaultResources.buildpackCache.images }}
-          push_image "{{ .source }}" "{{ .cacheName }}"
+          push_image "{{ .remoteImage }}" "{{ .cachedImage }}"
           {{- end }}
 
           echo ""

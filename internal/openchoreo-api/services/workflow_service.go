@@ -58,7 +58,7 @@ func (s *WorkflowService) ListWorkflows(ctx context.Context, orgName string, opt
 	wfs := make([]*models.WorkflowResponse, 0, len(wfList.Items))
 	for i := range wfList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized items
 				s.logger.Debug("Skipping unauthorized workflow", "org", orgName, "workflow", wfList.Items[i].Name)
@@ -85,7 +85,7 @@ func (s *WorkflowService) GetWorkflow(ctx context.Context, orgName, wfName strin
 	s.logger.Debug("Getting Workflow", "org", orgName, "name", wfName)
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -113,7 +113,7 @@ func (s *WorkflowService) GetWorkflowSchema(ctx context.Context, orgName, wfName
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflow, ResourceTypeWorkflow, wfName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

@@ -147,3 +147,40 @@ func (w *WorkloadResource) Print(format resources.OutputFormat, filter *resource
 	// For now, return a helpful message
 	return fmt.Errorf("workload listing not yet implemented - use 'occ get workload' command instead")
 }
+
+// GenerateWorkloadCR generates a Workload CR without writing it (used in file-system mode)
+func (w *WorkloadResource) GenerateWorkloadCR(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
+	// Validate required parameters
+	if params.OrganizationName == "" {
+		return nil, fmt.Errorf("organization name is required (--organization)")
+	}
+	if params.ProjectName == "" {
+		return nil, fmt.Errorf("project name is required (--project)")
+	}
+	if params.ComponentName == "" {
+		return nil, fmt.Errorf("component name is required (--component)")
+	}
+	if params.ImageURL == "" {
+		return nil, fmt.Errorf("image URL is required (--image)")
+	}
+
+	var workloadCR *openchoreov1alpha1.Workload
+	var err error
+
+	// Check if a descriptor file is provided
+	if params.FilePath != "" {
+		// Create workload from descriptor file
+		workloadCR, err = synth.ConvertWorkloadDescriptorToWorkloadCR(params.FilePath, params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert workload descriptor: %w", err)
+		}
+	} else {
+		// Create basic workload from command line parameters
+		workloadCR, err = synth.CreateBasicWorkload(params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create basic workload CR: %w", err)
+		}
+	}
+
+	return workloadCR, nil
+}

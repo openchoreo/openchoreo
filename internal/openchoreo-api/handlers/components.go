@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 
 func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +36,12 @@ func (h *Handler) CreateComponent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	setAuditResource(ctx, "component", req.Name, req.Name)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to create component
 	component, err := h.services.ComponentService.CreateComponent(ctx, orgName, projectName, &req)
@@ -158,6 +164,49 @@ func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, component)
 }
 
+func (h *Handler) DeleteComponent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Info("DeleteComponent handler called")
+
+	// Extract path parameters
+	orgName := r.PathValue("orgName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	if orgName == "" || projectName == "" || componentName == "" {
+		logger.Warn("Organization name, project name, and component name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Organization name, project name, and component name are required", "INVALID_PARAMS")
+		return
+	}
+
+	// Call service to delete component
+	err := h.services.ComponentService.DeleteComponent(ctx, orgName, projectName, componentName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to delete component", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "org", orgName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "org", orgName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		logger.Error("Failed to delete component", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	// Success response - 204 No Content for successful delete
+	logger.Info("Component deleted successfully", "org", orgName, "project", projectName, "component", componentName)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)
@@ -179,6 +228,12 @@ func (h *Handler) PatchComponent(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	component, err := h.services.ComponentService.PatchComponent(ctx, orgName, projectName, componentName, &req)
 	if err != nil {
@@ -268,6 +323,12 @@ func (h *Handler) UpdateComponentWorkflowParameters(w http.ResponseWriter, r *ht
 		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", "INVALID_JSON")
 		return
 	}
+
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to update workflow parameters
 	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(ctx, orgName, projectName, componentName, &req)
@@ -379,6 +440,14 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	// Sanitize input
 	req.Sanitize()
 
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization":       orgName,
+		"project":            projectName,
+		"source_environment": req.SourceEnvironment,
+		"target_environment": req.TargetEnvironment,
+	})
+
 	promoteReq := &services.PromoteComponentPayload{
 		PromoteComponentRequest: req,
 		ComponentName:           componentName,
@@ -460,6 +529,13 @@ func (h *Handler) UpdateComponentBinding(w http.ResponseWriter, r *http.Request)
 		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "INVALID_REQUEST")
 		return
 	}
+
+	setAuditResource(ctx, "component_binding", bindingName, bindingName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+		"component":    componentName,
+	})
 
 	// Call service to update component binding
 	binding, err := h.services.ComponentService.UpdateComponentBinding(ctx, orgName, projectName, componentName, bindingName, &req)
@@ -1049,6 +1125,12 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
 		return
 	}
+
+	setAuditResource(ctx, "component", componentName, componentName)
+	addAuditMetadataBatch(ctx, map[string]any{
+		"organization": orgName,
+		"project":      projectName,
+	})
 
 	// Call service to update component traits
 	traits, err := h.services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, &req)

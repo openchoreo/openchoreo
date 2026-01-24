@@ -58,7 +58,7 @@ data:
             - k8s.namespace.name
             - k8s.node.name
       {{- end }}
-
+      {{- if .Values.opentelemetryCollectorCustomizations.tailSampling.enabled }}
       tail_sampling:
         decision_wait: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.decisionWait }}
         num_traces: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.numTraces }}
@@ -73,15 +73,21 @@ data:
               rate_limiting: {spans_per_second: {{ .Values.opentelemetryCollectorCustomizations.tailSampling.spansPerSecond }} }
             },
         ]
+      {{- end }}
 
     service:
       extensions: [basicauth/opensearch, health_check]
       pipelines:
         traces:
           receivers: [otlp]
+          {{- $processors := list }}
           {{- if eq .Values.global.installationMode "singleCluster" }}
-          processors: [k8sattributes, tail_sampling]
-          {{- else }}
-          processors: [tail_sampling]
+          {{- $processors = append $processors "k8sattributes" }}
+          {{- end }}
+          {{- if .Values.opentelemetryCollectorCustomizations.tailSampling.enabled }}
+          {{- $processors = append $processors "tail_sampling" }}
+          {{- end }}
+          {{- if $processors }}
+          processors: [{{ join ", " $processors }}]
           {{- end }}
           exporters: [opensearch]

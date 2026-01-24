@@ -55,12 +55,14 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/quick-start/.helpers.sh ${USER_HOME}/.helpers.sh && \
     cp /tmp/install/quick-start/check-status.sh ${USER_HOME}/check-status.sh && \
     cp /tmp/install/quick-start/validate-installation.sh ${USER_HOME}/validate-installation.sh && \
+    cp /tmp/install/quick-start/occ-login.sh ${USER_HOME}/occ-login.sh && \
     cp /tmp/install/quick-start/deploy-react-starter.sh ${USER_HOME}/deploy-react-starter.sh && \
     cp /tmp/install/quick-start/deploy-gcp-demo.sh ${USER_HOME}/deploy-gcp-demo.sh && \
     cp /tmp/install/quick-start/build-deploy-greeter.sh ${USER_HOME}/build-deploy-greeter.sh && \
     cp /tmp/install/quick-start/.values-cp.yaml ${USER_HOME}/.values-cp.yaml && \
     cp /tmp/install/quick-start/.values-dp.yaml ${USER_HOME}/.values-dp.yaml && \
     cp /tmp/install/quick-start/.values-bp.yaml ${USER_HOME}/.values-bp.yaml && \
+    cp /tmp/install/quick-start/.values-registry.yaml ${USER_HOME}/.values-registry.yaml && \
     cp /tmp/install/quick-start/.values-op.yaml ${USER_HOME}/.values-op.yaml && \
     cp /tmp/install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh && \
     cp /tmp/install/add-data-plane.sh ${USER_HOME}/add-data-plane.sh && \

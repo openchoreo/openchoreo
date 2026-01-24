@@ -21,10 +21,10 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/handlers"
-	apilogger "github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/router"
 )
 
@@ -87,7 +87,7 @@ func main() {
 	legacyRoutes := legacyHandler.Routes()
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, baseLogger.With("component", "openapi-handlers"))
+	openapiHandler := openapihandlers.New(services, baseLogger.With("component", "openapi-handlers"), cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      k8s.io:
+        patterns:
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Dockerfiles
+  - package-ecosystem: "docker"
+    directories:
+      - "/"
+      - "/cmd/*"
+      - "/install/*"
+    schedule:
+      interval: "monthly"
+
+  # Helm charts
+  - package-ecosystem: "helm"
+    directories:
+      - "/install/helm/*"
+    schedule:
+      interval: "monthly"
+
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/rca-agent"
+    schedule:
+      interval: "weekly"

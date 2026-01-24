@@ -19,7 +19,15 @@ type Config struct {
 
 // SecurityConfig represents the authorization configuration section
 type SecurityConfig struct {
-	UserTypes []subject.UserTypeConfig `yaml:"user_types"`
+	UserTypes       []subject.UserTypeConfig `yaml:"user_types"`
+	ExternalClients []ExternalClientConfig   `yaml:"external_clients"`
+}
+
+// ExternalClientConfig represents an external client configuration
+type ExternalClientConfig struct {
+	Name     string   `yaml:"name"`
+	ClientID string   `yaml:"client_id"`
+	Scopes   []string `yaml:"scopes"`
 }
 
 // Load loads and validates the configuration from the specified file path

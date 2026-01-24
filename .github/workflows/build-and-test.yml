@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -56,7 +56,7 @@ jobs:
     needs: [ lint, gen-check, test ]
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -70,37 +70,37 @@ jobs:
           make go.build-multiarch.occ GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
 
       - name: Upload occ binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: occ
           path: bin/dist/**/occ
 
       - name: Upload manager binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: manager
           path: bin/dist/**/manager
 
       - name: Upload openchoreo-api binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: openchoreo-api
           path: bin/dist/**/openchoreo-api
 
       - name: Upload observer binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: observer
           path: bin/dist/**/observer
 
       - name: Upload cluster-gateway binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: cluster-gateway
           path: bin/dist/**/cluster-gateway
 
       - name: Upload cluster-agent binaries
-        uses: actions/upload-artifact@v5.0.0
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
@@ -113,43 +113,43 @@ jobs:
       packages: write
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.1
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
 
       - name: Download occ binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: occ
           path: bin/dist
 
       - name: Download manager binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: manager
           path: bin/dist
 
       - name: Download openchoreo-api binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: openchoreo-api
           path: bin/dist
 
       - name: Download observer binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: observer
           path: bin/dist
 
       - name: Download cluster-gateway binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: cluster-gateway
           path: bin/dist
 
       - name: Download cluster-agent binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: cluster-agent
           path: bin/dist

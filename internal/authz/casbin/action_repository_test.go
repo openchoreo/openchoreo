@@ -37,9 +37,8 @@ func setupTestActionRepository(t *testing.T) *ActionRepository {
 		{Action: "project:create", IsInternal: false},
 		{Action: "*", IsInternal: false},
 		{Action: "internal:secret", IsInternal: true},
-		{Action: "internal:admin:*", IsInternal: true},
-		{Action: "organization:view", IsInternal: false},
-		{Action: "organization:manage", IsInternal: false},
+		{Action: "internal:*", IsInternal: true},
+		{Action: "namespace:view", IsInternal: false},
 	}
 
 	for _, action := range testActions {
@@ -61,7 +60,7 @@ func TestActionRepository_ListPublicActions(t *testing.T) {
 			t.Fatalf("ListPublicActions() error = %v", err)
 		}
 
-		if len(actions) != 10 {
+		if len(actions) != 9 {
 			t.Errorf("ListPublicActions() returned %d actions, want 10", len(actions))
 		}
 
@@ -84,13 +83,13 @@ func TestActionRepository_ListConcretePublicActions(t *testing.T) {
 			t.Fatalf("ListConcretePublicActions() error = %v", err)
 		}
 
-		if len(actions) != 8 {
+		if len(actions) != 7 {
 			t.Errorf("ListConcretePublicActions() returned %d actions, want 8", len(actions))
 		}
 
 		// Verify no wildcarded actions are included
 		for _, action := range actions {
-			if action.Action == "*" || action.Action == "component:*" || action.Action == "internal:admin:*" {
+			if action.Action == "*" || action.Action == "component:*" || action.Action == "internal:*" {
 				t.Errorf("ListConcretePublicActions() returned wildcarded action: %s", action.Action)
 			}
 		}

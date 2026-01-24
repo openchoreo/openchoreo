@@ -60,7 +60,7 @@ func (s *DeploymentPipelineService) GetProjectDeploymentPipeline(ctx context.Con
 	}
 
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewDeploymentPipeline, ResourceTypeDeploymentPipeline, pipelineName,
-		authz.ResourceHierarchy{Organization: orgName, Project: projectName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName, Project: projectName}); err != nil {
 		return nil, err
 	}
 

@@ -8,10 +8,12 @@ type systemAction string
 const (
 	SystemActionCreateProject systemAction = "project:create"
 	SystemActionViewProject   systemAction = "project:view"
+	SystemActionDeleteProject systemAction = "project:delete"
 
 	SystemActionCreateComponent        systemAction = "component:create"
 	SystemActionViewComponent          systemAction = "component:view"
 	SystemActionUpdateComponent        systemAction = "component:update"
+	SystemActionDeleteComponent        systemAction = "component:delete"
 	SystemActionDeployComponent        systemAction = "component:deploy"
 	SystemActionCreateComponentRelease systemAction = "componentrelease:create"
 	SystemActionViewComponentRelease   systemAction = "componentrelease:view"
@@ -22,7 +24,7 @@ const (
 	SystemActionCreateWorkload systemAction = "workload:create"
 	SystemActionViewWorkload   systemAction = "workload:view"
 
-	SystemActionViewOrganization systemAction = "organization:view"
+	SystemActionViewNamespace systemAction = "namespace:view"
 
 	SystemActionCreateRole        systemAction = "role:create"
 	SystemActionViewRole          systemAction = "role:view"
@@ -63,7 +65,7 @@ const (
 	ResourceTypeComponentRelease     ResourceType = "componentRelease"
 	ResourceTypeReleaseBinding       ResourceType = "releaseBinding"
 	ResourceTypeWorkload             ResourceType = "workload"
-	ResourceTypeOrganization         ResourceType = "organization"
+	ResourceTypeNamespace            ResourceType = "namespace"
 	ResourceTypeRole                 ResourceType = "role"
 	ResourceTypeRoleMapping          ResourceType = "roleMapping"
 	ResourceTypeComponentType        ResourceType = "componentType"

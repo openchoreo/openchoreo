@@ -81,8 +81,11 @@ type DeleteParams struct {
 
 // LoginParams defines parameters for login
 type LoginParams struct {
-	KubeconfigPath string
-	Kubecontext    string
+	ClientCredentials bool // Flag to use client credentials flow
+	ClientID          string
+	ClientSecret      string
+	CredentialName    string // Name to save credential as
+	URL               string // Control plane URL to update
 }
 
 type LogParams struct {
@@ -313,8 +316,8 @@ type GetConfigurationGroupParams struct {
 
 // SetControlPlaneParams defines parameters for setting control plane configuration
 type SetControlPlaneParams struct {
-	Endpoint string
-	Token    string
+	Name string
+	URL  string
 }
 
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor
@@ -325,6 +328,7 @@ type CreateWorkloadParams struct {
 	ComponentName    string
 	ImageURL         string
 	OutputPath       string
+	DryRun           bool
 }
 
 // ScaffoldComponentParams defines parameters for scaffolding a component
@@ -345,6 +349,7 @@ type GenerateComponentReleaseParams struct {
 	All           bool   // Generate for all components
 	ProjectName   string // Generate for all components in this project
 	ComponentName string // Generate for specific component
+	ReleaseName   string // Optional: custom release name (only valid with --component)
 	OutputPath    string // Optional: custom output directory
 	DryRun        bool   // Preview without writing files
 }

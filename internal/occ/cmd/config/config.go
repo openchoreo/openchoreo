@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -104,20 +103,29 @@ func (c *ConfigContextImpl) GetCurrentContext() error {
 		return err
 	}
 
-	// Print control plane info if available and in kubernetes mode
-	if cfg.ControlPlane != nil && currentCtx.Mode != configContext.ModeFileSystem {
-		fmt.Println("\nControl Plane:")
-		cpHeaders := []string{"PROPERTY", "VALUE"}
-		tokenDisplay := "-"
-		if cfg.ControlPlane.Token != "" {
-			tokenDisplay = maskToken(cfg.ControlPlane.Token)
+	// Print control plane info if available and in API server mode
+	if currentCtx.ControlPlane != "" && currentCtx.Mode != configContext.ModeFileSystem {
+		// Find the control plane by name
+		for _, cp := range cfg.ControlPlanes {
+			if cp.Name == currentCtx.ControlPlane {
+				fmt.Println("\nControl Plane:")
+				cpHeaders := []string{"PROPERTY", "VALUE"}
+				tokenDisplay := "-"
+				// Find credential to check if token exists
+				for _, cred := range cfg.Credentials {
+					if cred.Name == currentCtx.Credentials && cred.Token != "" {
+						tokenDisplay = maskToken(cred.Token)
+						break
+					}
+				}
+				cpRows := [][]string{
+					{"Name", cp.Name},
+					{"URL", cp.URL},
+					{"Token", tokenDisplay},
+				}
+				return printTable(cpHeaders, cpRows)
+			}
 		}
-		cpRows := [][]string{
-			{"Type", cfg.ControlPlane.Type},
-			{"Endpoint", cfg.ControlPlane.Endpoint},
-			{"Token", tokenDisplay},
-		}
-		return printTable(cpHeaders, cpRows)
 	}
 
 	return nil
@@ -305,6 +313,8 @@ type DefaultContextValues struct {
 	Project      string
 	DataPlane    string
 	Environment  string
+	Credentials  string
+	ControlPlane string
 }
 
 // getDefaultContextValues returns the default context values based on
@@ -316,6 +326,8 @@ func getDefaultContextValues() DefaultContextValues {
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
 		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
 		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
+		Credentials:  getEnvOrDefault("CHOREO_DEFAULT_CREDENTIAL", "default"),
+		ControlPlane: getEnvOrDefault("CHOREO_DEFAULT_CONTROLPLANE", "default"),
 	}
 }
 
@@ -355,19 +367,30 @@ func EnsureContext() error {
 				Project:      defaults.Project,
 				DataPlane:    defaults.DataPlane,
 				Environment:  defaults.Environment,
+				Credentials:  defaults.Credentials,
+				ControlPlane: defaults.ControlPlane,
 			}
 			cfg.Contexts = append(cfg.Contexts, defaultContext)
 
 			// Set as current context
 			cfg.CurrentContext = defaultContext.Name
 
-			// Set default control plane configuration
-			if cfg.ControlPlane == nil {
-				endpoint, token := getDefaultControlPlaneValues()
-				cfg.ControlPlane = &configContext.ControlPlane{
-					Type:     "local",
-					Endpoint: endpoint,
-					Token:    token,
+			// Set default control plane configuration if not exists
+			if len(cfg.ControlPlanes) == 0 {
+				endpoint, _ := getDefaultControlPlaneValues()
+				cfg.ControlPlanes = []configContext.ControlPlane{
+					{
+						Name: defaults.ControlPlane,
+						URL:  endpoint,
+					},
+				}
+			}
+
+			if len(cfg.Credentials) == 0 {
+				cfg.Credentials = []configContext.Credential{
+					{
+						Name: defaults.Credentials,
+					},
 				}
 			}
 
@@ -383,22 +406,41 @@ func EnsureContext() error {
 
 // SetControlPlane sets the control plane configuration
 func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) error {
+	// Get current context
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return fmt.Errorf("failed to get current context: %w", err)
+	}
+
+	// Load config for updates
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Determine control plane type based on endpoint
-	cpType := "remote"
-	if strings.HasPrefix(params.Endpoint, "http://localhost") || strings.HasPrefix(params.Endpoint, "http://127.0.0.1") {
-		cpType = "local"
+	// Find and update existing control plane or create new one
+	found := false
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == params.Name {
+			cfg.ControlPlanes[idx].URL = params.URL
+			found = true
+			break
+		}
 	}
 
-	// Create or update control plane configuration
-	cfg.ControlPlane = &configContext.ControlPlane{
-		Type:     cpType,
-		Endpoint: params.Endpoint,
-		Token:    params.Token,
+	if !found {
+		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+			Name: params.Name,
+			URL:  params.URL,
+		})
+	}
+
+	// Update current context to reference this control plane
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == currentContext.Name {
+			cfg.Contexts[idx].ControlPlane = params.Name
+			break
+		}
 	}
 
 	if err := SaveStoredConfig(cfg); err != nil {
@@ -406,11 +448,8 @@ func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) er
 	}
 
 	fmt.Printf("Control plane configured successfully:\n")
-	fmt.Printf("  Type: %s\n", cpType)
-	fmt.Printf("  Endpoint: %s\n", params.Endpoint)
-	if params.Token != "" {
-		fmt.Printf("  Token: %s\n", maskToken(params.Token))
-	}
+	fmt.Printf("  Name: %s\n", params.Name)
+	fmt.Printf("  URL: %s\n", params.URL)
 
 	return nil
 }
@@ -421,4 +460,73 @@ func maskToken(token string) string {
 		return "***"
 	}
 	return token[:4] + "..." + token[len(token)-4:]
+}
+
+// GetCurrentContext returns the current context
+func GetCurrentContext() (*configContext.Context, error) {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if cfg.CurrentContext == "" {
+		return nil, fmt.Errorf("no current context set")
+	}
+
+	// Find current context
+	for idx := range cfg.Contexts {
+		if cfg.Contexts[idx].Name == cfg.CurrentContext {
+			return &cfg.Contexts[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("current context '%s' not found", cfg.CurrentContext)
+}
+
+// GetCurrentCredential returns the credential for the current context
+func GetCurrentCredential() (*configContext.Credential, error) {
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return nil, err
+	}
+
+	if currentContext.Credentials == "" {
+		return nil, fmt.Errorf("no credentials associated with current context")
+	}
+
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Find credential
+	for idx := range cfg.Credentials {
+		if cfg.Credentials[idx].Name == currentContext.Credentials {
+			return &cfg.Credentials[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("credential '%s' not found", currentContext.Credentials)
+}
+
+// GetCurrentControlPlane returns the control plane for the current context
+func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
+	currentContext, err := GetCurrentContext()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Find control plane
+	for idx := range cfg.ControlPlanes {
+		if cfg.ControlPlanes[idx].Name == currentContext.ControlPlane {
+			return &cfg.ControlPlanes[idx], nil
+		}
+	}
+
+	return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
 }

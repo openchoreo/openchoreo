@@ -44,6 +44,18 @@ type BuildPlaneSpec struct {
 type BuildPlaneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// ObservedGeneration is the generation observed by the controller
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the latest available observations of the BuildPlane's state
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// AgentConnection tracks the status of cluster agent connections to this build plane
+	// +optional
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
 }
 
 // +kubebuilder:object:root=true

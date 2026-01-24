@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // writeSuccessResponse writes a successful API response
@@ -42,20 +44,17 @@ func writeListResponse[T any](w http.ResponseWriter, items []T, resourceVersion,
 	response := models.ListSuccessResponse(items, resourceVersion, continueToken)
 	_ = json.NewEncoder(w).Encode(response) // Ignore encoding errors for response
 }
-
 // extractListParams parses and validates query parameters for list operations
 func extractListParams(query url.Values) (*models.ListOptions, error) {
 	opts := &models.ListOptions{
-		Limit:    models.DefaultPageLimit, // Default to 100
+		Limit:    models.DefaultPageLimit,
 		Continue: "",
 	}
 
-	// Validate and set continue token if provided
 	if continueToken := query.Get("continue"); continueToken != "" {
 		opts.Continue = continueToken
 	}
 
-	// Parse limit if provided
 	if limitStr := query.Get("limit"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
@@ -90,4 +89,23 @@ func handlePaginationError(w http.ResponseWriter, err error, log *slog.Logger) b
 		return true
 	}
 	return false
+}
+
+// setAuditResource sets resource information for audit logging
+func setAuditResource(ctx context.Context, resourceType, resourceID, resourceName string) {
+	audit.SetResource(ctx, &audit.Resource{
+		Type: resourceType,
+		ID:   resourceID,
+		Name: resourceName,
+	})
+}
+
+// addAuditMetadata adds a single metadata key-value pair for audit logging
+func addAuditMetadata(ctx context.Context, key string, value any) {
+	audit.AddMetadata(ctx, key, value)
+}
+
+// addAuditMetadataBatch adds multiple metadata key-value pairs for audit logging
+func addAuditMetadataBatch(ctx context.Context, metadata map[string]any) {
+	audit.AddMetadataBatch(ctx, metadata)
 }

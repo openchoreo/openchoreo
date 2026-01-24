@@ -105,6 +105,9 @@ func (h *Handler) CreateDataPlane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setAuditResource(ctx, "dataplane", req.Name, req.Name)
+	addAuditMetadata(ctx, "organization", orgName)
+
 	dataplane, err := h.services.DataPlaneService.CreateDataPlane(ctx, orgName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {

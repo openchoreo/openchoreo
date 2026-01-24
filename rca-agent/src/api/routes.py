@@ -20,6 +20,7 @@ router = APIRouter()
 class AlertRuleSource(BaseModel):
     type: str
     query: str | None = None
+    metric: str | None = None
 
 
 class AlertRuleCondition(BaseModel):
@@ -40,7 +41,7 @@ class AlertRuleInfo(BaseModel):
 
 class AlertContext(BaseModel):
     id: str
-    value: int
+    value: int | str
     timestamp: str
     rule: AlertRuleInfo
 

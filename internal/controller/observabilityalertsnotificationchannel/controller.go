@@ -71,30 +71,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return r.finalize(ctx, channel)
 	}
 
-	// Ensure finalizer is added
-	if _, err := r.ensureFinalizer(ctx, channel); err != nil {
-		logger.Error(err, "Failed to ensure finalizer")
-		return ctrl.Result{}, err
-	}
-
 	// Ensure the first channel for an environment becomes the default automatically
+	// Do this BEFORE ensuring finalizer to avoid validation issues when adding finalizer
 	if changed, err := r.ensureDefaultChannel(ctx, channel); err != nil {
 		logger.Error(err, "Failed to ensure environment default notification channel")
 		return ctrl.Result{}, err
 	} else if changed {
-		// Refresh the channel so subsequent steps (ConfigMap/Secret) use the updated spec.
+		// Refresh the channel so subsequent steps use the updated spec.
 		if err := r.Get(ctx, req.NamespacedName, channel); err != nil {
 			logger.Error(err, "Failed to refresh channel after defaulting")
 			return ctrl.Result{}, err
 		}
-		// Ensure the refreshed object still carries the default flag (defensive).
-		if !channel.Spec.IsEnvDefault {
-			channel.Spec.IsEnvDefault = true
-			if err := r.Update(ctx, channel); err != nil {
-				logger.Error(err, "Failed to persist environment default flag on channel")
-				return ctrl.Result{}, err
-			}
-		}
+	}
+
+	// Refresh channel before ensuring finalizer to ensure we have the latest version
+	// This avoids validation errors if the channel was updated externally
+	if err := r.Get(ctx, req.NamespacedName, channel); err != nil {
+		logger.Error(err, "Failed to refresh channel before ensuring finalizer")
+		return ctrl.Result{}, err
+	}
+
+	// Ensure finalizer is added (after ensuring default to avoid validation conflicts)
+	if _, err := r.ensureFinalizer(ctx, channel); err != nil {
+		logger.Error(err, "Failed to ensure finalizer")
+		return ctrl.Result{}, err
 	}
 
 	// Get ObservabilityPlane client
@@ -187,23 +187,48 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 		},
 		Data: map[string]string{
 			"type":         string(channel.Spec.Type),
-			"from":         channel.Spec.Config.From,
-			"to":           fmt.Sprintf("%v", channel.Spec.Config.To),
-			"smtp.host":    channel.Spec.Config.SMTP.Host,
-			"smtp.port":    fmt.Sprintf("%d", channel.Spec.Config.SMTP.Port),
 			"isEnvDefault": fmt.Sprintf("%t", channel.Spec.IsEnvDefault),
 		},
 	}
 
-	// Add template data if present
-	if channel.Spec.Config.Template != nil {
-		configMap.Data["template.subject"] = channel.Spec.Config.Template.Subject
-		configMap.Data["template.body"] = channel.Spec.Config.Template.Body
+	// Add email-specific config if type is email
+	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeEmail && channel.Spec.EmailConfig != nil {
+		configMap.Data["from"] = channel.Spec.EmailConfig.From
+		configMap.Data["to"] = fmt.Sprintf("%v", channel.Spec.EmailConfig.To)
+		configMap.Data["smtp.host"] = channel.Spec.EmailConfig.SMTP.Host
+		configMap.Data["smtp.port"] = fmt.Sprintf("%d", channel.Spec.EmailConfig.SMTP.Port)
+
+		// Add template data if present
+		if channel.Spec.EmailConfig.Template != nil {
+			configMap.Data["template.subject"] = channel.Spec.EmailConfig.Template.Subject
+			configMap.Data["template.body"] = channel.Spec.EmailConfig.Template.Body
+		}
+
+		// Add TLS config if present
+		if channel.Spec.EmailConfig.SMTP.TLS != nil {
+			configMap.Data["smtp.tls.insecureSkipVerify"] = fmt.Sprintf("%t", channel.Spec.EmailConfig.SMTP.TLS.InsecureSkipVerify)
+		}
 	}
 
-	// Add TLS config if present
-	if channel.Spec.Config.SMTP.TLS != nil {
-		configMap.Data["smtp.tls.insecureSkipVerify"] = fmt.Sprintf("%t", channel.Spec.Config.SMTP.TLS.InsecureSkipVerify)
+	// Add webhook-specific config if type is webhook
+	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeWebhook && channel.Spec.WebhookConfig != nil {
+		configMap.Data["webhook.url"] = channel.Spec.WebhookConfig.URL
+		// Store payload template if provided
+		if channel.Spec.WebhookConfig.PayloadTemplate != "" {
+			configMap.Data["webhook.payloadTemplate"] = channel.Spec.WebhookConfig.PayloadTemplate
+		}
+		// Store inline header values in ConfigMap, header names for secret-referenced values
+		if len(channel.Spec.WebhookConfig.Headers) > 0 {
+			headerKeys := make([]string, 0, len(channel.Spec.WebhookConfig.Headers))
+			for key, headerValue := range channel.Spec.WebhookConfig.Headers {
+				headerKeys = append(headerKeys, key)
+				// Store inline values directly in ConfigMap
+				if headerValue.Value != nil {
+					configMap.Data[fmt.Sprintf("webhook.header.%s", key)] = *headerValue.Value
+				}
+			}
+			configMap.Data["webhook.headers"] = strings.Join(headerKeys, ",")
+		}
 	}
 
 	return configMap
@@ -229,13 +254,13 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 	}
 
 	// Add SMTP auth credentials if present - resolve secret references and copy actual values
-	if channel.Spec.Config.SMTP.Auth != nil {
+	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeEmail && channel.Spec.EmailConfig != nil && channel.Spec.EmailConfig.SMTP.Auth != nil {
 		logger.Info("Resolving SMTP auth credentials",
-			"hasUsernameRef", channel.Spec.Config.SMTP.Auth.Username != nil && channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef != nil,
-			"hasPasswordRef", channel.Spec.Config.SMTP.Auth.Password != nil && channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef != nil)
+			"hasUsernameRef", channel.Spec.EmailConfig.SMTP.Auth.Username != nil && channel.Spec.EmailConfig.SMTP.Auth.Username.SecretKeyRef != nil,
+			"hasPasswordRef", channel.Spec.EmailConfig.SMTP.Auth.Password != nil && channel.Spec.EmailConfig.SMTP.Auth.Password.SecretKeyRef != nil)
 
-		if channel.Spec.Config.SMTP.Auth.Username != nil && channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef != nil {
-			ref := channel.Spec.Config.SMTP.Auth.Username.SecretKeyRef
+		if channel.Spec.EmailConfig.SMTP.Auth.Username != nil && channel.Spec.EmailConfig.SMTP.Auth.Username.SecretKeyRef != nil {
+			ref := channel.Spec.EmailConfig.SMTP.Auth.Username.SecretKeyRef
 			logger.Info("Resolving SMTP username from secret",
 				"secretName", ref.Name,
 				"secretKey", ref.Key,
@@ -249,8 +274,8 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 			secret.Data["smtp.auth.username"] = []byte(username)
 			logger.Info("SMTP username resolved successfully")
 		}
-		if channel.Spec.Config.SMTP.Auth.Password != nil && channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef != nil {
-			ref := channel.Spec.Config.SMTP.Auth.Password.SecretKeyRef
+		if channel.Spec.EmailConfig.SMTP.Auth.Password != nil && channel.Spec.EmailConfig.SMTP.Auth.Password.SecretKeyRef != nil {
+			ref := channel.Spec.EmailConfig.SMTP.Auth.Password.SecretKeyRef
 			logger.Info("Resolving SMTP password from secret",
 				"secretName", ref.Name,
 				"secretKey", ref.Key,
@@ -264,8 +289,32 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 			secret.Data["smtp.auth.password"] = []byte(password)
 			logger.Info("SMTP password resolved successfully")
 		}
-	} else {
-		logger.Info("No SMTP auth configuration found in channel spec")
+	}
+
+	// Add webhook header values if present - resolve secret references and copy actual values
+	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeWebhook && channel.Spec.WebhookConfig != nil && len(channel.Spec.WebhookConfig.Headers) > 0 {
+		logger.Info("Resolving webhook header values from secrets",
+			"headerCount", len(channel.Spec.WebhookConfig.Headers))
+
+		for headerName, headerValue := range channel.Spec.WebhookConfig.Headers {
+			if headerValue.ValueFrom != nil && headerValue.ValueFrom.SecretKeyRef != nil {
+				ref := headerValue.ValueFrom.SecretKeyRef
+				logger.Info("Resolving webhook header from secret",
+					"headerName", headerName,
+					"secretName", ref.Name,
+					"secretKey", ref.Key,
+					"namespace", channel.Namespace)
+
+				headerVal, err := r.resolveSecretKeyRef(ctx, channel.Namespace, ref)
+				if err != nil {
+					logger.Error(err, "Failed to resolve webhook header secret reference",
+						"headerName", headerName)
+					return nil, fmt.Errorf("failed to resolve webhook header %s secret: %w", headerName, err)
+				}
+				secret.Data[fmt.Sprintf("webhook.header.%s", headerName)] = []byte(headerVal)
+				logger.Info("Webhook header resolved successfully", "headerName", headerName)
+			}
+		}
 	}
 
 	return secret, nil

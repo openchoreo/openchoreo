@@ -56,10 +56,29 @@ CEL expressions (enclosed in `${...}`) can be used in the following patch fields
   path: /spec/containers[?(@.name=='${metadata.name}')]/env/-
   ```
 
-- **`value`** - Dynamic values from parameters, metadata, or computations
+- **`value`** - The value to set. Can be:
+
+  Literal value:
   ```yaml
-  value: ${parameters.port}
+  value: "enabled"
+  ```
+
+  String interpolation:
+  ```yaml
   value: ${metadata.name}-sidecar
+  ```
+
+  Structure with embedded CEL:
+  ```yaml
+  value:
+    name: ${parameters.volumeName}
+    persistentVolumeClaim:
+      claimName: ${metadata.name}-pvc
+  ```
+
+  Standalone CEL expression:
+  ```yaml
+  value: ${configurations.toContainerEnvFrom(container.key)}
   ```
 
 ## Supported Operations

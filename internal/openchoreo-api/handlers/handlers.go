@@ -10,13 +10,15 @@ import (
 	"os"
 	"strings"
 
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/middleware/logger"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
@@ -74,6 +76,9 @@ func (h *Handler) Routes() http.Handler {
 	// JWT authentication middleware - applies to protected routes only
 	jwtAuth := h.InitJWTMiddleware()
 
+	// Audit logging middleware - applies to protected routes only
+	auditMiddleware := h.initAuditMiddleware()
+
 	// MCP endpoint
 	toolsets := getMCPServerToolsets(h)
 
@@ -84,8 +89,9 @@ func (h *Handler) Routes() http.Handler {
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
 	mcpRoutes.Handle("/mcp", mcp.NewHTTPServer(toolsets))
 
-	// Create protected route group with JWT auth
-	api := routes.With(jwtAuth)
+	// Create protected route group with JWT auth and audit logging
+	// Middleware order: logger -> jwt -> audit -> handler
+	api := routes.With(jwtAuth, auditMiddleware)
 
 	// Organization operations
 	api.HandleFunc("GET "+v1+"/orgs", h.ListOrganizations)
@@ -134,12 +140,14 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects", h.ListProjects)
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects", h.CreateProject)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}", h.GetProject)
+	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}", h.DeleteProject)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/deployment-pipeline", h.GetProjectDeploymentPipeline)
 
 	// Component management
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.ListComponents)
 	api.HandleFunc("POST "+v1+"/orgs/{orgName}/projects/{projectName}/components", h.CreateComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.GetComponent)
+	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.DeleteComponent)
 	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
@@ -253,6 +261,15 @@ func (h *Handler) initMCPMiddleware() func(http.Handler) http.Handler {
 	resourceMetadataURL := serverBaseURL + "/.well-known/oauth-protected-resource"
 
 	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
+}
+
+// initAuditMiddleware initializes the audit logging middleware
+func (h *Handler) initAuditMiddleware() func(http.Handler) http.Handler {
+	auditLogger := audit.NewLogger(h.logger, "openchoreo-api")
+	actionDefinitions := apiaudit.GetActionDefinitions()
+	resolver := audit.NewActionResolver(actionDefinitions)
+	auditMw := audit.NewMiddleware(auditLogger, resolver)
+	return auditMw.Handler
 }
 
 // Health handles health check requests

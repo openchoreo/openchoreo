@@ -132,7 +132,8 @@ spec:
                             description: |-
                               Value is the value to set (for add/replace operations)
                               Not used for remove operations
-                            type: object
+                              Can be a literal value, a structure with embedded CEL expressions,
+                              or a standalone CEL expression.
                             x-kubernetes-preserve-unknown-fields: true
                         required:
                         - op

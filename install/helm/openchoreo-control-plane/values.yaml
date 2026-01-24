@@ -258,6 +258,18 @@ security:
     # @schema
     tokenUrl: ""
 
+    # @schema
+    # type: array
+    # description: External client configurations for authentication
+    # @schema
+    externalClients:
+      - name: "cli"
+        client_id: "openchoreo-cli"
+        scopes:
+          - "openid"
+          - "profile"
+          - "email"
+
   # @schema
   # type: object
   # description: JWT token configuration
@@ -293,6 +305,109 @@ security:
     # default: /etc/openchoreo/authz/default-roles-mappings.yaml
     # @schema
     defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
+    # @schema
+    # type: array
+    # description: Default roles and their permissions
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Role name
+    #     actions:
+    #       type: array
+    #       description: List of actions/permissions for this role
+    #       items:
+    #         type: string
+    # @schema
+    defaultRoles:
+      - name: super-admin
+        actions:
+          - "*"
+        # DO NOT REMOVE: Required for Backstage integration
+      - name: backstage-catalog-reader
+        actions:
+          - "component:view"
+          - "componenttype:view"
+          - "namespace:view"
+          - "project:view"
+          - "dataplane:view"
+          - "environment:view"
+        # DO NOT REMOVE: Required for RCA agent functionality
+      - name: rca-agent
+        actions:
+          - "component:view"
+          - "project:view"
+          - "namespace:view"
+          - "componentrelease:view"
+          - "releasebinding:view"
+          - "componentworkflowrun:view"
+          - "environment:view"
+          - "logs:view"
+          - "metrics:view"
+          - "alerts:view"
+          - "traces:view"
+    # @schema
+    # type: array
+    # description: Default entitlement-to-role mappings
+    # items:
+    #   type: object
+    #   properties:
+    #     role:
+    #       type: object
+    #       properties:
+    #         name:
+    #           type: string
+    #           description: Role name
+    #         namespace:
+    #           type: string
+    #           description: Namespace for namespace-scoped role, empty for cluster role
+    #     entitlement:
+    #       type: object
+    #       properties:
+    #         claim:
+    #           type: string
+    #           description: JWT claim from your IDP
+    #         value:
+    #           type: string
+    #           description: Value to match from the claim
+    #     effect:
+    #       enum: [allow, deny]
+    #       description: Effect of the mapping
+    #     hierarchy:
+    #       type: object
+    #       properties:
+    #         namespace:
+    #           type: string
+    #           description: Namespace name
+    #         project:
+    #           type: string
+    #           description: Project name (requires namespace)
+    #         component:
+    #           type: string
+    #           description: Component name (requires namespace and project)
+    # @schema
+    defaultRoleMappings:
+      - role:
+          name: super-admin
+        entitlement:
+          claim: groups
+          value: platformEngineer
+        effect: allow
+        # DO NOT REMOVE: Required for Backstage integration
+      - role:
+          name: backstage-catalog-reader
+        entitlement:
+          claim: sub
+          value: openchoreo-backstage-client
+        effect: allow
+        # DO NOT REMOVE: Required for RCA agent functionality
+      - role:
+          name: rca-agent
+        entitlement:
+          claim: sub
+          value: openchoreo-rca-agent
+        effect: allow
   # @schema
   # type: string
   # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
@@ -619,7 +734,6 @@ controllerManager:
         #   type: object
         #   properties:
         #     type:
-        #       type: string
         #       enum: [Percent, Pods]
         #     value:
         #       type: integer
@@ -648,7 +762,6 @@ controllerManager:
         #   type: object
         #   properties:
         #     type:
-        #       type: string
         #       enum: [Percent, Pods]
         #     value:
         #       type: integer
@@ -682,7 +795,6 @@ controllerManager:
   #       type: string
   #       description: Node label key for topology
   #     whenUnsatisfiable:
-  #       type: string
   #       enum: [DoNotSchedule, ScheduleAnyway]
   #     labelSelector:
   #       type: object
@@ -726,12 +838,10 @@ controllerManager:
   #     key:
   #       type: string
   #     operator:
-  #       type: string
   #       enum: [Exists, Equal]
   #     value:
   #       type: string
   #     effect:
-  #       type: string
   #       enum: [NoSchedule, PreferNoSchedule, NoExecute]
   # default: []
   # @schema
@@ -923,7 +1033,6 @@ metricsService:
   #     port:
   #       type: integer
   #     protocol:
-  #       type: string
   #       enum: [TCP, UDP]
   #     targetPort:
   #       type: integer
@@ -954,7 +1063,6 @@ webhookService:
   #     port:
   #       type: integer
   #     protocol:
-  #       type: string
   #       enum: [TCP, UDP]
   #     targetPort:
   #       type: integer
@@ -2328,34 +2436,6 @@ backstage:
 
   # @schema
   # type: object
-  # description: Feature flags for OpenChoreo functionality
-  # @schema
-  features:
-    # @schema
-    # type: object
-    # description: Workflow feature configuration
-    # @schema
-    workflows:
-      # @schema
-      # type: boolean
-      # description: Enable workflows feature
-      # default: true
-      # @schema
-      enabled: true
-    # @schema
-    # type: object
-    # description: Observability feature configuration
-    # @schema
-    observability:
-      # @schema
-      # type: boolean
-      # description: Enable observability feature
-      # default: true
-      # @schema
-      enabled: true
-
-  # @schema
-  # type: object
   # description: Database configuration for Backstage
   # @schema
   database:
@@ -3638,6 +3718,8 @@ thunder:
         - 51-user-schema-and-users.sh
         - 52-default-apps.sh
         - 53-rca-agent-client.sh
+        - 54-cli-app.sh
+        - 55-system-app.sh
     # @schema
     # type: array
     # description: Default users to create during bootstrap
@@ -3702,6 +3784,10 @@ thunder:
     rcaAgentClient:
       clientId: "openchoreo-rca-agent"
       clientSecret: "openchoreo-rca-agent-secret"
+    # Generic system application (client_credentials grant type) for invoking Thunder system APIs
+    systemApp:
+      clientId: "openchoreo-system-app"
+      clientSecret: "openchoreo-system-app-secret"
 
 # @schema
 # type: object

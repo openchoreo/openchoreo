@@ -151,6 +151,40 @@ spec:
           status:
             description: DataPlaneStatus defines the observed state of DataPlane.
             properties:
+              agentConnection:
+                description: AgentConnection tracks the status of cluster agent connections
+                  to this data plane
+                properties:
+                  connected:
+                    description: Connected indicates whether any cluster agent is
+                      currently connected
+                    type: boolean
+                  connectedAgents:
+                    description: ConnectedAgents is the number of cluster agents currently
+                      connected
+                    type: integer
+                  lastConnectedTime:
+                    description: LastConnectedTime is when an agent last successfully
+                      connected
+                    format: date-time
+                    type: string
+                  lastDisconnectedTime:
+                    description: LastDisconnectedTime is when the last agent disconnected
+                    format: date-time
+                    type: string
+                  lastHeartbeatTime:
+                    description: LastHeartbeatTime is when the control plane last
+                      received any communication from an agent
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message provides additional information about the
+                      agent connection status
+                    type: string
+                required:
+                - connected
+                - connectedAgents
+                type: object
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

@@ -57,7 +57,7 @@ func (s *EnvironmentService) ListEnvironments(ctx context.Context, orgName strin
 	environments := make([]*models.EnvironmentResponse, 0, len(envList.Items))
 	for i := range envList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envList.Items[i].Name,
-			authz.ResourceHierarchy{Organization: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				s.logger.Debug("Skipping unauthorized environment", "org", orgName, "environment", envList.Items[i].Name)
 				continue
@@ -104,7 +104,7 @@ func (s *EnvironmentService) getEnvironment(ctx context.Context, orgName, envNam
 // GetEnvironment retrieves a specific environment
 func (s *EnvironmentService) GetEnvironment(ctx context.Context, orgName, envName string) (*models.EnvironmentResponse, error) {
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewEnvironment, ResourceTypeEnvironment, envName,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 
@@ -120,7 +120,7 @@ func (s *EnvironmentService) CreateEnvironment(ctx context.Context, orgName stri
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateEnvironment, ResourceTypeEnvironment, req.Name,
-		authz.ResourceHierarchy{Organization: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
 		return nil, err
 	}
 

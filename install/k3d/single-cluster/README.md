@@ -73,11 +73,23 @@ helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --values install/k3d/single-cluster/values-dp.yaml
 
 # Build Plane (optional)
+# The Build Plane requires a container registry. Install the registry first, then the build plane.
+
+# Install Container Registry
+helm repo add twuni https://twuni.github.io/docker-registry.helm
+helm repo update
+
+helm install registry twuni/docker-registry \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --values install/k3d/single-cluster/values-registry.yaml
+
+# Install Build Plane
 helm install openchoreo-build-plane install/helm/openchoreo-build-plane \
   --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-build-plane \
-  --create-namespace \
   --values install/k3d/single-cluster/values-bp.yaml
 
 # Observability Plane (optional)
@@ -193,6 +205,16 @@ kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabil
 Configure BuildPlane (if installed) to use default ObservabilityPlane
 ```
 kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```
+
+Enable logs collection by upgrading the observability plane with Fluent Bit enabled:
+```bash
+helm upgrade openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-observability-plane \
+  --reuse-values \
+  --set fluent-bit.enabled=true \
+  --timeout 10m
 ```
 
 ## Port Mappings

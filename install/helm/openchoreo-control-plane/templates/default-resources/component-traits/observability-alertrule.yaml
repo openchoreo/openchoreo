@@ -2,7 +2,7 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
-  name: observability-alertrule
+  name: observability-alert-rule
   namespace: default
 spec:
   schema:
@@ -12,7 +12,8 @@ spec:
       severity: "string | default=warning"
       source:
         type: "string"
-        query: "string"
+        query: "string | default="    # Required for log-based alerts
+        metric: "string | default="   # Required for metric-based alerts
       condition:
         window: "string | default=5m"
         interval: "string | default=1m"
@@ -49,6 +50,7 @@ spec:
           source:
             type: ${parameters.source.type}
             query: ${parameters.source.query}
+            metric: ${parameters.source.metric}
           condition:
             window: ${parameters.condition.window}
             interval: ${parameters.condition.interval}
