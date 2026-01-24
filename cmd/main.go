@@ -44,8 +44,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/organization"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
-	"github.com/openchoreo/openchoreo/internal/controller/release"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
@@ -204,7 +204,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&release.Reconciler{
+	if err := (&renderedrelease.Reconciler{
 		Client:       mgr.GetClient(),
 		K8sClientMgr: k8sClientMgr,
 		Scheme:       mgr.GetScheme(),

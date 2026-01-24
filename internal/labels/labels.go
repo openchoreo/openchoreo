@@ -21,25 +21,25 @@ const (
 	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
 
 	// LabelKeyCreatedBy identifies which controller initially created a resource (audit trail).
-	// Example: A namespace created by release-controller would have created-by=release-controller.
+	// Example: A namespace created by renderedrelease-controller would have created-by=renderedrelease-controller.
 	// Note: For shared resources like namespaces, the creator and lifecycle manager may differ.
 	LabelKeyCreatedBy = "openchoreo.dev/created-by"
 
 	// LabelKeyManagedBy identifies which controller manages the lifecycle of a resource.
-	// Example: Resources deployed by release-controller have managed-by=release-controller.
+	// Example: Resources deployed by renderedrelease-controller have managed-by=renderedrelease-controller.
 	LabelKeyManagedBy = "openchoreo.dev/managed-by"
 
-	// LabelKeyReleaseResourceID identifies a specific resource within a release.
-	LabelKeyReleaseResourceID = "openchoreo.dev/release-resource-id"
+	// LabelKeyRenderedReleaseResourceID identifies a specific resource within a rendered release.
+	LabelKeyRenderedReleaseResourceID = "openchoreo.dev/renderedrelease-resource-id"
 
-	// LabelKeyReleaseUID tracks which release UID owns/manages a resource.
-	LabelKeyReleaseUID = "openchoreo.dev/release-uid"
+	// LabelKeyRenderedReleaseUID tracks which rendered release UID owns/manages a resource.
+	LabelKeyRenderedReleaseUID = "openchoreo.dev/renderedrelease-uid"
 
-	// LabelKeyReleaseName tracks the name of the release that manages a resource.
-	LabelKeyReleaseName = "openchoreo.dev/release-name"
+	// LabelKeyRenderedReleaseName tracks the name of the rendered release that manages a resource.
+	LabelKeyRenderedReleaseName = "openchoreo.dev/renderedrelease-name"
 
-	// LabelKeyReleaseNamespace tracks the namespace of the release that manages a resource.
-	LabelKeyReleaseNamespace = "openchoreo.dev/release-namespace"
+	// LabelKeyRenderedReleaseNamespace tracks the namespace of the rendered release that manages a resource.
+	LabelKeyRenderedReleaseNamespace = "openchoreo.dev/renderedrelease-namespace"
 
 	// LabelKeyNotificationChannelName identifies a notification channel resource (ConfigMap/Secret)
 	// created by the observabilityalertsnotificationchannel controller.

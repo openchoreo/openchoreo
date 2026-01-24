@@ -321,10 +321,10 @@ type ReleaseBindingResponse struct {
 	Status                    string                 `json:"status,omitempty"`
 }
 
-// ReleaseResponse represents a Release in API responses
-type ReleaseResponse struct {
-	Spec   openchoreov1alpha1.ReleaseSpec   `json:"spec"`
-	Status openchoreov1alpha1.ReleaseStatus `json:"status"`
+// RenderedReleaseResponse represents a RenderedRelease in API responses
+type RenderedReleaseResponse struct {
+	Spec   openchoreov1alpha1.RenderedReleaseSpec   `json:"spec"`
+	Status openchoreov1alpha1.RenderedReleaseStatus `json:"status"`
 }
 
 // SecretReferenceResponse represents a SecretReference in API responses

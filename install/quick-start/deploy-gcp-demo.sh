@@ -136,10 +136,10 @@ log_info "Waiting for all Deployments to be available..."
 elapsed=0
 while true; do
     # Count total releases for this project
-    total_releases=$(kubectl get release -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\")] | length" || echo "0")
+    total_releases=$(kubectl get renderedrelease -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\")] | length" || echo "0")
 
     # Count releases with healthy deployments
-    available=$(kubectl get release -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\") | select(.status.resources[]? | select(.kind==\"Deployment\" and .healthStatus==\"Healthy\"))] | length" || echo "0")
+    available=$(kubectl get renderedrelease -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\") | select(.status.resources[]? | select(.kind==\"Deployment\" and .healthStatus==\"Healthy\"))] | length" || echo "0")
 
     if [[ "$total_releases" -gt 0 ]] && [[ "$available" -eq "$total_releases" ]]; then
         log_success "All $total_releases Deployments are available"
@@ -162,7 +162,7 @@ done
 
 # Get the frontend URL
 FRONTEND_DEPLOYMENT="frontend${DEPLOYMENT_NAME_SUFFIX}"
-HOSTNAME=$(kubectl get release "$FRONTEND_DEPLOYMENT" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
+HOSTNAME=$(kubectl get renderedrelease "$FRONTEND_DEPLOYMENT" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.spec.resources[]? | select(.id | startswith("httproute-")) | .object.spec.hostnames[0]' || echo "")
 
 echo ""
 log_success "GCP Microservices Demo is ready!"
@@ -187,7 +187,7 @@ if [[ -n "$HOSTNAME" ]] && [[ "$HOSTNAME" != "null" ]]; then
     echo "   Open this URL in your browser to explore the microservices demo."
 else
     log_warning "Could not retrieve frontend URL"
-    log_info "You can find the URL with: kubectl get release $FRONTEND_DEPLOYMENT -n $NAMESPACE -o yaml"
+    log_info "You can find the URL with: kubectl get renderedrelease $FRONTEND_DEPLOYMENT -n $NAMESPACE -o yaml"
 fi
 
 echo ""

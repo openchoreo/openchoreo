@@ -11,12 +11,12 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ReleaseSpec defines the desired state of Release.
-type ReleaseSpec struct {
+// RenderedReleaseSpec defines the desired state of RenderedRelease.
+type RenderedReleaseSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Owner ReleaseOwner `json:"owner"`
+	Owner RenderedReleaseOwner `json:"owner"`
 	// +kubebuilder:validation:MinLength=1
 	EnvironmentName string `json:"environmentName"`
 
@@ -26,34 +26,34 @@ type ReleaseSpec struct {
 	// +kubebuilder:validation:Optional
 	Resources []Resource `json:"resources,omitempty"`
 
-	// Interval watch interval for the release resources when stable.
+	// Interval watch interval for the rendered release resources when stable.
 	// Defaults to 5m if not specified.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 
-	// ProgressingInterval watch interval for the release resources when transitioning.
+	// ProgressingInterval watch interval for the rendered release resources when transitioning.
 	// Defaults to 10s if not specified.
 	// +kubebuilder:validation:Type=string
 	// +kubebuilder:validation:Pattern="^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$"
 	// +optional
 	ProgressingInterval *metav1.Duration `json:"progressingInterval,omitempty"`
 
-	// TargetPlane specifies which plane this release should be deployed to.
+	// TargetPlane specifies which plane this rendered release should be deployed to.
 	// Defaults to "dataplane" if not specified.
 	// +kubebuilder:validation:Enum=dataplane;observabilityplane
 	// +kubebuilder:default=dataplane
 	TargetPlane string `json:"targetPlane,omitempty"`
 }
 
-// ReleaseStatus defines the observed state of Release.
-type ReleaseStatus struct {
+// RenderedReleaseStatus defines the observed state of RenderedRelease.
+type RenderedReleaseStatus struct {
 	// Resources contain the list of resources that have been successfully applied to the data plane
 	// +optional
 	Resources []ResourceStatus `json:"resources,omitempty"`
 
-	// Conditions represent the latest available observations of the Release's current state.
+	// Conditions represent the latest available observations of the RenderedRelease's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -61,26 +61,26 @@ type ReleaseStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// Release is the Schema for the releases API.
-type Release struct {
+// RenderedRelease is the Schema for the renderedreleases API.
+type RenderedRelease struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ReleaseSpec   `json:"spec,omitempty"`
-	Status ReleaseStatus `json:"status,omitempty"`
+	Spec   RenderedReleaseSpec   `json:"spec,omitempty"`
+	Status RenderedReleaseStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ReleaseList contains a list of Release.
-type ReleaseList struct {
+// RenderedReleaseList contains a list of RenderedRelease.
+type RenderedReleaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Release `json:"items"`
+	Items           []RenderedRelease `json:"items"`
 }
 
-// ReleaseOwner defines the owner of a Release.
-type ReleaseOwner struct {
+// RenderedReleaseOwner defines the owner of a RenderedRelease.
+type RenderedReleaseOwner struct {
 	// +kubebuilder:validation:MinLength=1
 	ProjectName string `json:"projectName"`
 	// +kubebuilder:validation:MinLength=1
@@ -159,15 +159,15 @@ const (
 )
 
 // GetConditions returns the conditions from the status
-func (in *Release) GetConditions() []metav1.Condition {
+func (in *RenderedRelease) GetConditions() []metav1.Condition {
 	return in.Status.Conditions
 }
 
 // SetConditions sets the conditions in the status
-func (in *Release) SetConditions(conditions []metav1.Condition) {
+func (in *RenderedRelease) SetConditions(conditions []metav1.Condition) {
 	in.Status.Conditions = conditions
 }
 
 func init() {
-	SchemeBuilder.Register(&Release{}, &ReleaseList{})
+	SchemeBuilder.Register(&RenderedRelease{}, &RenderedReleaseList{})
 }

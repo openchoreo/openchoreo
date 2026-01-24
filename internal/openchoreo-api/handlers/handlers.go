@@ -150,7 +150,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("DELETE "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.DeleteComponent)
 	api.HandleFunc("PATCH "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}", h.PatchComponent)
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/schema", h.GetComponentSchema)
-	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRelease)
+	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release", h.GetEnvironmentRenderedRelease)
 
 	// Component trait management
 	api.HandleFunc("GET "+v1+"/orgs/{orgName}/projects/{projectName}/components/{componentName}/traits", h.ListComponentTraits)

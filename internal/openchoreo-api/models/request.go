@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // CreateProjectRequest represents the request to create a new project
@@ -223,20 +225,12 @@ func (req *PromoteComponentRequest) Sanitize() {
 	req.TargetEnvironment = strings.TrimSpace(req.TargetEnvironment)
 }
 
-type BindingReleaseState string
-
-const (
-	ReleaseStateActive   BindingReleaseState = "Active"
-	ReleaseStateSuspend  BindingReleaseState = "Suspend"
-	ReleaseStateUndeploy BindingReleaseState = "Undeploy"
-)
-
 // UpdateBindingRequest represents the request to update a component binding
 // Only includes fields that can be updated via PATCH
 type UpdateBindingRequest struct {
 	// ReleaseState controls the state of the Release created by this binding.
 	// Valid values: Active, Suspend, Undeploy
-	ReleaseState BindingReleaseState `json:"releaseState"`
+	ReleaseState openchoreodevv1alpha1.RenderedReleaseState `json:"releaseState"`
 }
 
 // Validate validates the UpdateBindingRequest

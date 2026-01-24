@@ -210,7 +210,7 @@ done
 log_info "Waiting for Deployment to be available..."
 elapsed=0
 while true; do
-    DEPLOYMENT_AVAILABLE=$(kubectl get release "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
+    DEPLOYMENT_AVAILABLE=$(kubectl get renderedrelease "$RELEASE_BINDING_NAME" -n "$NAMESPACE" -o json 2>/dev/null | jq -r '.status.resources[]? | select(.kind=="Deployment") | .status.conditions[]? | select(.type=="Available" and .reason=="MinimumReplicasAvailable") | .status' || echo "")
 
     if [[ "$DEPLOYMENT_AVAILABLE" == "True" ]]; then
         log_success "Deployment is available"

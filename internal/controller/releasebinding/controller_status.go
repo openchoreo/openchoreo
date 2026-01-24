@@ -52,14 +52,14 @@ type ResourceStatusSummary struct {
 	Unknown     int
 }
 
-// setResourcesReadyStatus evaluates resource status from the Release
+// setResourcesReadyStatus evaluates resource status from the RenderedRelease
 // and sets the ResourcesReady condition with workload-type specific logic.
 //
 // nolint:unparam // ctx and error return kept for consistency with other status methods
 func (r *Reconciler) setResourcesReadyStatus(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
-	release *openchoreov1alpha1.Release,
+	renderedRelease *openchoreov1alpha1.RenderedRelease,
 	component *openchoreov1alpha1.Component,
 ) error {
 	logger := log.FromContext(ctx)
@@ -70,11 +70,11 @@ func (r *Reconciler) setResourcesReadyStatus(
 	logger.Info("Evaluating resource status",
 		"componentType", component.Spec.ComponentType,
 		"workloadType", workloadType,
-		"resourceCount", len(release.Status.Resources))
+		"resourceCount", len(renderedRelease.Status.Resources))
 
-	// If Release has no resources yet, mark as Progressing
-	if len(release.Status.Resources) == 0 {
-		msg := fmt.Sprintf("Release %q has no resources yet", release.Name)
+	// If RenderedRelease has no resources yet, mark as Progressing
+	if len(renderedRelease.Status.Resources) == 0 {
+		msg := fmt.Sprintf("RenderedRelease %q has no resources yet", renderedRelease.Name)
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourcesProgressing, msg)
 		return nil
@@ -86,24 +86,24 @@ func (r *Reconciler) setResourcesReadyStatus(
 
 	switch workloadType {
 	case WorkloadTypeDeployment:
-		ready, reason, message = evaluateDeploymentStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateDeploymentStatus(renderedRelease.Status.Resources, workloadType)
 
 	case WorkloadTypeStatefulSet:
-		ready, reason, message = evaluateStatefulSetStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateStatefulSetStatus(renderedRelease.Status.Resources, workloadType)
 
 	case WorkloadTypeCronJob:
-		ready, reason, message = evaluateCronJobStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateCronJobStatus(renderedRelease.Status.Resources, workloadType)
 
 	case WorkloadTypeJob:
-		ready, reason, message = evaluateJobStatus(release.Status.Resources, workloadType)
+		ready, reason, message = evaluateJobStatus(renderedRelease.Status.Resources, workloadType)
 
 	case WorkloadTypeProxy:
 		// Proxy components are generic resources without traditional workload semantics
-		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
+		ready, reason, message = evaluateGenericStatus(renderedRelease.Status.Resources)
 
 	case WorkloadTypeUnknown:
 		// Fallback for unknown workload types or legacy components
-		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
+		ready, reason, message = evaluateGenericStatus(renderedRelease.Status.Resources)
 		logger.Info("Using generic status evaluation for unknown workload type",
 			"componentType", component.Spec.ComponentType)
 	}

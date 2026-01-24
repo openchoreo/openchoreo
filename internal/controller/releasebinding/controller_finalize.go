@@ -54,19 +54,19 @@ func (r *Reconciler) finalize(ctx context.Context, old, releaseBinding *openchor
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, releaseBinding)
 	}
 
-	// Check if any Releases owned by this ReleaseBinding still exist
-	hasReleases, err := r.hasOwnedReleases(ctx, releaseBinding)
+	// Check if any RenderedReleases owned by this ReleaseBinding still exist
+	hasRenderedReleases, err := r.hasOwnedRenderedReleases(ctx, releaseBinding)
 	if err != nil {
-		logger.Error(err, "Failed to check for owned Releases")
+		logger.Error(err, "Failed to check for owned RenderedReleases")
 		return ctrl.Result{}, err
 	}
 
-	if hasReleases {
-		logger.Info("Waiting for Releases to be deleted")
+	if hasRenderedReleases {
+		logger.Info("Waiting for RenderedReleases to be deleted")
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
-	// All Releases are deleted - remove the finalizer
+	// All RenderedReleases are deleted - remove the finalizer
 	if controllerutil.RemoveFinalizer(releaseBinding, ReleaseBindingFinalizer) {
 		if err := r.Update(ctx, releaseBinding); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer: %w", err)
@@ -77,34 +77,34 @@ func (r *Reconciler) finalize(ctx context.Context, old, releaseBinding *openchor
 	return ctrl.Result{}, nil
 }
 
-// hasOwnedReleases checks if any Releases owned by this ReleaseBinding still exist,
+// hasOwnedRenderedReleases checks if any RenderedReleases owned by this ReleaseBinding still exist,
 // and deletes them if they exist.
-func (r *Reconciler) hasOwnedReleases(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding) (bool, error) {
+func (r *Reconciler) hasOwnedRenderedReleases(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding) (bool, error) {
 	logger := log.FromContext(ctx).WithValues("releaseBinding", releaseBinding.Name)
 
-	// List Releases owned by this ReleaseBinding using label selectors
+	// List RenderedReleases owned by this ReleaseBinding using label selectors
 	matchingLabels := client.MatchingLabels{
 		labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
 		labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 		labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 	}
-	releaseList := &openchoreov1alpha1.ReleaseList{}
-	if err := r.List(ctx, releaseList,
+	renderedReleaseList := &openchoreov1alpha1.RenderedReleaseList{}
+	if err := r.List(ctx, renderedReleaseList,
 		client.InNamespace(releaseBinding.Namespace),
 		matchingLabels); err != nil {
-		return false, fmt.Errorf("failed to list releases: %w", err)
+		return false, fmt.Errorf("failed to list rendered releases: %w", err)
 	}
 
-	if len(releaseList.Items) == 0 {
+	if len(renderedReleaseList.Items) == 0 {
 		return false, nil
 	}
 
-	// Delete all Releases owned by this ReleaseBinding
-	logger.Info("Deleting owned Releases", "count", len(releaseList.Items))
-	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.Release{},
+	// Delete all RenderedReleases owned by this ReleaseBinding
+	logger.Info("Deleting owned RenderedReleases", "count", len(renderedReleaseList.Items))
+	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.RenderedRelease{},
 		client.InNamespace(releaseBinding.Namespace),
 		matchingLabels); err != nil {
-		return false, fmt.Errorf("failed to delete releases: %w", err)
+		return false, fmt.Errorf("failed to delete rendered releases: %w", err)
 	}
 
 	return true, nil

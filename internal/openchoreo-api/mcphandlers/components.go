@@ -143,8 +143,8 @@ func (h *MCPHandler) UpdateComponentTraits(ctx context.Context, orgName, project
 	return h.Services.ComponentService.UpdateComponentTraits(ctx, orgName, projectName, componentName, req)
 }
 
-func (h *MCPHandler) GetEnvironmentRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error) {
-	return h.Services.ComponentService.GetEnvironmentRelease(ctx, orgName, projectName, componentName, environmentName)
+func (h *MCPHandler) GetEnvironmentRenderedRelease(ctx context.Context, orgName, projectName, componentName, environmentName string) (any, error) {
+	return h.Services.ComponentService.GetEnvironmentRenderedRelease(ctx, orgName, projectName, componentName, environmentName)
 }
 
 func (h *MCPHandler) PatchComponent(ctx context.Context, orgName, projectName, componentName string, req *models.PatchComponentRequest) (any, error) {

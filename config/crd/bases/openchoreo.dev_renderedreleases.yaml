@@ -1,22 +1,23 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.4
-  name: releases.openchoreo.dev
+  name: renderedreleases.openchoreo.dev
 spec:
   group: openchoreo.dev
   names:
-    kind: Release
-    listKind: ReleaseList
-    plural: releases
-    singular: release
+    kind: RenderedRelease
+    listKind: RenderedReleaseList
+    plural: renderedreleases
+    singular: renderedrelease
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Release is the Schema for the releases API.
+        description: RenderedRelease is the Schema for the renderedreleases API.
         properties:
           apiVersion:
             description: |-
@@ -36,19 +37,19 @@ spec:
           metadata:
             type: object
           spec:
-            description: ReleaseSpec defines the desired state of Release.
+            description: RenderedReleaseSpec defines the desired state of RenderedRelease.
             properties:
               environmentName:
                 minLength: 1
                 type: string
               interval:
                 description: |-
-                  Interval watch interval for the release resources when stable.
+                  Interval watch interval for the rendered release resources when stable.
                   Defaults to 5m if not specified.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               owner:
-                description: ReleaseOwner defines the owner of a Release.
+                description: RenderedReleaseOwner defines the owner of a RenderedRelease.
                 properties:
                   componentName:
                     minLength: 1
@@ -62,7 +63,7 @@ spec:
                 type: object
               progressingInterval:
                 description: |-
-                  ProgressingInterval watch interval for the release resources when transitioning.
+                  ProgressingInterval watch interval for the rendered release resources when transitioning.
                   Defaults to 10s if not specified.
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
@@ -91,7 +92,7 @@ spec:
               targetPlane:
                 default: dataplane
                 description: |-
-                  TargetPlane specifies which plane this release should be deployed to.
+                  TargetPlane specifies which plane this rendered release should be deployed to.
                   Defaults to "dataplane" if not specified.
                 enum:
                 - dataplane
@@ -102,11 +103,11 @@ spec:
             - owner
             type: object
           status:
-            description: ReleaseStatus defines the observed state of Release.
+            description: RenderedReleaseStatus defines the observed state of RenderedRelease.
             properties:
               conditions:
                 description: Conditions represent the latest available observations
-                  of the Release's current state.
+                  of the RenderedRelease's current state.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
