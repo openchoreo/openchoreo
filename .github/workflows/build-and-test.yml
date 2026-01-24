@@ -119,37 +119,37 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Download occ binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: occ
           path: bin/dist
 
       - name: Download manager binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: manager
           path: bin/dist
 
       - name: Download openchoreo-api binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: openchoreo-api
           path: bin/dist
 
       - name: Download observer binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: observer
           path: bin/dist
 
       - name: Download cluster-gateway binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: cluster-gateway
           path: bin/dist
 
       - name: Download cluster-agent binaries
-        uses: actions/download-artifact@v6.0.0
+        uses: actions/download-artifact@v7.0.0
         with:
           name: cluster-agent
           path: bin/dist
