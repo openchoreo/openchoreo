@@ -3,7 +3,7 @@ module github.com/openchoreo/openchoreo
 go 1.24.2
 
 require (
-	github.com/casbin/casbin/v2 v2.123.0
+	github.com/casbin/casbin/v2 v2.135.0
 	github.com/envoyproxy/gateway v1.3.2
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/getkin/kin-openapi v0.133.0
