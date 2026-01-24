@@ -65,7 +65,7 @@ jobs:
           fi
 
       - name: Download occ artifact from the build workflow
-        uses: dawidd6/action-download-artifact@v11
+        uses: dawidd6/action-download-artifact@v12
         with:
           workflow: build-and-test.yml
           commit: ${{ env.GIT_SHA_LONG }}
