@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 )
 
 // EnvironmentService handles environment-related business logic
@@ -206,14 +207,14 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 	description := env.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := statusUnknown
+	status := apistatus.Unknown
 	if len(env.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := env.Status.Conditions[len(env.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
+			status = apistatus.Ready
 		} else {
-			status = statusNotReady
+			status = apistatus.NotReady
 		}
 	}
 

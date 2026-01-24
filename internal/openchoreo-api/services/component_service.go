@@ -26,15 +26,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 	openchoreoschema "github.com/openchoreo/openchoreo/internal/schema"
-)
-
-const (
-	// TODO: Move these constants to a shared package to avoid duplication
-	statusReady    = "Ready"
-	statusNotReady = "NotReady"
-	statusUnknown  = "Unknown"
-	statusFailed   = "Failed"
 )
 
 // ComponentService handles component-related business logic
@@ -277,7 +270,7 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, orgName, 
 		ProjectName:   projectName,
 		OrgName:       orgName,
 		CreatedAt:     componentRelease.CreationTimestamp.Time,
-		Status:        statusReady,
+		Status:        apistatus.Ready,
 	}, nil
 }
 
@@ -372,7 +365,7 @@ func (s *ComponentService) ListComponentReleases(ctx context.Context, orgName, p
 			ProjectName:   projectName,
 			OrgName:       orgName,
 			CreatedAt:     item.CreationTimestamp.Time,
-			Status:        statusReady,
+			Status:        apistatus.Ready,
 		})
 	}
 
@@ -443,7 +436,7 @@ func (s *ComponentService) GetComponentRelease(ctx context.Context, orgName, pro
 		ProjectName:   projectName,
 		OrgName:       orgName,
 		CreatedAt:     release.CreationTimestamp.Time,
-		Status:        statusReady, // ComponentRelease is immutable, so it's always ready once created
+		Status:        apistatus.Ready, // ComponentRelease is immutable, so it's always ready once created
 	}, nil
 }
 
@@ -954,7 +947,7 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 		Environment:   binding.Spec.Environment,
 		ReleaseName:   binding.Spec.ReleaseName,
 		CreatedAt:     binding.CreationTimestamp.Time,
-		Status:        statusNotReady,
+		Status:        apistatus.NotReady,
 	}
 
 	// Determine status from conditions
@@ -1038,7 +1031,7 @@ func (s *ComponentService) toReleaseBindingResponse(binding *openchoreov1alpha1.
 
 func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1alpha1.ReleaseBinding) string {
 	if len(binding.Status.Conditions) == 0 {
-		return statusNotReady
+		return apistatus.NotReady
 	}
 
 	generation := binding.ObjectMeta.Generation
@@ -1054,25 +1047,25 @@ func (s *ComponentService) determineReleaseBindingStatus(binding *openchoreov1al
 	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
 	// If there are less than 3 conditions for the current generation, it's still in progress
 	if len(conditionsForGeneration) < 3 {
-		return statusNotReady
+		return apistatus.NotReady
 	}
 
 	// Check if any condition has Status == False with ResourcesDegraded reason
 	for i := range conditionsForGeneration {
 		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == string(releasebinding.ReasonResourcesDegraded) {
-			return statusFailed
+			return apistatus.Failed
 		}
 	}
 
 	// Check if any condition has Status == False with ResourcesProgressing reason
 	for i := range conditionsForGeneration {
 		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == string(releasebinding.ReasonResourcesProgressing) {
-			return statusNotReady
+			return apistatus.NotReady
 		}
 	}
 
 	// If all three conditions are present and none are degraded, it's ready
-	return statusReady
+	return apistatus.Ready
 }
 
 // ListReleaseBindings lists all release bindings for a specific component

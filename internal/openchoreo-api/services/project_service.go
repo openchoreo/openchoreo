@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	apistatus "github.com/openchoreo/openchoreo/internal/openchoreo-api/status"
 )
 
 // ProjectService handles project-related business logic
@@ -228,14 +229,14 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 	description := project.Annotations[controller.AnnotationKeyDescription]
 
 	// Get status from conditions
-	status := statusUnknown
+	status := apistatus.Unknown
 	if len(project.Status.Conditions) > 0 {
 		// Get the latest condition
 		latestCondition := project.Status.Conditions[len(project.Status.Conditions)-1]
 		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
+			status = apistatus.Ready
 		} else {
-			status = statusNotReady
+			status = apistatus.NotReady
 		}
 	}
 
