@@ -8,8 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 // WebhookConfig holds webhook configuration for sending alerts
@@ -69,4 +73,52 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 	}
 
 	return nil
+}
+
+// PrepareWebhookNotificationConfig prepares webhook notification configuration from ConfigMap and Secret
+func PrepareWebhookNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.Secret, logger *slog.Logger) (WebhookConfig, error) {
+	// Parse webhook URL
+	webhookURL := configMap.Data["webhook.url"]
+	if webhookURL == "" {
+		return WebhookConfig{}, fmt.Errorf("webhook URL not found in ConfigMap")
+	}
+
+	// Parse headers from ConfigMap and Secret
+	headers := make(map[string]string)
+	if headerKeysStr, ok := configMap.Data["webhook.headers"]; ok && headerKeysStr != "" {
+		headerKeys := strings.Split(headerKeysStr, ",")
+		for _, key := range headerKeys {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			// Try to get inline value from ConfigMap first
+			if inlineValue, ok := configMap.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+				headers[key] = inlineValue
+			} else if secret != nil && secret.Data != nil {
+				// Try to get value from Secret (for secret-referenced headers)
+				if secretValue, ok := secret.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
+					headers[key] = string(secretValue)
+				}
+			}
+		}
+	}
+
+	// Parse payload template if provided
+	payloadTemplate := configMap.Data["webhook.payloadTemplate"]
+
+	webhookConfig := WebhookConfig{
+		URL:             webhookURL,
+		Headers:         headers,
+		PayloadTemplate: payloadTemplate,
+	}
+
+	if logger != nil {
+		logger.Debug("Final webhook config",
+			"url", webhookConfig.URL,
+			"headerCount", len(webhookConfig.Headers),
+			"hasPayloadTemplate", payloadTemplate != "")
+	}
+
+	return webhookConfig, nil
 }
