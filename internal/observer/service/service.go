@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -1275,7 +1274,7 @@ func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody 
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
-// It reads the ConfigMap and Secret for the notification channel and resolves SMTP credentials
+// It reads the ConfigMap and Secret for the notification channel and resolves to NotificationChannelConfig
 func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
@@ -1310,14 +1309,6 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	}
 	secret = secretList.Items[0].DeepCopy()
 
-	// Parse SMTP port from ConfigMap
-	smtpPort := 587 // default SMTP port
-	if portStr, ok := configMap.Data["smtp.port"]; ok {
-		if port, err := strconv.Atoi(portStr); err == nil {
-			smtpPort = port
-		}
-	}
-
 	// Get channel type from ConfigMap
 	channelType := configMap.Data["type"]
 	if channelType == "" {
@@ -1331,119 +1322,24 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	// Parse configuration based on channel type
 	switch channelType {
 	case "email":
-		// Parse recipients from ConfigMap (stored as string representation of array)
-		var recipients []string
-		if toStr, ok := configMap.Data["to"]; ok {
-			// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
-			// Parse it back to a slice
-			recipients = parseRecipientsList(toStr)
+		emailConfig, err := notifications.PrepareEmailNotificationConfig(configMap, secret, s.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare email notification config: %w", err)
 		}
-
-		config.Email = notifications.EmailConfig{
-			SMTP: notifications.SMTPConfig{
-				Host: configMap.Data["smtp.host"],
-				Port: smtpPort,
-				From: configMap.Data["from"],
-			},
-			To:              recipients,
-			SubjectTemplate: configMap.Data["template.subject"],
-			BodyTemplate:    configMap.Data["template.body"],
-		}
-
-		// Read SMTP credentials directly from the secret
-		if secret != nil && secret.Data != nil {
-			s.logger.Debug("Reading SMTP credentials from secret",
-				"secretName", secret.Name,
-				"secretNamespace", secret.Namespace)
-
-			if username, ok := secret.Data["smtp.auth.username"]; ok {
-				config.Email.SMTP.Username = string(username)
-				s.logger.Debug("SMTP username loaded")
-			} else {
-				s.logger.Warn("SMTP username key not found in secret")
-			}
-			if password, ok := secret.Data["smtp.auth.password"]; ok {
-				config.Email.SMTP.Password = string(password)
-				s.logger.Debug("SMTP password loaded")
-			} else {
-				s.logger.Warn("SMTP password key not found in secret")
-			}
-		} else {
-			s.logger.Warn("Secret is nil or has no data",
-				"secretNil", secret == nil)
-		}
-
-		s.logger.Debug("Final SMTP config",
-			"host", config.Email.SMTP.Host,
-			"port", config.Email.SMTP.Port,
-			"from", config.Email.SMTP.From,
-			"hasUsername", config.Email.SMTP.Username != "",
-			"hasPassword", config.Email.SMTP.Password != "")
+		config.Email = emailConfig
 
 	case "webhook":
-		// Parse webhook URL
-		webhookURL := configMap.Data["webhook.url"]
-		if webhookURL == "" {
-			return nil, fmt.Errorf("Alert webhook URL not found in ConfigMap")
+		webhookConfig, err := notifications.PrepareWebhookNotificationConfig(configMap, secret, s.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare webhook notification config: %w", err)
 		}
-
-		// Parse headers from ConfigMap and Secret
-		headers := make(map[string]string)
-		if headerKeysStr, ok := configMap.Data["webhook.headers"]; ok && headerKeysStr != "" {
-			headerKeys := strings.Split(headerKeysStr, ",")
-			for _, key := range headerKeys {
-				key = strings.TrimSpace(key)
-				if key == "" {
-					continue
-				}
-				// Try to get inline value from ConfigMap first
-				if inlineValue, ok := configMap.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
-					headers[key] = inlineValue
-				} else if secret != nil && secret.Data != nil {
-					// Try to get value from Secret (for secret-referenced headers)
-					if secretValue, ok := secret.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
-						headers[key] = string(secretValue)
-					}
-				}
-			}
-		}
-
-		// Parse payload template if provided
-		payloadTemplate := configMap.Data["webhook.payloadTemplate"]
-
-		config.Webhook = notifications.WebhookConfig{
-			URL:             webhookURL,
-			Headers:         headers,
-			PayloadTemplate: payloadTemplate,
-		}
-
-		s.logger.Debug("Final webhook config",
-			"url", config.Webhook.URL,
-			"headerCount", len(config.Webhook.Headers),
-			"hasPayloadTemplate", payloadTemplate != "")
+		config.Webhook = webhookConfig
 
 	default:
 		return nil, fmt.Errorf("unsupported notification channel type: %s", channelType)
 	}
 
 	return config, nil
-}
-
-// parseRecipientsList parses a string representation of recipients list
-// The format is "[email1@example.com email2@example.com]" as stored by the controller
-func parseRecipientsList(s string) []string {
-	// Remove brackets if present
-	s = strings.TrimPrefix(s, "[")
-	s = strings.TrimSuffix(s, "]")
-	s = strings.TrimSpace(s)
-
-	if s == "" {
-		return nil
-	}
-
-	// Split by whitespace
-	parts := strings.Fields(s)
-	return parts
 }
 
 // buildCELInputs builds the CEL input context from alert data
