@@ -1179,13 +1179,13 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send Notification
-	err = h.service.SendAlertNotification(r.Context(), alertDetails, alertRule.Spec.Name)
+	err = h.service.SendAlertNotification(r.Context(), alertDetails)
 	if err != nil {
 		h.logger.Warn("Failed to send alert notification", "error", err)
 	}
 
 	// Store alert entry in logs backend
-	alertID, err := h.service.StoreAlertEntry(r.Context(), alertDetails, alertRule.Spec.Name)
+	alertID, err := h.service.StoreAlertEntry(r.Context(), alertDetails)
 	if err != nil {
 		h.logger.Error("Failed to store alert entry", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, "Failed to store alert entry")
@@ -1193,7 +1193,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trigger AI RCA analysis if enabled
-	if enableRCA, ok := alertDetails["enableAiRootCauseAnalysis"].(bool); ok && enableRCA {
+	if alertDetails.AlertAIRootCauseAnalysisEnabled {
 		if isAIRCAEnabled() {
 			h.logger.Info("AI RCA analysis triggered", "alertID", alertID)
 			h.logger.Debug("AI RCA analysis details", "alertID", alertID, "enableRCA", enableRCA, "alertDetails", alertDetails)

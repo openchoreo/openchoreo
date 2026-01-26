@@ -1243,34 +1243,26 @@ func (s *LoggingService) GetRCAReportByAlert(ctx context.Context, params opensea
 }
 
 // SendAlertNotification sends an alert notification via the configured notification channel
-func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody map[string]interface{}, ruleName string) error {
-	notificationChannelName := ""
-	if channel, ok := requestBody["notificationChannel"].(string); ok && channel != "" {
-		notificationChannelName = channel
-	}
-
+func (s *LoggingService) SendAlertNotification(ctx context.Context, alertDetails *observertypes.AlertDetails) error {
 	// If no notification channel is specified, log and skip
-	if notificationChannelName == "" {
-		s.logger.Warn("Missing notification channel in webhook payload, skipping notification",
-			"ruleName", ruleName,
-			"notificationChannel", notificationChannelName)
+	if alertDetails.NotificationChannel == "" {
+		s.logger.Warn("Missing notification channel in alert details, skipping notification",
+			"ruleName", alertDetails.AlertName,
+			"notificationChannel", alertDetails.NotificationChannel)
 		return nil
 	}
 
 	// Fetch the notification channel configuration from Kubernetes
-	channelConfig, err := s.getNotificationChannelConfig(ctx, notificationChannelName)
+	channelConfig, err := s.getNotificationChannelConfig(ctx, alertDetails.NotificationChannel)
 	if err != nil {
 		s.logger.Error("Failed to get notification channel config",
 			"error", err,
-			"channelName", notificationChannelName)
+			"channelName", alertDetails.NotificationChannel)
 		return fmt.Errorf("failed to get notification channel config: %w", err)
 	}
 
-	// Build CEL inputs from alert data. (TODO: Introduce a struct; avoid duplication of requestBody and celInputs)
-	celInputs := s.buildCELInputs(requestBody)
-
 	// Send notification using the notifications package
-	return notifications.SendAlertNotification(ctx, channelConfig, celInputs, s.logger)
+	return notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger)
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
@@ -1342,38 +1334,18 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	return config, nil
 }
 
-// buildCELInputs builds the CEL input context from alert data
-func (s *LoggingService) buildCELInputs(data map[string]interface{}) map[string]any {
-	return map[string]any{
-		"alertName":                       data["ruleName"],
-		"alertTimestamp":                  data["timestamp"],
-		"alertSeverity":                   data["severity"],
-		"alertDescription":                data["description"],
-		"alertThreshold":                  data["threshold"],
-		"alertValue":                      data["value"],
-		"alertType":                       data["type"],
-		"component":                       data["component"],
-		"project":                         data["project"],
-		"environment":                     data["environment"],
-		"componentId":                     data["componentUid"],
-		"projectId":                       data["projectUid"],
-		"environmentId":                   data["environmentUid"],
-		"alertAIRootCauseAnalysisEnabled": data["enableAiRootCauseAnalysis"],
-	}
-}
-
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
-func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[string]interface{}, ruleName string) (string, error) {
+func (s *LoggingService) StoreAlertEntry(ctx context.Context, alertDetails *observertypes.AlertDetails) (string, error) {
 	alertEntry := map[string]interface{}{
-		"@timestamp":      requestBody["timestamp"],
-		"alert_rule_name": ruleName,
-		"alert_value":     requestBody["alertValue"],
+		"@timestamp":      alertDetails.AlertTimestamp,
+		"alert_rule_name": alertDetails.AlertName,
+		"alert_value":     alertDetails.AlertValue,
 		"labels": map[string]interface{}{
-			observerlabels.ComponentID:   requestBody["componentUid"],
-			observerlabels.EnvironmentID: requestBody["environmentUid"],
-			observerlabels.ProjectID:     requestBody["projectUid"],
+			observerlabels.ComponentID:   alertDetails.ComponentID,
+			observerlabels.EnvironmentID: alertDetails.EnvironmentID,
+			observerlabels.ProjectID:     alertDetails.ProjectID,
 		},
-		"enable_ai_rca": requestBody["enableAiRootCauseAnalysis"],
+		"enable_ai_rca": alertDetails.AlertAIRootCauseAnalysisEnabled,
 	}
 
 	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
@@ -1404,12 +1376,10 @@ func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ru
 
 // TriggerRCAAnalysis triggers an AI RCA analysis for the given alert.
 // It enriches the payload with CRD data and sends an async request to the RCA service.
-func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL string, alertID string, requestBody map[string]interface{}, alertRule *choreoapis.ObservabilityAlertRule) {
-	ruleName, _ := requestBody["ruleName"].(string)
-
+func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL string, alertID string, alertDetails *observertypes.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
 	// Build the rule info with basic name
 	ruleInfo := map[string]interface{}{
-		"name": ruleName,
+		"name": alertDetails.AlertName,
 	}
 
 	// Enrich with CRD data if available
@@ -1436,18 +1406,18 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 			"threshold": alertRule.Spec.Condition.Threshold,
 		}
 
-		s.logger.Debug("Enriched RCA payload with ObservabilityAlertRule data", "ruleName", ruleName)
+		s.logger.Debug("Enriched RCA payload with ObservabilityAlertRule data", "ruleName", alertDetails.AlertName)
 	}
 
 	// Build the RCA service request payload
 	rcaPayload := map[string]interface{}{
-		"componentUid":   requestBody["componentUid"],
-		"projectUid":     requestBody["projectUid"],
-		"environmentUid": requestBody["environmentUid"],
+		"componentUid":   alertDetails.ComponentID,
+		"projectUid":     alertDetails.ProjectID,
+		"environmentUid": alertDetails.EnvironmentID,
 		"alert": map[string]interface{}{
 			"id":        alertID,
-			"value":     requestBody["value"],
-			"timestamp": requestBody["timestamp"],
+			"value":     alertDetails.AlertValue,
+			"timestamp": alertDetails.AlertTimestamp,
 			"rule":      ruleInfo,
 		},
 	}
@@ -1539,22 +1509,22 @@ func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]inte
 }
 
 // EnrichAlertDetails enriches the alert details with the ObservabilityAlertRule CR details
-func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (map[string]interface{}, error) {
-	return map[string]interface{}{
-		"timestamp":                 timestamp,
-		"severity":                  string(alertRule.Spec.Severity),
-		"ruleName":                  alertRule.Spec.Name,
-		"description":               alertRule.Spec.Description,
-		"type":                      string(alertRule.Spec.Source.Type),
-		"threshold":                 strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
-		"value":                     alertValue,
-		"componentUid":              alertRule.Labels["openchoreo.dev/component-uid"],
-		"environmentUid":            alertRule.Labels["openchoreo.dev/environment-uid"],
-		"projectUid":                alertRule.Labels["openchoreo.dev/project-uid"],
-		"component":                 alertRule.Labels["openchoreo.dev/component"],
-		"project":                   alertRule.Labels["openchoreo.dev/project"],
-		"environment":               alertRule.Labels["openchoreo.dev/environment"],
-		"notificationChannel":       alertRule.Spec.NotificationChannel,
-		"enableAiRootCauseAnalysis": alertRule.Spec.EnableAiRootCauseAnalysis,
+func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (*observertypes.AlertDetails, error) {
+	return &observertypes.AlertDetails{
+		AlertName:                       alertRule.Spec.Name,
+		AlertTimestamp:                  timestamp,
+		AlertSeverity:                   string(alertRule.Spec.Severity),
+		AlertDescription:                alertRule.Spec.Description,
+		AlertThreshold:                  strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		AlertValue:                      alertValue,
+		AlertType:                       string(alertRule.Spec.Source.Type),
+		ComponentID:                     alertRule.Labels["openchoreo.dev/component-uid"],
+		EnvironmentID:                   alertRule.Labels["openchoreo.dev/environment-uid"],
+		ProjectID:                       alertRule.Labels["openchoreo.dev/project-uid"],
+		Component:                       alertRule.Labels["openchoreo.dev/component"],
+		Project:                         alertRule.Labels["openchoreo.dev/project"],
+		Environment:                     alertRule.Labels["openchoreo.dev/environment"],
+		NotificationChannel:             alertRule.Spec.NotificationChannel,
+		AlertAIRootCauseAnalysisEnabled: alertRule.Spec.EnableAiRootCauseAnalysis,
 	}, nil
 }
