@@ -34,8 +34,8 @@ updates:
     schedule:
       interval: "monthly"
 
-  # Python dependencies
-  - package-ecosystem: "pip"
+  # Python dependencies (uv)
+  - package-ecosystem: "uv"
     directory: "/rca-agent"
     schedule:
       interval: "weekly"
