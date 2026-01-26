@@ -8,7 +8,10 @@ echo "Starting loop to invoke frontend URL: ${FRONTEND_URL}"
 echo "Press Ctrl+C to stop."
 
 while true; do
-  # Fire-and-forget request to generate traffic and trigger alerts
+  # Fire-and-forget request to homepage to generate traffic and trigger error logs alert and high cpu usage alert
   curl -s -o /dev/null "${FRONTEND_URL}" || true
-  sleep 1
+  # Fire-and-forget request to load cart page to trigger high memory usage alert
+  curl -s -o /dev/null "${FRONTEND_URL}/cart" || true
+
+  sleep 0.5
 done
