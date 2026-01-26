@@ -10,16 +10,17 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 // SendAlertNotification sends an alert notification via the configured notification channel.
 // It handles template rendering for payloads internally.
-func SendAlertNotification(ctx context.Context, config *NotificationChannelConfig, celInputs map[string]any, logger *slog.Logger) error {
+func SendAlertNotification(ctx context.Context, config *NotificationChannelConfig, alertDetails *types.AlertDetails, logger *slog.Logger) error {
 	switch config.Type {
 	case "webhook":
 		// Prepare webhook payload
-		payload, err := prepareWebhookPayload(config.Webhook.PayloadTemplate, celInputs, logger)
+		payload, err := prepareWebhookPayload(config.Webhook.PayloadTemplate, alertDetails, logger)
 		if err != nil {
 			return fmt.Errorf("failed to prepare webhook payload: %w", err)
 		}
@@ -37,7 +38,7 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 
 		if logger != nil {
 			logger.Debug("Alert notification sent successfully via webhook",
-				"alertName", celInputs["alertName"],
+				"alertName", alertDetails.AlertName,
 				"webhookURL", config.Webhook.URL,
 				"usedTemplate", config.Webhook.PayloadTemplate != "")
 		}
@@ -45,7 +46,7 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 
 	case "email":
 		// Prepare email content
-		subject, body, err := prepareEmailContent(config.Email, celInputs, logger)
+		subject, body, err := prepareEmailContent(config.Email, alertDetails, logger)
 		if err != nil {
 			return fmt.Errorf("failed to prepare email content: %w", err)
 		}
@@ -62,7 +63,7 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 
 		if logger != nil {
 			logger.Debug("Alert notification sent successfully",
-				"alertName", celInputs["alertName"],
+				"alertName", alertDetails.AlertName,
 				"recipients count", len(config.Email.To))
 		}
 		return nil
@@ -73,10 +74,10 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 }
 
 // prepareWebhookPayload prepares the webhook payload by rendering the template if provided
-func prepareWebhookPayload(templateStr string, celInputs map[string]any, logger *slog.Logger) (map[string]interface{}, error) {
+func prepareWebhookPayload(templateStr string, alertDetails *types.AlertDetails, logger *slog.Logger) (map[string]interface{}, error) {
 	if templateStr == "" {
-		// No template provided, use raw alert data
-		return celInputs, nil
+		// No template provided, convert alert details to map for webhook payload
+		return alertDetails.ToMap(), nil
 	}
 
 	// Unmarshal the payload template string to JSON
@@ -91,7 +92,7 @@ func prepareWebhookPayload(templateStr string, celInputs map[string]any, logger 
 	}
 
 	// Render the JSON template using CEL expressions
-	renderedTemplateMap, err := RenderJSONTemplate(payloadTemplate, celInputs, logger)
+	renderedTemplateMap, err := RenderJSONTemplate(payloadTemplate, alertDetails, logger)
 	if err != nil {
 		if logger != nil {
 			logger.Warn("Failed to render webhook payload template, using unrendered template",
@@ -110,23 +111,23 @@ func prepareWebhookPayload(templateStr string, celInputs map[string]any, logger 
 }
 
 // prepareEmailContent prepares the email subject and body by rendering templates if provided
-func prepareEmailContent(emailConfig EmailConfig, celInputs map[string]any, logger *slog.Logger) (string, string, error) {
+func prepareEmailContent(emailConfig EmailConfig, alertDetails *types.AlertDetails, logger *slog.Logger) (string, string, error) {
 	// Render the incoming alert payload for human-friendly notifications
-	payload, err := json.MarshalIndent(celInputs, "", "  ")
+	payload, err := json.MarshalIndent(alertDetails, "", "  ")
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal alert payload: %w", err)
 	}
 
 	// Build subject using template if available, otherwise use default
-	subject := fmt.Sprintf("OpenChoreo alert triggered: %s", celInputs["alertName"])
+	subject := fmt.Sprintf("OpenChoreo alert triggered: %s", alertDetails.AlertName)
 	if emailConfig.SubjectTemplate != "" {
-		subject = RenderPlaintextTemplate(emailConfig.SubjectTemplate, celInputs, logger)
+		subject = RenderPlaintextTemplate(emailConfig.SubjectTemplate, alertDetails, logger)
 	}
 
 	// Build body using template if available, otherwise use default
 	emailBody := fmt.Sprintf("An alert was triggered at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
 	if emailConfig.BodyTemplate != "" {
-		emailBody = RenderPlaintextTemplate(emailConfig.BodyTemplate, celInputs, logger)
+		emailBody = RenderPlaintextTemplate(emailConfig.BodyTemplate, alertDetails, logger)
 	}
 
 	return subject, emailBody, nil
@@ -135,7 +136,8 @@ func prepareEmailContent(emailConfig EmailConfig, celInputs map[string]any, logg
 // RenderJSONTemplate renders a JSON template with CEL expressions for webhook payloads.
 // It expects the template to be a parsed JSON map and returns the rendered map.
 // If rendering fails, an error is returned.
-func RenderJSONTemplate(templateData map[string]interface{}, celInputs map[string]any, logger *slog.Logger) (map[string]interface{}, error) {
+func RenderJSONTemplate(templateData map[string]interface{}, alertDetails *types.AlertDetails, logger *slog.Logger) (map[string]interface{}, error) {
+	celInputs := alertDetails.ToMap()
 	if logger != nil {
 		logger.Debug("Rendering JSON template", "alertData", celInputs, "template", templateData)
 	}
@@ -165,7 +167,8 @@ func RenderJSONTemplate(templateData map[string]interface{}, celInputs map[strin
 // RenderPlaintextTemplate renders a plaintext template with CEL expressions for email subjects and bodies.
 // It treats the template as a plain string and evaluates CEL expressions within it.
 // If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
-func RenderPlaintextTemplate(templateStr string, celInputs map[string]any, logger *slog.Logger) string {
+func RenderPlaintextTemplate(templateStr string, alertDetails *types.AlertDetails, logger *slog.Logger) string {
+	celInputs := alertDetails.ToMap()
 	if logger != nil {
 		logger.Debug("Rendering plaintext template", "alertData", celInputs)
 	}
