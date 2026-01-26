@@ -5,6 +5,8 @@ package mcphandlers
 
 import (
 	"context"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 type ListComponentTypesResponse struct {
@@ -20,12 +22,21 @@ type ListTraitsResponse struct {
 }
 
 func (h *MCPHandler) ListComponentTypes(ctx context.Context, orgName string) (any, error) {
-	componentTypes, err := h.Services.ComponentTypeService.ListComponentTypes(ctx, orgName)
+	// For MCP handlers, return all items
+	opts := &models.ListOptions{
+		Limit:    models.MaxPageLimit,
+		Continue: "",
+	}
+	result, err := h.Services.ComponentTypeService.ListComponentTypes(ctx, orgName, opts)
 	if err != nil {
 		return ListComponentTypesResponse{}, err
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("component_types", len(result.Items))
+
 	return ListComponentTypesResponse{
-		ComponentTypes: componentTypes,
+		ComponentTypes: result.Items,
 	}, nil
 }
 
@@ -34,12 +45,21 @@ func (h *MCPHandler) GetComponentTypeSchema(ctx context.Context, orgName, ctName
 }
 
 func (h *MCPHandler) ListWorkflows(ctx context.Context, orgName string) (any, error) {
-	workflows, err := h.Services.WorkflowService.ListWorkflows(ctx, orgName)
+	// For MCP handlers, return all items
+	opts := &models.ListOptions{
+		Limit:    models.MaxPageLimit,
+		Continue: "",
+	}
+	result, err := h.Services.WorkflowService.ListWorkflows(ctx, orgName, opts)
 	if err != nil {
 		return ListWorkflowsResponse{}, err
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("workflows", len(result.Items))
+
 	return ListWorkflowsResponse{
-		Workflows: workflows,
+		Workflows: result.Items,
 	}, nil
 }
 
@@ -48,12 +68,21 @@ func (h *MCPHandler) GetWorkflowSchema(ctx context.Context, orgName, workflowNam
 }
 
 func (h *MCPHandler) ListTraits(ctx context.Context, orgName string) (any, error) {
-	traits, err := h.Services.TraitService.ListTraits(ctx, orgName)
+	// For MCP handlers, return all items
+	opts := &models.ListOptions{
+		Limit:    models.MaxPageLimit,
+		Continue: "",
+	}
+	result, err := h.Services.TraitService.ListTraits(ctx, orgName, opts)
 	if err != nil {
 		return ListTraitsResponse{}, err
 	}
+
+	// Warn if result may be truncated
+	h.warnIfTruncated("traits", len(result.Items))
+
 	return ListTraitsResponse{
-		Traits: traits,
+		Traits: result.Items,
 	}, nil
 }
 

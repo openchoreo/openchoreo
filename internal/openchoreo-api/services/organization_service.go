@@ -35,13 +35,21 @@ func NewOrganizationService(k8sClient client.Client, logger *slog.Logger, authzP
 }
 
 // ListOrganizations lists all organizations
-func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.OrganizationResponse, error) {
-	s.logger.Debug("Listing organizations")
+func (s *OrganizationService) ListOrganizations(ctx context.Context, opts *models.ListOptions) (*models.ListResponse[*models.OrganizationResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing organizations", "limit", opts.Limit, "continue", opts.Continue)
 
 	var orgList openchoreov1alpha1.OrganizationList
-	if err := s.k8sClient.List(ctx, &orgList); err != nil {
-		s.logger.Error("Failed to list organizations", "error", err)
-		return nil, fmt.Errorf("failed to list organizations: %w", err)
+
+	listOpts := &client.ListOptions{
+		Limit:    int64(opts.Limit),
+		Continue: opts.Continue,
+	}
+
+	if err := s.k8sClient.List(ctx, &orgList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "organizations")
 	}
 
 	organizations := make([]*models.OrganizationResponse, 0, len(orgList.Items))
@@ -60,8 +68,15 @@ func (s *OrganizationService) ListOrganizations(ctx context.Context) ([]*models.
 		organizations = append(organizations, s.toOrganizationResponse(&item))
 	}
 
-	s.logger.Debug("Listed organizations", "count", len(organizations))
-	return organizations, nil
+	s.logger.Debug("Listed organizations", "count", len(organizations), "hasMore", orgList.Continue != "")
+	return &models.ListResponse[*models.OrganizationResponse]{
+		Items: organizations,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: orgList.ResourceVersion,
+			Continue:        orgList.Continue,
+			HasMore:         orgList.Continue != "",
+		},
+	}, nil
 }
 
 // GetOrganization retrieves a specific organization

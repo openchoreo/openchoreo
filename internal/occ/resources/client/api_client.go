@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/constants"
 )
 
 // APIClient provides HTTP client for OpenChoreo API server
@@ -59,12 +61,17 @@ type OrganizationResponse struct {
 	CreatedAt   string `json:"createdAt"`
 }
 
-// ListResponse represents a paginated list response
+// ResponseMetadata contains metadata for list responses
+type ResponseMetadata struct {
+	ResourceVersion string `json:"resourceVersion"`
+	Continue        string `json:"continue,omitempty"`
+	HasMore         bool   `json:"hasMore"`
+}
+
+// ListResponse represents a list response with items and metadata
 type ListResponse struct {
-	Items      []OrganizationResponse `json:"items"`
-	TotalCount int                    `json:"totalCount"`
-	Page       int                    `json:"page"`
-	PageSize   int                    `json:"pageSize"`
+	Items    []OrganizationResponse `json:"items"`
+	Metadata ResponseMetadata       `json:"metadata"`
 }
 
 // ListOrganizationsResponse represents the response from listing organizations
@@ -90,10 +97,8 @@ type ProjectResponse struct {
 type ListProjectsResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Items      []ProjectResponse `json:"items"`
-		TotalCount int               `json:"totalCount"`
-		Page       int               `json:"page"`
-		PageSize   int               `json:"pageSize"`
+		Items    []ProjectResponse `json:"items"`
+		Metadata ResponseMetadata  `json:"metadata"`
 	} `json:"data"`
 	Error string `json:"error,omitempty"`
 	Code  string `json:"code,omitempty"`
@@ -115,13 +120,71 @@ type ComponentResponse struct {
 type ListComponentsResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Items      []ComponentResponse `json:"items"`
-		TotalCount int                 `json:"totalCount"`
-		Page       int                 `json:"page"`
-		PageSize   int                 `json:"pageSize"`
+		Items    []ComponentResponse `json:"items"`
+		Metadata ResponseMetadata    `json:"metadata"`
 	} `json:"data"`
 	Error string `json:"error,omitempty"`
 	Code  string `json:"code,omitempty"`
+}
+
+// GetSuccess implements the listResponse interface
+func (r ListOrganizationsResponse) GetSuccess() bool {
+	return r.Success
+}
+
+// GetError implements the listResponse interface
+func (r ListOrganizationsResponse) GetError() string {
+	return r.Error
+}
+
+// GetItems implements the listResponse interface
+func (r ListOrganizationsResponse) GetItems() interface{} {
+	return r.Data.Items
+}
+
+// GetMetadata implements the listResponse interface
+func (r ListOrganizationsResponse) GetMetadata() ResponseMetadata {
+	return r.Data.Metadata
+}
+
+// GetSuccess implements the listResponse interface
+func (r ListProjectsResponse) GetSuccess() bool {
+	return r.Success
+}
+
+// GetError implements the listResponse interface
+func (r ListProjectsResponse) GetError() string {
+	return r.Error
+}
+
+// GetItems implements the listResponse interface
+func (r ListProjectsResponse) GetItems() interface{} {
+	return r.Data.Items
+}
+
+// GetMetadata implements the listResponse interface
+func (r ListProjectsResponse) GetMetadata() ResponseMetadata {
+	return r.Data.Metadata
+}
+
+// GetSuccess implements the listResponse interface
+func (r ListComponentsResponse) GetSuccess() bool {
+	return r.Success
+}
+
+// GetError implements the listResponse interface
+func (r ListComponentsResponse) GetError() string {
+	return r.Error
+}
+
+// GetItems implements the listResponse interface
+func (r ListComponentsResponse) GetItems() interface{} {
+	return r.Data.Items
+}
+
+// GetMetadata implements the listResponse interface
+func (r ListComponentsResponse) GetMetadata() ResponseMetadata {
+	return r.Data.Metadata
 }
 
 // NewAPIClient creates a new API client with control plane auto-detection
@@ -210,81 +273,174 @@ func (c *APIClient) Delete(ctx context.Context, resource map[string]interface{})
 	return &deleteResp, nil
 }
 
+// listResponse represents a generic paginated list response
+// This interface allows the generic fetchAllPages function to work with different response types
+type listResponse interface {
+	GetSuccess() bool
+	GetError() string
+	GetItems() interface{}
+	GetMetadata() ResponseMetadata
+}
+
+// fetchAllPages is a generic helper to fetch all pages of results from the API
+func (c *APIClient) fetchAllPages(
+	ctx context.Context,
+	basePath string,
+	maxItems int,
+	parseResponse func([]byte) (listResponse, error),
+) ([]interface{}, error) {
+	var allItems []interface{}
+	continueToken := ""
+	pageLimit := constants.DefaultPageLimit
+	if maxItems > 0 {
+		// Cap at MaxPageLimit (better to make fewer, larger requests)
+		if maxItems > constants.MaxPageLimit {
+			pageLimit = constants.MaxPageLimit
+		} else {
+			pageLimit = maxItems
+		}
+	}
+
+	for {
+		params := url.Values{}
+		effectiveLimit := pageLimit
+		if maxItems > 0 {
+			remaining := maxItems - len(allItems)
+			if remaining <= 0 {
+				break
+			}
+			if remaining < effectiveLimit {
+				effectiveLimit = remaining
+			}
+		}
+		params.Set("limit", fmt.Sprintf("%d", effectiveLimit))
+		if continueToken != "" {
+			params.Set("continue", continueToken)
+		}
+
+		resp, err := c.getWithParams(ctx, basePath, params)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make list request: %w", err)
+		}
+
+		// Handle HTTP 410 Gone (expired continue token)
+		if resp.StatusCode == http.StatusGone {
+			resp.Body.Close()
+			continueToken = ""
+			allItems = nil
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+
+		listResp, err := parseResponse(body)
+		if err != nil {
+			return nil, err
+		}
+
+		if !listResp.GetSuccess() {
+			return nil, fmt.Errorf("list request failed: %s", listResp.GetError())
+		}
+
+		// Append items to results
+		items := listResp.GetItems()
+		switch v := items.(type) {
+		case []OrganizationResponse:
+			for _, item := range v {
+				allItems = append(allItems, item)
+			}
+		case []ProjectResponse:
+			for _, item := range v {
+				allItems = append(allItems, item)
+			}
+		case []ComponentResponse:
+			for _, item := range v {
+				allItems = append(allItems, item)
+			}
+		default:
+			return nil, fmt.Errorf("unexpected item type: %T", items)
+		}
+
+		if maxItems > 0 && len(allItems) >= maxItems {
+			allItems = allItems[:maxItems]
+			break
+		}
+
+		// Check if there are more pages
+		metadata := listResp.GetMetadata()
+		if !metadata.HasMore || metadata.Continue == "" {
+			break
+		}
+		continueToken = metadata.Continue
+	}
+
+	return allItems, nil
+}
+
 // ListOrganizations retrieves all organizations from the API
-func (c *APIClient) ListOrganizations(ctx context.Context) ([]OrganizationResponse, error) {
-	resp, err := c.get(ctx, "/api/v1/orgs")
+func (c *APIClient) ListOrganizations(ctx context.Context, maxItems int) ([]OrganizationResponse, error) {
+	items, err := c.fetchAllPages(ctx, "/api/v1/orgs", maxItems, func(body []byte) (listResponse, error) {
+		var listResp ListOrganizationsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+		return listResp, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to make list organizations request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var listResp ListOrganizationsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	organizations := make([]OrganizationResponse, len(items))
+	for i, item := range items {
+		organizations[i] = item.(OrganizationResponse)
 	}
-
-	if !listResp.Success {
-		return nil, fmt.Errorf("list organizations failed: %s", listResp.Error)
-	}
-
-	return listResp.Data.Items, nil
+	return organizations, nil
 }
 
 // ListProjects retrieves all projects for an organization from the API
-func (c *APIClient) ListProjects(ctx context.Context, orgName string) ([]ProjectResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects", orgName)
-	resp, err := c.get(ctx, path)
+func (c *APIClient) ListProjects(ctx context.Context, orgName string, maxItems int) ([]ProjectResponse, error) {
+	basePath := fmt.Sprintf("/api/v1/orgs/%s/projects", orgName)
+	items, err := c.fetchAllPages(ctx, basePath, maxItems, func(body []byte) (listResponse, error) {
+		var listResp ListProjectsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+		return listResp, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to make list projects request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var listResp ListProjectsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	projects := make([]ProjectResponse, len(items))
+	for i, item := range items {
+		projects[i] = item.(ProjectResponse)
 	}
-
-	if !listResp.Success {
-		return nil, fmt.Errorf("list projects failed: %s", listResp.Error)
-	}
-
-	return listResp.Data.Items, nil
+	return projects, nil
 }
 
 // ListComponents retrieves all components for an organization and project from the API
-func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName string) ([]ComponentResponse, error) {
-	path := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", orgName, projectName)
-	resp, err := c.get(ctx, path)
+func (c *APIClient) ListComponents(ctx context.Context, orgName, projectName string, maxItems int) ([]ComponentResponse, error) {
+	basePath := fmt.Sprintf("/api/v1/orgs/%s/projects/%s/components", orgName, projectName)
+	items, err := c.fetchAllPages(ctx, basePath, maxItems, func(body []byte) (listResponse, error) {
+		var listResp ListComponentsResponse
+		if err := json.Unmarshal(body, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+		return listResp, nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to make list components request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, err
 	}
 
-	var listResp ListComponentsResponse
-	if err := json.Unmarshal(body, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	components := make([]ComponentResponse, len(items))
+	for i, item := range items {
+		components[i] = item.(ComponentResponse)
 	}
-
-	if !listResp.Success {
-		return nil, fmt.Errorf("list components failed: %s", listResp.Error)
-	}
-
-	return listResp.Data.Items, nil
+	return components, nil
 }
 
 // GetComponentTypeSchema fetches ComponentType schema from the API
@@ -344,13 +500,30 @@ func (c *APIClient) getSchema(ctx context.Context, path string) (*json.RawMessag
 	return apiResponse.Data, nil
 }
 
-// Get performs a GET request to the API
-func (c *APIClient) Get(ctx context.Context, path string) (*http.Response, error) {
+// HTTP helper methods
+func (c *APIClient) get(ctx context.Context, path string) (*http.Response, error) {
 	return c.doRequest(ctx, "GET", path, nil)
 }
 
-// HTTP helper methods
-func (c *APIClient) get(ctx context.Context, path string) (*http.Response, error) {
+// getWithParams performs a GET request with query parameters
+func (c *APIClient) getWithParams(ctx context.Context, path string, params url.Values) (*http.Response, error) {
+	if len(params) > 0 {
+		// Parse the path to safely add query parameters
+		parsedURL, err := url.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse path: %w", err)
+		}
+
+		// Merge existing query parameters with new ones
+		q := parsedURL.Query()
+		for key, values := range params {
+			for _, value := range values {
+				q.Add(key, value)
+			}
+		}
+		parsedURL.RawQuery = q.Encode()
+		path = parsedURL.String()
+	}
 	return c.doRequest(ctx, "GET", path, nil)
 }
 

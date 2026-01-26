@@ -85,12 +85,23 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
 	// Call service to list components
-	components, err := h.services.ComponentService.ListComponents(ctx, orgName, projectName)
+	result, err := h.services.ComponentService.ListComponents(ctx, orgName, projectName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if handlePaginationError(w, err, logger) {
 			return
 		}
 		logger.Error("Failed to list components", "error", err)
@@ -98,13 +109,9 @@ func (h *Handler) ListComponents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert to slice of values for the list response
-	componentValues := make([]*models.ComponentResponse, len(components))
-	copy(componentValues, components)
-
-	// Success response with pagination info (simplified for now)
-	logger.Debug("Listed components successfully", "org", orgName, "project", projectName, "count", len(components))
-	writeListResponse(w, componentValues, len(components), 1, len(components))
+	// Success response
+	logger.Debug("Listed components successfully", "org", orgName, "project", projectName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) GetComponent(w http.ResponseWriter, r *http.Request) {
@@ -367,8 +374,16 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	// Extract environments from query parameter (supports multiple values, optional)
 	environments := r.URL.Query()["environment"]
 
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
 	// Call service to get component bindings
-	bindings, err := h.services.ComponentService.GetComponentBindings(ctx, orgName, projectName, componentName, environments)
+	result, err := h.services.ComponentService.GetComponentBindings(ctx, orgName, projectName, componentName, environments, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -380,6 +395,9 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
+		if handlePaginationError(w, err, logger) {
+			return
+		}
 		logger.Error("Failed to get component bindings", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
@@ -388,11 +406,11 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 	// Success response
 	envCount := len(environments)
 	if envCount == 0 {
-		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
+		logger.Debug("Retrieved component bindings for all pipeline environments successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
 	} else {
-		logger.Debug("Retrieved component bindings successfully", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "count", len(bindings))
+		logger.Debug("Retrieved component bindings successfully", "org", orgName, "project", projectName, "component", componentName, "environments", environments, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
 	}
-	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
@@ -705,7 +723,15 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	releases, err := h.services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.ComponentService.ListComponentReleases(ctx, orgName, projectName, componentName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -717,13 +743,16 @@ func (h *Handler) ListComponentReleases(w http.ResponseWriter, r *http.Request) 
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
+		if handlePaginationError(w, err, logger) {
+			return
+		}
 		logger.Error("Failed to list component releases", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	logger.Debug("Listed component releases successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(releases))
-	writeListResponse(w, releases, len(releases), 1, len(releases))
+	logger.Debug("Listed component releases successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) GetComponentRelease(w http.ResponseWriter, r *http.Request) {
@@ -930,7 +959,15 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 
 	environments := r.URL.Query()["environment"]
 
-	bindings, err := h.services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		logger.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.ComponentService.ListReleaseBindings(ctx, orgName, projectName, componentName, environments, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrProjectNotFound) {
 			logger.Warn("Project not found", "org", orgName, "project", projectName)
@@ -942,13 +979,16 @@ func (h *Handler) ListReleaseBindings(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
+		if handlePaginationError(w, err, logger) {
+			return
+		}
 		logger.Error("Failed to list release bindings", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	logger.Debug("Listed release bindings successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(bindings))
-	writeListResponse(w, bindings, len(bindings), 1, len(bindings))
+	logger.Debug("Listed release bindings successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) DeployRelease(w http.ResponseWriter, r *http.Request) {
@@ -1051,7 +1091,7 @@ func (h *Handler) ListComponentTraits(w http.ResponseWriter, r *http.Request) {
 
 	// Success response
 	logger.Debug("Listed component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
-	writeListResponse(w, traits, len(traits), 1, len(traits))
+	writeListResponse(w, traits, "", "")
 }
 
 func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) {
@@ -1122,5 +1162,5 @@ func (h *Handler) UpdateComponentTraits(w http.ResponseWriter, r *http.Request) 
 
 	// Success response
 	logger.Debug("Updated component traits successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(traits))
-	writeListResponse(w, traits, len(traits), 1, len(traits))
+	writeListResponse(w, traits, "", "")
 }

@@ -39,20 +39,25 @@ func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger, authz
 }
 
 // ListComponentTypes lists all ComponentTypes in the given organization
-func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName string) ([]*models.ComponentTypeResponse, error) {
-	s.logger.Debug("Listing ComponentTypes", "org", orgName)
+func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.ComponentTypeResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing ComponentTypes", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var ctList openchoreov1alpha1.ComponentTypeList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &ctList, listOpts...); err != nil {
-		s.logger.Error("Failed to list ComponentTypes", "error", err)
-		return nil, fmt.Errorf("failed to list ComponentTypes: %w", err)
+	if err := s.k8sClient.List(ctx, &ctList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "component types")
 	}
 
-	cts := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
+	// Convert items to response type (with authorization filtering)
+	componentTypes := make([]*models.ComponentTypeResponse, 0, len(ctList.Items))
 	for i := range ctList.Items {
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentType, ResourceTypeComponentType, ctList.Items[i].Name,
 			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
@@ -62,11 +67,18 @@ func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, orgName s
 			}
 			return nil, err
 		}
-		cts = append(cts, s.toComponentTypeResponse(&ctList.Items[i]))
+		componentTypes = append(componentTypes, s.toComponentTypeResponse(&ctList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentTypes", "org", orgName, "count", len(cts))
-	return cts, nil
+	s.logger.Debug("Listed component types", "org", orgName, "count", len(componentTypes), "hasMore", ctList.Continue != "")
+	return &models.ListResponse[*models.ComponentTypeResponse]{
+		Items: componentTypes,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: ctList.ResourceVersion,
+			Continue:        ctList.Continue,
+			HasMore:         ctList.Continue != "",
+		},
+	}, nil
 }
 
 // GetComponentType retrieves a specific ComponentType
@@ -162,7 +174,7 @@ func (s *ComponentTypeService) toComponentTypeResponse(ct *openchoreov1alpha1.Co
 	displayName := ct.Annotations[controller.AnnotationKeyDisplayName]
 	description := ct.Annotations[controller.AnnotationKeyDescription]
 
-	// Convert allowed component-component-workflows to string list
+	// Convert allowed component-workflows to string list
 	allowedWorkflows := make([]string, 0, len(ct.Spec.AllowedWorkflows))
 	allowedWorkflows = append(allowedWorkflows, ct.Spec.AllowedWorkflows...)
 

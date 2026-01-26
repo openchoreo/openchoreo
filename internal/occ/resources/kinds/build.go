@@ -160,7 +160,13 @@ func (b *BuildResource) PrintTableItems(builds []resources.ResourceWrapper[*open
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (b *BuildResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	builds, err := b.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	builds, err := b.List(limit)
 	if err != nil {
 		return err
 	}
@@ -231,7 +237,7 @@ func (b *BuildResource) CreateBuild(params api.CreateBuildParams) error {
 
 // GetBuildsForComponent returns builds filtered by component
 func (b *BuildResource) GetBuildsForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Build], error) {
-	allBuilds, err := b.List()
+	allBuilds, err := b.List(0)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +255,7 @@ func (b *BuildResource) GetBuildsForComponent(componentName string) ([]resources
 
 // GetBuildsForDeploymentTrack returns builds filtered by deployment track
 func (b *BuildResource) GetBuildsForDeploymentTrack(deploymentTrack string) ([]resources.ResourceWrapper[*openchoreov1alpha1.Build], error) {
-	allBuilds, err := b.List()
+	allBuilds, err := b.List(0)
 	if err != nil {
 		return nil, err
 	}

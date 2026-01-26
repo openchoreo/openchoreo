@@ -275,8 +275,7 @@ var (
 		Usage: "Authentication token for remote OpenChoreo API server",
 	}
 
-	// Scaffold-specific flags
-
+	// ScaffoldType defines the scaffold type flag
 	ScaffoldType = Flag{
 		Name:  "type",
 		Usage: "Component type in format workloadType/componentTypeName (e.g., deployment/web-app)",
@@ -324,8 +323,14 @@ var (
 
 	All = Flag{
 		Name:  "all",
-		Usage: "Process all resources",
+		Usage: messages.FlagAllDesc,
 		Type:  "bool",
+	}
+
+	Limit = Flag{
+		Name:  "limit",
+		Usage: messages.FlagLimitDesc,
+		Type:  "int",
 	}
 
 	OutputPath = Flag{
@@ -387,9 +392,12 @@ var (
 // AddFlags adds the specified flags to the given command.
 func AddFlags(cmd *cobra.Command, flags ...Flag) {
 	for _, flag := range flags {
-		if flag.Type == "bool" {
+		switch flag.Type {
+		case "bool":
 			cmd.Flags().BoolP(flag.Name, flag.Shorthand, false, flag.Usage)
-		} else {
+		case "int":
+			cmd.Flags().IntP(flag.Name, flag.Shorthand, 0, flag.Usage)
+		default:
 			// Default to string type
 			cmd.Flags().StringP(flag.Name, flag.Shorthand, "", flag.Usage)
 		}

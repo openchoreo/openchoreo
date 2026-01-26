@@ -39,17 +39,22 @@ func NewTraitService(k8sClient client.Client, logger *slog.Logger, authzPDP auth
 }
 
 // ListTraits lists all Traits in the given organization
-func (s *TraitService) ListTraits(ctx context.Context, orgName string) ([]*models.TraitResponse, error) {
-	s.logger.Debug("Listing Traits", "org", orgName)
+func (s *TraitService) ListTraits(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.TraitResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing Traits", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var traitList openchoreov1alpha1.TraitList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &traitList, listOpts...); err != nil {
-		s.logger.Error("Failed to list Traits", "error", err)
-		return nil, fmt.Errorf("failed to list Traits: %w", err)
+	if err := s.k8sClient.List(ctx, &traitList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "traits")
 	}
 
 	traits := make([]*models.TraitResponse, 0, len(traitList.Items))
@@ -65,8 +70,15 @@ func (s *TraitService) ListTraits(ctx context.Context, orgName string) ([]*model
 		traits = append(traits, s.toTraitResponse(&traitList.Items[i]))
 	}
 
-	s.logger.Debug("Listed Traits", "org", orgName, "count", len(traits))
-	return traits, nil
+	s.logger.Debug("Listed Traits", "org", orgName, "count", len(traits), "hasMore", traitList.Continue != "")
+	return &models.ListResponse[*models.TraitResponse]{
+		Items: traits,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: traitList.ResourceVersion,
+			Continue:        traitList.Continue,
+			HasMore:         traitList.Continue != "",
+		},
+	}, nil
 }
 
 // GetTrait retrieves a specific Trait

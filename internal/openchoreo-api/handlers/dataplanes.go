@@ -21,14 +21,29 @@ func (h *Handler) ListDataPlanes(w http.ResponseWriter, r *http.Request) {
 		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
 		return
 	}
-	dataplanes, err := h.services.DataPlaneService.ListDataPlanes(ctx, orgName)
+
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.DataPlaneService.ListDataPlanes(ctx, orgName, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			writeErrorResponse(w, http.StatusGone, "Continue token has expired, please restart listing", services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid continue token", services.CodeInvalidContinueToken)
+			return
+		}
 		h.logger.Error("Failed to list dataplanes", "error", err, "org", orgName)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list dataplanes", services.CodeInternalError)
 		return
 	}
 
-	writeListResponse(w, dataplanes, len(dataplanes), 1, len(dataplanes))
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 // GetDataPlane handles GET /api/v1/orgs/{orgName}/dataplanes/{dpName}

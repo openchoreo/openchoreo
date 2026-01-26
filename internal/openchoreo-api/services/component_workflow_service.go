@@ -16,6 +16,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -105,6 +106,10 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workflowRunName,
 			Namespace: orgName,
+			Labels: map[string]string{
+				"openchoreo.dev/project":   projectName,
+				"openchoreo.dev/component": componentName,
+			},
 		},
 		Spec: openchoreov1alpha1.ComponentWorkflowRunSpec{
 			Owner: openchoreov1alpha1.ComponentWorkflowOwner{
@@ -154,24 +159,33 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, orgName,
 	}, nil
 }
 
-// ListComponentWorkflowRuns retrieves component workflow runs for a component using spec.owner fields
-func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string) ([]models.ComponentWorkflowResponse, error) {
-	s.logger.Debug("Listing component workflow runs", "org", orgName, "project", projectName, "component", componentName)
+// ListComponentWorkflowRuns retrieves component workflow runs for a component using label selectors
+func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context, orgName, projectName, componentName string, opts *models.ListOptions) (*models.ListResponse[*models.ComponentWorkflowResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing component workflow runs", "org", orgName, "project", projectName, "component", componentName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var workflowRuns openchoreov1alpha1.ComponentWorkflowRunList
-	err := s.k8sClient.List(ctx, &workflowRuns, client.InNamespace(orgName))
-	if err != nil {
-		s.logger.Error("Failed to list component workflow runs", "error", err)
-		return nil, fmt.Errorf("failed to list component workflow runs: %w", err)
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
+		LabelSelector: k8slabels.SelectorFromSet(map[string]string{
+			"openchoreo.dev/project":   projectName,
+			"openchoreo.dev/component": componentName,
+		}),
 	}
 
-	workflowResponses := make([]models.ComponentWorkflowResponse, 0, len(workflowRuns.Items))
-	for _, workflowRun := range workflowRuns.Items {
-		// Filter by spec.owner fields
-		if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
-			continue
-		}
+	err := s.k8sClient.List(ctx, &workflowRuns, listOpts)
+	if err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "component workflow runs")
+	}
 
+	// Convert workflow runs to response models (with authorization filtering)
+	workflowResponses := make([]*models.ComponentWorkflowResponse, 0, len(workflowRuns.Items))
+	for i := range workflowRuns.Items {
+		workflowRun := &workflowRuns.Items[i]
 		// Authorization check for each workflow run
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, workflowRun.Name,
 			authz.ResourceHierarchy{Namespace: orgName, Project: projectName, Component: componentName}); err != nil {
@@ -188,7 +202,7 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 			commit = "latest"
 		}
 
-		workflowResponses = append(workflowResponses, models.ComponentWorkflowResponse{
+		workflowResponses = append(workflowResponses, &models.ComponentWorkflowResponse{
 			Name:          workflowRun.Name,
 			UUID:          string(workflowRun.UID),
 			ComponentName: componentName,
@@ -201,7 +215,14 @@ func (s *ComponentWorkflowService) ListComponentWorkflowRuns(ctx context.Context
 		})
 	}
 
-	return workflowResponses, nil
+	return &models.ListResponse[*models.ComponentWorkflowResponse]{
+		Items: workflowResponses,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: workflowRuns.ResourceVersion,
+			Continue:        workflowRuns.Continue,
+			HasMore:         workflowRuns.Continue != "",
+		},
+	}, nil
 }
 
 // GetComponentWorkflowRun retrieves a specific component workflow run by name
@@ -310,17 +331,21 @@ func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 }
 
 // ListComponentWorkflows lists all ComponentWorkflow templates in the given organization
-func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, orgName string) ([]*models.WorkflowResponse, error) {
-	s.logger.Debug("Listing ComponentWorkflow templates", "org", orgName)
+func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, orgName string, opts *models.ListOptions) (*models.ListResponse[*models.WorkflowResponse], error) {
+	if opts == nil {
+		opts = &models.ListOptions{Limit: models.DefaultPageLimit}
+	}
+	s.logger.Debug("Listing ComponentWorkflow templates", "org", orgName, "limit", opts.Limit, "continue", opts.Continue)
 
 	var cwfList openchoreov1alpha1.ComponentWorkflowList
-	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+	listOpts := &client.ListOptions{
+		Namespace: orgName,
+		Limit:     int64(opts.Limit),
+		Continue:  opts.Continue,
 	}
 
-	if err := s.k8sClient.List(ctx, &cwfList, listOpts...); err != nil {
-		s.logger.Error("Failed to list ComponentWorkflow templates", "error", err)
-		return nil, fmt.Errorf("failed to list ComponentWorkflow templates: %w", err)
+	if err := s.k8sClient.List(ctx, &cwfList, listOpts); err != nil {
+		return nil, HandleListError(err, s.logger, opts.Continue, "component workflow templates")
 	}
 
 	cwfs := make([]*models.WorkflowResponse, 0, len(cwfList.Items))
@@ -338,8 +363,15 @@ func (s *ComponentWorkflowService) ListComponentWorkflows(ctx context.Context, o
 		cwfs = append(cwfs, s.toComponentWorkflowResponse(&cwfList.Items[i]))
 	}
 
-	s.logger.Debug("Listed ComponentWorkflow templates", "org", orgName, "count", len(cwfs))
-	return cwfs, nil
+	s.logger.Debug("Listed ComponentWorkflow templates", "org", orgName, "count", len(cwfs), "hasMore", cwfList.Continue != "")
+	return &models.ListResponse[*models.WorkflowResponse]{
+		Items: cwfs,
+		Metadata: models.ResponseMetadata{
+			ResourceVersion: cwfList.ResourceVersion,
+			Continue:        cwfList.Continue,
+			HasMore:         cwfList.Continue != "",
+		},
+	}, nil
 }
 
 // GetComponentWorkflow retrieves a specific ComponentWorkflow template

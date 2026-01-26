@@ -11,6 +11,7 @@ import (
 type GetParams struct {
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // GetProjectParams defines parameters for listing projects
@@ -18,6 +19,7 @@ type GetProjectParams struct {
 	Organization string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // GetComponentParams defines parameters for listing components
@@ -26,6 +28,7 @@ type GetComponentParams struct {
 	Project      string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // CreateOrganizationParams defines parameters for creating organizations
@@ -125,6 +128,7 @@ type GetBuildParams struct {
 	DeploymentTrack string
 	OutputFormat    string
 	Name            string
+	Limit           int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // CreateDeployableArtifactParams defines parameters for creating a deployable artifact
@@ -157,6 +161,7 @@ type GetDeployableArtifactParams struct {
 	// Optional filters
 	GitRevision  string
 	DisabledOnly bool
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // GetDeploymentParams defines parameters for listing deployments
@@ -174,6 +179,7 @@ type GetDeploymentParams struct {
 	// Display options
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // CreateDeploymentParams defines parameters for creating a deployment
@@ -207,6 +213,7 @@ type GetDeploymentTrackParams struct {
 	Component    string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // CreateEnvironmentParams defines parameters for creating an environment
@@ -225,6 +232,7 @@ type GetEnvironmentParams struct {
 	Organization string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // CreateDataPlaneParams defines parameters for creating a data plane
@@ -243,6 +251,7 @@ type GetDataPlaneParams struct {
 	Organization string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // GetEndpointParams defines parameters for listing endpoints
@@ -253,6 +262,7 @@ type GetEndpointParams struct {
 	Environment  string
 	OutputFormat string
 	Name         string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 type SetContextParams struct {
@@ -294,12 +304,14 @@ type GetDeploymentPipelineParams struct {
 	Name         string
 	Organization string
 	OutputFormat string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 type GetConfigurationGroupParams struct {
 	Name         string
 	Organization string
 	OutputFormat string
+	Limit        int // Maximum number of resources to return (0 for all; default when omitted)
 }
 
 // SetControlPlaneParams defines parameters for setting control plane configuration

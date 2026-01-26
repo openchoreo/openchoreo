@@ -25,15 +25,37 @@ func (h *Handler) ListComponentWorkflows(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	cwfs, err := h.services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		log.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	result, err := h.services.ComponentWorkflowService.ListComponentWorkflows(ctx, orgName, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			log.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			log.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
 		log.Error("Failed to list ComponentWorkflows", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
 		return
 	}
 
-	log.Debug("Listed ComponentWorkflows successfully", "org", orgName, "count", len(cwfs))
-	writeListResponse(w, cwfs, len(cwfs), 1, len(cwfs))
+	log.Debug("Listed ComponentWorkflows successfully", "org", orgName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 // GetComponentWorkflowSchema retrieves the schema for a ComponentWorkflow template
@@ -162,9 +184,32 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Call service to list component workflow runs
-	workflowRuns, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName)
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
 	if err != nil {
+		log.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Call service to list component workflow runs
+	result, err := h.services.ComponentWorkflowService.ListComponentWorkflowRuns(ctx, orgName, projectName, componentName, opts)
+	if err != nil {
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			log.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			log.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
+
 		// List operations don't check for ErrForbidden here - the service already filtered unauthorized items
 		log.Error("Failed to list component workflow runs", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list component workflow runs", services.CodeInternalError)
@@ -172,7 +217,7 @@ func (h *Handler) ListComponentWorkflowRuns(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Success response
-	writeListResponse(w, workflowRuns, len(workflowRuns), 1, len(workflowRuns))
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 // GetComponentWorkflowRun retrieves a specific component workflow run

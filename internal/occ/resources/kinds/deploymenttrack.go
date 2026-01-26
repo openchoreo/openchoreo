@@ -136,8 +136,13 @@ func (d *DeploymentTrackResource) PrintTableItems(tracks []resources.ResourceWra
 
 // Print overrides the base Print method to ensure our custom PrintTableItems is called
 func (d *DeploymentTrackResource) Print(format resources.OutputFormat, filter *resources.ResourceFilter) error {
-	// List resources
-	deploymentTracks, err := d.List()
+	// Extract limit from filter for server-side pagination
+	limit := 0
+	if filter != nil {
+		limit = filter.Limit
+	}
+
+	deploymentTracks, err := d.List(limit)
 	if err != nil {
 		return err
 	}
@@ -202,7 +207,7 @@ func (d *DeploymentTrackResource) CreateDeploymentTrack(params api.CreateDeploym
 // GetDeploymentTracksForComponent returns deployment tracks filtered by component
 func (d *DeploymentTrackResource) GetDeploymentTracksForComponent(componentName string) ([]resources.ResourceWrapper[*openchoreov1alpha1.DeploymentTrack], error) {
 	// List all deployment tracks in the namespace
-	allDeploymentTracks, err := d.List()
+	allDeploymentTracks, err := d.List(0)
 	if err != nil {
 		return nil, err
 	}

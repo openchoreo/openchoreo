@@ -40,8 +40,16 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract and validate list parameters
+	opts, err := extractListParams(r.URL.Query())
+	if err != nil {
+		log.Warn("Invalid list parameters", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
 	// Call service to get workloads
-	workloads, err := h.services.ComponentService.GetComponentWorkloads(ctx, orgName, projectName, componentName)
+	result, err := h.services.ComponentService.GetComponentWorkloads(ctx, orgName, projectName, componentName, opts)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
 			log.Warn("Unauthorized to view workloads", "org", orgName, "project", projectName, "component", componentName)
@@ -58,13 +66,29 @@ func (h *Handler) GetWorkloads(w http.ResponseWriter, r *http.Request) {
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
+		if errors.Is(err, services.ErrContinueTokenExpired) {
+			log.Warn("Continue token expired")
+			writeErrorResponse(w, http.StatusGone,
+				"Continue token has expired. Please restart listing from the beginning.",
+				services.CodeContinueTokenExpired)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidContinueToken) {
+			log.Warn("Invalid continue token provided")
+			writeErrorResponse(w, http.StatusBadRequest,
+				"Invalid continue token provided",
+				services.CodeInvalidContinueToken)
+			return
+		}
+
 		log.Error("Failed to get workloads", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get workloads", services.CodeInternalError)
 		return
 	}
 
 	// Success response
-	writeSuccessResponse(w, http.StatusOK, workloads)
+	log.Debug("Got workloads successfully", "org", orgName, "project", projectName, "component", componentName, "count", len(result.Items), "hasMore", result.Metadata.HasMore)
+	writeListResponse(w, result.Items, result.Metadata.ResourceVersion, result.Metadata.Continue)
 }
 
 func (h *Handler) CreateWorkload(w http.ResponseWriter, r *http.Request) {
