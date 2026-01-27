@@ -1166,28 +1166,132 @@ openchoreoApi:
   #       are read from security.* for consistency with other components.
   # @schema
   config:
+    # @schema
+    # type: object
+    # description: HTTP server configuration
+    # @schema
     server:
+      # @schema
+      # type: string
+      # description: Address to bind the HTTP server to
+      # default: "0.0.0.0"
+      # @schema
       bind_address: "0.0.0.0"
+      # @schema
+      # type: integer
+      # description: Port to listen on for HTTP requests
+      # default: 8080
+      # @schema
       port: 8080
       # public_url is computed from global.baseDomain
+      # @schema
+      # type: object
+      # description: HTTP server timeout settings
+      # @schema
       timeouts:
+        # @schema
+        # type: string
+        # description: Maximum duration for reading the entire request, including the body
+        # default: "15s"
+        # @schema
         read: "15s"
+        # @schema
+        # type: string
+        # description: Maximum duration before timing out writes of the response
+        # default: "15s"
+        # @schema
         write: "15s"
+        # @schema
+        # type: string
+        # description: Maximum time to wait for the next request when keep-alives are enabled
+        # default: "60s"
+        # @schema
         idle: "60s"
+        # @schema
+        # type: string
+        # description: Maximum duration to wait for active connections to close during shutdown
+        # default: "30s"
+        # @schema
         shutdown: "30s"
+      # @schema
+      # type: object
+      # description: TLS configuration for the HTTP server
+      # @schema
       tls:
+        # @schema
+        # type: boolean
+        # description: Enable TLS for the HTTP server
+        # default: false
+        # @schema
         enabled: false
+        # @schema
+        # type: string
+        # description: Path to the TLS certificate file
+        # default: ""
+        # @schema
         cert_file: ""
+        # @schema
+        # type: string
+        # description: Path to the TLS private key file
+        # default: ""
+        # @schema
         key_file: ""
+    # @schema
+    # type: object
+    # description: Security configuration for authentication, subjects, and authorization
+    # @schema
     security:
+      # @schema
+      # type: object
+      # description: Authentication settings
+      # @schema
       authentication:
+        # @schema
+        # type: object
+        # description: JWT authentication configuration. Enabled/audiences come from security.enabled and security.jwt.audience. Issuer/JWKS URL come from identity.oidc (computed from security.oidc.*).
+        # @schema
         jwt:
-          # enabled and audiences come from security.enabled and security.jwt.audience
-          # issuer and jwks_url come from identity.oidc (computed from security.oidc.*)
+          # @schema
+          # type: string
+          # description: Allowed clock skew when validating token expiration times
+          # default: "0s"
+          # @schema
           clock_skew: "0s"
+          # @schema
+          # type: object
+          # description: JSON Web Key Set (JWKS) fetch settings
+          # @schema
           jwks:
+            # @schema
+            # type: string
+            # description: How often to refresh the JWKS from the remote URL
+            # default: "1h"
+            # @schema
             refresh_interval: "1h"
+            # @schema
+            # type: boolean
+            # description: Skip TLS certificate verification when fetching JWKS
+            # default: false
+            # @schema
             skip_tls_verify: false
+      # @schema
+      # type: object
+      # description: >
+      #   Subject types define how to classify and extract identity information from authenticated tokens.
+      #   Each key is a subject type name, and the value defines display name, priority, and mechanisms.
+      # additionalProperties:
+      #   type: object
+      #   properties:
+      #     display_name:
+      #       type: string
+      #       description: Human-readable name for this subject type
+      #     priority:
+      #       type: integer
+      #       description: Priority for subject type resolution (lower = higher priority)
+      #     mechanisms:
+      #       type: object
+      #       description: Authentication mechanisms and entitlement extraction rules
+      # @schema
       subjects:
         user:
           display_name: "User"
@@ -1205,14 +1309,47 @@ openchoreoApi:
               entitlement:
                 claim: "sub"
                 display_name: "Client ID"
+      # @schema
+      # type: object
+      # description: Authorization settings. Enabled/database_path/roles_file come from security.authz.* values.
+      # @schema
       authorization:
-        # enabled, database_path, roles_file come from security.authz.*
+        # @schema
+        # type: object
+        # description: Authorization decision cache settings
+        # @schema
         cache:
+          # @schema
+          # type: boolean
+          # description: Enable caching of authorization decisions
+          # default: false
+          # @schema
           enabled: false
+          # @schema
+          # type: string
+          # description: How long to cache authorization decisions
+          # default: "5m"
+          # @schema
           ttl: "5m"
     # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients
+    # @schema
+    # type: object
+    # description: Model Context Protocol (MCP) server configuration
+    # @schema
     mcp:
+      # @schema
+      # type: boolean
+      # description: Enable the MCP server for AI-friendly tool interfaces
+      # default: true
+      # @schema
       enabled: true
+      # @schema
+      # type: array
+      # description: List of enabled MCP toolsets. Each toolset exposes a group of related operations.
+      # items:
+      #   type: string
+      # default: ["organization", "project", "component", "build", "deployment", "infrastructure", "schema", "resource"]
+      # @schema
       toolsets:
         - "namespace"
         - "project"
@@ -1222,9 +1359,28 @@ openchoreoApi:
         - "infrastructure"
         - "schema"
         - "resource"
+    # @schema
+    # type: object
+    # description: Logging configuration
+    # @schema
     logging:
+      # @schema
+      # description: "Minimum log level: debug, info, warn, error"
+      # default: "info"
+      # enum: [debug, info, warn, error]
+      # @schema
       level: "info"
+      # @schema
+      # description: "Log output format: json, text"
+      # default: "json"
+      # enum: [json, text]
+      # @schema
       format: "json"
+      # @schema
+      # type: boolean
+      # description: Include source file and line number in log entries
+      # default: false
+      # @schema
       add_source: false
 
   # @schema

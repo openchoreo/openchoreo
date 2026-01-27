@@ -2865,166 +2865,172 @@
           "properties": {
             "logging": {
               "additionalProperties": false,
+              "description": "Logging configuration",
               "properties": {
                 "add_source": {
                   "default": false,
+                  "description": "Include source file and line number in log entries",
                   "title": "add_source",
                   "type": "boolean"
                 },
                 "format": {
                   "default": "json",
-                  "title": "format",
-                  "type": "string"
+                  "description": "Log output format: json, text",
+                  "enum": [
+                    "json",
+                    "text"
+                  ],
+                  "required": [],
+                  "title": "format"
                 },
                 "level": {
                   "default": "info",
-                  "title": "level",
-                  "type": "string"
+                  "description": "Minimum log level: debug, info, warn, error",
+                  "enum": [
+                    "debug",
+                    "info",
+                    "warn",
+                    "error"
+                  ],
+                  "required": [],
+                  "title": "level"
                 }
               },
-              "required": [
-                "level",
-                "format",
-                "add_source"
-              ],
+              "required": [],
               "title": "logging",
               "type": "object"
             },
             "mcp": {
               "additionalProperties": false,
-              "description": "identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients",
+              "description": "Model Context Protocol (MCP) server configuration",
               "properties": {
                 "enabled": {
                   "default": true,
+                  "description": "Enable the MCP server for AI-friendly tool interfaces",
                   "title": "enabled",
                   "type": "boolean"
                 },
                 "toolsets": {
+                  "default": [
+                    "organization",
+                    "project",
+                    "component",
+                    "build",
+                    "deployment",
+                    "infrastructure",
+                    "schema",
+                    "resource"
+                  ],
+                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations.",
                   "items": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "string"
-                      }
-                    ],
-                    "required": []
+                    "type": "string"
                   },
                   "title": "toolsets",
                   "type": "array"
                 }
               },
-              "required": [
-                "enabled",
-                "toolsets"
-              ],
+              "required": [],
               "title": "mcp",
               "type": "object"
             },
             "security": {
               "additionalProperties": false,
+              "description": "Security configuration for authentication, subjects, and authorization",
               "properties": {
                 "authentication": {
                   "additionalProperties": false,
+                  "description": "Authentication settings",
                   "properties": {
                     "jwt": {
                       "additionalProperties": false,
+                      "description": "JWT authentication configuration. Enabled/audiences come from security.enabled and security.jwt.audience. Issuer/JWKS URL come from identity.oidc (computed from security.oidc.*).",
                       "properties": {
                         "clock_skew": {
                           "default": "0s",
-                          "description": "enabled and audiences come from security.enabled and security.jwt.audience\nissuer and jwks_url come from identity.oidc (computed from security.oidc.*)",
+                          "description": "Allowed clock skew when validating token expiration times",
                           "title": "clock_skew",
                           "type": "string"
                         },
                         "jwks": {
                           "additionalProperties": false,
+                          "description": "JSON Web Key Set (JWKS) fetch settings",
                           "properties": {
                             "refresh_interval": {
                               "default": "1h",
+                              "description": "How often to refresh the JWKS from the remote URL",
                               "title": "refresh_interval",
                               "type": "string"
                             },
                             "skip_tls_verify": {
                               "default": false,
+                              "description": "Skip TLS certificate verification when fetching JWKS",
                               "title": "skip_tls_verify",
                               "type": "boolean"
                             }
                           },
-                          "required": [
-                            "refresh_interval",
-                            "skip_tls_verify"
-                          ],
+                          "required": [],
                           "title": "jwks",
                           "type": "object"
                         }
                       },
-                      "required": [
-                        "clock_skew",
-                        "jwks"
-                      ],
+                      "required": [],
                       "title": "jwt",
                       "type": "object"
                     }
                   },
-                  "required": [
-                    "jwt"
-                  ],
+                  "required": [],
                   "title": "authentication",
                   "type": "object"
                 },
                 "authorization": {
                   "additionalProperties": false,
+                  "description": "Authorization settings. Enabled/database_path/roles_file come from security.authz.* values.",
                   "properties": {
                     "cache": {
                       "additionalProperties": false,
-                      "description": "enabled, database_path, roles_file come from security.authz.*",
+                      "description": "Authorization decision cache settings",
                       "properties": {
                         "enabled": {
                           "default": false,
+                          "description": "Enable caching of authorization decisions",
                           "title": "enabled",
                           "type": "boolean"
                         },
                         "ttl": {
                           "default": "5m",
+                          "description": "How long to cache authorization decisions",
                           "title": "ttl",
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "enabled",
-                        "ttl"
-                      ],
+                      "required": [],
                       "title": "cache",
                       "type": "object"
                     }
                   },
-                  "required": [
-                    "cache"
-                  ],
+                  "required": [],
                   "title": "authorization",
                   "type": "object"
                 },
                 "subjects": {
-                  "additionalProperties": false,
+                  "additionalProperties": {
+                    "properties": {
+                      "display_name": {
+                        "description": "Human-readable name for this subject type",
+                        "type": "string"
+                      },
+                      "mechanisms": {
+                        "description": "Authentication mechanisms and entitlement extraction rules",
+                        "type": "object"
+                      },
+                      "priority": {
+                        "description": "Priority for subject type resolution (lower = higher priority)",
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "description": "Subject types define how to classify and extract identity information from authenticated tokens. Each key is a subject type name, and the value defines display name, priority, and mechanisms.\n",
                   "properties": {
                     "service_account": {
                       "additionalProperties": false,
@@ -3161,105 +3167,93 @@
                   "type": "object"
                 }
               },
-              "required": [
-                "authentication",
-                "subjects",
-                "authorization"
-              ],
+              "required": [],
               "title": "security",
               "type": "object"
             },
             "server": {
               "additionalProperties": false,
+              "description": "HTTP server configuration",
               "properties": {
                 "bind_address": {
                   "default": "0.0.0.0",
+                  "description": "Address to bind the HTTP server to",
                   "title": "bind_address",
                   "type": "string"
                 },
                 "port": {
                   "default": 8080,
+                  "description": "Port to listen on for HTTP requests",
                   "title": "port",
                   "type": "integer"
                 },
                 "timeouts": {
                   "additionalProperties": false,
-                  "description": "public_url is computed from global.baseDomain",
+                  "description": "HTTP server timeout settings",
                   "properties": {
                     "idle": {
                       "default": "60s",
+                      "description": "Maximum time to wait for the next request when keep-alives are enabled",
                       "title": "idle",
                       "type": "string"
                     },
                     "read": {
                       "default": "15s",
+                      "description": "Maximum duration for reading the entire request, including the body",
                       "title": "read",
                       "type": "string"
                     },
                     "shutdown": {
                       "default": "30s",
+                      "description": "Maximum duration to wait for active connections to close during shutdown",
                       "title": "shutdown",
                       "type": "string"
                     },
                     "write": {
                       "default": "15s",
+                      "description": "Maximum duration before timing out writes of the response",
                       "title": "write",
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "read",
-                    "write",
-                    "idle",
-                    "shutdown"
-                  ],
+                  "required": [],
                   "title": "timeouts",
                   "type": "object"
                 },
                 "tls": {
                   "additionalProperties": false,
+                  "description": "TLS configuration for the HTTP server",
                   "properties": {
                     "cert_file": {
                       "default": "",
+                      "description": "Path to the TLS certificate file",
                       "title": "cert_file",
                       "type": "string"
                     },
                     "enabled": {
                       "default": false,
+                      "description": "Enable TLS for the HTTP server",
                       "title": "enabled",
                       "type": "boolean"
                     },
                     "key_file": {
                       "default": "",
+                      "description": "Path to the TLS private key file",
                       "title": "key_file",
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "enabled",
-                    "cert_file",
-                    "key_file"
-                  ],
+                  "required": [],
                   "title": "tls",
                   "type": "object"
                 }
               },
-              "required": [
-                "bind_address",
-                "port",
-                "timeouts",
-                "tls"
-              ],
+              "required": [],
               "title": "server",
               "type": "object"
             }
           },
-          "required": [
-            "server",
-            "security",
-            "mcp",
-            "logging"
-          ],
+          "required": [],
           "title": "config",
           "type": "object"
         },
