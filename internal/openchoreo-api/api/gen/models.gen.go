@@ -71,6 +71,15 @@ const (
 	UpdateRoleMappingRequestEffectDeny  UpdateRoleMappingRequestEffect = "deny"
 )
 
+// Defines values for WorkflowRunStatus.
+const (
+	Error     WorkflowRunStatus = "Error"
+	Failed    WorkflowRunStatus = "Failed"
+	Pending   WorkflowRunStatus = "Pending"
+	Running   WorkflowRunStatus = "Running"
+	Succeeded WorkflowRunStatus = "Succeeded"
+)
+
 // ActionCapability Capabilities for a specific action
 type ActionCapability struct {
 	// Allowed Resources where action is allowed
@@ -630,6 +639,15 @@ type CreateProjectRequest struct {
 
 	// Name Project name (must be unique within namespace)
 	Name string `json:"name"`
+}
+
+// CreateWorkflowRunRequest Request to create a new workflow run
+type CreateWorkflowRunRequest struct {
+	// Parameters User-defined workflow parameters
+	Parameters map[string]interface{} `json:"parameters"`
+
+	// WorkflowName Name of the workflow to execute
+	WorkflowName string `json:"workflowName"`
 }
 
 // DataPlane DataPlane resource representing a Kubernetes cluster for workload deployment
@@ -1591,6 +1609,48 @@ type WorkflowList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// WorkflowRun Generic workflow run (execution)
+type WorkflowRun struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// FinishedAt Completion timestamp
+	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+
+	// Name Workflow run name
+	Name string `json:"name"`
+
+	// OrgName Organization name
+	OrgName string `json:"orgName"`
+
+	// Parameters User-defined workflow parameters
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Phase Detailed execution phase
+	Phase *string `json:"phase,omitempty"`
+
+	// Status Current execution status
+	Status WorkflowRunStatus `json:"status"`
+
+	// Uuid Unique identifier
+	Uuid *string `json:"uuid,omitempty"`
+
+	// WorkflowName Parent workflow name
+	WorkflowName string `json:"workflowName"`
+}
+
+// WorkflowRunStatus Current execution status
+type WorkflowRunStatus string
+
+// WorkflowRunList Paginated list of workflow runs
+type WorkflowRunList struct {
+	Items []WorkflowRun `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // WorkloadOverrides Environment-specific workload overrides
 type WorkloadOverrides struct {
 	// Containers Container overrides keyed by container name
@@ -1826,6 +1886,16 @@ type ListTraitsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListWorkflowRunsParams defines parameters for ListWorkflowRuns.
+type ListWorkflowRunsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListWorkflowsParams defines parameters for ListWorkflows.
 type ListWorkflowsParams struct {
 	// Limit Maximum number of items to return per page
@@ -1910,6 +1980,9 @@ type UpdateComponentWorkflowParametersJSONRequestBody = UpdateComponentWorkflowR
 
 // CreateWorkloadJSONRequestBody defines body for CreateWorkload for application/json ContentType.
 type CreateWorkloadJSONRequestBody = WorkloadSpec
+
+// CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
+type CreateWorkflowRunJSONRequestBody = CreateWorkflowRunRequest
 
 // HandleBitbucketWebhookJSONRequestBody defines body for HandleBitbucketWebhook for application/json ContentType.
 type HandleBitbucketWebhookJSONRequestBody HandleBitbucketWebhookJSONBody

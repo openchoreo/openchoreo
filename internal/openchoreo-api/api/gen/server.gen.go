@@ -3084,6 +3084,127 @@ func (siw *ServerInterfaceWrapper) GetTraitSchema(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListWorkflowRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListWorkflowRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "orgName" -------------
+	var orgName OrgNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListWorkflowRunsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "cursor", r.URL.Query(), &params.Cursor)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWorkflowRuns(w, r, orgName, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateWorkflowRun operation middleware
+func (siw *ServerInterfaceWrapper) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "orgName" -------------
+	var orgName OrgNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateWorkflowRun(w, r, orgName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWorkflowRun operation middleware
+func (siw *ServerInterfaceWrapper) GetWorkflowRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "orgName" -------------
+	var orgName OrgNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orgName", r.PathValue("orgName"), &orgName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orgName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "runName" -------------
+	var runName WorkflowRunNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runName", r.PathValue("runName"), &runName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWorkflowRun(w, r, orgName, runName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListWorkflows operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 
@@ -7163,6 +7284,168 @@ func (response GetTraitSchema500JSONResponse) VisitGetTraitSchemaResponse(w http
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListWorkflowRunsRequestObject struct {
+	OrgName OrgNameParam `json:"orgName"`
+	Params  ListWorkflowRunsParams
+}
+
+type ListWorkflowRunsResponseObject interface {
+	VisitListWorkflowRunsResponse(w http.ResponseWriter) error
+}
+
+type ListWorkflowRuns200JSONResponse WorkflowRunList
+
+func (response ListWorkflowRuns200JSONResponse) VisitListWorkflowRunsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWorkflowRuns401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListWorkflowRuns401JSONResponse) VisitListWorkflowRunsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWorkflowRuns403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListWorkflowRuns403JSONResponse) VisitListWorkflowRunsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListWorkflowRuns500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListWorkflowRuns500JSONResponse) VisitListWorkflowRunsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRunRequestObject struct {
+	OrgName OrgNameParam `json:"orgName"`
+	Body    *CreateWorkflowRunJSONRequestBody
+}
+
+type CreateWorkflowRunResponseObject interface {
+	VisitCreateWorkflowRunResponse(w http.ResponseWriter) error
+}
+
+type CreateWorkflowRun201JSONResponse WorkflowRun
+
+func (response CreateWorkflowRun201JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRun400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateWorkflowRun400JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateWorkflowRun401JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateWorkflowRun403JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateWorkflowRun404JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateWorkflowRun500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateWorkflowRun500JSONResponse) VisitCreateWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRunRequestObject struct {
+	OrgName OrgNameParam         `json:"orgName"`
+	RunName WorkflowRunNameParam `json:"runName"`
+}
+
+type GetWorkflowRunResponseObject interface {
+	VisitGetWorkflowRunResponse(w http.ResponseWriter) error
+}
+
+type GetWorkflowRun200JSONResponse WorkflowRun
+
+func (response GetWorkflowRun200JSONResponse) VisitGetWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRun401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWorkflowRun401JSONResponse) VisitGetWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRun403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetWorkflowRun403JSONResponse) VisitGetWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRun404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetWorkflowRun404JSONResponse) VisitGetWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetWorkflowRun500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetWorkflowRun500JSONResponse) VisitGetWorkflowRunResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListWorkflowsRequestObject struct {
 	NamespaceName NamespaceNameParam `json:"namespaceName"`
 	Params        ListWorkflowsParams
@@ -7697,6 +7980,15 @@ type StrictServerInterface interface {
 	// Get trait schema
 	// (GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/schema)
 	GetTraitSchema(ctx context.Context, request GetTraitSchemaRequestObject) (GetTraitSchemaResponseObject, error)
+	// List workflow runs
+	// (GET /api/v1/orgs/{orgName}/workflow-runs)
+	ListWorkflowRuns(ctx context.Context, request ListWorkflowRunsRequestObject) (ListWorkflowRunsResponseObject, error)
+	// Create workflow run
+	// (POST /api/v1/orgs/{orgName}/workflow-runs)
+	CreateWorkflowRun(ctx context.Context, request CreateWorkflowRunRequestObject) (CreateWorkflowRunResponseObject, error)
+	// Get workflow run
+	// (GET /api/v1/orgs/{orgName}/workflow-runs/{runName})
+	GetWorkflowRun(ctx context.Context, request GetWorkflowRunRequestObject) (GetWorkflowRunResponseObject, error)
 	// List workflows
 	// (GET /api/v1/namespaces/{namespaceName}/workflows)
 	ListWorkflows(ctx context.Context, request ListWorkflowsRequestObject) (ListWorkflowsResponseObject, error)
@@ -9705,6 +9997,93 @@ func (sh *strictHandler) GetTraitSchema(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTraitSchemaResponseObject); ok {
 		if err := validResponse.VisitGetTraitSchemaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListWorkflowRuns operation middleware
+func (sh *strictHandler) ListWorkflowRuns(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, params ListWorkflowRunsParams) {
+	var request ListWorkflowRunsRequestObject
+
+	request.OrgName = orgName
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWorkflowRuns(ctx, request.(ListWorkflowRunsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWorkflowRuns")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListWorkflowRunsResponseObject); ok {
+		if err := validResponse.VisitListWorkflowRunsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateWorkflowRun operation middleware
+func (sh *strictHandler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam) {
+	var request CreateWorkflowRunRequestObject
+
+	request.OrgName = orgName
+
+	var body CreateWorkflowRunJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateWorkflowRun(ctx, request.(CreateWorkflowRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateWorkflowRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateWorkflowRunResponseObject); ok {
+		if err := validResponse.VisitCreateWorkflowRunResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWorkflowRun operation middleware
+func (sh *strictHandler) GetWorkflowRun(w http.ResponseWriter, r *http.Request, orgName OrgNameParam, runName WorkflowRunNameParam) {
+	var request GetWorkflowRunRequestObject
+
+	request.OrgName = orgName
+	request.RunName = runName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWorkflowRun(ctx, request.(GetWorkflowRunRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWorkflowRun")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWorkflowRunResponseObject); ok {
+		if err := validResponse.VisitGetWorkflowRunResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
