@@ -697,7 +697,7 @@ components:
       required:
         - startTime
         - endTime
-        - namespace
+        - namespaceName
       properties:
         startTime:
           type: string

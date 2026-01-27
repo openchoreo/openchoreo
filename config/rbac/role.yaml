@@ -8,6 +8,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - namespaces
   verbs:
   - create
   - delete

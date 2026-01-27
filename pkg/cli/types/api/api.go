@@ -25,7 +25,6 @@ type CommandImplementationInterface interface {
 // NamespaceAPI defines namespace-related operations
 type NamespaceAPI interface {
 	CreateNamespace(params CreateNamespaceParams) error
-	GetNamespace(params GetParams) error
 }
 
 // ProjectAPI defines project-related operations

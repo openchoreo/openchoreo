@@ -17,13 +17,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
-	getbuild "github.com/openchoreo/openchoreo/internal/occ/cmd/get/build"
-	getcomponent "github.com/openchoreo/openchoreo/internal/occ/cmd/get/component"
-	getdataplane "github.com/openchoreo/openchoreo/internal/occ/cmd/get/dataplane"
-	getdeploymenttrack "github.com/openchoreo/openchoreo/internal/occ/cmd/get/deploymenttrack"
-	getenv "github.com/openchoreo/openchoreo/internal/occ/cmd/get/environment"
-	getnamespace "github.com/openchoreo/openchoreo/internal/occ/cmd/get/namespace"
-	getproject "github.com/openchoreo/openchoreo/internal/occ/cmd/get/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/release-binding"
@@ -40,60 +33,11 @@ func NewCommandImplementation() *CommandImplementation {
 	return &CommandImplementation{}
 }
 
-// Get Operations
-
-func (c *CommandImplementation) GetNamespace(params api.GetParams) error {
-	namespaceImpl := getnamespace.NewGetNamespaceImpl(constants.NamespaceV1Config)
-	return namespaceImpl.GetNamespace(params)
-}
-
-func (c *CommandImplementation) GetProject(params api.GetProjectParams) error {
-	projImpl := getproject.NewGetProjImpl(constants.ProjectV1Config)
-	return projImpl.GetProject(params)
-}
-
-func (c *CommandImplementation) GetComponent(params api.GetComponentParams) error {
-	compImpl := getcomponent.NewGetCompImpl(constants.ComponentV1Config)
-	return compImpl.GetComponent(params)
-}
-
-func (c *CommandImplementation) GetBuild(params api.GetBuildParams) error {
-	buildImpl := getbuild.NewGetBuildImpl(constants.BuildV1Config)
-	return buildImpl.GetBuild(params)
-}
-
-func (c *CommandImplementation) GetDeployableArtifact(params api.GetDeployableArtifactParams) error {
-	return fmt.Errorf("DeployableArtifact CRD has been removed")
-}
-
-func (c *CommandImplementation) GetDeployment(params api.GetDeploymentParams) error {
-	return fmt.Errorf("Deployment CRD has been removed")
-}
-
-func (c *CommandImplementation) GetEnvironment(params api.GetEnvironmentParams) error {
-	envImpl := getenv.NewGetEnvironmentImpl(constants.EnvironmentV1Config)
-	return envImpl.GetEnvironment(params)
-}
-
-func (c *CommandImplementation) GetDataPlane(params api.GetDataPlaneParams) error {
-	dpImpl := getdataplane.NewGetDataPlaneImpl(constants.DataPlaneV1Config)
-	return dpImpl.GetDataPlane(params)
-}
-
-func (c *CommandImplementation) GetDeploymentTrack(params api.GetDeploymentTrackParams) error {
-	trackImpl := getdeploymenttrack.NewGetDeploymentTrackImpl(constants.DeploymentTrackV1Config)
-	return trackImpl.GetDeploymentTrack(params)
-}
-
-func (c *CommandImplementation) GetEndpoint(params api.GetEndpointParams) error {
-	return fmt.Errorf("Endpoint CRD has been removed")
-}
-
 // Create Operations
 
 func (c *CommandImplementation) CreateNamespace(params api.CreateNamespaceParams) error {
-	namespaceImpl := namespace.NewCreateNamespaceImpl(constants.NamespaceV1Config)
-	return namespaceImpl.CreateNamespace(params)
+	orgImpl := namespace.NewCreateNamespaceImpl(constants.NamespaceV1Config)
+	return orgImpl.CreateNamespace(params)
 }
 
 func (c *CommandImplementation) CreateProject(params api.CreateProjectParams) error {

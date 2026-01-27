@@ -73,7 +73,7 @@ spec:
                     ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
                     ${metadata.componentName}    - Component name
                     ${metadata.projectName}      - Project name
-                    ${metadata.namespaceName}          - Namespace name (namespace)
+                    ${metadata.namespaceName}    - Namespace
                     ${systemParameters.*}        - System parameter values
                     ${parameters.*}              - Developer parameter values
                 type: object

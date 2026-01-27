@@ -20,22 +20,21 @@ First, verify that your AI assistant can connect to the OpenChoreo MCP server. I
 Do you have access to the OpenChoreo MCP server? List the available tools.
 ```
 
-**Expected:** The assistant should confirm MCP access and list available OpenChoreo tools like `get_namespace`, `list_projects`, `create_component`, etc.
+**Expected:** The assistant should confirm MCP access and list available OpenChoreo tools like `list_namespaces`, `list_projects`, `create_component`, etc.
 
 If the connection isn't working, review the [Configuration Guide](../configs/) to ensure your setup is correct.
 
 ## Step 2: Explore OpenChoreo Resources
 
-### Prompt 1: Get Namespace Details
+### Prompt 1: List namespaces
 
 ```
-Get details about the "default" namespace in my OpenChoreo instance
+List available namespaces in my openchoreo cluster.
 ```
 
 **What agent will do:**
-1. Call `get_namespace` to retrieve namespace details
-2. Display namespace details including name, display name, and status
-3. Suggest next steps for exploring projects
+1. Call `list_namespaces` to list namespaces. Note that this will return only the namespaces which contains the label: `openchoreo.dev/controlplane-namespace=true`
+2. Display each namespace details including name, display name, and status
 
 ### Prompt 2: Get Project Details
 

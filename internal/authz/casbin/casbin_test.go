@@ -2273,7 +2273,7 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 			t.Fatalf("AddGroupingPolicies() error = %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "in-use-role", "*", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "in-use-role", "*", "allow", "{}")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -2319,7 +2319,7 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 			t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "in-use-role", testNs, "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "in-use-role", testNs, "allow", "{}")
 		if err != nil {
 			t.Fatalf("failed to add mapping: %v", err)
 		}
@@ -2342,7 +2342,7 @@ func TestCasbinEnforcer_ForceRemoveRole_ClusterRole(t *testing.T) {
 			t.Fatalf("AddGroupingPolicy() error = %v", err)
 		}
 
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "namespaces/acme", "force-removable", "*", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "force-removable", "*", "allow", "{}")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -2414,7 +2414,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 		t.Fatalf("failed to add namespace role via grouping policy: %v", err)
 	}
 
-	_, err = enforcer.enforcer.AddPolicy("groups:admins", "namespaces/acme", "ns-admin", testNs, "allow", "{}")
+	_, err = enforcer.enforcer.AddPolicy("groups:admins", "ns/acme", "ns-admin", testNs, "allow", "{}")
 	if err != nil {
 		t.Fatalf("failed to add mapping: %v", err)
 	}
