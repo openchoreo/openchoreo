@@ -1,0 +1,57 @@
+name: Lint PR
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+
+jobs:
+  validate-pr-title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            build
+            chore
+            ci
+            docs
+            style
+            refactor
+            perf
+            test
+            revert
+          scopes: |
+            api
+            controller
+            cli
+            helm
+            deps
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject must start with a lowercase letter, got: "{subject}".
+            Example: "feat(api): add user endpoint"
+
+  # TODO: Remove this job once we move for squash-only merge
+  # with "Default to PR title for squash merge commits" enabled.
+  validate-commits:
+    name: Validate commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .github/commitlint.config.mjs
