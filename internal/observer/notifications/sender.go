@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/types"
@@ -142,10 +143,8 @@ func RenderJSONTemplate(templateData map[string]interface{}, alertDetails *types
 		logger.Debug("Rendering JSON template", "alertData", celInputs, "template", templateData)
 	}
 
-	// Create a new template engine for CEL evaluation
-	engine := template.NewEngine()
-
-	// Render template and data using the template engine
+	// Render template and data using the shared template engine
+	engine := getTemplateEngine()
 	renderedTemplate, err := engine.Render(templateData, celInputs)
 	if err != nil {
 		if logger != nil {
@@ -173,10 +172,8 @@ func RenderPlaintextTemplate(templateStr string, alertDetails *types.AlertDetail
 		logger.Debug("Rendering plaintext template", "alertData", celInputs)
 	}
 
-	// Create a new template engine for CEL evaluation
-	engine := template.NewEngine()
-
-	// Render the plaintext template as a string with CEL expressions
+	// Render the plaintext template as a string with CEL expressions using the shared template engine
+	engine := getTemplateEngine()
 	rendered, err := engine.Render(templateStr, celInputs)
 	if err != nil {
 		if logger != nil {
@@ -192,4 +189,18 @@ func RenderPlaintextTemplate(templateStr string, alertDetails *types.AlertDetail
 		return renderedStr
 	}
 	return fmt.Sprintf("%v", rendered)
+}
+
+var (
+	templateEngineOnce sync.Once
+	templateEngine     *template.Engine
+)
+
+// getTemplateEngine returns a shared template engine instance for CEL evaluation.
+// Internally caches CEL environments and compiled programs for better performance.
+func getTemplateEngine() *template.Engine {
+	templateEngineOnce.Do(func() {
+		templateEngine = template.NewEngine()
+	})
+	return templateEngine
 }
