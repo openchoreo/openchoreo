@@ -1348,7 +1348,7 @@ openchoreoApi:
       # description: List of enabled MCP toolsets. Each toolset exposes a group of related operations.
       # items:
       #   type: string
-      # default: ["organization", "project", "component", "build", "deployment", "infrastructure", "schema", "resource"]
+      # default: ["namespace", "project", "component", "build", "deployment", "infrastructure", "schema", "resource"]
       # @schema
       toolsets:
         - "namespace"

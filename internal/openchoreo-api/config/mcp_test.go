@@ -38,7 +38,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 			cfg: MCPConfig{
 				Enabled: true,
 				Toolsets: []string{
-					"organization",
+					"namespace",
 					"project",
 					"component",
 					"build",
@@ -54,7 +54,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 			name: "single valid toolset",
 			cfg: MCPConfig{
 				Enabled:  true,
-				Toolsets: []string{"organization"},
+				Toolsets: []string{"namespace"},
 			},
 			expectedErrors: nil,
 		},
@@ -65,7 +65,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
@@ -75,18 +75,18 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"foo", "bar"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "foo"; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource`},
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "bar"; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "mcp.toolsets[0]", Message: `unknown toolset "foo"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "mcp.toolsets[1]", Message: `unknown toolset "bar"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
 			name: "mixed valid and invalid toolsets",
 			cfg: MCPConfig{
 				Enabled:  true,
-				Toolsets: []string{"organization", "invalid", "project"},
+				Toolsets: []string{"namespace", "invalid", "project"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "mcp.toolsets[1]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 		{
@@ -96,7 +96,7 @@ func TestMCPConfig_Validate(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource`},
+				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource`},
 			},
 		},
 	}

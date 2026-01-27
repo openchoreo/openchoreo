@@ -23,7 +23,7 @@ func MCPDefaults() MCPConfig {
 	return MCPConfig{
 		Enabled: true,
 		Toolsets: []string{
-			string(tools.ToolsetOrganization),
+			string(tools.ToolsetNamespace),
 			string(tools.ToolsetProject),
 			string(tools.ToolsetComponent),
 			string(tools.ToolsetBuild),
@@ -37,7 +37,7 @@ func MCPDefaults() MCPConfig {
 
 // validToolsets is the set of valid MCP toolset names.
 var validToolsets = map[string]bool{
-	string(tools.ToolsetOrganization):   true,
+	string(tools.ToolsetNamespace):      true,
 	string(tools.ToolsetProject):        true,
 	string(tools.ToolsetComponent):      true,
 	string(tools.ToolsetBuild):          true,
@@ -54,7 +54,7 @@ func (c *MCPConfig) Validate(path *config.Path) config.ValidationErrors {
 	for i, ts := range c.Toolsets {
 		if !validToolsets[ts] {
 			errs = append(errs, config.Invalid(path.Child("toolsets").Index(i),
-				fmt.Sprintf("unknown toolset %q; valid toolsets: organization, project, component, build, deployment, infrastructure, schema, resource", ts)))
+				fmt.Sprintf("unknown toolset %q; valid toolsets: namespace, project, component, build, deployment, infrastructure, schema, resource", ts)))
 		}
 	}
 

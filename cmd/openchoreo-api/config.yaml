@@ -155,7 +155,7 @@ mcp:
   # List of enabled MCP toolsets.
   # Each toolset exposes a group of related operations.
   toolsets:
-    - organization
+    - namespace
     - project
     - component
     - build

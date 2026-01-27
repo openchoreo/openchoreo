@@ -2912,7 +2912,7 @@
                 },
                 "toolsets": {
                   "default": [
-                    "organization",
+                    "namespace",
                     "project",
                     "component",
                     "build",
