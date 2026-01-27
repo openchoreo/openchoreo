@@ -27,21 +27,17 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 
 		// Send the webhook with prepared payload
 		if err := SendWebhookWithConfig(ctx, &config.Webhook, payload); err != nil {
-			if logger != nil {
-				logger.Error("Failed to send alert notification webhook",
-					"error", err,
-					"webhookURL", config.Webhook.URL,
-					"payload", payload)
-			}
+			logger.Error("Failed to send alert notification webhook",
+				"error", err,
+				"webhookURL", config.Webhook.URL,
+				"payload", payload)
 			return fmt.Errorf("failed to send alert notification webhook: %w", err)
 		}
 
-		if logger != nil {
-			logger.Debug("Alert notification sent successfully via webhook",
-				"alertName", alertDetails.AlertName,
-				"webhookURL", config.Webhook.URL,
-				"usedTemplate", config.Webhook.PayloadTemplate != "")
-		}
+		logger.Debug("Alert notification sent successfully via webhook",
+			"alertName", alertDetails.AlertName,
+			"webhookURL", config.Webhook.URL,
+			"usedTemplate", config.Webhook.PayloadTemplate != "")
 		return nil
 
 	case "email":
@@ -53,19 +49,15 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 
 		// Send the notification using the fetched config
 		if err := SendEmailWithConfig(ctx, config, subject, body); err != nil {
-			if logger != nil {
-				logger.Error("Failed to send alert notification email",
-					"error", err,
-					"recipients", config.Email.To)
-			}
+			logger.Error("Failed to send alert notification email",
+				"error", err,
+				"recipients", config.Email.To)
 			return fmt.Errorf("failed to send alert notification email: %w", err)
 		}
 
-		if logger != nil {
-			logger.Debug("Alert notification sent successfully",
-				"alertName", alertDetails.AlertName,
-				"recipients count", len(config.Email.To))
-		}
+		logger.Debug("Alert notification sent successfully",
+			"alertName", alertDetails.AlertName,
+			"recipients count", len(config.Email.To))
 		return nil
 
 	default:
@@ -83,30 +75,24 @@ func prepareWebhookPayload(templateStr string, alertDetails *types.AlertDetails,
 	// Unmarshal the payload template string to JSON
 	var payloadTemplate map[string]interface{}
 	if err := json.Unmarshal([]byte(templateStr), &payloadTemplate); err != nil {
-		if logger != nil {
-			logger.Error("Failed to unmarshal webhook payload template to JSON",
-				"error", err,
-				"payloadTemplate", templateStr)
-		}
+		logger.Error("Failed to unmarshal webhook payload template to JSON",
+			"error", err,
+			"payloadTemplate", templateStr)
 		return nil, fmt.Errorf("failed to unmarshal webhook payload template to JSON: %w", err)
 	}
 
 	// Render the JSON template using CEL expressions
 	renderedTemplateMap, err := RenderJSONTemplate(payloadTemplate, alertDetails, logger)
 	if err != nil {
-		if logger != nil {
-			logger.Warn("Failed to render webhook payload template, using unrendered template",
-				"error", err,
-				"payloadTemplate", templateStr)
-		}
+		logger.Warn("Failed to render webhook payload template, using unrendered template",
+			"error", err,
+			"payloadTemplate", templateStr)
 		// Fallback to unrendered template
 		return payloadTemplate, nil
 	}
 
-	if logger != nil {
-		logger.Debug("Webhook payload template rendered",
-			"payload", renderedTemplateMap)
-	}
+	logger.Debug("Webhook payload template rendered",
+		"payload", renderedTemplateMap)
 	return renderedTemplateMap, nil
 }
 
@@ -138,9 +124,7 @@ func prepareEmailContent(emailConfig EmailConfig, alertDetails *types.AlertDetai
 // If rendering fails, an error is returned.
 func RenderJSONTemplate(templateData map[string]interface{}, alertDetails *types.AlertDetails, logger *slog.Logger) (map[string]interface{}, error) {
 	celInputs := alertDetails.ToMap()
-	if logger != nil {
-		logger.Debug("Rendering JSON template", "alertData", celInputs, "template", templateData)
-	}
+	logger.Debug("Rendering JSON template", "alertData", celInputs, "template", templateData)
 
 	// Create a new template engine for CEL evaluation
 	engine := template.NewEngine()
@@ -148,11 +132,9 @@ func RenderJSONTemplate(templateData map[string]interface{}, alertDetails *types
 	// Render template and data using the template engine
 	renderedTemplate, err := engine.Render(templateData, celInputs)
 	if err != nil {
-		if logger != nil {
-			logger.Warn("Failed to render JSON template",
-				"error", err,
-				"template", templateData)
-		}
+		logger.Warn("Failed to render JSON template",
+			"error", err,
+			"template", templateData)
 		return nil, fmt.Errorf("failed to render template: %w", err)
 	}
 
@@ -169,9 +151,7 @@ func RenderJSONTemplate(templateData map[string]interface{}, alertDetails *types
 // If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
 func RenderPlaintextTemplate(templateStr string, alertDetails *types.AlertDetails, logger *slog.Logger) string {
 	celInputs := alertDetails.ToMap()
-	if logger != nil {
-		logger.Debug("Rendering plaintext template", "alertData", celInputs)
-	}
+	logger.Debug("Rendering plaintext template", "alertData", celInputs)
 
 	// Create a new template engine for CEL evaluation
 	engine := template.NewEngine()
@@ -179,11 +159,9 @@ func RenderPlaintextTemplate(templateStr string, alertDetails *types.AlertDetail
 	// Render the plaintext template as a string with CEL expressions
 	rendered, err := engine.Render(templateStr, celInputs)
 	if err != nil {
-		if logger != nil {
-			logger.Warn("Failed to render plaintext template, returning original template",
-				"error", err,
-				"template", templateStr)
-		}
+		logger.Warn("Failed to render plaintext template, returning original template",
+			"error", err,
+			"template", templateStr)
 		return templateStr
 	}
 

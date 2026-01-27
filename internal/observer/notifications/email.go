@@ -97,41 +97,33 @@ func PrepareEmailNotificationConfig(configMap *corev1.ConfigMap, secret *corev1.
 
 	// Read SMTP credentials directly from the secret
 	if secret != nil && secret.Data != nil {
-		if logger != nil {
-			logger.Debug("Reading SMTP credentials from secret",
-				"secretName", secret.Name,
-				"secretNamespace", secret.Namespace)
-		}
+		logger.Debug("Reading SMTP credentials from secret",
+			"secretName", secret.Name,
+			"secretNamespace", secret.Namespace)
 
 		if username, ok := secret.Data["smtp.auth.username"]; ok {
 			emailConfig.SMTP.Username = string(username)
-			if logger != nil {
-				logger.Debug("SMTP username loaded")
-			}
-		} else if logger != nil {
+			logger.Debug("SMTP username loaded")
+		} else {
 			logger.Warn("SMTP username key not found in secret")
 		}
 		if password, ok := secret.Data["smtp.auth.password"]; ok {
 			emailConfig.SMTP.Password = string(password)
-			if logger != nil {
-				logger.Debug("SMTP password loaded")
-			}
-		} else if logger != nil {
+			logger.Debug("SMTP password loaded")
+		} else {
 			logger.Warn("SMTP password key not found in secret")
 		}
-	} else if logger != nil {
+	} else {
 		logger.Warn("Secret is nil or has no data",
 			"secretNil", secret == nil)
 	}
 
-	if logger != nil {
-		logger.Debug("Final SMTP config",
-			"host", emailConfig.SMTP.Host,
-			"port", emailConfig.SMTP.Port,
-			"from", emailConfig.SMTP.From,
-			"hasUsername", emailConfig.SMTP.Username != "",
-			"hasPassword", emailConfig.SMTP.Password != "")
-	}
+	logger.Debug("Final SMTP config",
+		"host", emailConfig.SMTP.Host,
+		"port", emailConfig.SMTP.Port,
+		"from", emailConfig.SMTP.From,
+		"hasUsername", emailConfig.SMTP.Username != "",
+		"hasPassword", emailConfig.SMTP.Password != "")
 
 	return emailConfig, nil
 }

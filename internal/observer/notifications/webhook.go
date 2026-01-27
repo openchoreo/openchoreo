@@ -113,12 +113,10 @@ func PrepareWebhookNotificationConfig(configMap *corev1.ConfigMap, secret *corev
 		PayloadTemplate: payloadTemplate,
 	}
 
-	if logger != nil {
-		logger.Debug("Final webhook config",
-			"url", webhookConfig.URL,
-			"headerCount", len(webhookConfig.Headers),
-			"hasPayloadTemplate", payloadTemplate != "")
-	}
+	logger.Debug("Final webhook config",
+		"url", webhookConfig.URL,
+		"headerCount", len(webhookConfig.Headers),
+		"hasPayloadTemplate", payloadTemplate != "")
 
 	return webhookConfig, nil
 }
