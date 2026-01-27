@@ -3,7 +3,10 @@ kind: AuthzClusterRole
 metadata:
   labels:
     app.kubernetes.io/name: openchoreo
-    app.kubernetes.io/managed-by: kustomize
-  name: authzclusterrole-sample
+    openchoreo.dev/internal: "false"
+  name: platform-admin
 spec:
-  # TODO(user): Add fields here
+  description: "Platform administrator with full access to all resources"
+  actions:
+  # Full access to all resources
+    - "*"

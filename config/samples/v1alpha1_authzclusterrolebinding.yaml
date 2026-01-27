@@ -4,6 +4,13 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: authzclusterrolebinding-sample
+    openchoreo.dev/internal: "false"
+  name: platform-admins-binding
 spec:
-  # TODO(user): Add fields here
+  entitlement:
+    claim: groups
+    value: platformEngineer
+  roleRef:
+    kind: AuthzClusterRole
+    name: platform-admin
+  effect: allow

@@ -4,6 +4,15 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: authzrolebinding-sample
+  name: dev-team-crm-project
+  namespace: acme-org
 spec:
-  # TODO(user): Add fields here
+  entitlement:
+    claim: groups
+    value: dev-team
+  roleRef:
+    kind: AuthzRole
+    name: developer
+  targetPath:
+    project: crm
+  effect: allow
