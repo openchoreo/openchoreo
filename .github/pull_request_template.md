@@ -1,3 +1,16 @@
+<!--
+PR title must follow Conventional Commits format: type(scope): subject
+Scope is optional and subject must start with a lowercase letter.
+
+Examples:
+  feat(api): add endpoint for listing components
+  fix(controller): handle nil pointer in reconciler
+  docs: update contributor guide
+  chore(deps): bump sigs.k8s.io/controller-runtime
+
+See: docs/contributors/github_workflow.md#commit-message-convention
+-->
+
 ## Purpose
 > Briefly describe the problem or need driving this PR and how it resolves the issue. Include links to related issues if applicable.
 

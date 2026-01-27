@@ -1,9 +1,11 @@
 # GitHub Workflow Guide
 
-This document provides a step-by-step guide on how to contribute to this repository. 
-Following this workflow ensures that contributions remain clean and consistent while staying up to date with the upstream repository.
+This document provides a step-by-step guide on how to contribute to this repository.
+Following this workflow ensures that contributions remain clean and consistent while staying up to date with the
+upstream repository.
 
 ## Table of Contents
+
 - [Forking the Repository](#forking-the-repository)
 - [Cloning Your Fork](#cloning-your-fork)
 - [Configuring Upstream](#configuring-upstream)
@@ -11,18 +13,22 @@ Following this workflow ensures that contributions remain clean and consistent w
 - [Creating and Rebasing Feature Branches](#creating-and-rebasing-feature-branches)
 - [Resolving Conflicts](#resolving-conflicts)
 - [Pushing Changes](#pushing-changes)
+- [Commit Message Convention](#commit-message-convention)
 - [Squashing Commits to Meaningful Milestones](#squashing-commits-to-meaningful-milestones)
 - [FAQs](#faqs)
 
 ---
 
 ## Forking the Repository
+
 1. Navigate to the repository on GitHub: [openchoreo/openchoreo](https://github.com/openchoreo/openchoreo).
 2. Click the **Fork** button in the top-right corner.
 3. This will create a fork under your GitHub account.
 
 ## Cloning Your Fork
+
 To work on your fork locally:
+
 ```sh
 # Replace <your-username> with your GitHub username
 $ git clone https://github.com/<your-username>/openchoreo.git
@@ -30,7 +36,9 @@ $ cd openchoreo
 ```
 
 ## Configuring Upstream
+
 To keep your fork up to date with the original repository:
+
 ```sh
 # Add the upstream repository
 $ git remote add upstream https://github.com/openchoreo/openchoreo.git
@@ -38,7 +46,9 @@ $ git remote add upstream https://github.com/openchoreo/openchoreo.git
 # Verify the remote repositories
 $ git remote -v
 ```
+
 Expected output:
+
 ```
 origin    https://github.com/<your-username>/openchoreo.git (fetch)
 origin    https://github.com/<your-username>/openchoreo.git (push)
@@ -47,6 +57,7 @@ upstream  https://github.com/openchoreo/openchoreo.git (push)
 ```
 
 ## Syncing with Upstream
+
 Before starting new work, sync your fork with the upstream repository:
 
 ```sh
@@ -95,32 +106,93 @@ If you encounter conflicts during rebasing:
 4. If needed, repeat the process until rebase completes.
 
 ## Pushing Changes
+
 Once rebased, push your changes:
+
 ```sh
 $ git push -f origin feature-branch
 ```
+
 > **Note**: Force-pushing is necessary because rebase rewrites history.
 
 Open a pull request on GitHub targeting `main` in the upstream repository.
 
+## Commit Message Convention
+
+This project follows the [Conventional Commits](https://www.conventionalcommits.org/) specification.
+Both PR titles and commit messages must follow this format and are validated by CI.
+
+### Format
+
+```
+<type>(<scope>): <subject>
+```
+
+- **type** (required): The kind of change
+- **scope** (optional): The area of the codebase
+- **subject** (required): A short description starting with a lowercase letter
+
+### Types
+
+| Type       | Purpose                                  |
+|------------|------------------------------------------|
+| `feat`     | New feature                              |
+| `fix`      | Bug fix                                  |
+| `docs`     | Documentation only                       |
+| `refactor` | Code restructure (no behavior change)    |
+| `test`     | Adding or correcting tests               |
+| `chore`    | Maintenance tasks                        |
+| `ci`       | CI/CD changes                            |
+| `build`    | Build system or dependencies             |
+| `perf`     | Performance improvement                  |
+| `style`    | Code style (formatting, no logic change) |
+| `revert`   | Reverting a previous commit              |
+
+### Scopes
+
+| Scope        | Covers                                |
+|--------------|---------------------------------------|
+| `api`        | `cmd/openchoreo-api`, `api/v1alpha1/` |
+| `controller` | `internal/controller/*`               |
+| `cli`        | `cmd/choreoctl`, `cmd/occ`            |
+| `helm`       | `install/helm/*`                      |
+| `deps`       | `go.mod`, dependencies                |
+
+Scope is optional. If a change spans multiple areas, either use the most relevant scope or omit it.
+
+### Examples
+
+```
+feat(controller): add ComponentRelease reconciler
+fix(api): handle missing organization gracefully
+chore(deps): bump sigs.k8s.io/controller-runtime
+docs: add DCO sign-off instructions
+ci: add CodeQL security scanning workflow
+refactor(controller): extract common reconciler logic
+```
+
 ## Squashing Commits to Meaningful Milestones
 
-After a review, ensure your PR is ready by squashing unnecessary commits. The commits remaining in your branch should reflect meaningful milestones.
+After a review, ensure your PR is ready by squashing unnecessary commits. The commits remaining in your branch should
+reflect meaningful milestones and follow the [commit message convention](#commit-message-convention).
 Though this is not a strict requirement, it is recommended to keep the commit history clean and consistent.
 
 Examples of unnecessary commits:
+
 - Multiple review feedbacks
 - Minor typo corrections
 - Merge and rebase commits
 - Work-in-progress commits
 
 To squash commits interactively:
+
 ```sh
 # Replace N with the number of commits to squash
 $ git rebase -i HEAD~N
 ```
 
 In the interactive rebase menu:
+
 - Change `pick` to `squash` (or `s`) for commits that should be merged into the previous commit.
 - Save and close the editor.
 - Update the commit message as needed and save again.
@@ -128,11 +200,12 @@ In the interactive rebase menu:
 Example:
 
 Before squashing:
+
 ```
-pick 1a2b3c4 Add new events to the deployment controller
-pick 5d6e7fa Fix typo in a variable name
-pick 4b3c2a3 Address review comments
-pick b0475dd Improve conditionas in the deployment controller
+pick 1a2b3c4 feat(api): add endpoint for listing components
+pick 5d6e7fa style(api): fix typo in variable name
+pick 4b3c2a3 chore(api): address review comments
+pick b0475dd refactor(controller): improve conditions in deployment reconciler
 
 # Rebase 6a34ff9..b0475dd onto 6a34ff9 (4 commands)
 #
@@ -145,14 +218,16 @@ pick b0475dd Improve conditionas in the deployment controller
 ```
 
 After squashing:
+
 ```
-pick 1a2b3c4 Add new events to the deployment controller
-squash 5d6e7fa Fix typo in a variable name
-squash 4b3c2a3 Address review comments
-pick b0475dd Improve conditionas in the deployment controller
+pick 1a2b3c4 feat(api): add endpoint for listing components
+squash 5d6e7fa style(api): fix typo in variable name
+squash 4b3c2a3 chore(api): address review comments
+pick b0475dd refactor(controller): improve conditions in deployment reconciler
 ```
 
 Finally, push the squashed commit (force push required):
+
 ```sh
 $ git push --force origin feature-branch
 ```
@@ -162,28 +237,41 @@ $ git push --force origin feature-branch
 ## FAQs
 
 ### Why do we use rebase instead of merge?
-Rebasing keeps history linear, making it easier to track changes and avoid unnecessary merge commits. This is especially useful to keep a clean commit history.
+
+Rebasing keeps history linear, making it easier to track changes and avoid unnecessary merge commits. This is especially
+useful to keep a clean commit history.
 
 ### Can I rebase after opening a pull request?
-Yes, but you will need to force-push (`git push -f origin feature-branch`). GitHub will automatically update the pull request with your new changes.
+
+Yes, but you will need to force-push (`git push -f origin feature-branch`). GitHub will automatically update the pull
+request with your new changes.
 
 ### How can I undo a rebase?
+
 If something goes wrong during rebasing, you can use:
+
 ```sh
 $ git rebase --abort
 ```
+
 or, if you've already completed the rebase but want to undo it:
+
 ```sh
 $ git reset --hard ORIG_HEAD
 ```
+
 > **Warning**: This will discard changes that were part of the rebase.
 
 Alternatively, you can use git reflog to find the commit before the rebase and reset to it:
+
 ```sh
 $ git reflog
 ```
+
 Identify the commit before the rebase (e.g., HEAD@{3}), then reset to it:
+
 ```sh
 $ git reset --hard HEAD@{3}
 ```
+
 > **Warning**: This will discard changes that were part of the rebase.
