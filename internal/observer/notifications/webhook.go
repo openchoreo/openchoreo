@@ -16,6 +16,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Shared HTTP client for webhook notifications.
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 // WebhookConfig holds webhook configuration for sending alerts
 type WebhookConfig struct {
 	URL             string
@@ -50,13 +55,8 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 		req.Header.Set(key, value)
 	}
 
-	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	// Send the request
-	resp, err := client.Do(req)
+	// Send the request using the shared HTTP client
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send webhook request: %w", err)
 	}
