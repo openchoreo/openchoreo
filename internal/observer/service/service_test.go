@@ -275,6 +275,7 @@ func TestLoggingService_GetProjectLogs(t *testing.T) {
 	service.osClient = mockClient
 
 	params := opensearch.QueryParams{
+		ComponentIDs:  []string{"comp-456", "comp-789"},
 		StartTime:     "2024-01-01T00:00:00Z",
 		EndTime:       "2024-01-01T23:59:59Z",
 		ProjectID:     "proj-123",
@@ -283,10 +284,8 @@ func TestLoggingService_GetProjectLogs(t *testing.T) {
 		SortOrder:     "asc",
 	}
 
-	componentIDs := []string{"comp-456", "comp-789"}
-
 	ctx := context.Background()
-	result, err := service.GetProjectLogs(ctx, params, componentIDs)
+	result, err := service.GetProjectLogs(ctx, params)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)

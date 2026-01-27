@@ -73,8 +73,8 @@ func (m *MockHandler) GetComponentLogs(ctx context.Context, params opensearch.Co
 	return logsData, nil
 }
 
-func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	m.recordCall("GetProjectLogs", params, componentIDs)
+func (m *MockHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error) {
+	m.recordCall("GetProjectLogs", params)
 	if m.projectLogsError != nil {
 		return nil, m.projectLogsError
 	}
@@ -294,16 +294,12 @@ var allToolSpecs = []toolTestSpec{
 		},
 		expectedMethod: "GetProjectLogs",
 		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 2 {
-				t.Fatal("Expected at least two arguments")
+			if len(args) < 1 {
+				t.Fatal("Expected at least one argument")
 			}
 			params, ok := args[0].(opensearch.QueryParams)
 			if !ok {
 				t.Fatalf("Expected QueryParams, got %T", args[0])
-			}
-			componentIDs, ok := args[1].([]string)
-			if !ok {
-				t.Fatalf("Expected []string for component_ids, got %T", args[1])
 			}
 			if params.ProjectID != testProjectID {
 				t.Errorf("Expected project_id %q, got %q", testProjectID, params.ProjectID)
@@ -331,7 +327,7 @@ var allToolSpecs = []toolTestSpec{
 				t.Errorf("Expected sort_order 'asc', got %q", params.SortOrder)
 			}
 			expectedComponentIDs := []string{"comp-1", "comp-2"}
-			if diff := cmp.Diff(expectedComponentIDs, componentIDs); diff != "" {
+			if diff := cmp.Diff(expectedComponentIDs, params.ComponentIDs); diff != "" {
 				t.Errorf("component_ids mismatch (-want +got):\n%s", diff)
 			}
 		},
@@ -397,73 +393,6 @@ var allToolSpecs = []toolTestSpec{
 			}
 			if params.QueryParams.LogType != "gateway" {
 				t.Errorf("Expected log_type 'gateway', got %q", params.QueryParams.LogType)
-			}
-		},
-	},
-	{
-		name:                "get_organization_logs",
-		descriptionKeywords: []string{"organization", "logs"},
-		descriptionMinLen:   20,
-		requiredParams:      []string{"organization_id", "environment_id", "start_time", "end_time"},
-		optionalParams:      []string{"pod_labels", "search_phrase", "log_levels", "limit", "sort_order"},
-		testArgs: map[string]any{
-			"organization_id": testOrganizationID,
-			"environment_id":  testEnvironmentID,
-			"start_time":      testStartTime,
-			"end_time":        testEndTime,
-			"pod_labels": map[string]interface{}{
-				"app":     "myapp",
-				"version": "v1.0",
-			},
-			"search_phrase": "critical",
-			"log_levels":    []interface{}{"ERROR", "FATAL"},
-			"limit":         150,
-			"sort_order":    sortOrderDesc,
-		},
-		expectedMethod: "GetOrganizationLogs",
-		validateCall: func(t *testing.T, args []interface{}) {
-			if len(args) < 2 {
-				t.Fatal("Expected at least two arguments")
-			}
-			params, ok := args[0].(opensearch.QueryParams)
-			if !ok {
-				t.Fatalf("Expected QueryParams, got %T", args[0])
-			}
-			podLabels, ok := args[1].(map[string]string)
-			if !ok {
-				t.Fatalf("Expected map[string]string for pod_labels, got %T", args[1])
-			}
-			if params.OrganizationID != testOrganizationID {
-				t.Errorf("Expected organization_id %q, got %q", testOrganizationID, params.OrganizationID)
-			}
-			if params.EnvironmentID != testEnvironmentID {
-				t.Errorf("Expected environment_id %q, got %q", testEnvironmentID, params.EnvironmentID)
-			}
-			if params.StartTime != testStartTime {
-				t.Errorf("Expected start_time %q, got %q", testStartTime, params.StartTime)
-			}
-			if params.EndTime != testEndTime {
-				t.Errorf("Expected end_time %q, got %q", testEndTime, params.EndTime)
-			}
-			if params.SearchPhrase != "critical" {
-				t.Errorf("Expected search_phrase 'critical', got %q", params.SearchPhrase)
-			}
-			expectedLevels := []string{"ERROR", "FATAL"}
-			if diff := cmp.Diff(expectedLevels, params.LogLevels); diff != "" {
-				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
-			}
-			if params.Limit != 150 {
-				t.Errorf("Expected limit 150, got %d", params.Limit)
-			}
-			if params.SortOrder != sortOrderDesc {
-				t.Errorf("Expected sort_order %q, got %q", sortOrderDesc, params.SortOrder)
-			}
-			expectedPodLabels := map[string]string{
-				"app":     "myapp",
-				"version": "v1.0",
-			}
-			if diff := cmp.Diff(expectedPodLabels, podLabels); diff != "" {
-				t.Errorf("pod_labels mismatch (-want +got):\n%s", diff)
 			}
 		},
 	},
@@ -958,16 +887,6 @@ func TestMinimalParameterSets(t *testing.T) {
 			},
 		},
 		{
-			name:     "get_organization_logs_minimal",
-			toolName: "get_organization_logs",
-			args: map[string]any{
-				"organization_id": testOrganizationID,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
-			},
-		},
-		{
 			name:     "get_traces_minimal",
 			toolName: "get_traces",
 			args: map[string]any{
@@ -1072,19 +991,6 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			},
 			setupErr: func(h *MockHandler) {
 				h.gatewayLogsError = errors.New("invalid time range")
-			},
-		},
-		{
-			name:     "get_organization_logs_error",
-			toolName: "get_organization_logs",
-			args: map[string]any{
-				"organization_id": testOrganizationID,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
-			},
-			setupErr: func(h *MockHandler) {
-				h.organizationLogsError = errors.New("unauthorized")
 			},
 		},
 		{
@@ -1225,10 +1131,10 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				"end_time":       testEndTime,
 			},
 			validateCall: func(t *testing.T, args []interface{}) {
-				componentIDs := args[1].([]string)
+				params := args[0].(opensearch.QueryParams)
 				// Verify component_ids is nil/empty when not provided
-				if len(componentIDs) != 0 {
-					t.Errorf("Expected nil or empty component_ids, got %v", componentIDs)
+				if len(params.ComponentIDs) != 0 {
+					t.Errorf("Expected nil or empty component_ids, got %v", params.ComponentIDs)
 				}
 			},
 		},
@@ -1248,23 +1154,6 @@ func TestOptionalParametersDefaults(t *testing.T) {
 				}
 				if len(params.GatewayVHosts) != 0 {
 					t.Errorf("Expected empty gateway_vhosts, got %v", params.GatewayVHosts)
-				}
-			},
-		},
-		{
-			name:     "organization_logs_without_pod_labels",
-			toolName: "get_organization_logs",
-			args: map[string]any{
-				"organization_id": testOrganizationID,
-				"environment_id":  testEnvironmentID,
-				"start_time":      testStartTime,
-				"end_time":        testEndTime,
-			},
-			validateCall: func(t *testing.T, args []interface{}) {
-				podLabels := args[1].(map[string]string)
-				// Verify pod_labels is nil/empty when not provided
-				if len(podLabels) != 0 {
-					t.Errorf("Expected nil or empty pod_labels, got %v", podLabels)
 				}
 			},
 		},
@@ -1403,17 +1292,6 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"limit":                 "number",
 			"sort_order":            "string",
 			"log_type":              "string",
-		},
-		"get_organization_logs": {
-			"organization_id": "string",
-			"environment_id":  "string",
-			"start_time":      "string",
-			"end_time":        "string",
-			"pod_labels":      "object",
-			"search_phrase":   "string",
-			"log_levels":      "array",
-			"limit":           "number",
-			"sort_order":      "string",
 		},
 		"get_traces": {
 			"project_uid":     "string",

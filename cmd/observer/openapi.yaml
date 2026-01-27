@@ -3,7 +3,7 @@ info:
   title: OpenChoreo Observer API
   description: |
     The OpenChoreo Observer API provides endpoints for querying build logs, component logs,
-    traces, and metrics from components, projects, gateways, and organizations.
+    traces, and metrics from components, projects, and gateways.
     It integrates with OpenSearch for logs, build logs, and traces,
     and with Prometheus for metrics.
   version: 1.0.0
@@ -203,47 +203,6 @@ paths:
       responses:
         '200':
           description: Successfully retrieved gateway logs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogResponse'
-        '400':
-          description: Bad request - invalid parameters
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/logs/org/{orgId}:
-    post:
-      tags:
-        - Logs
-      summary: Get organization logs
-      description: Retrieve logs for an entire organization
-      operationId: getOrganizationLogs
-      parameters:
-        - name: orgId
-          in: path
-          required: true
-          description: The unique identifier of the organization
-          schema:
-            type: string
-            example: "org-789"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/OrganizationLogsRequest'
-      responses:
-        '200':
-          description: Successfully retrieved organization logs
           content:
             application/json:
               schema:
@@ -749,20 +708,6 @@ components:
           description: Type of logs to retrieve
           enum: [runtime, build]
           example: "runtime"
-
-    OrganizationLogsRequest:
-      allOf:
-        - $ref: '#/components/schemas/ComponentLogsRequest'
-        - type: object
-          properties:
-            podLabels:
-              type: object
-              additionalProperties:
-                type: string
-              description: Kubernetes pod labels to filter logs
-              example:
-                app: "myapp"
-                tier: "backend"
 
     TracesRequest:
       type: object

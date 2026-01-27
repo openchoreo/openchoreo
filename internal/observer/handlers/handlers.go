@@ -500,6 +500,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Build query parameters
 	params := opensearch.QueryParams{
+		ComponentIDs:  req.ComponentIDs,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
 		SearchPhrase:  req.SearchPhrase,
@@ -515,7 +516,7 @@ func (h *Handler) GetProjectLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Execute query
 	ctx := r.Context()
-	result, err := h.service.GetProjectLogs(ctx, params, req.ComponentIDs)
+	result, err := h.service.GetProjectLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get project logs", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
@@ -562,99 +563,6 @@ func (h *Handler) GetGatewayLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetGatewayLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get gateway logs", "error", err)
-		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
-		return
-	}
-
-	h.writeJSON(w, http.StatusOK, result)
-}
-
-// GetOrganizationLogs handles POST /api/logs/org/{orgId}
-func (h *Handler) GetOrganizationLogs(w http.ResponseWriter, r *http.Request) {
-	orgID := httputil.GetPathParam(r, "orgId")
-	if orgID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgOrganizationIDRequired)
-		return
-	}
-
-	var req OrganizationLogsRequest
-	if err := httputil.BindJSON(r, &req); err != nil {
-		h.logger.Error("Failed to bind request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
-		return
-	}
-
-	// AUTHORIZATION CHECK
-	if h.authzPDP != nil {
-		// Hierarchy fields are required for authorization but optional when authz is disabled
-		if req.OrgName == "" {
-			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
-				ErrorCodeMissingParameter, "Organization name required for authorization")
-			return
-		}
-	}
-
-	if err := observerAuthz.CheckAuthorization(
-		r.Context(),
-		h.logger,
-		h.authzPDP,
-		observerAuthz.ActionViewLogs,
-		observerAuthz.ResourceTypeOrg,
-		req.OrgName,
-		authzcore.ResourceHierarchy{
-			Namespace: req.OrgName,
-		},
-	); err != nil {
-		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden,
-				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized,
-				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
-			return
-		}
-		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
-			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
-			h.writeErrorResponse(w, http.StatusInternalServerError,
-				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
-			return
-		}
-		h.writeErrorResponse(w, http.StatusInternalServerError,
-			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
-		return
-	}
-
-	// Set defaults
-	if req.Limit == 0 {
-		req.Limit = 100
-	}
-	if req.SortOrder == "" {
-		req.SortOrder = defaultSortOrder
-	}
-
-	// Build query parameters
-	params := opensearch.QueryParams{
-		StartTime:      req.StartTime,
-		EndTime:        req.EndTime,
-		SearchPhrase:   req.SearchPhrase,
-		LogLevels:      req.LogLevels,
-		Limit:          req.Limit,
-		SortOrder:      req.SortOrder,
-		EnvironmentID:  req.EnvironmentID,
-		Namespace:      req.Namespace,
-		Versions:       req.Versions,
-		VersionIDs:     req.VersionIDs,
-		LogType:        opensearch.ExtractLogType(req.LogType),
-		OrganizationID: orgID, // Add the organization ID from URL parameter
-	}
-
-	// Execute query
-	ctx := r.Context()
-	result, err := h.service.GetOrganizationLogs(ctx, params, req.PodLabels)
-	if err != nil {
-		h.logger.Error("Failed to get organization logs", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}

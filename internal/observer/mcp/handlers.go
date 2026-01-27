@@ -22,18 +22,13 @@ func (h *MCPHandler) GetComponentLogs(ctx context.Context, params opensearch.Com
 }
 
 // GetProjectLogs retrieves logs for a specific project
-func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams, componentIDs []string) (any, error) {
-	return h.Service.GetProjectLogs(ctx, params, componentIDs)
+func (h *MCPHandler) GetProjectLogs(ctx context.Context, params opensearch.QueryParams) (any, error) {
+	return h.Service.GetProjectLogs(ctx, params)
 }
 
 // GetGatewayLogs retrieves gateway logs
 func (h *MCPHandler) GetGatewayLogs(ctx context.Context, params opensearch.GatewayQueryParams) (any, error) {
 	return h.Service.GetGatewayLogs(ctx, params)
-}
-
-// GetOrganizationLogs retrieves logs for an entire organization
-func (h *MCPHandler) GetOrganizationLogs(ctx context.Context, params opensearch.QueryParams, podLabels map[string]string) (any, error) {
-	return h.Service.GetOrganizationLogs(ctx, params, podLabels)
 }
 
 // GetTraces retrieves distributed tracing spans for a specific traceID or traces of requests which call specific components

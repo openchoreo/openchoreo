@@ -100,6 +100,7 @@ type QueryParams struct {
 	Limit          int      `json:"limit"`
 	SortOrder      string   `json:"sortOrder"`
 	ComponentID    string   `json:"componentId,omitempty"`
+	ComponentIDs   []string `json:"componentIds,omitempty"`
 	EnvironmentID  string   `json:"environmentId,omitempty"`
 	ProjectID      string   `json:"projectId,omitempty"`
 	OrganizationID string   `json:"organizationId,omitempty"`
