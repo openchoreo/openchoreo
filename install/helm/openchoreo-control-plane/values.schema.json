@@ -2524,7 +2524,6 @@
             "enabled": {
               "default": true,
               "description": "Enable creation of default resources (namespace, project, environments, pipeline)",
-              "required": [],
               "title": "enabled",
               "type": "boolean"
             },
@@ -2566,14 +2565,12 @@
                 "description": {
                   "default": "Getting started with your first namespace",
                   "description": "Description for the default namespace",
-                  "required": [],
                   "title": "description",
                   "type": "string"
                 },
                 "displayName": {
                   "default": "Default Namespace",
                   "description": "Display name for the default namespace",
-                  "required": [],
                   "title": "displayName",
                   "type": "string"
                 }

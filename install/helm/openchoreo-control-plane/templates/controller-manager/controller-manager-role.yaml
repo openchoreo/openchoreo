@@ -11,7 +11,6 @@ rules:
     - ""
   resources:
     - configmaps
-    - namespaces
   verbs:
     - create
     - delete
@@ -27,6 +26,16 @@ rules:
   verbs:
     - create
     - patch
+- apiGroups:
+    - ""
+  resources:
+    - namespaces
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - watch
 - apiGroups:
     - ""
   resources:
