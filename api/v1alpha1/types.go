@@ -87,3 +87,39 @@ const (
 	// The Release resource is deleted, triggering cleanup of all data plane resources.
 	ReleaseStateUndeploy ReleaseState = "Undeploy"
 )
+
+// EntitlementClaim represents a claim-value pair for subject identification
+// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+type EntitlementClaim struct {
+	// Claim is the JWT claim name (e.g., "groups", "sub", "email")
+	// +required
+	Claim string `json:"claim"`
+
+	// Value is the entitlement value to match
+	// +required
+	Value string `json:"value"`
+}
+
+// RoleRef represents a reference to an AuthzRole or AuthzClusterRole
+// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+type RoleRef struct {
+	// Kind is the kind of role (AuthzRole or AuthzClusterRole)
+	// For AuthzRoleBinding: AuthzRole must be in the same namespace
+	// +kubebuilder:validation:Enum=AuthzRole;AuthzClusterRole
+	// +required
+	Kind string `json:"kind"`
+
+	// Name is the name of the role
+	// +required
+	Name string `json:"name"`
+}
+
+// EffectType defines whether to allow or deny access
+// Used by AuthzRoleBinding and AuthzClusterRoleBinding
+// +kubebuilder:validation:Enum=allow;deny
+type EffectType string
+
+const (
+	EffectAllow EffectType = "allow"
+	EffectDeny  EffectType = "deny"
+)

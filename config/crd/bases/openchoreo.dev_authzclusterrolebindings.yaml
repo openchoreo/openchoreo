@@ -1,0 +1,107 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: authzclusterrolebindings.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: AuthzClusterRoleBinding
+    listKind: AuthzClusterRoleBindingList
+    plural: authzclusterrolebindings
+    singular: authzclusterrolebinding
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.entitlement.value
+      name: Subject
+      type: string
+    - jsonPath: .spec.roleRef.name
+      name: Role
+      type: string
+    - jsonPath: .spec.effect
+      name: Effect
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AuthzClusterRoleBinding is the Schema for the authzclusterrolebindings
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AuthzClusterRoleBindingSpec defines the desired state of
+              AuthzClusterRoleBinding
+            properties:
+              effect:
+                default: allow
+                description: 'Effect indicates whether this binding allows or denies
+                  access (default: allow)'
+                enum:
+                - allow
+                - deny
+                type: string
+              entitlement:
+                description: Entitlement defines the subject (from JWT claims) to
+                  grant the role to
+                properties:
+                  claim:
+                    description: Claim is the JWT claim name (e.g., "groups", "sub",
+                      "email")
+                    type: string
+                  value:
+                    description: Value is the entitlement value to match
+                    type: string
+                required:
+                - claim
+                - value
+                type: object
+              roleRef:
+                description: |-
+                  RoleRef references the AuthzClusterRole to bind
+                  NOTE: AuthzClusterRoleBinding can ONLY reference AuthzClusterRole
+                properties:
+                  kind:
+                    description: |-
+                      Kind is the kind of role (AuthzRole or AuthzClusterRole)
+                      For AuthzRoleBinding: AuthzRole must be in the same namespace
+                    enum:
+                    - AuthzRole
+                    - AuthzClusterRole
+                    type: string
+                  name:
+                    description: Name is the name of the role
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+            required:
+            - entitlement
+            - roleRef
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

@@ -26,6 +26,10 @@ resources:
   - bases/openchoreo.dev_observabilityplanes.yaml
   - bases/openchoreo.dev_observabilityalertsnotificationchannels.yaml
   - bases/openchoreo.dev_observabilityalertrules.yaml
+  - bases/openchoreo.dev_authzroles.yaml
+  - bases/openchoreo.dev_authzrolebindings.yaml
+  - bases/openchoreo.dev_authzclusterroles.yaml
+  - bases/openchoreo.dev_authzclusterrolebindings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

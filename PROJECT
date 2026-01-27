@@ -210,4 +210,32 @@ resources:
   kind: ObservabilityAlertRule
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openchoreo.dev
+  kind: AuthzRole
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openchoreo.dev
+  kind: AuthzRoleBinding
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openchoreo.dev
+  kind: AuthzClusterRole
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: openchoreo.dev
+  kind: AuthzClusterRoleBinding
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 version: "3"

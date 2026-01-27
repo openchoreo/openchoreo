@@ -1,0 +1,9 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: AuthzRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: authzrolebinding-sample
+spec:
+  # TODO(user): Add fields here

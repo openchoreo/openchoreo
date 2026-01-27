@@ -39,4 +39,8 @@ resources:
   - openchoreo_v1alpha1_observabilityplane.yaml
   - v1alpha1_observabilityalertsnotificationchannel.yaml
   - v1alpha1_observabilityalertrule.yaml
+  - v1alpha1_authzrole.yaml
+  - v1alpha1_authzrolebinding.yaml
+  - v1alpha1_authzclusterrole.yaml
+  - v1alpha1_authzclusterrolebinding.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
