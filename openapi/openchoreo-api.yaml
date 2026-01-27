@@ -837,6 +837,90 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # WorkflowRun Endpoints (Generic Workflow Executions)
+  # =============================================================================
+
+  /api/v1/orgs/{orgName}/workflow-runs:
+    get:
+      operationId: listWorkflowRuns
+      summary: List workflow runs
+      description: Returns a list of generic workflow runs in the organization.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of workflow runs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRunList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createWorkflowRun
+      summary: Create workflow run
+      description: Triggers a new generic workflow run.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/OrgNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkflowRunRequest'
+      responses:
+        '201':
+          description: Workflow run created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/orgs/{orgName}/workflow-runs/{runName}:
+    get:
+      operationId: getWorkflowRun
+      summary: Get workflow run
+      description: Returns details of a specific workflow run.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      responses:
+        '200':
+          description: Workflow run details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRun'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ComponentWorkflow Endpoints
   # =============================================================================
 
@@ -3728,6 +3812,95 @@ components:
           format: date-time
           description: Creation timestamp
           example: "2025-01-06T10:00:00Z"
+
+    # -------------------------------------------------------------------------
+    # WorkflowRuns
+    # -------------------------------------------------------------------------
+    WorkflowRunList:
+      type: object
+      description: Paginated list of workflow runs
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowRun'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    WorkflowRun:
+      type: object
+      description: Generic workflow run (execution)
+      required:
+        - name
+        - workflowName
+        - orgName
+        - createdAt
+        - status
+      properties:
+        name:
+          type: string
+          description: Workflow run name
+          example: database-migration-run-1234
+        uuid:
+          type: string
+          description: Unique identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        workflowName:
+          type: string
+          description: Parent workflow name
+          example: database-migration
+        orgName:
+          type: string
+          description: Organization name
+          example: my-org
+        status:
+          type: string
+          enum: [Pending, Running, Succeeded, Failed, Error]
+          description: Current execution status
+          example: Succeeded
+        parameters:
+          type: object
+          description: User-defined workflow parameters
+          additionalProperties: true
+          example:
+            database_url: "postgresql://localhost:5432/mydb"
+            migration_version: "v2.1.0"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+        finishedAt:
+          type: string
+          format: date-time
+          description: Completion timestamp
+          example: "2025-01-06T10:05:00Z"
+        phase:
+          type: string
+          description: Detailed execution phase
+          example: "Clone completed, build in progress"
+
+    CreateWorkflowRunRequest:
+      type: object
+      description: Request to create a new workflow run
+      required:
+        - workflowName
+        - parameters
+      properties:
+        workflowName:
+          type: string
+          description: Name of the workflow to execute
+          example: database-migration
+        parameters:
+          type: object
+          description: User-defined workflow parameters
+          additionalProperties: true
+          example:
+            database_url: "postgresql://localhost:5432/mydb"
+            migration_version: "v2.1.0"
 
     # -------------------------------------------------------------------------
     # ComponentWorkflows
