@@ -381,3 +381,22 @@ func (req *UpdateComponentTraitsRequest) Sanitize() {
 		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
 	}
 }
+
+// CreateWorkflowRunRequest represents the request to create a new workflow run
+type CreateWorkflowRunRequest struct {
+	WorkflowName string                 `json:"workflowName"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty"`
+}
+
+// Validate validates the CreateWorkflowRunRequest
+func (req *CreateWorkflowRunRequest) Validate() error {
+	if strings.TrimSpace(req.WorkflowName) == "" {
+		return errors.New("workflowName is required")
+	}
+	return nil
+}
+
+// Sanitize sanitizes the CreateWorkflowRunRequest by trimming whitespace
+func (req *CreateWorkflowRunRequest) Sanitize() {
+	req.WorkflowName = strings.TrimSpace(req.WorkflowName)
+}

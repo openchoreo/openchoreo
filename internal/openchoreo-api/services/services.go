@@ -17,6 +17,7 @@ type Services struct {
 	ComponentService          *ComponentService
 	ComponentTypeService      *ComponentTypeService
 	WorkflowService           *WorkflowService
+	WorkflowRunService        *WorkflowRunService
 	ComponentWorkflowService  *ComponentWorkflowService
 	TraitService              *TraitService
 	NamespaceService          *NamespaceService
@@ -64,6 +65,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create Workflow service
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
+	// Create WorkflowRun service
+	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP)
+
 	// Create ComponentWorkflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
 
@@ -87,6 +91,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		ComponentService:          componentService,
 		ComponentTypeService:      componentTypeService,
 		WorkflowService:           workflowService,
+		WorkflowRunService:        workflowRunService,
 		ComponentWorkflowService:  componentWorkflowService,
 		TraitService:              traitService,
 		NamespaceService:          namespaceService,

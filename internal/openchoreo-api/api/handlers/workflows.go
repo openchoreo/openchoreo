@@ -24,3 +24,27 @@ func (h *Handler) GetWorkflowSchema(
 ) (gen.GetWorkflowSchemaResponseObject, error) {
 	return nil, errNotImplemented
 }
+
+// ListWorkflowRuns returns a list of workflow runs
+func (h *Handler) ListWorkflowRuns(
+	ctx context.Context,
+	request gen.ListWorkflowRunsRequestObject,
+) (gen.ListWorkflowRunsResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// CreateWorkflowRun creates a new workflow run
+func (h *Handler) CreateWorkflowRun(
+	ctx context.Context,
+	request gen.CreateWorkflowRunRequestObject,
+) (gen.CreateWorkflowRunResponseObject, error) {
+	return nil, errNotImplemented
+}
+
+// GetWorkflowRun returns a specific workflow run
+func (h *Handler) GetWorkflowRun(
+	ctx context.Context,
+	request gen.GetWorkflowRunRequestObject,
+) (gen.GetWorkflowRunResponseObject, error) {
+	return nil, errNotImplemented
+}
