@@ -51,6 +51,9 @@ const (
 
 	SystemActionViewWorkflow systemAction = "workflow:view"
 
+	SystemActionCreateWorkflowRun systemAction = "workflowrun:create"
+	SystemActionViewWorkflowRun   systemAction = "workflowrun:view"
+
 	SystemActionViewComponentWorkflow    systemAction = "componentworkflow:view"
 	SystemActionCreateComponentWorkflow  systemAction = "componentworkflow:create"
 	SystemActionViewComponentWorkflowRun systemAction = "componentworkflowrun:view"
@@ -76,6 +79,7 @@ const (
 	ResourceTypeEnvironment          ResourceType = "environment"
 	ResourceTypeDeploymentPipeline   ResourceType = "deploymentPipeline"
 	ResourceTypeWorkflow             ResourceType = "workflow"
+	ResourceTypeWorkflowRun          ResourceType = "workflowRun"
 	ResourceTypeComponentWorkflow    ResourceType = "componentWorkflow"
 	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
 	ResourceTypeSecretReference      ResourceType = "secretReference"

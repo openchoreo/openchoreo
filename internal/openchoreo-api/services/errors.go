@@ -25,6 +25,8 @@ var (
 	ErrDeploymentPipelineNotFound   = errors.New("deployment pipeline not found")
 	ErrInvalidPromotionPath         = errors.New("invalid promotion path")
 	ErrWorkflowNotFound             = errors.New("workflow not found")
+	ErrWorkflowRunNotFound          = errors.New("workflow run not found")
+	ErrWorkflowRunAlreadyExists     = errors.New("workflow run already exists")
 	ErrComponentWorkflowNotFound    = errors.New("component workflow not found")
 	ErrComponentWorkflowRunNotFound = errors.New("component workflow run not found")
 	ErrWorkloadNotFound             = errors.New("workload not found")
@@ -58,6 +60,8 @@ const (
 	CodeDeploymentPipelineNotFound   = "DEPLOYMENT_PIPELINE_NOT_FOUND"
 	CodeInvalidPromotionPath         = "INVALID_PROMOTION_PATH"
 	CodeWorkflowNotFound             = "WORKFLOW_NOT_FOUND"
+	CodeWorkflowRunNotFound          = "WORKFLOW_RUN_NOT_FOUND"
+	CodeWorkflowRunAlreadyExists     = "WORKFLOW_RUN_ALREADY_EXISTS"
 	CodeComponentWorkflowNotFound    = "COMPONENT_WORKFLOW_NOT_FOUND"
 	CodeComponentWorkflowRunNotFound = "COMPONENT_WORKFLOW_RUN_NOT_FOUND"
 	CodeWorkloadNotFound             = "WORKLOAD_NOT_FOUND"
