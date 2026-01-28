@@ -1,0 +1,260 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: bulk-gitops-release
+spec:
+  arguments:
+    parameters:
+      - name: namespace-name
+      - name: scope-all
+      - name: scope-project-name
+      - name: gitops-repo-url
+      - name: gitops-branch
+      - name: gitops-target-environment
+      - name: gitops-deployment-pipeline
+      - name: gitops-git-secret
+  entrypoint: bulk-release-workflow
+  templates:
+    - name: bulk-release-workflow
+      steps:
+        - - name: clone-gitops
+            template: clone-gitops
+        - - name: create-feature-branch
+            template: create-feature-branch
+        - - name: generate-bulk-bindings
+            template: generate-bulk-bindings
+        - - name: git-commit-push-pr
+            template: git-commit-push-pr
+
+    # Step 1: Clone GitOps repository (uses PAT for authentication)
+    - name: clone-gitops
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            REPO={{workflow.parameters.gitops-repo-url}}
+            BRANCH={{workflow.parameters.gitops-branch}}
+            GIT_TOKEN=$(cat /mnt/secrets/gitops-git/git-token)
+
+            # Inject token into repo URL for authentication (x-access-token format for GitHub)
+            REPO_WITH_CREDS=$(echo "$REPO" | sed "s|https://|https://x-access-token:${GIT_TOKEN}@|")
+
+            echo "Cloning GitOps repository: $REPO (branch: $BRANCH)"
+            git clone --single-branch --branch $BRANCH --depth 1 "$REPO_WITH_CREDS" /mnt/vol/gitops
+
+            cd /mnt/vol/gitops
+            git config user.name "OpenChoreo GitOps"
+            git config user.email "gitops@openchoreo.dev"
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: gitops-git-credentials
+            mountPath: /mnt/secrets/gitops-git
+            readOnly: true
+
+    # Step 2: Create feature branch for bulk release
+    - name: create-feature-branch
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
+            SCOPE_ALL={{workflow.parameters.scope-all}}
+            PROJECT_NAME={{workflow.parameters.scope-project-name}}
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+            if [ "$SCOPE_ALL" = "true" ]; then
+                BRANCH_NAME="bulk-release/all-${TIMESTAMP}"
+            elif [ -n "$PROJECT_NAME" ]; then
+                BRANCH_NAME="bulk-release/${PROJECT_NAME}-${TIMESTAMP}"
+            else
+                echo "Error: scope-project-name is required when scope-all is false"
+                exit 1
+            fi
+
+            echo "Creating feature branch: $BRANCH_NAME"
+            git checkout -b $BRANCH_NAME
+
+            echo -n $BRANCH_NAME > /tmp/branch-name.txt
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+      outputs:
+        parameters:
+          - name: branch-name
+            valueFrom:
+              path: /tmp/branch-name.txt
+
+    # Step 3: Generate ReleaseBindings for all components or a specific project
+    - name: generate-bulk-bindings
+      container:
+        image: ghcr.io/openchoreo/openchoreo-cli:latest-dev
+        imagePullPolicy: Always
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
+            SCOPE_ALL={{workflow.parameters.scope-all}}
+            PROJECT_NAME={{workflow.parameters.scope-project-name}}
+            TARGET_ENV={{workflow.parameters.gitops-target-environment}}
+            USE_PIPELINE={{workflow.parameters.gitops-deployment-pipeline}}
+
+            echo "===== Initializing OCC Context ====="
+            # Initialize occ context for file-system mode
+            occ config set-context gitops-context \
+              --mode file-system \
+              --root-directory-path /mnt/vol/gitops \
+              --namespace "${NAMESPACE_NAME}"
+
+            # Use the gitops-context
+            occ config use-context gitops-context
+
+            echo "===== Generating ReleaseBindings ====="
+            echo "Target environment: $TARGET_ENV"
+            echo "Using pipeline: $USE_PIPELINE"
+
+            if [ "$SCOPE_ALL" = "true" ]; then
+                echo "Generating bindings for ALL components across all projects"
+                occ release-binding generate --all --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
+            elif [ -n "$PROJECT_NAME" ]; then
+                echo "Generating bindings for project: $PROJECT_NAME"
+                occ release-binding generate --project "$PROJECT_NAME" --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
+            else
+                echo "Error: scope-project-name is required when scope-all is false"
+                exit 1
+            fi
+
+            echo "ReleaseBindings generated successfully"
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+
+    # Step 4: Commit, Push, and Create Pull Request
+    - name: git-commit-push-pr
+      container:
+        image: alpine/git
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            cd /mnt/vol/gitops
+
+            # Set variables
+            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
+            SCOPE_ALL={{workflow.parameters.scope-all}}
+            PROJECT_NAME={{workflow.parameters.scope-project-name}}
+            TARGET_ENV={{workflow.parameters.gitops-target-environment}}
+            REPO={{workflow.parameters.gitops-repo-url}}
+            BASE_BRANCH={{workflow.parameters.gitops-branch}}
+            GIT_TOKEN=$(cat /mnt/secrets/gitops-git/git-token)
+
+            # Determine scope description for commit message
+            if [ "$SCOPE_ALL" = "true" ]; then
+                SCOPE_DESC="all projects"
+            elif [ -n "$PROJECT_NAME" ]; then
+                SCOPE_DESC="project ${PROJECT_NAME}"
+            else
+                echo "Error: scope-project-name is required when scope-all is false"
+                exit 1
+            fi
+
+            echo "===== Step 1: Committing Changes ====="
+            git add .
+
+            # Check if there are changes to commit
+            if git diff --cached --quiet; then
+                echo "No changes to commit - skipping push and PR creation"
+                exit 0
+            fi
+
+            # Create commit message
+            git commit -m "Bulk release for ${SCOPE_DESC}
+
+            Namespace: ${NAMESPACE_NAME}
+            Scope: ${SCOPE_DESC}
+            Target Environment: ${TARGET_ENV}
+
+            Generated by OpenChoreo Bulk GitOps Release Workflow"
+
+            echo "Changes committed successfully"
+
+            echo "===== Step 2: Pushing to Remote ====="
+            # Inject token into repo URL for authentication
+            REPO_WITH_CREDS=$(echo "$REPO" | sed "s|https://|https://x-access-token:${GIT_TOKEN}@|")
+
+            # Get current branch name
+            BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+            echo "Pushing branch $BRANCH to remote"
+            git push "$REPO_WITH_CREDS" $BRANCH
+
+            echo "Branch pushed successfully"
+
+            echo "===== Step 3: Creating Pull Request ====="
+            # Install GitHub CLI
+            apk add --no-cache curl
+            curl -fsSL https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz | tar -xz
+            mv gh_2.62.0_linux_amd64/bin/gh /usr/local/bin/
+
+            export GH_TOKEN=$GIT_TOKEN
+
+            # Create PR
+            gh pr create \
+              --title "Bulk Release: ${SCOPE_DESC}" \
+              --body "$(cat <<EOF
+            ## Summary
+            - Namespace: **${NAMESPACE_NAME}**
+            - Scope: **${SCOPE_DESC}**
+            - Target Environment: **${TARGET_ENV}**
+
+            ## Changes
+            - Generated/updated ReleaseBindings targeting **${TARGET_ENV}**
+
+            ## Test Plan
+            - [ ] Review generated ReleaseBinding manifests
+            - [ ] Verify deployment pipeline settings
+            - [ ] Merge and monitor deployments
+
+            Generated by [OpenChoreo](https://openchoreo.dev) Bulk GitOps Release Workflow
+            EOF
+            )" \
+              --base "$BASE_BRANCH" \
+              --head "$BRANCH"
+
+            echo "Pull request created successfully"
+            echo "===== Git operations completed successfully ====="
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+          - name: gitops-git-credentials
+            mountPath: /mnt/secrets/gitops-git
+            readOnly: true
+
+  ttlStrategy:
+    secondsAfterCompletion: 3600
+  volumeClaimTemplates:
+    - metadata:
+        name: workspace
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  volumes:
+    - name: gitops-git-credentials
+      secret:
+        secretName: '{{workflow.parameters.gitops-git-secret}}'
