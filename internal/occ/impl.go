@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/list"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/release-binding"
@@ -160,4 +161,66 @@ func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComp
 func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
 	bindingImpl := releasebinding.NewReleaseBindingImpl()
 	return bindingImpl.GenerateReleaseBinding(params)
+}
+
+// List Operations
+
+func (c *CommandImplementation) ListNamespaces(params api.ListNamespacesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListNamespaces(params)
+}
+
+func (c *CommandImplementation) ListProjects(params api.ListProjectsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListProjects(params)
+}
+
+func (c *CommandImplementation) ListComponents(params api.ListComponentsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListComponents(params)
+}
+
+func (c *CommandImplementation) ListEnvironments(params api.ListEnvironmentsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListEnvironments(params)
+}
+
+func (c *CommandImplementation) ListDataPlanes(params api.ListDataPlanesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListDataPlanes(params)
+}
+
+func (c *CommandImplementation) ListBuildPlanes(params api.ListBuildPlanesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListBuildPlanes(params)
+}
+
+func (c *CommandImplementation) ListObservabilityPlanes(params api.ListObservabilityPlanesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListObservabilityPlanes(params)
+}
+
+func (c *CommandImplementation) ListComponentTypes(params api.ListComponentTypesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListComponentTypes(params)
+}
+
+func (c *CommandImplementation) ListTraits(params api.ListTraitsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListTraits(params)
+}
+
+func (c *CommandImplementation) ListWorkflows(params api.ListWorkflowsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListWorkflows(params)
+}
+
+func (c *CommandImplementation) ListComponentWorkflows(params api.ListComponentWorkflowsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListComponentWorkflows(params)
+}
+
+func (c *CommandImplementation) ListSecretReferences(params api.ListSecretReferencesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListSecretReferences(params)
 }

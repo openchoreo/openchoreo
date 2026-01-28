@@ -20,6 +20,7 @@ type CommandImplementationInterface interface {
 	ScaffoldAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
+	ListAPI
 }
 
 // NamespaceAPI defines namespace-related operations
@@ -97,4 +98,20 @@ type ComponentReleaseAPI interface {
 // ReleaseBindingAPI defines release binding operations (file-system mode)
 type ReleaseBindingAPI interface {
 	GenerateReleaseBinding(params GenerateReleaseBindingParams) error
+}
+
+// ListAPI defines methods for listing resources
+type ListAPI interface {
+	ListNamespaces(params ListNamespacesParams) error
+	ListProjects(params ListProjectsParams) error
+	ListComponents(params ListComponentsParams) error
+	ListEnvironments(params ListEnvironmentsParams) error
+	ListDataPlanes(params ListDataPlanesParams) error
+	ListBuildPlanes(params ListBuildPlanesParams) error
+	ListObservabilityPlanes(params ListObservabilityPlanesParams) error
+	ListComponentTypes(params ListComponentTypesParams) error
+	ListTraits(params ListTraitsParams) error
+	ListWorkflows(params ListWorkflowsParams) error
+	ListComponentWorkflows(params ListComponentWorkflowsParams) error
+	ListSecretReferences(params ListSecretReferencesParams) error
 }
