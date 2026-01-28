@@ -48,6 +48,12 @@ func GetActionDefinitions() []audit.ActionDefinition {
 			Action:   "create_environment",
 			Category: audit.CategoryResource,
 		},
+		{
+			Method:   "POST",
+			Pattern:  "/api/v1/namespaces/{namespaceName}/git-secrets",
+			Action:   "create_git_secret",
+			Category: audit.CategoryResource,
+		},
 
 		// Apply/Delete operations (kubectl-like)
 		{

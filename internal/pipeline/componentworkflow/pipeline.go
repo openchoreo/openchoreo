@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -135,6 +136,11 @@ func (p *Pipeline) renderResources(resources []v1alpha1.ComponentWorkflowResourc
 			return nil, fmt.Errorf("validation failed for resource %q: %w", res.ID, err)
 		}
 
+		// Skip resources with empty or invalid names (e.g., "-git-secret" when gitSecret.name is empty)
+		if shouldSkipResource(rendered) {
+			continue
+		}
+
 		renderedResources = append(renderedResources, RenderedResource{
 			ID:       res.ID,
 			Resource: rendered,
@@ -144,7 +150,30 @@ func (p *Pipeline) renderResources(resources []v1alpha1.ComponentWorkflowResourc
 	return renderedResources, nil
 }
 
-// buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, and parameters.* variables.
+// shouldSkipResource checks if a rendered resource should be skipped.
+// Resources with empty or invalid names (e.g., starting with dash) are skipped.
+// This handles cases where optional fields like gitSecret.name are empty.
+func shouldSkipResource(resource map[string]any) bool {
+	// Extract metadata.name from the resource
+	metadata, ok := resource["metadata"].(map[string]any)
+	if !ok {
+		return false
+	}
+
+	name, ok := metadata["name"].(string)
+	if !ok {
+		return false
+	}
+
+	// Skip if name is empty or starts with dash (indicates empty prefix like "-git-secret")
+	if name == "" || strings.HasPrefix(name, "-") {
+		return true
+	}
+
+	return false
+}
+
+// buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, parameters.*, and gitSecret.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	metadata := map[string]any{
 		"namespaceName":   input.Context.NamespaceName,
@@ -162,24 +191,51 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 		return nil, fmt.Errorf("failed to build parameters: %w", err)
 	}
 
-	return map[string]any{
+	celContext := map[string]any{
 		"metadata":         metadata,
 		"systemParameters": systemParameters,
 		"parameters":       parameters,
-	}, nil
+	}
+
+	// Always add gitSecret to context, with empty strings if not provided
+	// This prevents rendering errors when templates reference gitSecret fields
+	if input.Context.GitSecret != nil {
+		celContext["gitSecret"] = map[string]any{
+			"name":      input.Context.GitSecret.Name,
+			"key":       input.Context.GitSecret.Key,
+			"remoteKey": input.Context.GitSecret.RemoteKey,
+			"property":  input.Context.GitSecret.Property,
+		}
+	} else {
+		celContext["gitSecret"] = map[string]any{
+			"name":      "",
+			"key":       "",
+			"remoteKey": "",
+			"property":  "",
+		}
+	}
+
+	return celContext, nil
 }
 
 // buildSystemParameters converts the system parameters values to a map for CEL context.
 func buildSystemParameters(sysParams v1alpha1.SystemParametersValues) map[string]any {
-	return map[string]any{
-		"repository": map[string]any{
-			"url": sysParams.Repository.URL,
-			"revision": map[string]any{
-				"branch": sysParams.Repository.Revision.Branch,
-				"commit": sysParams.Repository.Revision.Commit,
-			},
-			"appPath": sysParams.Repository.AppPath,
+	repoMap := map[string]any{
+		"url": sysParams.Repository.URL,
+		"revision": map[string]any{
+			"branch": sysParams.Repository.Revision.Branch,
+			"commit": sysParams.Repository.Revision.Commit,
 		},
+		"appPath": sysParams.Repository.AppPath,
+	}
+
+	// Add secretRef if provided
+	if sysParams.Repository.SecretRef != "" {
+		repoMap["secretRef"] = sysParams.Repository.SecretRef
+	}
+
+	return map[string]any{
+		"repository": repoMap,
 	}
 }
 

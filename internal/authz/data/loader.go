@@ -87,6 +87,9 @@ var systemActions = []ActionData{
 	// SecretReference
 	{Name: "secretreference:view", IsInternal: false},
 
+	// GitSecret
+	{Name: "gitsecret:create", IsInternal: false},
+
 	// Workload
 	{Name: "workload:view", IsInternal: false},
 	{Name: "workload:create", IsInternal: false},

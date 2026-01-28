@@ -27,6 +27,7 @@ type Services struct {
 	DeploymentPipelineService *DeploymentPipelineService
 	SchemaService             *SchemaService
 	SecretReferenceService    *SecretReferenceService
+	GitSecretService          *GitSecretService
 	WebhookService            *WebhookService
 	AuthzService              *AuthzService
 	ObservabilityPlaneService *ObservabilityPlaneService
@@ -34,7 +35,7 @@ type Services struct {
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger) *Services {
+func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
 
@@ -51,7 +52,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	dataplaneService := NewDataPlaneService(k8sClient, logger.With("service", "dataplane"), authzPDP)
 
 	// Create build plane service with client manager for multi-cluster support
-	buildPlaneService := NewBuildPlaneService(k8sClient, k8sBPClientMgr, logger.With("service", "buildplane"), authzPDP)
+	buildPlaneService := NewBuildPlaneService(k8sClient, k8sClientMgr, logger.With("service", "buildplane"), authzPDP)
 
 	// Create deployment pipeline service (depends on project service)
 	deploymentPipelineService := NewDeploymentPipelineService(k8sClient, projectService, logger.With("service", "deployment-pipeline"), authzPDP)
@@ -80,6 +81,9 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 	// Create SecretReference service
 	secretReferenceService := NewSecretReferenceService(k8sClient, logger.With("service", "secretreference"), authzPDP)
 
+	// Create GitSecret service
+	gitSecretService := NewGitSecretService(k8sClient, k8sClientMgr, buildPlaneService, logger.With("service", "gitsecret"), authzPDP, gatewayURL)
+
 	// Create Authorization service
 	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
 
@@ -101,6 +105,7 @@ func NewServices(k8sClient client.Client, k8sBPClientMgr *kubernetesClient.KubeM
 		DeploymentPipelineService: deploymentPipelineService,
 		SchemaService:             schemaService,
 		SecretReferenceService:    secretReferenceService,
+		GitSecretService:          gitSecretService,
 		WebhookService:            webhookService,
 		AuthzService:              authzService,
 		ObservabilityPlaneService: observabilityPlaneService,

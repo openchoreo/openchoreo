@@ -69,4 +69,23 @@ type ComponentWorkflowContext struct {
 
 	// WorkflowRunName is the name of the component workflow run CR.
 	WorkflowRunName string
+
+	// GitSecret contains the git secret information extracted from SecretReference.
+	// This is optional and only set if a secretRef is specified in the ComponentWorkflowRun.
+	GitSecret *GitSecretInfo
+}
+
+// GitSecretInfo contains the resolved information from a SecretReference for use in templates.
+type GitSecretInfo struct {
+	// Name is the name of the secret reference
+	Name string
+
+	// Key is the secretKey from the SecretReference data
+	Key string
+
+	// RemoteKey is the key path in the external secret store
+	RemoteKey string
+
+	// Property is the property within the remote secret
+	Property string
 }

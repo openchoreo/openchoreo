@@ -1,0 +1,66 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package handlers
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+)
+
+// CreateGitSecret handles POST /api/v1/namespaces/{namespaceName}/git-secrets
+func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	namespaceName := r.PathValue("namespaceName")
+
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	var req models.CreateGitSecretRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		h.logger.Error("Request validation failed", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request data", services.CodeInvalidInput)
+		return
+	}
+
+	setAuditResource(ctx, "git_secret", req.SecretName, req.SecretName)
+	addAuditMetadata(ctx, "organization", namespaceName)
+
+	secret, err := h.services.GitSecretService.CreateGitSecret(ctx, namespaceName, &req)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to create git secret", "namespace", namespaceName, "secret", req.SecretName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrGitSecretAlreadyExists) {
+			writeErrorResponse(w, http.StatusConflict, "Git secret already exists", services.CodeGitSecretExists)
+			return
+		}
+		if errors.Is(err, services.ErrBuildPlaneNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Build plane not found", services.CodeBuildPlaneNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrSecretStoreNotConfigured) {
+			writeErrorResponse(w, http.StatusInternalServerError, "Build plane secret store is not configured", services.CodeSecretStoreNotConfigured)
+			return
+		}
+		h.logger.Error("Failed to create git secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create git secret", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusCreated, secret)
+}

@@ -59,6 +59,8 @@ const (
 	SystemActionViewComponentWorkflowRun systemAction = "componentworkflowrun:view"
 
 	SystemActionViewSecretReference systemAction = "secretreference:view"
+
+	SystemActionCreateGitSecret systemAction = "gitsecret:create"
 )
 
 type ResourceType string
@@ -83,6 +85,7 @@ const (
 	ResourceTypeComponentWorkflow    ResourceType = "componentWorkflow"
 	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
 	ResourceTypeSecretReference      ResourceType = "secretReference"
+	ResourceTypeGitSecret            ResourceType = "gitSecret"
 )
 
 // Workflow run status constants

@@ -23,16 +23,19 @@ type Config struct {
 	MCP MCPConfig `koanf:"mcp"`
 	// Logging defines logging settings.
 	Logging LoggingConfig `koanf:"logging"`
+	// ClusterGateway defines cluster gateway connection settings.
+	ClusterGateway ClusterGatewayConfig `koanf:"cluster_gateway"`
 }
 
 // Defaults returns the default configuration.
 func Defaults() Config {
 	return Config{
-		Server:   ServerDefaults(),
-		Security: SecurityDefaults(),
-		Identity: IdentityDefaults(),
-		MCP:      MCPDefaults(),
-		Logging:  LoggingDefaults(),
+		Server:         ServerDefaults(),
+		Security:       SecurityDefaults(),
+		Identity:       IdentityDefaults(),
+		MCP:            MCPDefaults(),
+		Logging:        LoggingDefaults(),
+		ClusterGateway: ClusterGatewayDefaults(),
 	}
 }
 
@@ -77,6 +80,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.Identity.Validate(coreconfig.NewPath("identity"))...)
 	errs = append(errs, c.MCP.Validate(coreconfig.NewPath("mcp"))...)
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
+	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
 
 	return errs.OrNil()
 }

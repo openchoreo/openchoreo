@@ -94,8 +94,34 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize build plane client manager
+	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
+	if cfg.ClusterGateway.TLS.CACertPath != "" || cfg.ClusterGateway.TLS.ClientCertPath != "" || cfg.ClusterGateway.TLS.ClientKeyPath != "" {
+		k8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+			CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
+			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
+			ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
+		})
+		logger.Info("Build plane client manager created with proxy TLS configuration",
+			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+			"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "")
+	} else {
+		k8sClientMgr = kubernetesClient.NewManager()
+		if cfg.ClusterGateway.URL != "" {
+			logger.Warn("Using insecure mode for cluster gateway connection. " +
+				"Consider configuring TLS certificates for production deployments.")
+		}
+	}
+
+	// Determine cluster gateway URL
+	gatewayURL := ""
+	if cfg.ClusterGateway.Enabled {
+		gatewayURL = cfg.ClusterGateway.URL
+	}
+
 	// Initialize services with PAP and PDP
-	services := services.NewServices(k8sClient, kubernetesClient.NewManager(), pap, pdp, logger)
+	services := services.NewServices(k8sClient, k8sClientMgr, pap, pdp, logger, gatewayURL)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))
