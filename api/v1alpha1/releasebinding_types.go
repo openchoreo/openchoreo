@@ -61,6 +61,14 @@ type ReleaseBindingSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	WorkloadOverrides *WorkloadOverrideTemplateSpec `json:"workloadOverrides,omitempty"`
+
+	// State controls the state of the Release created by this binding.
+	// Active: Resources are deployed normally
+	// Undeploy: Resources are removed from the data plane
+	// +kubebuilder:default=Active
+	// +kubebuilder:validation:Enum=Active;Undeploy
+	// +optional
+	State ReleaseState `json:"state,omitempty"`
 }
 
 // ReleaseBindingOwner identifies the component this ReleaseBinding belongs to

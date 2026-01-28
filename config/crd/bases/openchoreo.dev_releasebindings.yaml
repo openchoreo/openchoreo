@@ -90,6 +90,16 @@ spec:
                   ReleaseName is the name of the ComponentRelease to bind
                   When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
                 type: string
+              state:
+                default: Active
+                description: |-
+                  State controls the state of the Release created by this binding.
+                  Active: Resources are deployed normally
+                  Undeploy: Resources are removed from the data plane
+                enum:
+                - Active
+                - Undeploy
+                type: string
               traitOverrides:
                 additionalProperties:
                   type: object

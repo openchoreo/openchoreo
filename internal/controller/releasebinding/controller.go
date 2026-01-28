@@ -361,6 +361,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	dataPlane *openchoreov1alpha1.DataPlane, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
+	// Handle undeploy state - delete Release resources if they exist
+	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
+		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
+	}
+
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
 
@@ -454,11 +459,10 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	// Create or update dataplane Release
-	// Release name format: {component}-{environment}
-	dataPlaneReleaseName := fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
 	dataPlaneRelease := &openchoreov1alpha1.Release{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dataPlaneReleaseName,
+			Name:      dpReleaseName,
 			Namespace: releaseBinding.Namespace,
 		},
 	}
@@ -548,6 +552,95 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	return ctrl.Result{}, nil
 }
 
+// handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
+// If the Release doesn't exist, marks the binding as undeployed.
+// If the Release exists but is being deleted, reports "being undeployed".
+func (r *Reconciler) handleUndeploy(ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Get release names
+	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
+	obsReleaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
+
+	// Track release existence and deletion state
+	releaseFound := false
+	deletionPending := false
+
+	// Try to delete dataplane Release
+	dataPlaneRelease := &openchoreov1alpha1.Release{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      dpReleaseName,
+		Namespace: releaseBinding.Namespace,
+	}, dataPlaneRelease)
+
+	if err == nil {
+		releaseFound = true
+		if dataPlaneRelease.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, dataPlaneRelease); err != nil {
+				err = fmt.Errorf("failed to delete dataplane release %q: %w", dpReleaseName, err)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+			logger.Info("Deleted dataplane Release for undeploy", "release", dpReleaseName)
+		}
+		deletionPending = true
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to get dataplane Release for undeploy: %w", err)
+	}
+
+	// Try to delete observability Release
+	observabilityRelease := &openchoreov1alpha1.Release{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      obsReleaseName,
+		Namespace: releaseBinding.Namespace,
+	}, observabilityRelease)
+
+	if err == nil {
+		releaseFound = true
+		if observabilityRelease.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, observabilityRelease); err != nil {
+				err = fmt.Errorf("failed to delete observability release %q: %w", obsReleaseName, err)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+			logger.Info("Deleted observability Release for undeploy", "release", obsReleaseName)
+		}
+		deletionPending = true
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to get observability Release for undeploy: %w", err)
+	}
+
+	// Set conditions based on Release state
+	if deletionPending {
+		// Release(s) exist but being deleted
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonResourcesUndeployed, "Resources being undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourcesUndeployed, "Resources being undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionReady,
+			ReasonResourcesUndeployed, "Resources being undeployed")
+		return ctrl.Result{}, nil
+	}
+
+	if !releaseFound {
+		// All Releases are gone - mark as undeployed
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonResourcesUndeployed, "Resources undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourcesUndeployed, "Resources undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionReady,
+			ReasonResourcesUndeployed, "Resources undeployed")
+		return ctrl.Result{}, nil
+	}
+
+	// Releases were just deleted, requeue to check completion
+	return ctrl.Result{Requeue: true}, nil
+}
+
 // observabilityReleaseResult holds the result of reconciling an observability Release.
 type observabilityReleaseResult struct {
 	releaseName       string
@@ -573,8 +666,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	// 2. There must be observability plane resources to deploy
 	shouldManage := dataPlane.Spec.ObservabilityPlaneRef != "" && len(observabilityPlaneReleaseResources) > 0
 
-	// Observability Release name format: {component}-{environment}-observability
-	releaseName := fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+	releaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
 
 	result := observabilityReleaseResult{
 		releaseName:   releaseName,
@@ -703,6 +795,20 @@ func (r *Reconciler) setReleaseSyncedCondition(
 		}
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
+}
+
+// Release naming helper functions
+
+// makeDataPlaneReleaseName returns the name for a dataplane Release.
+// Format: {componentName}-{environment}
+func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
+	return fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+}
+
+// makeObservabilityReleaseName returns the name for an observability plane Release.
+// Format: {componentName}-{environment}-observability
+func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ReleaseBinding) string {
+	return fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
 }
 
 // Helper functions to build snapshot structures from ComponentRelease

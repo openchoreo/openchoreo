@@ -68,6 +68,13 @@ const (
 	ReasonReleaseOwnershipConflict controller.ConditionReason = "ReleaseOwnershipConflict"
 	// ReasonReleaseUpdateFailed indicates failure to create/update the Release
 	ReasonReleaseUpdateFailed controller.ConditionReason = "ReleaseUpdateFailed"
+	// ReasonReleaseDeletionFailed indicates failure to delete Release during undeploy
+	ReasonReleaseDeletionFailed controller.ConditionReason = "ReleaseDeletionFailed"
+
+	// ReleaseState-related reasons (intentional operational states)
+
+	// ReasonResourcesUndeployed indicates resources are intentionally undeployed (ReleaseState=Undeploy)
+	ReasonResourcesUndeployed controller.ConditionReason = "ResourcesUndeployed"
 
 	// Resource readiness issues (Status=False)
 
