@@ -46,6 +46,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=workflows,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 
@@ -151,6 +152,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// Resolve git secret if secretRef is provided
+	var gitSecret *componentworkflowpipeline.GitSecretInfo
+	if secretRef := componentWorkflowRun.Spec.Workflow.SystemParameters.Repository.SecretRef; secretRef != "" {
+		gitSecretInfo, err := r.resolveGitSecret(ctx, componentWorkflowRun.Namespace, secretRef)
+		if err != nil {
+			logger.Error(err, "failed to resolve git secret",
+				"secretRef", secretRef,
+				"namespace", componentWorkflowRun.Namespace)
+			return ctrl.Result{Requeue: true}, nil
+		}
+		gitSecret = gitSecretInfo
+	}
+
 	renderInput := &componentworkflowpipeline.RenderInput{
 		ComponentWorkflowRun: componentWorkflowRun,
 		ComponentWorkflow:    componentWorkflow,
@@ -159,6 +173,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			ProjectName:     componentWorkflowRun.Spec.Owner.ProjectName,
 			ComponentName:   componentWorkflowRun.Spec.Owner.ComponentName,
 			WorkflowRunName: componentWorkflowRun.Name,
+			GitSecret:       gitSecret,
 		},
 	}
 
@@ -464,6 +479,31 @@ func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.Build
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
 	return bpClient, nil
+}
+
+// resolveGitSecret reads the SecretReference CR and extracts git secret information for template rendering.
+func (r *ComponentWorkflowRunReconciler) resolveGitSecret(ctx context.Context, namespace, secretRefName string) (*componentworkflowpipeline.GitSecretInfo, error) {
+	secretRef := &openchoreodevv1alpha1.SecretReference{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      secretRefName,
+		Namespace: namespace,
+	}, secretRef); err != nil {
+		return nil, fmt.Errorf("failed to get SecretReference %q in namespace %q: %w", secretRefName, namespace, err)
+	}
+
+	// Extract the first data source (git secrets typically have one entry for password/token)
+	if len(secretRef.Spec.Data) == 0 {
+		return nil, fmt.Errorf("SecretReference %q has no data sources", secretRefName)
+	}
+
+	dataSource := secretRef.Spec.Data[0]
+
+	return &componentworkflowpipeline.GitSecretInfo{
+		Name:      secretRefName,
+		Key:       dataSource.SecretKey,
+		RemoteKey: dataSource.RemoteRef.Key,
+		Property:  dataSource.RemoteRef.Property,
+	}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
