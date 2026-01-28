@@ -30,6 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/internal/server/oauth"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 func main() {
@@ -74,8 +75,25 @@ func main() {
 	// Initialize metrics service
 	metricsService := prometheus.NewMetricsService(promClient, logger)
 
+	// Initialize logs backend (optional - based on experimental flag)
+	var logsBackend observability.LogsBackend
+	if cfg.Experimental.UseLogsBackend {
+		logger.Info("Experimental feature active: Using logs backend",
+			"backend_url", cfg.Experimental.LogsBackendURL)
+
+		// Initialize HTTP-based backend (e.g., OpenObserve)
+		backendConfig := service.LogsBackendConfig{
+			BaseURL: cfg.Experimental.LogsBackendURL,
+			Timeout: cfg.Experimental.LogsBackendTimeout,
+		}
+		logsBackend = service.NewLogsBackend(backendConfig)
+		logger.Info("Logs backend initialized")
+	} else {
+		logger.Info("Using OpenSearch for component logs")
+	}
+
 	// Initialize logging service
-	loggingService := service.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger)
+	loggingService := service.NewLoggingService(osClient, metricsService, k8sClient, cfg, logger, logsBackend)
 
 	// Initialize authz client
 	var authzPDP authzcore.PDP
