@@ -87,6 +87,7 @@ rules:
   - externalsecrets
   - secretstores
   - clustersecretstores
+  - pushsecrets
   verbs: ["*"]
 # Argo Workflows (for CI/CD pipelines)
 - apiGroups: ["argoproj.io"]

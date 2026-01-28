@@ -35,3 +35,7 @@ dependencies:
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0
     condition: fluent-bit.enabled
+  - name: vault
+    version: 0.29.1
+    repository: "https://helm.releases.hashicorp.com"
+    condition: vault.enabled

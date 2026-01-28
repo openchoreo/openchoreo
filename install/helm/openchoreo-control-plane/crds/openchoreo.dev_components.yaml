@@ -183,6 +183,12 @@ spec:
                             required:
                             - branch
                             type: object
+                          secretRef:
+                            description: |-
+                              SecretRef is the name of the SecretReference for Git credentials.
+                              This should reference a SecretReference CR in the same namespace.
+                              Example: "my-git-credentials"
+                            type: string
                           url:
                             description: |-
                               URL is the Git repository URL for the component source code.

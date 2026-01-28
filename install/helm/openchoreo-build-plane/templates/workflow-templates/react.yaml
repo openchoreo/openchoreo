@@ -63,7 +63,7 @@ spec:
             #####################################################################
             # 2. Read authentication token
             #####################################################################
-            TOKEN_FILE="/etc/secrets/git-secret/git-token"
+            TOKEN_FILE="/etc/secrets/git-secret/password"
             GIT_TOKEN=""
             if [ -f "$TOKEN_FILE" ]; then
               GIT_TOKEN="$(cat "$TOKEN_FILE")"

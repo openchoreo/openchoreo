@@ -631,6 +631,184 @@ fluent-bit:
 # @schema
 # type: object
 # additionalProperties: true
+# description: HashiCorp Vault sub-chart configuration for secrets management. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/hashicorp/vault-helm for all options.
+# @schema
+vault:
+  # @schema
+  # type: boolean
+  # description: Enable HashiCorp Vault installation
+  # default: true
+  # @schema
+  enabled: true
+
+  # @schema
+  # type: string
+  # description: Override the full name of Vault resources
+  # default: hashicorp-vault
+  # @schema
+  fullnameOverride: hashicorp-vault
+
+  # @schema
+  # type: string
+  # description: Override the name of Vault resources
+  # default: hashicorp-vault
+  # @schema
+  nameOverride: hashicorp-vault
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Vault server configuration
+  # @schema
+  server:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the Vault server
+    # @schema
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Development mode configuration. WARNING - dev mode is NOT for production use.
+    # @schema
+    dev:
+      # @schema
+      # type: boolean
+      # description: Enable Vault dev mode (in-memory storage, auto-unsealed)
+      # default: true
+      # @schema
+      enabled: true
+
+      # @schema
+      # type: string
+      # description: Root token for dev mode. Only used in development.
+      # default: root
+      # @schema
+      devRootToken: "root"
+
+      # @schema
+      # description: Log level for Vault server
+      # enum: [trace, debug, info, warn, error]
+      # default: info
+      # @schema
+      logLevel: "info"
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Readiness probe configuration for Vault server
+    # @schema
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "vault status -tls-skip-verify"]
+      initialDelaySeconds: 5
+      timeoutSeconds: 10
+      periodSeconds: 10
+      failureThreshold: 3
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Vault Agent Injector configuration
+  # @schema
+  injector:
+    # @schema
+    # type: boolean
+    # description: Enable the Vault Agent Injector
+    # default: false
+    # @schema
+    enabled: false
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the Vault injector
+    # @schema
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: ClusterSecretStore configuration for ESO integration with Vault
+  # @schema
+  secretStore:
+    # @schema
+    # type: string
+    # description: Name of the ClusterSecretStore resource
+    # default: vault
+    # @schema
+    name: vault
+
+    # @schema
+    # type: string
+    # description: Vault secrets engine path
+    # default: secret
+    # @schema
+    path: secret
+
+    # @schema
+    # type: string
+    # description: Vault KV secrets engine version (v1 or v2)
+    # default: v2
+    # @schema
+    version: v2
+
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Authentication configuration for Vault
+    # @schema
+    auth:
+      # @schema
+      # type: object
+      # additionalProperties: false
+      # description: Kubernetes authentication configuration
+      # @schema
+      kubernetes:
+        # @schema
+        # type: string
+        # description: Vault auth method mount path
+        # default: kubernetes
+        # @schema
+        mountPath: kubernetes
+
+        # @schema
+        # type: string
+        # description: Vault role name for authentication. Use openchoreo-secret-writer-role for PushSecrets support.
+        # default: openchoreo-secret-writer-role
+        # @schema
+        role: openchoreo-secret-writer-role
+
+        # @schema
+        # type: string
+        # description: ServiceAccount name for Vault authentication
+        # default: external-secrets
+        # @schema
+        serviceAccountName: external-secrets
+
+        # @schema
+        # type: string
+        # description: Namespace of the ServiceAccount for Vault authentication. Defaults to release namespace.
+        # @schema
+        serviceAccountNamespace: ""
+
+# @schema
+# type: object
+# additionalProperties: true
 # description: Cluster Agent configuration for agent-based communication with control plane
 # @schema
 clusterAgent:

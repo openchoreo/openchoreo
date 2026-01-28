@@ -152,6 +152,15 @@ spec:
                             - branch
                             - commit
                             type: object
+                          secretRef:
+                            description: |-
+                              SecretRef is the schema definition for the Git credentials secret reference name.
+                              Must be a string type schema definition.
+                              Format: 'string | default=value description=...'
+                              Example: 'string | description="Secret reference name for Git credentials"'
+                            minLength: 1
+                            pattern: ^string(\s*\|.*)?$
+                            type: string
                           url:
                             description: |-
                               URL is the schema definition for the Git repository URL field.

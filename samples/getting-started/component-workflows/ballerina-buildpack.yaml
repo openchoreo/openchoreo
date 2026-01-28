@@ -56,20 +56,23 @@ spec:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${metadata.workflowRunName}-git-secret
+          name: ${gitSecret.name}-git-secret
           namespace: openchoreo-ci-${metadata.namespaceName}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: vault
           target:
-            name: ${metadata.workflowRunName}-git-secret
+            name: ${gitSecret.name}-git-secret
             creationPolicy: Owner
+            template:
+              type: kubernetes.io/basic-auth
           data:
-            - secretKey: git-token
+            - secretKey: ${gitSecret.key}
               remoteRef:
-                key: git-token
+                key: ${gitSecret.remoteKey}
+                property: ${gitSecret.property}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

@@ -10,6 +10,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -50,7 +51,7 @@ spec:
           - name: image-tag
             value: v1
           - name: git-secret
-            value: ${metadata.workflowRunName}-git-secret
+            value: ${gitSecret.name}-git-secret
           - name: registry-push-secret
             value: ${metadata.workflowRunName}-registry-push-secret
       serviceAccountName: workflow-sa
@@ -63,20 +64,23 @@ spec:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${metadata.workflowRunName}-git-secret
+          name: ${gitSecret.name}-git-secret
           namespace: openchoreo-ci-${metadata.namespaceName}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: vault
           target:
-            name: ${metadata.workflowRunName}-git-secret
+            name: ${gitSecret.name}-git-secret
             creationPolicy: Owner
+            template:
+              type: kubernetes.io/basic-auth
           data:
-            - secretKey: git-token
+            - secretKey: ${gitSecret.key}
               remoteRef:
-                key: git-token
+                key: ${gitSecret.remoteKey}
+                property: ${gitSecret.property}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

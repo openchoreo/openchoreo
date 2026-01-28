@@ -1020,6 +1020,331 @@
       "title": "global",
       "type": "object"
     },
+    "vault": {
+      "additionalProperties": true,
+      "description": "HashiCorp Vault sub-chart configuration for secrets management. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/hashicorp/vault-helm for all options.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Enable HashiCorp Vault installation",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "hashicorp-vault",
+          "description": "Override the full name of Vault resources",
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "injector": {
+          "additionalProperties": true,
+          "description": "Vault Agent Injector configuration",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the Vault Agent Injector",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource limits and requests for the Vault injector",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memory",
+                    "cpu"
+                  ],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "50m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "64Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memory",
+                    "cpu"
+                  ],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "requests",
+                "limits"
+              ],
+              "title": "resources",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "injector",
+          "type": "object"
+        },
+        "nameOverride": {
+          "default": "hashicorp-vault",
+          "description": "Override the name of Vault resources",
+          "title": "nameOverride",
+          "type": "string"
+        },
+        "secretStore": {
+          "additionalProperties": false,
+          "description": "ClusterSecretStore configuration for ESO integration with Vault",
+          "properties": {
+            "auth": {
+              "additionalProperties": false,
+              "description": "Authentication configuration for Vault",
+              "properties": {
+                "kubernetes": {
+                  "additionalProperties": false,
+                  "description": "Kubernetes authentication configuration",
+                  "properties": {
+                    "mountPath": {
+                      "default": "kubernetes",
+                      "description": "Vault auth method mount path",
+                      "title": "mountPath",
+                      "type": "string"
+                    },
+                    "role": {
+                      "default": "openchoreo-secret-writer-role",
+                      "description": "Vault role name for authentication. Use openchoreo-secret-writer-role for PushSecrets support.",
+                      "title": "role",
+                      "type": "string"
+                    },
+                    "serviceAccountName": {
+                      "default": "external-secrets",
+                      "description": "ServiceAccount name for Vault authentication",
+                      "title": "serviceAccountName",
+                      "type": "string"
+                    },
+                    "serviceAccountNamespace": {
+                      "default": "",
+                      "description": "Namespace of the ServiceAccount for Vault authentication. Defaults to release namespace.",
+                      "title": "serviceAccountNamespace",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "kubernetes",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "auth",
+              "type": "object"
+            },
+            "name": {
+              "default": "vault",
+              "description": "Name of the ClusterSecretStore resource",
+              "title": "name",
+              "type": "string"
+            },
+            "path": {
+              "default": "secret",
+              "description": "Vault secrets engine path",
+              "title": "path",
+              "type": "string"
+            },
+            "version": {
+              "default": "v2",
+              "description": "Vault KV secrets engine version (v1 or v2)",
+              "title": "version",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "secretStore",
+          "type": "object"
+        },
+        "server": {
+          "additionalProperties": true,
+          "description": "Vault server configuration",
+          "properties": {
+            "dev": {
+              "additionalProperties": true,
+              "description": "Development mode configuration. WARNING - dev mode is NOT for production use.",
+              "properties": {
+                "devRootToken": {
+                  "default": "root",
+                  "description": "Root token for dev mode. Only used in development.",
+                  "title": "devRootToken",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": true,
+                  "description": "Enable Vault dev mode (in-memory storage, auto-unsealed)",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "logLevel": {
+                  "default": "info",
+                  "description": "Log level for Vault server",
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "info",
+                    "warn",
+                    "error"
+                  ],
+                  "required": [],
+                  "title": "logLevel"
+                }
+              },
+              "required": [],
+              "title": "dev",
+              "type": "object"
+            },
+            "readinessProbe": {
+              "additionalProperties": true,
+              "description": "Readiness probe configuration for Vault server",
+              "properties": {
+                "exec": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "title": "command",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "title": "exec",
+                  "type": "object"
+                },
+                "failureThreshold": {
+                  "default": 3,
+                  "title": "failureThreshold",
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "default": 5,
+                  "title": "initialDelaySeconds",
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "default": 10,
+                  "title": "periodSeconds",
+                  "type": "integer"
+                },
+                "timeoutSeconds": {
+                  "default": 10,
+                  "title": "timeoutSeconds",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "exec",
+                "initialDelaySeconds",
+                "timeoutSeconds",
+                "periodSeconds",
+                "failureThreshold"
+              ],
+              "title": "readinessProbe",
+              "type": "object"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource limits and requests for the Vault server",
+              "properties": {
+                "limits": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memory",
+                    "cpu"
+                  ],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cpu": {
+                      "default": "50m",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "64Mi",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "memory",
+                    "cpu"
+                  ],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "requests",
+                "limits"
+              ],
+              "title": "resources",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "server",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "vault",
+      "type": "object"
+    },
     "waitJob": {
       "additionalProperties": false,
       "description": "Wait job configuration for post-install hooks",
