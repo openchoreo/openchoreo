@@ -18,14 +18,22 @@ import (
 
 // Config holds all configuration for the logging service
 type Config struct {
-	Server     ServerConfig     `koanf:"server"`
-	OpenSearch OpenSearchConfig `koanf:"opensearch"`
-	Prometheus PrometheusConfig `koanf:"prometheus"`
-	Auth       AuthConfig       `koanf:"auth"`
-	Authz      AuthzConfig      `koanf:"authz"`
-	Logging    LoggingConfig    `koanf:"logging"`
-	Alerting   AlertingConfig   `koanf:"alerting"`
-	LogLevel   string           `koanf:"loglevel"`
+	Server       ServerConfig       `koanf:"server"`
+	OpenSearch   OpenSearchConfig   `koanf:"opensearch"`
+	Prometheus   PrometheusConfig   `koanf:"prometheus"`
+	Auth         AuthConfig         `koanf:"auth"`
+	Authz        AuthzConfig        `koanf:"authz"`
+	Logging      LoggingConfig      `koanf:"logging"`
+	Alerting     AlertingConfig     `koanf:"alerting"`
+	Experimental ExperimentalConfig `koanf:"experimental"`
+	LogLevel     string             `koanf:"loglevel"`
+}
+
+// ExperimentalConfig holds experimental feature flags
+type ExperimentalConfig struct {
+	UseLogsBackend     bool          `koanf:"use.logs.backend"`
+	LogsBackendURL     string        `koanf:"logs.backend.url"`
+	LogsBackendTimeout time.Duration `koanf:"logs.backend.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -122,37 +130,40 @@ func Load() (*Config, error) {
 
 	// Define environment variable mappings
 	envMappings := map[string]string{
-		"SERVER_PORT":                     "server.port",
-		"SERVER_READ_TIMEOUT":             "server.read.timeout",
-		"SERVER_WRITE_TIMEOUT":            "server.write.timeout",
-		"SERVER_SHUTDOWN_TIMEOUT":         "server.shutdown.timeout",
-		"OPENSEARCH_ADDRESS":              "opensearch.address",
-		"OPENSEARCH_USERNAME":             "opensearch.username",
-		"OPENSEARCH_PASSWORD":             "opensearch.password",
-		"OPENSEARCH_TIMEOUT":              "opensearch.timeout",
-		"OPENSEARCH_MAX_RETRIES":          "opensearch.max.retries",
-		"OPENSEARCH_INDEX_PREFIX":         "opensearch.index.prefix",
-		"OPENSEARCH_INDEX_PATTERN":        "opensearch.index.pattern",
-		"OPENSEARCH_LEGACY_PATTERN":       "opensearch.legacy.pattern",
-		"PROMETHEUS_ADDRESS":              "prometheus.address",
-		"PROMETHEUS_TIMEOUT":              "prometheus.timeout",
-		"AUTH_JWT_SECRET":                 "auth.jwt.secret",
-		"AUTH_ENABLE_AUTH":                "auth.enable.auth",
-		"AUTH_REQUIRED_ROLE":              "auth.required.role",
-		"AUTHZ_ENABLED":                   "authz.enabled",
-		"AUTHZ_SERVICE_URL":               "authz.service.url",
-		"AUTHZ_TIMEOUT":                   "authz.timeout",
-		"LOGGING_MAX_LOG_LIMIT":           "logging.max.log.limit",
-		"LOGGING_DEFAULT_LOG_LIMIT":       "logging.default.log.limit",
-		"LOGGING_DEFAULT_BUILD_LOG_LIMIT": "logging.default.build.log.limit",
-		"LOGGING_MAX_LOG_LINES_PER_FILE":  "logging.max.log.lines.per.file",
-		"RCA_SERVICE_URL":                 "alerting.rca.service.url",
-		"OBSERVABILITY_NAMESPACE":         "alerting.observability.namespace",
-		"LOG_LEVEL":                       "loglevel",
-		"PORT":                            "server.port",           // Common alias
-		"JWT_SECRET":                      "auth.jwt.secret",       // Common alias
-		"ENABLE_AUTH":                     "auth.enable.auth",      // Common alias
-		"MAX_LOG_LIMIT":                   "logging.max.log.limit", // Common alias
+		"SERVER_PORT":                       "server.port",
+		"SERVER_READ_TIMEOUT":               "server.read.timeout",
+		"SERVER_WRITE_TIMEOUT":              "server.write.timeout",
+		"SERVER_SHUTDOWN_TIMEOUT":           "server.shutdown.timeout",
+		"OPENSEARCH_ADDRESS":                "opensearch.address",
+		"OPENSEARCH_USERNAME":               "opensearch.username",
+		"OPENSEARCH_PASSWORD":               "opensearch.password",
+		"OPENSEARCH_TIMEOUT":                "opensearch.timeout",
+		"OPENSEARCH_MAX_RETRIES":            "opensearch.max.retries",
+		"OPENSEARCH_INDEX_PREFIX":           "opensearch.index.prefix",
+		"OPENSEARCH_INDEX_PATTERN":          "opensearch.index.pattern",
+		"OPENSEARCH_LEGACY_PATTERN":         "opensearch.legacy.pattern",
+		"PROMETHEUS_ADDRESS":                "prometheus.address",
+		"PROMETHEUS_TIMEOUT":                "prometheus.timeout",
+		"AUTH_JWT_SECRET":                   "auth.jwt.secret",
+		"AUTH_ENABLE_AUTH":                  "auth.enable.auth",
+		"AUTH_REQUIRED_ROLE":                "auth.required.role",
+		"AUTHZ_ENABLED":                     "authz.enabled",
+		"AUTHZ_SERVICE_URL":                 "authz.service.url",
+		"AUTHZ_TIMEOUT":                     "authz.timeout",
+		"LOGGING_MAX_LOG_LIMIT":             "logging.max.log.limit",
+		"LOGGING_DEFAULT_LOG_LIMIT":         "logging.default.log.limit",
+		"LOGGING_DEFAULT_BUILD_LOG_LIMIT":   "logging.default.build.log.limit",
+		"LOGGING_MAX_LOG_LINES_PER_FILE":    "logging.max.log.lines.per.file",
+		"RCA_SERVICE_URL":                   "alerting.rca.service.url",
+		"OBSERVABILITY_NAMESPACE":           "alerting.observability.namespace",
+		"LOG_LEVEL":                         "loglevel",
+		"PORT":                              "server.port",           // Common alias
+		"JWT_SECRET":                        "auth.jwt.secret",       // Common alias
+		"ENABLE_AUTH":                       "auth.enable.auth",      // Common alias
+		"MAX_LOG_LIMIT":                     "logging.max.log.limit", // Common alias
+		"EXPERIMENTAL_USE_LOGS_BACKEND":     "experimental.use.logs.backend",
+		"EXPERIMENTAL_LOGS_BACKEND_URL":     "experimental.logs.backend.url",
+		"EXPERIMENTAL_LOGS_BACKEND_TIMEOUT": "experimental.logs.backend.timeout",
 	}
 
 	// Check for environment variables and map them to nested structure
@@ -256,6 +267,11 @@ func getDefaults() map[string]interface{} {
 		"alerting": map[string]interface{}{
 			"rca.service.url":         "http://ai-rca-agent:8080",
 			"observability.namespace": "openchoreo-observability-plane",
+		},
+		"experimental": map[string]interface{}{
+			"use.logs.backend":     false,
+			"logs.backend.url":     "",
+			"logs.backend.timeout": "30s",
 		},
 		"loglevel": "info",
 	}

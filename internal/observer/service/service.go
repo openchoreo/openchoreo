@@ -30,6 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 const (
@@ -60,6 +61,7 @@ type LoggingService struct {
 	k8sClient      client.Client
 	config         *config.Config
 	logger         *slog.Logger
+	logsBackend    observability.LogsBackend // Optional: Logs backend for fetching logs
 }
 
 // LogResponse represents the response structure for log queries
@@ -82,7 +84,8 @@ type HTTPMetricsTimeSeries struct {
 }
 
 // NewLoggingService creates a new logging service instance
-func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, k8sClient client.Client, cfg *config.Config, logger *slog.Logger) *LoggingService {
+// logsBackend is optional - if nil, OpenSearch will be used for component logs
+func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.MetricsService, k8sClient client.Client, cfg *config.Config, logger *slog.Logger, logsBackend observability.LogsBackend) *LoggingService {
 	return &LoggingService{
 		osClient:       osClient,
 		queryBuilder:   opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
@@ -90,6 +93,7 @@ func NewLoggingService(osClient OpenSearchClient, metricsService *prometheus.Met
 		k8sClient:      k8sClient,
 		config:         cfg,
 		logger:         logger,
+		logsBackend:    logsBackend,
 	}
 }
 
@@ -238,12 +242,73 @@ func (s *LoggingService) GetWorkflowRunLogs(ctx context.Context, params opensear
 	}, nil
 }
 
-// GetComponentLogs retrieves logs for a specific component using V2 wildcard search
-func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (*LogResponse, error) {
+// GetComponentLogs retrieves logs for a specific component
+// If experimental.use.logs.backend is enabled, uses logs backend
+// Otherwise, falls back to OpenSearch
+func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch.ComponentQueryParams) (*observability.ComponentApplicationLogsResult, error) {
 	s.logger.Info("Getting component logs",
 		"component_id", params.ComponentID,
 		"environment_id", params.EnvironmentID,
-		"search_phrase", params.SearchPhrase)
+		"search_phrase", params.SearchPhrase,
+		"use_backend", s.config.Experimental.UseLogsBackend)
+
+	// Check if backend is enabled and available
+	if s.config.Experimental.UseLogsBackend && s.logsBackend != nil {
+		// Parse time parameters for backend
+		startTime, err := time.Parse(time.RFC3339, params.StartTime)
+		if err != nil {
+			s.logger.Error("Failed to parse start time", "error", err)
+			return nil, fmt.Errorf("failed to parse start time: %w", err)
+		}
+		endTime, err := time.Parse(time.RFC3339, params.EndTime)
+		if err != nil {
+			s.logger.Error("Failed to parse end time", "error", err)
+			return nil, fmt.Errorf("failed to parse end time: %w", err)
+		}
+
+		// Convert to observability package params for backend
+		backendParams := observability.ComponentApplicationLogsParams{
+			ComponentID:   params.ComponentID,
+			EnvironmentID: params.EnvironmentID,
+			ProjectID:     params.ProjectID,
+			Namespace:     params.Namespace,
+			StartTime:     startTime,
+			EndTime:       endTime,
+			SearchPhrase:  params.SearchPhrase,
+			LogLevels:     params.LogLevels,
+			Versions:      params.Versions,
+			VersionIDs:    params.VersionIDs,
+			Limit:         params.Limit,
+			SortOrder:     params.SortOrder,
+		}
+
+		return s.getComponentApplicationLogsFromBackend(ctx, backendParams)
+	}
+
+	// Fallback: Use OpenSearch in Observer
+	return s.getComponentLogsFromOpenSearch(ctx, params)
+}
+
+// getComponentLogsFromBackend fetches logs from the configured logs backend (e.g., OpenObserve)
+// Backend implements observability.LogsBackend interface and returns observability.ComponentLogsResult directly
+func (s *LoggingService) getComponentApplicationLogsFromBackend(ctx context.Context, params observability.ComponentApplicationLogsParams) (*observability.ComponentApplicationLogsResult, error) {
+	// Call the logs backend directly - it implements observability.LogsBackend interface
+	result, err := s.logsBackend.GetComponentApplicationLogs(ctx, params)
+	if err != nil {
+		s.logger.Error("Failed to get component logs from backend", "error", err)
+		return nil, fmt.Errorf("Failed to get component logs from backend: %w", err)
+	}
+
+	s.logger.Debug("Component logs retrieved from backend",
+		"count", len(result.Logs),
+		"total", result.TotalCount)
+
+	return result, nil
+}
+
+// getComponentLogsFromOpenSearch fetches logs from OpenSearch
+func (s *LoggingService) getComponentLogsFromOpenSearch(ctx context.Context, params opensearch.ComponentQueryParams) (*observability.ComponentApplicationLogsResult, error) {
+	s.logger.Info("Using OpenSearch for component logs (legacy)")
 
 	// Generate indices based on time range
 	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
@@ -263,17 +328,31 @@ func (s *LoggingService) GetComponentLogs(ctx context.Context, params opensearch
 	}
 
 	// Parse log entries
-	logs := make([]opensearch.LogEntry, 0, len(response.Hits.Hits))
+	logs := make([]observability.LogEntry, 0, len(response.Hits.Hits))
 	for _, hit := range response.Hits.Hits {
-		entry := opensearch.ParseLogEntry(hit)
-		logs = append(logs, entry)
+		osEntry := opensearch.ParseLogEntry(hit)
+		// Convert opensearch.LogEntry to observability.LogEntry
+		logs = append(logs, observability.LogEntry{
+			Timestamp:     osEntry.Timestamp,
+			Log:           osEntry.Log,
+			LogLevel:      osEntry.LogLevel,
+			ComponentID:   osEntry.ComponentID,
+			EnvironmentID: osEntry.EnvironmentID,
+			ProjectID:     osEntry.ProjectID,
+			Version:       osEntry.Version,
+			VersionID:     osEntry.VersionID,
+			Namespace:     osEntry.Namespace,
+			PodID:         osEntry.PodID,
+			ContainerName: osEntry.ContainerName,
+			Labels:        osEntry.Labels,
+		})
 	}
 
 	s.logger.Info("Component logs retrieved",
 		"count", len(logs),
 		"total", response.Hits.Total.Value)
 
-	return &LogResponse{
+	return &observability.ComponentApplicationLogsResult{
 		Logs:       logs,
 		TotalCount: response.Hits.Total.Value,
 		Took:       response.Took,
