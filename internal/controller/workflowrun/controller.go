@@ -532,7 +532,7 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 	}
 
 	// Collect Pod nodes with their order index
-	var tasksWithOrder []taskWithOrder
+	tasksWithOrder := make([]taskWithOrder, 0, len(nodes))
 
 	for _, node := range nodes {
 		// Only consider Pod nodes - these are the actual step executions
