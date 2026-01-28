@@ -1,0 +1,82 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: bulk-gitops-release
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Bulk release workflow that generates ComponentReleases and ReleaseBindings for all components or a specific project"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.namespaceName}    - Namespace
+  # ${parameters.*}              - Developer-provided values from parameters schema
+
+  # Schema definition for workflows
+  schema:
+    # Developer-configurable parameters
+    parameters:
+      scope:
+        all: boolean | default=false description="Release all components across all projects"
+        projectName: string | description="Project name to release (ignored if all=true)"
+      gitops:
+        repositoryUrl: string | description="GitOps repository URL"
+        branch: string | default=main description="GitOps repository branch"
+        targetEnvironment: string | default=development description="Target environment name for deployment"
+        deploymentPipeline: string | description="Deployment pipeline name for the target environment"
+
+  # Rendered workflow resource for WorkflowRun executions
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: namespace-name
+            value: ${metadata.namespaceName}
+          # Scope parameters
+          - name: scope-all
+            value: ${parameters.scope.all}
+          - name: scope-project-name
+            value: |
+              ${parameters.scope.all ? "" : parameters.scope.projectName}
+          # GitOps parameters
+          - name: gitops-repo-url
+            value: ${parameters.gitops.repositoryUrl}
+          - name: gitops-branch
+            value: ${parameters.gitops.branch}
+          - name: gitops-target-environment
+            value: ${parameters.gitops.targetEnvironment}
+          - name: gitops-deployment-pipeline
+            value: ${parameters.gitops.deploymentPipeline}
+          # GitOps git secret (for private repos and PR creation)
+          - name: gitops-git-secret
+            value: ${metadata.workflowRunName}-gitops-git-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: bulk-gitops-release
+
+  # External secrets for accessing private repositories
+  resources:
+    - id: gitops-git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-gitops-git-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-gitops-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: gitops-token
