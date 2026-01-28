@@ -17,6 +17,12 @@ spec:
         env:
           - key: PRODUCT_CATALOG_SERVICE_ADDR
             value: "http://localhost:8080"
+  componentTypeEnvOverrides:                                       # Added to rollout restart the frontend service (Due to https://github.com/openchoreo/openchoreo/issues/1634)
+    resources:
+      requests:
+        cpu: "60m"
+      limits:
+        cpu: "250m"
   traitOverrides:
     frontend-rpc-unavailable-error-log-alert:
       enabled: true                                                 # Alert rules can be enabled/disabled per environment. Default is true.
