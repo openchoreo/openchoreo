@@ -180,69 +180,27 @@ Examples:
 	}
 
 	ListNamespace = Command{
-		Use:     "namespace",
-		Aliases: []string{"namespaces", "ns"},
+		Use:     "list",
 		Short:   "List namespaces",
-		Long: fmt.Sprintf(`List all namespaces or get details of a specific namespace.
-
-Examples:
-  # List all namespaces
-  %[1]s get namespace
-
-  # List a specific namespace
-  %[1]s get namespace acme-corp
-
-  # Output namespace details in YAML format
-  %[1]s get namespace -o yaml
-
-  # Output specific namespace in YAML format
-  %[1]s get namespace acme-corp -o yaml`,
-			messages.DefaultCLIName),
+		Long:    `List all namespaces.`,
+		Example: `  # List all namespaces
+  occ namespace list`,
 	}
 
 	ListProject = Command{
-		Use:     "project",
-		Aliases: []string{"proj", "projects"},
+		Use:     "list",
 		Short:   "List projects",
-		Long: fmt.Sprintf(`List all projects in a namespace or get details of a specific project.
-
-Examples:
-  # List all projects in the current namespace
-  %[1]s get project
-
-  # List all projects in a specific namespace
-  %[1]s get project --namespace acme-corp
-
-  # List a specific project
-  %[1]s get project online-store --namespace acme-corp
-
-  # Output project details in YAML format
-  %[1]s get project -o yaml --namespace acme-corp
-
-  # Output specific project in YAML format
-  %[1]s get project online-store -o yaml --namespace acme-corp`,
-			messages.DefaultCLIName),
+		Long:    `List all projects in a namespace.`,
+		Example: `  # List all projects in a namespace
+  occ project list --namespace acme-corp`,
 	}
 
 	ListComponent = Command{
-		Use:     "component",
-		Aliases: []string{"comp", "components"},
+		Use:     "list",
 		Short:   "List components",
-		Long: fmt.Sprintf(`List all components in a project or get details of a specific component.
-
-Examples:
-  # List all components in the current project
-  %[1]s get component --namespace acme-corp --project online-store
-
-  # List a specific component
-  %[1]s get component product-catalog --namespace acme-corp --project online-store
-
-  # Output component details in YAML format
-  %[1]s get component -o yaml --namespace acme-corp --project online-store
-
-  # Output specific component in YAML format
-  %[1]s get component product-catalog -o yaml --namespace acme-corp --project online-store`,
-			messages.DefaultCLIName),
+		Long:    `List all components in a project.`,
+		Example: `  # List all components in a project
+  occ component list --namespace acme-corp --project online-store`,
 	}
 
 	Logs = Command{
@@ -398,18 +356,11 @@ This command allows you to:
 	}
 
 	ListEnvironment = Command{
-		Use:     "environment [name]",
-		Aliases: []string{"env", "environments", "envs"},
+		Use:     "list",
 		Short:   "List environments",
-		Long:    `List all environments or a specific environment in a namespace.`,
+		Long:    `List all environments in a namespace.`,
 		Example: `  # List all environments in a namespace
-  occ get environment --namespace acme-corp
-
-  # List a specific environment
-  occ get environment development --namespace acme-corp
-
-  # Output environments in YAML format
-  occ get environment --namespace acme-corp -o yaml`,
+  occ environment list --namespace acme-corp`,
 	}
 
 	CreateDataPlane = Command{
@@ -424,18 +375,11 @@ This command allows you to:
 	}
 
 	ListDataPlane = Command{
-		Use:     "dataplane [name]",
-		Aliases: []string{"dp", "dataplanes"},
+		Use:     "list",
 		Short:   "List data planes",
-		Long:    `List all data planes or a specific data plane in a namespace.`,
-		Example: `  # List all data planes
-  occ get dataplane --namespace acme-corp
-
-  # List a specific data plane
-  occ get dataplane primary-dataplane --namespace acme-corp
-
-  # Output data plane details in YAML format
-  occ get dataplane --namespace acme-corp -o yaml`,
+		Long:    `List all data planes in a namespace.`,
+		Example: `  # List all data planes in a namespace
+  occ dataplane list --namespace acme-corp`,
 	}
 
 	ListEndpoint = Command{
@@ -521,6 +465,147 @@ This command allows you to:
 
   # Output configuration group details in YAML format
   occ get configurationgroup --namespace acme-corp -o yaml`,
+	}
+
+	ListBuildPlane = Command{
+		Use:     "list",
+		Short:   "List build planes",
+		Long:    `List all build planes in a namespace.`,
+		Example: `  # List all build planes in a namespace
+  occ buildplane list --namespace acme-corp`,
+	}
+
+	ListObservabilityPlane = Command{
+		Use:     "list",
+		Short:   "List observability planes",
+		Long:    `List all observability planes in a namespace.`,
+		Example: `  # List all observability planes in a namespace
+  occ observabilityplane list --namespace acme-corp`,
+	}
+
+	ListComponentType = Command{
+		Use:     "list",
+		Short:   "List component types",
+		Long:    `List all component types available in a namespace.`,
+		Example: `  # List all component types in a namespace
+  occ componenttype list --namespace acme-corp`,
+	}
+
+	ListTrait = Command{
+		Use:     "list",
+		Short:   "List traits",
+		Long:    `List all traits available in a namespace.`,
+		Example: `  # List all traits in a namespace
+  occ trait list --namespace acme-corp`,
+	}
+
+	ListWorkflow = Command{
+		Use:     "list",
+		Short:   "List workflows",
+		Long:    `List all workflows available in a namespace.`,
+		Example: `  # List all workflows in a namespace
+  occ workflow list --namespace acme-corp`,
+	}
+
+	ListComponentWorkflow = Command{
+		Use:     "list",
+		Short:   "List component workflows",
+		Long:    `List all component workflow templates available in a namespace.`,
+		Example: `  # List all component workflows in a namespace
+  occ componentworkflow list --namespace acme-corp`,
+	}
+
+	ListSecretReference = Command{
+		Use:     "list",
+		Short:   "List secret references",
+		Long:    `List all secret references in a namespace.`,
+		Example: `  # List all secret references in a namespace
+  occ secretreference list --namespace acme-corp`,
+	}
+
+	// Resource root commands
+	BuildPlane = Command{
+		Use:     "buildplane",
+		Aliases: []string{"bp", "buildplanes"},
+		Short:   "Manage build planes",
+		Long:    `Manage build planes for OpenChoreo.`,
+	}
+
+	ObservabilityPlane = Command{
+		Use:     "observabilityplane",
+		Aliases: []string{"op", "observabilityplanes"},
+		Short:   "Manage observability planes",
+		Long:    `Manage observability planes for OpenChoreo.`,
+	}
+
+	ComponentType = Command{
+		Use:     "componenttype",
+		Aliases: []string{"ct", "componenttypes"},
+		Short:   "Manage component types",
+		Long:    `Manage component types for OpenChoreo.`,
+	}
+
+	Trait = Command{
+		Use:     "trait",
+		Aliases: []string{"traits"},
+		Short:   "Manage traits",
+		Long:    `Manage traits for OpenChoreo.`,
+	}
+
+	Workflow = Command{
+		Use:     "workflow",
+		Aliases: []string{"wf", "workflows"},
+		Short:   "Manage workflows",
+		Long:    `Manage workflows for OpenChoreo.`,
+	}
+
+	ComponentWorkflow = Command{
+		Use:     "componentworkflow",
+		Aliases: []string{"cw", "componentworkflows"},
+		Short:   "Manage component workflows",
+		Long:    `Manage component workflow templates for OpenChoreo.`,
+	}
+
+	SecretReference = Command{
+		Use:     "secretreference",
+		Aliases: []string{"sr", "secretreferences", "secret-ref"},
+		Short:   "Manage secret references",
+		Long:    `Manage secret references for OpenChoreo.`,
+	}
+
+	Namespace = Command{
+		Use:     "namespace",
+		Aliases: []string{"ns", "namespaces"},
+		Short:   "Manage namespaces",
+		Long:    `Manage namespaces for OpenChoreo.`,
+	}
+
+	Project = Command{
+		Use:     "project",
+		Aliases: []string{"proj", "projects"},
+		Short:   "Manage projects",
+		Long:    `Manage projects for OpenChoreo.`,
+	}
+
+	Component = Command{
+		Use:     "component",
+		Aliases: []string{"comp", "components"},
+		Short:   "Manage components",
+		Long:    `Manage components for OpenChoreo.`,
+	}
+
+	Environment = Command{
+		Use:     "environment",
+		Aliases: []string{"env", "environments", "envs"},
+		Short:   "Manage environments",
+		Long:    `Manage environments for OpenChoreo.`,
+	}
+
+	DataPlane = Command{
+		Use:     "dataplane",
+		Aliases: []string{"dp", "dataplanes"},
+		Short:   "Manage data planes",
+		Long:    `Manage data planes for OpenChoreo.`,
 	}
 
 	// ------------------------------------------------------------------------
