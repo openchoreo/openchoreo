@@ -29,6 +29,7 @@ data:
       authentication:
         jwt:
           enabled: {{ .Values.security.enabled }}
+          issuer: {{ .Values.thunder.configuration.jwt.issuer | quote }}
           audiences:
             {{- if .Values.security.jwt.audience }}
             - {{ .Values.security.jwt.audience | quote }}

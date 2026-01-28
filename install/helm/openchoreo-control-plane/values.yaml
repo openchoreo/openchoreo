@@ -1248,7 +1248,7 @@ openchoreoApi:
       authentication:
         # @schema
         # type: object
-        # description: JWT authentication configuration. Enabled/audiences come from security.enabled and security.jwt.audience. Issuer/JWKS URL come from identity.oidc (computed from security.oidc.*).
+        # description: JWT authentication configuration. Enabled/audiences come from security.enabled and security.jwt.audience. Issuer comes from thunder.configuration.jwt.issuer. JWKS URL comes from identity.oidc (computed from security.oidc.*).
         # @schema
         jwt:
           # @schema

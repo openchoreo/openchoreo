@@ -55,6 +55,10 @@ security:
       # When disabled, all requests are treated as unauthenticated.
       enabled: false
 
+      # Expected "iss" claim value in JWT tokens.
+      # If empty, falls back to identity.oidc.issuer.
+      issuer: ""
+
       # List of acceptable audiences (aud) for the JWT.
       # Tokens must contain at least one of these audiences.
       audiences: [ ]
