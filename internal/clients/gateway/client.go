@@ -310,8 +310,16 @@ func (c *Client) ForceReconnect(ctx context.Context, planeType, planeID string) 
 
 // GetPlaneStatus retrieves the connection status for a specific plane from the gateway
 // This is used by controllers to query agent connection status and update CR status fields
-func (c *Client) GetPlaneStatus(ctx context.Context, planeType, planeID string) (*PlaneConnectionStatus, error) {
+// If namespace and name are provided, it returns CR-specific authorization status
+// If they are empty, it returns plane-level connection status
+func (c *Client) GetPlaneStatus(ctx context.Context, planeType, planeID, namespace, name string) (*PlaneConnectionStatus, error) {
 	url := fmt.Sprintf("%s/api/v1/planes/%s/%s/status", c.baseURL, planeType, planeID)
+
+	// Add query parameters for CR-specific status if provided
+	if namespace != "" && name != "" {
+		url = fmt.Sprintf("%s?namespace=%s&name=%s", url, namespace, name)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

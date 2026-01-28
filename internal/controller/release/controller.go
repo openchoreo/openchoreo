@@ -21,6 +21,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -176,9 +177,10 @@ func (r *Reconciler) getDPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	dataplane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: namespaceName}, dataplane); err != nil {
-		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
+	// Use the resolution function to get the DataPlane (with default fallback)
+	dataplane, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
 	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
@@ -198,32 +200,16 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Check if DataPlaneRef is configured
-	if env.Spec.DataPlaneRef == "" {
-		return nil, fmt.Errorf("environment %s has no DataPlaneRef configured", environmentName)
+	// Use the resolution function to get the DataPlane (with default fallback)
+	dataPlane, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
-	// Get the DataPlane
-	dataPlane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, client.ObjectKey{Name: env.Spec.DataPlaneRef, Namespace: namespaceName}, dataPlane); err != nil {
-		return nil, fmt.Errorf("failed to get dataplane %s for environment %s: %w", env.Spec.DataPlaneRef, environmentName, err)
-	}
-
-	// Check if ObservabilityPlaneRef is configured
-	if dataPlane.Spec.ObservabilityPlaneRef == "" {
-		return nil, fmt.Errorf("dataplane %s has no ObservabilityPlaneRef configured", dataPlane.Name)
-	}
-
-	// Get the ObservabilityPlane
-	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
-	if err := r.Get(ctx, client.ObjectKey{
-		Name:      dataPlane.Spec.ObservabilityPlaneRef,
-		Namespace: namespaceName,
-	}, observabilityPlane); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("observability plane %s not found", dataPlane.Spec.ObservabilityPlaneRef)
-		}
-		return nil, fmt.Errorf("failed to get observability plane %s: %w", dataPlane.Spec.ObservabilityPlaneRef, err)
+	// Use the resolution function to get the ObservabilityPlane (with default fallback)
+	observabilityPlane, err := controller.GetObservabilityPlaneOfDataPlane(ctx, r.Client, dataPlane)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlane.Name, err)
 	}
 
 	// Get Kubernetes client - supports agent mode (via HTTP proxy) through cluster gateway

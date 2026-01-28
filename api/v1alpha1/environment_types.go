@@ -13,7 +13,9 @@ import (
 // EnvironmentSpec defines the desired state of Environment.
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataPlaneRef) || size(oldSelf.dataPlaneRef) == 0 || oldSelf.dataPlaneRef == self.dataPlaneRef",message="dataPlaneRef is immutable once set"
 type EnvironmentSpec struct {
-	// DataPlaneRef references the DataPlane for this environment. Immutable once set.
+	// DataPlaneRef references the DataPlane for this environment.
+	// If not specified, defaults to a DataPlane named "default" in the same namespace.
+	// Immutable once set.
 	DataPlaneRef string        `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction,omitempty"`
 	Gateway      GatewayConfig `json:"gateway,omitempty"`

@@ -119,8 +119,9 @@ spec:
                   type: string
                 type: array
               observabilityPlaneRef:
-                description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
-                  for this DataPlane.
+                description: |-
+                  ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this DataPlane.
+                  If not specified, defaults to an ObservabilityPlane named "default" in the same namespace.
                 type: string
               planeID:
                 description: |-

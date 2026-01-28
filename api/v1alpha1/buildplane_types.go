@@ -36,6 +36,7 @@ type BuildPlaneSpec struct {
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 
 	// ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this BuildPlane.
+	// If not specified, defaults to an ObservabilityPlane named "default" in the same namespace.
 	// +optional
 	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
 }

@@ -76,8 +76,9 @@ spec:
                 - clientCA
                 type: object
               observabilityPlaneRef:
-                description: ObservabilityPlaneRef specifies the name of the ObservabilityPlane
-                  for this BuildPlane.
+                description: |-
+                  ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this BuildPlane.
+                  If not specified, defaults to an ObservabilityPlane named "default" in the same namespace.
                 type: string
               planeID:
                 description: |-

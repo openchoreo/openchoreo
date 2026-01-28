@@ -136,29 +136,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	// Check if DataPlaneRef is configured in the Environment
-	if environment.Spec.DataPlaneRef == "" {
-		msg := fmt.Sprintf("Environment %q has no DataPlaneRef configured", environment.Name)
-		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
-			ReasonDataPlaneNotConfigured, msg)
-		logger.Info("Environment has no DataPlaneRef", "environment", environment.Name)
-		return ctrl.Result{}, nil
-	}
-
-	// Fetch DataPlane object
-	dataPlane := &openchoreov1alpha1.DataPlane{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      environment.Spec.DataPlaneRef,
-		Namespace: releaseBinding.Namespace,
-	}, dataPlane); err != nil {
+	// Fetch DataPlane object using the resolution function
+	dataPlane, err := controller.GetDataplaneOfEnv(ctx, r.Client, environment)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("DataPlane %q not found", environment.Spec.DataPlaneRef)
+			msg := fmt.Sprintf("DataPlane not found for environment %q", environment.Name)
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonDataPlaneNotFound, msg)
-			logger.Info("DataPlane not found", "dataPlane", environment.Spec.DataPlaneRef)
+			logger.Info("DataPlane not found", "environment", environment.Name)
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get DataPlane", "dataPlane", environment.Spec.DataPlaneRef)
+		logger.Error(err, "Failed to resolve DataPlane", "environment", environment.Name)
 		return ctrl.Result{}, err
 	}
 
@@ -662,9 +650,14 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	logger := log.FromContext(ctx)
 
 	// Determine if we should create/manage an observability Release:
-	// 1. DataPlane must have ObservabilityPlaneRef configured
+	// 1. ObservabilityPlane must exist (with default fallback)
 	// 2. There must be observability plane resources to deploy
-	shouldManage := dataPlane.Spec.ObservabilityPlaneRef != "" && len(observabilityPlaneReleaseResources) > 0
+	shouldManage := false
+	if len(observabilityPlaneReleaseResources) > 0 {
+		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
+		_, err := controller.GetObservabilityPlaneOfDataPlane(ctx, r.Client, dataPlane)
+		shouldManage = (err == nil)
+	}
 
 	releaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
 

@@ -42,7 +42,9 @@ spec:
             description: EnvironmentSpec defines the desired state of Environment.
             properties:
               dataPlaneRef:
-                description: DataPlaneRef references the DataPlane for this environment.
+                description: |-
+                  DataPlaneRef references the DataPlane for this environment.
+                  If not specified, defaults to a DataPlane named "default" in the same namespace.
                   Immutable once set.
                 type: string
               gateway:
