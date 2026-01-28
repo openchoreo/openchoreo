@@ -12,6 +12,7 @@ import (
 
 type PlaneAPI struct {
 	connMgr *ConnectionManager
+	server  *Server // For accessing k8sClient to fetch CR CAs
 	logger  *slog.Logger
 }
 
@@ -23,9 +24,10 @@ type PlaneNotification struct {
 	Name      string `json:"name"`
 }
 
-func NewPlaneAPI(connMgr *ConnectionManager, logger *slog.Logger) *PlaneAPI {
+func NewPlaneAPI(connMgr *ConnectionManager, server *Server, logger *slog.Logger) *PlaneAPI {
 	return &PlaneAPI{
 		connMgr: connMgr,
+		server:  server,
 		logger:  logger.With("component", "plane-api"),
 	}
 }
@@ -62,17 +64,76 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 		"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
 	)
 
-	var disconnectedCount int
+	var result map[string]interface{}
 
 	switch notification.Event {
-	case "created", "updated", "deleted":
-		disconnectedCount = api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
-		api.logger.Info("disconnected agents for reconnection",
+	case "created":
+		// New CR: Disconnect agents to pick up new CA
+		disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
+		api.logger.Info("disconnected agents for new CR",
 			"planeType", notification.PlaneType,
 			"planeID", notification.PlaneID,
-			"event", notification.Event,
 			"disconnectedAgents", disconnectedCount,
 		)
+		result = map[string]interface{}{
+			"disconnectedAgents": disconnectedCount,
+			"action":             "disconnect",
+		}
+
+	case "updated":
+		caData, err := api.fetchCRClientCA(notification)
+		if err != nil {
+			api.logger.Error("failed to fetch CR CA for re-validation", "error", err)
+			// Fall back to disconnect on error
+			disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
+			api.logger.Warn("falling back to disconnect due to CA fetch error",
+				"planeType", notification.PlaneType,
+				"planeID", notification.PlaneID,
+				"disconnectedAgents", disconnectedCount,
+			)
+			result = map[string]interface{}{
+				"disconnectedAgents": disconnectedCount,
+				"action":             "disconnect_fallback",
+				"error":              err.Error(),
+			}
+		} else {
+			updated, removed, err := api.connMgr.RevalidateCR(
+				notification.PlaneType,
+				notification.PlaneID,
+				notification.Namespace,
+				notification.Name,
+				caData,
+			)
+			if err != nil {
+				api.logger.Error("CR re-validation failed", "error", err)
+				http.Error(w, fmt.Sprintf("re-validation failed: %v", err), http.StatusInternalServerError)
+				return
+			}
+			api.logger.Info("CR re-validation completed",
+				"planeType", notification.PlaneType,
+				"planeID", notification.PlaneID,
+				"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
+				"authorizationsGranted", updated,
+				"authorizationsRevoked", removed,
+			)
+			result = map[string]interface{}{
+				"authorizationsGranted": updated,
+				"authorizationsRevoked": removed,
+				"action":                "revalidate",
+			}
+		}
+
+	case "deleted":
+		disconnectedCount := api.connMgr.DisconnectAllForPlane(notification.PlaneType, notification.PlaneID)
+		api.logger.Info("disconnected agents for CR deletion",
+			"planeType", notification.PlaneType,
+			"planeID", notification.PlaneID,
+			"disconnectedAgents", disconnectedCount,
+		)
+		result = map[string]interface{}{
+			"disconnectedAgents": disconnectedCount,
+			"action":             "disconnect",
+		}
 
 	default:
 		api.logger.Warn("unknown event type", "event", notification.Event)
@@ -80,12 +141,10 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	result["success"] = true
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"disconnectedAgents": disconnectedCount,
-		"success":            true,
-	}); err != nil {
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		api.logger.Error("failed to encode response", "error", err)
 	}
 }
@@ -155,4 +214,31 @@ func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Requ
 	}); err != nil {
 		api.logger.Error("failed to encode response", "error", err)
 	}
+}
+
+// fetchCRClientCA fetches the client CA certificate for a specific CR
+// Uses the server's getAllPlaneClientCAs() method to query Kubernetes API
+func (api *PlaneAPI) fetchCRClientCA(notification PlaneNotification) ([]byte, error) {
+	// Use server's method to get CA data for all CRs with matching planeType/planeID
+	allCRs, err := api.server.getAllPlaneClientCAs(notification.PlaneType, notification.PlaneID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CRs: %w", err)
+	}
+
+	crKey := fmt.Sprintf("%s/%s", notification.Namespace, notification.Name)
+	caData, exists := allCRs[crKey]
+	if !exists {
+		return nil, fmt.Errorf("CR %s not found", crKey)
+	}
+
+	if caData == nil {
+		return nil, fmt.Errorf("CR %s has no CA configured", crKey)
+	}
+
+	api.logger.Debug("fetched CA for CR",
+		"cr", crKey,
+		"caSize", len(caData),
+	)
+
+	return caData, nil
 }
