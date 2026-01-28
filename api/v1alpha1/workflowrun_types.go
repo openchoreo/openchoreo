@@ -55,6 +55,13 @@ type WorkflowRunStatus struct {
 	// These are tracked for cleanup when the WorkflowRun is deleted.
 	// +optional
 	Resources *[]ResourceReference `json:"resources,omitempty"`
+
+	// Tasks contains the list of workflow tasks with their execution status.
+	// This provides a vendor-neutral view of the workflow steps regardless of the underlying
+	// workflow engine (e.g., Argo Workflows, Tekton).
+	// Tasks are ordered by their execution sequence.
+	// +optional
+	Tasks []WorkflowTask `json:"tasks,omitempty"`
 }
 
 // +kubebuilder:object:root=true
