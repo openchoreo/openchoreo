@@ -154,8 +154,7 @@ Examples:
 	}
 
 	ScaffoldComponent = Command{
-		Use:     "component",
-		Aliases: []string{"comp"},
+		Use:     "scaffold",
 		Short:   "Scaffold a Component YAML from ComponentType and Traits",
 		Long: fmt.Sprintf(`Generate a Component YAML file based on a ComponentType definition.
 
@@ -167,16 +166,16 @@ The --namespace and --project flags can be omitted if set in the current context
 
 Examples:
   # Scaffold a basic component
-  %[1]s scaffold component --name my-app --type deployment/web-app
+  %[1]s component scaffold --name my-app --type deployment/web-app
 
   # Scaffold with traits
-  %[1]s scaffold component --name my-app --type deployment/web-app --traits storage,ingress
+  %[1]s component scaffold --name my-app --type deployment/web-app --traits storage,ingress
 
   # Scaffold with workflow
-  %[1]s scaffold component --name my-app --type deployment/web-app --workflow docker-build
+  %[1]s component scaffold --name my-app --type deployment/web-app --workflow docker-build
 
   # Output to file
-  %[1]s scaffold component --name my-app --type deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
+  %[1]s component scaffold --name my-app --type deployment/web-app -o my-app.yaml`, messages.DefaultCLIName),
 	}
 
 	ListNamespace = Command{

@@ -23,7 +23,6 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/project"
 	releasebinding "github.com/openchoreo/openchoreo/pkg/cli/cmd/release-binding"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/scaffold"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/trait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
@@ -44,7 +43,6 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 	rootCmd.AddCommand(
 		apply.NewApplyCmd(impl),
 		create.NewCreateCmd(impl),
-		scaffold.NewScaffoldCmd(impl),
 		login.NewLoginCmd(impl),
 		logout.NewLogoutCmd(impl),
 		configContext.NewConfigCmd(impl),
