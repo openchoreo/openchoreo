@@ -173,34 +173,46 @@ type EnvironmentResponse struct {
 	Status       string    `json:"status,omitempty"`
 }
 
+// AgentConnectionStatusResponse represents the agent connection status in API responses
+type AgentConnectionStatusResponse struct {
+	Connected            bool       `json:"connected"`
+	ConnectedAgents      int        `json:"connectedAgents"`
+	LastConnectedTime    *time.Time `json:"lastConnectedTime,omitempty"`
+	LastDisconnectedTime *time.Time `json:"lastDisconnectedTime,omitempty"`
+	LastHeartbeatTime    *time.Time `json:"lastHeartbeatTime,omitempty"`
+	Message              string     `json:"message,omitempty"`
+}
+
 // DataPlaneResponse represents a dataplane in API responses
 type DataPlaneResponse struct {
-	Name                    string    `json:"name"`
-	Namespace               string    `json:"namespace"`
-	DisplayName             string    `json:"displayName,omitempty"`
-	Description             string    `json:"description,omitempty"`
-	ImagePullSecretRefs     []string  `json:"imagePullSecretRefs,omitempty"`
-	SecretStoreRef          string    `json:"secretStoreRef,omitempty"`
-	PublicVirtualHost       string    `json:"publicVirtualHost"`
-	OrganizationVirtualHost string    `json:"organizationVirtualHost"`
-	PublicHTTPPort          int32     `json:"publicHTTPPort"`
-	PublicHTTPSPort         int32     `json:"publicHTTPSPort"`
-	OrganizationHTTPPort    int32     `json:"organizationHTTPPort"`
-	OrganizationHTTPSPort   int32     `json:"organizationHTTPSPort"`
-	ObservabilityPlaneRef   string    `json:"observabilityPlaneRef,omitempty"`
-	CreatedAt               time.Time `json:"createdAt"`
-	Status                  string    `json:"status,omitempty"`
+	Name                    string                         `json:"name"`
+	Namespace               string                         `json:"namespace"`
+	DisplayName             string                         `json:"displayName,omitempty"`
+	Description             string                         `json:"description,omitempty"`
+	ImagePullSecretRefs     []string                       `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef          string                         `json:"secretStoreRef,omitempty"`
+	PublicVirtualHost       string                         `json:"publicVirtualHost"`
+	OrganizationVirtualHost string                         `json:"organizationVirtualHost"`
+	PublicHTTPPort          int32                          `json:"publicHTTPPort"`
+	PublicHTTPSPort         int32                          `json:"publicHTTPSPort"`
+	OrganizationHTTPPort    int32                          `json:"organizationHTTPPort"`
+	OrganizationHTTPSPort   int32                          `json:"organizationHTTPSPort"`
+	ObservabilityPlaneRef   string                         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection         *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt               time.Time                      `json:"createdAt"`
+	Status                  string                         `json:"status,omitempty"`
 }
 
 // BuildPlaneResponse represents a buildplane in API responses
 type BuildPlaneResponse struct {
-	Name                  string    `json:"name"`
-	Namespace             string    `json:"namespace"`
-	DisplayName           string    `json:"displayName,omitempty"`
-	Description           string    `json:"description,omitempty"`
-	ObservabilityPlaneRef string    `json:"observabilityPlaneRef,omitempty"`
-	CreatedAt             time.Time `json:"createdAt"`
-	Status                string    `json:"status,omitempty"`
+	Name                  string                         `json:"name"`
+	Namespace             string                         `json:"namespace"`
+	DisplayName           string                         `json:"displayName,omitempty"`
+	Description           string                         `json:"description,omitempty"`
+	ObservabilityPlaneRef string                         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt             time.Time                      `json:"createdAt"`
+	Status                string                         `json:"status,omitempty"`
 }
 
 // ComponentWorkflowResponse represents a component workflow run in API responses
@@ -377,12 +389,14 @@ type WebhookEventResponse struct {
 
 // ObservabilityPlaneResponse represents an observability plane in API responses
 type ObservabilityPlaneResponse struct {
-	Name        string    `json:"name"`
-	Namespace   string    `json:"namespace"`
-	DisplayName string    `json:"displayName,omitempty"`
-	Description string    `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-	Status      string    `json:"status,omitempty"`
+	Name            string                         `json:"name"`
+	Namespace       string                         `json:"namespace"`
+	DisplayName     string                         `json:"displayName,omitempty"`
+	Description     string                         `json:"description,omitempty"`
+	ObserverURL     string                         `json:"observerURL,omitempty"`
+	AgentConnection *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt       time.Time                      `json:"createdAt"`
+	Status          string                         `json:"status,omitempty"`
 }
 
 // VersionResponse represents the server version information in API responses.

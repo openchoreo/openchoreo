@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -45,24 +46,42 @@ func (s *ObservabilityPlaneService) ListObservabilityPlanes(ctx context.Context,
 
 	// Convert to response format
 	observabilityPlaneResponses := make([]models.ObservabilityPlaneResponse, 0, len(observabilityPlanes.Items))
-	for _, observabilityPlane := range observabilityPlanes.Items {
-		displayName := observabilityPlane.Annotations[controller.AnnotationKeyDisplayName]
-		description := observabilityPlane.Annotations[controller.AnnotationKeyDescription]
-
-		// Determine status from conditions
-		status := ""
-
-		observabilityPlaneResponse := models.ObservabilityPlaneResponse{
-			Name:        observabilityPlane.Name,
-			Namespace:   observabilityPlane.Namespace,
-			DisplayName: displayName,
-			Description: description,
-			CreatedAt:   observabilityPlane.CreationTimestamp.Time,
-			Status:      status,
-		}
-
-		observabilityPlaneResponses = append(observabilityPlaneResponses, observabilityPlaneResponse)
+	for i := range observabilityPlanes.Items {
+		observabilityPlaneResponses = append(observabilityPlaneResponses, toObservabilityPlaneResponse(&observabilityPlanes.Items[i]))
 	}
 
 	return observabilityPlaneResponses, nil
+}
+
+// toObservabilityPlaneResponse converts an ObservabilityPlane CR to an ObservabilityPlaneResponse
+func toObservabilityPlaneResponse(op *openchoreov1alpha1.ObservabilityPlane) models.ObservabilityPlaneResponse {
+	displayName := op.Annotations[controller.AnnotationKeyDisplayName]
+	description := op.Annotations[controller.AnnotationKeyDescription]
+
+	// Determine status from conditions
+	status := statusUnknown
+	if len(op.Status.Conditions) > 0 {
+		latestCondition := op.Status.Conditions[len(op.Status.Conditions)-1]
+		if latestCondition.Status == metav1.ConditionTrue {
+			status = statusReady
+		} else {
+			status = statusNotReady
+		}
+	}
+
+	response := models.ObservabilityPlaneResponse{
+		Name:        op.Name,
+		Namespace:   op.Namespace,
+		DisplayName: displayName,
+		Description: description,
+		ObserverURL: op.Spec.ObserverURL,
+		CreatedAt:   op.CreationTimestamp.Time,
+		Status:      status,
+	}
+
+	if op.Status.AgentConnection != nil {
+		response.AgentConnection = toAgentConnectionStatusResponse(op.Status.AgentConnection)
+	}
+
+	return response
 }

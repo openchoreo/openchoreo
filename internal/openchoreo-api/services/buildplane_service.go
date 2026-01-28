@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -129,30 +130,44 @@ func (s *BuildPlaneService) ListBuildPlanes(ctx context.Context, namespaceName s
 			return nil, err
 		}
 
-		displayName := buildPlanes.Items[i].Annotations[controller.AnnotationKeyDisplayName]
-		description := buildPlanes.Items[i].Annotations[controller.AnnotationKeyDescription]
-
-		// Determine status from conditions
-		status := ""
-
-		// Extract observability plane reference if available
-		observabilityPlaneRef := ""
-		if buildPlanes.Items[i].Spec.ObservabilityPlaneRef != "" {
-			observabilityPlaneRef = buildPlanes.Items[i].Spec.ObservabilityPlaneRef
-		}
-
-		buildPlaneResponse := models.BuildPlaneResponse{
-			Name:                  buildPlanes.Items[i].Name,
-			Namespace:             buildPlanes.Items[i].Namespace,
-			DisplayName:           displayName,
-			Description:           description,
-			ObservabilityPlaneRef: observabilityPlaneRef,
-			CreatedAt:             buildPlanes.Items[i].CreationTimestamp.Time,
-			Status:                status,
-		}
-
-		buildPlaneResponses = append(buildPlaneResponses, buildPlaneResponse)
+		buildPlaneResponses = append(buildPlaneResponses, toBuildPlaneResponse(&buildPlanes.Items[i]))
 	}
 
 	return buildPlaneResponses, nil
+}
+
+// toBuildPlaneResponse converts a BuildPlane CR to a BuildPlaneResponse
+func toBuildPlaneResponse(bp *openchoreov1alpha1.BuildPlane) models.BuildPlaneResponse {
+	displayName := bp.Annotations[controller.AnnotationKeyDisplayName]
+	description := bp.Annotations[controller.AnnotationKeyDescription]
+
+	// Determine status from conditions
+	status := statusUnknown
+	if len(bp.Status.Conditions) > 0 {
+		latestCondition := bp.Status.Conditions[len(bp.Status.Conditions)-1]
+		if latestCondition.Status == metav1.ConditionTrue {
+			status = statusReady
+		} else {
+			status = statusNotReady
+		}
+	}
+
+	response := models.BuildPlaneResponse{
+		Name:        bp.Name,
+		Namespace:   bp.Namespace,
+		DisplayName: displayName,
+		Description: description,
+		CreatedAt:   bp.CreationTimestamp.Time,
+		Status:      status,
+	}
+
+	if bp.Spec.ObservabilityPlaneRef != "" {
+		response.ObservabilityPlaneRef = bp.Spec.ObservabilityPlaneRef
+	}
+
+	if bp.Status.AgentConnection != nil {
+		response.AgentConnection = toAgentConnectionStatusResponse(bp.Status.AgentConnection)
+	}
+
+	return response
 }

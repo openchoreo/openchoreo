@@ -258,5 +258,10 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 		response.ObservabilityPlaneRef = dp.Spec.ObservabilityPlaneRef
 	}
 
+	// Map agent connection status
+	if dp.Status.AgentConnection != nil {
+		response.AgentConnection = toAgentConnectionStatusResponse(dp.Status.AgentConnection)
+	}
+
 	return response
 }

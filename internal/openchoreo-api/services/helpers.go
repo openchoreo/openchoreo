@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -52,4 +54,29 @@ func checkAuthorization(ctx context.Context, logger *slog.Logger, pdp authz.PDP,
 	}
 
 	return nil
+}
+
+// toAgentConnectionStatusResponse converts a CRD AgentConnectionStatus to an API response
+func toAgentConnectionStatusResponse(ac *openchoreov1alpha1.AgentConnectionStatus) *models.AgentConnectionStatusResponse {
+	if ac == nil {
+		return nil
+	}
+	resp := &models.AgentConnectionStatusResponse{
+		Connected:       ac.Connected,
+		ConnectedAgents: ac.ConnectedAgents,
+		Message:         ac.Message,
+	}
+	if ac.LastConnectedTime != nil {
+		t := ac.LastConnectedTime.Time
+		resp.LastConnectedTime = &t
+	}
+	if ac.LastDisconnectedTime != nil {
+		t := ac.LastDisconnectedTime.Time
+		resp.LastDisconnectedTime = &t
+	}
+	if ac.LastHeartbeatTime != nil {
+		t := ac.LastHeartbeatTime.Time
+		resp.LastHeartbeatTime = &t
+	}
+	return resp
 }
