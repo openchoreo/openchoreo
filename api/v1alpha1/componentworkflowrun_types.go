@@ -78,6 +78,12 @@ type RepositoryValues struct {
 	// +kubebuilder:validation:Pattern=`^https?://`
 	URL string `json:"url"`
 
+	// SecretRef is the name of the SecretReference for Git credentials.
+	// This should reference a SecretReference CR in the same namespace.
+	// Example: "my-git-credentials"
+	// +optional
+	SecretRef string `json:"secretRef,omitempty"`
+
 	// Revision contains the revision-related parameter values (branch, commit).
 	// +kubebuilder:validation:Required
 	Revision RepositoryRevisionValues `json:"revision"`

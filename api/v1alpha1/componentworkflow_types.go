@@ -121,6 +121,15 @@ type RepositorySchema struct {
 	// +kubebuilder:validation:Pattern=`^string(\s*\|.*)?$`
 	URL string `json:"url"`
 
+	// SecretRef is the schema definition for the Git credentials secret reference name.
+	// Must be a string type schema definition.
+	// Format: 'string | default=value description=...'
+	// Example: 'string | description="Secret reference name for Git credentials"'
+	// +optional
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^string(\s*\|.*)?$`
+	SecretRef string `json:"secretRef,omitempty"`
+
 	// Revision contains the schema for revision-related parameters (branch, commit).
 	// All fields have defaults, so this struct will be auto-populated if not provided.
 	// +kubebuilder:validation:Required
