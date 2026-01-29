@@ -353,3 +353,62 @@ type GenerateReleaseBindingParams struct {
 	OutputPath       string // Optional: custom output directory
 	DryRun           bool   // Preview without writing files
 }
+
+// ListNamespacesParams defines parameters for listing namespaces
+type ListNamespacesParams struct{}
+
+// ListProjectsParams defines parameters for listing projects
+type ListProjectsParams struct {
+	Namespace string
+}
+
+// ListComponentsParams defines parameters for listing components
+type ListComponentsParams struct {
+	Namespace string
+	Project   string
+}
+
+// ListEnvironmentsParams defines parameters for listing environments
+type ListEnvironmentsParams struct {
+	Namespace string
+}
+
+// ListDataPlanesParams defines parameters for listing data planes
+type ListDataPlanesParams struct {
+	Namespace string
+}
+
+// ListBuildPlanesParams defines parameters for listing build planes
+type ListBuildPlanesParams struct {
+	Namespace string
+}
+
+// ListObservabilityPlanesParams defines parameters for listing observability planes
+type ListObservabilityPlanesParams struct {
+	Namespace string
+}
+
+// ListComponentTypesParams defines parameters for listing component types
+type ListComponentTypesParams struct {
+	Namespace string
+}
+
+// ListTraitsParams defines parameters for listing traits
+type ListTraitsParams struct {
+	Namespace string
+}
+
+// ListWorkflowsParams defines parameters for listing workflows
+type ListWorkflowsParams struct {
+	Namespace string
+}
+
+// ListComponentWorkflowsParams defines parameters for listing component workflows
+type ListComponentWorkflowsParams struct {
+	Namespace string
+}
+
+// ListSecretReferencesParams defines parameters for listing secret references
+type ListSecretReferencesParams struct {
+	Namespace string
+}
