@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Version arguments for reproducibility and easy updates
 ARG KUBECTL_VERSION=v1.32.10
