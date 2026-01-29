@@ -9,7 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.133.0
 	github.com/glebarez/sqlite v1.7.0
 	github.com/go-git/go-git/v5 v5.16.2
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/cel-go v0.22.1
@@ -24,8 +24,8 @@ require (
 	github.com/knadh/koanf/v2 v2.2.1
 	github.com/modelcontextprotocol/go-sdk v1.0.0
 	github.com/oapi-codegen/runtime v1.1.2
-	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/gomega v1.39.0
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.2
 	github.com/prometheus/client_golang v1.22.0
@@ -47,6 +47,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
@@ -174,7 +175,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/grpc v1.69.4 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
