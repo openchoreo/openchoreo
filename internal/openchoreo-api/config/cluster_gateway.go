@@ -32,7 +32,7 @@ type ClusterGatewayTLSConfig struct {
 func ClusterGatewayDefaults() ClusterGatewayConfig {
 	return ClusterGatewayConfig{
 		Enabled: true,
-		URL:     "https://localhost:8443",
+		URL:     "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
 		TLS: ClusterGatewayTLSConfig{
 			CACertPath:     "", // Optional - for server verification
 			ClientCertPath: "", // Optional - for mTLS
