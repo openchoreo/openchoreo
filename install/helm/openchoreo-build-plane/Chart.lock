@@ -4,9 +4,9 @@ dependencies:
   version: 0.45.2
 - name: external-secrets
   repository: https://charts.external-secrets.io
-  version: 0.19.2
+  version: 1.3.1
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
-digest: sha256:83ec7926970bccc3088994f98ab33561c944129617eb8c5a2155b885b46d446b
-generated: "2026-01-22T20:44:05.32818+05:30"
+digest: sha256:1916490032724fb026b08bbbd23f01e20e7f86fb81588f5182bb68ed036cce72
+generated: "2026-01-29T06:47:05.540853628Z"
