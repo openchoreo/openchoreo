@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -59,7 +59,7 @@ jobs:
     needs: [ lint, gen-check, test ]
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -116,7 +116,7 @@ jobs:
       packages: write
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go

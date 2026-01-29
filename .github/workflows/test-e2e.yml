@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone the code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
 # TODO: Enable me once the e2e tests are ready
 #      - name: Setup Go
