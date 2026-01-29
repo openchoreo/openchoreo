@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	defaultSortOrder = "desc"
+	defaultSortOrder   = "desc"
+	ascendingSortOrder = "asc"
 )
 
 // isAIRCAEnabled checks if AI RCA analysis is enabled via environment variable
@@ -63,6 +64,7 @@ const (
 
 	// Error messages
 	ErrorMsgBuildIDRequired           = "Build ID is required"
+	ErrorMsgWorkflowRunIDRequired     = "Workflow run ID is required"
 	ErrorMsgComponentIDRequired       = "Component ID is required"
 	ErrorMsgProjectIDRequired         = "Project ID is required"
 	ErrorMsgNamespaceNameRequired     = "Namespace name is required"
@@ -125,6 +127,15 @@ type BuildLogsRequest struct {
 	ComponentName string `json:"componentName,omitempty"`
 	NamespaceName string `json:"namespaceName,omitempty"`
 	ProjectName   string `json:"projectName,omitempty"`
+	StartTime     string `json:"startTime" validate:"required"`
+	EndTime       string `json:"endTime" validate:"required"`
+	Limit         int    `json:"limit,omitempty"`
+	SortOrder     string `json:"sortOrder,omitempty"`
+}
+
+// WorkflowRunLogsRequest represents the request body for workflow run logs
+type WorkflowRunLogsRequest struct {
+	NamespaceName string `json:"namespaceName" validate:"required"`
 	StartTime     string `json:"startTime" validate:"required"`
 	EndTime       string `json:"endTime" validate:"required"`
 	Limit         int    `json:"limit,omitempty"`
@@ -307,7 +318,7 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 		req.Limit = 100
 	}
 	if req.SortOrder == "" {
-		req.SortOrder = "asc" // Build logs are sorted in ascending order by default
+		req.SortOrder = ascendingSortOrder // Build logs are sorted in ascending order by default
 	}
 
 	// Build query parameters
@@ -326,6 +337,102 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 	result, err := h.service.GetBuildLogs(ctx, params)
 	if err != nil {
 		h.logger.Error("Failed to get build logs", "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}
+
+// GetWorkflowRunLogs handles POST /api/logs/workflow-run/{runId}
+func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
+	runID := httputil.GetPathParam(r, "runId")
+	if runID == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgWorkflowRunIDRequired)
+		return
+	}
+
+	var req WorkflowRunLogsRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, ErrorMsgInvalidRequestFormat)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Namespace name is required for authorization
+		if req.NamespaceName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, "Namespace name required for authorization")
+			return
+		}
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeWorkflowRun,
+		runID,
+		authzcore.ResourceHierarchy{
+			Namespace: req.NamespaceName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+		return
+	}
+
+	// Validate times
+	if err := validateTimes(req.StartTime, req.EndTime); err != nil {
+		h.logger.Debug("Invalid/missing request parameters", "requestBody", req, "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeInvalidRequest, ErrorCodeInvalidRequest, err.Error())
+		return
+	}
+
+	// Set defaults
+	if req.Limit == 0 {
+		req.Limit = 100
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = ascendingSortOrder // Workflow run logs are sorted in ascending order by default
+	}
+
+	// Build query parameters
+	params := opensearch.WorkflowRunQueryParams{
+		QueryParams: opensearch.QueryParams{
+			StartTime:     req.StartTime,
+			EndTime:       req.EndTime,
+			Limit:         req.Limit,
+			SortOrder:     req.SortOrder,
+			NamespaceName: req.NamespaceName,
+		},
+		WorkflowRunID: runID,
+	}
+
+	// Execute query
+	ctx := r.Context()
+	result, err := h.service.GetWorkflowRunLogs(ctx, params)
+	if err != nil {
+		h.logger.Error("Failed to get workflow run logs", "error", err)
 		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
 		return
 	}

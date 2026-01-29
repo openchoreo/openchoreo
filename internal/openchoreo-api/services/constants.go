@@ -84,3 +84,9 @@ const (
 	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
 	ResourceTypeSecretReference      ResourceType = "secretReference"
 )
+
+// Workflow run status constants
+const (
+	WorkflowRunStatusPending   = "Pending"
+	WorkflowRunStatusCompleted = "Completed"
+)

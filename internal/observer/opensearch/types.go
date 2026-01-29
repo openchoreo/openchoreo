@@ -132,6 +132,12 @@ type GatewayQueryParams struct {
 	GatewayVHosts     []string          `json:"gatewayVHosts"`
 }
 
+// WorkflowRunQueryParams holds workflow run-specific query parameters
+type WorkflowRunQueryParams struct {
+	QueryParams
+	WorkflowRunID string `json:"workflowRunId"`
+}
+
 // buildSearchBody converts a query map to an io.Reader for the search request
 func buildSearchBody(query map[string]interface{}) io.Reader {
 	body, _ := json.Marshal(query)

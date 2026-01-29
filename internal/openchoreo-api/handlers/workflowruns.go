@@ -18,17 +18,17 @@ func (h *Handler) ListWorkflowRuns(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("ListWorkflowRuns handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
-	wfRuns, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, orgName)
+	wfRuns, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, namespaceName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to list workflow runs", "org", orgName)
+			logger.Warn("Unauthorized to list workflow runs", "org", namespaceName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
@@ -37,7 +37,7 @@ func (h *Handler) ListWorkflowRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Listed WorkflowRuns successfully", "org", orgName, "count", len(wfRuns))
+	logger.Debug("Listed WorkflowRuns successfully", "org", namespaceName, "count", len(wfRuns))
 	writeListResponse(w, wfRuns, len(wfRuns), 1, len(wfRuns))
 }
 
@@ -46,23 +46,23 @@ func (h *Handler) GetWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("GetWorkflowRun handler called")
 
-	orgName := r.PathValue("orgName")
+	namespaceName := r.PathValue("namespaceName")
 	runName := r.PathValue("runName")
-	if orgName == "" || runName == "" {
-		logger.Warn("Organization name and run name are required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name and run name are required", services.CodeInvalidInput)
+	if namespaceName == "" || runName == "" {
+		logger.Warn("Namespace name and run name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and run name are required", services.CodeInvalidInput)
 		return
 	}
 
-	wfRun, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, orgName, runName)
+	wfRun, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, namespaceName, runName)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to view workflow run", "org", orgName, "run", runName)
+			logger.Warn("Unauthorized to view workflow run", "org", namespaceName, "run", runName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {
-			logger.Warn("WorkflowRun not found", "org", orgName, "run", runName)
+			logger.Warn("WorkflowRun not found", "org", namespaceName, "run", runName)
 			writeErrorResponse(w, http.StatusNotFound, "Workflow run not found", services.CodeWorkflowRunNotFound)
 			return
 		}
@@ -71,7 +71,7 @@ func (h *Handler) GetWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Retrieved WorkflowRun successfully", "org", orgName, "run", runName)
+	logger.Debug("Retrieved WorkflowRun successfully", "org", namespaceName, "run", runName)
 	writeSuccessResponse(w, http.StatusOK, wfRun)
 }
 
@@ -80,10 +80,10 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	logger := logger.GetLogger(ctx)
 	logger.Debug("CreateWorkflowRun handler called")
 
-	orgName := r.PathValue("orgName")
-	if orgName == "" {
-		logger.Warn("Organization name is required")
-		writeErrorResponse(w, http.StatusBadRequest, "Organization name is required", services.CodeInvalidInput)
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		logger.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
 		return
 	}
 
@@ -102,20 +102,20 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wfRun, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, orgName, &req)
+	wfRun, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, namespaceName, &req)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to create workflow run", "org", orgName, "workflow", req.WorkflowName)
+			logger.Warn("Unauthorized to create workflow run", "org", namespaceName, "workflow", req.WorkflowName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowNotFound) {
-			logger.Warn("Referenced workflow not found", "org", orgName, "workflow", req.WorkflowName)
+			logger.Warn("Referenced workflow not found", "org", namespaceName, "workflow", req.WorkflowName)
 			writeErrorResponse(w, http.StatusNotFound, "Workflow not found", services.CodeWorkflowNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrWorkflowRunAlreadyExists) {
-			logger.Warn("WorkflowRun already exists", "org", orgName, "workflow", req.WorkflowName)
+			logger.Warn("WorkflowRun already exists", "org", namespaceName, "workflow", req.WorkflowName)
 			writeErrorResponse(w, http.StatusConflict, "Workflow run already exists", services.CodeWorkflowRunAlreadyExists)
 			return
 		}
@@ -124,6 +124,6 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug("Created WorkflowRun successfully", "org", orgName, "run", wfRun.Name, "workflow", req.WorkflowName)
+	logger.Debug("Created WorkflowRun successfully", "org", namespaceName, "run", wfRun.Name, "workflow", req.WorkflowName)
 	writeSuccessResponse(w, http.StatusCreated, wfRun)
 }

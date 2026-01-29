@@ -138,6 +138,9 @@ func main() {
 	// API routes - Build Logs
 	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
 
+	// API routes - Workflow Run Logs
+	api.HandleFunc("POST /api/logs/workflow-run/{runId}", handler.GetWorkflowRunLogs)
+
 	// API routes - Logs
 	api.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)
 	api.HandleFunc("POST /api/logs/project/{projectId}", handler.GetProjectLogs)

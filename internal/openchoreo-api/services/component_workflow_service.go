@@ -148,7 +148,7 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, namespac
 		ProjectName:   projectName,
 		NamespaceName: namespaceName,
 		Commit:        commit,
-		Status:        "Pending",
+		Status:        WorkflowRunStatusPending,
 		CreatedAt:     workflowRun.CreationTimestamp.Time,
 		Image:         "",
 	}, nil
@@ -277,14 +277,14 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRun(ctx context.Context, 
 // getComponentWorkflowStatus determines the user-friendly status from component workflow run conditions
 func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 	if len(workflowConditions) == 0 {
-		return "Pending"
+		return WorkflowRunStatusPending
 	}
 
 	// Check conditions in priority order
 	// Similar to build workflow status logic
 	for _, condition := range workflowConditions {
 		if condition.Type == "WorkloadUpdated" && condition.Status == metav1.ConditionTrue {
-			return "Completed"
+			return WorkflowRunStatusCompleted
 		}
 	}
 
@@ -306,7 +306,7 @@ func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 		}
 	}
 
-	return "Pending"
+	return WorkflowRunStatusPending
 }
 
 // ListComponentWorkflows lists all ComponentWorkflow templates in the given namespace

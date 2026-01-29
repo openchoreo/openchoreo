@@ -840,14 +840,14 @@ paths:
   # WorkflowRun Endpoints (Generic Workflow Executions)
   # =============================================================================
 
-  /api/v1/orgs/{orgName}/workflow-runs:
+  /api/v1/namespaces/{namespaceName}/workflow-runs:
     get:
       operationId: listWorkflowRuns
       summary: List workflow runs
-      description: Returns a list of generic workflow runs in the organization.
+      description: Returns a list of generic workflow runs in the namespace.
       tags: [Workflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -870,7 +870,7 @@ paths:
       description: Triggers a new generic workflow run.
       tags: [Workflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
       requestBody:
         required: true
         content:
@@ -895,14 +895,14 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/orgs/{orgName}/workflow-runs/{runName}:
+  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}:
     get:
       operationId: getWorkflowRun
       summary: Get workflow run
       description: Returns details of a specific workflow run.
       tags: [Workflows]
       parameters:
-        - $ref: '#/components/parameters/OrgNameParam'
+        - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/WorkflowRunNameParam'
       responses:
         '200':

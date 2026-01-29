@@ -18,4 +18,5 @@ const (
 	ResourceTypeProject              ResourceType = "project"
 	ResourceTypeNamespace            ResourceType = "namespace"
 	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
+	ResourceTypeWorkflowRun          ResourceType = "workflowRun"
 )

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,7 +30,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
-	"github.com/openchoreo/openchoreo/internal/observer/types"
+	observertypes "github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -123,6 +124,112 @@ func (s *LoggingService) GetBuildLogs(ctx context.Context, params opensearch.Bui
 	}
 
 	s.logger.Info("Build logs retrieved",
+		"count", len(logs),
+		"total", response.Hits.Total.Value)
+
+	return &LogResponse{
+		Logs:       logs,
+		TotalCount: response.Hits.Total.Value,
+		Took:       response.Took,
+	}, nil
+}
+
+// uuidRegex matches standard UUID format (8-4-4-4-12 hex characters)
+var uuidRegex = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+// isUUID checks if a string looks like a UUID
+func isUUID(s string) bool {
+	return uuidRegex.MatchString(s)
+}
+
+// resolveWorkflowRunName resolves a workflow run identifier to its name.
+// If the identifier is a UUID, it looks up the WorkflowRun CR by UID and returns its name.
+// If it's not a UUID, it returns the identifier as-is (assuming it's already the name).
+func (s *LoggingService) resolveWorkflowRunName(ctx context.Context, runID, namespaceName string) string {
+	// If it doesn't look like a UUID, assume it's already the name
+	if !isUUID(runID) {
+		s.logger.Debug("Run ID is not a UUID, using as name", "run_id", runID)
+		return runID
+	}
+
+	// If we don't have a k8s client, we can't resolve the UUID
+	if s.k8sClient == nil {
+		s.logger.Warn("Cannot resolve UUID to name: k8s client not configured, using UUID as-is", "run_id", runID)
+		return runID
+	}
+
+	s.logger.Debug("Run ID appears to be a UUID, looking up WorkflowRun name",
+		"run_id", runID,
+		"namespace", namespaceName)
+
+	// List WorkflowRuns in the namespace and find the one with matching UID
+	var wfRunList choreoapis.WorkflowRunList
+	if err := s.k8sClient.List(ctx, &wfRunList, client.InNamespace(namespaceName)); err != nil {
+		s.logger.Warn("Failed to list WorkflowRuns, using UUID as-is",
+			"error", err,
+			"namespace", namespaceName,
+			"run_id", runID)
+		return runID
+	}
+
+	// Find the WorkflowRun with matching UID
+	for _, wfRun := range wfRunList.Items {
+		if string(wfRun.UID) == runID {
+			s.logger.Debug("Resolved UUID to WorkflowRun name",
+				"uuid", runID,
+				"name", wfRun.Name)
+			return wfRun.Name
+		}
+	}
+
+	s.logger.Warn("WorkflowRun not found by UUID, using UUID as-is",
+		"run_id", runID,
+		"namespace", namespaceName)
+	return runID
+}
+
+// GetWorkflowRunLogs retrieves logs for a specific workflow run using V2 wildcard search
+func (s *LoggingService) GetWorkflowRunLogs(ctx context.Context, params opensearch.WorkflowRunQueryParams) (*LogResponse, error) {
+	s.logger.Info("Getting workflow run logs",
+		"workflow_run_id", params.WorkflowRunID,
+		"namespace_name", params.NamespaceName)
+
+	// Resolve workflow run ID to name if it's a UUID
+	resolvedName := s.resolveWorkflowRunName(ctx, params.WorkflowRunID, params.NamespaceName)
+
+	// Update params with resolved name
+	if resolvedName != params.WorkflowRunID {
+		s.logger.Info("Resolved workflow run UUID to name",
+			"uuid", params.WorkflowRunID,
+			"name", resolvedName)
+		params.WorkflowRunID = resolvedName
+	}
+
+	// Generate indices based on time range
+	indices, err := s.queryBuilder.GenerateIndices(params.StartTime, params.EndTime)
+	if err != nil {
+		s.logger.Error("Failed to generate indices", "error", err)
+		return nil, fmt.Errorf("failed to generate indices: %w", err)
+	}
+
+	// Build query with wildcard search
+	query := s.queryBuilder.BuildWorkflowRunLogsQuery(params)
+
+	// Execute search
+	response, err := s.osClient.Search(ctx, indices, query)
+	if err != nil {
+		s.logger.Error("Failed to execute workflow run logs search", "error", err)
+		return nil, fmt.Errorf("failed to execute search: %w", err)
+	}
+
+	// Parse log entries
+	logs := make([]opensearch.LogEntry, 0, len(response.Hits.Hits))
+	for _, hit := range response.Hits.Hits {
+		entry := opensearch.ParseLogEntry(hit)
+		logs = append(logs, entry)
+	}
+
+	s.logger.Info("Workflow run logs retrieved",
 		"count", len(logs),
 		"total", response.Hits.Total.Value)
 
@@ -368,7 +475,7 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 }
 
 // UpsertAlertRule creates or updates an alert rule in the observability backend
-func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string, rule observertypes.AlertingRuleRequest) (*observertypes.AlertingRuleSyncResponse, error) {
 	// Decide the observability backend based on the type of rule
 	switch sourceType {
 	case "log":
@@ -381,7 +488,7 @@ func (s *LoggingService) UpsertAlertRule(ctx context.Context, sourceType string,
 }
 
 // UpsertOpenSearchAlertRule creates or updates an alert rule in OpenSearch
-func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule observertypes.AlertingRuleRequest) (*observertypes.AlertingRuleSyncResponse, error) {
 	// Build the alert rule body
 	alertRuleBody, err := s.queryBuilder.BuildLogAlertingRuleMonitorBody(rule)
 	if err != nil {
@@ -457,7 +564,7 @@ func (s *LoggingService) UpsertOpenSearchAlertRule(ctx context.Context, rule typ
 	}
 
 	// Return the alert rule ID
-	return &types.AlertingRuleSyncResponse{
+	return &observertypes.AlertingRuleSyncResponse{
 		Status:     "synced",
 		LogicalID:  rule.Metadata.Name,
 		BackendID:  backendID,
@@ -522,7 +629,7 @@ func (s *LoggingService) monitorsAreEqual(existing, new map[string]interface{}) 
 }
 
 // DeleteAlertRule deletes an alert rule from the observability backend
-func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string, ruleName string) (*observertypes.AlertingRuleSyncResponse, error) {
 	// Decide the observability backend based on the type of rule
 	switch sourceType {
 	case "log":
@@ -535,7 +642,7 @@ func (s *LoggingService) DeleteAlertRule(ctx context.Context, sourceType string,
 }
 
 // DeleteOpenSearchAlertRule deletes an alert rule from OpenSearch
-func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName string) (*observertypes.AlertingRuleSyncResponse, error) {
 	// Search for the monitor by name to get its ID
 	monitorID, exists, err := s.osClient.SearchMonitorByName(ctx, ruleName)
 	if err != nil {
@@ -545,7 +652,7 @@ func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName
 	if !exists {
 		// Rule doesn't exist - return a response indicating it wasn't found
 		now := time.Now().UTC().Format(time.RFC3339)
-		return &types.AlertingRuleSyncResponse{
+		return &observertypes.AlertingRuleSyncResponse{
 			Status:     "not_found",
 			LogicalID:  ruleName,
 			BackendID:  "",
@@ -564,7 +671,7 @@ func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName
 
 	// Return the deletion response
 	now := time.Now().UTC().Format(time.RFC3339)
-	return &types.AlertingRuleSyncResponse{
+	return &observertypes.AlertingRuleSyncResponse{
 		Status:     "deleted",
 		LogicalID:  ruleName,
 		BackendID:  monitorID,
@@ -574,7 +681,7 @@ func (s *LoggingService) DeleteOpenSearchAlertRule(ctx context.Context, ruleName
 }
 
 // UpsertPrometheusAlertRule creates or updates a metric-based alert rule as a PrometheusRule CR
-func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule types.AlertingRuleRequest) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule observertypes.AlertingRuleRequest) (*observertypes.AlertingRuleSyncResponse, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
@@ -619,7 +726,7 @@ func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule typ
 			s.logger.Debug("PrometheusRule unchanged, skipping update",
 				"rule_name", rule.Metadata.Name,
 				"namespace", s.config.Alerting.ObservabilityNamespace)
-			return &types.AlertingRuleSyncResponse{
+			return &observertypes.AlertingRuleSyncResponse{
 				Status:     "synced",
 				LogicalID:  rule.Metadata.Name,
 				BackendID:  string(existingRule.UID),
@@ -666,7 +773,7 @@ func (s *LoggingService) UpsertPrometheusAlertRule(ctx context.Context, rule typ
 		backendID = string(existingRule.UID)
 	}
 
-	return &types.AlertingRuleSyncResponse{
+	return &observertypes.AlertingRuleSyncResponse{
 		Status:     "synced",
 		LogicalID:  rule.Metadata.Name,
 		BackendID:  backendID,
@@ -694,7 +801,7 @@ func (s *LoggingService) prometheusRulesAreEqual(existing, new *monitoringv1.Pro
 }
 
 // DeleteMetricAlertRule deletes a metric-based alert rule (PrometheusRule CR)
-func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName string) (*types.AlertingRuleSyncResponse, error) {
+func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName string) (*observertypes.AlertingRuleSyncResponse, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
 	}
@@ -710,7 +817,7 @@ func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName str
 
 	if apierrors.IsNotFound(err) {
 		// Rule doesn't exist
-		return &types.AlertingRuleSyncResponse{
+		return &observertypes.AlertingRuleSyncResponse{
 			Status:     "not_found",
 			LogicalID:  ruleName,
 			BackendID:  "",
@@ -731,7 +838,7 @@ func (s *LoggingService) DeleteMetricAlertRule(ctx context.Context, ruleName str
 		"rule_name", ruleName,
 		"namespace", s.config.Alerting.ObservabilityNamespace)
 
-	return &types.AlertingRuleSyncResponse{
+	return &observertypes.AlertingRuleSyncResponse{
 		Status:     "deleted",
 		LogicalID:  ruleName,
 		BackendID:  backendID,

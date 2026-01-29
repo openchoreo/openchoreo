@@ -316,15 +316,15 @@ type WorkflowResponse struct {
 
 // WorkflowRunResponse represents a WorkflowRun in API responses
 type WorkflowRunResponse struct {
-	Name         string                 `json:"name"`
-	UUID         string                 `json:"uuid,omitempty"`
-	WorkflowName string                 `json:"workflowName"`
-	OrgName      string                 `json:"orgName"`
-	Status       string                 `json:"status"`
-	Phase        string                 `json:"phase,omitempty"`
-	Parameters   map[string]interface{} `json:"parameters,omitempty"`
-	CreatedAt    time.Time              `json:"createdAt"`
-	FinishedAt   *time.Time             `json:"finishedAt,omitempty"`
+	Name          string                 `json:"name"`
+	UUID          string                 `json:"uuid,omitempty"`
+	WorkflowName  string                 `json:"workflowName"`
+	NamespaceName string                 `json:"namespaceName"`
+	Status        string                 `json:"status"`
+	Phase         string                 `json:"phase,omitempty"`
+	Parameters    map[string]interface{} `json:"parameters,omitempty"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	FinishedAt    *time.Time             `json:"finishedAt,omitempty"`
 }
 
 // ComponentReleaseResponse represents a ComponentRelease in API responses

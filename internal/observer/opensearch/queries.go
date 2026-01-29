@@ -145,6 +145,64 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 	return query
 }
 
+// BuildWorkflowRunLogsQuery builds a query for workflow run logs with wildcard search
+func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams) map[string]interface{} {
+	mustConditions := []map[string]interface{}{
+		{
+			"wildcard": map[string]interface{}{
+				labels.KubernetesPodName + ".keyword": params.WorkflowRunID + "*",
+			},
+		},
+	}
+	mustConditions = addTimeRangeFilter(mustConditions, params.QueryParams.StartTime, params.QueryParams.EndTime)
+
+	// Add namespace filter if specified
+	// Use kubernetes.namespace_name (actual K8s namespace) instead of the pod label
+	// since generic workflows don't have the namespace-name label on their pods
+	// The actual K8s namespace for workflows is "openchoreo-ci-<namespaceName>"
+	if params.QueryParams.NamespaceName != "" {
+		k8sNamespace := fmt.Sprintf("openchoreo-ci-%s", params.QueryParams.NamespaceName)
+		namespaceFilter := map[string]interface{}{
+			"term": map[string]interface{}{
+				"kubernetes.namespace_name.keyword": k8sNamespace,
+			},
+		}
+		mustConditions = append(mustConditions, namespaceFilter)
+	}
+
+	// Logs from init and wait containers are not relevant to workflow run logs. Hence, excluded.
+	mustNotConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "init",
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "wait",
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": params.QueryParams.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must":     mustConditions,
+				"must_not": mustNotConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": params.QueryParams.SortOrder,
+				},
+			},
+		},
+	}
+	return query
+}
+
 // BuildComponentLogsQuery builds a query for component logs with wildcard search
 func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -38,13 +38,13 @@ func NewWorkflowRunService(k8sClient client.Client, logger *slog.Logger, authzPD
 	}
 }
 
-// ListWorkflowRuns lists all WorkflowRuns in the given organization
-func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, orgName string) ([]*models.WorkflowRunResponse, error) {
-	s.logger.Debug("Listing WorkflowRuns", "org", orgName)
+// ListWorkflowRuns lists all WorkflowRuns in the given namespace
+func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, namespaceName string) ([]*models.WorkflowRunResponse, error) {
+	s.logger.Debug("Listing WorkflowRuns", "namespace", namespaceName)
 
 	var wfRunList openchoreov1alpha1.WorkflowRunList
 	listOpts := []client.ListOption{
-		client.InNamespace(orgName),
+		client.InNamespace(namespaceName),
 	}
 
 	if err := s.k8sClient.List(ctx, &wfRunList, listOpts...); err != nil {
@@ -56,10 +56,10 @@ func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, orgName strin
 	for i := range wfRunList.Items {
 		// Authorization check
 		if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun, ResourceTypeWorkflowRun, wfRunList.Items[i].Name,
-			authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+			authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 			if errors.Is(err, ErrForbidden) {
 				// Skip unauthorized items
-				s.logger.Debug("Skipping unauthorized workflow run", "org", orgName, "workflowRun", wfRunList.Items[i].Name)
+				s.logger.Debug("Skipping unauthorized workflow run", "namespace", namespaceName, "workflowRun", wfRunList.Items[i].Name)
 				continue
 			}
 			return nil, err
@@ -67,29 +67,29 @@ func (s *WorkflowRunService) ListWorkflowRuns(ctx context.Context, orgName strin
 		wfRuns = append(wfRuns, s.toWorkflowRunResponse(&wfRunList.Items[i]))
 	}
 
-	s.logger.Debug("Listed WorkflowRuns", "org", orgName, "count", len(wfRuns))
+	s.logger.Debug("Listed WorkflowRuns", "namespace", namespaceName, "count", len(wfRuns))
 	return wfRuns, nil
 }
 
 // GetWorkflowRun retrieves a specific WorkflowRun
-func (s *WorkflowRunService) GetWorkflowRun(ctx context.Context, orgName, runName string) (*models.WorkflowRunResponse, error) {
-	s.logger.Debug("Getting WorkflowRun", "org", orgName, "run", runName)
+func (s *WorkflowRunService) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunResponse, error) {
+	s.logger.Debug("Getting WorkflowRun", "org", namespaceName, "run", runName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun, ResourceTypeWorkflowRun, runName,
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
 	wfRun := &openchoreov1alpha1.WorkflowRun{}
 	key := client.ObjectKey{
 		Name:      runName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, key, wfRun); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("WorkflowRun not found", "org", orgName, "run", runName)
+			s.logger.Warn("WorkflowRun not found", "org", namespaceName, "run", runName)
 			return nil, ErrWorkflowRunNotFound
 		}
 		s.logger.Error("Failed to get WorkflowRun", "error", err)
@@ -100,12 +100,12 @@ func (s *WorkflowRunService) GetWorkflowRun(ctx context.Context, orgName, runNam
 }
 
 // CreateWorkflowRun creates a new WorkflowRun
-func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, orgName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error) {
-	s.logger.Debug("Creating WorkflowRun", "org", orgName, "workflow", req.WorkflowName)
+func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error) {
+	s.logger.Debug("Creating WorkflowRun", "org", namespaceName, "workflow", req.WorkflowName)
 
 	// Authorization check
 	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateWorkflowRun, ResourceTypeWorkflowRun, "",
-		authz.ResourceHierarchy{Namespace: orgName}); err != nil {
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return nil, err
 	}
 
@@ -113,12 +113,12 @@ func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, orgName stri
 	workflow := &openchoreov1alpha1.Workflow{}
 	workflowKey := client.ObjectKey{
 		Name:      req.WorkflowName,
-		Namespace: orgName,
+		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, workflowKey, workflow); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Warn("Referenced workflow not found", "org", orgName, "workflow", req.WorkflowName)
+			s.logger.Warn("Referenced workflow not found", "org", namespaceName, "workflow", req.WorkflowName)
 			return nil, ErrWorkflowNotFound
 		}
 		s.logger.Error("Failed to get referenced workflow", "error", err)
@@ -147,7 +147,7 @@ func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, orgName stri
 	wfRun := &openchoreov1alpha1.WorkflowRun{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      runName,
-			Namespace: orgName,
+			Namespace: namespaceName,
 		},
 		Spec: openchoreov1alpha1.WorkflowRunSpec{
 			Workflow: openchoreov1alpha1.WorkflowRunConfig{
@@ -159,14 +159,14 @@ func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, orgName stri
 
 	if err := s.k8sClient.Create(ctx, wfRun); err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			s.logger.Warn("WorkflowRun already exists", "org", orgName, "run", runName)
+			s.logger.Warn("WorkflowRun already exists", "org", namespaceName, "run", runName)
 			return nil, ErrWorkflowRunAlreadyExists
 		}
 		s.logger.Error("Failed to create WorkflowRun", "error", err)
 		return nil, fmt.Errorf("failed to create WorkflowRun: %w", err)
 	}
 
-	s.logger.Debug("Created WorkflowRun successfully", "org", orgName, "run", runName, "workflow", req.WorkflowName)
+	s.logger.Debug("Created WorkflowRun successfully", "org", namespaceName, "run", runName, "workflow", req.WorkflowName)
 	return s.toWorkflowRunResponse(wfRun), nil
 }
 
@@ -200,10 +200,10 @@ func (s *WorkflowRunService) generateWorkflowRunName(workflowName string) (strin
 // toWorkflowRunResponse converts a WorkflowRun CRD to the API response model
 func (s *WorkflowRunService) toWorkflowRunResponse(wfRun *openchoreov1alpha1.WorkflowRun) *models.WorkflowRunResponse {
 	response := &models.WorkflowRunResponse{
-		Name:         wfRun.Name,
-		WorkflowName: wfRun.Spec.Workflow.Name,
-		OrgName:      wfRun.Namespace,
-		CreatedAt:    wfRun.CreationTimestamp.Time,
+		Name:          wfRun.Name,
+		WorkflowName:  wfRun.Spec.Workflow.Name,
+		NamespaceName: wfRun.Namespace,
+		CreatedAt:     wfRun.CreationTimestamp.Time,
 	}
 
 	// Set UUID if available
@@ -228,7 +228,7 @@ func (s *WorkflowRunService) toWorkflowRunResponse(wfRun *openchoreov1alpha1.Wor
 
 	// Default status if not found
 	if response.Status == "" {
-		response.Status = "Pending"
+		response.Status = WorkflowRunStatusPending
 	}
 
 	// Extract parameters if available
@@ -248,9 +248,9 @@ func marshalToRawExtension(data map[string]interface{}) (*runtime.RawExtension, 
 		return nil, nil
 	}
 
-	bytes, err := yaml.Marshal(data)
+	bytes, err := json.Marshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal data to YAML: %w", err)
+		return nil, fmt.Errorf("failed to marshal data to JSON: %w", err)
 	}
 
 	return &runtime.RawExtension{
@@ -265,7 +265,7 @@ func unmarshalRawExtension(raw *runtime.RawExtension) (map[string]interface{}, e
 	}
 
 	var result map[string]interface{}
-	if err := yaml.Unmarshal(raw.Raw, &result); err != nil {
+	if err := json.Unmarshal(raw.Raw, &result); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal raw extension: %w", err)
 	}
 
