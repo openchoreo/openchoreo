@@ -1,7 +1,7 @@
 dependencies:
 - name: external-secrets
   repository: https://charts.external-secrets.io
-  version: 0.19.2
+  version: 1.3.1
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
@@ -20,5 +20,5 @@ dependencies:
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.2.0
-digest: sha256:642de6c8a342f8e4d5f77242af65bac6781b8081e4042c15278dafaab037b9f2
-generated: "2026-01-21T10:58:07.250468+05:30"
+digest: sha256:805d987ae7bfbdd6b277ef1f04849deb2f00768418a7c95b80a933f892845308
+generated: "2026-01-29T06:47:11.516866214Z"
