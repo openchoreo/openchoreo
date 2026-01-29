@@ -1002,7 +1002,7 @@ observer:
         display_name: "User"
         priority: 1
         auth_mechanisms:
-          - type: "oauth2"
+          - type: "jwt"
             entitlement:
               claim: "groups"
               display_name: "User Group"
@@ -1010,7 +1010,7 @@ observer:
         display_name: "Service Account"
         priority: 2
         auth_mechanisms:
-          - type: "oauth2"
+          - type: "jwt"
             entitlement:
               claim: "sub"
               display_name: "Client ID"
