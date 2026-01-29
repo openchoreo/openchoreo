@@ -401,15 +401,20 @@ func (s *ComponentWorkflowService) GetComponentWorkflowSchema(ctx context.Contex
 
 	// Add systemParameters schema
 	if cwf.Spec.Schema.SystemParameters.Repository.URL != "" {
-		schemaMap["systemParameters"] = map[string]any{
-			"repository": map[string]any{
-				"url": cwf.Spec.Schema.SystemParameters.Repository.URL,
-				"revision": map[string]any{
-					"branch": cwf.Spec.Schema.SystemParameters.Repository.Revision.Branch,
-					"commit": cwf.Spec.Schema.SystemParameters.Repository.Revision.Commit,
-				},
-				"appPath": cwf.Spec.Schema.SystemParameters.Repository.AppPath,
+		repoSchema := map[string]any{
+			"url": cwf.Spec.Schema.SystemParameters.Repository.URL,
+			"revision": map[string]any{
+				"branch": cwf.Spec.Schema.SystemParameters.Repository.Revision.Branch,
+				"commit": cwf.Spec.Schema.SystemParameters.Repository.Revision.Commit,
 			},
+			"appPath": cwf.Spec.Schema.SystemParameters.Repository.AppPath,
+		}
+		// Add secretRef if present in the schema
+		if cwf.Spec.Schema.SystemParameters.Repository.SecretRef != "" {
+			repoSchema["secretRef"] = cwf.Spec.Schema.SystemParameters.Repository.SecretRef
+		}
+		schemaMap["systemParameters"] = map[string]any{
+			"repository": repoSchema,
 		}
 	}
 
