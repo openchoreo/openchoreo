@@ -146,7 +146,7 @@ func toGenComponentWorkflowRun(run *models.ComponentWorkflowResponse) gen.Compon
 						Branch *string `json:"branch,omitempty"`
 						Commit *string `json:"commit,omitempty"`
 					} `json:"revision,omitempty"`
-					Url *string `json:"url,omitempty"`
+					Url *string `json:"url,omitempty"` //nolint // OpenAPI generated model requires this
 				} `json:"repository,omitempty"`
 			}{
 				Repository: &struct {
@@ -155,7 +155,7 @@ func toGenComponentWorkflowRun(run *models.ComponentWorkflowResponse) gen.Compon
 						Branch *string `json:"branch,omitempty"`
 						Commit *string `json:"commit,omitempty"`
 					} `json:"revision,omitempty"`
-					Url *string `json:"url,omitempty"`
+					Url *string `json:"url,omitempty"` //nolint // OpenAPI generated model requires this
 				}{
 					Url:     ptr.To(repo.URL),
 					AppPath: ptr.To(repo.AppPath),

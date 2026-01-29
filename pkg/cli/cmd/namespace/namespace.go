@@ -6,6 +6,7 @@ package namespace
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -34,5 +35,6 @@ func newListNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.ListNamespaces(api.ListNamespacesParams{})
 		},
+		PreRunE: auth.RequireLogin(impl),
 	}).Build()
 }

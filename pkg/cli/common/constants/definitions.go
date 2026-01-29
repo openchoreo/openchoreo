@@ -153,8 +153,8 @@ Examples:
 	}
 
 	ScaffoldComponent = Command{
-		Use:     "scaffold",
-		Short:   "Scaffold a Component YAML from ComponentType and Traits",
+		Use:   "scaffold",
+		Short: "Scaffold a Component YAML from ComponentType and Traits",
 		Long: fmt.Sprintf(`Generate a Component YAML file based on a ComponentType definition.
 
 The command fetches the ComponentType and any specified Traits from the cluster,
@@ -178,25 +178,25 @@ Examples:
 	}
 
 	ListNamespace = Command{
-		Use:     "list",
-		Short:   "List namespaces",
-		Long:    `List all namespaces.`,
+		Use:   "list",
+		Short: "List namespaces",
+		Long:  `List all namespaces.`,
 		Example: `  # List all namespaces
   occ namespace list`,
 	}
 
 	ListProject = Command{
-		Use:     "list",
-		Short:   "List projects",
-		Long:    `List all projects in a namespace.`,
+		Use:   "list",
+		Short: "List projects",
+		Long:  `List all projects in a namespace.`,
 		Example: `  # List all projects in a namespace
   occ project list --namespace acme-corp`,
 	}
 
 	ListComponent = Command{
-		Use:     "list",
-		Short:   "List components",
-		Long:    `List all components in a project.`,
+		Use:   "list",
+		Short: "List components",
+		Long:  `List all components in a project.`,
 		Example: `  # List all components in a project
   occ component list --namespace acme-corp --project online-store`,
 	}
@@ -354,9 +354,9 @@ This command allows you to:
 	}
 
 	ListEnvironment = Command{
-		Use:     "list",
-		Short:   "List environments",
-		Long:    `List all environments in a namespace.`,
+		Use:   "list",
+		Short: "List environments",
+		Long:  `List all environments in a namespace.`,
 		Example: `  # List all environments in a namespace
   occ environment list --namespace acme-corp`,
 	}
@@ -373,9 +373,9 @@ This command allows you to:
 	}
 
 	ListDataPlane = Command{
-		Use:     "list",
-		Short:   "List data planes",
-		Long:    `List all data planes in a namespace.`,
+		Use:   "list",
+		Short: "List data planes",
+		Long:  `List all data planes in a namespace.`,
 		Example: `  # List all data planes in a namespace
   occ dataplane list --namespace acme-corp`,
 	}
@@ -466,62 +466,63 @@ This command allows you to:
 	}
 
 	ListBuildPlane = Command{
-		Use:     "list",
-		Short:   "List build planes",
-		Long:    `List all build planes in a namespace.`,
+		Use:   "list",
+		Short: "List build planes",
+		Long:  `List all build planes in a namespace.`,
 		Example: `  # List all build planes in a namespace
   occ buildplane list --namespace acme-corp`,
 	}
 
 	ListObservabilityPlane = Command{
-		Use:     "list",
-		Short:   "List observability planes",
-		Long:    `List all observability planes in a namespace.`,
+		Use:   "list",
+		Short: "List observability planes",
+		Long:  `List all observability planes in a namespace.`,
 		Example: `  # List all observability planes in a namespace
   occ observabilityplane list --namespace acme-corp`,
 	}
 
 	ListComponentType = Command{
-		Use:     "list",
-		Short:   "List component types",
-		Long:    `List all component types available in a namespace.`,
+		Use:   "list",
+		Short: "List component types",
+		Long:  `List all component types available in a namespace.`,
 		Example: `  # List all component types in a namespace
   occ componenttype list --namespace acme-corp`,
 	}
 
 	ListTrait = Command{
-		Use:     "list",
-		Short:   "List traits",
-		Long:    `List all traits available in a namespace.`,
+		Use:   "list",
+		Short: "List traits",
+		Long:  `List all traits available in a namespace.`,
 		Example: `  # List all traits in a namespace
   occ trait list --namespace acme-corp`,
 	}
 
 	ListWorkflow = Command{
-		Use:     "list",
-		Short:   "List workflows",
-		Long:    `List all workflows available in a namespace.`,
+		Use:   "list",
+		Short: "List workflows",
+		Long:  `List all workflows available in a namespace.`,
 		Example: `  # List all workflows in a namespace
   occ workflow list --namespace acme-corp`,
 	}
 
 	ListComponentWorkflow = Command{
-		Use:     "list",
-		Short:   "List component workflows",
-		Long:    `List all component workflow templates available in a namespace.`,
+		Use:   "list",
+		Short: "List component workflows",
+		Long:  `List all component workflow templates available in a namespace.`,
 		Example: `  # List all component workflows in a namespace
   occ componentworkflow list --namespace acme-corp`,
 	}
 
 	ListSecretReference = Command{
-		Use:     "list",
-		Short:   "List secret references",
-		Long:    `List all secret references in a namespace.`,
+		Use:   "list",
+		Short: "List secret references",
+		Long:  `List all secret references in a namespace.`,
 		Example: `  # List all secret references in a namespace
   occ secretreference list --namespace acme-corp`,
 	}
 
 	// Resource root commands
+
 	BuildPlane = Command{
 		Use:     "buildplane",
 		Aliases: []string{"bp", "buildplanes"},

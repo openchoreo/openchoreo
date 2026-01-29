@@ -16,6 +16,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 )
 
+// TODO: This client will be replaced by OpenAPI generated client
+
 // APIClient provides HTTP client for OpenChoreo API server
 type APIClient struct {
 	baseURL    string

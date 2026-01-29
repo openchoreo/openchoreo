@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openchoreo/openchoreo/internal/occ/client"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )

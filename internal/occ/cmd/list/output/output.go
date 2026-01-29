@@ -20,16 +20,11 @@ func PrintNamespaces(list *gen.NamespaceList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, ns := range list.Items {
-		status := ""
-		if ns.Status != nil {
-			status = *ns.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			ns.Name,
-			status,
 			formatAge(ns.CreatedAt))
 	}
 
@@ -44,21 +39,11 @@ func PrintProjects(list *gen.ProjectList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDISPLAY NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, proj := range list.Items {
-		displayName := ""
-		if proj.DisplayName != nil {
-			displayName = *proj.DisplayName
-		}
-		status := ""
-		if proj.Status != nil {
-			status = *proj.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			proj.Name,
-			displayName,
-			status,
 			formatAge(proj.CreatedAt))
 	}
 
@@ -73,18 +58,13 @@ func PrintComponents(list *gen.ComponentList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tPROJECT\tTYPE\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tPROJECT\tTYPE\tAGE")
 
 	for _, comp := range list.Items {
-		status := ""
-		if comp.Status != nil {
-			status = *comp.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			comp.Name,
 			comp.ProjectName,
 			comp.Type,
-			status,
 			formatAge(comp.CreatedAt))
 	}
 
@@ -99,7 +79,7 @@ func PrintEnvironments(list *gen.EnvironmentList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tDATA PLANE\tPRODUCTION\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tDATA PLANE\tPRODUCTION\tAGE")
 
 	for _, env := range list.Items {
 		dataPlane := ""
@@ -110,15 +90,10 @@ func PrintEnvironments(list *gen.EnvironmentList) error {
 		if env.IsProduction {
 			production = "true"
 		}
-		status := ""
-		if env.Status != nil {
-			status = *env.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			env.Name,
 			dataPlane,
 			production,
-			status,
 			formatAge(env.CreatedAt))
 	}
 
@@ -133,16 +108,11 @@ func PrintDataPlanes(list *gen.DataPlaneList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, dp := range list.Items {
-		status := ""
-		if dp.Status != nil {
-			status = *dp.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			dp.Name,
-			status,
 			formatAge(dp.CreatedAt))
 	}
 
@@ -157,16 +127,11 @@ func PrintBuildPlanes(list *gen.BuildPlaneList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, bp := range list.Items {
-		status := ""
-		if bp.Status != nil {
-			status = *bp.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			bp.Name,
-			status,
 			formatAge(bp.CreatedAt))
 	}
 
@@ -181,16 +146,11 @@ func PrintObservabilityPlanes(list *gen.ObservabilityPlaneList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, op := range list.Items {
-		status := ""
-		if op.Status != nil {
-			status = *op.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			op.Name,
-			status,
 			formatAge(op.CreatedAt))
 	}
 
@@ -283,16 +243,11 @@ func PrintSecretReferences(list *gen.SecretReferenceList) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSTATUS\tAGE")
+	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, sr := range list.Items {
-		status := ""
-		if sr.Status != nil {
-			status = *sr.Status
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\n",
 			sr.Name,
-			status,
 			formatAge(sr.CreatedAt))
 	}
 
@@ -310,11 +265,4 @@ func formatAge(t time.Time) string {
 	} else {
 		return fmt.Sprintf("%dd", int(duration.Hours()/24))
 	}
-}
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
 }
