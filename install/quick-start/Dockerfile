@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
 
 # Version arguments for reproducibility and easy updates
 ARG KUBECTL_VERSION=v1.32.10

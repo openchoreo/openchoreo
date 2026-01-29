@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:bookworm-slim@sha256:058d5540ce80a272d4f61551a8bfe9a4bdb9064923042285e61351721430661a AS builder
 
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     cp "$LIBZ_PATH/libz.so.1" /lib/libz.so.1; \
     cp "$LIBZ_PATH/libz.so.1.2.13" /lib/libz.so.1.2.13
 
-FROM gcr.io/distroless/cc
+FROM gcr.io/distroless/cc@sha256:72344f7f909a8bf003c67f55687e6d51a441b49661af8f660aa7b285f00e57df
 
 COPY --from=builder --chown=12000:12000 /python /python
 WORKDIR /app
