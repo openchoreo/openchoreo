@@ -13,7 +13,6 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentworkflow"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
-	"github.com/openchoreo/openchoreo/pkg/cli/cmd/create"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/dataplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/environment"
@@ -27,6 +26,7 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/trait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflow"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workload"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -42,7 +42,6 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 	// Add all commands directly
 	rootCmd.AddCommand(
 		apply.NewApplyCmd(impl),
-		create.NewCreateCmd(impl),
 		login.NewLoginCmd(impl),
 		logout.NewLogoutCmd(impl),
 		configContext.NewConfigCmd(impl),
@@ -50,7 +49,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(impl),
 		releasebinding.NewReleaseBindingCmd(impl),
-		// Resource commands with list subcommands
+		// Resource commands
 		namespace.NewNamespaceCmd(impl),
 		project.NewProjectCmd(impl),
 		component.NewComponentCmd(impl),
@@ -63,6 +62,7 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		workflow.NewWorkflowCmd(impl),
 		componentworkflow.NewComponentWorkflowCmd(impl),
 		secretreference.NewSecretReferenceCmd(impl),
+		workload.NewWorkloadCmd(impl),
 	)
 
 	return rootCmd

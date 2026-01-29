@@ -46,30 +46,6 @@ func getMetadataFlags() []flags.Flag { //nolint:unused // Used by temporarily di
 	)
 }
 
-func NewCreateCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	createCmd := &cobra.Command{
-		Use:   constants.Create.Use,
-		Short: constants.Create.Short,
-		Long:  constants.Create.Long,
-	}
-
-	createCmd.AddCommand(
-		// newCreateNamespaceCmd(impl),
-		// newCreateProjectCmd(impl),
-		// newCreateComponentCmd(impl),
-		// newCreateBuildCmd(impl),
-		// newCreateDeploymentCmd(impl),
-		// newCreateDataPlaneCmd(impl),
-		// newCreateDeploymentTrackCmd(impl),
-		// newCreateEnvironmentCmd(impl),
-		// newCreateDeployableArtifactCmd(impl),
-		// newCreateDeploymentPipelineCmd(impl),
-		newCreateWorkloadCmd(impl),
-	)
-
-	return createCmd
-}
-
 //nolint:unused // Temporarily disabled
 func newCreateNamespaceCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	return (&builder.CommandBuilder{

@@ -124,9 +124,8 @@ Examples:
 	}
 
 	CreateWorkload = Command{
-		Use:     "workload",
-		Aliases: []string{"wl"},
-		Short:   "Create a workload from a descriptor file",
+		Use:   "create",
+		Short: "Create a workload from a descriptor file",
 		Long: fmt.Sprintf(`Create a workload from a workload descriptor file.
 
 The workload descriptor (workload.yaml) should be located alongside your source code
@@ -134,11 +133,11 @@ and describes the endpoints and configuration for your workload.
 
 Examples:
   # Create workload from descriptor
-  %[1]s create workload workload.yaml --namespace acme-corp --project online-store \
+  %[1]s workload create workload.yaml --namespace acme-corp --project online-store \
     --component product-catalog --image myimage:latest
 
   # Create workload and save to file
-  %[1]s create workload workload.yaml -o acme-corp -p online-store -c product-catalog \
+  %[1]s workload create workload.yaml -o acme-corp -p online-store -c product-catalog \
     --image myimage:latest --output workload-cr.yaml`,
 			messages.DefaultCLIName),
 	}
@@ -605,6 +604,13 @@ This command allows you to:
 		Aliases: []string{"dp", "dataplanes"},
 		Short:   "Manage data planes",
 		Long:    `Manage data planes for OpenChoreo.`,
+	}
+
+	Workload = Command{
+		Use:     "workload",
+		Aliases: []string{"wl", "workloads"},
+		Short:   "Manage workloads",
+		Long:    `Manage workloads for OpenChoreo.`,
 	}
 
 	// ------------------------------------------------------------------------
