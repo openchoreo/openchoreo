@@ -1375,8 +1375,8 @@ func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ru
 }
 
 // TriggerRCAAnalysis triggers an AI RCA analysis for the given alert.
-// It enriches the payload with CRD data and sends an async request to the RCA service.
-func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL string, alertID string, alertDetails *observertypes.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
+// It enriches the payload with CRD data and sends a request to the RCA service.
+func (s *LoggingService) TriggerRCAAnalysis(rcaServiceURL string, alertID string, alertDetails *observertypes.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
 	// Build the rule info with basic name
 	ruleInfo := map[string]interface{}{
 		"name": alertDetails.AlertName,
@@ -1422,25 +1422,26 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 		},
 	}
 
-	// Fire-and-forget request to AI RCA service
-	go func() {
-		payloadBytes, err := json.Marshal(rcaPayload)
-		if err != nil {
-			s.logger.Error("Failed to marshal RCA request payload", "error", err)
-			return
-		}
+	// Send request to AI RCA service
+	payloadBytes, err := json.Marshal(rcaPayload)
+	if err != nil {
+		s.logger.Error("Failed to marshal RCA request payload", "error", err)
+		return
+	}
 
-		resp, err := http.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
-		if err != nil {
-			s.logger.Error("Failed to send RCA analysis request", "error", err)
-			return
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
+	if err != nil {
+		s.logger.Error("Failed to send RCA analysis request", "error", err)
+		return
+	}
+	defer resp.Body.Close()
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.logger.Error("RCA analysis request returned non-success status", "statusCode", resp.StatusCode, "alertID", alertID)
+	} else {
 		s.logger.Debug("AI RCA analysis triggered", "alertID", alertID)
-	}()
+	}
 }
 
 // ParseOpenSearchAlertPayload parses the OpenSearch alert payload

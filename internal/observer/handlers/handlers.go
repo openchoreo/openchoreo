@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1178,12 +1179,6 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send Notification
-	err = h.service.SendAlertNotification(r.Context(), alertDetails)
-	if err != nil {
-		h.logger.Warn("Failed to send alert notification", "error", err)
-	}
-
 	// Store alert entry in logs backend
 	alertID, err := h.service.StoreAlertEntry(r.Context(), alertDetails)
 	if err != nil {
@@ -1192,22 +1187,33 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Trigger AI RCA analysis if enabled
-	if alertDetails.AlertAIRootCauseAnalysisEnabled {
-		if isAIRCAEnabled() {
-			h.logger.Info("AI RCA analysis triggered", "alertID", alertID)
-			h.logger.Debug("AI RCA analysis details", "alertID", alertID, "enableRCA", enableRCA, "alertDetails", alertDetails)
-			h.service.TriggerRCAAnalysis(r.Context(), h.rcaServiceURL, alertID, alertDetails, alertRule)
-		}
-	} else {
-		h.logger.Info("AI RCA analysis not triggered", "alertID", alertID, "enableRCA", alertDetails["enableAiRootCauseAnalysis"])
-	}
-
-	// Return success response
+	// Return success response acknowledging alert processing
 	h.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"message": "Alert processed successfully",
+		"message": "Alert acknowledged by OpenChoreo",
 		"alertID": alertID,
 	})
+
+	// Send alert notification in background
+	go func() {
+		notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := h.service.SendAlertNotification(notifCtx, alertDetails); err != nil {
+			h.logger.Warn("Failed to send alert notification", "error", err)
+		}
+	}()
+
+	// Trigger AI RCA analysis in background if enabled
+	if alertDetails.AlertAIRootCauseAnalysisEnabled {
+		if isAIRCAEnabled() {
+			go func() {
+				h.logger.Info("AI RCA analysis triggered", "alertID", alertID)
+				h.logger.Debug("AI RCA analysis details", "alertID", alertID, "alertDetails", alertDetails)
+				h.service.TriggerRCAAnalysis(h.rcaServiceURL, alertID, alertDetails, alertRule)
+			}()
+		} else {
+			h.logger.Info("AI RCA analysis not triggered", "alertID", alertID, "enableRCA", alertDetails.AlertAIRootCauseAnalysisEnabled)
+		}
+	}
 }
 
 // parseWebhookPayload reads and parses the JSON webhook payload
