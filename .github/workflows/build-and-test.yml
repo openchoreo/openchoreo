@@ -73,37 +73,37 @@ jobs:
           make go.build-multiarch.occ GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
 
       - name: Upload occ binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: occ
           path: bin/dist/**/occ
 
       - name: Upload manager binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: manager
           path: bin/dist/**/manager
 
       - name: Upload openchoreo-api binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: openchoreo-api
           path: bin/dist/**/openchoreo-api
 
       - name: Upload observer binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: observer
           path: bin/dist/**/observer
 
       - name: Upload cluster-gateway binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-gateway
           path: bin/dist/**/cluster-gateway
 
       - name: Upload cluster-agent binaries
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
