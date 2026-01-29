@@ -4,7 +4,7 @@ dependencies:
   version: 0.19.2
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
-  version: 0.54.0
+  version: 0.55.0
 - name: kgateway-crds
   repository: oci://cr.kgateway.dev/kgateway-dev/charts
   version: v2.1.1
@@ -20,5 +20,5 @@ dependencies:
 - name: gateway-operator
   repository: oci://ghcr.io/wso2/api-platform/helm-charts
   version: 0.2.0
-digest: sha256:642de6c8a342f8e4d5f77242af65bac6781b8081e4042c15278dafaab037b9f2
-generated: "2026-01-21T10:58:07.250468+05:30"
+digest: sha256:ee6bcfe4d32066e0105959c63ba0e2441825745ed8d0f0976a44571270e5e78c
+generated: "2026-01-29T06:47:09.93128365Z"
