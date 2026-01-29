@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from src.core.authz.client import AuthzClient
-from src.core.authz.dependencies import (
-    get_authz_client,
-    require_chat_authz,
-)
 from src.core.authz.models import (
     Decision,
     EvaluateRequest,
@@ -16,8 +12,6 @@ from src.core.authz.models import (
 
 __all__ = [
     "AuthzClient",
-    "get_authz_client",
-    "require_chat_authz",
     "Decision",
     "EvaluateRequest",
     "Resource",

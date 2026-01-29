@@ -11,7 +11,8 @@ from pydantic import Field
 
 from src.core.agent import run_analysis, stream_chat
 from src.core.authn import require_authn
-from src.core.authz import SubjectContext, require_chat_authz
+from src.core.authz.dependencies import require_chat_authz
+from src.core.authz.models import SubjectContext
 from src.core.opensearch import get_opensearch_client
 from src.core.utils import BaseModel, get_current_utc
 
