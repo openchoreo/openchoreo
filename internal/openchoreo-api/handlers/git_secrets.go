@@ -12,6 +12,36 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
+// ListGitSecrets handles GET /api/v1/namespaces/{namespaceName}/git-secrets
+func (h *Handler) ListGitSecrets(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	namespaceName := r.PathValue("namespaceName")
+
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	secrets, err := h.services.GitSecretService.ListGitSecrets(ctx, namespaceName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to list git secrets", "namespace", namespaceName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		h.logger.Error("Failed to list git secrets", "error", err, "namespace", namespaceName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to list git secrets", services.CodeInternalError)
+		return
+	}
+
+	writeSuccessResponse(w, http.StatusOK, models.ListResponse[models.GitSecretResponse]{
+		Items:      secrets,
+		TotalCount: len(secrets),
+		Page:       1,
+		PageSize:   len(secrets),
+	})
+}
+
 // CreateGitSecret handles POST /api/v1/namespaces/{namespaceName}/git-secrets
 func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -63,4 +93,45 @@ func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeSuccessResponse(w, http.StatusCreated, secret)
+}
+
+// DeleteGitSecret handles DELETE /api/v1/namespaces/{namespaceName}/git-secrets/{secretName}
+func (h *Handler) DeleteGitSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	namespaceName := r.PathValue("namespaceName")
+	secretName := r.PathValue("secretName")
+
+	if namespaceName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+	if secretName == "" {
+		writeErrorResponse(w, http.StatusBadRequest, "Secret name is required", services.CodeInvalidInput)
+		return
+	}
+
+	setAuditResource(ctx, "git_secret", secretName, secretName)
+	addAuditMetadata(ctx, "organization", namespaceName)
+
+	err := h.services.GitSecretService.DeleteGitSecret(ctx, namespaceName, secretName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			h.logger.Warn("Unauthorized to delete git secret", "namespace", namespaceName, "secret", secretName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrGitSecretNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Git secret not found", services.CodeGitSecretNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrBuildPlaneNotFound) {
+			writeErrorResponse(w, http.StatusNotFound, "Build plane not found", services.CodeBuildPlaneNotFound)
+			return
+		}
+		h.logger.Error("Failed to delete git secret", "error", err, "namespace", namespaceName, "secret", secretName)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to delete git secret", services.CodeInternalError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

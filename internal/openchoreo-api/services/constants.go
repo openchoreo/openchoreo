@@ -61,6 +61,8 @@ const (
 	SystemActionViewSecretReference systemAction = "secretreference:view"
 
 	SystemActionCreateGitSecret systemAction = "gitsecret:create"
+	SystemActionListGitSecrets  systemAction = "gitsecret:list"
+	SystemActionDeleteGitSecret systemAction = "gitsecret:delete"
 )
 
 type ResourceType string

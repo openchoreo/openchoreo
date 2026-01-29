@@ -245,3 +245,102 @@ func (s *GitSecretService) ensureNamespaceExists(ctx context.Context, k8sClient 
 	s.logger.Debug("Namespace already exists in build plane", "namespace", namespaceName)
 	return nil
 }
+
+// ListGitSecrets lists all git secrets for a namespace
+func (s *GitSecretService) ListGitSecrets(ctx context.Context, namespaceName string) ([]models.GitSecretResponse, error) {
+	s.logger.Debug("Listing git secrets", "namespace", namespaceName)
+
+	// List SecretReference CRDs with git-credentials label in the namespace
+	var secretRefs openchoreov1alpha1.SecretReferenceList
+	listOpts := []client.ListOption{
+		client.InNamespace(namespaceName),
+		client.MatchingLabels{gitSecretTypeLabel: gitSecretTypeValue},
+	}
+	if err := s.k8sClient.List(ctx, &secretRefs, listOpts...); err != nil {
+		s.logger.Error("Failed to list secret references", "error", err, "namespace", namespaceName)
+		return nil, fmt.Errorf("failed to list git secrets: %w", err)
+	}
+
+	secrets := make([]models.GitSecretResponse, 0, len(secretRefs.Items))
+	for _, ref := range secretRefs.Items {
+		secrets = append(secrets, models.GitSecretResponse{
+			Name:      ref.Name,
+			Namespace: ref.Namespace,
+		})
+	}
+
+	return secrets, nil
+}
+
+// DeleteGitSecret deletes a git secret from control and build planes
+func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, secretName string) error {
+	s.logger.Debug("Deleting git secret", "namespace", namespaceName, "secret", secretName)
+
+	// First, verify the secret reference exists
+	secretRef := &openchoreov1alpha1.SecretReference{}
+	key := client.ObjectKey{Name: secretName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, key, secretRef); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrGitSecretNotFound
+		}
+		s.logger.Error("Failed to get secret reference", "error", err, "namespace", namespaceName, "secret", secretName)
+		return fmt.Errorf("failed to get secret reference: %w", err)
+	}
+
+	// Verify it's a git secret by checking the label
+	if secretRef.Labels[gitSecretTypeLabel] != gitSecretTypeValue {
+		return ErrGitSecretNotFound
+	}
+
+	// Get build plane to delete resources from build plane
+	buildPlane, err := s.getBuildPlane(ctx, namespaceName)
+	if err != nil {
+		return err
+	}
+
+	buildPlaneClient, err := kubernetesClient.GetK8sClientFromBuildPlane(s.bpClientMgr, buildPlane, s.gatewayURL)
+	if err != nil {
+		s.logger.Error("Failed to get build plane client", "error", err, "namespace", namespaceName, "buildPlane", buildPlane.Name)
+		return fmt.Errorf("failed to get build plane client: %w", err)
+	}
+
+	// Delete PushSecret from build plane
+	pushSecret := &unstructured.Unstructured{}
+	pushSecret.SetAPIVersion("external-secrets.io/v1alpha1")
+	pushSecret.SetKind("PushSecret")
+	pushSecret.SetName(secretName)
+	pushSecret.SetNamespace(gitSecretSystemNamespace)
+	if err := buildPlaneClient.Delete(ctx, pushSecret); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			s.logger.Error("Failed to delete push secret", "error", err, "namespace", namespaceName, "secret", secretName)
+			return fmt.Errorf("failed to delete push secret: %w", err)
+		}
+		s.logger.Debug("Push secret not found, skipping", "namespace", namespaceName, "secret", secretName)
+	}
+
+	// Delete Kubernetes Secret from build plane
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: gitSecretSystemNamespace,
+		},
+	}
+	if err := buildPlaneClient.Delete(ctx, secret); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			s.logger.Error("Failed to delete build plane secret", "error", err, "namespace", namespaceName, "secret", secretName)
+			return fmt.Errorf("failed to delete build plane secret: %w", err)
+		}
+		s.logger.Debug("Build plane secret not found, skipping", "namespace", namespaceName, "secret", secretName)
+	}
+
+	// Delete SecretReference CRD from control plane
+	if err := s.k8sClient.Delete(ctx, secretRef); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			s.logger.Error("Failed to delete secret reference", "error", err, "namespace", namespaceName, "secret", secretName)
+			return fmt.Errorf("failed to delete secret reference: %w", err)
+		}
+	}
+
+	s.logger.Info("Successfully deleted git secret", "namespace", namespaceName, "secret", secretName)
+	return nil
+}

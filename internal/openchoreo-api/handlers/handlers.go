@@ -94,7 +94,9 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/namespaces", h.CreateNamespace)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}", h.GetNamespace)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/secret-references", h.ListSecretReferences)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/git-secrets", h.ListGitSecrets)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/git-secrets", h.CreateGitSecret)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/git-secrets/{secretName}", h.DeleteGitSecret)
 
 	// Apply/Delete operations (kubectl-like)
 	api.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
