@@ -388,7 +388,7 @@ spec:
                 cat /tmp/workload-descriptor.yaml
 
                 # Generate workload with descriptor
-                occ create workload \
+                occ workload create \
                   --project "$PROJECT_NAME" \
                   --component "$COMPONENT_NAME" \
                   --image "$CONTAINER_IMAGE" \
@@ -396,7 +396,7 @@ spec:
             else
                 echo "No workload descriptor provided, generating basic workload"
                 # Generate basic workload without descriptor
-                occ create workload \
+                occ workload create \
                   --project "$PROJECT_NAME" \
                   --component "$COMPONENT_NAME" \
                   --image "$CONTAINER_IMAGE"
