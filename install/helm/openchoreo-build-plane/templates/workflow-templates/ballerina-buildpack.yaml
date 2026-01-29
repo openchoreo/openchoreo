@@ -315,7 +315,7 @@ spec:
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
               ghcr.io/openchoreo/openchoreo-cli:{{ .Chart.AppVersion }} \
-                workload create\
+                workload create \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \

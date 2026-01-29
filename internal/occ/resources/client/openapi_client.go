@@ -20,15 +20,12 @@ type Client struct {
 	token  string
 }
 
-// NewClient creates a new API client with automatic control plane detection
 func NewClient() (*Client, error) {
-	// Get control plane
 	controlPlane, err := config.GetCurrentControlPlane()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get control plane: %w", err)
 	}
 
-	// Get credential and token (may not exist yet if not logged in)
 	token := ""
 	credential, err := config.GetCurrentCredential()
 	if err == nil && credential != nil {
@@ -37,7 +34,6 @@ func NewClient() (*Client, error) {
 
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 
-	// Create the generated client with request editor for token refresh and OpenAPI header
 	client, err := gen.NewClientWithResponses(
 		controlPlane.URL,
 		gen.WithHTTPClient(httpClient),
