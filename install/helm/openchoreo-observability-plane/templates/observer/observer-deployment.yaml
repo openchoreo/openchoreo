@@ -28,6 +28,12 @@ spec:
         - /bin/sh
         - -c
         - |
+          # Skip OpenSearch check if using logs backend
+          if [ -n "$EXPERIMENTAL_USE_LOGS_BACKEND" ] && [ "$EXPERIMENTAL_USE_LOGS_BACKEND" = "true" ]; then
+            echo "Logs backend enabled, skipping OpenSearch check"
+            exit 0
+          fi
+          
           echo "Waiting for OpenSearch to be ready..."
           AUTH_TOKEN=$(echo -n "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" | base64)
           echo "Checking OpenSearch at: $OPENSEARCH_ADDRESS"
@@ -37,6 +43,8 @@ spec:
           done
           echo "OpenSearch is ready!"
         env:
+        - name: EXPERIMENTAL_USE_LOGS_BACKEND
+          value: {{ if .Values.observer.experimental }}{{ .Values.observer.experimental.useLogsBackend | default "false" }}{{ else }}"false"{{ end }}
         - name: OPENSEARCH_ADDRESS
           value: "https://opensearch:9200"
         - name: OPENSEARCH_USERNAME
