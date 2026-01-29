@@ -364,7 +364,7 @@ func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 		// Namespace name is required for authorization
 		if req.NamespaceName == "" {
 			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
-				ErrorCodeMissingParameter, "Namespace name required for authorization")
+				ErrorCodeMissingParameter, ErrorMsgNamespaceNameRequired)
 			return
 		}
 	}
