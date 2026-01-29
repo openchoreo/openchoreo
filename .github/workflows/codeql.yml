@@ -11,7 +11,8 @@ on:
     # Run weekly on Sunday 20:00 UTC (Monday 01:30 IST)
     - cron: "0 20 * * 0"
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   analyze:

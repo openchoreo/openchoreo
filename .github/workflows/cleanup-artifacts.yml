@@ -12,6 +12,9 @@ on:
         type: number
         default: 180
 
+permissions:
+  contents: read
+
 jobs:
   cleanup-docker-images:
     name: Cleanup Docker Images

@@ -5,6 +5,9 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  contents: read
+
 jobs:
   # In the release job, try to use artifacts from the build job as much as possible
   # to keep the release deterministic. This will ensure the release includes the tested artifacts.
@@ -12,6 +15,7 @@ jobs:
     name: Release
     runs-on: ubuntu-24.04
     permissions:
+      actions: read
       contents: write
       packages: write
     steps:

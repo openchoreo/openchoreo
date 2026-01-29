@@ -8,6 +8,11 @@ on:
       - edited
       - synchronize
 
+# IMPORTANT: pull_request_target runs with base branch context and has access to secrets.
+# Permissions should be used with extreme caution.
+# https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request_target
+permissions: {}
+
 jobs:
   validate-pr-title:
     name: Validate PR title
@@ -48,6 +53,9 @@ jobs:
   validate-commits:
     name: Validate commit messages
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
