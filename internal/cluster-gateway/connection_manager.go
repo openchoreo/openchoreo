@@ -4,6 +4,7 @@
 package clustergateway
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -27,7 +28,65 @@ type AgentConnection struct {
 	PlaneIdentifier string // Simplified identifier: {planeType}/{planeID}
 	ConnectedAt     time.Time
 	LastSeen        time.Time
+	ValidCRs        []string          // List of CRs (namespace/name) this connection is authorized for
+	clientCert      *x509.Certificate // Client certificate for re-validation on CR updates
 	mu              sync.Mutex
+}
+
+// IsValidForCR checks if this connection is authorized for the specified CR
+func (ac *AgentConnection) IsValidForCR(crKey string) bool {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	for _, validCR := range ac.ValidCRs {
+		if validCR == crKey {
+			return true
+		}
+	}
+	return false
+}
+
+// UpdateValidCRs replaces the ValidCRs list (used during re-validation)
+func (ac *AgentConnection) UpdateValidCRs(validCRs []string) {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+	ac.ValidCRs = validCRs
+}
+
+// GetValidCRs returns a copy of the ValidCRs list
+func (ac *AgentConnection) GetValidCRs() []string {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+	result := make([]string, len(ac.ValidCRs))
+	copy(result, ac.ValidCRs)
+	return result
+}
+
+// AddValidCR adds a CR to the ValidCRs list if not already present
+func (ac *AgentConnection) AddValidCR(crKey string) {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	for _, validCR := range ac.ValidCRs {
+		if validCR == crKey {
+			return // Already present
+		}
+	}
+	ac.ValidCRs = append(ac.ValidCRs, crKey)
+}
+
+// RemoveValidCR removes a CR from the ValidCRs list
+func (ac *AgentConnection) RemoveValidCR(crKey string) {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	newValidCRs := []string{}
+	for _, validCR := range ac.ValidCRs {
+		if validCR != crKey {
+			newValidCRs = append(newValidCRs, validCR)
+		}
+	}
+	ac.ValidCRs = newValidCRs
 }
 
 // ConnectionManager manages active agent connections
@@ -52,11 +111,18 @@ func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 	}
 }
 
-// Register registers a new agent connection
+// Register registers a new agent connection with per-CR authorization
 // planeIdentifier format: {planeType}/{planeID}
 // Multiple agent replicas (for HA) for the same plane share the same planeIdentifier
+// validCRs contains the list of CRs (namespace/name) this connection is authorized for
+// clientCert is stored for re-validation when CRs are updated
 // Returns the connection ID which should be used for unregistration
-func (cm *ConnectionManager) Register(planeType, planeID string, conn *websocket.Conn) (string, error) {
+func (cm *ConnectionManager) Register(
+	planeType, planeID string,
+	conn *websocket.Conn,
+	validCRs []string,
+	clientCert *x509.Certificate,
+) (string, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
@@ -72,6 +138,8 @@ func (cm *ConnectionManager) Register(planeType, planeID string, conn *websocket
 		PlaneIdentifier: planeIdentifier,
 		ConnectedAt:     now,
 		LastSeen:        now,
+		ValidCRs:        validCRs,
+		clientCert:      clientCert,
 	}
 
 	// Store by planeIdentifier (supports HA - multiple replicas)
@@ -85,6 +153,8 @@ func (cm *ConnectionManager) Register(planeType, planeID string, conn *websocket
 		"planeType", planeType,
 		"planeID", planeID,
 		"connectionID", connID,
+		"validCRs", validCRs,
+		"validCRCount", len(validCRs),
 		"connectionsForPlane", totalForPlane,
 		"totalConnections", totalConnections,
 	)
@@ -155,6 +225,54 @@ func (cm *ConnectionManager) Get(planeIdentifier string) (*AgentConnection, erro
 	cm.roundRobin[planeIdentifier] = (idx + 1) % len(conns)
 
 	return conns[idx], nil
+}
+
+// GetForCR retrieves an agent connection authorized for the specified CR using round-robin selection
+// Only connections where the agent's certificate is valid for the requested CR are considered
+// This enforces per-CR security boundaries in multi-tenant scenarios
+// Returns error if no authorized connections are found
+func (cm *ConnectionManager) GetForCR(planeIdentifier, crKey string) (*AgentConnection, error) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	conns, exists := cm.connections[planeIdentifier]
+	if !exists || len(conns) == 0 {
+		return nil, fmt.Errorf("no agents found for plane %s", planeIdentifier)
+	}
+
+	var validConns []*AgentConnection
+	for _, conn := range conns {
+		if conn.IsValidForCR(crKey) {
+			validConns = append(validConns, conn)
+		}
+	}
+
+	if len(validConns) == 0 {
+		cm.logger.Warn("no agents authorized for CR",
+			"planeIdentifier", planeIdentifier,
+			"requestedCR", crKey,
+			"totalAgents", len(conns),
+		)
+		return nil, fmt.Errorf("no agents authorized for CR %s", crKey)
+	}
+
+	// Round-robin among valid connections only
+	// Use CR-specific round-robin key to ensure fair distribution per CR
+	rrKey := fmt.Sprintf("%s/%s", planeIdentifier, crKey)
+	idx := cm.roundRobin[rrKey] % len(validConns)
+	cm.roundRobin[rrKey] = (idx + 1) % len(validConns)
+
+	selectedConn := validConns[idx]
+
+	cm.logger.Debug("selected agent for CR",
+		"planeIdentifier", planeIdentifier,
+		"cr", crKey,
+		"connectionID", selectedConn.ID,
+		"validAgents", len(validConns),
+		"totalAgents", len(conns),
+	)
+
+	return selectedConn, nil
 }
 
 func (cm *ConnectionManager) GetAll() []*AgentConnection {
@@ -363,4 +481,95 @@ func splitPlaneIdentifier(identifier string) []string {
 		}
 	}
 	return []string{identifier}
+}
+
+// RevalidateCR re-validates all connections for a specific CR without disconnecting
+// This is called when a CR is updated (e.g., certificate rotation) to enforce new security policy
+// without causing service disruption. Returns counts of authorizations granted and revoked.
+func (cm *ConnectionManager) RevalidateCR(
+	planeType, planeID, crNamespace, crName string,
+	newCAData []byte,
+) (updated int, removed int, err error) {
+	cm.mu.RLock()
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	conns, exists := cm.connections[planeIdentifier]
+	cm.mu.RUnlock()
+
+	if !exists || len(conns) == 0 {
+		cm.logger.Debug("no connections to revalidate",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", fmt.Sprintf("%s/%s", crNamespace, crName),
+		)
+		return 0, 0, nil
+	}
+
+	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
+
+	// Parse new CA certificate
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(newCAData) {
+		return 0, 0, fmt.Errorf("failed to parse new CA certificate")
+	}
+
+	cm.logger.Info("revalidating connections for CR",
+		"planeType", planeType,
+		"planeID", planeID,
+		"cr", crKey,
+		"totalConnections", len(conns),
+	)
+
+	// Re-validate each connection
+	for _, conn := range conns {
+		wasValid := conn.IsValidForCR(crKey)
+
+		// Verify connection's client cert against new CA
+		opts := x509.VerifyOptions{
+			Roots:     certPool,
+			KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		}
+
+		conn.mu.Lock()
+		_, verifyErr := conn.clientCert.Verify(opts)
+		isValid := (verifyErr == nil)
+
+		if isValid && !wasValid {
+			conn.ValidCRs = append(conn.ValidCRs, crKey)
+			updated++
+			cm.logger.Info("CR authorization granted to connection",
+				"connectionID", conn.ID,
+				"cr", crKey,
+				"clientCN", conn.clientCert.Subject.CommonName,
+			)
+		} else if !isValid && wasValid {
+			newValidCRs := []string{}
+			for _, validCR := range conn.ValidCRs {
+				if validCR != crKey {
+					newValidCRs = append(newValidCRs, validCR)
+				}
+			}
+			conn.ValidCRs = newValidCRs
+			removed++
+			cm.logger.Warn("CR authorization revoked from connection",
+				"connectionID", conn.ID,
+				"cr", crKey,
+				"clientCN", conn.clientCert.Subject.CommonName,
+				"reason", verifyErr,
+			)
+		}
+		// else: status unchanged (still valid or still invalid)
+
+		conn.mu.Unlock()
+	}
+
+	cm.logger.Info("CR re-validation completed",
+		"planeType", planeType,
+		"planeID", planeID,
+		"cr", crKey,
+		"totalConnections", len(conns),
+		"authorizationsGranted", updated,
+		"authorizationsRevoked", removed,
+	)
+
+	return updated, removed, nil
 }
