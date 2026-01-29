@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,7 +29,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
-	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -1138,110 +1136,30 @@ func (s *LoggingService) GetRCAReportByAlert(ctx context.Context, params opensea
 }
 
 // SendAlertNotification sends an alert notification via the configured notification channel
-func (s *LoggingService) SendAlertNotification(ctx context.Context, requestBody map[string]interface{}, ruleName string) error {
-	notificationChannelName := ""
-	if channel, ok := requestBody["notificationChannel"].(string); ok && channel != "" {
-		notificationChannelName = channel
-	}
-
+func (s *LoggingService) SendAlertNotification(ctx context.Context, alertDetails *types.AlertDetails) error {
 	// If no notification channel is specified, log and skip
-	if notificationChannelName == "" {
-		s.logger.Warn("Missing notification channel in webhook payload, skipping notification",
-			"ruleName", ruleName,
-			"notificationChannel", notificationChannelName)
+	if alertDetails.NotificationChannel == "" {
+		s.logger.Warn("Missing notification channel in alert details, skipping notification",
+			"ruleName", alertDetails.AlertName,
+			"notificationChannel", alertDetails.NotificationChannel)
 		return nil
 	}
 
 	// Fetch the notification channel configuration from Kubernetes
-	channelConfig, err := s.getNotificationChannelConfig(ctx, notificationChannelName)
+	channelConfig, err := s.getNotificationChannelConfig(ctx, alertDetails.NotificationChannel)
 	if err != nil {
 		s.logger.Error("Failed to get notification channel config",
 			"error", err,
-			"channelName", notificationChannelName)
+			"channelName", alertDetails.NotificationChannel)
 		return fmt.Errorf("failed to get notification channel config: %w", err)
 	}
 
-	// Send notification based on channel type
-	switch channelConfig.Type {
-	case "webhook":
-		// Transform payload if template is provided, otherwise use raw alertDetails
-		var payload map[string]interface{}
-		if channelConfig.Webhook.PayloadTemplate != "" {
-			// Render the template using CEL expressions
-			renderedTemplate := s.renderTemplate(channelConfig.Webhook.PayloadTemplate, requestBody)
-
-			// Parse the rendered template as JSON
-			if err := json.Unmarshal([]byte(renderedTemplate), &payload); err != nil {
-				s.logger.Error("Failed to parse rendered webhook payload template as JSON",
-					"error", err,
-					"renderedTemplate", renderedTemplate,
-					"channelName", notificationChannelName)
-				return fmt.Errorf("failed to parse webhook payload template as JSON: %w", err)
-			}
-			s.logger.Debug("Webhook payload template rendered and parsed",
-				"channelName", notificationChannelName,
-				"payload", payload)
-		} else {
-			// No template provided, use raw alertDetails
-			payload = requestBody
-		}
-
-		// Send the webhook with the transformed payload
-		if err := notifications.SendWebhookWithConfig(ctx, &channelConfig.Webhook, payload); err != nil {
-			s.logger.Error("Failed to send alert notification webhook",
-				"error", err,
-				"channelName", notificationChannelName,
-				"webhookURL", channelConfig.Webhook.URL,
-				"payload", payload)
-			return fmt.Errorf("failed to send alert notification webhook: %w", err)
-		}
-		s.logger.Debug("Alert notification sent successfully via webhook",
-			"ruleName", ruleName,
-			"channelName", notificationChannelName,
-			"webhookURL", channelConfig.Webhook.URL,
-			"usedTemplate", channelConfig.Webhook.PayloadTemplate != "")
-		return nil
-
-	case "email":
-		// Render the incoming alert payload for human-friendly notifications
-		payload, err := json.MarshalIndent(requestBody, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal alert payload: %w", err)
-		}
-
-		// Build subject and body using templates if available, otherwise use defaults
-		subject := fmt.Sprintf("OpenChoreo alert triggered: %s", ruleName)
-		if channelConfig.Email.SubjectTemplate != "" {
-			subject = s.renderTemplate(channelConfig.Email.SubjectTemplate, requestBody)
-		}
-
-		emailBody := fmt.Sprintf("An alert was triggered at %s UTC.\n\nPayload:\n%s\n", time.Now().UTC().Format(time.RFC3339), string(payload))
-		if channelConfig.Email.BodyTemplate != "" {
-			emailBody = s.renderTemplate(channelConfig.Email.BodyTemplate, requestBody)
-		}
-
-		// Send the notification using the fetched config
-		if err := notifications.SendEmailWithConfig(ctx, channelConfig, subject, emailBody); err != nil {
-			s.logger.Error("Failed to send alert notification email",
-				"error", err,
-				"channelName", notificationChannelName,
-				"recipients", channelConfig.Email.To)
-			return fmt.Errorf("failed to send alert notification email: %w", err)
-		}
-
-		s.logger.Debug("Alert notification sent successfully",
-			"ruleName", ruleName,
-			"channelName", notificationChannelName,
-			"recipients count", len(channelConfig.Email.To))
-		return nil
-
-	default:
-		return fmt.Errorf("unsupported notification channel type: %s", channelConfig.Type)
-	}
+	// Send notification using the notifications package
+	return notifications.SendAlertNotification(ctx, channelConfig, alertDetails, s.logger)
 }
 
 // getNotificationChannelConfig fetches the notification channel configuration from Kubernetes
-// It reads the ConfigMap and Secret for the notification channel and resolves SMTP credentials
+// It reads the ConfigMap and Secret for the notification channel and resolves to NotificationChannelConfig
 func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, channelName string) (*notifications.NotificationChannelConfig, error) {
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
@@ -1276,14 +1194,6 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	}
 	secret = secretList.Items[0].DeepCopy()
 
-	// Parse SMTP port from ConfigMap
-	smtpPort := 587 // default SMTP port
-	if portStr, ok := configMap.Data["smtp.port"]; ok {
-		if port, err := strconv.Atoi(portStr); err == nil {
-			smtpPort = port
-		}
-	}
-
 	// Get channel type from ConfigMap
 	channelType := configMap.Data["type"]
 	if channelType == "" {
@@ -1297,96 +1207,18 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	// Parse configuration based on channel type
 	switch channelType {
 	case "email":
-		// Parse recipients from ConfigMap (stored as string representation of array)
-		var recipients []string
-		if toStr, ok := configMap.Data["to"]; ok {
-			// The 'to' field is stored as a string like "[email1@example.com email2@example.com]"
-			// Parse it back to a slice
-			recipients = parseRecipientsList(toStr)
+		emailConfig, err := notifications.PrepareEmailNotificationConfig(configMap, secret, s.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare email notification config: %w", err)
 		}
-
-		config.Email = notifications.EmailConfig{
-			SMTP: notifications.SMTPConfig{
-				Host: configMap.Data["smtp.host"],
-				Port: smtpPort,
-				From: configMap.Data["from"],
-			},
-			To:              recipients,
-			SubjectTemplate: configMap.Data["template.subject"],
-			BodyTemplate:    configMap.Data["template.body"],
-		}
-
-		// Read SMTP credentials directly from the secret
-		if secret != nil && secret.Data != nil {
-			s.logger.Debug("Reading SMTP credentials from secret",
-				"secretName", secret.Name,
-				"secretNamespace", secret.Namespace)
-
-			if username, ok := secret.Data["smtp.auth.username"]; ok {
-				config.Email.SMTP.Username = string(username)
-				s.logger.Debug("SMTP username loaded")
-			} else {
-				s.logger.Warn("SMTP username key not found in secret")
-			}
-			if password, ok := secret.Data["smtp.auth.password"]; ok {
-				config.Email.SMTP.Password = string(password)
-				s.logger.Debug("SMTP password loaded")
-			} else {
-				s.logger.Warn("SMTP password key not found in secret")
-			}
-		} else {
-			s.logger.Warn("Secret is nil or has no data",
-				"secretNil", secret == nil)
-		}
-
-		s.logger.Debug("Final SMTP config",
-			"host", config.Email.SMTP.Host,
-			"port", config.Email.SMTP.Port,
-			"from", config.Email.SMTP.From,
-			"hasUsername", config.Email.SMTP.Username != "",
-			"hasPassword", config.Email.SMTP.Password != "")
+		config.Email = emailConfig
 
 	case "webhook":
-		// Parse webhook URL
-		webhookURL := configMap.Data["webhook.url"]
-		if webhookURL == "" {
-			return nil, fmt.Errorf("Alert webhook URL not found in ConfigMap")
+		webhookConfig, err := notifications.PrepareWebhookNotificationConfig(configMap, secret, s.logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare webhook notification config: %w", err)
 		}
-
-		// Parse headers from ConfigMap and Secret
-		headers := make(map[string]string)
-		if headerKeysStr, ok := configMap.Data["webhook.headers"]; ok && headerKeysStr != "" {
-			headerKeys := strings.Split(headerKeysStr, ",")
-			for _, key := range headerKeys {
-				key = strings.TrimSpace(key)
-				if key == "" {
-					continue
-				}
-				// Try to get inline value from ConfigMap first
-				if inlineValue, ok := configMap.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
-					headers[key] = inlineValue
-				} else if secret != nil && secret.Data != nil {
-					// Try to get value from Secret (for secret-referenced headers)
-					if secretValue, ok := secret.Data[fmt.Sprintf("webhook.header.%s", key)]; ok {
-						headers[key] = string(secretValue)
-					}
-				}
-			}
-		}
-
-		// Parse payload template if provided
-		payloadTemplate := configMap.Data["webhook.payloadTemplate"]
-
-		config.Webhook = notifications.WebhookConfig{
-			URL:             webhookURL,
-			Headers:         headers,
-			PayloadTemplate: payloadTemplate,
-		}
-
-		s.logger.Debug("Final webhook config",
-			"url", config.Webhook.URL,
-			"headerCount", len(config.Webhook.Headers),
-			"hasPayloadTemplate", payloadTemplate != "")
+		config.Webhook = webhookConfig
 
 	default:
 		return nil, fmt.Errorf("unsupported notification channel type: %s", channelType)
@@ -1395,104 +1227,18 @@ func (s *LoggingService) getNotificationChannelConfig(ctx context.Context, chann
 	return config, nil
 }
 
-// parseRecipientsList parses a string representation of recipients list
-// The format is "[email1@example.com email2@example.com]" as stored by the controller
-func parseRecipientsList(s string) []string {
-	// Remove brackets if present
-	s = strings.TrimPrefix(s, "[")
-	s = strings.TrimSuffix(s, "]")
-	s = strings.TrimSpace(s)
-
-	if s == "" {
-		return nil
-	}
-
-	// Split by whitespace
-	parts := strings.Fields(s)
-	return parts
-}
-
-// renderTemplate performs CEL expression rendering by evaluating ${...} expressions using the template engine.
-// If any CEL expression fails to resolve, a warning is logged and the original expression is preserved in the output.
-func (s *LoggingService) renderTemplate(templateStr string, data map[string]interface{}) string {
-	// Build the CEL input context with the alert data
-	celInputs := map[string]any{
-		"alertName":                       data["ruleName"],
-		"alertTimestamp":                  data["timestamp"],
-		"alertSeverity":                   data["severity"],
-		"alertDescription":                data["description"],
-		"alertThreshold":                  data["threshold"],
-		"alertValue":                      data["value"],
-		"alertType":                       data["type"],
-		"component":                       data["component"],
-		"project":                         data["project"],
-		"environment":                     data["environment"],
-		"componentId":                     data["componentUid"],
-		"projectId":                       data["projectUid"],
-		"environmentId":                   data["environmentUid"],
-		"alertAIRootCauseAnalysisEnabled": data["enableAiRootCauseAnalysis"],
-	}
-
-	s.logger.Debug("CEL template rendering inputs", "alertData", celInputs)
-
-	// Find all CEL expressions in the template
-	expressions, err := template.FindCELExpressions(templateStr)
-	if err != nil {
-		s.logger.Warn("Failed to parse CEL expressions in template, returning original template",
-			"error", err,
-			"template", templateStr)
-		return templateStr
-	}
-
-	// If no expressions found, return the template as-is
-	if len(expressions) == 0 {
-		return templateStr
-	}
-
-	// Create a new template engine for CEL evaluation
-	engine := template.NewEngine()
-
-	result := templateStr
-	for _, match := range expressions {
-		// Try to render this single expression
-		rendered, err := engine.Render(match.FullExpr, celInputs)
-		if err != nil {
-			s.logger.Warn("Failed to resolve CEL expression, keeping original expression",
-				"expression", match.FullExpr,
-				"innerExpr", match.InnerExpr,
-				"error", err)
-			// Keep the original expression in the result
-			continue
-		}
-
-		// Convert rendered result to string
-		var replacement string
-		switch v := rendered.(type) {
-		case string:
-			replacement = v
-		default:
-			replacement = fmt.Sprintf("%v", v)
-		}
-
-		// Replace only the first occurrence of this expression
-		result = strings.Replace(result, match.FullExpr, replacement, 1)
-	}
-
-	return result
-}
-
 // StoreAlertEntry stores an alert entry in the logs backend and returns the alert ID
-func (s *LoggingService) StoreAlertEntry(ctx context.Context, requestBody map[string]interface{}, ruleName string) (string, error) {
+func (s *LoggingService) StoreAlertEntry(ctx context.Context, alertDetails *types.AlertDetails) (string, error) {
 	alertEntry := map[string]interface{}{
-		"@timestamp":      requestBody["timestamp"],
-		"alert_rule_name": ruleName,
-		"alert_value":     requestBody["alertValue"],
+		"@timestamp":      alertDetails.AlertTimestamp,
+		"alert_rule_name": alertDetails.AlertName,
+		"alert_value":     alertDetails.AlertValue,
 		"labels": map[string]interface{}{
-			observerlabels.ComponentID:   requestBody["componentUid"],
-			observerlabels.EnvironmentID: requestBody["environmentUid"],
-			observerlabels.ProjectID:     requestBody["projectUid"],
+			observerlabels.ComponentID:   alertDetails.ComponentID,
+			observerlabels.EnvironmentID: alertDetails.EnvironmentID,
+			observerlabels.ProjectID:     alertDetails.ProjectID,
 		},
-		"enable_ai_rca": requestBody["enableAiRootCauseAnalysis"],
+		"enable_ai_rca": alertDetails.AlertAIRootCauseAnalysisEnabled,
 	}
 
 	alertID, err := s.osClient.WriteAlertEntry(ctx, alertEntry)
@@ -1522,13 +1268,11 @@ func (s *LoggingService) GetObservabilityAlertRuleByName(ctx context.Context, ru
 }
 
 // TriggerRCAAnalysis triggers an AI RCA analysis for the given alert.
-// It enriches the payload with CRD data and sends an async request to the RCA service.
-func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL string, alertID string, requestBody map[string]interface{}, alertRule *choreoapis.ObservabilityAlertRule) {
-	ruleName, _ := requestBody["ruleName"].(string)
-
+// It enriches the payload with CRD data and sends a request to the RCA service.
+func (s *LoggingService) TriggerRCAAnalysis(rcaServiceURL string, alertID string, alertDetails *types.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
 	// Build the rule info with basic name
 	ruleInfo := map[string]interface{}{
-		"name": ruleName,
+		"name": alertDetails.AlertName,
 	}
 
 	// Enrich with CRD data if available
@@ -1555,41 +1299,42 @@ func (s *LoggingService) TriggerRCAAnalysis(ctx context.Context, rcaServiceURL s
 			"threshold": alertRule.Spec.Condition.Threshold,
 		}
 
-		s.logger.Debug("Enriched RCA payload with ObservabilityAlertRule data", "ruleName", ruleName)
+		s.logger.Debug("Enriched RCA payload with ObservabilityAlertRule data", "ruleName", alertDetails.AlertName)
 	}
 
 	// Build the RCA service request payload
 	rcaPayload := map[string]interface{}{
-		"componentUid":   requestBody["componentUid"],
-		"projectUid":     requestBody["projectUid"],
-		"environmentUid": requestBody["environmentUid"],
+		"componentUid":   alertDetails.ComponentID,
+		"projectUid":     alertDetails.ProjectID,
+		"environmentUid": alertDetails.EnvironmentID,
 		"alert": map[string]interface{}{
 			"id":        alertID,
-			"value":     requestBody["value"],
-			"timestamp": requestBody["timestamp"],
+			"value":     alertDetails.AlertValue,
+			"timestamp": alertDetails.AlertTimestamp,
 			"rule":      ruleInfo,
 		},
 	}
 
-	// Fire-and-forget request to AI RCA service
-	go func() {
-		payloadBytes, err := json.Marshal(rcaPayload)
-		if err != nil {
-			s.logger.Error("Failed to marshal RCA request payload", "error", err)
-			return
-		}
+	// Send request to AI RCA service
+	payloadBytes, err := json.Marshal(rcaPayload)
+	if err != nil {
+		s.logger.Error("Failed to marshal RCA request payload", "error", err)
+		return
+	}
 
-		resp, err := http.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
-		if err != nil {
-			s.logger.Error("Failed to send RCA analysis request", "error", err)
-			return
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
+	if err != nil {
+		s.logger.Error("Failed to send RCA analysis request", "error", err)
+		return
+	}
+	defer resp.Body.Close()
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.logger.Error("RCA analysis request returned non-success status", "statusCode", resp.StatusCode, "alertID", alertID)
+	} else {
 		s.logger.Debug("AI RCA analysis triggered", "alertID", alertID)
-	}()
+	}
 }
 
 // ParseOpenSearchAlertPayload parses the OpenSearch alert payload
@@ -1658,22 +1403,22 @@ func (s *LoggingService) ParsePrometheusAlertPayload(requestBody map[string]inte
 }
 
 // EnrichAlertDetails enriches the alert details with the ObservabilityAlertRule CR details
-func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (map[string]interface{}, error) {
-	return map[string]interface{}{
-		"timestamp":                 timestamp,
-		"severity":                  string(alertRule.Spec.Severity),
-		"ruleName":                  alertRule.Spec.Name,
-		"description":               alertRule.Spec.Description,
-		"type":                      string(alertRule.Spec.Source.Type),
-		"threshold":                 strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
-		"value":                     alertValue,
-		"componentUid":              alertRule.Labels["openchoreo.dev/component-uid"],
-		"environmentUid":            alertRule.Labels["openchoreo.dev/environment-uid"],
-		"projectUid":                alertRule.Labels["openchoreo.dev/project-uid"],
-		"component":                 alertRule.Labels["openchoreo.dev/component"],
-		"project":                   alertRule.Labels["openchoreo.dev/project"],
-		"environment":               alertRule.Labels["openchoreo.dev/environment"],
-		"notificationChannel":       alertRule.Spec.NotificationChannel,
-		"enableAiRootCauseAnalysis": alertRule.Spec.EnableAiRootCauseAnalysis,
+func (s *LoggingService) EnrichAlertDetails(alertRule *choreoapis.ObservabilityAlertRule, alertValue string, timestamp string) (*types.AlertDetails, error) {
+	return &types.AlertDetails{
+		AlertName:                       alertRule.Spec.Name,
+		AlertTimestamp:                  timestamp,
+		AlertSeverity:                   string(alertRule.Spec.Severity),
+		AlertDescription:                alertRule.Spec.Description,
+		AlertThreshold:                  strconv.FormatInt(alertRule.Spec.Condition.Threshold, 10),
+		AlertValue:                      alertValue,
+		AlertType:                       string(alertRule.Spec.Source.Type),
+		ComponentID:                     alertRule.Labels["openchoreo.dev/component-uid"],
+		EnvironmentID:                   alertRule.Labels["openchoreo.dev/environment-uid"],
+		ProjectID:                       alertRule.Labels["openchoreo.dev/project-uid"],
+		Component:                       alertRule.Labels["openchoreo.dev/component"],
+		Project:                         alertRule.Labels["openchoreo.dev/project"],
+		Environment:                     alertRule.Labels["openchoreo.dev/environment"],
+		NotificationChannel:             alertRule.Spec.NotificationChannel,
+		AlertAIRootCauseAnalysisEnabled: alertRule.Spec.EnableAiRootCauseAnalysis,
 	}, nil
 }
