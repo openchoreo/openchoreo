@@ -382,6 +382,326 @@ spec:
 			wantErr: false,
 		},
 		{
+			name: "embedded trait creates new resources",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        mountPath: /var/data
+  componentType:
+    spec:
+      schema:
+        parameters:
+          mountPath: "string"
+      traits:
+        - name: storage
+          instanceName: app-storage
+          parameters:
+            mountPath: ${parameters.mountPath}
+            volumeName: app-data
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${metadata.name}
+  traits:
+    - metadata:
+        name: storage
+      spec:
+        schema:
+          parameters:
+            mountPath: "string"
+            volumeName: "string"
+        creates:
+          - template:
+              apiVersion: v1
+              kind: PersistentVolumeClaim
+              metadata:
+                name: ${parameters.volumeName}
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 5Gi
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-component-dev-12345678
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+- apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: app-data
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
+`,
+			wantErr: false,
+		},
+		{
+			name: "embedded trait patches base resources",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters: {}
+  componentType:
+    spec:
+      traits:
+        - name: monitoring
+          instanceName: embedded-mon
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: app
+            spec:
+              template:
+                spec:
+                  containers:
+                    - name: app
+                      image: myapp:latest
+  traits:
+    - metadata:
+        name: monitoring
+      spec:
+        patches:
+          - target:
+              kind: Deployment
+              group: apps
+              version: v1
+            operations:
+              - op: add
+                path: /metadata/labels
+                value:
+                  monitoring: enabled
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: app
+    labels:
+      monitoring: enabled
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    template:
+      spec:
+        containers:
+          - name: app
+            image: myapp:latest
+`,
+			wantErr: false,
+		},
+		{
+			name: "both embedded and component-level traits",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        database: mydb
+      traits:
+        - name: mysql
+          instanceName: db-1
+          parameters:
+            database: mydb
+  componentType:
+    spec:
+      schema:
+        parameters:
+          database: "string"
+      traits:
+        - name: monitoring
+          instanceName: embedded-mon
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${metadata.name}
+  traits:
+    - metadata:
+        name: monitoring
+      spec:
+        creates:
+          - template:
+              apiVersion: v1
+              kind: ConfigMap
+              metadata:
+                name: monitoring-config
+              data:
+                enabled: "true"
+    - metadata:
+        name: mysql
+      spec:
+        schema:
+          parameters:
+            database: "string"
+        creates:
+          - template:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: ${trait.instanceName}-secret
+              data:
+                database: ${parameters.database}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: monitoring-config
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  data:
+    enabled: "true"
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-component-dev-12345678
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    name: db-1-secret
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  data:
+    database: mydb
+`,
+			wantErr: false,
+		},
+		{
+			name: "embedded trait with CEL bindings resolved from component parameters",
+			snapshotYAML: `
+apiVersion: core.choreo.dev/v1alpha1
+kind: ComponentEnvSnapshot
+spec:
+  environment: dev
+  component:
+    metadata:
+      name: test-app
+    spec:
+      parameters:
+        appPort: 8080
+  componentType:
+    spec:
+      schema:
+        parameters:
+          appPort: "integer"
+      traits:
+        - name: service-exposure
+          instanceName: expose-1
+          parameters:
+            port: ${parameters.appPort}
+            protocol: TCP
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${metadata.name}
+  traits:
+    - metadata:
+        name: service-exposure
+      spec:
+        schema:
+          parameters:
+            port: "integer"
+            protocol: "string | default=\"TCP\""
+        creates:
+          - template:
+              apiVersion: v1
+              kind: Service
+              metadata:
+                name: ${metadata.name}
+              spec:
+                ports:
+                  - port: ${parameters.port}
+                    protocol: ${parameters.protocol}
+  workload: {}
+`,
+			environmentYAML: devEnvironmentYAML,
+			dataplaneYAML:   devDataplaneYAML,
+			wantResourceYAML: `
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: test-component-dev-12345678
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: test-component-dev-12345678
+    labels:
+      openchoreo.dev/component: test-app
+      openchoreo.dev/environment: dev
+      openchoreo.dev/project: test-project
+  spec:
+    ports:
+      - port: 8080
+        protocol: TCP
+`,
+			wantErr: false,
+		},
+		{
 			name:                 "component with configurations and secrets",
 			snapshotYAML:         loadTestDataFile(t, "configurations-and-secrets/snapshot.yaml"),
 			settingsYAML:         loadTestDataFile(t, "configurations-and-secrets/settings.yaml"),

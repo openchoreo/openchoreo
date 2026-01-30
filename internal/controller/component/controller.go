@@ -113,66 +113,34 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		}
 	}()
 
-	// Parse componentType: {workloadType}/{componentTypeName}
-	workloadType, ctName, err := parseComponentType(comp.Spec.ComponentType)
+	// Validate and fetch ComponentType
+	ct, err := r.validateAndFetchComponentType(ctx, comp)
 	if err != nil {
-		msg := fmt.Sprintf("Invalid componentType format: %v", err)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Error(err, "Failed to parse componentType")
-		return ctrl.Result{}, nil
-	}
-
-	// Fetch ComponentType (in the same namespace as the Component)
-	ct := &openchoreov1alpha1.ComponentType{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentType %q not found", ctName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
-			logger.Info(msg, "component", comp.Name)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
 		return ctrl.Result{}, err
 	}
-
-	// Verify workloadType matches
-	if ct.Spec.WorkloadType != workloadType {
-		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
-			workloadType, ct.Spec.WorkloadType)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
+	if ct == nil {
+		// Validation error, condition already set
 		return ctrl.Result{}, nil
 	}
 
-	// Fetch Workload by owner reference (supports any naming convention)
-	ownerKey := fmt.Sprintf("%s/%s", comp.Spec.Owner.ProjectName, comp.Name)
-	var workloadList openchoreov1alpha1.WorkloadList
-	err = r.List(ctx, &workloadList,
-		client.InNamespace(comp.Namespace),
-		client.MatchingFields{workloadOwnerIndex: ownerKey})
+	// Validate and fetch Workload
+	workload, err := r.validateAndFetchWorkload(ctx, comp)
 	if err != nil {
-		logger.Error(err, "Failed to list Workloads by owner")
 		return ctrl.Result{}, err
 	}
-
-	if len(workloadList.Items) == 0 {
-		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
-		logger.Info(msg, "component", comp.Name, "ownerKey", ownerKey)
+	if workload == nil {
+		// Validation error, condition already set
 		return ctrl.Result{}, nil
 	}
 
-	if len(workloadList.Items) > 1 {
-		msg := fmt.Sprintf("Multiple Workloads found for component %q (expected exactly 1)", comp.Name)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Error(fmt.Errorf("multiple workloads found"), msg, "count", len(workloadList.Items))
+	// Validate traits
+	if !r.validateTraits(ctx, comp, ct) {
+		// Validation failed, condition already set
 		return ctrl.Result{}, nil
 	}
 
-	workload := &workloadList.Items[0]
-
-	// Fetch all referenced Traits (in the same namespace as the Component)
-	traits, err := r.fetchTraits(ctx, comp.Spec.Traits, comp.Namespace)
+	// Fetch all referenced Traits: both embedded (from ComponentType) and component-level
+	traits, err := r.fetchAllTraits(ctx, ct, comp)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// Extract trait name from custom error type
@@ -193,53 +161,13 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, err
 	}
 
-	// Get the Project to find the DeploymentPipeline reference
-	project := &openchoreov1alpha1.Project{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      comp.Spec.Owner.ProjectName,
-		Namespace: comp.Namespace,
-	}, project); err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("Project %q not found", comp.Spec.Owner.ProjectName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonProjectNotFound, msg)
-			logger.Info(msg, "component", comp.Name)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to get Project")
-		return ctrl.Result{}, err
-	}
-
-	// Validate that the project has a deployment pipeline reference
-	if project.Spec.DeploymentPipelineRef == "" {
-		msg := fmt.Sprintf("Project %q has empty deploymentPipelineRef", project.Name)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Info(msg, "component", comp.Name)
-		return ctrl.Result{}, nil
-	}
-
-	// Get the DeploymentPipeline
-	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      project.Spec.DeploymentPipelineRef,
-		Namespace: project.Namespace,
-	}, pipeline); err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("DeploymentPipeline %q not found", project.Spec.DeploymentPipelineRef)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonDeploymentPipelineNotFound, msg)
-			logger.Info(msg, "component", comp.Name, "project", project.Name)
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to get DeploymentPipeline")
-		return ctrl.Result{}, err
-	}
-
-	// Find the root environment using pure function
-	firstEnv, err := findRootEnvironment(pipeline)
+	// Validate and fetch deployment pipeline
+	firstEnv, err := r.validateAndFetchDeploymentPipeline(ctx, comp)
 	if err != nil {
-		// Configuration errors are non-retryable
-		msg := fmt.Sprintf("Invalid deployment pipeline configuration: %v", err)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Info(msg, "component", comp.Name, "pipeline", pipeline.Name)
+		return ctrl.Result{}, err
+	}
+	if firstEnv == "" {
+		// Validation error, condition already set
 		return ctrl.Result{}, nil
 	}
 
@@ -277,6 +205,178 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	return ctrl.Result{}, nil
 }
 
+// validateAndFetchComponentType parses, fetches, and validates the ComponentType.
+// Returns the ComponentType on success, or nil with no error if validation failed (condition already set).
+func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *openchoreov1alpha1.Component) (*openchoreov1alpha1.ComponentType, error) {
+	logger := log.FromContext(ctx)
+
+	// Parse componentType: {workloadType}/{componentTypeName}
+	workloadType, ctName, err := parseComponentType(comp.Spec.ComponentType)
+	if err != nil {
+		msg := fmt.Sprintf("Invalid componentType format: %v", err)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Error(err, "Failed to parse componentType")
+		return nil, nil
+	}
+
+	// Fetch ComponentType (in the same namespace as the Component)
+	ct := &openchoreov1alpha1.ComponentType{}
+	if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("ComponentType %q not found", ctName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
+			logger.Info(msg, "component", comp.Name)
+			return nil, nil
+		}
+		logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
+		return nil, err
+	}
+
+	// Verify workloadType matches
+	if ct.Spec.WorkloadType != workloadType {
+		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
+			workloadType, ct.Spec.WorkloadType)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
+		return nil, nil
+	}
+
+	return ct, nil
+}
+
+// validateAndFetchWorkload fetches and validates the Workload for the component.
+// Returns the Workload on success, or nil with no error if validation failed (condition already set).
+func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *openchoreov1alpha1.Component) (*openchoreov1alpha1.Workload, error) {
+	logger := log.FromContext(ctx)
+
+	// Fetch Workload by owner reference (supports any naming convention)
+	ownerKey := fmt.Sprintf("%s/%s", comp.Spec.Owner.ProjectName, comp.Name)
+	var workloadList openchoreov1alpha1.WorkloadList
+	err := r.List(ctx, &workloadList,
+		client.InNamespace(comp.Namespace),
+		client.MatchingFields{workloadOwnerIndex: ownerKey})
+	if err != nil {
+		logger.Error(err, "Failed to list Workloads by owner")
+		return nil, err
+	}
+
+	if len(workloadList.Items) == 0 {
+		msg := fmt.Sprintf("Workload for component %q not found, waiting for workload to be created", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonWorkloadNotFound, msg)
+		logger.Info(msg, "component", comp.Name, "ownerKey", ownerKey)
+		return nil, nil
+	}
+
+	if len(workloadList.Items) > 1 {
+		msg := fmt.Sprintf("Multiple Workloads found for component %q (expected exactly 1)", comp.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Error(fmt.Errorf("multiple workloads found"), msg, "count", len(workloadList.Items))
+		return nil, nil
+	}
+
+	return &workloadList.Items[0], nil
+}
+
+// validateTraits validates trait configuration and instance name uniqueness.
+// Returns true if validation passes, false if it fails (with condition set).
+func (r *Reconciler) validateTraits(ctx context.Context, comp *openchoreov1alpha1.Component, ct *openchoreov1alpha1.ComponentType) bool {
+	logger := log.FromContext(ctx)
+
+	// Validate allowedTraits: ensure developer's traits are in the allowed list
+	if len(ct.Spec.AllowedTraits) > 0 {
+		allowedSet := make(map[string]bool, len(ct.Spec.AllowedTraits))
+		for _, name := range ct.Spec.AllowedTraits {
+			allowedSet[name] = true
+		}
+		for _, trait := range comp.Spec.Traits {
+			if !allowedSet[trait.Name] {
+				msg := fmt.Sprintf("Trait %q is not allowed by ComponentType %q; allowed traits: %v",
+					trait.Name, ct.Name, ct.Spec.AllowedTraits)
+				controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+				logger.Info(msg, "component", comp.Name)
+				return false
+			}
+		}
+	}
+
+	// Validate instance name uniqueness across embedded and component-level traits
+	if len(ct.Spec.Traits) > 0 && len(comp.Spec.Traits) > 0 {
+		embeddedNames := make(map[string]bool, len(ct.Spec.Traits))
+		for _, et := range ct.Spec.Traits {
+			embeddedNames[et.InstanceName] = true
+		}
+		for _, t := range comp.Spec.Traits {
+			if embeddedNames[t.InstanceName] {
+				msg := fmt.Sprintf("Trait instance name %q collides with an embedded trait in ComponentType %q",
+					t.InstanceName, ct.Name)
+				controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+				logger.Info(msg, "component", comp.Name)
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// validateAndFetchDeploymentPipeline fetches and validates the Project, DeploymentPipeline, and finds the root environment.
+// Returns the root environment name on success, or empty string with no error if validation failed (condition already set).
+func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, comp *openchoreov1alpha1.Component) (string, error) {
+	logger := log.FromContext(ctx)
+
+	// Get the Project to find the DeploymentPipeline reference
+	project := &openchoreov1alpha1.Project{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      comp.Spec.Owner.ProjectName,
+		Namespace: comp.Namespace,
+	}, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Project %q not found", comp.Spec.Owner.ProjectName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonProjectNotFound, msg)
+			logger.Info(msg, "component", comp.Name)
+			return "", nil
+		}
+		logger.Error(err, "Failed to get Project")
+		return "", err
+	}
+
+	// Validate that the project has a deployment pipeline reference
+	if project.Spec.DeploymentPipelineRef == "" {
+		msg := fmt.Sprintf("Project %q has empty deploymentPipelineRef", project.Name)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Info(msg, "component", comp.Name)
+		return "", nil
+	}
+
+	// Get the DeploymentPipeline
+	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      project.Spec.DeploymentPipelineRef,
+		Namespace: project.Namespace,
+	}, pipeline); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("DeploymentPipeline %q not found", project.Spec.DeploymentPipelineRef)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonDeploymentPipelineNotFound, msg)
+			logger.Info(msg, "component", comp.Name, "project", project.Name)
+			return "", nil
+		}
+		logger.Error(err, "Failed to get DeploymentPipeline")
+		return "", err
+	}
+
+	// Find the root environment using pure function
+	firstEnv, err := findRootEnvironment(pipeline)
+	if err != nil {
+		// Configuration errors are non-retryable
+		msg := fmt.Sprintf("Invalid deployment pipeline configuration: %v", err)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Info(msg, "component", comp.Name, "pipeline", pipeline.Name)
+		return "", nil
+	}
+
+	return firstEnv, nil
+}
+
 // parseComponentType parses the componentType format: {workloadType}/{componentTypeName}
 func parseComponentType(componentType string) (workloadType string, ctName string, err error) {
 	parts := strings.SplitN(componentType, "/", 2)
@@ -300,13 +400,33 @@ func (e *traitFetchError) Unwrap() error {
 	return e.err
 }
 
-// fetchTraits fetches all Trait resources referenced by the component
-func (r *Reconciler) fetchTraits(ctx context.Context, traitRefs []openchoreov1alpha1.ComponentTrait, namespace string) ([]openchoreov1alpha1.Trait, error) {
-	traits := make([]openchoreov1alpha1.Trait, 0, len(traitRefs))
+// fetchAllTraits fetches all unique Trait resources referenced by both embedded traits
+// (from ComponentType) and component-level traits, deduplicating by trait name.
+func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.ComponentType, comp *openchoreov1alpha1.Component) ([]openchoreov1alpha1.Trait, error) {
+	seen := make(map[string]bool)
+	traits := make([]openchoreov1alpha1.Trait, 0, len(ct.Spec.Traits)+len(comp.Spec.Traits))
 
-	for _, ref := range traitRefs {
+	// Collect from embedded traits
+	for _, et := range ct.Spec.Traits {
+		if seen[et.Name] {
+			continue
+		}
+		seen[et.Name] = true
 		trait := &openchoreov1alpha1.Trait{}
-		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: namespace}, trait); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Name: et.Name, Namespace: comp.Namespace}, trait); err != nil {
+			return nil, &traitFetchError{traitName: et.Name, err: err}
+		}
+		traits = append(traits, *trait)
+	}
+
+	// Collect from component-level traits
+	for _, ref := range comp.Spec.Traits {
+		if seen[ref.Name] {
+			continue
+		}
+		seen[ref.Name] = true
+		trait := &openchoreov1alpha1.Trait{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: comp.Namespace}, trait); err != nil {
 			return nil, &traitFetchError{traitName: ref.Name, err: err}
 		}
 		traits = append(traits, *trait)
