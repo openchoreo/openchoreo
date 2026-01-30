@@ -114,6 +114,13 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	errs = validateEmbeddedResourceTemplates(componentrelease)
 	allErrs = append(allErrs, errs...)
 
+	// Validate workload has at least one container
+	if len(componentrelease.Spec.Workload.Containers) == 0 {
+		allErrs = append(allErrs, field.Required(
+			field.NewPath("spec", "workload", "containers"),
+			"workload must have at least one container"))
+	}
+
 	if len(allErrs) > 0 {
 		return nil, allErrs.ToAggregate()
 	}

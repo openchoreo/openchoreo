@@ -558,6 +558,24 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("must have exactly one resource with kind matching workloadType"))
 		})
+
+		It("should reject when workload has no containers", func() {
+			obj = validComponentRelease()
+			obj.Spec.Workload.Containers = nil
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("workload must have at least one container"))
+		})
+
+		It("should reject when workload has empty containers map", func() {
+			obj = validComponentRelease()
+			obj.Spec.Workload.Containers = map[string]openchoreodevv1alpha1.Container{}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("workload must have at least one container"))
+		})
 	})
 
 	Context("Schema Parsing Failures", func() {
