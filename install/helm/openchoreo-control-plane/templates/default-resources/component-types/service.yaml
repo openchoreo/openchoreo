@@ -31,7 +31,7 @@ spec:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
       port: "integer"
-      exposed: "boolean | default=false | description='Expose the service externally' | title='Expose Service'"
+      exposed: "boolean | default=true | description='Expose the service externally' | title='Expose Service'"
 
     envOverrides:
       resources: "ResourceRequirements | default={}"
