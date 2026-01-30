@@ -232,7 +232,7 @@ security:
     # description: OIDC provider issuer URL
     # default: ""
     # @schema
-    issuer: ""
+    issuer: "thunder"
     # @schema
     # type: string
     # description: OIDC well-known configuration endpoint URL
