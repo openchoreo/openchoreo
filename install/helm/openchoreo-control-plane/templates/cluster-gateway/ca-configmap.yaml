@@ -35,7 +35,7 @@ spec:
           echo "Waiting for cluster-gateway TLS secret to be ready..."
 
           retries=0
-          max_retries=120  # Increased to 10 minutes (120 * 5s)
+          max_retries=24  # 2 minutes (24 * 5s)
 
           # Wait for secret to exist
           until kubectl get secret {{ .Values.clusterGateway.tls.secretName }} -n {{ .Release.Namespace }} &> /dev/null; do
