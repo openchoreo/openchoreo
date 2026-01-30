@@ -28,7 +28,7 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
+      port: "integer"
       containerName: "string | default=main"
 
     envOverrides:
