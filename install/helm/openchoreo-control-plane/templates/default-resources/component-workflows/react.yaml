@@ -104,7 +104,7 @@ spec:
             template:
               type: kubernetes.io/dockerconfigjson
               data:
-                .dockerconfigjson: "{{ .registrysecret | toString }}"
+                .dockerconfigjson: "{{ `{{ .registrysecret | toString }}` }}"
           data:
             - secretKey: registrysecret
               remoteRef:
