@@ -4,6 +4,7 @@ Internal Developer Platform
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11819/badge)](https://www.bestpractices.dev/projects/11819)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openchoreo/openchoreo/badge)](https://scorecard.dev/viewer/?uri=github.com/openchoreo/openchoreo)
+[![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=openchoreo)](https://insights.linuxfoundation.org/project/openchoreo)
 [![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openchoreo/openchoreo)](https://goreportcard.com/report/github.com/openchoreo/openchoreo)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
