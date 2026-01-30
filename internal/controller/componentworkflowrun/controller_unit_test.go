@@ -33,11 +33,11 @@ func TestGetStepByTemplateName(t *testing.T) {
 				},
 				"node-2": {
 					Name:         "node-2",
-					TemplateName: "push-step",
+					TemplateName: "publish-image",
 					Phase:        argoproj.NodeSucceeded,
 				},
 			},
-			templateName: "push-step",
+			templateName: "publish-image",
 			wantNil:      false,
 			wantName:     "node-2",
 		},
@@ -143,7 +143,7 @@ func TestExtractWorkloadCRFromRunResource(t *testing.T) {
 				Status: argoproj.WorkflowStatus{
 					Nodes: argoproj.Nodes{
 						"workload-node": {
-							TemplateName: "workload-create-step",
+							TemplateName: "generate-workload-cr",
 							Phase:        argoproj.NodeSucceeded,
 							Outputs: &argoproj.Outputs{
 								Parameters: []argoproj.Parameter{
@@ -183,7 +183,7 @@ func TestExtractWorkloadCRFromRunResource(t *testing.T) {
 				Status: argoproj.WorkflowStatus{
 					Nodes: argoproj.Nodes{
 						"workload-node": {
-							TemplateName: "workload-create-step",
+							TemplateName: "generate-workload-cr",
 							Phase:        argoproj.NodeFailed,
 							Outputs: &argoproj.Outputs{
 								Parameters: []argoproj.Parameter{

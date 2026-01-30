@@ -485,7 +485,7 @@ func (r *ComponentWorkflowRunReconciler) SetupWithManager(mgr ctrl.Manager) erro
 // extractWorkloadCRFromRunResource extracts workload CR from run resource outputs
 func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
 	for _, node := range runResource.Status.Nodes {
-		if node.TemplateName == "workload-create-step" && node.Phase == argoproj.NodeSucceeded {
+		if node.TemplateName == "generate-workload-cr" && node.Phase == argoproj.NodeSucceeded {
 			if node.Outputs != nil {
 				for _, param := range node.Outputs.Parameters {
 					if param.Name == "workload-cr" && param.Value != nil {

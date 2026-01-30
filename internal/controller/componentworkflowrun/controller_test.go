@@ -199,14 +199,14 @@ var _ = Describe("Helper Functions", func() {
 				},
 				"node-2": {
 					Name:         "node-2",
-					TemplateName: "push-step",
+					TemplateName: "publish-image",
 					Phase:        argoproj.NodeSucceeded,
 				},
 			}
 
-			result := getStepByTemplateName(nodes, "push-step")
+			result := getStepByTemplateName(nodes, "publish-image")
 			Expect(result).NotTo(BeNil())
-			Expect(result.TemplateName).To(Equal("push-step"))
+			Expect(result.TemplateName).To(Equal("publish-image"))
 			Expect(result.Name).To(Equal("node-2"))
 		})
 
@@ -281,7 +281,7 @@ metadata:
 				Status: argoproj.WorkflowStatus{
 					Nodes: argoproj.Nodes{
 						"workload-node": {
-							TemplateName: "workload-create-step",
+							TemplateName: "generate-workload-cr",
 							Phase:        argoproj.NodeSucceeded,
 							Outputs: &argoproj.Outputs{
 								Parameters: []argoproj.Parameter{
@@ -323,7 +323,7 @@ metadata:
 				Status: argoproj.WorkflowStatus{
 					Nodes: argoproj.Nodes{
 						"workload-node": {
-							TemplateName: "workload-create-step",
+							TemplateName: "generate-workload-cr",
 							Phase:        argoproj.NodeFailed,
 							Outputs: &argoproj.Outputs{
 								Parameters: []argoproj.Parameter{

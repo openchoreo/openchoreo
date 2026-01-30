@@ -124,14 +124,14 @@ func (e *Engine) ExtractBuildArtifacts(ctx context.Context, client client.Client
 
 	artifacts := &engines.BuildArtifacts{}
 
-	// Extract image from push-step
+	// Extract image from publish-image
 	if pushStep := e.getStepByTemplateName(workflow.Status.Nodes, engines.StepPush); pushStep != nil {
 		if image := e.getImageNameFromWorkflow(*pushStep.Outputs); image != "" {
 			artifacts.Image = string(image)
 		}
 	}
 
-	// Extract workload CR from workload-create-step
+	// Extract workload CR from generate-workload-cr
 	if workloadStep := e.getStepByTemplateName(workflow.Status.Nodes, engines.StepWorkloadCreate); workloadStep != nil {
 		if workloadStep.Phase == argoproj.NodeSucceeded {
 			artifacts.WorkloadCR = e.getWorkloadCRFromWorkflow(*workloadStep.Outputs)

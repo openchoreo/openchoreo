@@ -147,7 +147,7 @@ Engines should expose at least these outputs when the build succeeds:
 Standard output names and steps:
 - Prefer emitting an output parameter named `image` for the built image reference.
 - Prefer emitting an output parameter named `workload-cr` containing the YAML string for the Workload resource.
-- When modeling steps, use stable step/template names such as `push-step` and `workload-create-step` for clarity and consistency across engines.
+- When modeling steps, use stable step/template names such as `publish-image` and `generate-workload-cr` for clarity and consistency across engines.
 
 Argo reference implementation exposes these as named outputs that the Builder knows how to read. If you implement a new engine, ensure you can surface equivalent outputs and map them to the generic `BuildArtifacts` fields above. The Builder will then set `status.imageStatus.image` and create the Workload if `workload-cr` is present.
 
@@ -220,7 +220,7 @@ To ensure consistency across engines:
   - Use shared helpers to create namespaces and to apply resources idempotently.
 
 - **Step names and outputs**
-  - If your engine models steps, prefer consistent names, such as `push-step` for the image push and `workload-create-step` for creating the Workload CR.
+  - If your engine models steps, prefer consistent names, such as `publish-image` for the image push and `generate-workload-cr` for creating the Workload CR.
   - Expose outputs with stable names so `ExtractBuildArtifacts` can retrieve the image and workload CR reliably (`image`, `workload-cr`).
 
 - **Ownership and cleanup**

@@ -146,10 +146,10 @@ while true; do
 
         # Check for push phase
         if [[ ! -v build_phases_seen[push] ]]; then
-            if kubectl get pods -n "$WORKFLOW_NS" -l "workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}" --field-selector="status.phase=Running" 2>/dev/null | grep -q "push-step"; then
+            if kubectl get pods -n "$WORKFLOW_NS" -l "workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}" --field-selector="status.phase=Running" 2>/dev/null | grep -q "publish-image"; then
                 log_info "  ↳ Pushing image to registry..."
                 build_phases_seen[push]=1
-            elif kubectl get pods -n "$WORKFLOW_NS" -l "workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}" --field-selector="status.phase=Succeeded" 2>/dev/null | grep -q "push-step"; then
+            elif kubectl get pods -n "$WORKFLOW_NS" -l "workflows.argoproj.io/workflow=${WORKFLOWRUN_NAME}" --field-selector="status.phase=Succeeded" 2>/dev/null | grep -q "publish-image"; then
                 log_success "  ✓ Image pushed to registry"
                 build_phases_seen[push]=1
             fi

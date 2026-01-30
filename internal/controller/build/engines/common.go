@@ -18,8 +18,8 @@ import (
 
 // Common step names used across build engines
 const (
-	StepPush           = "push-step"
-	StepWorkloadCreate = "workload-create-step"
+	StepPush           = "publish-image"
+	StepWorkloadCreate = "generate-workload-cr"
 )
 
 // EnsureResource creates a resource if it doesn't exist
