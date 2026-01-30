@@ -485,4 +485,180 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("Embedded Traits Validation", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+		})
+
+		It("should admit valid embedded traits", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"volumeName": "app-data", "mountPath": "${parameters.storage.mountPath}"}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit embedded traits with envOverrides", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"volumeName": "app-data"}`),
+					},
+					EnvOverrides: &runtime.RawExtension{
+						Raw: []byte(`{"size": "${envOverrides.storage.size}"}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject embedded trait with empty name", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "",
+					InstanceName: "app-data",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("name"))
+			Expect(err.Error()).To(ContainSubstring("Required"))
+		})
+
+		It("should reject embedded trait with empty instanceName", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("instanceName"))
+			Expect(err.Error()).To(ContainSubstring("Required"))
+		})
+
+		It("should reject duplicate instanceNames among embedded traits", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "storage",
+				},
+				{
+					Name:         "emptydir-volume",
+					InstanceName: "storage",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("instanceName"))
+			Expect(err.Error()).To(ContainSubstring("Duplicate"))
+		})
+
+		It("should allow multiple embedded traits with unique instanceNames", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "data-storage",
+				},
+				{
+					Name:         "persistent-volume",
+					InstanceName: "log-storage",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("AllowedTraits Validation", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+		})
+
+		It("should admit valid allowedTraits list", func() {
+			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit empty allowedTraits (all traits allowed)", func() {
+			obj.Spec.AllowedTraits = nil
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject empty string in allowedTraits", func() {
+			obj.Spec.AllowedTraits = []string{"autoscaler", ""}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must not be empty"))
+		})
+
+		It("should reject duplicate entries in allowedTraits", func() {
+			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter", "autoscaler"}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Duplicate"))
+		})
+
+		It("should reject allowedTraits that overlap with embedded traits", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+				},
+			}
+			obj.Spec.AllowedTraits = []string{"persistent-volume", "autoscaler"}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("already embedded"))
+		})
+
+		It("should admit allowedTraits with no overlap with embedded traits", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+				{
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+				},
+			}
+			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
