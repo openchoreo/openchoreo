@@ -381,7 +381,7 @@ data:
               "http://127.0.0.1:55152/auth-callback"
             ],
             "grant_types": [
-              "authorization_code"
+              "authorization_code", "refresh_token"
             ],
             "response_types": [
               "code"
