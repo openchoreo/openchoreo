@@ -36,7 +36,7 @@ spec:
           echo "Copying cluster-gateway CA from control plane to observability plane..."
 
           retries=0
-          max_retries=120  # 10 minutes
+          max_retries=24  # 2 minutes
 
           # Wait for source ConfigMap in control plane
           echo "Waiting for cluster-gateway-ca ConfigMap in control plane..."
