@@ -11,7 +11,6 @@ import (
 	"os"
 
 	// +kubebuilder:scaffold:imports
-	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -22,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -81,8 +79,6 @@ func init() {
 
 	utilruntime.Must(ciliumv2.AddToScheme(scheme))
 	utilruntime.Must(openchoreov1alpha1.AddToScheme(scheme))
-	utilruntime.Must(gwapiv1.Install(scheme))
-	utilruntime.Must(egv1a1.AddToScheme(scheme))
 	utilruntime.Must(argo.AddToScheme(scheme))
 	utilruntime.Must(csisecretv1.Install(scheme))
 	utilruntime.Must(esv1.AddToScheme(scheme))

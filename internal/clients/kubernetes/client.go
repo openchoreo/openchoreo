@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	argo "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -52,8 +50,6 @@ func init() {
 	_ = scheme.AddToScheme(scheme.Scheme)
 	_ = openchoreov1alpha1.AddToScheme(scheme.Scheme)
 	_ = ciliumv2.AddToScheme(scheme.Scheme)
-	_ = gwapiv1.Install(scheme.Scheme)
-	_ = egv1a1.AddToScheme(scheme.Scheme)
 	_ = csisecretv1.Install(scheme.Scheme)
 	_ = argo.AddToScheme(scheme.Scheme)
 }
