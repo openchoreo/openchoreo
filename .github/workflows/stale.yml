@@ -1,0 +1,42 @@
+name: Close Stale Issues
+
+on:
+  schedule:
+    # Run daily at 00:30 UTC
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  stale:
+    name: Mark Stale Issues
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Mark and close stale issues
+        uses: actions/stale@997185467fa4f803885201cee163a9f38240193d # v10.1.1
+        with:
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has had
+            no activity for 90 days. It will be closed in 30 days if no further
+            activity occurs. Comment to keep it open or add the `keep-open` label
+            to prevent it from being marked as stale.
+          close-issue-message: >
+            This issue has been automatically closed because it has been stale
+            for 30 days with no activity. If this issue is still relevant,
+            please reopen it with additional context.
+          stale-issue-label: stale
+
+          exempt-issue-labels: "keep-open,good first issue,help wanted"
+
+          days-before-issue-stale: 90
+          days-before-issue-close: 30
+
+          # Disable PR handling
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+
+          operations-per-run: 200
