@@ -1,0 +1,1093 @@
+# OpenChoreo Getting Started Resources
+#
+# This file contains all the default resources needed to get started with OpenChoreo.
+# Apply this file after installing the control plane to create the default project,
+# environments, pipeline, component types, workflows, and traits.
+#
+# Usage:
+#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+#
+# Or if you have cloned the repository:
+#   kubectl apply -f samples/getting-started/all.yaml
+
+---
+# Project
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: default
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Default Project
+    openchoreo.dev/description: Your first project to get started
+  labels:
+    openchoreo.dev/name: default
+spec:
+  deploymentPipelineRef: default
+
+---
+# Deployment Pipeline
+apiVersion: openchoreo.dev/v1alpha1
+kind: DeploymentPipeline
+metadata:
+  name: default
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Default Pipeline
+    openchoreo.dev/description: Standard deployment pipeline with dev, staging, and prod environments
+  labels:
+    openchoreo.dev/name: default
+spec:
+  promotionPaths:
+    - sourceEnvironmentRef: development
+      targetEnvironmentRefs:
+        - name: staging
+          requiresApproval: false
+    - sourceEnvironmentRef: staging
+      targetEnvironmentRefs:
+        - name: production
+          requiresApproval: false
+
+---
+# Environments
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: development
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Development
+    openchoreo.dev/description: Development
+  labels:
+    openchoreo.dev/name: development
+spec:
+  dataPlaneRef: default
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: staging
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Staging
+    openchoreo.dev/description: Staging
+  labels:
+    openchoreo.dev/name: staging
+spec:
+  dataPlaneRef: default
+  isProduction: false
+  gateway:
+    dnsPrefix: staging
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: production
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Production
+    openchoreo.dev/description: Production
+  labels:
+    openchoreo.dev/name: production
+spec:
+  dataPlaneRef: default
+  isProduction: true
+  gateway:
+    dnsPrefix: prod
+
+---
+# ComponentType: service
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: service
+  namespace: default
+spec:
+  workloadType: deployment
+
+  allowedWorkflows:
+    - google-cloud-buildpacks
+    - ballerina-buildpack
+    - docker
+
+  schema:
+    types:
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
+
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=80"
+      exposed: "boolean | default=false"
+      containerName: "string | default=main"
+
+    envOverrides:
+      resources: "ResourceRequirements | default={}"
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: ${parameters.containerName}
+                  image: ${workload.containers[parameters.containerName].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  command: |
+                    ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
+                  args: |
+                    ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
+                    limits:
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
+                  envFrom: ${configurations.toContainerEnvFrom(parameters.containerName)}
+                  volumeMounts: ${configurations.toContainerVolumeMounts(parameters.containerName)}
+              volumes: ${configurations.toVolumes()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+    - id: httproute
+      includeWhen: ${parameters.exposed == true}
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: gateway-default
+              namespace: openchoreo-data-plane
+          hostnames:
+            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
+          rules:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.componentName}
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /
+            backendRefs:
+            - name: ${metadata.componentName}
+              port: 80
+    - id: env-config
+      forEach: ${configurations.toConfigEnvsByContainer()}
+      var: envConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${envConfig.resourceName}
+          namespace: ${metadata.namespace}
+        data: |
+          ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
+    - id: file-config
+      forEach: ${configurations.toConfigFileList()}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${config.resourceName}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+    - id: secret-env-external
+      forEach: ${configurations.toSecretEnvsByContainer()}
+      var: secretEnv
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${secretEnv.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${secretEnv.resourceName}
+            creationPolicy: Owner
+          data: |
+            ${secretEnv.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) ? secret.remoteRef.property : oc_omit()
+              }
+            })}
+    - id: secret-file-external
+      forEach: ${configurations.toSecretFileList()}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${file.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${file.resourceName}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: |
+                  ${has(file.remoteRef.property) ? file.remoteRef.property : oc_omit()}
+
+---
+# ComponentType: web-application
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: web-application
+  namespace: default
+spec:
+  workloadType: deployment
+
+  allowedWorkflows:
+    - react
+
+  schema:
+    types:
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
+
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=80"
+      containerName: "string | default=main"
+
+    envOverrides:
+      resources: "ResourceRequirements | default={}"
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: ${parameters.containerName}
+                  image: ${workload.containers[parameters.containerName].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  command: |
+                    ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
+                  args: |
+                    ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
+                    limits:
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
+                  envFrom: ${configurations.toContainerEnvFrom(parameters.containerName)}
+                  volumeMounts: ${configurations.toContainerVolumeMounts(parameters.containerName)}
+              volumes: ${configurations.toVolumes()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+
+    - id: httproute
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: gateway-default
+              namespace: openchoreo-data-plane
+          hostnames:
+            - ${metadata.componentName}-${metadata.environmentName}.${dataplane.publicVirtualHost}
+          rules:
+          - backendRefs:
+            - name: ${metadata.componentName}
+              port: 80
+    - id: env-config
+      forEach: ${configurations.toConfigEnvsByContainer()}
+      var: envConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${envConfig.resourceName}
+          namespace: ${metadata.namespace}
+        data: |
+          ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
+    - id: file-config
+      forEach: ${configurations.toConfigFileList()}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${config.resourceName}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+    - id: secret-env-external
+      forEach: ${configurations.toSecretEnvsByContainer()}
+      var: secretEnv
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${secretEnv.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${secretEnv.resourceName}
+            creationPolicy: Owner
+          data: |
+            ${secretEnv.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) ? secret.remoteRef.property : oc_omit()
+              }
+            })}
+    - id: secret-file-external
+      forEach: ${configurations.toSecretFileList()}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${file.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${file.resourceName}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: |
+                  ${has(file.remoteRef.property) ? file.remoteRef.property : oc_omit()}
+
+---
+# ComponentType: scheduled-task
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: scheduled-task
+  namespace: default
+spec:
+  workloadType: cronjob
+
+  allowedWorkflows:
+    - google-cloud-buildpacks
+    - docker
+
+  schema:
+    types:
+      ResourceRequirements:
+        requests: "ResourceQuantity | default={}"
+        limits: "ResourceQuantity | default={}"
+      ResourceQuantity:
+        cpu: "string | default=100m"
+        memory: "string | default=128Mi"
+
+    parameters:
+      successfulJobsHistoryLimit: "integer | default=3"
+      failedJobsHistoryLimit: "integer | default=1"
+      concurrencyPolicy: "string | default=Forbid"
+      backoffLimit: "integer | default=3"
+      activeDeadlineSeconds: "integer | default=300"
+      restartPolicy: "string | default=OnFailure"
+      imagePullPolicy: "string | default=IfNotPresent"
+      containerName: "string | default=main"
+
+    envOverrides:
+      schedule: 'string | default="0 0 31 2 *"'
+      resources: "ResourceRequirements | default={}"
+
+  resources:
+    - id: cronjob
+      template:
+        apiVersion: batch/v1
+        kind: CronJob
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          schedule: ${envOverrides.schedule}
+          successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
+          failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
+          concurrencyPolicy: ${parameters.concurrencyPolicy}
+          jobTemplate:
+            metadata:
+              labels: ${metadata.labels}
+            spec:
+              backoffLimit: ${parameters.backoffLimit}
+              activeDeadlineSeconds: ${parameters.activeDeadlineSeconds}
+              template:
+                metadata:
+                  labels: ${metadata.podSelectors}
+                spec:
+                  restartPolicy: ${parameters.restartPolicy}
+                  containers:
+                    - name: ${parameters.containerName}
+                      image: ${workload.containers[parameters.containerName].image}
+                      imagePullPolicy: ${parameters.imagePullPolicy}
+                      command: |
+                        ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
+                      args: |
+                        ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
+                      resources:
+                        requests:
+                          cpu: ${envOverrides.resources.requests.cpu}
+                          memory: ${envOverrides.resources.requests.memory}
+                        limits:
+                          cpu: ${envOverrides.resources.limits.cpu}
+                          memory: ${envOverrides.resources.limits.memory}
+                      envFrom: ${configurations.toContainerEnvFrom(parameters.containerName)}
+                      volumeMounts: ${configurations.toContainerVolumeMounts(parameters.containerName)}
+                  volumes: ${configurations.toVolumes()}
+
+    - id: env-config
+      forEach: ${configurations.toConfigEnvsByContainer()}
+      var: envConfig
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${envConfig.resourceName}
+          namespace: ${metadata.namespace}
+        data: |
+          ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
+    - id: file-config
+      forEach: ${configurations.toConfigFileList()}
+      var: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${config.resourceName}
+          namespace: ${metadata.namespace}
+        data:
+          ${config.name}: |
+            ${config.value}
+    - id: secret-env-external
+      forEach: ${configurations.toSecretEnvsByContainer()}
+      var: secretEnv
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${secretEnv.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${secretEnv.resourceName}
+            creationPolicy: Owner
+          data: |
+            ${secretEnv.envs.map(secret, {
+              "secretKey": secret.name,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) ? secret.remoteRef.property : oc_omit()
+              }
+            })}
+    - id: secret-file-external
+      forEach: ${configurations.toSecretFileList()}
+      var: file
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${file.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${dataplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${file.resourceName}
+            creationPolicy: Owner
+          data:
+            - secretKey: ${file.name}
+              remoteRef:
+                key: ${file.remoteRef.key}
+                property: |
+                  ${has(file.remoteRef.property) ? file.remoteRef.property : oc_omit()}
+
+---
+# ComponentWorkflow: docker
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: docker
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
+spec:
+  schema:
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+
+    parameters:
+      docker:
+        context: string | default=. description="Docker build context path relative to the repository root"
+        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}-image
+          - name: image-tag
+            value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
+          - name: registry-push-secret
+            value: ${metadata.workflowRunName}-registry-push-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: docker
+  resources:
+    - id: git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token
+    - id: registry-push-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-registry-push-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-registry-push-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
+          data:
+            - secretKey: registrysecret
+              remoteRef:
+                key: registry-push-secret
+
+---
+# ComponentWorkflow: react
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: react
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Build workflow for React web applications"
+spec:
+  schema:
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the React application directory within the repository"
+
+    parameters:
+      nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          - name: node-version
+            value: ${parameters.nodeVersion}
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}
+          - name: image-tag
+            value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
+          - name: registry-push-secret
+            value: ${metadata.workflowRunName}-registry-push-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: react
+  resources:
+    - id: git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token
+    - id: registry-push-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-registry-push-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-registry-push-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
+          data:
+            - secretKey: registrysecret
+              remoteRef:
+                key: registry-push-secret
+
+---
+# ComponentWorkflow: ballerina-buildpack
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: ballerina-buildpack
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
+spec:
+  schema:
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the Ballerina application directory within the repository"
+
+    parameters: {}
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}-image
+          - name: image-tag
+            value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
+          - name: registry-push-secret
+            value: ${metadata.workflowRunName}-registry-push-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: ballerina-buildpack
+  resources:
+    - id: git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token
+    - id: registry-push-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-registry-push-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-registry-push-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
+          data:
+            - secretKey: registrysecret
+              remoteRef:
+                key: registry-push-secret
+
+---
+# ComponentWorkflow: google-cloud-buildpacks
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentWorkflow
+metadata:
+  name: google-cloud-buildpacks
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+spec:
+  schema:
+    systemParameters:
+      repository:
+        url: string | description="Git repository URL"
+        revision:
+          branch: string | default=main description="Git branch to checkout"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+        appPath: string | default=. description="Path to the application directory within the repository"
+
+    parameters: {}
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: openchoreo-ci-${metadata.namespaceName}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.componentName}
+          - name: project-name
+            value: ${metadata.projectName}
+          - name: git-repo
+            value: ${systemParameters.repository.url}
+          - name: branch
+            value: ${systemParameters.repository.revision.branch}
+          - name: commit
+            value: ${systemParameters.repository.revision.commit}
+          - name: app-path
+            value: ${systemParameters.repository.appPath}
+          - name: image-name
+            value: ${metadata.projectName}-${metadata.componentName}-image
+          - name: image-tag
+            value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
+          - name: registry-push-secret
+            value: ${metadata.workflowRunName}-registry-push-secret
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: google-cloud-buildpacks
+  resources:
+    - id: git-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+          data:
+            - secretKey: git-token
+              remoteRef:
+                key: git-token
+    - id: registry-push-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-registry-push-secret
+          namespace: openchoreo-ci-${metadata.namespaceName}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: default
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-registry-push-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
+          data:
+            - secretKey: registrysecret
+              remoteRef:
+                key: registry-push-secret
+
+---
+# Trait: api-configuration
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: api-configuration
+  namespace: default
+spec:
+  schema:
+    parameters:
+      apiName: "string"
+      apiVersion: "string | default=v1.0"
+      context: "string"
+      upstreamPort: "integer | default=80"
+      operations:
+        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
+      policies:
+        "array<map<string>> | default=[]"
+
+  creates:
+    - template:
+        apiVersion: gateway.kgateway.dev/v1alpha1
+        kind: Backend
+        metadata:
+          name: ${metadata.componentName}-api-gw-backend
+          namespace: ${metadata.namespace}
+        spec:
+          type: Static
+          static:
+            hosts:
+              - host: api-platform-default-gateway-router.openchoreo-data-plane
+                port: 8080
+
+    - template:
+        apiVersion: gateway.api-platform.wso2.com/v1alpha1
+        kind: RestApi
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+        spec:
+          displayName: ${parameters.apiName}
+          version: ${parameters.apiVersion}
+          context: ${parameters.context}
+          upstream:
+            main:
+              url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
+          policies: ${parameters.policies}
+          operations: ${parameters.operations}
+
+  patches:
+    - target:
+        group: gateway.networking.k8s.io
+        version: v1
+        kind: HTTPRoute
+      operations:
+        - op: replace
+          path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.componentName}')]
+          value:
+            group: gateway.kgateway.dev
+            kind: Backend
+            name: ${metadata.componentName}-api-gw-backend
+
+        - op: replace
+          path: /spec/rules/0/filters/0/urlRewrite/path
+          value:
+            type: ReplacePrefixMatch
+            replacePrefixMatch: ${parameters.context}

@@ -1,0 +1,47 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: development
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Development
+    openchoreo.dev/description: Development
+  labels:
+    openchoreo.dev/name: development
+spec:
+  dataPlaneRef: default
+  isProduction: false
+  gateway:
+    dnsPrefix: dev
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: staging
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Staging
+    openchoreo.dev/description: Staging
+  labels:
+    openchoreo.dev/name: staging
+spec:
+  dataPlaneRef: default
+  isProduction: false
+  gateway:
+    dnsPrefix: staging
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Environment
+metadata:
+  name: production
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: Production
+    openchoreo.dev/description: Production
+  labels:
+    openchoreo.dev/name: production
+spec:
+  dataPlaneRef: default
+  isProduction: true
+  gateway:
+    dnsPrefix: prod
