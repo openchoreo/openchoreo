@@ -30,7 +30,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
       exposed: "boolean | default=false | description='Expose the service externally' | title='Expose Service'"
 
     envOverrides:
@@ -87,20 +86,25 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
-    - id: httproute
+          ports: |
+            ${workload.endpoints.transformList(name, endpoint, {
+              "name": name,
+              "port": endpoint.port,
+              "targetPort": endpoint.port,
+              "protocol": has(endpoint.protocol) ? endpoint.protocol : "TCP"
+            })}
+
+    - forEach: ${workload.endpoints}
+      var: endpoint
+      id: httproute
       includeWhen: ${parameters.exposed == true}
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
         metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
           labels: ${metadata.labels}
+          name: ${metadata.name}-${endpoint.key}
+          namespace: ${metadata.namespace}
         spec:
           parentRefs:
             - name: gateway-default
@@ -120,7 +124,7 @@ spec:
                     replacePrefixMatch: /
             backendRefs:
             - name: ${metadata.componentName}
-              port: 80
+              port: ${endpoint.value.port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig
