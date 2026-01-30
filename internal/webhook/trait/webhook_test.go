@@ -49,21 +49,6 @@ var _ = Describe("Trait Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should reject trait with overlapping keys in parameters and envOverrides", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"mountPath": "string", "size": "string"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"size": "string | default=10Gi", "storageClass": "string"}`),
-				},
-			}
-			_, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("key 'size' is already defined in parameters"))
-			Expect(err.Error()).To(ContainSubstring("parameters and envOverrides cannot have overlapping keys"))
-		})
-
 		It("Should reject trait with invalid envOverrides schema syntax", func() {
 			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
 				Parameters: &runtime.RawExtension{

@@ -162,34 +162,6 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 	})
 
-	Context("Overlapping Keys Between Parameters and EnvOverrides", func() {
-		BeforeEach(func() {
-			obj.Spec.WorkloadType = workloadTypeDeployment
-			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
-				{
-					ID:       "deployment",
-					Template: validDeploymentTemplate(),
-				},
-			}
-		})
-
-		It("should reject overlapping top-level keys", func() {
-			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
-				Parameters: &runtime.RawExtension{
-					Raw: []byte(`{"replicas": "integer", "image": "string"}`),
-				},
-				EnvOverrides: &runtime.RawExtension{
-					Raw: []byte(`{"image": "string | default=nginx"}`),
-				},
-			}
-
-			_, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("key 'image' is already defined in parameters"))
-			Expect(err.Error()).To(ContainSubstring("parameters and envOverrides cannot have overlapping keys"))
-		})
-	})
-
 	Context("Structural Schema Build Failures", func() {
 		BeforeEach(func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment

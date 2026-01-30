@@ -19,7 +19,6 @@ var omitValue = field.OmitValueType{}
 // ExtractStructuralSchemas extracts and builds structural schemas from a Source.
 // It parses the raw extensions and converts them to Kubernetes structural schemas.
 // Returns parameters schema, envOverrides schema, and any validation errors.
-// Also validates that parameters and envOverrides don't have overlapping top-level keys.
 func ExtractStructuralSchemas(
 	source schema.Source,
 	basePath *field.Path,
@@ -86,18 +85,6 @@ func ExtractStructuralSchemas(
 					fmt.Sprintf("failed to build structural schema: %v", err)))
 			} else {
 				envOverridesSchema = structural
-			}
-		}
-	}
-
-	// Validate that parameters and envOverrides don't have overlapping top-level keys
-	if params != nil && envOverrides != nil {
-		for key := range params {
-			if _, exists := envOverrides[key]; exists {
-				allErrs = append(allErrs, field.Invalid(
-					basePath.Child("envOverrides"),
-					key,
-					fmt.Sprintf("key '%s' is already defined in parameters; parameters and envOverrides cannot have overlapping keys", key)))
 			}
 		}
 	}
