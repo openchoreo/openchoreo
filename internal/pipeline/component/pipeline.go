@@ -128,7 +128,62 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// Create schema cache for trait reuse within this render
 	schemaCache := make(map[string]*context.SchemaBundle)
 
-	// Process each trait instance from the component
+	// Process embedded traits from ComponentType (before component-level traits)
+	for _, embeddedTrait := range input.ComponentType.Spec.Traits {
+		t, ok := traitMap[embeddedTrait.Name]
+		if !ok {
+			return nil, fmt.Errorf("embedded trait %s referenced but not found in traits list", embeddedTrait.Name)
+		}
+
+		// Resolve CEL bindings against component context
+		resolvedParams, resolvedEnvOverrides, err := context.ResolveEmbeddedTraitBindings(
+			p.templateEngine,
+			embeddedTrait,
+			componentContext.ToMap(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve embedded trait bindings for %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		// Build a synthetic ComponentTrait with resolved parameters
+		syntheticInstance := v1alpha1.ComponentTrait{
+			Name:         embeddedTrait.Name,
+			InstanceName: embeddedTrait.InstanceName,
+			Parameters:   resolvedParams,
+		}
+
+		// Build embedded trait context
+		traitContext, err := context.BuildEmbeddedTraitContext(&context.EmbeddedTraitContextInput{
+			Trait:                t,
+			Instance:             syntheticInstance,
+			ResolvedEnvOverrides: resolvedEnvOverrides,
+			Component:            input.Component,
+			ReleaseBinding:       input.ReleaseBinding,
+			WorkloadData:         workloadData,
+			Configurations:       configurations,
+			Metadata:             input.Metadata,
+			SchemaCache:          schemaCache,
+			DataPlane:            input.DataPlane,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		// Process trait (creates + patches)
+		beforeCount := len(renderedResources)
+		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
+		if err != nil {
+			return nil, fmt.Errorf("failed to process embedded trait %s/%s: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		metadata.TraitCount++
+		metadata.TraitResourceCount += len(renderedResources) - beforeCount
+	}
+
+	// Process each component-level trait instance
 	for _, traitInstance := range input.Component.Spec.Traits {
 		t, ok := traitMap[traitInstance.Name]
 		if !ok {
