@@ -37,6 +37,19 @@ type ComponentTypeSpec struct {
 	// +optional
 	Schema ComponentTypeSchema `json:"schema,omitempty"`
 
+	// Traits are pre-configured trait instances embedded in the ComponentType.
+	// The PE binds trait parameters using concrete values or CEL expressions
+	// referencing the ComponentType schema (e.g., "${parameters.storage.mountPath}").
+	// These traits are automatically applied to all Components of this type.
+	// +optional
+	Traits []ComponentTypeTrait `json:"traits,omitempty"`
+
+	// AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
+	// If empty or omitted, all traits are allowed.
+	// Trait names listed here must not overlap with traits already embedded in spec.traits.
+	// +optional
+	AllowedTraits []string `json:"allowedTraits,omitempty"`
+
 	// Resources are templates that generate Kubernetes resources dynamically
 	// At least one resource must be defined with an id matching the workloadType
 	// +kubebuilder:validation:MinItems=1
@@ -130,6 +143,41 @@ type ResourceTemplate struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Template *runtime.RawExtension `json:"template"`
+}
+
+// ComponentTypeTrait represents a pre-configured trait instance embedded in a ComponentType.
+// The PE binds trait parameters using concrete values (locked) or CEL expressions
+// referencing the ComponentType schema (wired to developer-configurable fields).
+type ComponentTypeTrait struct {
+	// Name is the name of the Trait resource to use.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// InstanceName uniquely identifies this trait instance.
+	// Must be unique across all embedded traits in the ComponentType
+	// and must not collide with any component-level trait instance names.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	InstanceName string `json:"instanceName"`
+
+	// Parameters contains trait parameter bindings.
+	// Values can be concrete (locked by PE) or CEL expressions referencing
+	// the ComponentType schema using ${...} syntax.
+	// Example: "${parameters.storage.mountPath}" or "app-data" (locked)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+
+	// EnvOverrides contains trait environment override bindings.
+	// Values can be concrete (locked by PE) or CEL expressions referencing
+	// the ComponentType schema using ${...} syntax.
+	// Example: "${envOverrides.storage.size}" or "local-path" (locked)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
 }
 
 // ComponentTypeStatus defines the observed state of ComponentType.

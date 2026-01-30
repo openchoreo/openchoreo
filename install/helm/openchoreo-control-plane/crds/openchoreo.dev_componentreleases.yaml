@@ -96,6 +96,14 @@ spec:
                   ComponentType is a full embedded copy of the ComponentType
                   This ensures the ComponentRelease has an immutable snapshot of the ComponentType at the time of component release
                 properties:
+                  allowedTraits:
+                    description: |-
+                      AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
+                      If empty or omitted, all traits are allowed.
+                      Trait names listed here must not overlap with traits already embedded in spec.traits.
+                    items:
+                      type: string
+                    type: array
                   allowedWorkflows:
                     description: |-
                       AllowedWorkflows restricts which ComponentWorkflow CRs developers can use
@@ -186,6 +194,48 @@ spec:
                         type: object
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
+                  traits:
+                    description: |-
+                      Traits are pre-configured trait instances embedded in the ComponentType.
+                      The PE binds trait parameters using concrete values or CEL expressions
+                      referencing the ComponentType schema (e.g., "${parameters.storage.mountPath}").
+                      These traits are automatically applied to all Components of this type.
+                    items:
+                      description: |-
+                        ComponentTypeTrait represents a pre-configured trait instance embedded in a ComponentType.
+                        The PE binds trait parameters using concrete values (locked) or CEL expressions
+                        referencing the ComponentType schema (wired to developer-configurable fields).
+                      properties:
+                        envOverrides:
+                          description: |-
+                            EnvOverrides contains trait environment override bindings.
+                            Values can be concrete (locked by PE) or CEL expressions referencing
+                            the ComponentType schema using ${...} syntax.
+                            Example: "${envOverrides.storage.size}" or "local-path" (locked)
+                          x-kubernetes-preserve-unknown-fields: true
+                        instanceName:
+                          description: |-
+                            InstanceName uniquely identifies this trait instance.
+                            Must be unique across all embedded traits in the ComponentType
+                            and must not collide with any component-level trait instance names.
+                          minLength: 1
+                          type: string
+                        name:
+                          description: Name is the name of the Trait resource to use.
+                          minLength: 1
+                          type: string
+                        parameters:
+                          description: |-
+                            Parameters contains trait parameter bindings.
+                            Values can be concrete (locked by PE) or CEL expressions referencing
+                            the ComponentType schema using ${...} syntax.
+                            Example: "${parameters.storage.mountPath}" or "app-data" (locked)
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - instanceName
+                      - name
+                      type: object
+                    type: array
                   workloadType:
                     description: |-
                       WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
