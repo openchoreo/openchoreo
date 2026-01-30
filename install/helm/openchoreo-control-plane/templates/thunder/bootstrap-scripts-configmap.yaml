@@ -60,7 +60,7 @@ data:
             "token": {
               "issuer": "thunder",
               "access_token": {
-                "validity_period": 3600,
+                "validity_period": 86400,
                 "user_attributes": [
                   "given_name",
                   "family_name",
@@ -69,7 +69,7 @@ data:
                 ]
               },
               "id_token": {
-                "validity_period": 3600,
+                "validity_period": 86400,
                 "user_attributes": [
                   "given_name",
                   "family_name",
