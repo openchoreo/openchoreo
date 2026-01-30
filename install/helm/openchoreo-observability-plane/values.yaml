@@ -952,6 +952,14 @@ openSearchDashboards:
 # @schema
 observer:
   # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Control experimental features in the Observer service
+  # default: true
+  # @schema
+  experimental: {}
+  
+  # @schema
   # type: integer
   # description: Number of Observer pod replicas
   # minimum: 0

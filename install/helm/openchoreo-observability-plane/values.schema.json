@@ -1587,6 +1587,14 @@
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
       "properties": {
+        "experimental": {
+          "additionalProperties": true,
+          "default": true,
+          "description": "Control experimental features in the Observer service",
+          "required": [],
+          "title": "experimental",
+          "type": "object"
+        },
         "extraEnvs": {
           "description": "Extra environment variables for the Observer container",
           "items": {
