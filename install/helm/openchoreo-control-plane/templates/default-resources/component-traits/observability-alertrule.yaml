@@ -22,9 +22,9 @@ spec:
 
     envOverrides:
       # Platform engineers can override per environment
-      enabled: "boolean | default=true"
-      enableAiRootCauseAnalysis: "boolean | default=false"
-      notificationChannel: "string"
+      enabled: "boolean | default=true | description=\"Enable/Disable the alert rule\""
+      enableAiRootCauseAnalysis: "boolean | default=false | description=\"Enable/Disable AI powered root cause analysis for alerts triggered by this rule\""
+      notificationChannel: "string | description=\"The notification channel to send alerts to\""
 
   creates:
     - targetPlane: observabilityplane
