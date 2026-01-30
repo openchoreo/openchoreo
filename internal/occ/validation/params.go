@@ -45,6 +45,20 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateConfigurationGroupParams(cmdType, params)
 	case ResourceWorkload:
 		return validateWorkloadParams(cmdType, params)
+	case ResourceBuildPlane:
+		return validateBuildPlaneParams(cmdType, params)
+	case ResourceObservabilityPlane:
+		return validateObservabilityPlaneParams(cmdType, params)
+	case ResourceComponentType:
+		return validateComponentTypeParams(cmdType, params)
+	case ResourceTrait:
+		return validateTraitParams(cmdType, params)
+	case ResourceWorkflow:
+		return validateWorkflowParams(cmdType, params)
+	case ResourceComponentWorkflow:
+		return validateComponentWorkflowParams(cmdType, params)
+	case ResourceSecretReference:
+		return validateSecretReferenceParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -72,6 +86,8 @@ func validateProjectParams(cmdType CommandType, params interface{}) error {
 				return generateHelpError(cmdType, ResourceProject, fields)
 			}
 		}
+	case CmdList:
+		return validateProjectListParams(params)
 	}
 	return nil
 }
@@ -101,6 +117,8 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 				return generateHelpError(cmdType, ResourceComponent, fields)
 			}
 		}
+	case CmdList:
+		return validateComponentListParams(params)
 	}
 	return nil
 }
@@ -218,6 +236,8 @@ func validateEnvironmentParams(cmdType CommandType, params interface{}) error {
 				return generateHelpError(cmdType, ResourceEnvironment, fields)
 			}
 		}
+	case CmdList:
+		return validateEnvironmentListParams(params)
 	}
 	return nil
 }
@@ -316,6 +336,8 @@ func validateDataPlaneParams(cmdType CommandType, params interface{}) error {
 				return generateHelpError(cmdType, ResourceDataPlane, fields)
 			}
 		}
+	case CmdList:
+		return validateDataPlaneListParams(params)
 	}
 	return nil
 }
@@ -438,6 +460,130 @@ func validateWorkloadParams(cmdType CommandType, params interface{}) error {
 			if !checkRequiredFields(fields) {
 				return generateHelpError(cmdType, ResourceWorkload, fields)
 			}
+		}
+	}
+	return nil
+}
+
+// validateProjectListParams validates parameters for project list operations
+func validateProjectListParams(params interface{}) error {
+	if p, ok := params.(api.ListProjectsParams); ok {
+		return validateNamespace(ResourceProject, p.Namespace)
+	}
+	return nil
+}
+
+// validateComponentListParams validates parameters for component list operations
+func validateComponentListParams(params interface{}) error {
+	if p, ok := params.(api.ListComponentsParams); ok {
+		fields := map[string]string{
+			"namespace": p.Namespace,
+			"project":   p.Project,
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdList, ResourceComponent, fields)
+		}
+	}
+	return nil
+}
+
+// NamespaceProvider is an interface for params that have a Namespace field
+type NamespaceProvider interface {
+	GetNamespace() string
+}
+
+// validateNamespace validates list params that only require namespace
+func validateNamespace(resource ResourceType, namespace string) error {
+	if namespace == "" {
+		fields := map[string]string{
+			"namespace": namespace,
+		}
+		return generateHelpError(CmdList, resource, fields)
+	}
+	return nil
+}
+
+// validateEnvironmentListParams validates parameters for environment list operations
+func validateEnvironmentListParams(params interface{}) error {
+	if p, ok := params.(api.ListEnvironmentsParams); ok {
+		return validateNamespace(ResourceEnvironment, p.Namespace)
+	}
+	return nil
+}
+
+// validateDataPlaneListParams validates parameters for data plane list operations
+func validateDataPlaneListParams(params interface{}) error {
+	if p, ok := params.(api.ListDataPlanesParams); ok {
+		return validateNamespace(ResourceDataPlane, p.Namespace)
+	}
+	return nil
+}
+
+// validateBuildPlaneParams validates parameters for build plane operations
+func validateBuildPlaneParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListBuildPlanesParams); ok {
+			return validateNamespace(ResourceBuildPlane, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateObservabilityPlaneParams validates parameters for observability plane operations
+func validateObservabilityPlaneParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListObservabilityPlanesParams); ok {
+			return validateNamespace(ResourceObservabilityPlane, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateComponentTypeParams validates parameters for component type operations
+func validateComponentTypeParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListComponentTypesParams); ok {
+			return validateNamespace(ResourceComponentType, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateTraitParams validates parameters for trait operations
+func validateTraitParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListTraitsParams); ok {
+			return validateNamespace(ResourceTrait, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateWorkflowParams validates parameters for workflow operations
+func validateWorkflowParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListWorkflowsParams); ok {
+			return validateNamespace(ResourceWorkflow, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateComponentWorkflowParams validates parameters for component workflow operations
+func validateComponentWorkflowParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListComponentWorkflowsParams); ok {
+			return validateNamespace(ResourceComponentWorkflow, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateSecretReferenceParams validates parameters for secret reference operations
+func validateSecretReferenceParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListSecretReferencesParams); ok {
+			return validateNamespace(ResourceSecretReference, p.Namespace)
 		}
 	}
 	return nil

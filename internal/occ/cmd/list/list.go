@@ -9,6 +9,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -40,6 +41,10 @@ func (l *ListImpl) ListNamespaces(params api.ListNamespacesParams) error {
 
 // ListProjects lists all projects in a namespace
 func (l *ListImpl) ListProjects(params api.ListProjectsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceProject, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -57,6 +62,10 @@ func (l *ListImpl) ListProjects(params api.ListProjectsParams) error {
 
 // ListComponents lists all components in a project
 func (l *ListImpl) ListComponents(params api.ListComponentsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponent, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -74,6 +83,10 @@ func (l *ListImpl) ListComponents(params api.ListComponentsParams) error {
 
 // ListEnvironments lists all environments in a namespace
 func (l *ListImpl) ListEnvironments(params api.ListEnvironmentsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceEnvironment, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -91,6 +104,10 @@ func (l *ListImpl) ListEnvironments(params api.ListEnvironmentsParams) error {
 
 // ListDataPlanes lists all data planes in a namespace
 func (l *ListImpl) ListDataPlanes(params api.ListDataPlanesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceDataPlane, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -108,6 +125,10 @@ func (l *ListImpl) ListDataPlanes(params api.ListDataPlanesParams) error {
 
 // ListBuildPlanes lists all build planes in a namespace
 func (l *ListImpl) ListBuildPlanes(params api.ListBuildPlanesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceBuildPlane, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -125,6 +146,10 @@ func (l *ListImpl) ListBuildPlanes(params api.ListBuildPlanesParams) error {
 
 // ListObservabilityPlanes lists all observability planes in a namespace
 func (l *ListImpl) ListObservabilityPlanes(params api.ListObservabilityPlanesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceObservabilityPlane, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -142,6 +167,10 @@ func (l *ListImpl) ListObservabilityPlanes(params api.ListObservabilityPlanesPar
 
 // ListComponentTypes lists all component types in a namespace
 func (l *ListImpl) ListComponentTypes(params api.ListComponentTypesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentType, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -159,6 +188,10 @@ func (l *ListImpl) ListComponentTypes(params api.ListComponentTypesParams) error
 
 // ListTraits lists all traits in a namespace
 func (l *ListImpl) ListTraits(params api.ListTraitsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceTrait, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -176,6 +209,10 @@ func (l *ListImpl) ListTraits(params api.ListTraitsParams) error {
 
 // ListWorkflows lists all workflows in a namespace
 func (l *ListImpl) ListWorkflows(params api.ListWorkflowsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -193,6 +230,10 @@ func (l *ListImpl) ListWorkflows(params api.ListWorkflowsParams) error {
 
 // ListComponentWorkflows lists all component workflows in a namespace
 func (l *ListImpl) ListComponentWorkflows(params api.ListComponentWorkflowsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentWorkflow, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
@@ -210,6 +251,10 @@ func (l *ListImpl) ListComponentWorkflows(params api.ListComponentWorkflowsParam
 
 // ListSecretReferences lists all secret references in a namespace
 func (l *ListImpl) ListSecretReferences(params api.ListSecretReferencesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceSecretReference, params); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	c, err := client.NewClient()
