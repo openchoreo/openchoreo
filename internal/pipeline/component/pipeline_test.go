@@ -809,3 +809,501 @@ func sortAnySlicesByName() cmp.Option {
 		return out
 	})
 }
+
+func TestPipeline_DPResourceHashAnnotation(t *testing.T) {
+	tests := []struct {
+		name             string
+		workloadType     string
+		resources        []renderer.RenderedResource
+		wantAnnotation   bool
+		wantHashNotEmpty bool
+	}{
+		{
+			name:         "deployment with configmap gets hash annotation",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata":   map[string]any{"name": "app"},
+						"spec": map[string]any{
+							"template": map[string]any{
+								"metadata": map[string]any{},
+								"spec":     map[string]any{},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata":   map[string]any{"name": "config"},
+						"data":       map[string]any{"key": "value"},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation:   true,
+			wantHashNotEmpty: true,
+		},
+		{
+			name:         "statefulset with secret gets hash annotation",
+			workloadType: "statefulset",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "StatefulSet",
+						"metadata":   map[string]any{"name": "app"},
+						"spec": map[string]any{
+							"template": map[string]any{
+								"metadata": map[string]any{},
+								"spec":     map[string]any{},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Secret",
+						"metadata":   map[string]any{"name": "secret"},
+						"data":       map[string]any{"password": "secret123"},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation:   true,
+			wantHashNotEmpty: true,
+		},
+		{
+			name:         "deployment without non-workload resources has no annotation",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata":   map[string]any{"name": "app"},
+						"spec": map[string]any{
+							"template": map[string]any{
+								"metadata": map[string]any{},
+								"spec":     map[string]any{},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation: false,
+		},
+		{
+			name:         "cronjob workload type is skipped",
+			workloadType: "cronjob",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "batch/v1",
+						"kind":       "CronJob",
+						"metadata":   map[string]any{"name": "job"},
+						"spec": map[string]any{
+							"jobTemplate": map[string]any{
+								"spec": map[string]any{
+									"template": map[string]any{
+										"metadata": map[string]any{},
+										"spec":     map[string]any{},
+									},
+								},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata":   map[string]any{"name": "config"},
+						"data":       map[string]any{"key": "value"},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation: false,
+		},
+		{
+			name:         "observabilityplane resources are excluded from hash",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata":   map[string]any{"name": "app"},
+						"spec": map[string]any{
+							"template": map[string]any{
+								"metadata": map[string]any{},
+								"spec":     map[string]any{},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "ConfigMap",
+						"metadata":   map[string]any{"name": "metrics-config"},
+						"data":       map[string]any{"scrape": "true"},
+					},
+					TargetPlane: "observabilityplane",
+				},
+			},
+			wantAnnotation: false,
+		},
+		{
+			name:         "deployment with service gets hash annotation",
+			workloadType: "deployment",
+			resources: []renderer.RenderedResource{
+				{
+					Resource: map[string]any{
+						"apiVersion": "apps/v1",
+						"kind":       "Deployment",
+						"metadata":   map[string]any{"name": "app"},
+						"spec": map[string]any{
+							"template": map[string]any{
+								"metadata": map[string]any{},
+								"spec":     map[string]any{},
+							},
+						},
+					},
+					TargetPlane: "dataplane",
+				},
+				{
+					Resource: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Service",
+						"metadata":   map[string]any{"name": "svc"},
+						"spec":       map[string]any{"ports": []any{map[string]any{"port": 80}}},
+					},
+					TargetPlane: "dataplane",
+				},
+			},
+			wantAnnotation:   true,
+			wantHashNotEmpty: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := &RenderInput{
+				ComponentType: &v1alpha1.ComponentType{
+					Spec: v1alpha1.ComponentTypeSpec{
+						WorkloadType: tt.workloadType,
+					},
+				},
+			}
+
+			p := NewPipeline()
+			err := p.addDPResourceHashAnnotation(tt.resources, input)
+			if err != nil {
+				t.Fatalf("addDPResourceHashAnnotation() error = %v", err)
+			}
+
+			// Find workload resource based on workload type
+			var workloadResource map[string]any
+			for _, rr := range tt.resources {
+				kind, _ := rr.Resource["kind"].(string)
+				if (tt.workloadType == "deployment" && kind == "Deployment") ||
+					(tt.workloadType == "statefulset" && kind == "StatefulSet") {
+					workloadResource = rr.Resource
+					break
+				}
+			}
+
+			if workloadResource == nil {
+				if tt.wantAnnotation {
+					t.Fatal("expected workload resource not found")
+				}
+				return
+			}
+
+			spec, _ := workloadResource["spec"].(map[string]any)
+			template, _ := spec["template"].(map[string]any)
+			templateMeta, _ := template["metadata"].(map[string]any)
+			annotations, _ := templateMeta["annotations"].(map[string]any)
+
+			hashValue, hasAnnotation := annotations["openchoreo.dev/dp-resource-hash"].(string)
+
+			if tt.wantAnnotation && !hasAnnotation {
+				t.Error("expected hash annotation but not found")
+			}
+			if !tt.wantAnnotation && hasAnnotation {
+				t.Errorf("unexpected hash annotation found: %s", hashValue)
+			}
+			if tt.wantHashNotEmpty && hashValue == "" {
+				t.Error("expected non-empty hash value")
+			}
+		})
+	}
+}
+
+func TestHashDeterminism(t *testing.T) {
+	resources := []renderer.RenderedResource{
+		{
+			Resource: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "config"},
+				"data":       map[string]any{"key1": "value1", "key2": "value2"},
+			},
+			TargetPlane: "dataplane",
+		},
+	}
+
+	// Compute hash multiple times
+	var hashes []string
+	for i := 0; i < 5; i++ {
+		var hashContent []map[string]any
+		for _, rr := range resources {
+			hashContent = append(hashContent, extractContentExcludingMetadata(rr.Resource))
+		}
+		hashes = append(hashes, computeTestHash(hashContent))
+	}
+
+	// All hashes should be identical
+	for i := 1; i < len(hashes); i++ {
+		if hashes[i] != hashes[0] {
+			t.Errorf("hash not deterministic: %s != %s", hashes[i], hashes[0])
+		}
+	}
+}
+
+func TestHashOrderIndependence(t *testing.T) {
+	// Create resources in different orders but with same content
+	configMap := renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "config", "namespace": "default"},
+			"data":       map[string]any{"key": "value"},
+		},
+		TargetPlane: "dataplane",
+	}
+	secret := renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Secret",
+			"metadata":   map[string]any{"name": "secret", "namespace": "default"},
+			"data":       map[string]any{"password": "secret123"},
+		},
+		TargetPlane: "dataplane",
+	}
+	service := renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata":   map[string]any{"name": "svc", "namespace": "default"},
+			"spec":       map[string]any{"ports": []any{map[string]any{"port": 80}}},
+		},
+		TargetPlane: "dataplane",
+	}
+	deployment := renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": "app", "namespace": "default"},
+			"spec": map[string]any{
+				"template": map[string]any{
+					"metadata": map[string]any{},
+					"spec":     map[string]any{},
+				},
+			},
+		},
+		TargetPlane: "dataplane",
+	}
+
+	// Order 1: ConfigMap, Secret, Service, Deployment
+	resources1 := []renderer.RenderedResource{configMap, secret, service, deployment}
+
+	// Order 2: Service, Deployment, ConfigMap, Secret (different order)
+	resources2 := []renderer.RenderedResource{service, deployment, configMap, secret}
+
+	// Order 3: Secret, Service, ConfigMap, Deployment (another different order)
+	resources3 := []renderer.RenderedResource{secret, service, configMap, deployment}
+
+	input := &RenderInput{
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+			},
+		},
+	}
+
+	p := NewPipeline()
+
+	// Compute hash for each order
+	if err := p.addDPResourceHashAnnotation(resources1, input); err != nil {
+		t.Fatalf("failed for order 1: %v", err)
+	}
+	hash1 := getHashFromDeployment(resources1)
+
+	if err := p.addDPResourceHashAnnotation(resources2, input); err != nil {
+		t.Fatalf("failed for order 2: %v", err)
+	}
+	hash2 := getHashFromDeployment(resources2)
+
+	if err := p.addDPResourceHashAnnotation(resources3, input); err != nil {
+		t.Fatalf("failed for order 3: %v", err)
+	}
+	hash3 := getHashFromDeployment(resources3)
+
+	// All hashes should be identical regardless of resource order
+	if hash1 != hash2 {
+		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash2)
+	}
+	if hash1 != hash3 {
+		t.Errorf("hash changed with different resource order: %s != %s", hash1, hash3)
+	}
+}
+
+func getHashFromDeployment(resources []renderer.RenderedResource) string {
+	for _, rr := range resources {
+		kind, _ := rr.Resource["kind"].(string)
+		if kind == "Deployment" {
+			spec := rr.Resource["spec"].(map[string]any)
+			template := spec["template"].(map[string]any)
+			templateMeta := template["metadata"].(map[string]any)
+			annotations, _ := templateMeta["annotations"].(map[string]any)
+			if annotations != nil {
+				return annotations["openchoreo.dev/dp-resource-hash"].(string)
+			}
+		}
+	}
+	return ""
+}
+
+func TestHashChangesWithContent(t *testing.T) {
+	content1 := []map[string]any{{"data": map[string]any{"key": "value1"}}}
+	content2 := []map[string]any{{"data": map[string]any{"key": "value2"}}}
+
+	hash1 := computeTestHash(content1)
+	hash2 := computeTestHash(content2)
+
+	if hash1 == hash2 {
+		t.Error("different content should produce different hashes")
+	}
+}
+
+func TestExtractContentExcludingMetadata(t *testing.T) {
+	resource := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "test",
+			"namespace": "default",
+			"labels":    map[string]any{"app": "test"},
+		},
+		"data": map[string]any{"key": "value"},
+	}
+
+	result := extractContentExcludingMetadata(resource)
+
+	// Should not have metadata
+	if _, ok := result["metadata"]; ok {
+		t.Error("metadata should be excluded")
+	}
+
+	// Should have other fields
+	if result["apiVersion"] != "v1" {
+		t.Error("apiVersion should be preserved")
+	}
+	if result["kind"] != "ConfigMap" {
+		t.Error("kind should be preserved")
+	}
+	if result["data"] == nil {
+		t.Error("data should be preserved")
+	}
+}
+
+func TestIsMainWorkloadKind(t *testing.T) {
+	tests := []struct {
+		kind         string
+		workloadType string
+		want         bool
+	}{
+		{"Deployment", "deployment", true},
+		{"StatefulSet", "statefulset", true},
+		{"Deployment", "statefulset", false},
+		{"StatefulSet", "deployment", false},
+		{"CronJob", "cronjob", false},
+		{"Job", "job", false},
+		{"ConfigMap", "deployment", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.kind+"_"+tt.workloadType, func(t *testing.T) {
+			got := isMainWorkloadKind(tt.kind, tt.workloadType)
+			if got != tt.want {
+				t.Errorf("isMainWorkloadKind(%q, %q) = %v, want %v", tt.kind, tt.workloadType, got, tt.want)
+			}
+		})
+	}
+}
+
+// computeTestHash is a helper to compute hash for testing
+func computeTestHash(content []map[string]any) string {
+	// Import the hash package indirectly through the pipeline
+	// We use the same algorithm as the production code
+	p := NewPipeline()
+	resources := []renderer.RenderedResource{
+		{
+			Resource: map[string]any{
+				"apiVersion": "apps/v1",
+				"kind":       "Deployment",
+				"metadata":   map[string]any{"name": "test"},
+				"spec": map[string]any{
+					"template": map[string]any{
+						"metadata": map[string]any{},
+					},
+				},
+			},
+			TargetPlane: "dataplane",
+		},
+	}
+
+	// Add test content as additional resources
+	for _, c := range content {
+		resources = append(resources, renderer.RenderedResource{
+			Resource: map[string]any{
+				"apiVersion": "v1",
+				"kind":       "ConfigMap",
+				"metadata":   map[string]any{"name": "test-config"},
+				"data":       c["data"],
+			},
+			TargetPlane: "dataplane",
+		})
+	}
+
+	input := &RenderInput{
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				WorkloadType: "deployment",
+			},
+		},
+	}
+
+	_ = p.addDPResourceHashAnnotation(resources, input)
+
+	// Extract the hash from the deployment
+	spec := resources[0].Resource["spec"].(map[string]any)
+	template := spec["template"].(map[string]any)
+	templateMeta := template["metadata"].(map[string]any)
+	annotations := templateMeta["annotations"].(map[string]any)
+
+	return annotations["openchoreo.dev/dp-resource-hash"].(string)
+}

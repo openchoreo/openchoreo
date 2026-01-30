@@ -54,6 +54,10 @@ const (
 	// - Data plane runtime namespaces (e.g., dp-*)
 	LabelKeyControlPlaneNamespace = "openchoreo.dev/controlplane-namespace"
 
+	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
+	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
+	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"
