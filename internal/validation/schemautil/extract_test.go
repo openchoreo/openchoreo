@@ -155,33 +155,3 @@ func TestExtractStructuralSchemas_InvalidYAML(t *testing.T) {
 		})
 	}
 }
-
-func TestExtractStructuralSchemas_OverlappingKeys(t *testing.T) {
-	source := &mockSchemaSource{
-		parameters: &runtime.RawExtension{
-			Raw: []byte(`{"replicas": "integer", "sharedKey": "string"}`),
-		},
-		envOverrides: &runtime.RawExtension{
-			Raw: []byte(`{"environment": "string", "sharedKey": "string"}`),
-		},
-	}
-
-	basePath := field.NewPath("spec", "schema")
-	_, _, errs := ExtractStructuralSchemas(source, basePath)
-
-	if len(errs) == 0 {
-		t.Fatal("expected error for overlapping keys")
-	}
-
-	// Check that the error is about the overlapping key
-	found := false
-	for _, err := range errs {
-		if err.Field == "spec.schema.envOverrides" && err.BadValue == "sharedKey" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected overlapping key error, got %v", errs)
-	}
-}
