@@ -105,7 +105,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
 
 	// Register plane lifecycle API (for controller notifications and status queries)
-	planeAPI := NewPlaneAPI(s.connMgr, s.logger)
+	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
 	planeAPI.RegisterRoutes(mux)
 	s.logger.Info("plane API registered",
 		"endpoints", []string{
@@ -225,10 +225,23 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Certificate verification checks against ALL CRs with matching planeType and planeID
-	// This supports multiple CRs sharing the same physical plane with different CA certificates
-	if err := s.verifyClientCertificate(r, planeType, planeID); err != nil {
-		s.logger.Warn("client certificate verification failed",
+	// Extract client certificate for per-CR validation
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		s.logger.Warn("connection rejected: no client certificate presented",
+			"planeType", planeType,
+			"planeID", planeID,
+		)
+		http.Error(w, "no client certificate presented", http.StatusUnauthorized)
+		return
+	}
+
+	clientCert := r.TLS.PeerCertificates[0]
+
+	// Per-CR certificate validation enforces security boundaries
+	// Each CR is validated independently to prevent cross-tenant access
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, planeType, planeID)
+	if err != nil {
+		s.logger.Warn("per-CR certificate verification failed",
 			"planeType", planeType,
 			"planeID", planeID,
 			"error", err,
@@ -245,32 +258,23 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Register the connection
+	// Register the connection with validated CR list and client certificate
 	// Multiple agent replicas for the same plane will share the same identifier for HA
-	connID, err := s.connMgr.Register(planeType, planeID, conn)
+	connID, err := s.connMgr.Register(planeType, planeID, conn, validCRs, clientCert)
 	if err != nil {
 		s.logger.Error("failed to register connection", "error", err)
 		conn.Close()
 		return
 	}
 
-	crsClientCAData, _ := s.getAllPlaneClientCAs(planeType, planeID)
-	crCount := len(crsClientCAData)
-
 	s.logger.Info("agent connected successfully",
 		"planeType", planeType,
 		"planeID", planeID,
 		"planeIdentifier", planeIdentifier,
-		"associatedCRs", crCount,
+		"connectionID", connID,
+		"validCRs", validCRs,
+		"validCRCount", len(validCRs),
 	)
-
-	if crCount == 0 {
-		s.logger.Warn("agent connected without any associated CRs",
-			"planeType", planeType,
-			"planeID", planeID,
-			"note", "create a CR with matching planeID to enable proper CA verification",
-		)
-	}
 
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
@@ -412,14 +416,14 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Construct simplified planeIdentifier for routing (2-part)
-	// CR info is metadata only
+	// Construct identifiers for CR-aware routing
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
 
 	isStreaming := s.isStreamingRequest(r, targetPath)
 
 	if isStreaming {
-		s.handleStreamingProxy(w, r, planeIdentifier, target, targetPath)
+		s.handleStreamingProxy(w, r, planeIdentifier, crKey, target, targetPath)
 		return
 	}
 
@@ -434,8 +438,7 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	logger.Info("HTTP proxy request received",
 		"planeType", planeType,
 		"planeID", planeID,
-		"crNamespace", crNamespace,
-		"crName", crName,
+		"cr", crKey,
 		"target", target,
 		"path", targetPath,
 		"method", r.Method,
@@ -451,10 +454,23 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 	)
 	tunnelReq.GatewayRequestID = requestID
 
-	response, err := s.SendHTTPTunnelRequest(planeIdentifier, tunnelReq, 30*time.Second)
+	// Route request to agent authorized for this specific CR
+	response, err := s.SendHTTPTunnelRequestForCR(planeIdentifier, crKey, tunnelReq, 30*time.Second)
 	if err != nil {
+		// Check if authorization error (no agents authorized for CR)
+		if strings.Contains(err.Error(), "no agents authorized for CR") {
+			logger.Warn("CR authorization failed",
+				"plane", planeIdentifier,
+				"cr", crKey,
+				"error", err,
+			)
+			http.Error(w, fmt.Sprintf("Forbidden: Agent not authorized for CR %s", crKey), http.StatusForbidden)
+			return
+		}
+
 		logger.Error("HTTP tunnel request failed",
 			"plane", planeIdentifier,
+			"cr", crKey,
 			"target", target,
 			"error", err,
 		)
@@ -501,12 +517,13 @@ func (s *Server) isStreamingRequest(r *http.Request, path string) bool {
 }
 
 // handleStreamingProxy handles streaming HTTP requests (watch, logs, exec, port-forward)
-func (s *Server) handleStreamingProxy(w http.ResponseWriter, r *http.Request, planeIdentifier, target, targetPath string) {
+func (s *Server) handleStreamingProxy(w http.ResponseWriter, r *http.Request, planeIdentifier, crKey, target, targetPath string) {
 	requestID := getOrGenerateRequestID(r)
 	logger := s.logger.With("requestId", requestID)
 
 	logger.Info("HTTP streaming proxy request received",
 		"plane", planeIdentifier,
+		"cr", crKey,
 		"target", target,
 		"path", targetPath,
 		"method", r.Method,
@@ -517,11 +534,12 @@ func (s *Server) handleStreamingProxy(w http.ResponseWriter, r *http.Request, pl
 		"Use the CQRS API (/api/k8s-resources/) for resource operations, or connect directly to the data plane for streaming operations.",
 		http.StatusNotImplemented)
 
-	// TODO: Implement full streaming support
-	// 1. Send HTTPTunnelStreamInit to agent
-	// 2. Set up bidirectional channel for stream chunks
-	// 3. Stream data chunks back and forth
-	// 4. Handle connection close gracefully
+	// TODO: Implement full streaming support with CR authorization
+	// 1. Get agent authorized for CR using GetForCR()
+	// 2. Send HTTPTunnelStreamInit to agent
+	// 3. Set up bidirectional channel for stream chunks
+	// 4. Stream data chunks back and forth
+	// 5. Handle connection close gracefully
 }
 
 // SendHTTPTunnelRequest sends an HTTP tunnel request to an agent and waits for the response
@@ -559,36 +577,86 @@ func (s *Server) SendHTTPTunnelRequest(planeName string, req *messaging.HTTPTunn
 	}
 }
 
+// SendHTTPTunnelRequestForCR sends an HTTP tunnel request to an agent authorized for a specific CR
+// and waits for the response. This enforces per-CR security boundaries.
+func (s *Server) SendHTTPTunnelRequestForCR(
+	planeName, crKey string,
+	req *messaging.HTTPTunnelRequest,
+	timeout time.Duration,
+) (*messaging.HTTPTunnelResponse, error) {
+	req.RequestID = messaging.GenerateMessageID()
+
+	replyChan := make(chan *messaging.HTTPTunnelResponse, 1)
+	s.requestsMu.Lock()
+	s.pendingHTTPRequests[req.RequestID] = replyChan
+	s.requestsMu.Unlock()
+
+	s.logger.Debug("sending HTTP tunnel request with CR authorization",
+		"requestID", req.RequestID,
+		"target", req.Target,
+		"method", req.Method,
+		"path", req.Path,
+		"plane", planeName,
+		"cr", crKey,
+	)
+
+	conn, err := s.connMgr.GetForCR(planeName, crKey)
+	if err != nil {
+		s.requestsMu.Lock()
+		delete(s.pendingHTTPRequests, req.RequestID)
+		s.requestsMu.Unlock()
+		return nil, err
+	}
+
+	if err := conn.SendHTTPTunnelRequest(req); err != nil {
+		s.requestsMu.Lock()
+		delete(s.pendingHTTPRequests, req.RequestID)
+		s.requestsMu.Unlock()
+		return nil, fmt.Errorf("failed to send HTTP tunnel request: %w", err)
+	}
+
+	select {
+	case response := <-replyChan:
+		s.logger.Debug("received HTTP tunnel response",
+			"requestID", req.RequestID,
+			"plane", planeName,
+			"cr", crKey,
+			"statusCode", response.StatusCode,
+		)
+		return response, nil
+	case <-time.After(timeout):
+		s.requestsMu.Lock()
+		delete(s.pendingHTTPRequests, req.RequestID)
+		s.requestsMu.Unlock()
+		return nil, fmt.Errorf("HTTP tunnel request timeout")
+	}
+}
+
 func (s *Server) GetConnectionManager() *ConnectionManager {
 	return s.connMgr
 }
 
-// verifyClientCertificate verifies the client certificate against ALL CAs from CRs with matching planeType and planeID
-// This supports multiple CRs sharing the same physical plane with different CA certificates
-// All CAs are combined into a single certificate pool for verification
-func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeID string) error {
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
-		return fmt.Errorf("no client certificate presented")
-	}
-
-	clientCert := r.TLS.PeerCertificates[0]
+// verifyClientCertificatePerCR validates the client certificate against EACH CR individually
+// and returns a list of CRs (namespace/name) that the certificate is valid for.
+// This enforces per-CR security boundaries in multi-tenant scenarios.
+func (s *Server) verifyClientCertificatePerCR(
+	clientCert *x509.Certificate,
+	planeType, planeID string,
+) (validCRs []string, err error) {
 	clientCN := clientCert.Subject.CommonName
 	clientIssuer := clientCert.Issuer.CommonName
 
-	s.logger.Info("verifying client certificate",
+	s.logger.Info("performing per-CR certificate validation",
 		"planeType", planeType,
 		"planeID", planeID,
 		"certificateCN", clientCN,
 		"certificateIssuer", clientIssuer,
-		"certificateNotBefore", clientCert.NotBefore,
-		"certificateNotAfter", clientCert.NotAfter,
-		"certificateSerialNumber", clientCert.SerialNumber.String(),
 	)
 
 	// Get ALL CRs with matching planeType and planeID
 	crsClientCAData, err := s.getAllPlaneClientCAs(planeType, planeID)
 	if err != nil {
-		return fmt.Errorf("failed to get client CA configurations: %w", err)
+		return nil, fmt.Errorf("failed to get client CA configurations: %w", err)
 	}
 
 	if len(crsClientCAData) == 0 {
@@ -596,17 +664,19 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeID str
 			"planeType", planeType,
 			"planeID", planeID,
 		)
-		return fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
+		return nil, fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
 	}
 
-	certPool := x509.NewCertPool()
-	caCount := 0
+	validCRs = []string{}
+
+	// Validate certificate against EACH CR's CA individually
 	for crKey, caData := range crsClientCAData {
 		if caData == nil {
 			s.logger.Debug("skipping CR with no CA configured", "cr", crKey)
 			continue
 		}
 
+		// Parse CA certificates for this CR
 		caCerts, err := parseCACertificates(caData)
 		if err != nil {
 			s.logger.Warn("failed to parse CA certificate for CR",
@@ -616,73 +686,62 @@ func (s *Server) verifyClientCertificate(r *http.Request, planeType, planeID str
 			continue
 		}
 
-		for i, caCert := range caCerts {
-			s.logger.Debug("adding CA certificate to pool",
+		// Create separate cert pool for THIS CR only (security isolation)
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caData) {
+			s.logger.Warn("failed to append CA certificate to pool", "cr", crKey)
+			continue
+		}
+
+		// Verify client cert against THIS CR's CA only
+		opts := x509.VerifyOptions{
+			Roots:     certPool,
+			KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		}
+
+		chains, err := clientCert.Verify(opts)
+		if err == nil {
+			validCRs = append(validCRs, crKey)
+			s.logger.Info("certificate valid for CR",
 				"cr", crKey,
-				"index", i,
-				"subject", caCert.Subject.CommonName,
-				"issuer", caCert.Issuer.CommonName,
-				"notBefore", caCert.NotBefore,
-				"notAfter", caCert.NotAfter,
-				"isCA", caCert.IsCA,
+				"clientCN", clientCN,
+				"chainCount", len(chains),
+			)
+
+			for i, caCert := range caCerts {
+				s.logger.Debug("validated against CA",
+					"cr", crKey,
+					"caIndex", i,
+					"caSubject", caCert.Subject.CommonName,
+					"caIssuer", caCert.Issuer.CommonName,
+				)
+			}
+		} else {
+			s.logger.Debug("certificate invalid for CR",
+				"cr", crKey,
+				"clientCN", clientCN,
+				"error", err,
 			)
 		}
-
-		if certPool.AppendCertsFromPEM(caData) {
-			caCount++
-		} else {
-			s.logger.Warn("failed to append CA certificate to pool", "cr", crKey)
-		}
 	}
 
-	if caCount == 0 {
-		return fmt.Errorf("no valid CA certificates found for plane %s/%s", planeType, planeID)
-	}
-
-	s.logger.Info("built certificate pool from multiple CRs",
-		"planeType", planeType,
-		"planeID", planeID,
-		"totalCRs", len(crsClientCAData),
-		"validCAs", caCount,
-	)
-
-	opts := x509.VerifyOptions{
-		Roots:     certPool,
-		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-	}
-
-	chains, err := clientCert.Verify(opts)
-	if err != nil {
-		s.logger.Error("certificate verification failed",
+	if len(validCRs) == 0 {
+		s.logger.Warn("certificate not valid for any CR",
 			"planeType", planeType,
 			"planeID", planeID,
 			"clientCN", clientCN,
-			"clientIssuer", clientIssuer,
-			"error", err,
+			"totalCRs", len(crsClientCAData),
 		)
-		return fmt.Errorf("certificate verification failed: %w", err)
+		return nil, fmt.Errorf("certificate not valid for any CR with planeID '%s'", planeID)
 	}
 
-	s.logger.Info("certificate verification successful",
+	s.logger.Info("per-CR certificate validation successful",
 		"planeType", planeType,
 		"planeID", planeID,
 		"clientCN", clientCN,
-		"chainCount", len(chains),
+		"validCRs", validCRs,
+		"totalCRs", len(crsClientCAData),
 	)
-	for i, chain := range chains {
-		s.logger.Debug("certificate chain",
-			"chainIndex", i,
-			"chainLength", len(chain),
-		)
-		for j, cert := range chain {
-			s.logger.Debug("chain certificate",
-				"chainIndex", i,
-				"certIndex", j,
-				"subject", cert.Subject.CommonName,
-				"issuer", cert.Issuer.CommonName,
-			)
-		}
-	}
 
-	return nil
+	return validCRs, nil
 }

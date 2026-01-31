@@ -84,6 +84,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Ignore reconcile if the Dataplane is already available since this is a one-time create
 	// However, we still want to update agent connection status periodically
 	if r.shouldIgnoreReconcile(dataPlane) {
+		// Check if spec has changed (generation > observedGeneration)
+		// If so, notify gateway to re-validate agent certificates with updated CA
+		specChanged := dataPlane.Status.ObservedGeneration < dataPlane.Generation
+		if specChanged && r.GatewayClient != nil {
+			logger.Info("detected spec change, notifying gateway for certificate re-validation",
+				"generation", dataPlane.Generation,
+				"observedGeneration", dataPlane.Status.ObservedGeneration,
+			)
+			if err := r.notifyGateway(ctx, dataPlane, "updated"); err != nil {
+				if shouldRetry, result, retryErr := gatewayClient.HandleGatewayError(logger, err, "DataPlane spec update"); shouldRetry {
+					return result, retryErr
+				}
+			}
+			// Update observedGeneration to track that we processed this change
+			dataPlane.Status.ObservedGeneration = dataPlane.Generation
+		}
+
 		if err := r.populateAgentConnectionStatus(ctx, dataPlane); err != nil {
 			logger.Error(err, "failed to get agent connection status")
 			// Don't fail reconciliation for status query errors
@@ -210,8 +227,9 @@ func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, dataPlan
 		effectivePlaneID = dataPlane.Name
 	}
 
-	// Query gateway for connection status
-	status, err := r.GatewayClient.GetPlaneStatus(ctx, "dataplane", effectivePlaneID)
+	// Query gateway for CR-specific authorization status
+	// Pass namespace and name to get authorization status for this specific CR
+	status, err := r.GatewayClient.GetPlaneStatus(ctx, "dataplane", effectivePlaneID, dataPlane.Namespace, dataPlane.Name)
 	if err != nil {
 		// Log error but don't fail reconciliation
 		// If gateway is unreachable, we'll try again on next requeue
