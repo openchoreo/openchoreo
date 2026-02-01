@@ -272,15 +272,16 @@ func (c *SecurityConfig) ToSubjectUserTypeConfigs() []subject.UserTypeConfig {
 }
 
 // AuthorizationConfig defines authorization (Casbin) settings.
+// Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
 type AuthorizationConfig struct {
 	// Enabled enables authorization enforcement.
 	Enabled bool `koanf:"enabled"`
-	// DatabasePath is the path to the Casbin SQLite database.
-	DatabasePath string `koanf:"database_path"`
-	// RolesFile is the path to the roles YAML file (contains roles and mappings).
-	RolesFile string `koanf:"roles_file"`
 	// Cache defines caching settings for authorization decisions.
 	Cache AuthzCacheConfig `koanf:"cache"`
+	// ResyncInterval is the interval for informer cache resync.
+	// This triggers re-listing of CRDs and OnUpdate callbacks for reconciliation.
+	// Set to 0 to disable periodic resync (watch events still work).
+	ResyncInterval time.Duration `koanf:"resync_interval"`
 }
 
 // AuthzCacheConfig defines caching settings for authorization.
@@ -302,8 +303,9 @@ func AuthzCacheDefaults() AuthzCacheConfig {
 // AuthorizationDefaults returns the default authorization configuration.
 func AuthorizationDefaults() AuthorizationConfig {
 	return AuthorizationConfig{
-		Enabled: false,
-		Cache:   AuthzCacheDefaults(),
+		Enabled:        false,
+		Cache:          AuthzCacheDefaults(),
+		ResyncInterval: 10 * time.Minute,
 	}
 }
 
@@ -315,11 +317,11 @@ func (c *AuthorizationConfig) Validate(path *config.Path) config.ValidationError
 		return errs // skip validation if disabled
 	}
 
-	if c.DatabasePath == "" {
-		errs = append(errs, config.Required(path.Child("database_path")))
-	}
-
 	errs = append(errs, c.Cache.Validate(path.Child("cache"))...)
+
+	if c.ResyncInterval < 0 {
+		errs = append(errs, config.Invalid(path.Child("resync_interval"), "must be non-negative"))
+	}
 
 	return errs
 }
@@ -340,10 +342,9 @@ func (c *AuthzCacheConfig) Validate(path *config.Path) config.ValidationErrors {
 // ToAuthzConfig converts to the authz library config.
 func (c *AuthorizationConfig) ToAuthzConfig() authz.Config {
 	return authz.Config{
-		Enabled:      c.Enabled,
-		DatabasePath: c.DatabasePath,
-		RolesFile:    c.RolesFile,
-		CacheEnabled: c.Cache.Enabled,
-		CacheTTL:     c.Cache.TTL,
+		Enabled:        c.Enabled,
+		CacheEnabled:   c.Cache.Enabled,
+		CacheTTL:       c.Cache.TTL,
+		ResyncInterval: c.ResyncInterval,
 	}
 }

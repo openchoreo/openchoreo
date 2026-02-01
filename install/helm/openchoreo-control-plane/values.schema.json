@@ -2851,8 +2851,117 @@
                 },
                 "authorization": {
                   "additionalProperties": false,
-                  "description": "Authorization settings. Enabled/database_path/roles_file come from security.authz.* values.",
+                  "description": "Authorization settings. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.",
                   "properties": {
+                    "bootstrap": {
+                      "additionalProperties": false,
+                      "description": "Bootstrap default roles and mappings as CRDs during installation",
+                      "properties": {
+                        "mappings": {
+                          "default": [],
+                          "description": "Default role-to-entitlement mappings to create at installation",
+                          "items": {
+                            "properties": {
+                              "effect": {
+                                "description": "Policy effect (\"allow\" or \"deny\")",
+                                "enum": [
+                                  "allow",
+                                  "deny"
+                                ],
+                                "required": []
+                              },
+                              "entitlement": {
+                                "description": "JWT claim that grants this role",
+                                "properties": {
+                                  "claim": {
+                                    "description": "JWT claim name (e.g., \"groups\", \"sub\", \"email\")",
+                                    "type": "string"
+                                  },
+                                  "value": {
+                                    "description": "JWT claim value to match",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [],
+                                "type": "object"
+                              },
+                              "hierarchy": {
+                                "description": "Resource scope for this binding (empty for cluster-wide)",
+                                "properties": {
+                                  "component": {
+                                    "description": "Component scope (requires namespace and project)",
+                                    "type": "string"
+                                  },
+                                  "namespace": {
+                                    "description": "Namespace (organization) scope",
+                                    "type": "string"
+                                  },
+                                  "project": {
+                                    "description": "Project scope (requires namespace)",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [],
+                                "type": "object"
+                              },
+                              "name": {
+                                "description": "Binding name",
+                                "type": "string"
+                              },
+                              "roleRef": {
+                                "description": "Reference to the role",
+                                "properties": {
+                                  "name": {
+                                    "description": "Role name",
+                                    "type": "string"
+                                  },
+                                  "namespace": {
+                                    "description": "Role namespace (empty for cluster role)",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [],
+                                "type": "object"
+                              }
+                            },
+                            "required": [],
+                            "type": "object"
+                          },
+                          "title": "mappings",
+                          "type": "array"
+                        },
+                        "roles": {
+                          "default": [],
+                          "description": "Default authorization roles to create at installation",
+                          "items": {
+                            "properties": {
+                              "actions": {
+                                "description": "List of actions this role can perform",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "name": {
+                                "description": "Role name",
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "description": "Namespace for role (empty string for cluster-scoped)",
+                                "type": "string"
+                              }
+                            },
+                            "required": [],
+                            "type": "object"
+                          },
+                          "title": "roles",
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "title": "bootstrap",
+                      "type": "object"
+                    },
                     "cache": {
                       "additionalProperties": false,
                       "description": "Authorization decision cache settings",
@@ -2873,6 +2982,12 @@
                       "required": [],
                       "title": "cache",
                       "type": "object"
+                    },
+                    "resync_interval": {
+                      "default": "10m",
+                      "description": "Interval for periodic full resync of authorization policies. Acts as a safety net to recover from missed events. Set to \"0\" to disable.",
+                      "title": "resync_interval",
+                      "type": "string"
                     }
                   },
                   "required": [],
@@ -3798,108 +3913,9 @@
           "additionalProperties": false,
           "description": "Authorization (authz) configuration using Casbin",
           "properties": {
-            "databasePath": {
-              "default": "/var/lib/openchoreo/data/casbin.db",
-              "description": "Path to the Casbin database file",
-              "title": "databasePath",
-              "type": "string"
-            },
-            "defaultAuthzDataFilePath": {
-              "default": "/etc/openchoreo/authz/default-roles-mappings.yaml",
-              "description": "Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap",
-              "title": "defaultAuthzDataFilePath",
-              "type": "string"
-            },
-            "defaultRoleMappings": {
-              "description": "Default entitlement-to-role mappings",
-              "items": {
-                "properties": {
-                  "effect": {
-                    "description": "Effect of the mapping",
-                    "enum": [
-                      "allow",
-                      "deny"
-                    ],
-                    "required": []
-                  },
-                  "entitlement": {
-                    "properties": {
-                      "claim": {
-                        "description": "JWT claim from your IDP",
-                        "type": "string"
-                      },
-                      "value": {
-                        "description": "Value to match from the claim",
-                        "type": "string"
-                      }
-                    },
-                    "required": [],
-                    "type": "object"
-                  },
-                  "hierarchy": {
-                    "properties": {
-                      "component": {
-                        "description": "Component name (requires namespace and project)",
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "description": "Namespace name",
-                        "type": "string"
-                      },
-                      "project": {
-                        "description": "Project name (requires namespace)",
-                        "type": "string"
-                      }
-                    },
-                    "required": [],
-                    "type": "object"
-                  },
-                  "role": {
-                    "properties": {
-                      "name": {
-                        "description": "Role name",
-                        "type": "string"
-                      },
-                      "namespace": {
-                        "description": "Namespace for namespace-scoped role, empty for cluster role",
-                        "type": "string"
-                      }
-                    },
-                    "required": [],
-                    "type": "object"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "defaultRoleMappings",
-              "type": "array"
-            },
-            "defaultRoles": {
-              "description": "Default roles and their permissions",
-              "items": {
-                "properties": {
-                  "actions": {
-                    "description": "List of actions/permissions for this role",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "name": {
-                    "description": "Role name",
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "defaultRoles",
-              "type": "array"
-            },
             "enabled": {
               "default": false,
-              "description": "Enable authorization using Casbin",
+              "description": "Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.",
               "title": "enabled",
               "type": "boolean"
             }

@@ -106,12 +106,6 @@ security:
     # When disabled, all authenticated requests are permitted.
     enabled: false
 
-    # Path to the SQLite database file for storing authorization policies.
-    database_path: ""
-
-    # Path to the YAML file containing role definitions and mappings.
-    roles_file: ""
-
     cache:
       # Enable caching of authorization decisions.
       enabled: false

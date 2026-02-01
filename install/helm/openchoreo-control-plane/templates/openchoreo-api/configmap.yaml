@@ -43,10 +43,9 @@ data:
         {{- toYaml .Values.openchoreoApi.config.security.subjects | nindent 8 }}
       authorization:
         enabled: {{ .Values.security.authz.enabled }}
-        database_path: {{ .Values.security.authz.databasePath | quote }}
-        roles_file: {{ .Values.security.authz.defaultAuthzDataFilePath | quote }}
         cache:
           {{- toYaml .Values.openchoreoApi.config.security.authorization.cache | nindent 10 }}
+        resync_interval: {{ .Values.openchoreoApi.config.security.authorization.resync_interval | quote }}
 
     identity:
       oidc:

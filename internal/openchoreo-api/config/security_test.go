@@ -170,27 +170,16 @@ func TestAuthorizationConfig_Validate(t *testing.T) {
 			expectedErrors: nil,
 		},
 		{
-			name: "enabled requires database_path",
+			name: "enabled is valid",
 			cfg: AuthorizationConfig{
 				Enabled: true,
-			},
-			expectedErrors: config.ValidationErrors{
-				{Field: "authz.database_path", Message: "is required"},
-			},
-		},
-		{
-			name: "enabled with database_path is valid",
-			cfg: AuthorizationConfig{
-				Enabled:      true,
-				DatabasePath: "/path/to/authz.db",
 			},
 			expectedErrors: nil,
 		},
 		{
 			name: "cache enabled requires positive ttl",
 			cfg: AuthorizationConfig{
-				Enabled:      true,
-				DatabasePath: "/path/to/authz.db",
+				Enabled: true,
 				Cache: AuthzCacheConfig{
 					Enabled: true,
 					TTL:     0, // zero TTL is invalid when cache enabled
@@ -203,8 +192,7 @@ func TestAuthorizationConfig_Validate(t *testing.T) {
 		{
 			name: "cache enabled with valid ttl is valid",
 			cfg: AuthorizationConfig{
-				Enabled:      true,
-				DatabasePath: "/path/to/authz.db",
+				Enabled: true,
 				Cache: AuthzCacheConfig{
 					Enabled: true,
 					TTL:     5 * time.Minute,
@@ -215,8 +203,7 @@ func TestAuthorizationConfig_Validate(t *testing.T) {
 		{
 			name: "cache disabled allows zero ttl",
 			cfg: AuthorizationConfig{
-				Enabled:      true,
-				DatabasePath: "/path/to/authz.db",
+				Enabled: true,
 				Cache: AuthzCacheConfig{
 					Enabled: false,
 					TTL:     0,

@@ -10,6 +10,10 @@ rules:
 - apiGroups:
   - openchoreo.dev
   resources:
+  - authzclusterrolebindings
+  - authzclusterroles
+  - authzrolebindings
+  - authzroles
   - apibindings
   - apiclasses
   - apis

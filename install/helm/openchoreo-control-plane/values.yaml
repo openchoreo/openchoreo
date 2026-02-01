@@ -157,125 +157,10 @@ security:
   authz:
     # @schema
     # type: boolean
-    # description: Enable authorization using Casbin
+    # description: Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
     # default: false
     # @schema
     enabled: false
-    # @schema
-    # type: string
-    # description: Path to the Casbin database file
-    # default: /var/lib/openchoreo/data/casbin.db
-    # @schema
-    databasePath: "/var/lib/openchoreo/data/casbin.db"
-    # @schema
-    # type: string
-    # description: Path to custom authz data file (roles and mappings). If not set, embedded defaults are used. To use custom data, set this path and mount a ConfigMap
-    # default: /etc/openchoreo/authz/default-roles-mappings.yaml
-    # @schema
-    defaultAuthzDataFilePath: "/etc/openchoreo/authz/default-roles-mappings.yaml"
-    # @schema
-    # type: array
-    # description: Default roles and their permissions
-    # items:
-    #   type: object
-    #   properties:
-    #     name:
-    #       type: string
-    #       description: Role name
-    #     actions:
-    #       type: array
-    #       description: List of actions/permissions for this role
-    #       items:
-    #         type: string
-    # @schema
-    defaultRoles:
-      - name: super-admin
-        actions:
-          - "*"
-        # DO NOT REMOVE: Required for Backstage integration
-      - name: backstage-catalog-reader
-        actions:
-          - "component:view"
-          - "componenttype:view"
-          - "namespace:view"
-          - "project:view"
-          - "dataplane:view"
-          - "environment:view"
-        # DO NOT REMOVE: Required for RCA agent functionality
-      - name: rca-agent
-        actions:
-          - "component:view"
-          - "project:view"
-          - "namespace:view"
-          - "componentrelease:view"
-          - "releasebinding:view"
-          - "componentworkflowrun:view"
-          - "environment:view"
-          - "logs:view"
-          - "metrics:view"
-          - "alerts:view"
-          - "traces:view"
-    # @schema
-    # type: array
-    # description: Default entitlement-to-role mappings
-    # items:
-    #   type: object
-    #   properties:
-    #     role:
-    #       type: object
-    #       properties:
-    #         name:
-    #           type: string
-    #           description: Role name
-    #         namespace:
-    #           type: string
-    #           description: Namespace for namespace-scoped role, empty for cluster role
-    #     entitlement:
-    #       type: object
-    #       properties:
-    #         claim:
-    #           type: string
-    #           description: JWT claim from your IDP
-    #         value:
-    #           type: string
-    #           description: Value to match from the claim
-    #     effect:
-    #       enum: [allow, deny]
-    #       description: Effect of the mapping
-    #     hierarchy:
-    #       type: object
-    #       properties:
-    #         namespace:
-    #           type: string
-    #           description: Namespace name
-    #         project:
-    #           type: string
-    #           description: Project name (requires namespace)
-    #         component:
-    #           type: string
-    #           description: Component name (requires namespace and project)
-    # @schema
-    defaultRoleMappings:
-      - role:
-          name: super-admin
-        entitlement:
-          claim: groups
-          value: platformEngineer
-        effect: allow
-        # DO NOT REMOVE: Required for Backstage integration
-      - role:
-          name: backstage-catalog-reader
-        entitlement:
-          claim: sub
-          value: openchoreo-backstage-client
-        effect: allow
-        # DO NOT REMOVE: Required for RCA agent functionality
-      - role:
-          name: rca-agent
-        entitlement:
-          claim: sub
-          value: openchoreo-rca-agent
-        effect: allow
   # @schema
   # type: string
   # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
@@ -1179,7 +1064,7 @@ openchoreoApi:
                 display_name: "Client ID"
       # @schema
       # type: object
-      # description: Authorization settings. Enabled/database_path/roles_file come from security.authz.* values.
+      # description: Authorization settings. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
       # @schema
       authorization:
         # @schema
@@ -1199,6 +1084,141 @@ openchoreoApi:
           # default: "5m"
           # @schema
           ttl: "5m"
+        # @schema
+        # type: string
+        # description: Interval for periodic full resync of authorization policies. Acts as a safety net to recover from missed events. Set to "0" to disable.
+        # default: "10m"
+        # @schema
+        resync_interval: "10m"
+        # @schema
+        # type: object
+        # description: Bootstrap default roles and mappings as CRDs during installation
+        # @schema
+        bootstrap:
+          # @schema
+          # type: array
+          # description: Default authorization roles to create at installation
+          # items:
+          #   type: object
+          #   properties:
+          #     name:
+          #       type: string
+          #       description: Role name
+          #     namespace:
+          #       type: string
+          #       description: Namespace for role (empty string for cluster-scoped)
+          #     actions:
+          #       type: array
+          #       items:
+          #         type: string
+          #       description: List of actions this role can perform
+          # default: []
+          # @schema
+          roles:
+            # Super admin role with full permissions to all resources
+            - name: super-admin
+              actions:
+                - "*"
+
+            # Backstage catalog provider role for reading catalog data from the control plane
+            - name: backstage-catalog-reader
+              actions:
+                - "component:view"
+                - "componenttype:view"
+                - "namespace:view"
+                - "project:view"
+                - "dataplane:view"
+                - "environment:view"
+
+            # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
+            - name: rca-agent
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "componentworkflowrun:view"
+                - "environment:view"
+                - "logs:view"
+                - "metrics:view"
+                - "alerts:view"
+                - "traces:view"
+
+          # @schema
+          # type: array
+          # description: Default role-to-entitlement mappings to create at installation
+          # items:
+          #   type: object
+          #   properties:
+          #     name:
+          #       type: string
+          #       description: Binding name
+          #     roleRef:
+          #       type: object
+          #       description: Reference to the role
+          #       properties:
+          #         name:
+          #           type: string
+          #           description: Role name
+          #         namespace:
+          #           type: string
+          #           description: Role namespace (empty for cluster role)
+          #     entitlement:
+          #       type: object
+          #       description: JWT claim that grants this role
+          #       properties:
+          #         claim:
+          #           type: string
+          #           description: JWT claim name (e.g., "groups", "sub", "email")
+          #         value:
+          #           type: string
+          #           description: JWT claim value to match
+          #     effect:
+          #       description: Policy effect ("allow" or "deny")
+          #       enum: ["allow", "deny"]
+          #     hierarchy:
+          #       type: object
+          #       description: Resource scope for this binding (empty for cluster-wide)
+          #       properties:
+          #         namespace:
+          #           type: string
+          #           description: Namespace (organization) scope
+          #         project:
+          #           type: string
+          #           description: Project scope (requires namespace)
+          #         component:
+          #           type: string
+          #           description: Component scope (requires namespace and project)
+          # default: []
+          # @schema
+          mappings:
+            # Super admin mapping - grants platformEngineer group full access
+            - name: super-admin-binding
+              roleRef:
+                name: super-admin
+              entitlement:
+                claim: groups
+                value: platformEngineer
+              effect: allow
+
+            # Backstage catalog reader mapping - grants backstage service account read access
+            - name: backstage-catalog-reader-binding
+              roleRef:
+                name: backstage-catalog-reader
+              entitlement:
+                claim: sub
+                value: openchoreo-backstage-client
+              effect: allow
+
+            # RCA agent mapping - grants RCA service account troubleshooting access
+            - name: rca-agent-binding
+              roleRef:
+                name: rca-agent
+              entitlement:
+                claim: sub
+                value: openchoreo-rca-agent
+              effect: allow
     # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients
     # @schema
     # type: object
@@ -4671,8 +4691,7 @@ gateway:
     # enum: [Always, IfNotPresent, Never]
     # default: IfNotPresent
     # @schema
-    pullPolicy: IfNotPresent
-
+    pullPolicy: IfNotPresent  
 # @schema
 # type: object
 # additionalProperties: true

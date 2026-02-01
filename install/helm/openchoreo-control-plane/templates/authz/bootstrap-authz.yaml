@@ -1,0 +1,94 @@
+{{- if .Values.security.authz.enabled }}
+{{- if .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
+{{- range .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
+{{- if eq (default "" .namespace) "" }}
+---
+# Cluster-scoped role
+apiVersion: openchoreo.dev/v1alpha1
+kind: AuthzClusterRole
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
+    openchoreo.io/bootstrap: "true"
+spec:
+  actions:
+    {{- range .actions }}
+    - {{ . | quote }}
+    {{- end }}
+{{- else }}
+---
+# Namespace-scoped role
+apiVersion: openchoreo.dev/v1alpha1
+kind: AuthzRole
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
+    openchoreo.io/bootstrap: "true"
+spec:
+  actions:
+    {{- range .actions }}
+    - {{ . | quote }}
+    {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+{{- range .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+{{- $hierarchyNs := "" }}
+{{- if .hierarchy }}
+{{- $hierarchyNs = default "" .hierarchy.namespace }}
+{{- end }}
+{{- if eq $hierarchyNs "" }}
+---
+# Cluster-scoped binding
+apiVersion: openchoreo.dev/v1alpha1
+kind: AuthzClusterRoleBinding
+metadata:
+  name: {{ .name }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
+    openchoreo.io/bootstrap: "true"
+spec:
+  roleRef:
+    name: {{ .roleRef.name }}
+    kind: AuthzClusterRole
+  entitlement:
+    claim: {{ .entitlement.claim }}
+    value: {{ .entitlement.value }}
+  effect: {{ .effect }}
+{{- else }}
+---
+# Namespace-scoped binding
+apiVersion: openchoreo.dev/v1alpha1
+kind: AuthzRoleBinding
+metadata:
+  name: {{ .name }}
+  namespace: {{ $hierarchyNs }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
+    openchoreo.io/bootstrap: "true"
+spec:
+  roleRef:
+    name: {{ .roleRef.name }}
+    kind: {{ if eq (default "" .roleRef.namespace) "" }}AuthzClusterRole{{ else }}AuthzRole{{ end }}
+  entitlement:
+    claim: {{ .entitlement.claim }}
+    value: {{ .entitlement.value }}
+  effect: {{ .effect }}
+  {{- if and .hierarchy (or .hierarchy.project .hierarchy.component) }}
+  targetPath:
+    {{- if .hierarchy.project }}
+    project: {{ .hierarchy.project }}
+    {{- end }}
+    {{- if .hierarchy.component }}
+    component: {{ .hierarchy.component }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
