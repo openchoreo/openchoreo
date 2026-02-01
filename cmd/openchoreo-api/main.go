@@ -6,14 +6,21 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/spf13/pflag"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/authz"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/internal/logging"
@@ -81,14 +88,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	k8sClient, err := k8s.NewK8sClient()
-	if err != nil {
-		logger.Error("Failed to initialize Kubernetes client", slog.Any("error", err))
-		os.Exit(1)
-	}
-
-	// Initialize authorization
-	pap, pdp, err := authz.Initialize(cfg.Security.Authorization.ToAuthzConfig(), logger)
+	// Initialize authorization and Kubernetes client
+	runtime, err := initializeAuthz(ctx, &cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)
@@ -120,8 +121,14 @@ func main() {
 		gatewayURL = cfg.ClusterGateway.URL
 	}
 
+	// Start background processes (manager + cache sync when authz enabled)
+	if err := runtime.start(ctx); err != nil {
+		logger.Error("Failed to start authorization runtime", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	// Initialize services with PAP and PDP
-	services := services.NewServices(k8sClient, k8sClientMgr, pap, pdp, logger, gatewayURL)
+	services := services.NewServices(runtime.client, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))
@@ -154,13 +161,6 @@ func main() {
 		logger.Error("Server error", slog.Any("error", err))
 	}
 
-	// Close authorization database connection
-	if casbinEnforcer, ok := pap.(interface{ Close() error }); ok {
-		if err := casbinEnforcer.Close(); err != nil {
-			logger.Error("Failed to close authorization database", slog.Any("error", err))
-		}
-	}
-
 	logger.Info("Server stopped gracefully")
 }
 
@@ -186,4 +186,92 @@ func setupFlags() (*pflag.FlagSet, *cliFlags) {
 	flags.BoolVar(&cli.dumpConfig, "dump-config", false, "Print loaded configuration and exit")
 
 	return flags, cli
+}
+
+// authzRuntime holds authorization components initialized at startup.
+type authzRuntime struct {
+	client client.Client
+	pap    authzcore.PAP
+	pdp    authzcore.PDP
+	// start runs any background processes (manager, cache sync). No-op when authz disabled.
+	start func(context.Context) error
+}
+
+// initializeAuthz sets up authorization and Kubernetes client based on configuration.
+// When authz is enabled, it creates a controller-runtime manager with informer-based cache.
+// When disabled, it creates a simple Kubernetes client and passthrough authorizer.
+func initializeAuthz(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*authzRuntime, error) {
+	authzCfg := cfg.Security.Authorization
+
+	if !authzCfg.Enabled {
+		logger.Info("Authorization disabled - using simple client and passthrough authorizer")
+
+		k8sClient, err := k8s.NewK8sClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+		}
+
+		pap, pdp, err := authz.Initialize(ctx, nil, authzCfg.ToAuthzConfig(), logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize disabled authorizer: %w", err)
+		}
+
+		return &authzRuntime{
+			client: k8sClient,
+			pap:    pap,
+			pdp:    pdp,
+			start:  func(context.Context) error { return nil }, // no-op
+		}, nil
+	}
+
+	// Authorization enabled - create controller-runtime manager
+	logger.Info("Authorization enabled - initializing controller manager")
+
+	cacheOpts := cache.Options{
+		ByObject: map[client.Object]cache.ByObject{
+			&openchoreov1alpha1.AuthzRole{}:               {},
+			&openchoreov1alpha1.AuthzClusterRole{}:        {},
+			&openchoreov1alpha1.AuthzRoleBinding{}:        {},
+			&openchoreov1alpha1.AuthzClusterRoleBinding{}: {},
+		},
+	}
+	if authzCfg.ResyncInterval > 0 {
+		cacheOpts.SyncPeriod = &authzCfg.ResyncInterval
+		logger.Info("Informer resync enabled", "interval", authzCfg.ResyncInterval)
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		LeaderElection: false,
+		Metrics:        metricsserver.Options{BindAddress: "0"},
+		Cache:          cacheOpts,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create controller manager: %w", err)
+	}
+
+	pap, pdp, err := authz.Initialize(ctx, mgr, authzCfg.ToAuthzConfig(), logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize authorization: %w", err)
+	}
+
+	return &authzRuntime{
+		client: mgr.GetClient(),
+		pap:    pap,
+		pdp:    pdp,
+		start: func(ctx context.Context) error {
+			// Start manager in background
+			go func() {
+				if err := mgr.Start(ctx); err != nil {
+					logger.Error("Controller manager error", slog.Any("error", err))
+				}
+			}()
+
+			// Wait for cache sync
+			if !mgr.GetCache().WaitForCacheSync(ctx) {
+				return fmt.Errorf("failed to sync authz cache")
+			}
+			logger.Info("Authz cache synced - policies loaded")
+			return nil
+		},
+	}, nil
 }
