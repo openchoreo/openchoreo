@@ -8,11 +8,14 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"slices"
+	"sync"
 	"testing"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -22,30 +25,40 @@ const (
 	user                 = "user"
 )
 
-// setupTestEnforcer creates a test CasbinEnforcer with temporary database
+var (
+	testScheme     *runtime.Scheme
+	testSchemeOnce sync.Once
+)
+
+// getTestScheme returns the test scheme, initializing it once on first call
+func getTestScheme() *runtime.Scheme {
+	testSchemeOnce.Do(func() {
+		testScheme = runtime.NewScheme()
+		if err := openchoreov1alpha1.AddToScheme(testScheme); err != nil {
+			panic("failed to add OpenChoreo scheme: " + err.Error())
+		}
+	})
+	return testScheme
+}
+
+// setupTestEnforcer creates a test CasbinEnforcer with fake Kubernetes client
 func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 	t.Helper()
-
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
 
-	// Create enforcer with default user type configs
+	// Create a fake Kubernetes client using the shared scheme
+	fakeClient := fake.NewClientBuilder().WithScheme(getTestScheme()).Build()
+
+	// Create enforcer with fake K8s client
 	config := CasbinConfig{
-		DatabasePath: dbPath,
 		CacheEnabled: false,
+		K8sClient:    fakeClient,
 	}
 
-	enforcer, err := NewCasbinEnforcer(config, logger)
+	enforcer, err := NewCasbinEnforcer(context.Background(), config, logger)
 	if err != nil {
 		t.Fatalf("failed to create enforcer: %v", err)
 	}
-
-	t.Cleanup(func() {
-		if err := enforcer.Close(); err != nil {
-			t.Errorf("failed to close enforcer: %v", err)
-		}
-	})
 
 	return enforcer
 }
@@ -1431,14 +1444,14 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 	}
 
 	// Create action index for testing
-	testActions := []Action{
-		{Action: "component:view"},
-		{Action: "component:create"},
-		{Action: "component:update"},
-		{Action: "component:delete"},
-		{Action: "project:view"},
-		{Action: "project:create"},
-		{Action: "namespace:view"},
+	testActions := []authzcore.Action{
+		{Name: "component:view"},
+		{Name: "component:create"},
+		{Name: "component:update"},
+		{Name: "component:delete"},
+		{Name: "project:view"},
+		{Name: "project:create"},
+		{Name: "namespace:view"},
 	}
 	actionIdx := indexActions(testActions)
 
@@ -1577,88 +1590,6 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 // ============================================================================
 // PAP Tests - Policy Mapping Management
 // ============================================================================
-
-func TestComputeActionsDiff(t *testing.T) {
-	tests := []struct {
-		name            string
-		existingActions []string
-		newActions      []string
-		wantAdded       []string
-		wantRemoved     []string
-	}{
-		{
-			name:            "completely different action sets",
-			existingActions: []string{"component:view", "component:create"},
-			newActions:      []string{"project:view", "project:create"},
-			wantAdded:       []string{"project:view", "project:create"},
-			wantRemoved:     []string{"component:view", "component:create"},
-		},
-		{
-			name:            "identical action sets",
-			existingActions: []string{"component:view", "component:create"},
-			newActions:      []string{"component:view", "component:create"},
-			wantAdded:       []string{},
-			wantRemoved:     []string{},
-		},
-		{
-			name:            "only additions",
-			existingActions: []string{"component:view"},
-			newActions:      []string{"component:view", "component:create", "component:delete"},
-			wantAdded:       []string{"component:create", "component:delete"},
-			wantRemoved:     []string{},
-		},
-		{
-			name:            "only removals",
-			existingActions: []string{"component:view", "component:create", "component:delete"},
-			newActions:      []string{"component:view"},
-			wantAdded:       []string{},
-			wantRemoved:     []string{"component:create", "component:delete"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			added, removed := computeActionsDiff(tt.existingActions, tt.newActions)
-
-			// Convert to maps for comparison (order doesn't matter)
-			addedMap := make(map[string]bool)
-			for _, a := range added {
-				addedMap[a] = true
-			}
-			removedMap := make(map[string]bool)
-			for _, r := range removed {
-				removedMap[r] = true
-			}
-
-			wantAddedMap := make(map[string]bool)
-			for _, a := range tt.wantAdded {
-				wantAddedMap[a] = true
-			}
-			wantRemovedMap := make(map[string]bool)
-			for _, r := range tt.wantRemoved {
-				wantRemovedMap[r] = true
-			}
-
-			if len(addedMap) != len(wantAddedMap) {
-				t.Errorf("computeActionsDiff() added count = %d, want %d", len(addedMap), len(wantAddedMap))
-			}
-			for action := range wantAddedMap {
-				if !addedMap[action] {
-					t.Errorf("computeActionsDiff() missing added action: %s", action)
-				}
-			}
-
-			if len(removedMap) != len(wantRemovedMap) {
-				t.Errorf("computeActionsDiff() removed count = %d, want %d", len(removedMap), len(wantRemovedMap))
-			}
-			for action := range wantRemovedMap {
-				if !removedMap[action] {
-					t.Errorf("computeActionsDiff() missing removed action: %s", action)
-				}
-			}
-		})
-	}
-}
 
 // TestCasbinEnforcer_ListRoles_NamespacedRoles tests listing namespace-scoped roles
 
@@ -2669,7 +2600,9 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 		t.Fatalf("AddGroupingPolicy() error = %v", err)
 	}
 
+	bindingName := "test-binding"
 	mapping := &authzcore.RoleEntitlementMapping{
+		Name: bindingName,
 		Entitlement: authzcore.Entitlement{
 			Claim: testEntitlementType,
 			Value: testEntitlementValue,
@@ -2685,17 +2618,15 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 		t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
 	}
 
-	// Get the mapping ID by listing mappings
+	// Verify mapping was created
 	mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
 	if err != nil {
 		t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
 	}
 
-	var mappingID uint
 	found := false
 	for _, m := range mappings {
 		if m.Entitlement.Claim == testEntitlementType && m.Entitlement.Value == testEntitlementValue && m.RoleRef.Name == testRoleName {
-			mappingID = m.ID
 			found = true
 			break
 		}
@@ -2704,8 +2635,12 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 		t.Fatal("AddRoleEntitlementMapping() mapping not found after creation")
 	}
 
-	// Remove mapping by ID
-	err = enforcer.RemoveRoleEntitlementMapping(ctx, mappingID)
+	// Remove mapping by MappingRef
+	mappingRef := &authzcore.MappingRef{
+		Name:      bindingName,
+		Namespace: "acme", // namespaced binding
+	}
+	err = enforcer.RemoveRoleEntitlementMapping(ctx, mappingRef)
 	if err != nil {
 		t.Fatalf("RemoveRoleEntitlementMapping() error = %v", err)
 	}
@@ -2749,27 +2684,27 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
 		}
 
-		// Get mapping ID
+		// Get mapping name
 		mappings, err := enforcer.ListRoleEntitlementMappings(ctx, nil)
 		if err != nil {
 			t.Fatalf("ListRoleEntitlementMappings() error = %v", err)
 		}
 
-		var mappingID uint
+		var mappingName string
 		for _, m := range mappings {
 			if m.RoleRef.Name == "update-test-role" && m.Entitlement.Value == "dev-group" {
-				mappingID = m.ID
+				mappingName = m.Name
 				break
 			}
 		}
 
-		if mappingID == 0 {
+		if mappingName == "" {
 			t.Fatal("Could not find created mapping")
 		}
 
 		// Update the mapping
 		updatedMapping := &authzcore.RoleEntitlementMapping{
-			ID: mappingID,
+			Name: mappingName,
 			Entitlement: authzcore.Entitlement{
 				Claim: "group",
 				Value: "prod-group",
@@ -2795,7 +2730,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 
 		var found bool
 		for _, m := range mappings {
-			if m.ID == mappingID {
+			if m.Name == mappingName {
 				found = true
 				if m.Entitlement.Value != "prod-group" {
 					t.Errorf("UpdateRoleEntitlementMapping() entitlement value = %s, want prod-group", m.Entitlement.Value)
@@ -2817,7 +2752,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 
 	t.Run("update non-existent mapping", func(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
-			ID: 999999, // Non-existent ID
+			Name: "non-existent-mapping",
 			Entitlement: authzcore.Entitlement{
 				Claim: "group",
 				Value: "test",

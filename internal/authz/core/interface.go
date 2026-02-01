@@ -44,7 +44,7 @@ type PAP interface {
 	UpdateRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 
 	// RemoveRoleEntitlementMapping removes a role-entitlement mapping
-	RemoveRoleEntitlementMapping(ctx context.Context, mappingID uint) error
+	RemoveRoleEntitlementMapping(ctx context.Context, mappingRef *MappingRef) error
 
 	// ListRoleEntitlementMappings lists role-entitlement mappings with optional filters
 	ListRoleEntitlementMappings(ctx context.Context, filter *RoleEntitlementMappingFilter) ([]*RoleEntitlementMapping, error)

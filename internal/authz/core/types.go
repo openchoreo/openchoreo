@@ -95,6 +95,9 @@ type Role struct {
 
 	// IsInternal indicates if this role should be hidden from public listings
 	IsInternal bool `json:"-"`
+
+	// Description provides a human-readable description of the role
+	Description string `json:"description,omitempty"`
 }
 
 // RoleRef uniquely identifies a role by name and namespace
@@ -119,8 +122,8 @@ type Entitlement struct {
 
 // RoleEntitlementMapping represents the assignment of a role to an entitlement within a hierarchical scope
 type RoleEntitlementMapping struct {
-	// ID is the unique identifier for the mapping
-	ID uint `json:"id" yaml:"id,omitempty"`
+	// Name is the unique identifier for the mapping (CRD name)
+	Name string `json:"name" yaml:"name,omitempty"`
 
 	// RoleRef identifies the role being assigned
 	RoleRef RoleRef `json:"role" yaml:"role"`
@@ -142,6 +145,17 @@ type RoleEntitlementMapping struct {
 	IsInternal bool `json:"-" yaml:"-"`
 }
 
+// MappingRef identifies a role-entitlement binding
+type MappingRef struct {
+	// Name is the binding name
+	Name string `json:"name" yaml:"name"`
+
+	// Namespace identifies the binding scope:
+	// - Empty string ("") = cluster-scoped binding (AuthzClusterRoleBinding)
+	// - Non-empty = namespace-scoped binding (AuthzRoleBinding) in the specified namespace
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
 // RoleEntitlementMappingFilter provides filters for listing role-entitlement mappings
 type RoleEntitlementMappingFilter struct {
 	// RoleRef filters mappings by role reference (name and namespace)
@@ -149,6 +163,9 @@ type RoleEntitlementMappingFilter struct {
 
 	// Entitlement filters mappings by entitlement claim and value
 	Entitlement *Entitlement
+
+	// Effect filters mappings by policy effect
+	Effect *PolicyEffectType
 }
 
 // RoleFilter provides filters for listing roles

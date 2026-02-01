@@ -128,7 +128,7 @@ func (da *DisabledAuthorizer) UpdateRoleEntitlementMapping(ctx context.Context, 
 }
 
 // RemoveRoleEntitlementMapping fails with error
-func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, mappingID uint) error {
+func (da *DisabledAuthorizer) RemoveRoleEntitlementMapping(ctx context.Context, mappingRef *authz.MappingRef) error {
 	return authz.ErrAuthzDisabled
 }
 

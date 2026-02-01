@@ -177,9 +177,9 @@ func TestHierarchyToResourcePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := hierarchyToResourcePath(tt.hierarchy)
+			got := resourceHierarchyToPath(tt.hierarchy)
 			if got != tt.want {
-				t.Errorf("hierarchyToResourcePath() = %q, want %q", got, tt.want)
+				t.Errorf("resourceHierarchyToPath() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -511,13 +511,13 @@ func TestIsWithinScope(t *testing.T) {
 
 func TestExpandActionWildcard(t *testing.T) {
 	// Create test action index
-	testActions := []Action{
-		{Action: "component:create"},
-		{Action: "component:view"},
-		{Action: "component:delete"},
-		{Action: "project:view"},
-		{Action: "project:update"},
-		{Action: "namespace:view"},
+	testActions := []authzcore.Action{
+		{Name: "component:create"},
+		{Name: "component:view"},
+		{Name: "component:delete"},
+		{Name: "project:view"},
+		{Name: "project:update"},
+		{Name: "namespace:view"},
 	}
 	actionIdx := indexActions(testActions)
 
@@ -765,28 +765,28 @@ func TestExtractActionResourceType(t *testing.T) {
 func TestIndexActions(t *testing.T) {
 	tests := []struct {
 		name    string
-		actions []Action
+		actions []authzcore.Action
 		wantLen int
 	}{
 		{
 			name: "various action types",
-			actions: []Action{
-				{Action: "component:create"},
-				{Action: "component:read"},
-				{Action: "component:update"},
-				{Action: "component:delete"},
-				{Action: "project:view"},
-				{Action: "project:create"},
-				{Action: "namespace:view"},
+			actions: []authzcore.Action{
+				{Name: "component:create"},
+				{Name: "component:read"},
+				{Name: "component:update"},
+				{Name: "component:delete"},
+				{Name: "project:view"},
+				{Name: "project:create"},
+				{Name: "namespace:view"},
 			},
 			wantLen: 7,
 		},
 		{
 			name: "actions with wildcards",
-			actions: []Action{
-				{Action: "component:*"},
-				{Action: "*"},
-				{Action: "project:read"},
+			actions: []authzcore.Action{
+				{Name: "component:*"},
+				{Name: "*"},
+				{Name: "project:read"},
 			},
 			wantLen: 3,
 		},
@@ -807,17 +807,17 @@ func TestIndexActions(t *testing.T) {
 				actionMap[a] = true
 			}
 			for _, action := range tt.actions {
-				if !actionMap[action.Action] {
-					t.Errorf("indexActions() missing action %q in actionsStringList", action.Action)
+				if !actionMap[action.Name] {
+					t.Errorf("indexActions() missing action %q in actionsStringList", action.Name)
 				}
 			}
 
 			// Verify resource type grouping
 			for _, action := range tt.actions {
-				resourceType := extractActionResourceType(action.Action)
+				resourceType := extractActionResourceType(action.Name)
 				if actions, ok := idx.ByResourceType[resourceType]; ok {
-					if !slices.Contains(actions, action.Action) {
-						t.Errorf("indexActions() action %q not found in ByResourceType[%q]", action.Action, resourceType)
+					if !slices.Contains(actions, action.Name) {
+						t.Errorf("indexActions() action %q not found in ByResourceType[%q]", action.Name, resourceType)
 					}
 				} else {
 					t.Errorf("indexActions() resource type %q not found in ByResourceType", resourceType)
@@ -859,4 +859,109 @@ func TestNormalizeNamespace(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestComputeActionsDiff(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingActions []string
+		newActions      []string
+		wantAdded       []string
+		wantRemoved     []string
+	}{
+		{
+			name:            "no changes",
+			existingActions: []string{"component:view", "component:create"},
+			newActions:      []string{"component:view", "component:create"},
+			wantAdded:       nil,
+			wantRemoved:     nil,
+		},
+		{
+			name:            "add new actions",
+			existingActions: []string{"component:view"},
+			newActions:      []string{"component:view", "component:create", "component:delete"},
+			wantAdded:       []string{"component:create", "component:delete"},
+			wantRemoved:     nil,
+		},
+		{
+			name:            "remove actions",
+			existingActions: []string{"component:view", "component:create", "component:delete"},
+			newActions:      []string{"component:view"},
+			wantAdded:       nil,
+			wantRemoved:     []string{"component:create", "component:delete"},
+		},
+		{
+			name:            "add and remove actions",
+			existingActions: []string{"component:view", "component:create"},
+			newActions:      []string{"component:view", "component:delete"},
+			wantAdded:       []string{"component:delete"},
+			wantRemoved:     []string{"component:create"},
+		},
+		{
+			name:            "empty existing actions",
+			existingActions: []string{},
+			newActions:      []string{"component:view", "component:create"},
+			wantAdded:       []string{"component:view", "component:create"},
+			wantRemoved:     nil,
+		},
+		{
+			name:            "empty new actions",
+			existingActions: []string{"component:view", "component:create"},
+			newActions:      []string{},
+			wantAdded:       nil,
+			wantRemoved:     []string{"component:view", "component:create"},
+		},
+		{
+			name:            "both empty",
+			existingActions: []string{},
+			newActions:      []string{},
+			wantAdded:       nil,
+			wantRemoved:     nil,
+		},
+		{
+			name:            "completely different actions",
+			existingActions: []string{"component:view", "component:create"},
+			newActions:      []string{"project:view", "project:create"},
+			wantAdded:       []string{"project:view", "project:create"},
+			wantRemoved:     []string{"component:view", "component:create"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotAdded, gotRemoved := computeActionsDiff(tt.existingActions, tt.newActions)
+
+			// Compare added actions (order doesn't matter)
+			if !sliceContainsSameElements(gotAdded, tt.wantAdded) {
+				t.Errorf("computeActionsDiff() added = %v, want %v", gotAdded, tt.wantAdded)
+			}
+
+			// Compare removed actions (order doesn't matter)
+			if !sliceContainsSameElements(gotRemoved, tt.wantRemoved) {
+				t.Errorf("computeActionsDiff() removed = %v, want %v", gotRemoved, tt.wantRemoved)
+			}
+		})
+	}
+}
+
+// sliceContainsSameElements checks if two slices contain the same elements
+func sliceContainsSameElements(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+
+	aMap := make(map[string]int)
+	for _, v := range a {
+		aMap[v]++
+	}
+	for _, v := range b {
+		aMap[v]--
+		if aMap[v] < 0 {
+			return false
+		}
+	}
+	return true
 }

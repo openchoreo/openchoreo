@@ -71,7 +71,9 @@ var systemActions = []Action{
 	{Name: "deploymentpipeline:view", IsInternal: false},
 
 	// SecretReference
+	{Name: "secretreference:create", IsInternal: false},
 	{Name: "secretreference:view", IsInternal: false},
+	{Name: "secretreference:delete", IsInternal: false},
 
 	// Workload
 	{Name: "workload:view", IsInternal: false},

@@ -200,7 +200,7 @@ func TestDisabledAuthorizer_AddRoleEntitlementMapping(t *testing.T) {
 func TestDisabledAuthorizer_RemoveRoleEntitlementMapping(t *testing.T) {
 	ctx := context.Background()
 
-	err := disabledAuthorizer.RemoveRoleEntitlementMapping(ctx, 1)
+	err := disabledAuthorizer.RemoveRoleEntitlementMapping(ctx, &authzcore.MappingRef{Name: "test-mapping"})
 	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
 		t.Errorf("expected ErrAuthzDisabled, got %v", err)
 	}

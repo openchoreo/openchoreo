@@ -10,12 +10,25 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
-type HierarchyResourcePrefix string
+// HierarchyResourcePrefix constants for resource path formatting
+const (
+	NamespaceResourcePrefix = "ns"
+	ProjectResourcePrefix   = "project"
+	ComponentResourcePrefix = "component"
+)
+
+// CRD type constants for authz resources
+const (
+	CRDTypeAuthzRole               = "AuthzRole"
+	CRDTypeAuthzClusterRole        = "AuthzClusterRole"
+	CRDTypeAuthzRoleBinding        = "AuthzRoleBinding"
+	CRDTypeAuthzClusterRoleBinding = "AuthzClusterRoleBinding"
+)
 
 const (
-	NamespaceResourcePrefix HierarchyResourcePrefix = "ns"
-	ProjectResourcePrefix   HierarchyResourcePrefix = "project"
-	ComponentResourcePrefix HierarchyResourcePrefix = "component"
+	// emptyContextJSON represents an empty context used when no contextual conditions are applied
+	// TODO: Replace with proper context handling when context matching is implemented
+	emptyContextJSON = "{}"
 )
 
 // resourceMatch checks if a requested resource matches a policy resource using hierarchical prefix matching.
@@ -120,8 +133,30 @@ func roleActionMatchWrapper(requestValue, storedRuleValue string) bool {
 	return requestValue == storedRuleValue
 }
 
-// hierarchyToResourcePath converts ResourceHierarchy to a hierarchical resource path string
-func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
+// validateEvaluateRequest checks if the EvaluateRequest has all required fields
+func validateEvaluateRequest(req *authzcore.EvaluateRequest) error {
+	if req == nil {
+		return fmt.Errorf("%w: evaluate request is nil", authzcore.ErrInvalidRequest)
+	}
+	if req.SubjectContext == nil {
+		return fmt.Errorf("%w: subject context is required", authzcore.ErrInvalidRequest)
+	}
+	if req.Resource.Type == "" {
+		return fmt.Errorf("%w: resource type is required", authzcore.ErrInvalidRequest)
+	}
+	if req.Action == "" {
+		return fmt.Errorf("%w: action is required", authzcore.ErrInvalidRequest)
+	}
+	return nil
+}
+
+// resourceHierarchyToPath converts ResourceHierarchy to a hierarchical resource path string
+// Examples:
+//   - {Namespace: "acme"} -> "ns/acme"
+//   - {Namespace: "acme", Project: "p1"} -> "ns/acme/project/p1"
+//   - {Namespace: "acme", Project: "p1", Component: "c1"} -> "ns/acme/project/p1/component/c1"
+//   - {} (empty) -> "*" (wildcard)
+func resourceHierarchyToPath(hierarchy authzcore.ResourceHierarchy) string {
 	// Empty hierarchy means global wildcard
 	if hierarchy.Namespace == "" && hierarchy.Project == "" && hierarchy.Component == "" {
 		return "*"
@@ -147,11 +182,16 @@ func hierarchyToResourcePath(hierarchy authzcore.ResourceHierarchy) string {
 }
 
 // resourcePathToHierarchy converts a hierarchical resource path string back to ResourceHierarchy
+// Examples:
+//   - "ns/acme" -> {Namespace: "acme"}
+//   - "ns/acme/project/p1" -> {Namespace: "acme", Project: "p1"}
+//   - "ns/acme/project/p1/component/c1" -> {Namespace: "acme", Project: "p1", Component: "c1"}
+//   - "*" -> {} (empty hierarchy)
 func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	hierarchy := authzcore.ResourceHierarchy{}
 
-	// Global wildcard map to empty hierarchy
-	if resourcePath == "*" {
+	// Global wildcard maps to empty hierarchy
+	if resourcePath == "*" || resourcePath == "" {
 		return hierarchy
 	}
 
@@ -161,7 +201,7 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 		prefix := segments[i]
 		value := segments[i+1]
 
-		switch HierarchyResourcePrefix(prefix) {
+		switch prefix {
 		case NamespaceResourcePrefix:
 			hierarchy.Namespace = value
 		case ProjectResourcePrefix:
@@ -174,21 +214,28 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	return hierarchy
 }
 
-// validateEvaluateRequest checks if the EvaluateRequest has all required fields
-func validateEvaluateRequest(req *authzcore.EvaluateRequest) error {
-	if req == nil {
-		return fmt.Errorf("%w: evaluate request is nil", authzcore.ErrInvalidRequest)
+// formatSubject creates a subject string from claim and value
+// Format: "claim:value"
+func formatSubject(claim, value string) (string, error) {
+	if claim == "" || value == "" {
+		return "", fmt.Errorf("claim and value cannot be empty")
 	}
-	if req.SubjectContext == nil {
-		return fmt.Errorf("%w: subject context is required", authzcore.ErrInvalidRequest)
+	return fmt.Sprintf("%s:%s", claim, value), nil
+}
+
+// parseSubject extracts claim and value from a subject string
+// Expected format: "claim:value"
+func parseSubject(subject string) (claim, value string, err error) {
+	parts := strings.SplitN(subject, ":", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid subject format: expected 'claim:value', got '%s'", subject)
 	}
-	if req.Resource.Type == "" {
-		return fmt.Errorf("%w: resource type is required", authzcore.ErrInvalidRequest)
-	}
-	if req.Action == "" {
-		return fmt.Errorf("%w: action is required", authzcore.ErrInvalidRequest)
-	}
-	return nil
+	return parts[0], parts[1], nil
+}
+
+// isClusterScoped returns true if the namespace is empty (cluster-scoped)
+func isClusterScoped(namespace string) bool {
+	return namespace == ""
 }
 
 // validateBatchEvaluateRequest checks if each EvaluateRequest in the BatchEvaluateRequest has all required fields
@@ -218,16 +265,16 @@ type actionIndex struct {
 	actionsStringList []string
 }
 
-func indexActions(allActions []Action) actionIndex {
+func indexActions(allActions []authzcore.Action) actionIndex {
 	index := actionIndex{
 		ByResourceType:    make(map[string][]string),
 		actionsStringList: make([]string, 0, len(allActions)),
 	}
 
 	for _, action := range allActions {
-		resourceType := extractActionResourceType(action.Action)
-		index.ByResourceType[resourceType] = append(index.ByResourceType[resourceType], action.Action)
-		index.actionsStringList = append(index.actionsStringList, action.Action)
+		resourceType := extractActionResourceType(action.Name)
+		index.ByResourceType[resourceType] = append(index.ByResourceType[resourceType], action.Name)
+		index.actionsStringList = append(index.actionsStringList, action.Name)
 	}
 
 	return index
@@ -309,6 +356,9 @@ func validateRoleEntitlementMapping(mapping *authzcore.RoleEntitlementMapping) e
 	if mapping == nil {
 		return fmt.Errorf("%w: role-entitlement mapping is nil", authzcore.ErrInvalidRequest)
 	}
+	if mapping.Name == "" {
+		return fmt.Errorf("%w: name is required", authzcore.ErrInvalidRequest)
+	}
 	if mapping.RoleRef.Name == "" {
 		return fmt.Errorf("%w: role name is required", authzcore.ErrInvalidRequest)
 	}
@@ -322,25 +372,6 @@ func validateRoleEntitlementMapping(mapping *authzcore.RoleEntitlementMapping) e
 		return fmt.Errorf("%w: role namespace and mapping hierarchy namespace must match for namespace-scoped roles", authzcore.ErrInvalidRequest)
 	}
 	return nil
-}
-
-// formatSubject creates a subject string from claim and value
-// Format: "claim:value"
-func formatSubject(claim, value string) (string, error) {
-	if claim == "" || value == "" {
-		return "", fmt.Errorf("claim and value cannot be empty")
-	}
-	return fmt.Sprintf("%s:%s", claim, value), nil
-}
-
-// parseSubject extracts claim and value from a subject string
-// Expected format: "claim:value"
-func parseSubject(subject string) (claim, value string, err error) {
-	parts := strings.SplitN(subject, ":", 2)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid subject format: expected 'claim:value', got '%s'", subject)
-	}
-	return parts[0], parts[1], nil
 }
 
 func validateRoleRef(roleRef *authzcore.RoleRef) error {
@@ -373,4 +404,39 @@ func normalizeNamespace(namespace string) string {
 		return "*"
 	}
 	return namespace
+}
+
+// isClusterRole returns true if the namespace is empty (cluster-scoped)
+func isClusterRole(namespace string) bool {
+	return namespace == ""
+}
+
+// computeActionsDiff computes the difference between existing and new actions for a role
+// Returns added actions (in new but not in existing) and removed actions (in existing but not in new)
+func computeActionsDiff(existingActions, newActions []string) (added, removed []string) {
+	existingSet := make(map[string]struct{}, len(existingActions))
+	for _, action := range existingActions {
+		existingSet[action] = struct{}{}
+	}
+
+	newSet := make(map[string]struct{}, len(newActions))
+	for _, action := range newActions {
+		newSet[action] = struct{}{}
+	}
+
+	// Find removed actions
+	for action := range existingSet {
+		if _, exists := newSet[action]; !exists {
+			removed = append(removed, action)
+		}
+	}
+
+	// Find added actions
+	for action := range newSet {
+		if _, exists := existingSet[action]; !exists {
+			added = append(added, action)
+		}
+	}
+
+	return added, removed
 }
