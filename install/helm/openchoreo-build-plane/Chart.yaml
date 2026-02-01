@@ -33,5 +33,5 @@ dependencies:
     condition: external-secrets.enabled
   - name: fluent-bit
     repository: https://fluent.github.io/helm-charts
-    version: 0.54.0
+    version: 0.55.0
     condition: fluent-bit.enabled
