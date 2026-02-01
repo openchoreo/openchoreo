@@ -1,12 +1,12 @@
 dependencies:
 - name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
-  version: 0.45.2
+  version: 0.47.2
 - name: external-secrets
   repository: https://charts.external-secrets.io
   version: 0.19.2
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
-digest: sha256:83ec7926970bccc3088994f98ab33561c944129617eb8c5a2155b885b46d446b
-generated: "2026-01-22T20:44:05.32818+05:30"
+digest: sha256:22143083239455eb7ea6b4b5f9b53c804c4cba5c587f0a4a8c2e2ba0e075362f
+generated: "2026-02-01T06:19:37.81008074Z"
