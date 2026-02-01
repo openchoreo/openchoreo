@@ -7,7 +7,7 @@ dependencies:
   version: 0.19.2
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
-  version: 0.54.0
+  version: 0.55.0
 - name: kgateway
   repository: oci://cr.kgateway.dev/kgateway-dev/charts
   version: v2.1.2
@@ -23,5 +23,5 @@ dependencies:
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
-digest: sha256:6905f4be90102049fa0c8e5d948a65abbccfa2507ec550bd467bb656f7754d8b
-generated: "2026-01-07T17:30:35.207773+05:30"
+digest: sha256:75ef05e7a42c13169eb48861c815766244e0bde364450fad15a8235331c21b90
+generated: "2026-02-01T06:19:45.326785987Z"
