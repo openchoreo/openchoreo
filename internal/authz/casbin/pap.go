@@ -5,310 +5,15 @@ package casbin
 
 import (
 	"context"
-	_ "embed"
 	"fmt"
-	"log/slog"
-	"time"
 
-	"github.com/casbin/casbin/v2"
-	"github.com/casbin/casbin/v2/model"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
-
-//go:embed rbac_model.conf
-var embeddedModel string
-
-// CasbinEnforcer implements both PDP and PAP interfaces using Casbin with Kubernetes CRDs
-type CasbinEnforcer struct {
-	enforcer    casbin.IEnforcer
-	k8sClient   client.Client
-	ctx         context.Context
-	logger      *slog.Logger
-	enableCache bool
-	cacheTTL    int
-}
-
-// CasbinConfig holds configuration for the Casbin enforcer.
-// Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
-type CasbinConfig struct {
-	K8sClient    client.Client // Required: Kubernetes client
-	CacheEnabled bool          // Optional: Enable policy cache (default: false)
-	CacheTTL     time.Duration // Optional: Cache TTL (default: 5m)
-}
-
-// policyInfo holds information about a filtered policy
-// intermediate struct used for building user profile capabilities
-type policyInfo struct {
-	resourcePath  string
-	roleName      string
-	roleNamespace string
-	effect        string
-}
-
-// NewCasbinEnforcer creates a new Casbin-based authorizer using Kubernetes CRD adapter
-func NewCasbinEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
-	if config.K8sClient == nil {
-		return nil, fmt.Errorf("K8sClient is required in CasbinConfig")
-	}
-
-	// Load Casbin model from embedded string
-	m, err := model.NewModelFromString(embeddedModel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load embedded casbin model: %w", err)
-	}
-
-	var enforcer casbin.IEnforcer
-	if config.CacheEnabled {
-		syncedCachedEnforcer, err := casbin.NewSyncedCachedEnforcer(m)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create synced cached enforcer: %w", err)
-		}
-
-		// Fallback default if CacheTTL not configured
-		if config.CacheTTL == 0 {
-			config.CacheTTL = 5 * time.Minute
-		}
-		syncedCachedEnforcer.SetExpireTime(config.CacheTTL)
-		enforcer = syncedCachedEnforcer
-	} else {
-		enforcer, err = casbin.NewSyncedEnforcer(m)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create synced enforcer: %w", err)
-		}
-	}
-
-	// Register custom functions for the matcher
-	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
-	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
-
-	// Add custom role matcher function to support action wildcards
-	var baseEnforcer *casbin.Enforcer
-	switch e := enforcer.(type) {
-	case *casbin.SyncedEnforcer:
-		baseEnforcer = e.Enforcer
-	case *casbin.SyncedCachedEnforcer:
-		baseEnforcer = e.SyncedEnforcer.Enforcer
-	default:
-		return nil, fmt.Errorf("unknown enforcer type")
-	}
-	if baseEnforcer != nil {
-		// Use roleMatchWrapper for g to handle:
-		// - g: [role, action, namespace] - exact match for role/namespace, wildcard for action
-		baseEnforcer.AddNamedMatchingFunc("g", "", roleActionMatchWrapper)
-	}
-
-	// turn off auto-save to prevent policy changes via enforcer APIs
-	enforcer.EnableAutoSave(false)
-
-	// Note: Policies are NOT loaded here.
-	// They will be populated by informer watchers
-
-	ce := &CasbinEnforcer{
-		enforcer:    enforcer,
-		k8sClient:   config.K8sClient,
-		ctx:         ctx,
-		logger:      logger,
-		enableCache: config.CacheEnabled,
-		cacheTTL:    int(config.CacheTTL),
-	}
-
-	logger.Info("casbin enforcer initialized",
-		"cache_enabled", config.CacheEnabled,
-		"cache_ttl", config.CacheTTL)
-
-	return ce, nil
-}
-
-// ============================================================================
-// PDP Implementation
-// ============================================================================
-
-// Evaluate evaluates a single authorization request and returns a decision
-func (ce *CasbinEnforcer) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	err := validateEvaluateRequest(request)
-	if err != nil {
-		return &authzcore.Decision{Decision: false}, err
-	}
-	return ce.check(request)
-}
-
-// BatchEvaluate evaluates multiple authorization requests and returns corresponding decisions
-// NOTE: if needed, can be enhanced to do in parallel
-func (ce *CasbinEnforcer) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	err := validateBatchEvaluateRequest(request)
-	if err != nil {
-		return &authzcore.BatchEvaluateResponse{}, err
-	}
-
-	decisions := make([]authzcore.Decision, len(request.Requests))
-	for i, req := range request.Requests {
-		// Check for context cancellation
-		if ctx.Err() != nil {
-			return &authzcore.BatchEvaluateResponse{}, ctx.Err()
-		}
-		decision, err := ce.check(&req)
-		if err != nil {
-			return &authzcore.BatchEvaluateResponse{}, fmt.Errorf("batch evaluate failed at index %d: %w", i, err)
-		}
-		decisions[i] = *decision
-	}
-
-	return &authzcore.BatchEvaluateResponse{
-		Decisions: decisions,
-	}, nil
-}
-
-// // GetSubjectProfile retrieves the authorization profile for a given subject
-func (ce *CasbinEnforcer) GetSubjectProfile(ctx context.Context, request *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
-	ce.logger.Debug("get subject profile called",
-		"subject_context", request.SubjectContext,
-		"scope", request.Scope)
-
-	if err := validateProfileRequest(request); err != nil {
-		return nil, err
-	}
-
-	subjectCtx := request.SubjectContext
-	scopePath := resourceHierarchyToPath(request.Scope)
-
-	allConcreteActions := authzcore.ConcretePublicActions()
-
-	actionIndex := indexActions(allConcreteActions)
-
-	policies, err := ce.filterPoliciesBySubjectAndScope(subjectCtx, scopePath)
-	if err != nil {
-		return nil, err
-	}
-
-	capabilities, err := ce.buildCapabilitiesFromPolicies(policies, actionIndex)
-	if err != nil {
-		return nil, err
-	}
-
-	return &authzcore.UserCapabilitiesResponse{
-		User:         subjectCtx,
-		Capabilities: capabilities,
-		GeneratedAt:  time.Now(),
-	}, nil
-}
-
-// filterPoliciesBySubjectAndScope retrieves and filters policies relevant to the subject and scope
-func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.SubjectContext, scopePath string) ([]policyInfo, error) {
-	var filteredPolicies []policyInfo
-
-	for _, entitlementValue := range subjectCtx.EntitlementValues {
-		subject, err := formatSubject(subjectCtx.EntitlementClaim, entitlementValue)
-		if err != nil {
-			return nil, fmt.Errorf("failed to format subject: %w", err)
-		}
-		policies, err := ce.enforcer.GetFilteredPolicy(0, subject)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get policies for subject '%s': %w", subject, err)
-		}
-
-		for _, policy := range policies {
-			if len(policy) != 6 {
-				ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 6, "got", len(policy))
-				continue
-			}
-
-			resourcePath := policy[1]
-			roleName := policy[2]
-			roleNamespace := policy[3] // Capture role namespace
-			effect := policy[4]
-			// policy[5] is context
-
-			if !isWithinScope(resourcePath, scopePath) {
-				continue
-			}
-
-			filteredPolicies = append(filteredPolicies, policyInfo{
-				resourcePath:  resourcePath,
-				roleName:      roleName,
-				roleNamespace: roleNamespace,
-				effect:        effect,
-			})
-		}
-	}
-
-	return filteredPolicies, nil
-}
-
-// buildCapabilitiesFromPolicies constructs the capabilities map from filtered policies
-func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, actionIdx actionIndex) (map[string]*authzcore.ActionCapability, error) {
-	type resourceKey struct {
-		path   string
-		effect string
-	}
-
-	roleToActions := make(map[authzcore.RoleRef][]string)
-	actionResources := make(map[string]map[resourceKey]bool)
-
-	for _, p := range policies {
-		roleKey := authzcore.RoleRef{
-			Name:      p.roleName,
-			Namespace: p.roleNamespace,
-		}
-
-		// Fetch role actions if not already cached
-		if _, ok := roleToActions[roleKey]; !ok {
-			roleActions, err := ce.enforcer.GetFilteredGroupingPolicy(0, p.roleName, "", p.roleNamespace)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get actions for role '%s' in namespace '%s': %w", p.roleName, p.roleNamespace, err)
-			}
-
-			var actions []string
-			for _, ra := range roleActions {
-				if len(ra) != 3 {
-					ce.logger.Warn("skipping malformed role-action mapping", "rule", ra)
-					continue
-				}
-				// ra[0] = role name, ra[1] = action, ra[2] = namespace (already filtered)
-				expandedActions := expandActionWildcard(ra[1], actionIdx)
-				actions = append(actions, expandedActions...)
-			}
-			roleToActions[roleKey] = actions
-		}
-
-		// Build action resources using the cached role actions
-		actions := roleToActions[roleKey]
-		for _, action := range actions {
-			if actionResources[action] == nil {
-				actionResources[action] = make(map[resourceKey]bool)
-			}
-			actionResources[action][resourceKey{path: p.resourcePath, effect: p.effect}] = true
-		}
-	}
-
-	// Convert to final capabilities structure
-	capabilities := make(map[string]*authzcore.ActionCapability)
-	for action, resources := range actionResources {
-		capability := &authzcore.ActionCapability{
-			Allowed: []*authzcore.CapabilityResource{},
-			Denied:  []*authzcore.CapabilityResource{},
-		}
-
-		for res := range resources {
-			capRes := &authzcore.CapabilityResource{
-				Path:        res.path,
-				Constraints: nil,
-			}
-			if res.effect == string(authzcore.PolicyEffectAllow) {
-				capability.Allowed = append(capability.Allowed, capRes)
-			} else if res.effect == string(authzcore.PolicyEffectDeny) {
-				capability.Denied = append(capability.Denied, capRes)
-			}
-		}
-
-		capabilities[action] = capability
-	}
-
-	return capabilities, nil
-}
 
 // ============================================================================
 // PAP Implementation
@@ -480,9 +185,9 @@ func (ce *CasbinEnforcer) UpdateRole(ctx context.Context, role *authzcore.Role) 
 	ce.logger.Debug("update role called", "role_name", role.Name, "namespace", role.Namespace, "actions", role.Actions)
 
 	if isClusterScoped(role.Namespace) {
-		return ce.updateClusterRoleActions(ctx, role)
+		return ce.updateClusterRole(ctx, role)
 	}
-	return ce.updateNamespacedRoleActions(ctx, role)
+	return ce.updateNamespacedRole(ctx, role)
 }
 
 // AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
@@ -502,6 +207,9 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 
 	bindingObj := ce.buildBindingFromMapping(mapping)
 	if err := ce.k8sClient.Create(ctx, bindingObj); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return authzcore.ErrRoleMappingAlreadyExists
+		}
 		return fmt.Errorf("failed to create binding: %w", err)
 	}
 
@@ -546,6 +254,9 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 			},
 		}
 		if err := ce.k8sClient.Delete(ctx, clusterBinding); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return authzcore.ErrRoleMappingNotFound
+			}
 			return fmt.Errorf("failed to delete AuthzClusterRoleBinding: %w", err)
 		}
 		ce.logger.Debug("deleted AuthzClusterRoleBinding", "name", mappingRef.Name)
@@ -560,6 +271,9 @@ func (ce *CasbinEnforcer) RemoveRoleEntitlementMapping(ctx context.Context, mapp
 		},
 	}
 	if err := ce.k8sClient.Delete(ctx, roleBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
 		return fmt.Errorf("failed to delete AuthzRoleBinding: %w", err)
 	}
 	ce.logger.Debug("deleted AuthzRoleBinding", "name", mappingRef.Name, "namespace", mappingRef.Namespace)
@@ -660,10 +374,17 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
+// ============================================================================
+// K8s CRD Helper Methods
+// ============================================================================
+
 // updateClusterRoleBinding updates an existing AuthzClusterRoleBinding
 func (ce *CasbinEnforcer) updateClusterRoleBinding(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
 	existingBinding := &openchoreov1alpha1.AuthzClusterRoleBinding{}
 	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: mapping.Name}, existingBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
 		return fmt.Errorf("cluster role binding not found: %w", err)
 	}
 
@@ -681,6 +402,9 @@ func (ce *CasbinEnforcer) updateClusterRoleBinding(ctx context.Context, mapping 
 	existingBinding.Spec.Effect = openchoreov1alpha1.EffectType(mapping.Effect)
 
 	if err := ce.k8sClient.Update(ctx, existingBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
 		return fmt.Errorf("failed to update AuthzClusterRoleBinding: %w", err)
 	}
 
@@ -693,6 +417,9 @@ func (ce *CasbinEnforcer) updateNamespacedRoleBinding(ctx context.Context, mappi
 	existingBinding := &openchoreov1alpha1.AuthzRoleBinding{}
 	key := client.ObjectKey{Name: mapping.Name, Namespace: mapping.Hierarchy.Namespace}
 	if err := ce.k8sClient.Get(ctx, key, existingBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
 		return fmt.Errorf("role binding not found: %w", err)
 	}
 
@@ -712,6 +439,9 @@ func (ce *CasbinEnforcer) updateNamespacedRoleBinding(ctx context.Context, mappi
 	existingBinding.Spec.Effect = openchoreov1alpha1.EffectType(mapping.Effect)
 
 	if err := ce.k8sClient.Update(ctx, existingBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleMappingNotFound
+		}
 		return fmt.Errorf("failed to update AuthzRoleBinding: %w", err)
 	}
 
@@ -732,6 +462,9 @@ func (ce *CasbinEnforcer) createClusterRole(ctx context.Context, role *authzcore
 	}
 
 	if err := ce.k8sClient.Create(ctx, clusterRole); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return authzcore.ErrRoleAlreadyExists
+		}
 		return fmt.Errorf("failed to create AuthzClusterRole: %w", err)
 	}
 
@@ -753,6 +486,9 @@ func (ce *CasbinEnforcer) createNamespacedRole(ctx context.Context, role *authzc
 	}
 
 	if err := ce.k8sClient.Create(ctx, namespacedRole); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return authzcore.ErrRoleAlreadyExists
+		}
 		return fmt.Errorf("failed to create AuthzRole: %w", err)
 	}
 
@@ -769,6 +505,9 @@ func (ce *CasbinEnforcer) deleteClusterRole(ctx context.Context, roleRef *authzc
 	}
 
 	if err := ce.k8sClient.Delete(ctx, clusterRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to delete AuthzClusterRole: %w", err)
 	}
 
@@ -786,6 +525,9 @@ func (ce *CasbinEnforcer) deleteNamespacedRole(ctx context.Context, roleRef *aut
 	}
 
 	if err := ce.k8sClient.Delete(ctx, namespacedRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to delete AuthzRole: %w", err)
 	}
 
@@ -871,16 +613,22 @@ func (ce *CasbinEnforcer) deleteNamespacedBindingsForRole(ctx context.Context, r
 	return nil
 }
 
-// updateClusterRoleActions updates an AuthzClusterRole's actions
-func (ce *CasbinEnforcer) updateClusterRoleActions(ctx context.Context, role *authzcore.Role) error {
+// updateClusterRole updates an AuthzClusterRole's actions
+func (ce *CasbinEnforcer) updateClusterRole(ctx context.Context, role *authzcore.Role) error {
 	clusterRole := &openchoreov1alpha1.AuthzClusterRole{}
 	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: role.Name}, clusterRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to get AuthzClusterRole: %w", err)
 	}
 
 	clusterRole.Spec.Actions = role.Actions
 
 	if err := ce.k8sClient.Update(ctx, clusterRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to update AuthzClusterRole: %w", err)
 	}
 
@@ -888,17 +636,23 @@ func (ce *CasbinEnforcer) updateClusterRoleActions(ctx context.Context, role *au
 	return nil
 }
 
-// updateNamespacedRoleActions updates an AuthzRole's actions
-func (ce *CasbinEnforcer) updateNamespacedRoleActions(ctx context.Context, role *authzcore.Role) error {
+// updateNamespacedRole updates an AuthzRole's actions
+func (ce *CasbinEnforcer) updateNamespacedRole(ctx context.Context, role *authzcore.Role) error {
 	namespacedRole := &openchoreov1alpha1.AuthzRole{}
 	key := client.ObjectKey{Name: role.Name, Namespace: role.Namespace}
 	if err := ce.k8sClient.Get(ctx, key, namespacedRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to get AuthzRole: %w", err)
 	}
 
 	namespacedRole.Spec.Actions = role.Actions
 
 	if err := ce.k8sClient.Update(ctx, namespacedRole); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return authzcore.ErrRoleNotFound
+		}
 		return fmt.Errorf("failed to update AuthzRole: %w", err)
 	}
 
@@ -996,70 +750,3 @@ func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcor
 		return nil
 	}
 }
-
-// TODO: once context is properly integrated, pass it to enforcer
-// check performs the actual authorization check using Casbin
-func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	resourcePath := resourceHierarchyToPath(request.Resource.Hierarchy)
-	subjectCtx := request.SubjectContext
-
-	// Validate subject context
-	if subjectCtx == nil {
-		return &authzcore.Decision{Decision: false}, fmt.Errorf("subject context is required")
-	}
-
-	ce.logger.Debug("evaluate called",
-		"subject_type", subjectCtx.Type,
-		"entitlement_claim", subjectCtx.EntitlementClaim,
-		"entitlements", subjectCtx.EntitlementValues,
-		"resource", resourcePath,
-		"action", request.Action,
-		"context", request.Context)
-
-	result := false
-	decision := &authzcore.Decision{Decision: false,
-		Context: &authzcore.DecisionContext{
-			Reason: "no matching policies found",
-		}}
-	for _, entitlementValue := range subjectCtx.EntitlementValues {
-		entitlement, err := formatSubject(subjectCtx.EntitlementClaim, entitlementValue)
-		if err != nil {
-			ce.logger.Warn("failed to format subject", "error", err)
-			return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to format subject: %w", err)
-		}
-		result, err = ce.enforcer.Enforce(
-			entitlement,
-			resourcePath,
-			request.Action,
-			emptyContextJSON,
-		)
-		if err != nil {
-			ce.logger.Warn("enforcement failed", "error", err)
-			return &authzcore.Decision{Decision: false}, fmt.Errorf("enforcement failed: %w", err)
-		}
-		if result {
-			decision.Decision = true
-			resourceInfo := fmt.Sprintf("hierarchy '%s'", resourcePath)
-			if request.Resource.ID != "" {
-				resourceInfo = fmt.Sprintf("%s (id: %s)", resourceInfo, request.Resource.ID)
-			}
-			decision.Context.Reason = fmt.Sprintf("Access granted: entitlement value '%s' authorized to perform '%s' on %s", entitlementValue, request.Action, resourceInfo)
-			break
-		}
-	}
-	return decision, nil
-}
-
-// GetEnforcer returns the underlying Casbin enforcer for use by watchers.
-// This is needed to set up informer-based policy synchronization.
-func (ce *CasbinEnforcer) GetEnforcer() casbin.IEnforcer {
-	return ce.enforcer
-}
-
-// These var declarations enforce at compile-time that CasbinEnforcer
-// implements the PDP and PAP interfaces correctly.
-
-var (
-	_ authzcore.PDP = (*CasbinEnforcer)(nil)
-	_ authzcore.PAP = (*CasbinEnforcer)(nil)
-)

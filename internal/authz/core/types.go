@@ -201,13 +201,13 @@ type UserCapabilitiesResponse struct {
 }
 
 var (
-	ErrAuthzDisabled                  = fmt.Errorf("authorization is disabled - policy management operations are not available")
-	ErrRoleAlreadyExists              = fmt.Errorf("role already exists")
-	ErrRoleNotFound                   = fmt.Errorf("role not found")
-	ErrRoleInUse                      = fmt.Errorf("role is in use and cannot be deleted")
-	ErrRolePolicyMappingAlreadyExists = fmt.Errorf("role policy mapping already exists")
-	ErrRolePolicyMappingNotFound      = fmt.Errorf("role policy mapping not found")
-	ErrCannotDeleteSystemMapping      = fmt.Errorf("cannot delete system mapping")
-	ErrCannotModifySystemMapping      = fmt.Errorf("cannot modify system mapping")
-	ErrInvalidRequest                 = fmt.Errorf("invalid request")
+	ErrAuthzDisabled             = fmt.Errorf("authorization is disabled - policy management operations are not available")
+	ErrRoleAlreadyExists         = fmt.Errorf("role already exists")
+	ErrRoleNotFound              = fmt.Errorf("role not found")
+	ErrRoleInUse                 = fmt.Errorf("role is in use and cannot be deleted")
+	ErrRoleMappingAlreadyExists  = fmt.Errorf("role mapping already exists")
+	ErrRoleMappingNotFound       = fmt.Errorf("role mapping not found")
+	ErrCannotDeleteSystemMapping = fmt.Errorf("cannot delete system mapping")
+	ErrCannotModifySystemMapping = fmt.Errorf("cannot modify system mapping")
+	ErrInvalidRequest            = fmt.Errorf("invalid request")
 )
