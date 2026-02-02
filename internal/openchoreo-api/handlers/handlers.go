@@ -200,17 +200,36 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", h.CreateWorkload)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", h.GetWorkloads)
 
-	// Authorization admin endpoints
-	api.HandleFunc("GET "+v1+"/authz/roles", h.ListRoles)
-	api.HandleFunc("GET "+v1+"/authz/roles/{roleName}", h.GetRole)
-	api.HandleFunc("POST "+v1+"/authz/roles", h.AddRole)
-	api.HandleFunc("PUT "+v1+"/authz/roles/{roleName}", h.UpdateRole)
-	api.HandleFunc("DELETE "+v1+"/authz/roles/{roleName}", h.RemoveRole)
-	api.HandleFunc("GET "+v1+"/authz/role-mappings", h.ListRoleMappings)
-	api.HandleFunc("POST "+v1+"/authz/role-mappings", h.AddRoleMapping)
-	api.HandleFunc("PUT "+v1+"/authz/role-mappings/{mappingId}", h.UpdateRoleMapping)
-	api.HandleFunc("DELETE "+v1+"/authz/role-mappings/{mappingId}", h.RemoveRoleMapping)
+	// Authorization - Actions
 	api.HandleFunc("GET "+v1+"/authz/actions", h.ListActions)
+
+	// Authorization - Cluster Roles
+	api.HandleFunc("GET "+v1+"/clusterroles", h.ListClusterRoles)
+	api.HandleFunc("POST "+v1+"/clusterroles", h.CreateClusterRole)
+	api.HandleFunc("GET "+v1+"/clusterroles/{name}", h.GetClusterRole)
+	api.HandleFunc("PUT "+v1+"/clusterroles/{name}", h.UpdateClusterRole)
+	api.HandleFunc("DELETE "+v1+"/clusterroles/{name}", h.DeleteClusterRole)
+
+	// Authorization - Cluster Role Bindings
+	api.HandleFunc("GET "+v1+"/clusterrolebindings", h.ListClusterRoleBindings)
+	api.HandleFunc("POST "+v1+"/clusterrolebindings", h.CreateClusterRoleBinding)
+	api.HandleFunc("GET "+v1+"/clusterrolebindings/{name}", h.GetClusterRoleBinding)
+	api.HandleFunc("PUT "+v1+"/clusterrolebindings/{name}", h.UpdateClusterRoleBinding)
+	api.HandleFunc("DELETE "+v1+"/clusterrolebindings/{name}", h.DeleteClusterRoleBinding)
+
+	// Authorization - Namespace Roles
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/roles", h.ListNamespaceRoles)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/roles", h.CreateNamespaceRole)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/roles/{name}", h.GetNamespaceRole)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/roles/{name}", h.UpdateNamespaceRole)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/roles/{name}", h.DeleteNamespaceRole)
+
+	// Authorization - Namespace Role Bindings
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/rolebindings", h.ListNamespaceRoleBindings)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/rolebindings", h.CreateNamespaceRoleBinding)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/rolebindings/{name}", h.GetNamespaceRoleBinding)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/rolebindings/{name}", h.UpdateNamespaceRoleBinding)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/rolebindings/{name}", h.DeleteNamespaceRoleBinding)
 
 	// User types endpoint
 	api.HandleFunc("GET "+v1+"/user-types", h.listUserTypes)

@@ -57,3 +57,11 @@ func addAuditMetadata(ctx context.Context, key string, value any) {
 func addAuditMetadataBatch(ctx context.Context, metadata map[string]any) {
 	audit.AddMetadataBatch(ctx, metadata)
 }
+
+// Helper functions to safely dereference pointers
+func getStringValue(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}

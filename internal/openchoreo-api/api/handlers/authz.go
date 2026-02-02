@@ -906,6 +906,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 	}
 
 	mappings, err := h.services.AuthzService.ListNamespacedRoleMappings(ctx,
+		request.NamespaceName,
 		&authz.RoleRef{
 			Name:      roleName,
 			Namespace: roleNs,

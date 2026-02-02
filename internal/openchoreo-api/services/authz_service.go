@@ -231,7 +231,7 @@ func (s *AuthzService) ListClusterRoleMappings(ctx context.Context, roleName, cl
 // Supports filtering by:
 //   - roleName: Filter by role name
 //   - claim & value: Filter by entitlement (both must be provided together)
-func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, roleRef *authz.RoleRef, claim, value, effect string) ([]*authz.RoleEntitlementMapping, error) {
+func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, namespace string, roleRef *authz.RoleRef, claim, value, effect string) ([]*authz.RoleEntitlementMapping, error) {
 	s.logger.Debug("Listing authorization role mappings with filters",
 		"role", roleRef.Name, "claim", claim, "value", value)
 
@@ -266,15 +266,15 @@ func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, roleRef *
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
 	}
 	// Filter to only namespaced bindings (those with namespace in hierarchy)
-	clusterMappings := make([]*authz.RoleEntitlementMapping, 0)
+	namespacedMappings := make([]*authz.RoleEntitlementMapping, 0)
 	for _, mapping := range mappings {
-		if mapping.Hierarchy.Namespace != "" {
-			clusterMappings = append(clusterMappings, mapping)
+		if mapping.Hierarchy.Namespace == namespace {
+			namespacedMappings = append(namespacedMappings, mapping)
 		}
 	}
 
-	s.logger.Debug("Listed authorization role mappings with filters", "count", len(clusterMappings))
-	return clusterMappings, nil
+	s.logger.Debug("Listed authorization role mappings with filters", "count", len(namespacedMappings))
+	return namespacedMappings, nil
 }
 
 func (s *AuthzService) GetRoleMapping(ctx context.Context, mappingRef *authz.MappingRef) (*authz.RoleEntitlementMapping, error) {
