@@ -90,9 +90,6 @@ func (c *AuthenticationConfig) Validate(path *config.Path) config.ValidationErro
 type JWTConfig struct {
 	// Enabled enables JWT authentication.
 	Enabled bool `koanf:"enabled"`
-	// Issuer is the expected "iss" claim value in JWT tokens.
-	// If empty, falls back to identity.oidc.issuer.
-	Issuer string `koanf:"issuer"`
 	// Audiences is the list of acceptable token audiences (aud claim).
 	// Token must contain at least one of these audiences. Optional.
 	Audiences []string `koanf:"audiences"`
@@ -129,19 +126,14 @@ func (c *JWTConfig) Validate(path *config.Path) config.ValidationErrors {
 }
 
 // ToJWTMiddlewareConfig converts to the JWT middleware library config.
-// The oidc parameter provides JWKS URL and fallback issuer from identity configuration.
+// The oidc parameter provides issuer and JWKS URL from identity configuration.
 func (c *JWTConfig) ToJWTMiddlewareConfig(oidc *OIDCConfig, logger *slog.Logger, resolver *jwt.Resolver) jwt.Config {
-	issuer := c.Issuer
-	if issuer == "" {
-		issuer = oidc.Issuer
-	}
-
 	return jwt.Config{
 		Disabled:                     !c.Enabled,
 		JWKSURL:                      oidc.JWKSURL,
 		JWKSRefreshInterval:          c.JWKS.RefreshInterval,
 		JWKSURLTLSInsecureSkipVerify: c.JWKS.SkipTLSVerify,
-		ValidateIssuer:               issuer,
+		ValidateIssuer:               oidc.Issuer,
 		ValidateAudiences:            c.Audiences,
 		ClockSkew:                    c.ClockSkew,
 		Detector:                     resolver,

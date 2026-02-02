@@ -58,7 +58,6 @@ data:
             "pkce_required": false,
             "public_client": false,
             "token": {
-              "issuer": "thunder",
               "access_token": {
                 "validity_period": 86400,
                 "user_attributes": [
@@ -390,7 +389,6 @@ data:
             "pkce_required": true,
             "public_client": true,
             "token": {
-              "issuer": "thunder",
               "access_token": {
                 "validity_period": 3600,
                 "user_attributes": [
