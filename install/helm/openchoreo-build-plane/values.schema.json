@@ -1020,6 +1020,188 @@
       "title": "global",
       "type": "object"
     },
+    "openbao": {
+      "additionalProperties": true,
+      "description": "OpenBao sub-chart configuration for secrets management. OpenBao is an open-source fork of HashiCorp Vault. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/openbao/openbao-helm for all options.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable OpenBao installation",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "fullnameOverride": {
+          "default": "openbao",
+          "description": "Override the full name of OpenBao resources",
+          "title": "fullnameOverride",
+          "type": "string"
+        },
+        "nameOverride": {
+          "default": "openbao",
+          "description": "Override the name of OpenBao resources",
+          "title": "nameOverride",
+          "type": "string"
+        },
+        "server": {
+          "additionalProperties": true,
+          "description": "OpenBao server configuration",
+          "properties": {
+            "dev": {
+              "additionalProperties": true,
+              "description": "Development mode configuration. WARNING - dev mode is NOT for production use.",
+              "properties": {
+                "devRootToken": {
+                  "default": "root",
+                  "description": "Root token for dev mode. Only used in development.",
+                  "title": "devRootToken",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": true,
+                  "description": "Enable OpenBao dev mode (in-memory storage, auto-unsealed)",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "logLevel": {
+                  "default": "info",
+                  "description": "Log level for OpenBao server",
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "info",
+                    "warn",
+                    "error"
+                  ],
+                  "required": [],
+                  "title": "logLevel"
+                }
+              },
+              "required": [],
+              "title": "dev",
+              "type": "object"
+            },
+            "readinessProbe": {
+              "additionalProperties": true,
+              "description": "Readiness probe configuration for OpenBao server",
+              "properties": {
+                "exec": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "title": "command",
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "title": "exec",
+                  "type": "object"
+                },
+                "failureThreshold": {
+                  "default": 3,
+                  "title": "failureThreshold",
+                  "type": "integer"
+                },
+                "initialDelaySeconds": {
+                  "default": 5,
+                  "title": "initialDelaySeconds",
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "default": 10,
+                  "title": "periodSeconds",
+                  "type": "integer"
+                },
+                "timeoutSeconds": {
+                  "default": 10,
+                  "title": "timeoutSeconds",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "exec",
+                "initialDelaySeconds",
+                "timeoutSeconds",
+                "periodSeconds",
+                "failureThreshold"
+              ],
+              "title": "readinessProbe",
+              "type": "object"
+            },
+            "resources": {
+              "additionalProperties": true,
+              "description": "Resource limits and requests for the OpenBao server",
+              "properties": {
+                "limits": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "cpu": {
+                      "default": "100m",
+                      "description": "CPU limit for the OpenBao server",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "128Mi",
+                      "description": "Memory limit for the OpenBao server",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "limits",
+                  "type": "object"
+                },
+                "requests": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "cpu": {
+                      "default": "50m",
+                      "description": "CPU request for the OpenBao server",
+                      "title": "cpu",
+                      "type": "string"
+                    },
+                    "memory": {
+                      "default": "64Mi",
+                      "description": "Memory request for the OpenBao server",
+                      "title": "memory",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "requests",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "resources",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "server",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "openbao",
+      "type": "object"
+    },
     "vault": {
       "additionalProperties": true,
       "description": "HashiCorp Vault sub-chart configuration for secrets management. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/hashicorp/vault-helm for all options.",

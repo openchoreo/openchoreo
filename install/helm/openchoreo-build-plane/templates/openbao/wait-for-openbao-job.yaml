@@ -1,0 +1,32 @@
+{{- if .Values.openbao.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wait-for-openbao-ready
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "8"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
+spec:
+  template:
+    spec:
+      serviceAccountName: openbao-wait-sa
+      containers:
+        - name: wait-for-ready
+          image: {{ .Values.waitJob.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for openbao to be ready..."
+              kubectl wait --namespace {{ .Release.Namespace }} \
+              --for=condition=Ready pods \
+              -l app.kubernetes.io/name=openbao,component=server \
+              --timeout=900s
+      restartPolicy: Never
+  backoffLimit: 5
+{{- end }}

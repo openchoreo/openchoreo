@@ -1,0 +1,77 @@
+{{- if .Values.openbao.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-config-job
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "9"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+  labels:
+    {{- include "openchoreo-build-plane.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: openbao-config
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: openbao-config
+        image: quay.io/openbao/openbao:2.1.0
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Set environment variables
+          export BAO_ADDR=http://openbao.{{ .Release.Namespace }}.svc:8200
+          export BAO_TOKEN={{ .Values.openbao.server.dev.devRootToken }}
+
+          # Enable Kubernetes authentication
+          bao auth enable kubernetes
+
+          # Configure Kubernetes authentication
+          bao write auth/kubernetes/config \
+            kubernetes_host="https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+
+          # Create a policy for reading secrets (used by data plane)
+          bao policy write openchoreo-secret-reader-policy - <<EOF
+          # Allow reading the data of any secret at secret/*
+          path "secret/data/*" {
+            capabilities = ["read"]
+          }
+
+          # Allow listing and reading metadata at secret/*
+          path "secret/metadata/*" {
+            capabilities = ["list", "read"]
+          }
+          EOF
+
+          # Create a policy for writing secrets (used by ESO PushSecrets)
+          bao policy write openchoreo-secret-writer-policy - <<EOF
+          # Allow full access to secrets at secret/*
+          path "secret/data/*" {
+            capabilities = ["create", "read", "update", "delete"]
+          }
+
+          # Allow managing metadata at secret/*
+          path "secret/metadata/*" {
+            capabilities = ["create", "read", "update", "delete", "list"]
+          }
+          EOF
+
+          # Create a Kubernetes auth role for reading secrets (data plane)
+          bao write auth/kubernetes/role/openchoreo-secret-reader-role \
+            bound_service_account_names="default" \
+            bound_service_account_namespaces="dp*" \
+            policies=openchoreo-secret-reader-policy \
+            ttl=20m
+
+          # Create a Kubernetes auth role for writing secrets (ESO in build plane)
+          bao write auth/kubernetes/role/openchoreo-secret-writer-role \
+            bound_service_account_names="*" \
+            bound_service_account_namespaces="{{ .Release.Namespace }}" \
+            policies=openchoreo-secret-writer-policy \
+            ttl=20m
+{{- end }}

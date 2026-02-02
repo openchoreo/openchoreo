@@ -809,8 +809,200 @@ vault:
 # @schema
 # type: object
 # additionalProperties: true
+# description: OpenBao sub-chart configuration for secrets management. OpenBao is an open-source fork of HashiCorp Vault. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/openbao/openbao-helm for all options.
+# @schema
+openbao:
+  # @schema
+  # type: boolean
+  # description: Enable OpenBao installation
+  # default: false
+  # @schema
+  enabled: false
+
+  # @schema
+  # type: string
+  # description: Override the full name of OpenBao resources
+  # default: openbao
+  # @schema
+  fullnameOverride: openbao
+
+  # @schema
+  # type: string
+  # description: Override the name of OpenBao resources
+  # default: openbao
+  # @schema
+  nameOverride: openbao
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: OpenBao server configuration
+  # @schema
+  server:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: OpenBao server image configuration
+    # @schema
+    image:
+      # @schema
+      # type: string
+      # description: Image tag to use for OpenBao server
+      # default: 2.4.4
+      # @schema
+      tag: "2.4.4"
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the OpenBao server
+    # @schema
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Development mode configuration. WARNING - dev mode is NOT for production use.
+    # @schema
+    dev:
+      # @schema
+      # type: boolean
+      # description: Enable OpenBao dev mode (in-memory storage, auto-unsealed)
+      # default: true
+      # @schema
+      enabled: true
+
+      # @schema
+      # type: string
+      # description: Root token for dev mode. Only used in development.
+      # default: root
+      # @schema
+      devRootToken: "root"
+
+      # @schema
+      # description: Log level for OpenBao server
+      # enum: [trace, debug, info, warn, error]
+      # default: info
+      # @schema
+      logLevel: "info"
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Readiness probe configuration for OpenBao server
+    # @schema
+    readinessProbe:
+      exec:
+        command: ["/bin/sh", "-ec", "bao status -tls-skip-verify"]
+      initialDelaySeconds: 15
+      timeoutSeconds: 15
+      periodSeconds: 10
+      failureThreshold: 3
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: OpenBao Agent Injector configuration
+  # @schema
+  injector:
+    # @schema
+    # type: boolean
+    # description: Enable the OpenBao Agent Injector
+    # default: false
+    # @schema
+    enabled: false
+
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Resource limits and requests for the OpenBao injector
+    # @schema
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 100m
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: ClusterSecretStore configuration for ESO integration with OpenBao
+  # @schema
+  secretStore:
+    # @schema
+    # type: string
+    # description: Name of the ClusterSecretStore resource
+    # default: openbao
+    # @schema
+    name: openbao
+
+    # @schema
+    # type: string
+    # description: OpenBao secrets engine path
+    # default: secret
+    # @schema
+    path: secret
+
+    # @schema
+    # type: string
+    # description: OpenBao KV secrets engine version (v1 or v2)
+    # default: v2
+    # @schema
+    version: v2
+
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # description: Authentication configuration for OpenBao
+    # @schema
+    auth:
+      # @schema
+      # type: object
+      # additionalProperties: false
+      # description: Kubernetes authentication configuration
+      # @schema
+      kubernetes:
+        # @schema
+        # type: string
+        # description: OpenBao auth method mount path
+        # default: kubernetes
+        # @schema
+        mountPath: kubernetes
+
+        # @schema
+        # type: string
+        # description: OpenBao role name for authentication. Use openchoreo-secret-writer-role for PushSecrets support.
+        # default: openchoreo-secret-writer-role
+        # @schema
+        role: openchoreo-secret-writer-role
+
+        # @schema
+        # type: string
+        # description: ServiceAccount name for OpenBao authentication
+        # default: external-secrets
+        # @schema
+        serviceAccountName: external-secrets
+
+        # @schema
+        # type: string
+        # description: Namespace of the ServiceAccount for OpenBao authentication. Defaults to release namespace.
+        # @schema
+        serviceAccountNamespace: ""
+
+# @schema
+# type: object
+# additionalProperties: true
 # description: Cluster Agent configuration for agent-based communication with control plane
 # @schema
+
 clusterAgent:
   # @schema
   # type: boolean
