@@ -30,6 +30,9 @@ resources:
   - bases/openchoreo.dev_authzrolebindings.yaml
   - bases/openchoreo.dev_authzclusterroles.yaml
   - bases/openchoreo.dev_authzclusterrolebindings.yaml
+  - bases/openchoreo.dev_clusterbuildplanes.yaml
+  - bases/openchoreo.dev_clusterdataplanes.yaml
+  - bases/openchoreo.dev_clusterobservabilityplanes.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

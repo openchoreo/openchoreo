@@ -1,0 +1,268 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: clusterdataplanes.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ClusterDataPlane
+    listKind: ClusterDataPlaneList
+    plural: clusterdataplanes
+    shortNames:
+    - cdp
+    - cdps
+    singular: clusterdataplane
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ClusterDataPlane is the Schema for the clusterdataplanes API.
+          It is a cluster-scoped version of DataPlane, allowing platform administrators
+          to define data plane configurations that can be referenced across multiple namespaces.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterDataPlaneSpec defines the desired state of ClusterDataPlane.
+              This is a cluster-scoped version of DataPlaneSpec, allowing platform admins
+              to define data planes that can be referenced across namespaces.
+            properties:
+              clusterAgent:
+                description: |-
+                  ClusterAgent specifies the configuration for cluster agent-based communication
+                  The cluster agent establishes a WebSocket connection to the control plane's cluster gateway
+                  This field is mandatory - all data planes must use cluster agent communication
+                properties:
+                  clientCA:
+                    description: |-
+                      ClientCA contains the CA certificate used to verify the agent's client certificate
+                      This allows per-plane CA configuration for enhanced security
+                    properties:
+                      secretRef:
+                        description: SecretRef is a reference to a secret containing
+                          the value
+                        properties:
+                          key:
+                            description: Key is the key within the secret
+                            type: string
+                          name:
+                            description: Name of the secret
+                            type: string
+                          namespace:
+                            description: Namespace of the secret (optional, defaults
+                              to same namespace as parent resource)
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      value:
+                        description: Value is the inline value (optional fallback)
+                        type: string
+                    type: object
+                required:
+                - clientCA
+                type: object
+              gateway:
+                description: Gateway specifies the configuration for the API gateway
+                  in this DataPlane.
+                properties:
+                  organizationHTTPPort:
+                    default: 19081
+                    description: Organization HTTP port for the gateway
+                    format: int32
+                    type: integer
+                  organizationHTTPSPort:
+                    default: 19444
+                    description: Organization HTTPS port for the gateway
+                    format: int32
+                    type: integer
+                  organizationVirtualHost:
+                    description: Organization-specific virtual host for the gateway
+                    type: string
+                  publicHTTPPort:
+                    default: 19080
+                    description: Public HTTP port for the gateway
+                    format: int32
+                    type: integer
+                  publicHTTPSPort:
+                    default: 19443
+                    description: Public HTTPS port for the gateway
+                    format: int32
+                    type: integer
+                  publicVirtualHost:
+                    description: Public virtual host for the gateway
+                    type: string
+                required:
+                - organizationVirtualHost
+                - publicVirtualHost
+                type: object
+              imagePullSecretRefs:
+                description: |-
+                  ImagePullSecretRefs contains references to SecretReference resources
+                  These will be converted to ExternalSecrets and added as imagePullSecrets to all deployments
+                items:
+                  type: string
+                type: array
+              observabilityPlaneRef:
+                description: |-
+                  ObservabilityPlaneRef specifies the name of the ClusterObservabilityPlane for this ClusterDataPlane.
+                  Since this is a cluster-scoped resource, it can only reference other cluster-scoped resources.
+                  This field must reference a ClusterObservabilityPlane resource, not a namespace-scoped ObservabilityPlane.
+                type: string
+              planeID:
+                description: |-
+                  PlaneID identifies the logical plane this CR connects to.
+                  Multiple ClusterDataPlane CRs can share the same planeID to connect to the same physical cluster
+                  while maintaining separate configurations for multi-tenancy scenarios.
+                  This field is required and must uniquely identify the physical cluster agent connection.
+                  Format: lowercase alphanumeric characters, hyphens allowed, max 63 characters.
+                  Examples: "prod-cluster", "shared-dataplane", "us-east-1"
+                maxLength: 63
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                type: string
+              secretStoreRef:
+                description: SecretStoreRef specifies the ESO ClusterSecretStore to
+                  use in the data plane
+                properties:
+                  name:
+                    description: Name of the ClusterSecretStore resource in the data
+                      plane cluster
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - clusterAgent
+            - gateway
+            - planeID
+            type: object
+          status:
+            description: ClusterDataPlaneStatus defines the observed state of ClusterDataPlane.
+            properties:
+              agentConnection:
+                description: AgentConnection tracks the status of cluster agent connections
+                  to this data plane
+                properties:
+                  connected:
+                    description: Connected indicates whether any cluster agent is
+                      currently connected
+                    type: boolean
+                  connectedAgents:
+                    description: ConnectedAgents is the number of cluster agents currently
+                      connected
+                    type: integer
+                  lastConnectedTime:
+                    description: LastConnectedTime is when an agent last successfully
+                      connected
+                    format: date-time
+                    type: string
+                  lastDisconnectedTime:
+                    description: LastDisconnectedTime is when the last agent disconnected
+                    format: date-time
+                    type: string
+                  lastHeartbeatTime:
+                    description: LastHeartbeatTime is when the control plane last
+                      received any communication from an agent
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message provides additional information about the
+                      agent connection status
+                    type: string
+                required:
+                - connected
+                - connectedAgents
+                type: object
+              conditions:
+                description: Conditions represent the current state of the ClusterDataPlane
+                  resource.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration reflects the generation of the most
+                  recently observed ClusterDataPlane.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

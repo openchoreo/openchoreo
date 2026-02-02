@@ -28,6 +28,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build"
 	"github.com/openchoreo/openchoreo/internal/controller/buildplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterbuildplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
@@ -134,6 +137,26 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&dataplane.Reconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&clusterdataplane.Reconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&clusterbuildplane.Reconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ClientMgr:     k8sClientMgr,
@@ -256,6 +279,16 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&observabilityplane.Reconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		ClientMgr:     k8sClientMgr,
+		GatewayClient: gwClient,
+		CacheVersion:  "v2",
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&clusterobservabilityplane.Reconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ClientMgr:     k8sClientMgr,

@@ -61,6 +61,9 @@ rules:
   resources:
     - buildplanes
     - builds
+    - clusterbuildplanes
+    - clusterdataplanes
+    - clusterobservabilityplanes
     - componentreleases
     - components
     - componenttypes
@@ -93,6 +96,9 @@ rules:
   resources:
     - buildplanes/finalizers
     - builds/finalizers
+    - clusterbuildplanes/finalizers
+    - clusterdataplanes/finalizers
+    - clusterobservabilityplanes/finalizers
     - componentreleases/finalizers
     - components/finalizers
     - componenttypes/finalizers
@@ -120,6 +126,9 @@ rules:
   resources:
     - buildplanes/status
     - builds/status
+    - clusterbuildplanes/status
+    - clusterdataplanes/status
+    - clusterobservabilityplanes/status
     - componentreleases/status
     - components/status
     - componenttypes/status

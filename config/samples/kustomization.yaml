@@ -43,4 +43,7 @@ resources:
   - v1alpha1_authzrolebinding.yaml
   - v1alpha1_authzclusterrole.yaml
   - v1alpha1_authzclusterrolebinding.yaml
+  - openchoreo_v1alpha1_clusterdataplane.yaml
+  - openchoreo_v1alpha1_clusterbuildplane.yaml
+  - openchoreo_v1alpha1_clusterobservabilityplane.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

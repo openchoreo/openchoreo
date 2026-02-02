@@ -86,6 +86,15 @@ resources:
   - authzrole_admin_role.yaml
   - authzrole_editor_role.yaml
   - authzrole_viewer_role.yaml
+  - clusterobservabilityplane_admin_role.yaml
+  - clusterobservabilityplane_editor_role.yaml
+  - clusterobservabilityplane_viewer_role.yaml
+  - clusterbuildplane_admin_role.yaml
+  - clusterbuildplane_editor_role.yaml
+  - clusterbuildplane_viewer_role.yaml
+  - clusterdataplane_admin_role.yaml
+  - clusterdataplane_editor_role.yaml
+  - clusterdataplane_viewer_role.yaml
   - componentworkflowrun_admin_role.yaml
   - componentworkflowrun_editor_role.yaml
   - componentworkflowrun_viewer_role.yaml
