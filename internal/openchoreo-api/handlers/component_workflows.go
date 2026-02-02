@@ -4,9 +4,12 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
@@ -241,25 +244,25 @@ func (h *Handler) GetComponentWorkflowRunStatus(w http.ResponseWriter, r *http.R
 	runName := r.PathValue("runName")
 
 	if namespaceName == "" {
-		log.Warn("Namespace name is required")
+		log.Error("Namespace name is required")
 		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
 		return
 	}
 
 	if projectName == "" {
-		log.Warn("Project name is required")
+		log.Error("Project name is required")
 		writeErrorResponse(w, http.StatusBadRequest, "Project name is required", "INVALID_PROJECT_NAME")
 		return
 	}
 
 	if componentName == "" {
-		log.Warn("Component name is required")
+		log.Error("Component name is required")
 		writeErrorResponse(w, http.StatusBadRequest, "Component name is required", "INVALID_COMPONENT_NAME")
 		return
 	}
 
 	if runName == "" {
-		log.Warn("Workflow run name is required")
+		log.Error("Workflow run name is required")
 		writeErrorResponse(w, http.StatusBadRequest, "Workflow run name is required", "INVALID_RUN_NAME")
 		return
 	}
@@ -268,20 +271,111 @@ func (h *Handler) GetComponentWorkflowRunStatus(w http.ResponseWriter, r *http.R
 	status, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunStatus(ctx, namespaceName, projectName, componentName, runName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
-			log.Warn("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
 			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrForbidden) {
-			log.Warn("Unauthorized to view component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Unauthorized to view component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
-		log.Error("Failed to get component workflow run status", "error", err)
+		log.Error("Failed to get component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run status", "INTERNAL_ERROR")
 		return
 	}
 
 	// Success response
 	writeSuccessResponse(w, http.StatusOK, status)
+}
+
+// GetComponentWorkflowRunLogs retrieves logs from a component workflow run
+func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+	log.Info("GetComponentWorkflowRunLogs handler called")
+
+	// Extract parameters from URL path
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	runName := r.PathValue("runName")
+
+	// Extract query parameters
+	stepName := r.URL.Query().Get("step")
+
+	// Parse sinceSeconds parameter (optional, in seconds)
+	var sinceSeconds *int64
+	if sinceSecondsStr := r.URL.Query().Get("sinceSeconds"); sinceSecondsStr != "" {
+		parsed, err := strconv.ParseInt(sinceSecondsStr, 10, 64)
+		if err != nil || parsed < 0 {
+			log.Error("Invalid sinceSeconds parameter", "sinceSeconds", sinceSecondsStr, "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid sinceSeconds parameter: must be a non-negative integer", "INVALID_SINCE_SECONDS")
+			return
+		}
+		sinceSeconds = &parsed
+	}
+
+	if namespaceName == "" {
+		log.Error("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
+		return
+	}
+
+	if projectName == "" {
+		log.Error("Project name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Project name is required", "INVALID_PROJECT_NAME")
+		return
+	}
+
+	if componentName == "" {
+		log.Error("Component name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Component name is required", "INVALID_COMPONENT_NAME")
+		return
+	}
+
+	if runName == "" {
+		log.Error("Workflow run name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Workflow run name is required", "INVALID_RUN_NAME")
+		return
+	}
+
+	// Get gateway URL from config or environment
+	gatewayURL := h.getGatewayURL()
+
+	// Call service to get component workflow run logs
+	logs, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunLogs(ctx, namespaceName, projectName, componentName, runName, stepName, gatewayURL, sinceSeconds)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
+			log.Error("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			log.Error("Unauthorized to view component workflow run logs", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		log.Error("Failed to get component workflow run logs", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run logs", "INTERNAL_ERROR")
+		return
+	}
+
+	// Return logs as JSON array of objects
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(logs); err != nil {
+		log.Error("Failed to encode logs response", "error", err)
+	}
+}
+
+// getGatewayURL gets the cluster gateway URL from config or environment
+func (h *Handler) getGatewayURL() string {
+	// Try to get from environment variable first
+	if gatewayURL := os.Getenv("CLUSTER_GATEWAY_URL"); gatewayURL != "" {
+		return gatewayURL
+	}
+
+	// Default to internal service DNS if in cluster
+	return "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443"
 }

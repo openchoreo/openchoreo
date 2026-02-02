@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -345,4 +346,74 @@ func (c *Client) GetPlaneStatus(ctx context.Context, planeType, planeID, namespa
 	}
 
 	return &status, nil
+}
+
+// PodReference represents a Kubernetes pod reference
+type PodReference struct {
+	Namespace string
+	Name      string
+}
+
+// PodLogsOptions contains options for fetching pod logs through the gateway
+type PodLogsOptions struct {
+	Container    string // Specific container name to get logs from
+	Timestamps   bool   // Include timestamps in log lines
+	SinceSeconds *int64 // Return logs newer than this many seconds
+}
+
+// GetPodLogsFromPlane retrieves pod logs through the gateway proxy with optional parameters
+// This method makes direct Kubernetes API calls through the gateway proxy to support
+// advanced log retrieval options like container selection, timestamps, and time filtering
+func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, namespace, name string, podReference *PodReference, options *PodLogsOptions) (string, error) {
+	if podReference == nil || podReference.Namespace == "" || podReference.Name == "" {
+		return "", fmt.Errorf("pod reference is required and must have namespace and name")
+	}
+
+	// Build query parameters
+	queryParams := ""
+	if options != nil {
+		params := []string{}
+		if options.Container != "" {
+			params = append(params, fmt.Sprintf("container=%s", options.Container))
+		}
+		if options.Timestamps {
+			params = append(params, "timestamps=true")
+		}
+		if options.SinceSeconds != nil && *options.SinceSeconds > 0 {
+			params = append(params, fmt.Sprintf("sinceSeconds=%d", *options.SinceSeconds))
+		}
+		if len(params) > 0 {
+			queryParams = "?" + strings.Join(params, "&")
+		}
+	}
+
+	// Build the URL for the Kubernetes API request
+	url := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log%s", podReference.Namespace, podReference.Name, queryParams)
+	url = fmt.Sprintf("%s/api/proxy/%s/%s/%s/%s/k8s%s", c.baseURL, planeType, planeID, namespace, name, url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		// Network errors are transient and should be retried
+		return "", &TransientError{
+			Message: "failed to send request",
+			Err:     err,
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", classifyHTTPError(resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return string(body), nil
 }

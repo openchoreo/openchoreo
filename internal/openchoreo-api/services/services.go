@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 )
 
@@ -35,7 +36,7 @@ type Services struct {
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string) *Services {
+func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string, gwClient *gatewayClient.Client) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
 
@@ -70,7 +71,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP)
 
 	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP, buildPlaneService)
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP, buildPlaneService, gwClient)
 
 	// Create webhook service (handles all git providers)
 	webhookService := NewWebhookService(k8sClient, componentWorkflowService)

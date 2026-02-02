@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/authz"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/internal/logging"
@@ -122,6 +123,13 @@ func main() {
 		gatewayURL = cfg.ClusterGateway.URL
 	}
 
+	// Create gateway client to fetch buildplane pod logs/events
+	var gwClient *gatewayClient.Client
+	if gatewayURL != "" {
+		gwClient = gatewayClient.NewClient(gatewayURL)
+		logger.Info("gateway client initialized", "url", gatewayURL)
+	}
+
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {
 		logger.Error("Failed to start authorization runtime", slog.Any("error", err))
@@ -136,7 +144,7 @@ func main() {
 	}
 
 	// Initialize services with PAP and PDP
-	services := services.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL)
+	services := services.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL, gwClient)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))

@@ -443,3 +443,8 @@ type WorkflowStepStatus struct {
 	StartedAt  *time.Time `json:"startedAt"`  // When step started
 	FinishedAt *time.Time `json:"finishedAt"` // When step finished
 }
+
+// ComponentWorkflowRunLogsResponse represents logs from a component workflow run
+type ComponentWorkflowRunLogsResponse struct {
+	Logs string `json:"logs"` // Log content as string
+}
