@@ -703,10 +703,47 @@ install_observability_plane() {
     # Generate machine-id for fluent-bit
     log_info "Generating machine-id for observability..."
     docker exec "k3d-${CLUSTER_NAME}-server-0" sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
-    
+
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
+}
+
+# Install default OpenChoreo resources (Project, Environments, ComponentTypes, etc.)
+install_default_resources() {
+    log_info "Installing default OpenChoreo resources..."
+
+    local resources_file="${SCRIPT_DIR}/../samples/getting-started/all.yaml"
+
+    if [[ ! -f "$resources_file" ]]; then
+        # Try alternative path inside container
+        resources_file="/home/openchoreo/samples/getting-started/all.yaml"
+    fi
+
+    if [[ ! -f "$resources_file" ]]; then
+        log_warning "Default resources file not found, skipping"
+        return 0
+    fi
+
+    # Wait for CRDs to be available
+    log_info "Waiting for OpenChoreo CRDs to be ready..."
+    local max_attempts=30
+    local attempt=0
+    while ! kubectl get crd projects.openchoreo.dev >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [[ $attempt -ge $max_attempts ]]; then
+            log_warning "Timed out waiting for CRDs, skipping default resources"
+            return 0
+        fi
+        sleep 2
+    done
+
+    if kubectl apply -f "$resources_file" >/dev/null 2>&1; then
+        log_success "Default resources installed"
+    else
+        log_warning "Failed to install default resources, you can apply them manually later"
+        log_info "  kubectl apply -f samples/getting-started/all.yaml"
+    fi
 }
 
 # Print installation configuration

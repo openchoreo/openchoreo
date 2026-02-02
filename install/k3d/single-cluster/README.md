@@ -173,7 +173,21 @@ Create a DataPlane resource to enable workload deployment. All DataPlanes use cl
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
-### 6. Create BuildPlane Resource (optional)
+### 6. Install Default Resources
+
+Install the default OpenChoreo resources (Project, Environments, DeploymentPipeline, ComponentTypes, ComponentWorkflows, and Traits):
+
+```bash
+kubectl --context k3d-openchoreo apply -f samples/getting-started/all.yaml
+```
+
+Or from the remote repository:
+
+```bash
+kubectl --context k3d-openchoreo apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+```
+
+### 7. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
@@ -185,7 +199,7 @@ Create a BuildPlane resource to enable building from source. All BuildPlanes use
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-### 7. Create ObservabilityPlane Resource (optional)
+### 8. Create ObservabilityPlane Resource (optional)
 
 Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 
