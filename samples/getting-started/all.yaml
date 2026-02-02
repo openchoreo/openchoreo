@@ -303,6 +303,7 @@ spec:
 
   allowedWorkflows:
     - react
+    - docker
 
   schema:
     types:
