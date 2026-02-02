@@ -1,0 +1,20 @@
+{{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.ingress.enabled .Values.gateway.enabled -}}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-mcp-timeout
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}
+  timeouts:
+    # Disable request timeout for MCP streaming connections
+    request: "0s"
+    # Set very long idle timeout for streaming
+    streamIdle: "24h"
+{{- end }}
