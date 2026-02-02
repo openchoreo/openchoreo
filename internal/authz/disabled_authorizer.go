@@ -142,6 +142,11 @@ func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error)
 	return nil, authz.ErrAuthzDisabled
 }
 
+// GetRoleEntitlementMapping fails with error
+func (da *DisabledAuthorizer) GetRoleEntitlementMapping(ctx context.Context, mappingRef *authz.MappingRef) (*authz.RoleEntitlementMapping, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
 // These var declarations enforce at compile-time that DisabledAuthorizer
 // implements the PDP and PAP interfaces correctly.
 var (

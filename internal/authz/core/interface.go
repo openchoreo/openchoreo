@@ -37,6 +37,8 @@ type PAP interface {
 	// ListRoles returns roles based on the provided filter
 	ListRoles(ctx context.Context, filter *RoleFilter) ([]*Role, error)
 
+	GetRoleEntitlementMapping(ctx context.Context, mappingRef *MappingRef) (*RoleEntitlementMapping, error)
+
 	// AddRoleEntitlementMapping creates a new role-entitlement mapping with optional conditions
 	AddRoleEntitlementMapping(ctx context.Context, mapping *RoleEntitlementMapping) error
 

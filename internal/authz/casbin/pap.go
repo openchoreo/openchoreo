@@ -123,7 +123,7 @@ func (ce *CasbinEnforcer) ListRoles(ctx context.Context, filter *authzcore.RoleF
 	ce.logger.Debug("list roles called", "filter", filter)
 
 	if filter == nil {
-		filter = &authzcore.RoleFilter{IncludeAll: true}
+		filter = &authzcore.RoleFilter{IncludeAll: false}
 	}
 
 	roleRefMap := make(map[authzcore.RoleRef][]string)
@@ -215,6 +215,25 @@ func (ce *CasbinEnforcer) AddRoleEntitlementMapping(ctx context.Context, mapping
 
 	ce.logger.Debug("created binding", "name", mapping.Name, "namespace", mapping.Hierarchy.Namespace)
 	return nil
+}
+
+// GetRoleEntitlementMapping retrieves a role-entitlement mapping
+func (ce *CasbinEnforcer) GetRoleEntitlementMapping(ctx context.Context, mappingRef *authzcore.MappingRef) (*authzcore.RoleEntitlementMapping, error) {
+	if mappingRef == nil {
+		return nil, fmt.Errorf("mappingRef cannot be nil")
+	}
+
+	ce.logger.Debug("get role entitlement mapping called",
+		"mapping_name", mappingRef.Name,
+		"mapping_namespace", mappingRef.Namespace)
+
+	// can't utilize casbin engine as there's no reference about mapping name,
+	// hence using k8s client to get the CRD directly
+	if isClusterScoped(mappingRef.Namespace) {
+		return ce.getClusterMapping(ctx, mappingRef)
+	}
+	return ce.getNamespacedMapping(ctx, mappingRef)
+
 }
 
 // UpdateRoleEntitlementMapping updates an existing role-entitlement mapping
@@ -377,6 +396,35 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 // ============================================================================
 // K8s CRD Helper Methods
 // ============================================================================
+
+// getClusterMapping retrieves a cluster-scoped role-entitlement mapping
+func (ce *CasbinEnforcer) getClusterMapping(ctx context.Context, mappingRef *authzcore.MappingRef) (*authzcore.RoleEntitlementMapping, error) {
+	clusterBinding := &openchoreov1alpha1.AuthzClusterRoleBinding{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: mappingRef.Name}, clusterBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzClusterRoleBinding: %w", err)
+	}
+
+	ce.logger.Debug("retrieved AuthzClusterRoleBinding", "name", mappingRef.Name)
+	return ce.convertBindingToMapping(*clusterBinding), nil
+}
+
+// getNamespacedMapping retrieves a namespaced role-entitlement mapping
+func (ce *CasbinEnforcer) getNamespacedMapping(ctx context.Context, mappingRef *authzcore.MappingRef) (*authzcore.RoleEntitlementMapping, error) {
+	roleBinding := &openchoreov1alpha1.AuthzRoleBinding{}
+	key := client.ObjectKey{Name: mappingRef.Name, Namespace: mappingRef.Namespace}
+	if err := ce.k8sClient.Get(ctx, key, roleBinding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzRoleBinding: %w", err)
+	}
+
+	ce.logger.Debug("retrieved AuthzRoleBinding", "name", mappingRef.Name, "namespace", mappingRef.Namespace)
+	return ce.convertBindingToMapping(*roleBinding), nil
+}
 
 // updateClusterRoleBinding updates an existing AuthzClusterRoleBinding
 func (ce *CasbinEnforcer) updateClusterRoleBinding(ctx context.Context, mapping *authzcore.RoleEntitlementMapping) error {
