@@ -116,40 +116,43 @@ type ClientInterface interface {
 	// GetSubjectProfile request
 	GetSubjectProfile(ctx context.Context, params *GetSubjectProfileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRoleMappings request
-	ListRoleMappings(ctx context.Context, params *ListRoleMappingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListClusterRoleBindings request
+	ListClusterRoleBindings(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AddRoleMappingWithBody request with any body
-	AddRoleMappingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateClusterRoleBindingWithBody request with any body
+	CreateClusterRoleBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AddRoleMapping(ctx context.Context, body AddRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateClusterRoleBinding(ctx context.Context, body CreateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RemoveRoleMapping request
-	RemoveRoleMapping(ctx context.Context, mappingId MappingIdParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteClusterRoleBinding request
+	DeleteClusterRoleBinding(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateRoleMappingWithBody request with any body
-	UpdateRoleMappingWithBody(ctx context.Context, mappingId MappingIdParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetClusterRoleBinding request
+	GetClusterRoleBinding(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateRoleMapping(ctx context.Context, mappingId MappingIdParam, body UpdateRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateClusterRoleBindingWithBody request with any body
+	UpdateClusterRoleBindingWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListRoles request
-	ListRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateClusterRoleBinding(ctx context.Context, name string, body UpdateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// AddRoleWithBody request with any body
-	AddRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListClusterRoles request
+	ListClusterRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AddRole(ctx context.Context, body AddRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateClusterRoleWithBody request with any body
+	CreateClusterRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// RemoveRole request
-	RemoveRole(ctx context.Context, roleName RoleNameParam, params *RemoveRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateClusterRole(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetRole request
-	GetRole(ctx context.Context, roleName RoleNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteClusterRole request
+	DeleteClusterRole(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateRoleWithBody request with any body
-	UpdateRoleWithBody(ctx context.Context, roleName RoleNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetClusterRole request
+	GetClusterRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateRole(ctx context.Context, roleName RoleNameParam, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateClusterRoleWithBody request with any body
+	UpdateClusterRoleWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterRole(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteResourceWithBody request with any body
 	DeleteResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -324,6 +327,44 @@ type ClientInterface interface {
 
 	// GetProjectDeploymentPipeline request
 	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListNamespaceRoleBindings request
+	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateNamespaceRoleBindingWithBody request with any body
+	CreateNamespaceRoleBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteNamespaceRoleBinding request
+	DeleteNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetNamespaceRoleBinding request
+	GetNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateNamespaceRoleBindingWithBody request with any body
+	UpdateNamespaceRoleBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListNamespaceRoles request
+	ListNamespaceRoles(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateNamespaceRoleWithBody request with any body
+	CreateNamespaceRoleWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteNamespaceRole request
+	DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetNamespaceRole request
+	GetNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateNamespaceRoleWithBody request with any body
+	UpdateNamespaceRoleWithBody(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSecretReferences request
 	ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -502,8 +543,8 @@ func (c *Client) GetSubjectProfile(ctx context.Context, params *GetSubjectProfil
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRoleMappings(ctx context.Context, params *ListRoleMappingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRoleMappingsRequest(c.Server, params)
+func (c *Client) ListClusterRoleBindings(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterRoleBindingsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -514,8 +555,8 @@ func (c *Client) ListRoleMappings(ctx context.Context, params *ListRoleMappingsP
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddRoleMappingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddRoleMappingRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreateClusterRoleBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterRoleBindingRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -526,8 +567,8 @@ func (c *Client) AddRoleMappingWithBody(ctx context.Context, contentType string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddRoleMapping(ctx context.Context, body AddRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddRoleMappingRequest(c.Server, body)
+func (c *Client) CreateClusterRoleBinding(ctx context.Context, body CreateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterRoleBindingRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -538,8 +579,8 @@ func (c *Client) AddRoleMapping(ctx context.Context, body AddRoleMappingJSONRequ
 	return c.Client.Do(req)
 }
 
-func (c *Client) RemoveRoleMapping(ctx context.Context, mappingId MappingIdParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemoveRoleMappingRequest(c.Server, mappingId)
+func (c *Client) DeleteClusterRoleBinding(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterRoleBindingRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -550,8 +591,8 @@ func (c *Client) RemoveRoleMapping(ctx context.Context, mappingId MappingIdParam
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRoleMappingWithBody(ctx context.Context, mappingId MappingIdParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRoleMappingRequestWithBody(c.Server, mappingId, contentType, body)
+func (c *Client) GetClusterRoleBinding(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterRoleBindingRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -562,8 +603,8 @@ func (c *Client) UpdateRoleMappingWithBody(ctx context.Context, mappingId Mappin
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRoleMapping(ctx context.Context, mappingId MappingIdParam, body UpdateRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRoleMappingRequest(c.Server, mappingId, body)
+func (c *Client) UpdateClusterRoleBindingWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterRoleBindingRequestWithBody(c.Server, name, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -574,8 +615,8 @@ func (c *Client) UpdateRoleMapping(ctx context.Context, mappingId MappingIdParam
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListRolesRequest(c.Server)
+func (c *Client) UpdateClusterRoleBinding(ctx context.Context, name string, body UpdateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterRoleBindingRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -586,8 +627,8 @@ func (c *Client) ListRoles(ctx context.Context, reqEditors ...RequestEditorFn) (
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddRoleRequestWithBody(c.Server, contentType, body)
+func (c *Client) ListClusterRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterRolesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -598,8 +639,8 @@ func (c *Client) AddRoleWithBody(ctx context.Context, contentType string, body i
 	return c.Client.Do(req)
 }
 
-func (c *Client) AddRole(ctx context.Context, body AddRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAddRoleRequest(c.Server, body)
+func (c *Client) CreateClusterRoleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterRoleRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -610,8 +651,8 @@ func (c *Client) AddRole(ctx context.Context, body AddRoleJSONRequestBody, reqEd
 	return c.Client.Do(req)
 }
 
-func (c *Client) RemoveRole(ctx context.Context, roleName RoleNameParam, params *RemoveRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRemoveRoleRequest(c.Server, roleName, params)
+func (c *Client) CreateClusterRole(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterRoleRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -622,8 +663,8 @@ func (c *Client) RemoveRole(ctx context.Context, roleName RoleNameParam, params 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRole(ctx context.Context, roleName RoleNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRoleRequest(c.Server, roleName)
+func (c *Client) DeleteClusterRole(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterRoleRequest(c.Server, name, params)
 	if err != nil {
 		return nil, err
 	}
@@ -634,8 +675,8 @@ func (c *Client) GetRole(ctx context.Context, roleName RoleNameParam, reqEditors
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRoleWithBody(ctx context.Context, roleName RoleNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRoleRequestWithBody(c.Server, roleName, contentType, body)
+func (c *Client) GetClusterRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterRoleRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -646,8 +687,20 @@ func (c *Client) UpdateRoleWithBody(ctx context.Context, roleName RoleNameParam,
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRole(ctx context.Context, roleName RoleNameParam, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRoleRequest(c.Server, roleName, body)
+func (c *Client) UpdateClusterRoleWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterRoleRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterRole(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterRoleRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1414,6 +1467,174 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespaceRoleBindingsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceRoleBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRoleBindingRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRoleBindingRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceRoleBindingRequest(c.Server, namespaceName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetNamespaceRoleBindingRequest(c.Server, namespaceName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNamespaceRoleBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNamespaceRoleBindingRequestWithBody(c.Server, namespaceName, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNamespaceRoleBinding(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNamespaceRoleBindingRequest(c.Server, namespaceName, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListNamespaceRoles(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespaceRolesRequest(c.Server, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceRoleWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRoleRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateNamespaceRoleRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceRoleRequest(c.Server, namespaceName, name, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetNamespaceRoleRequest(c.Server, namespaceName, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNamespaceRoleWithBody(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNamespaceRoleRequestWithBody(c.Server, namespaceName, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateNamespaceRoleRequest(c.Server, namespaceName, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSecretReferencesRequest(c.Server, namespaceName)
 	if err != nil {
@@ -1925,22 +2146,6 @@ func NewGetSubjectProfileRequest(server string, params *GetSubjectProfileParams)
 
 		}
 
-		if params.Ou != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "ou", runtime.ParamLocationQuery, *params.Ou); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -1952,8 +2157,8 @@ func NewGetSubjectProfileRequest(server string, params *GetSubjectProfileParams)
 	return req, nil
 }
 
-// NewListRoleMappingsRequest generates requests for ListRoleMappings
-func NewListRoleMappingsRequest(server string, params *ListRoleMappingsParams) (*http.Request, error) {
+// NewListClusterRoleBindingsRequest generates requests for ListClusterRoleBindings
+func NewListClusterRoleBindingsRequest(server string, params *ListClusterRoleBindingsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1961,7 +2166,7 @@ func NewListRoleMappingsRequest(server string, params *ListRoleMappingsParams) (
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/role-mappings")
+	operationPath := fmt.Sprintf("/api/v1/clusterrolebindings")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1974,9 +2179,9 @@ func NewListRoleMappingsRequest(server string, params *ListRoleMappingsParams) (
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if params.Role != nil {
+		if params.RoleName != nil {
 
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "role", runtime.ParamLocationQuery, *params.Role); err != nil {
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleName", runtime.ParamLocationQuery, *params.RoleName); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -2022,6 +2227,22 @@ func NewListRoleMappingsRequest(server string, params *ListRoleMappingsParams) (
 
 		}
 
+		if params.Effect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "effect", runtime.ParamLocationQuery, *params.Effect); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -2033,19 +2254,19 @@ func NewListRoleMappingsRequest(server string, params *ListRoleMappingsParams) (
 	return req, nil
 }
 
-// NewAddRoleMappingRequest calls the generic AddRoleMapping builder with application/json body
-func NewAddRoleMappingRequest(server string, body AddRoleMappingJSONRequestBody) (*http.Request, error) {
+// NewCreateClusterRoleBindingRequest calls the generic CreateClusterRoleBinding builder with application/json body
+func NewCreateClusterRoleBindingRequest(server string, body CreateClusterRoleBindingJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAddRoleMappingRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateClusterRoleBindingRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewAddRoleMappingRequestWithBody generates requests for AddRoleMapping with any type of body
-func NewAddRoleMappingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateClusterRoleBindingRequestWithBody generates requests for CreateClusterRoleBinding with any type of body
+func NewCreateClusterRoleBindingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2053,7 +2274,7 @@ func NewAddRoleMappingRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/role-mappings")
+	operationPath := fmt.Sprintf("/api/v1/clusterrolebindings")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2073,13 +2294,13 @@ func NewAddRoleMappingRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewRemoveRoleMappingRequest generates requests for RemoveRoleMapping
-func NewRemoveRoleMappingRequest(server string, mappingId MappingIdParam) (*http.Request, error) {
+// NewDeleteClusterRoleBindingRequest generates requests for DeleteClusterRoleBinding
+func NewDeleteClusterRoleBindingRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "mappingId", runtime.ParamLocationPath, mappingId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2089,7 +2310,7 @@ func NewRemoveRoleMappingRequest(server string, mappingId MappingIdParam) (*http
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/role-mappings/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/clusterrolebindings/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2107,24 +2328,13 @@ func NewRemoveRoleMappingRequest(server string, mappingId MappingIdParam) (*http
 	return req, nil
 }
 
-// NewUpdateRoleMappingRequest calls the generic UpdateRoleMapping builder with application/json body
-func NewUpdateRoleMappingRequest(server string, mappingId MappingIdParam, body UpdateRoleMappingJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateRoleMappingRequestWithBody(server, mappingId, "application/json", bodyReader)
-}
-
-// NewUpdateRoleMappingRequestWithBody generates requests for UpdateRoleMapping with any type of body
-func NewUpdateRoleMappingRequestWithBody(server string, mappingId MappingIdParam, contentType string, body io.Reader) (*http.Request, error) {
+// NewGetClusterRoleBindingRequest generates requests for GetClusterRoleBinding
+func NewGetClusterRoleBindingRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "mappingId", runtime.ParamLocationPath, mappingId)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2134,7 +2344,52 @@ func NewUpdateRoleMappingRequestWithBody(server string, mappingId MappingIdParam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/role-mappings/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/clusterrolebindings/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterRoleBindingRequest calls the generic UpdateClusterRoleBinding builder with application/json body
+func NewUpdateClusterRoleBindingRequest(server string, name string, body UpdateClusterRoleBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterRoleBindingRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewUpdateClusterRoleBindingRequestWithBody generates requests for UpdateClusterRoleBinding with any type of body
+func NewUpdateClusterRoleBindingRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterrolebindings/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2154,8 +2409,8 @@ func NewUpdateRoleMappingRequestWithBody(server string, mappingId MappingIdParam
 	return req, nil
 }
 
-// NewListRolesRequest generates requests for ListRoles
-func NewListRolesRequest(server string) (*http.Request, error) {
+// NewListClusterRolesRequest generates requests for ListClusterRoles
+func NewListClusterRolesRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2163,7 +2418,7 @@ func NewListRolesRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/roles")
+	operationPath := fmt.Sprintf("/api/v1/clusterroles")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2181,19 +2436,19 @@ func NewListRolesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewAddRoleRequest calls the generic AddRole builder with application/json body
-func NewAddRoleRequest(server string, body AddRoleJSONRequestBody) (*http.Request, error) {
+// NewCreateClusterRoleRequest calls the generic CreateClusterRole builder with application/json body
+func NewCreateClusterRoleRequest(server string, body CreateClusterRoleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAddRoleRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateClusterRoleRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewAddRoleRequestWithBody generates requests for AddRole with any type of body
-func NewAddRoleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateClusterRoleRequestWithBody generates requests for CreateClusterRole with any type of body
+func NewCreateClusterRoleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2201,7 +2456,7 @@ func NewAddRoleRequestWithBody(server string, contentType string, body io.Reader
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/roles")
+	operationPath := fmt.Sprintf("/api/v1/clusterroles")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2221,13 +2476,13 @@ func NewAddRoleRequestWithBody(server string, contentType string, body io.Reader
 	return req, nil
 }
 
-// NewRemoveRoleRequest generates requests for RemoveRole
-func NewRemoveRoleRequest(server string, roleName RoleNameParam, params *RemoveRoleParams) (*http.Request, error) {
+// NewDeleteClusterRoleRequest generates requests for DeleteClusterRole
+func NewDeleteClusterRoleRequest(server string, name string, params *DeleteClusterRoleParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "roleName", runtime.ParamLocationPath, roleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2237,7 +2492,7 @@ func NewRemoveRoleRequest(server string, roleName RoleNameParam, params *RemoveR
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/roles/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/clusterroles/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2277,13 +2532,13 @@ func NewRemoveRoleRequest(server string, roleName RoleNameParam, params *RemoveR
 	return req, nil
 }
 
-// NewGetRoleRequest generates requests for GetRole
-func NewGetRoleRequest(server string, roleName RoleNameParam) (*http.Request, error) {
+// NewGetClusterRoleRequest generates requests for GetClusterRole
+func NewGetClusterRoleRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "roleName", runtime.ParamLocationPath, roleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2293,7 +2548,7 @@ func NewGetRoleRequest(server string, roleName RoleNameParam) (*http.Request, er
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/roles/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/clusterroles/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -2311,24 +2566,24 @@ func NewGetRoleRequest(server string, roleName RoleNameParam) (*http.Request, er
 	return req, nil
 }
 
-// NewUpdateRoleRequest calls the generic UpdateRole builder with application/json body
-func NewUpdateRoleRequest(server string, roleName RoleNameParam, body UpdateRoleJSONRequestBody) (*http.Request, error) {
+// NewUpdateClusterRoleRequest calls the generic UpdateClusterRole builder with application/json body
+func NewUpdateClusterRoleRequest(server string, name string, body UpdateClusterRoleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateRoleRequestWithBody(server, roleName, "application/json", bodyReader)
+	return NewUpdateClusterRoleRequestWithBody(server, name, "application/json", bodyReader)
 }
 
-// NewUpdateRoleRequestWithBody generates requests for UpdateRole with any type of body
-func NewUpdateRoleRequestWithBody(server string, roleName RoleNameParam, contentType string, body io.Reader) (*http.Request, error) {
+// NewUpdateClusterRoleRequestWithBody generates requests for UpdateClusterRole with any type of body
+func NewUpdateClusterRoleRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
 
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "roleName", runtime.ParamLocationPath, roleName)
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2338,7 +2593,7 @@ func NewUpdateRoleRequestWithBody(server string, roleName RoleNameParam, content
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/authz/roles/%s", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/clusterroles/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5049,6 +5304,548 @@ func NewGetProjectDeploymentPipelineRequest(server string, namespaceName Namespa
 	return req, nil
 }
 
+// NewListNamespaceRoleBindingsRequest generates requests for ListNamespaceRoleBindings
+func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/rolebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.RoleName != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleName", runtime.ParamLocationQuery, *params.RoleName); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.RoleNamespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleNamespace", runtime.ParamLocationQuery, *params.RoleNamespace); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Claim != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "claim", runtime.ParamLocationQuery, *params.Claim); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Value != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "value", runtime.ParamLocationQuery, *params.Value); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Effect != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "effect", runtime.ParamLocationQuery, *params.Effect); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateNamespaceRoleBindingRequest calls the generic CreateNamespaceRoleBinding builder with application/json body
+func NewCreateNamespaceRoleBindingRequest(server string, namespaceName NamespaceNameParam, body CreateNamespaceRoleBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateNamespaceRoleBindingRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateNamespaceRoleBindingRequestWithBody generates requests for CreateNamespaceRoleBinding with any type of body
+func NewCreateNamespaceRoleBindingRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/rolebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteNamespaceRoleBindingRequest generates requests for DeleteNamespaceRoleBinding
+func NewDeleteNamespaceRoleBindingRequest(server string, namespaceName NamespaceNameParam, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/rolebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetNamespaceRoleBindingRequest generates requests for GetNamespaceRoleBinding
+func NewGetNamespaceRoleBindingRequest(server string, namespaceName NamespaceNameParam, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/rolebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateNamespaceRoleBindingRequest calls the generic UpdateNamespaceRoleBinding builder with application/json body
+func NewUpdateNamespaceRoleBindingRequest(server string, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateNamespaceRoleBindingRequestWithBody(server, namespaceName, name, "application/json", bodyReader)
+}
+
+// NewUpdateNamespaceRoleBindingRequestWithBody generates requests for UpdateNamespaceRoleBinding with any type of body
+func NewUpdateNamespaceRoleBindingRequestWithBody(server string, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/rolebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListNamespaceRolesRequest generates requests for ListNamespaceRoles
+func NewListNamespaceRolesRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/roles", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateNamespaceRoleRequest calls the generic CreateNamespaceRole builder with application/json body
+func NewCreateNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateNamespaceRoleRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateNamespaceRoleRequestWithBody generates requests for CreateNamespaceRole with any type of body
+func NewCreateNamespaceRoleRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/roles", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteNamespaceRoleRequest generates requests for DeleteNamespaceRole
+func NewDeleteNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/roles/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Force != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "force", runtime.ParamLocationQuery, *params.Force); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetNamespaceRoleRequest generates requests for GetNamespaceRole
+func NewGetNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/roles/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateNamespaceRoleRequest calls the generic UpdateNamespaceRole builder with application/json body
+func NewUpdateNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateNamespaceRoleRequestWithBody(server, namespaceName, name, "application/json", bodyReader)
+}
+
+// NewUpdateNamespaceRoleRequestWithBody generates requests for UpdateNamespaceRole with any type of body
+func NewUpdateNamespaceRoleRequestWithBody(server string, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/roles/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListSecretReferencesRequest generates requests for ListSecretReferences
 func NewListSecretReferencesRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
 	var err error
@@ -5794,40 +6591,43 @@ type ClientWithResponsesInterface interface {
 	// GetSubjectProfileWithResponse request
 	GetSubjectProfileWithResponse(ctx context.Context, params *GetSubjectProfileParams, reqEditors ...RequestEditorFn) (*GetSubjectProfileResp, error)
 
-	// ListRoleMappingsWithResponse request
-	ListRoleMappingsWithResponse(ctx context.Context, params *ListRoleMappingsParams, reqEditors ...RequestEditorFn) (*ListRoleMappingsResp, error)
+	// ListClusterRoleBindingsWithResponse request
+	ListClusterRoleBindingsWithResponse(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error)
 
-	// AddRoleMappingWithBodyWithResponse request with any body
-	AddRoleMappingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddRoleMappingResp, error)
+	// CreateClusterRoleBindingWithBodyWithResponse request with any body
+	CreateClusterRoleBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterRoleBindingResp, error)
 
-	AddRoleMappingWithResponse(ctx context.Context, body AddRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*AddRoleMappingResp, error)
+	CreateClusterRoleBindingWithResponse(ctx context.Context, body CreateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterRoleBindingResp, error)
 
-	// RemoveRoleMappingWithResponse request
-	RemoveRoleMappingWithResponse(ctx context.Context, mappingId MappingIdParam, reqEditors ...RequestEditorFn) (*RemoveRoleMappingResp, error)
+	// DeleteClusterRoleBindingWithResponse request
+	DeleteClusterRoleBindingWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteClusterRoleBindingResp, error)
 
-	// UpdateRoleMappingWithBodyWithResponse request with any body
-	UpdateRoleMappingWithBodyWithResponse(ctx context.Context, mappingId MappingIdParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleMappingResp, error)
+	// GetClusterRoleBindingWithResponse request
+	GetClusterRoleBindingWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetClusterRoleBindingResp, error)
 
-	UpdateRoleMappingWithResponse(ctx context.Context, mappingId MappingIdParam, body UpdateRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleMappingResp, error)
+	// UpdateClusterRoleBindingWithBodyWithResponse request with any body
+	UpdateClusterRoleBindingWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterRoleBindingResp, error)
 
-	// ListRolesWithResponse request
-	ListRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRolesResp, error)
+	UpdateClusterRoleBindingWithResponse(ctx context.Context, name string, body UpdateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterRoleBindingResp, error)
 
-	// AddRoleWithBodyWithResponse request with any body
-	AddRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddRoleResp, error)
+	// ListClusterRolesWithResponse request
+	ListClusterRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterRolesResp, error)
 
-	AddRoleWithResponse(ctx context.Context, body AddRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*AddRoleResp, error)
+	// CreateClusterRoleWithBodyWithResponse request with any body
+	CreateClusterRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterRoleResp, error)
 
-	// RemoveRoleWithResponse request
-	RemoveRoleWithResponse(ctx context.Context, roleName RoleNameParam, params *RemoveRoleParams, reqEditors ...RequestEditorFn) (*RemoveRoleResp, error)
+	CreateClusterRoleWithResponse(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterRoleResp, error)
 
-	// GetRoleWithResponse request
-	GetRoleWithResponse(ctx context.Context, roleName RoleNameParam, reqEditors ...RequestEditorFn) (*GetRoleResp, error)
+	// DeleteClusterRoleWithResponse request
+	DeleteClusterRoleWithResponse(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error)
 
-	// UpdateRoleWithBodyWithResponse request with any body
-	UpdateRoleWithBodyWithResponse(ctx context.Context, roleName RoleNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleResp, error)
+	// GetClusterRoleWithResponse request
+	GetClusterRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetClusterRoleResp, error)
 
-	UpdateRoleWithResponse(ctx context.Context, roleName RoleNameParam, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleResp, error)
+	// UpdateClusterRoleWithBodyWithResponse request with any body
+	UpdateClusterRoleWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterRoleResp, error)
+
+	UpdateClusterRoleWithResponse(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterRoleResp, error)
 
 	// DeleteResourceWithBodyWithResponse request with any body
 	DeleteResourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error)
@@ -6002,6 +6802,44 @@ type ClientWithResponsesInterface interface {
 
 	// GetProjectDeploymentPipelineWithResponse request
 	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
+
+	// ListNamespaceRoleBindingsWithResponse request
+	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
+
+	// CreateNamespaceRoleBindingWithBodyWithResponse request with any body
+	CreateNamespaceRoleBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleBindingResp, error)
+
+	CreateNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleBindingResp, error)
+
+	// DeleteNamespaceRoleBindingWithResponse request
+	DeleteNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleBindingResp, error)
+
+	// GetNamespaceRoleBindingWithResponse request
+	GetNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*GetNamespaceRoleBindingResp, error)
+
+	// UpdateNamespaceRoleBindingWithBodyWithResponse request with any body
+	UpdateNamespaceRoleBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleBindingResp, error)
+
+	UpdateNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleBindingResp, error)
+
+	// ListNamespaceRolesWithResponse request
+	ListNamespaceRolesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRolesResp, error)
+
+	// CreateNamespaceRoleWithBodyWithResponse request with any body
+	CreateNamespaceRoleWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleResp, error)
+
+	CreateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleResp, error)
+
+	// DeleteNamespaceRoleWithResponse request
+	DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error)
+
+	// GetNamespaceRoleWithResponse request
+	GetNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*GetNamespaceRoleResp, error)
+
+	// UpdateNamespaceRoleWithBodyWithResponse request with any body
+	UpdateNamespaceRoleWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleResp, error)
+
+	UpdateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleResp, error)
 
 	// ListSecretReferencesWithResponse request
 	ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error)
@@ -6231,18 +7069,17 @@ func (r GetSubjectProfileResp) StatusCode() int {
 	return 0
 }
 
-type ListRoleMappingsResp struct {
+type ListClusterRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]RoleEntitlementMapping
-	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRoleMappingsResp) Status() string {
+func (r ListClusterRoleBindingsResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6250,17 +7087,17 @@ func (r ListRoleMappingsResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRoleMappingsResp) StatusCode() int {
+func (r ListClusterRoleBindingsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type AddRoleMappingResp struct {
+type CreateClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *MessageResponse
+	JSON201      *RoleEntitlementMapping
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6269,7 +7106,7 @@ type AddRoleMappingResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r AddRoleMappingResp) Status() string {
+func (r CreateClusterRoleBindingResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6277,14 +7114,14 @@ func (r AddRoleMappingResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AddRoleMappingResp) StatusCode() int {
+func (r CreateClusterRoleBindingResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RemoveRoleMappingResp struct {
+type DeleteClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *Unauthorized
@@ -6294,7 +7131,7 @@ type RemoveRoleMappingResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RemoveRoleMappingResp) Status() string {
+func (r DeleteClusterRoleBindingResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6302,17 +7139,43 @@ func (r RemoveRoleMappingResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RemoveRoleMappingResp) StatusCode() int {
+func (r DeleteClusterRoleBindingResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateRoleMappingResp struct {
+type GetClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *MessageResponse
+	JSON200      *RoleEntitlementMapping
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterRoleBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterRoleBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterRoleBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleEntitlementMapping
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6322,7 +7185,7 @@ type UpdateRoleMappingResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateRoleMappingResp) Status() string {
+func (r UpdateClusterRoleBindingResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6330,14 +7193,14 @@ func (r UpdateRoleMappingResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateRoleMappingResp) StatusCode() int {
+func (r UpdateClusterRoleBindingResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ListRolesResp struct {
+type ListClusterRolesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Role
@@ -6347,7 +7210,7 @@ type ListRolesResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListRolesResp) Status() string {
+func (r ListClusterRolesResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6355,17 +7218,17 @@ func (r ListRolesResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListRolesResp) StatusCode() int {
+func (r ListClusterRolesResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type AddRoleResp struct {
+type CreateClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *MessageResponse
+	JSON201      *Role
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6374,7 +7237,7 @@ type AddRoleResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r AddRoleResp) Status() string {
+func (r CreateClusterRoleResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6382,14 +7245,14 @@ func (r AddRoleResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r AddRoleResp) StatusCode() int {
+func (r CreateClusterRoleResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type RemoveRoleResp struct {
+type DeleteClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *Unauthorized
@@ -6400,7 +7263,7 @@ type RemoveRoleResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RemoveRoleResp) Status() string {
+func (r DeleteClusterRoleResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6408,14 +7271,14 @@ func (r RemoveRoleResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RemoveRoleResp) StatusCode() int {
+func (r DeleteClusterRoleResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type GetRoleResp struct {
+type GetClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Role
@@ -6426,7 +7289,7 @@ type GetRoleResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetRoleResp) Status() string {
+func (r GetClusterRoleResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6434,17 +7297,17 @@ func (r GetRoleResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetRoleResp) StatusCode() int {
+func (r GetClusterRoleResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type UpdateRoleResp struct {
+type UpdateClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *MessageResponse
+	JSON200      *Role
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -6453,7 +7316,7 @@ type UpdateRoleResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateRoleResp) Status() string {
+func (r UpdateClusterRoleResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -6461,7 +7324,7 @@ func (r UpdateRoleResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateRoleResp) StatusCode() int {
+func (r UpdateClusterRoleResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -7725,6 +8588,274 @@ func (r GetProjectDeploymentPipelineResp) StatusCode() int {
 	return 0
 }
 
+type ListNamespaceRoleBindingsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]RoleEntitlementMapping
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListNamespaceRoleBindingsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListNamespaceRoleBindingsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateNamespaceRoleBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *RoleEntitlementMapping
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateNamespaceRoleBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateNamespaceRoleBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteNamespaceRoleBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteNamespaceRoleBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteNamespaceRoleBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetNamespaceRoleBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleEntitlementMapping
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetNamespaceRoleBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetNamespaceRoleBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateNamespaceRoleBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RoleEntitlementMapping
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateNamespaceRoleBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateNamespaceRoleBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListNamespaceRolesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Role
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListNamespaceRolesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListNamespaceRolesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateNamespaceRoleResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Role
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateNamespaceRoleResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateNamespaceRoleResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteNamespaceRoleResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteNamespaceRoleResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteNamespaceRoleResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetNamespaceRoleResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Role
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetNamespaceRoleResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetNamespaceRoleResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateNamespaceRoleResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Role
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateNamespaceRoleResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateNamespaceRoleResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListSecretReferencesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8203,117 +9334,126 @@ func (c *ClientWithResponses) GetSubjectProfileWithResponse(ctx context.Context,
 	return ParseGetSubjectProfileResp(rsp)
 }
 
-// ListRoleMappingsWithResponse request returning *ListRoleMappingsResp
-func (c *ClientWithResponses) ListRoleMappingsWithResponse(ctx context.Context, params *ListRoleMappingsParams, reqEditors ...RequestEditorFn) (*ListRoleMappingsResp, error) {
-	rsp, err := c.ListRoleMappings(ctx, params, reqEditors...)
+// ListClusterRoleBindingsWithResponse request returning *ListClusterRoleBindingsResp
+func (c *ClientWithResponses) ListClusterRoleBindingsWithResponse(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error) {
+	rsp, err := c.ListClusterRoleBindings(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRoleMappingsResp(rsp)
+	return ParseListClusterRoleBindingsResp(rsp)
 }
 
-// AddRoleMappingWithBodyWithResponse request with arbitrary body returning *AddRoleMappingResp
-func (c *ClientWithResponses) AddRoleMappingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddRoleMappingResp, error) {
-	rsp, err := c.AddRoleMappingWithBody(ctx, contentType, body, reqEditors...)
+// CreateClusterRoleBindingWithBodyWithResponse request with arbitrary body returning *CreateClusterRoleBindingResp
+func (c *ClientWithResponses) CreateClusterRoleBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterRoleBindingResp, error) {
+	rsp, err := c.CreateClusterRoleBindingWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddRoleMappingResp(rsp)
+	return ParseCreateClusterRoleBindingResp(rsp)
 }
 
-func (c *ClientWithResponses) AddRoleMappingWithResponse(ctx context.Context, body AddRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*AddRoleMappingResp, error) {
-	rsp, err := c.AddRoleMapping(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreateClusterRoleBindingWithResponse(ctx context.Context, body CreateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterRoleBindingResp, error) {
+	rsp, err := c.CreateClusterRoleBinding(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddRoleMappingResp(rsp)
+	return ParseCreateClusterRoleBindingResp(rsp)
 }
 
-// RemoveRoleMappingWithResponse request returning *RemoveRoleMappingResp
-func (c *ClientWithResponses) RemoveRoleMappingWithResponse(ctx context.Context, mappingId MappingIdParam, reqEditors ...RequestEditorFn) (*RemoveRoleMappingResp, error) {
-	rsp, err := c.RemoveRoleMapping(ctx, mappingId, reqEditors...)
+// DeleteClusterRoleBindingWithResponse request returning *DeleteClusterRoleBindingResp
+func (c *ClientWithResponses) DeleteClusterRoleBindingWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteClusterRoleBindingResp, error) {
+	rsp, err := c.DeleteClusterRoleBinding(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRemoveRoleMappingResp(rsp)
+	return ParseDeleteClusterRoleBindingResp(rsp)
 }
 
-// UpdateRoleMappingWithBodyWithResponse request with arbitrary body returning *UpdateRoleMappingResp
-func (c *ClientWithResponses) UpdateRoleMappingWithBodyWithResponse(ctx context.Context, mappingId MappingIdParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleMappingResp, error) {
-	rsp, err := c.UpdateRoleMappingWithBody(ctx, mappingId, contentType, body, reqEditors...)
+// GetClusterRoleBindingWithResponse request returning *GetClusterRoleBindingResp
+func (c *ClientWithResponses) GetClusterRoleBindingWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetClusterRoleBindingResp, error) {
+	rsp, err := c.GetClusterRoleBinding(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateRoleMappingResp(rsp)
+	return ParseGetClusterRoleBindingResp(rsp)
 }
 
-func (c *ClientWithResponses) UpdateRoleMappingWithResponse(ctx context.Context, mappingId MappingIdParam, body UpdateRoleMappingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleMappingResp, error) {
-	rsp, err := c.UpdateRoleMapping(ctx, mappingId, body, reqEditors...)
+// UpdateClusterRoleBindingWithBodyWithResponse request with arbitrary body returning *UpdateClusterRoleBindingResp
+func (c *ClientWithResponses) UpdateClusterRoleBindingWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterRoleBindingResp, error) {
+	rsp, err := c.UpdateClusterRoleBindingWithBody(ctx, name, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateRoleMappingResp(rsp)
+	return ParseUpdateClusterRoleBindingResp(rsp)
 }
 
-// ListRolesWithResponse request returning *ListRolesResp
-func (c *ClientWithResponses) ListRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRolesResp, error) {
-	rsp, err := c.ListRoles(ctx, reqEditors...)
+func (c *ClientWithResponses) UpdateClusterRoleBindingWithResponse(ctx context.Context, name string, body UpdateClusterRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterRoleBindingResp, error) {
+	rsp, err := c.UpdateClusterRoleBinding(ctx, name, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListRolesResp(rsp)
+	return ParseUpdateClusterRoleBindingResp(rsp)
 }
 
-// AddRoleWithBodyWithResponse request with arbitrary body returning *AddRoleResp
-func (c *ClientWithResponses) AddRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddRoleResp, error) {
-	rsp, err := c.AddRoleWithBody(ctx, contentType, body, reqEditors...)
+// ListClusterRolesWithResponse request returning *ListClusterRolesResp
+func (c *ClientWithResponses) ListClusterRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterRolesResp, error) {
+	rsp, err := c.ListClusterRoles(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddRoleResp(rsp)
+	return ParseListClusterRolesResp(rsp)
 }
 
-func (c *ClientWithResponses) AddRoleWithResponse(ctx context.Context, body AddRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*AddRoleResp, error) {
-	rsp, err := c.AddRole(ctx, body, reqEditors...)
+// CreateClusterRoleWithBodyWithResponse request with arbitrary body returning *CreateClusterRoleResp
+func (c *ClientWithResponses) CreateClusterRoleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterRoleResp, error) {
+	rsp, err := c.CreateClusterRoleWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseAddRoleResp(rsp)
+	return ParseCreateClusterRoleResp(rsp)
 }
 
-// RemoveRoleWithResponse request returning *RemoveRoleResp
-func (c *ClientWithResponses) RemoveRoleWithResponse(ctx context.Context, roleName RoleNameParam, params *RemoveRoleParams, reqEditors ...RequestEditorFn) (*RemoveRoleResp, error) {
-	rsp, err := c.RemoveRole(ctx, roleName, params, reqEditors...)
+func (c *ClientWithResponses) CreateClusterRoleWithResponse(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterRoleResp, error) {
+	rsp, err := c.CreateClusterRole(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRemoveRoleResp(rsp)
+	return ParseCreateClusterRoleResp(rsp)
 }
 
-// GetRoleWithResponse request returning *GetRoleResp
-func (c *ClientWithResponses) GetRoleWithResponse(ctx context.Context, roleName RoleNameParam, reqEditors ...RequestEditorFn) (*GetRoleResp, error) {
-	rsp, err := c.GetRole(ctx, roleName, reqEditors...)
+// DeleteClusterRoleWithResponse request returning *DeleteClusterRoleResp
+func (c *ClientWithResponses) DeleteClusterRoleWithResponse(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error) {
+	rsp, err := c.DeleteClusterRole(ctx, name, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetRoleResp(rsp)
+	return ParseDeleteClusterRoleResp(rsp)
 }
 
-// UpdateRoleWithBodyWithResponse request with arbitrary body returning *UpdateRoleResp
-func (c *ClientWithResponses) UpdateRoleWithBodyWithResponse(ctx context.Context, roleName RoleNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleResp, error) {
-	rsp, err := c.UpdateRoleWithBody(ctx, roleName, contentType, body, reqEditors...)
+// GetClusterRoleWithResponse request returning *GetClusterRoleResp
+func (c *ClientWithResponses) GetClusterRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetClusterRoleResp, error) {
+	rsp, err := c.GetClusterRole(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateRoleResp(rsp)
+	return ParseGetClusterRoleResp(rsp)
 }
 
-func (c *ClientWithResponses) UpdateRoleWithResponse(ctx context.Context, roleName RoleNameParam, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleResp, error) {
-	rsp, err := c.UpdateRole(ctx, roleName, body, reqEditors...)
+// UpdateClusterRoleWithBodyWithResponse request with arbitrary body returning *UpdateClusterRoleResp
+func (c *ClientWithResponses) UpdateClusterRoleWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterRoleResp, error) {
+	rsp, err := c.UpdateClusterRoleWithBody(ctx, name, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateRoleResp(rsp)
+	return ParseUpdateClusterRoleResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterRoleWithResponse(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterRoleResp, error) {
+	rsp, err := c.UpdateClusterRole(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterRoleResp(rsp)
 }
 
 // DeleteResourceWithBodyWithResponse request with arbitrary body returning *DeleteResourceResp
@@ -8868,6 +10008,128 @@ func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx conte
 	return ParseGetProjectDeploymentPipelineResp(rsp)
 }
 
+// ListNamespaceRoleBindingsWithResponse request returning *ListNamespaceRoleBindingsResp
+func (c *ClientWithResponses) ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error) {
+	rsp, err := c.ListNamespaceRoleBindings(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListNamespaceRoleBindingsResp(rsp)
+}
+
+// CreateNamespaceRoleBindingWithBodyWithResponse request with arbitrary body returning *CreateNamespaceRoleBindingResp
+func (c *ClientWithResponses) CreateNamespaceRoleBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleBindingResp, error) {
+	rsp, err := c.CreateNamespaceRoleBindingWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceRoleBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleBindingResp, error) {
+	rsp, err := c.CreateNamespaceRoleBinding(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceRoleBindingResp(rsp)
+}
+
+// DeleteNamespaceRoleBindingWithResponse request returning *DeleteNamespaceRoleBindingResp
+func (c *ClientWithResponses) DeleteNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleBindingResp, error) {
+	rsp, err := c.DeleteNamespaceRoleBinding(ctx, namespaceName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteNamespaceRoleBindingResp(rsp)
+}
+
+// GetNamespaceRoleBindingWithResponse request returning *GetNamespaceRoleBindingResp
+func (c *ClientWithResponses) GetNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*GetNamespaceRoleBindingResp, error) {
+	rsp, err := c.GetNamespaceRoleBinding(ctx, namespaceName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetNamespaceRoleBindingResp(rsp)
+}
+
+// UpdateNamespaceRoleBindingWithBodyWithResponse request with arbitrary body returning *UpdateNamespaceRoleBindingResp
+func (c *ClientWithResponses) UpdateNamespaceRoleBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleBindingResp, error) {
+	rsp, err := c.UpdateNamespaceRoleBindingWithBody(ctx, namespaceName, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNamespaceRoleBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateNamespaceRoleBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleBindingResp, error) {
+	rsp, err := c.UpdateNamespaceRoleBinding(ctx, namespaceName, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNamespaceRoleBindingResp(rsp)
+}
+
+// ListNamespaceRolesWithResponse request returning *ListNamespaceRolesResp
+func (c *ClientWithResponses) ListNamespaceRolesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRolesResp, error) {
+	rsp, err := c.ListNamespaceRoles(ctx, namespaceName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListNamespaceRolesResp(rsp)
+}
+
+// CreateNamespaceRoleWithBodyWithResponse request with arbitrary body returning *CreateNamespaceRoleResp
+func (c *ClientWithResponses) CreateNamespaceRoleWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleResp, error) {
+	rsp, err := c.CreateNamespaceRoleWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceRoleResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleResp, error) {
+	rsp, err := c.CreateNamespaceRole(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateNamespaceRoleResp(rsp)
+}
+
+// DeleteNamespaceRoleWithResponse request returning *DeleteNamespaceRoleResp
+func (c *ClientWithResponses) DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error) {
+	rsp, err := c.DeleteNamespaceRole(ctx, namespaceName, name, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteNamespaceRoleResp(rsp)
+}
+
+// GetNamespaceRoleWithResponse request returning *GetNamespaceRoleResp
+func (c *ClientWithResponses) GetNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*GetNamespaceRoleResp, error) {
+	rsp, err := c.GetNamespaceRole(ctx, namespaceName, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetNamespaceRoleResp(rsp)
+}
+
+// UpdateNamespaceRoleWithBodyWithResponse request with arbitrary body returning *UpdateNamespaceRoleResp
+func (c *ClientWithResponses) UpdateNamespaceRoleWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleResp, error) {
+	rsp, err := c.UpdateNamespaceRoleWithBody(ctx, namespaceName, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNamespaceRoleResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleResp, error) {
+	rsp, err := c.UpdateNamespaceRole(ctx, namespaceName, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateNamespaceRoleResp(rsp)
+}
+
 // ListSecretReferencesWithResponse request returning *ListSecretReferencesResp
 func (c *ClientWithResponses) ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error) {
 	rsp, err := c.ListSecretReferences(ctx, namespaceName, reqEditors...)
@@ -9345,15 +10607,15 @@ func ParseGetSubjectProfileResp(rsp *http.Response) (*GetSubjectProfileResp, err
 	return response, nil
 }
 
-// ParseListRoleMappingsResp parses an HTTP response from a ListRoleMappingsWithResponse call
-func ParseListRoleMappingsResp(rsp *http.Response) (*ListRoleMappingsResp, error) {
+// ParseListClusterRoleBindingsResp parses an HTTP response from a ListClusterRoleBindingsWithResponse call
+func ParseListClusterRoleBindingsResp(rsp *http.Response) (*ListClusterRoleBindingsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRoleMappingsResp{
+	response := &ListClusterRoleBindingsResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9365,13 +10627,6 @@ func ParseListRoleMappingsResp(rsp *http.Response) (*ListRoleMappingsResp, error
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -9399,22 +10654,22 @@ func ParseListRoleMappingsResp(rsp *http.Response) (*ListRoleMappingsResp, error
 	return response, nil
 }
 
-// ParseAddRoleMappingResp parses an HTTP response from a AddRoleMappingWithResponse call
-func ParseAddRoleMappingResp(rsp *http.Response) (*AddRoleMappingResp, error) {
+// ParseCreateClusterRoleBindingResp parses an HTTP response from a CreateClusterRoleBindingWithResponse call
+func ParseCreateClusterRoleBindingResp(rsp *http.Response) (*CreateClusterRoleBindingResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AddRoleMappingResp{
+	response := &CreateClusterRoleBindingResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest MessageResponse
+		var dest RoleEntitlementMapping
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9460,15 +10715,15 @@ func ParseAddRoleMappingResp(rsp *http.Response) (*AddRoleMappingResp, error) {
 	return response, nil
 }
 
-// ParseRemoveRoleMappingResp parses an HTTP response from a RemoveRoleMappingWithResponse call
-func ParseRemoveRoleMappingResp(rsp *http.Response) (*RemoveRoleMappingResp, error) {
+// ParseDeleteClusterRoleBindingResp parses an HTTP response from a DeleteClusterRoleBindingWithResponse call
+func ParseDeleteClusterRoleBindingResp(rsp *http.Response) (*DeleteClusterRoleBindingResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RemoveRoleMappingResp{
+	response := &DeleteClusterRoleBindingResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9507,22 +10762,76 @@ func ParseRemoveRoleMappingResp(rsp *http.Response) (*RemoveRoleMappingResp, err
 	return response, nil
 }
 
-// ParseUpdateRoleMappingResp parses an HTTP response from a UpdateRoleMappingWithResponse call
-func ParseUpdateRoleMappingResp(rsp *http.Response) (*UpdateRoleMappingResp, error) {
+// ParseGetClusterRoleBindingResp parses an HTTP response from a GetClusterRoleBindingWithResponse call
+func ParseGetClusterRoleBindingResp(rsp *http.Response) (*GetClusterRoleBindingResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateRoleMappingResp{
+	response := &GetClusterRoleBindingResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
+		var dest RoleEntitlementMapping
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterRoleBindingResp parses an HTTP response from a UpdateClusterRoleBindingWithResponse call
+func ParseUpdateClusterRoleBindingResp(rsp *http.Response) (*UpdateClusterRoleBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterRoleBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleEntitlementMapping
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9575,15 +10884,15 @@ func ParseUpdateRoleMappingResp(rsp *http.Response) (*UpdateRoleMappingResp, err
 	return response, nil
 }
 
-// ParseListRolesResp parses an HTTP response from a ListRolesWithResponse call
-func ParseListRolesResp(rsp *http.Response) (*ListRolesResp, error) {
+// ParseListClusterRolesResp parses an HTTP response from a ListClusterRolesWithResponse call
+func ParseListClusterRolesResp(rsp *http.Response) (*ListClusterRolesResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListRolesResp{
+	response := &ListClusterRolesResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9622,22 +10931,22 @@ func ParseListRolesResp(rsp *http.Response) (*ListRolesResp, error) {
 	return response, nil
 }
 
-// ParseAddRoleResp parses an HTTP response from a AddRoleWithResponse call
-func ParseAddRoleResp(rsp *http.Response) (*AddRoleResp, error) {
+// ParseCreateClusterRoleResp parses an HTTP response from a CreateClusterRoleWithResponse call
+func ParseCreateClusterRoleResp(rsp *http.Response) (*CreateClusterRoleResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &AddRoleResp{
+	response := &CreateClusterRoleResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest MessageResponse
+		var dest Role
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9683,15 +10992,15 @@ func ParseAddRoleResp(rsp *http.Response) (*AddRoleResp, error) {
 	return response, nil
 }
 
-// ParseRemoveRoleResp parses an HTTP response from a RemoveRoleWithResponse call
-func ParseRemoveRoleResp(rsp *http.Response) (*RemoveRoleResp, error) {
+// ParseDeleteClusterRoleResp parses an HTTP response from a DeleteClusterRoleWithResponse call
+func ParseDeleteClusterRoleResp(rsp *http.Response) (*DeleteClusterRoleResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RemoveRoleResp{
+	response := &DeleteClusterRoleResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9737,15 +11046,15 @@ func ParseRemoveRoleResp(rsp *http.Response) (*RemoveRoleResp, error) {
 	return response, nil
 }
 
-// ParseGetRoleResp parses an HTTP response from a GetRoleWithResponse call
-func ParseGetRoleResp(rsp *http.Response) (*GetRoleResp, error) {
+// ParseGetClusterRoleResp parses an HTTP response from a GetClusterRoleWithResponse call
+func ParseGetClusterRoleResp(rsp *http.Response) (*GetClusterRoleResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetRoleResp{
+	response := &GetClusterRoleResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -9791,22 +11100,22 @@ func ParseGetRoleResp(rsp *http.Response) (*GetRoleResp, error) {
 	return response, nil
 }
 
-// ParseUpdateRoleResp parses an HTTP response from a UpdateRoleWithResponse call
-func ParseUpdateRoleResp(rsp *http.Response) (*UpdateRoleResp, error) {
+// ParseUpdateClusterRoleResp parses an HTTP response from a UpdateClusterRoleWithResponse call
+func ParseUpdateClusterRoleResp(rsp *http.Response) (*UpdateClusterRoleResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateRoleResp{
+	response := &UpdateClusterRoleResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest MessageResponse
+		var dest Role
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -12473,6 +13782,602 @@ func ParseGetProjectDeploymentPipelineResp(rsp *http.Response) (*GetProjectDeplo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListNamespaceRoleBindingsResp parses an HTTP response from a ListNamespaceRoleBindingsWithResponse call
+func ParseListNamespaceRoleBindingsResp(rsp *http.Response) (*ListNamespaceRoleBindingsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListNamespaceRoleBindingsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []RoleEntitlementMapping
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateNamespaceRoleBindingResp parses an HTTP response from a CreateNamespaceRoleBindingWithResponse call
+func ParseCreateNamespaceRoleBindingResp(rsp *http.Response) (*CreateNamespaceRoleBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateNamespaceRoleBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest RoleEntitlementMapping
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteNamespaceRoleBindingResp parses an HTTP response from a DeleteNamespaceRoleBindingWithResponse call
+func ParseDeleteNamespaceRoleBindingResp(rsp *http.Response) (*DeleteNamespaceRoleBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteNamespaceRoleBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetNamespaceRoleBindingResp parses an HTTP response from a GetNamespaceRoleBindingWithResponse call
+func ParseGetNamespaceRoleBindingResp(rsp *http.Response) (*GetNamespaceRoleBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetNamespaceRoleBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleEntitlementMapping
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateNamespaceRoleBindingResp parses an HTTP response from a UpdateNamespaceRoleBindingWithResponse call
+func ParseUpdateNamespaceRoleBindingResp(rsp *http.Response) (*UpdateNamespaceRoleBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateNamespaceRoleBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RoleEntitlementMapping
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListNamespaceRolesResp parses an HTTP response from a ListNamespaceRolesWithResponse call
+func ParseListNamespaceRolesResp(rsp *http.Response) (*ListNamespaceRolesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListNamespaceRolesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Role
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateNamespaceRoleResp parses an HTTP response from a CreateNamespaceRoleWithResponse call
+func ParseCreateNamespaceRoleResp(rsp *http.Response) (*CreateNamespaceRoleResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateNamespaceRoleResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Role
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteNamespaceRoleResp parses an HTTP response from a DeleteNamespaceRoleWithResponse call
+func ParseDeleteNamespaceRoleResp(rsp *http.Response) (*DeleteNamespaceRoleResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteNamespaceRoleResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetNamespaceRoleResp parses an HTTP response from a GetNamespaceRoleWithResponse call
+func ParseGetNamespaceRoleResp(rsp *http.Response) (*GetNamespaceRoleResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetNamespaceRoleResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Role
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateNamespaceRoleResp parses an HTTP response from a UpdateNamespaceRoleWithResponse call
+func ParseUpdateNamespaceRoleResp(rsp *http.Response) (*UpdateNamespaceRoleResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateNamespaceRoleResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Role
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

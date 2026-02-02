@@ -45,33 +45,36 @@ type ServerInterface interface {
 	// Get subject profile
 	// (GET /api/v1/authz/profile)
 	GetSubjectProfile(w http.ResponseWriter, r *http.Request, params GetSubjectProfileParams)
-	// List role mappings
-	// (GET /api/v1/authz/role-mappings)
-	ListRoleMappings(w http.ResponseWriter, r *http.Request, params ListRoleMappingsParams)
-	// Create role mapping
-	// (POST /api/v1/authz/role-mappings)
-	AddRoleMapping(w http.ResponseWriter, r *http.Request)
-	// Delete role mapping
-	// (DELETE /api/v1/authz/role-mappings/{mappingId})
-	RemoveRoleMapping(w http.ResponseWriter, r *http.Request, mappingId MappingIdParam)
-	// Update role mapping
-	// (PUT /api/v1/authz/role-mappings/{mappingId})
-	UpdateRoleMapping(w http.ResponseWriter, r *http.Request, mappingId MappingIdParam)
-	// List roles
-	// (GET /api/v1/authz/roles)
-	ListRoles(w http.ResponseWriter, r *http.Request)
-	// Create role
-	// (POST /api/v1/authz/roles)
-	AddRole(w http.ResponseWriter, r *http.Request)
-	// Delete role
-	// (DELETE /api/v1/authz/roles/{roleName})
-	RemoveRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam, params RemoveRoleParams)
-	// Get role
-	// (GET /api/v1/authz/roles/{roleName})
-	GetRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam)
-	// Update role
-	// (PUT /api/v1/authz/roles/{roleName})
-	UpdateRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam)
+	// List cluster role bindings
+	// (GET /api/v1/clusterrolebindings)
+	ListClusterRoleBindings(w http.ResponseWriter, r *http.Request, params ListClusterRoleBindingsParams)
+	// Create cluster role binding
+	// (POST /api/v1/clusterrolebindings)
+	CreateClusterRoleBinding(w http.ResponseWriter, r *http.Request)
+	// Delete cluster role binding
+	// (DELETE /api/v1/clusterrolebindings/{name})
+	DeleteClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string)
+	// Get cluster role binding
+	// (GET /api/v1/clusterrolebindings/{name})
+	GetClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string)
+	// Update cluster role binding
+	// (PUT /api/v1/clusterrolebindings/{name})
+	UpdateClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string)
+	// List cluster roles
+	// (GET /api/v1/clusterroles)
+	ListClusterRoles(w http.ResponseWriter, r *http.Request)
+	// Create cluster role
+	// (POST /api/v1/clusterroles)
+	CreateClusterRole(w http.ResponseWriter, r *http.Request)
+	// Delete cluster role
+	// (DELETE /api/v1/clusterroles/{name})
+	DeleteClusterRole(w http.ResponseWriter, r *http.Request, name string, params DeleteClusterRoleParams)
+	// Get cluster role
+	// (GET /api/v1/clusterroles/{name})
+	GetClusterRole(w http.ResponseWriter, r *http.Request, name string)
+	// Update cluster role
+	// (PUT /api/v1/clusterroles/{name})
+	UpdateClusterRole(w http.ResponseWriter, r *http.Request, name string)
 	// Delete resource
 	// (DELETE /api/v1/delete)
 	DeleteResource(w http.ResponseWriter, r *http.Request)
@@ -216,6 +219,36 @@ type ServerInterface interface {
 	// Get project deployment pipeline
 	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline)
 	GetProjectDeploymentPipeline(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, projectName ProjectNameParam)
+	// List namespace role bindings
+	// (GET /api/v1/namespaces/{namespaceName}/rolebindings)
+	ListNamespaceRoleBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListNamespaceRoleBindingsParams)
+	// Create namespace role binding
+	// (POST /api/v1/namespaces/{namespaceName}/rolebindings)
+	CreateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Delete namespace role binding
+	// (DELETE /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	DeleteNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string)
+	// Get namespace role binding
+	// (GET /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	GetNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string)
+	// Update namespace role binding
+	// (PUT /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	UpdateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string)
+	// List namespace roles
+	// (GET /api/v1/namespaces/{namespaceName}/roles)
+	ListNamespaceRoles(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Create namespace role
+	// (POST /api/v1/namespaces/{namespaceName}/roles)
+	CreateNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
+	// Delete namespace role
+	// (DELETE /api/v1/namespaces/{namespaceName}/roles/{name})
+	DeleteNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string, params DeleteNamespaceRoleParams)
+	// Get namespace role
+	// (GET /api/v1/namespaces/{namespaceName}/roles/{name})
+	GetNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string)
+	// Update namespace role
+	// (PUT /api/v1/namespaces/{namespaceName}/roles/{name})
+	UpdateNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string)
 	// List secret references
 	// (GET /api/v1/namespaces/{namespaceName}/secret-references)
 	ListSecretReferences(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam)
@@ -421,14 +454,6 @@ func (siw *ServerInterfaceWrapper) GetSubjectProfile(w http.ResponseWriter, r *h
 		return
 	}
 
-	// ------------- Optional query parameter "ou" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "ou", r.URL.Query(), &params.Ou)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ou", Err: err})
-		return
-	}
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSubjectProfile(w, r, params)
 	}))
@@ -440,8 +465,8 @@ func (siw *ServerInterfaceWrapper) GetSubjectProfile(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// ListRoleMappings operation middleware
-func (siw *ServerInterfaceWrapper) ListRoleMappings(w http.ResponseWriter, r *http.Request) {
+// ListClusterRoleBindings operation middleware
+func (siw *ServerInterfaceWrapper) ListClusterRoleBindings(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -452,13 +477,13 @@ func (siw *ServerInterfaceWrapper) ListRoleMappings(w http.ResponseWriter, r *ht
 	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params ListRoleMappingsParams
+	var params ListClusterRoleBindingsParams
 
-	// ------------- Optional query parameter "role" -------------
+	// ------------- Optional query parameter "roleName" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "role", r.URL.Query(), &params.Role)
+	err = runtime.BindQueryParameter("form", true, false, "roleName", r.URL.Query(), &params.RoleName)
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleName", Err: err})
 		return
 	}
 
@@ -478,8 +503,16 @@ func (siw *ServerInterfaceWrapper) ListRoleMappings(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// ------------- Optional query parameter "effect" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "effect", r.URL.Query(), &params.Effect)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "effect", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListRoleMappings(w, r, params)
+		siw.Handler.ListClusterRoleBindings(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -489,8 +522,8 @@ func (siw *ServerInterfaceWrapper) ListRoleMappings(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
-// AddRoleMapping operation middleware
-func (siw *ServerInterfaceWrapper) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
+// CreateClusterRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) CreateClusterRoleBinding(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -499,7 +532,7 @@ func (siw *ServerInterfaceWrapper) AddRoleMapping(w http.ResponseWriter, r *http
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AddRoleMapping(w, r)
+		siw.Handler.CreateClusterRoleBinding(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -509,17 +542,17 @@ func (siw *ServerInterfaceWrapper) AddRoleMapping(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
-// RemoveRoleMapping operation middleware
-func (siw *ServerInterfaceWrapper) RemoveRoleMapping(w http.ResponseWriter, r *http.Request) {
+// DeleteClusterRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) DeleteClusterRoleBinding(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "mappingId" -------------
-	var mappingId MappingIdParam
+	// ------------- Path parameter "name" -------------
+	var name string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "mappingId", r.PathValue("mappingId"), &mappingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mappingId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
 		return
 	}
 
@@ -530,7 +563,7 @@ func (siw *ServerInterfaceWrapper) RemoveRoleMapping(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemoveRoleMapping(w, r, mappingId)
+		siw.Handler.DeleteClusterRoleBinding(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -540,17 +573,17 @@ func (siw *ServerInterfaceWrapper) RemoveRoleMapping(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// UpdateRoleMapping operation middleware
-func (siw *ServerInterfaceWrapper) UpdateRoleMapping(w http.ResponseWriter, r *http.Request) {
+// GetClusterRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) GetClusterRoleBinding(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "mappingId" -------------
-	var mappingId MappingIdParam
+	// ------------- Path parameter "name" -------------
+	var name string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "mappingId", r.PathValue("mappingId"), &mappingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mappingId", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
 		return
 	}
 
@@ -561,7 +594,7 @@ func (siw *ServerInterfaceWrapper) UpdateRoleMapping(w http.ResponseWriter, r *h
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateRoleMapping(w, r, mappingId)
+		siw.Handler.GetClusterRoleBinding(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -571,57 +604,88 @@ func (siw *ServerInterfaceWrapper) UpdateRoleMapping(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
-// ListRoles operation middleware
-func (siw *ServerInterfaceWrapper) ListRoles(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListRoles(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// AddRole operation middleware
-func (siw *ServerInterfaceWrapper) AddRole(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.AddRole(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// RemoveRole operation middleware
-func (siw *ServerInterfaceWrapper) RemoveRole(w http.ResponseWriter, r *http.Request) {
+// UpdateClusterRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) UpdateClusterRoleBinding(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "roleName" -------------
-	var roleName RoleNameParam
+	// ------------- Path parameter "name" -------------
+	var name string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "roleName", r.PathValue("roleName"), &roleName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateClusterRoleBinding(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListClusterRoles operation middleware
+func (siw *ServerInterfaceWrapper) ListClusterRoles(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListClusterRoles(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateClusterRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateClusterRole(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateClusterRole(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteClusterRole operation middleware
+func (siw *ServerInterfaceWrapper) DeleteClusterRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
 		return
 	}
 
@@ -632,7 +696,7 @@ func (siw *ServerInterfaceWrapper) RemoveRole(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params RemoveRoleParams
+	var params DeleteClusterRoleParams
 
 	// ------------- Optional query parameter "force" -------------
 
@@ -643,7 +707,7 @@ func (siw *ServerInterfaceWrapper) RemoveRole(w http.ResponseWriter, r *http.Req
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RemoveRole(w, r, roleName, params)
+		siw.Handler.DeleteClusterRole(w, r, name, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -653,17 +717,17 @@ func (siw *ServerInterfaceWrapper) RemoveRole(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
-// GetRole operation middleware
-func (siw *ServerInterfaceWrapper) GetRole(w http.ResponseWriter, r *http.Request) {
+// GetClusterRole operation middleware
+func (siw *ServerInterfaceWrapper) GetClusterRole(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "roleName" -------------
-	var roleName RoleNameParam
+	// ------------- Path parameter "name" -------------
+	var name string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "roleName", r.PathValue("roleName"), &roleName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
 		return
 	}
 
@@ -674,7 +738,7 @@ func (siw *ServerInterfaceWrapper) GetRole(w http.ResponseWriter, r *http.Reques
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetRole(w, r, roleName)
+		siw.Handler.GetClusterRole(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -684,17 +748,17 @@ func (siw *ServerInterfaceWrapper) GetRole(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
-// UpdateRole operation middleware
-func (siw *ServerInterfaceWrapper) UpdateRole(w http.ResponseWriter, r *http.Request) {
+// UpdateClusterRole operation middleware
+func (siw *ServerInterfaceWrapper) UpdateClusterRole(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// ------------- Path parameter "roleName" -------------
-	var roleName RoleNameParam
+	// ------------- Path parameter "name" -------------
+	var name string
 
-	err = runtime.BindStyledParameterWithOptions("simple", "roleName", r.PathValue("roleName"), &roleName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleName", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
 		return
 	}
 
@@ -705,7 +769,7 @@ func (siw *ServerInterfaceWrapper) UpdateRole(w http.ResponseWriter, r *http.Req
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateRole(w, r, roleName)
+		siw.Handler.UpdateClusterRole(w, r, name)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2972,6 +3036,424 @@ func (siw *ServerInterfaceWrapper) GetProjectDeploymentPipeline(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// ListNamespaceRoleBindings operation middleware
+func (siw *ServerInterfaceWrapper) ListNamespaceRoleBindings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListNamespaceRoleBindingsParams
+
+	// ------------- Optional query parameter "roleName" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "roleName", r.URL.Query(), &params.RoleName)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleName", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "roleNamespace" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "roleNamespace", r.URL.Query(), &params.RoleNamespace)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roleNamespace", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "claim" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "claim", r.URL.Query(), &params.Claim)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "claim", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "value" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "value", r.URL.Query(), &params.Value)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "value", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "effect" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "effect", r.URL.Query(), &params.Effect)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "effect", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNamespaceRoleBindings(w, r, namespaceName, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNamespaceRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) CreateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNamespaceRoleBinding(w, r, namespaceName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNamespaceRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNamespaceRoleBinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNamespaceRoleBinding(w, r, namespaceName, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNamespaceRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) GetNamespaceRoleBinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNamespaceRoleBinding(w, r, namespaceName, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNamespaceRoleBinding operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNamespaceRoleBinding(w, r, namespaceName, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNamespaceRoles operation middleware
+func (siw *ServerInterfaceWrapper) ListNamespaceRoles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNamespaceRoles(w, r, namespaceName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNamespaceRole operation middleware
+func (siw *ServerInterfaceWrapper) CreateNamespaceRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNamespaceRole(w, r, namespaceName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNamespaceRole operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNamespaceRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNamespaceRoleParams
+
+	// ------------- Optional query parameter "force" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "force", r.URL.Query(), &params.Force)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "force", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNamespaceRole(w, r, namespaceName, name, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNamespaceRole operation middleware
+func (siw *ServerInterfaceWrapper) GetNamespaceRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNamespaceRole(w, r, namespaceName, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNamespaceRole operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNamespaceRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "namespaceName" -------------
+	var namespaceName NamespaceNameParam
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespaceName", r.PathValue("namespaceName"), &namespaceName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "namespaceName", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNamespaceRole(w, r, namespaceName, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListSecretReferences operation middleware
 func (siw *ServerInterfaceWrapper) ListSecretReferences(w http.ResponseWriter, r *http.Request) {
 
@@ -3549,15 +4031,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/authz/batch-evaluate", wrapper.BatchEvaluate)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/authz/evaluate", wrapper.Evaluate)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/authz/profile", wrapper.GetSubjectProfile)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/authz/role-mappings", wrapper.ListRoleMappings)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/authz/role-mappings", wrapper.AddRoleMapping)
-	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/authz/role-mappings/{mappingId}", wrapper.RemoveRoleMapping)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/authz/role-mappings/{mappingId}", wrapper.UpdateRoleMapping)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/authz/roles", wrapper.ListRoles)
-	m.HandleFunc("POST "+options.BaseURL+"/api/v1/authz/roles", wrapper.AddRole)
-	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.RemoveRole)
-	m.HandleFunc("GET "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.GetRole)
-	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/authz/roles/{roleName}", wrapper.UpdateRole)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/clusterrolebindings", wrapper.ListClusterRoleBindings)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/clusterrolebindings", wrapper.CreateClusterRoleBinding)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/clusterrolebindings/{name}", wrapper.DeleteClusterRoleBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/clusterrolebindings/{name}", wrapper.GetClusterRoleBinding)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/clusterrolebindings/{name}", wrapper.UpdateClusterRoleBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/clusterroles", wrapper.ListClusterRoles)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/clusterroles", wrapper.CreateClusterRole)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/clusterroles/{name}", wrapper.DeleteClusterRole)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/clusterroles/{name}", wrapper.GetClusterRole)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/clusterroles/{name}", wrapper.UpdateClusterRole)
 	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/delete", wrapper.DeleteResource)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces", wrapper.ListNamespaces)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces", wrapper.CreateNamespace)
@@ -3606,6 +4089,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", wrapper.GetWorkloads)
 	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads", wrapper.CreateWorkload)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline", wrapper.GetProjectDeploymentPipeline)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/rolebindings", wrapper.ListNamespaceRoleBindings)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/rolebindings", wrapper.CreateNamespaceRoleBinding)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/rolebindings/{name}", wrapper.DeleteNamespaceRoleBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/rolebindings/{name}", wrapper.GetNamespaceRoleBinding)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/rolebindings/{name}", wrapper.UpdateNamespaceRoleBinding)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/roles", wrapper.ListNamespaceRoles)
+	m.HandleFunc("POST "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/roles", wrapper.CreateNamespaceRole)
+	m.HandleFunc("DELETE "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/roles/{name}", wrapper.DeleteNamespaceRole)
+	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/roles/{name}", wrapper.GetNamespaceRole)
+	m.HandleFunc("PUT "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/roles/{name}", wrapper.UpdateNamespaceRole)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/secret-references", wrapper.ListSecretReferences)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits", wrapper.ListTraits)
 	m.HandleFunc("GET "+options.BaseURL+"/api/v1/namespaces/{namespaceName}/traits/{traitName}/schema", wrapper.GetTraitSchema)
@@ -3907,522 +4400,566 @@ func (response GetSubjectProfile500JSONResponse) VisitGetSubjectProfileResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoleMappingsRequestObject struct {
-	Params ListRoleMappingsParams
+type ListClusterRoleBindingsRequestObject struct {
+	Params ListClusterRoleBindingsParams
 }
 
-type ListRoleMappingsResponseObject interface {
-	VisitListRoleMappingsResponse(w http.ResponseWriter) error
+type ListClusterRoleBindingsResponseObject interface {
+	VisitListClusterRoleBindingsResponse(w http.ResponseWriter) error
 }
 
-type ListRoleMappings200JSONResponse []RoleEntitlementMapping
+type ListClusterRoleBindings200JSONResponse []RoleEntitlementMapping
 
-func (response ListRoleMappings200JSONResponse) VisitListRoleMappingsResponse(w http.ResponseWriter) error {
+func (response ListClusterRoleBindings200JSONResponse) VisitListClusterRoleBindingsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoleMappings400JSONResponse struct{ BadRequestJSONResponse }
+type ListClusterRoleBindings401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ListRoleMappings400JSONResponse) VisitListRoleMappingsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListRoleMappings401JSONResponse struct{ UnauthorizedJSONResponse }
-
-func (response ListRoleMappings401JSONResponse) VisitListRoleMappingsResponse(w http.ResponseWriter) error {
+func (response ListClusterRoleBindings401JSONResponse) VisitListClusterRoleBindingsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoleMappings403JSONResponse struct{ ForbiddenJSONResponse }
+type ListClusterRoleBindings403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ListRoleMappings403JSONResponse) VisitListRoleMappingsResponse(w http.ResponseWriter) error {
+func (response ListClusterRoleBindings403JSONResponse) VisitListClusterRoleBindingsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoleMappings500JSONResponse struct{ InternalErrorJSONResponse }
+type ListClusterRoleBindings500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response ListRoleMappings500JSONResponse) VisitListRoleMappingsResponse(w http.ResponseWriter) error {
+func (response ListClusterRoleBindings500JSONResponse) VisitListClusterRoleBindingsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMappingRequestObject struct {
-	Body *AddRoleMappingJSONRequestBody
+type CreateClusterRoleBindingRequestObject struct {
+	Body *CreateClusterRoleBindingJSONRequestBody
 }
 
-type AddRoleMappingResponseObject interface {
-	VisitAddRoleMappingResponse(w http.ResponseWriter) error
+type CreateClusterRoleBindingResponseObject interface {
+	VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error
 }
 
-type AddRoleMapping201JSONResponse MessageResponse
+type CreateClusterRoleBinding201JSONResponse RoleEntitlementMapping
 
-func (response AddRoleMapping201JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding201JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMapping400JSONResponse struct{ BadRequestJSONResponse }
+type CreateClusterRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response AddRoleMapping400JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding400JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMapping401JSONResponse struct{ UnauthorizedJSONResponse }
+type CreateClusterRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response AddRoleMapping401JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding401JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMapping403JSONResponse struct{ ForbiddenJSONResponse }
+type CreateClusterRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response AddRoleMapping403JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding403JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMapping409JSONResponse struct{ ConflictJSONResponse }
+type CreateClusterRoleBinding409JSONResponse struct{ ConflictJSONResponse }
 
-func (response AddRoleMapping409JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding409JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleMapping500JSONResponse struct{ InternalErrorJSONResponse }
+type CreateClusterRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response AddRoleMapping500JSONResponse) VisitAddRoleMappingResponse(w http.ResponseWriter) error {
+func (response CreateClusterRoleBinding500JSONResponse) VisitCreateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRoleMappingRequestObject struct {
-	MappingId MappingIdParam `json:"mappingId"`
+type DeleteClusterRoleBindingRequestObject struct {
+	Name string `json:"name"`
 }
 
-type RemoveRoleMappingResponseObject interface {
-	VisitRemoveRoleMappingResponse(w http.ResponseWriter) error
+type DeleteClusterRoleBindingResponseObject interface {
+	VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error
 }
 
-type RemoveRoleMapping204Response struct {
+type DeleteClusterRoleBinding204Response struct {
 }
 
-func (response RemoveRoleMapping204Response) VisitRemoveRoleMappingResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRoleBinding204Response) VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
 
-type RemoveRoleMapping401JSONResponse struct{ UnauthorizedJSONResponse }
+type DeleteClusterRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response RemoveRoleMapping401JSONResponse) VisitRemoveRoleMappingResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRoleBinding401JSONResponse) VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRoleMapping403JSONResponse struct{ ForbiddenJSONResponse }
+type DeleteClusterRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response RemoveRoleMapping403JSONResponse) VisitRemoveRoleMappingResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRoleBinding403JSONResponse) VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRoleMapping404JSONResponse struct{ NotFoundJSONResponse }
+type DeleteClusterRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response RemoveRoleMapping404JSONResponse) VisitRemoveRoleMappingResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRoleBinding404JSONResponse) VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRoleMapping500JSONResponse struct{ InternalErrorJSONResponse }
+type DeleteClusterRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response RemoveRoleMapping500JSONResponse) VisitRemoveRoleMappingResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRoleBinding500JSONResponse) VisitDeleteClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMappingRequestObject struct {
-	MappingId MappingIdParam `json:"mappingId"`
-	Body      *UpdateRoleMappingJSONRequestBody
+type GetClusterRoleBindingRequestObject struct {
+	Name string `json:"name"`
 }
 
-type UpdateRoleMappingResponseObject interface {
-	VisitUpdateRoleMappingResponse(w http.ResponseWriter) error
+type GetClusterRoleBindingResponseObject interface {
+	VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error
 }
 
-type UpdateRoleMapping200JSONResponse MessageResponse
+type GetClusterRoleBinding200JSONResponse RoleEntitlementMapping
 
-func (response UpdateRoleMapping200JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response GetClusterRoleBinding200JSONResponse) VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping400JSONResponse struct{ BadRequestJSONResponse }
+type GetClusterRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response UpdateRoleMapping400JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response GetClusterRoleBinding401JSONResponse) VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetClusterRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetClusterRoleBinding403JSONResponse) VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetClusterRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetClusterRoleBinding404JSONResponse) VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetClusterRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetClusterRoleBinding500JSONResponse) VisitGetClusterRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateClusterRoleBindingRequestObject struct {
+	Name string `json:"name"`
+	Body *UpdateClusterRoleBindingJSONRequestBody
+}
+
+type UpdateClusterRoleBindingResponseObject interface {
+	VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error
+}
+
+type UpdateClusterRoleBinding200JSONResponse RoleEntitlementMapping
+
+func (response UpdateClusterRoleBinding200JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateClusterRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateClusterRoleBinding400JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping401JSONResponse struct{ UnauthorizedJSONResponse }
+type UpdateClusterRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response UpdateRoleMapping401JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRoleBinding401JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping403JSONResponse struct{ ForbiddenJSONResponse }
+type UpdateClusterRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response UpdateRoleMapping403JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRoleBinding403JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping404JSONResponse struct{ NotFoundJSONResponse }
+type UpdateClusterRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response UpdateRoleMapping404JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRoleBinding404JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping409JSONResponse struct{ ConflictJSONResponse }
+type UpdateClusterRoleBinding409JSONResponse struct{ ConflictJSONResponse }
 
-func (response UpdateRoleMapping409JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRoleBinding409JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleMapping500JSONResponse struct{ InternalErrorJSONResponse }
+type UpdateClusterRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response UpdateRoleMapping500JSONResponse) VisitUpdateRoleMappingResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRoleBinding500JSONResponse) VisitUpdateClusterRoleBindingResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRolesRequestObject struct {
+type ListClusterRolesRequestObject struct {
 }
 
-type ListRolesResponseObject interface {
-	VisitListRolesResponse(w http.ResponseWriter) error
+type ListClusterRolesResponseObject interface {
+	VisitListClusterRolesResponse(w http.ResponseWriter) error
 }
 
-type ListRoles200JSONResponse []Role
+type ListClusterRoles200JSONResponse []Role
 
-func (response ListRoles200JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+func (response ListClusterRoles200JSONResponse) VisitListClusterRolesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoles401JSONResponse struct{ UnauthorizedJSONResponse }
+type ListClusterRoles401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response ListRoles401JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+func (response ListClusterRoles401JSONResponse) VisitListClusterRolesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoles403JSONResponse struct{ ForbiddenJSONResponse }
+type ListClusterRoles403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response ListRoles403JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+func (response ListClusterRoles403JSONResponse) VisitListClusterRolesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type ListRoles500JSONResponse struct{ InternalErrorJSONResponse }
+type ListClusterRoles500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response ListRoles500JSONResponse) VisitListRolesResponse(w http.ResponseWriter) error {
+func (response ListClusterRoles500JSONResponse) VisitListClusterRolesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRoleRequestObject struct {
-	Body *AddRoleJSONRequestBody
+type CreateClusterRoleRequestObject struct {
+	Body *CreateClusterRoleJSONRequestBody
 }
 
-type AddRoleResponseObject interface {
-	VisitAddRoleResponse(w http.ResponseWriter) error
+type CreateClusterRoleResponseObject interface {
+	VisitCreateClusterRoleResponse(w http.ResponseWriter) error
 }
 
-type AddRole201JSONResponse MessageResponse
+type CreateClusterRole201JSONResponse Role
 
-func (response AddRole201JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole201JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRole400JSONResponse struct{ BadRequestJSONResponse }
+type CreateClusterRole400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response AddRole400JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole400JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRole401JSONResponse struct{ UnauthorizedJSONResponse }
+type CreateClusterRole401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response AddRole401JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole401JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRole403JSONResponse struct{ ForbiddenJSONResponse }
+type CreateClusterRole403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response AddRole403JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole403JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRole409JSONResponse struct{ ConflictJSONResponse }
+type CreateClusterRole409JSONResponse struct{ ConflictJSONResponse }
 
-func (response AddRole409JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole409JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type AddRole500JSONResponse struct{ InternalErrorJSONResponse }
+type CreateClusterRole500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response AddRole500JSONResponse) VisitAddRoleResponse(w http.ResponseWriter) error {
+func (response CreateClusterRole500JSONResponse) VisitCreateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRoleRequestObject struct {
-	RoleName RoleNameParam `json:"roleName"`
-	Params   RemoveRoleParams
+type DeleteClusterRoleRequestObject struct {
+	Name   string `json:"name"`
+	Params DeleteClusterRoleParams
 }
 
-type RemoveRoleResponseObject interface {
-	VisitRemoveRoleResponse(w http.ResponseWriter) error
+type DeleteClusterRoleResponseObject interface {
+	VisitDeleteClusterRoleResponse(w http.ResponseWriter) error
 }
 
-type RemoveRole204Response struct {
+type DeleteClusterRole204Response struct {
 }
 
-func (response RemoveRole204Response) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole204Response) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
 }
 
-type RemoveRole401JSONResponse struct{ UnauthorizedJSONResponse }
+type DeleteClusterRole401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response RemoveRole401JSONResponse) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole401JSONResponse) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRole403JSONResponse struct{ ForbiddenJSONResponse }
+type DeleteClusterRole403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response RemoveRole403JSONResponse) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole403JSONResponse) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRole404JSONResponse struct{ NotFoundJSONResponse }
+type DeleteClusterRole404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response RemoveRole404JSONResponse) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole404JSONResponse) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRole409JSONResponse struct{ ConflictJSONResponse }
+type DeleteClusterRole409JSONResponse struct{ ConflictJSONResponse }
 
-func (response RemoveRole409JSONResponse) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole409JSONResponse) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RemoveRole500JSONResponse struct{ InternalErrorJSONResponse }
+type DeleteClusterRole500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response RemoveRole500JSONResponse) VisitRemoveRoleResponse(w http.ResponseWriter) error {
+func (response DeleteClusterRole500JSONResponse) VisitDeleteClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRoleRequestObject struct {
-	RoleName RoleNameParam `json:"roleName"`
+type GetClusterRoleRequestObject struct {
+	Name string `json:"name"`
 }
 
-type GetRoleResponseObject interface {
-	VisitGetRoleResponse(w http.ResponseWriter) error
+type GetClusterRoleResponseObject interface {
+	VisitGetClusterRoleResponse(w http.ResponseWriter) error
 }
 
-type GetRole200JSONResponse Role
+type GetClusterRole200JSONResponse Role
 
-func (response GetRole200JSONResponse) VisitGetRoleResponse(w http.ResponseWriter) error {
+func (response GetClusterRole200JSONResponse) VisitGetClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRole401JSONResponse struct{ UnauthorizedJSONResponse }
+type GetClusterRole401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response GetRole401JSONResponse) VisitGetRoleResponse(w http.ResponseWriter) error {
+func (response GetClusterRole401JSONResponse) VisitGetClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRole403JSONResponse struct{ ForbiddenJSONResponse }
+type GetClusterRole403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response GetRole403JSONResponse) VisitGetRoleResponse(w http.ResponseWriter) error {
+func (response GetClusterRole403JSONResponse) VisitGetClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRole404JSONResponse struct{ NotFoundJSONResponse }
+type GetClusterRole404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response GetRole404JSONResponse) VisitGetRoleResponse(w http.ResponseWriter) error {
+func (response GetClusterRole404JSONResponse) VisitGetClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetRole500JSONResponse struct{ InternalErrorJSONResponse }
+type GetClusterRole500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response GetRole500JSONResponse) VisitGetRoleResponse(w http.ResponseWriter) error {
+func (response GetClusterRole500JSONResponse) VisitGetClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRoleRequestObject struct {
-	RoleName RoleNameParam `json:"roleName"`
-	Body     *UpdateRoleJSONRequestBody
+type UpdateClusterRoleRequestObject struct {
+	Name string `json:"name"`
+	Body *UpdateClusterRoleJSONRequestBody
 }
 
-type UpdateRoleResponseObject interface {
-	VisitUpdateRoleResponse(w http.ResponseWriter) error
+type UpdateClusterRoleResponseObject interface {
+	VisitUpdateClusterRoleResponse(w http.ResponseWriter) error
 }
 
-type UpdateRole200JSONResponse MessageResponse
+type UpdateClusterRole200JSONResponse Role
 
-func (response UpdateRole200JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole200JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRole400JSONResponse struct{ BadRequestJSONResponse }
+type UpdateClusterRole400JSONResponse struct{ BadRequestJSONResponse }
 
-func (response UpdateRole400JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole400JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRole401JSONResponse struct{ UnauthorizedJSONResponse }
+type UpdateClusterRole401JSONResponse struct{ UnauthorizedJSONResponse }
 
-func (response UpdateRole401JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole401JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRole403JSONResponse struct{ ForbiddenJSONResponse }
+type UpdateClusterRole403JSONResponse struct{ ForbiddenJSONResponse }
 
-func (response UpdateRole403JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole403JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRole404JSONResponse struct{ NotFoundJSONResponse }
+type UpdateClusterRole404JSONResponse struct{ NotFoundJSONResponse }
 
-func (response UpdateRole404JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole404JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UpdateRole500JSONResponse struct{ InternalErrorJSONResponse }
+type UpdateClusterRole500JSONResponse struct{ InternalErrorJSONResponse }
 
-func (response UpdateRole500JSONResponse) VisitUpdateRoleResponse(w http.ResponseWriter) error {
+func (response UpdateClusterRole500JSONResponse) VisitUpdateClusterRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -7144,6 +7681,636 @@ func (response GetProjectDeploymentPipeline500JSONResponse) VisitGetProjectDeplo
 	return json.NewEncoder(w).Encode(response)
 }
 
+type ListNamespaceRoleBindingsRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Params        ListNamespaceRoleBindingsParams
+}
+
+type ListNamespaceRoleBindingsResponseObject interface {
+	VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error
+}
+
+type ListNamespaceRoleBindings200JSONResponse []RoleEntitlementMapping
+
+func (response ListNamespaceRoleBindings200JSONResponse) VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoleBindings400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListNamespaceRoleBindings400JSONResponse) VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoleBindings401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListNamespaceRoleBindings401JSONResponse) VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoleBindings403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListNamespaceRoleBindings403JSONResponse) VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoleBindings500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListNamespaceRoleBindings500JSONResponse) VisitListNamespaceRoleBindingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBindingRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateNamespaceRoleBindingJSONRequestBody
+}
+
+type CreateNamespaceRoleBindingResponseObject interface {
+	VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error
+}
+
+type CreateNamespaceRoleBinding201JSONResponse RoleEntitlementMapping
+
+func (response CreateNamespaceRoleBinding201JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateNamespaceRoleBinding400JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateNamespaceRoleBinding401JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateNamespaceRoleBinding403JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBinding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateNamespaceRoleBinding409JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateNamespaceRoleBinding500JSONResponse) VisitCreateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleBindingRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+}
+
+type DeleteNamespaceRoleBindingResponseObject interface {
+	VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error
+}
+
+type DeleteNamespaceRoleBinding204Response struct {
+}
+
+func (response DeleteNamespaceRoleBinding204Response) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteNamespaceRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteNamespaceRoleBinding400JSONResponse) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteNamespaceRoleBinding401JSONResponse) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteNamespaceRoleBinding403JSONResponse) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteNamespaceRoleBinding404JSONResponse) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteNamespaceRoleBinding500JSONResponse) VisitDeleteNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBindingRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+}
+
+type GetNamespaceRoleBindingResponseObject interface {
+	VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error
+}
+
+type GetNamespaceRoleBinding200JSONResponse RoleEntitlementMapping
+
+func (response GetNamespaceRoleBinding200JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetNamespaceRoleBinding400JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetNamespaceRoleBinding401JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetNamespaceRoleBinding403JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetNamespaceRoleBinding404JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetNamespaceRoleBinding500JSONResponse) VisitGetNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBindingRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+	Body          *UpdateNamespaceRoleBindingJSONRequestBody
+}
+
+type UpdateNamespaceRoleBindingResponseObject interface {
+	VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error
+}
+
+type UpdateNamespaceRoleBinding200JSONResponse RoleEntitlementMapping
+
+func (response UpdateNamespaceRoleBinding200JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateNamespaceRoleBinding400JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateNamespaceRoleBinding401JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateNamespaceRoleBinding403JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateNamespaceRoleBinding404JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateNamespaceRoleBinding409JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleBinding500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateNamespaceRoleBinding500JSONResponse) VisitUpdateNamespaceRoleBindingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRolesRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+}
+
+type ListNamespaceRolesResponseObject interface {
+	VisitListNamespaceRolesResponse(w http.ResponseWriter) error
+}
+
+type ListNamespaceRoles200JSONResponse []Role
+
+func (response ListNamespaceRoles200JSONResponse) VisitListNamespaceRolesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoles400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ListNamespaceRoles400JSONResponse) VisitListNamespaceRolesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoles401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListNamespaceRoles401JSONResponse) VisitListNamespaceRolesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoles403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListNamespaceRoles403JSONResponse) VisitListNamespaceRolesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListNamespaceRoles500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response ListNamespaceRoles500JSONResponse) VisitListNamespaceRolesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRoleRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Body          *CreateNamespaceRoleJSONRequestBody
+}
+
+type CreateNamespaceRoleResponseObject interface {
+	VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error
+}
+
+type CreateNamespaceRole201JSONResponse Role
+
+func (response CreateNamespaceRole201JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateNamespaceRole400JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateNamespaceRole401JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateNamespaceRole403JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRole409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateNamespaceRole409JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateNamespaceRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response CreateNamespaceRole500JSONResponse) VisitCreateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRoleRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+	Params        DeleteNamespaceRoleParams
+}
+
+type DeleteNamespaceRoleResponseObject interface {
+	VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error
+}
+
+type DeleteNamespaceRole204Response struct {
+}
+
+func (response DeleteNamespaceRole204Response) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteNamespaceRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeleteNamespaceRole400JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteNamespaceRole401JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteNamespaceRole403JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteNamespaceRole404JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRole409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteNamespaceRole409JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteNamespaceRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response DeleteNamespaceRole500JSONResponse) VisitDeleteNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRoleRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+}
+
+type GetNamespaceRoleResponseObject interface {
+	VisitGetNamespaceRoleResponse(w http.ResponseWriter) error
+}
+
+type GetNamespaceRole200JSONResponse Role
+
+func (response GetNamespaceRole200JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GetNamespaceRole400JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetNamespaceRole401JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetNamespaceRole403JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetNamespaceRole404JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetNamespaceRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response GetNamespaceRole500JSONResponse) VisitGetNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRoleRequestObject struct {
+	NamespaceName NamespaceNameParam `json:"namespaceName"`
+	Name          string             `json:"name"`
+	Body          *UpdateNamespaceRoleJSONRequestBody
+}
+
+type UpdateNamespaceRoleResponseObject interface {
+	VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error
+}
+
+type UpdateNamespaceRole200JSONResponse Role
+
+func (response UpdateNamespaceRole200JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRole400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateNamespaceRole400JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRole401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateNamespaceRole401JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRole403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateNamespaceRole403JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRole404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateNamespaceRole404JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateNamespaceRole500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response UpdateNamespaceRole500JSONResponse) VisitUpdateNamespaceRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type ListSecretReferencesRequestObject struct {
 	NamespaceName NamespaceNameParam `json:"namespaceName"`
 }
@@ -7812,33 +8979,36 @@ type StrictServerInterface interface {
 	// Get subject profile
 	// (GET /api/v1/authz/profile)
 	GetSubjectProfile(ctx context.Context, request GetSubjectProfileRequestObject) (GetSubjectProfileResponseObject, error)
-	// List role mappings
-	// (GET /api/v1/authz/role-mappings)
-	ListRoleMappings(ctx context.Context, request ListRoleMappingsRequestObject) (ListRoleMappingsResponseObject, error)
-	// Create role mapping
-	// (POST /api/v1/authz/role-mappings)
-	AddRoleMapping(ctx context.Context, request AddRoleMappingRequestObject) (AddRoleMappingResponseObject, error)
-	// Delete role mapping
-	// (DELETE /api/v1/authz/role-mappings/{mappingId})
-	RemoveRoleMapping(ctx context.Context, request RemoveRoleMappingRequestObject) (RemoveRoleMappingResponseObject, error)
-	// Update role mapping
-	// (PUT /api/v1/authz/role-mappings/{mappingId})
-	UpdateRoleMapping(ctx context.Context, request UpdateRoleMappingRequestObject) (UpdateRoleMappingResponseObject, error)
-	// List roles
-	// (GET /api/v1/authz/roles)
-	ListRoles(ctx context.Context, request ListRolesRequestObject) (ListRolesResponseObject, error)
-	// Create role
-	// (POST /api/v1/authz/roles)
-	AddRole(ctx context.Context, request AddRoleRequestObject) (AddRoleResponseObject, error)
-	// Delete role
-	// (DELETE /api/v1/authz/roles/{roleName})
-	RemoveRole(ctx context.Context, request RemoveRoleRequestObject) (RemoveRoleResponseObject, error)
-	// Get role
-	// (GET /api/v1/authz/roles/{roleName})
-	GetRole(ctx context.Context, request GetRoleRequestObject) (GetRoleResponseObject, error)
-	// Update role
-	// (PUT /api/v1/authz/roles/{roleName})
-	UpdateRole(ctx context.Context, request UpdateRoleRequestObject) (UpdateRoleResponseObject, error)
+	// List cluster role bindings
+	// (GET /api/v1/clusterrolebindings)
+	ListClusterRoleBindings(ctx context.Context, request ListClusterRoleBindingsRequestObject) (ListClusterRoleBindingsResponseObject, error)
+	// Create cluster role binding
+	// (POST /api/v1/clusterrolebindings)
+	CreateClusterRoleBinding(ctx context.Context, request CreateClusterRoleBindingRequestObject) (CreateClusterRoleBindingResponseObject, error)
+	// Delete cluster role binding
+	// (DELETE /api/v1/clusterrolebindings/{name})
+	DeleteClusterRoleBinding(ctx context.Context, request DeleteClusterRoleBindingRequestObject) (DeleteClusterRoleBindingResponseObject, error)
+	// Get cluster role binding
+	// (GET /api/v1/clusterrolebindings/{name})
+	GetClusterRoleBinding(ctx context.Context, request GetClusterRoleBindingRequestObject) (GetClusterRoleBindingResponseObject, error)
+	// Update cluster role binding
+	// (PUT /api/v1/clusterrolebindings/{name})
+	UpdateClusterRoleBinding(ctx context.Context, request UpdateClusterRoleBindingRequestObject) (UpdateClusterRoleBindingResponseObject, error)
+	// List cluster roles
+	// (GET /api/v1/clusterroles)
+	ListClusterRoles(ctx context.Context, request ListClusterRolesRequestObject) (ListClusterRolesResponseObject, error)
+	// Create cluster role
+	// (POST /api/v1/clusterroles)
+	CreateClusterRole(ctx context.Context, request CreateClusterRoleRequestObject) (CreateClusterRoleResponseObject, error)
+	// Delete cluster role
+	// (DELETE /api/v1/clusterroles/{name})
+	DeleteClusterRole(ctx context.Context, request DeleteClusterRoleRequestObject) (DeleteClusterRoleResponseObject, error)
+	// Get cluster role
+	// (GET /api/v1/clusterroles/{name})
+	GetClusterRole(ctx context.Context, request GetClusterRoleRequestObject) (GetClusterRoleResponseObject, error)
+	// Update cluster role
+	// (PUT /api/v1/clusterroles/{name})
+	UpdateClusterRole(ctx context.Context, request UpdateClusterRoleRequestObject) (UpdateClusterRoleResponseObject, error)
 	// Delete resource
 	// (DELETE /api/v1/delete)
 	DeleteResource(ctx context.Context, request DeleteResourceRequestObject) (DeleteResourceResponseObject, error)
@@ -7983,6 +9153,36 @@ type StrictServerInterface interface {
 	// Get project deployment pipeline
 	// (GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline)
 	GetProjectDeploymentPipeline(ctx context.Context, request GetProjectDeploymentPipelineRequestObject) (GetProjectDeploymentPipelineResponseObject, error)
+	// List namespace role bindings
+	// (GET /api/v1/namespaces/{namespaceName}/rolebindings)
+	ListNamespaceRoleBindings(ctx context.Context, request ListNamespaceRoleBindingsRequestObject) (ListNamespaceRoleBindingsResponseObject, error)
+	// Create namespace role binding
+	// (POST /api/v1/namespaces/{namespaceName}/rolebindings)
+	CreateNamespaceRoleBinding(ctx context.Context, request CreateNamespaceRoleBindingRequestObject) (CreateNamespaceRoleBindingResponseObject, error)
+	// Delete namespace role binding
+	// (DELETE /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	DeleteNamespaceRoleBinding(ctx context.Context, request DeleteNamespaceRoleBindingRequestObject) (DeleteNamespaceRoleBindingResponseObject, error)
+	// Get namespace role binding
+	// (GET /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	GetNamespaceRoleBinding(ctx context.Context, request GetNamespaceRoleBindingRequestObject) (GetNamespaceRoleBindingResponseObject, error)
+	// Update namespace role binding
+	// (PUT /api/v1/namespaces/{namespaceName}/rolebindings/{name})
+	UpdateNamespaceRoleBinding(ctx context.Context, request UpdateNamespaceRoleBindingRequestObject) (UpdateNamespaceRoleBindingResponseObject, error)
+	// List namespace roles
+	// (GET /api/v1/namespaces/{namespaceName}/roles)
+	ListNamespaceRoles(ctx context.Context, request ListNamespaceRolesRequestObject) (ListNamespaceRolesResponseObject, error)
+	// Create namespace role
+	// (POST /api/v1/namespaces/{namespaceName}/roles)
+	CreateNamespaceRole(ctx context.Context, request CreateNamespaceRoleRequestObject) (CreateNamespaceRoleResponseObject, error)
+	// Delete namespace role
+	// (DELETE /api/v1/namespaces/{namespaceName}/roles/{name})
+	DeleteNamespaceRole(ctx context.Context, request DeleteNamespaceRoleRequestObject) (DeleteNamespaceRoleResponseObject, error)
+	// Get namespace role
+	// (GET /api/v1/namespaces/{namespaceName}/roles/{name})
+	GetNamespaceRole(ctx context.Context, request GetNamespaceRoleRequestObject) (GetNamespaceRoleResponseObject, error)
+	// Update namespace role
+	// (PUT /api/v1/namespaces/{namespaceName}/roles/{name})
+	UpdateNamespaceRole(ctx context.Context, request UpdateNamespaceRoleRequestObject) (UpdateNamespaceRoleResponseObject, error)
 	// List secret references
 	// (GET /api/v1/namespaces/{namespaceName}/secret-references)
 	ListSecretReferences(ctx context.Context, request ListSecretReferencesRequestObject) (ListSecretReferencesResponseObject, error)
@@ -8253,25 +9453,25 @@ func (sh *strictHandler) GetSubjectProfile(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// ListRoleMappings operation middleware
-func (sh *strictHandler) ListRoleMappings(w http.ResponseWriter, r *http.Request, params ListRoleMappingsParams) {
-	var request ListRoleMappingsRequestObject
+// ListClusterRoleBindings operation middleware
+func (sh *strictHandler) ListClusterRoleBindings(w http.ResponseWriter, r *http.Request, params ListClusterRoleBindingsParams) {
+	var request ListClusterRoleBindingsRequestObject
 
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRoleMappings(ctx, request.(ListRoleMappingsRequestObject))
+		return sh.ssi.ListClusterRoleBindings(ctx, request.(ListClusterRoleBindingsRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRoleMappings")
+		handler = middleware(handler, "ListClusterRoleBindings")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListRoleMappingsResponseObject); ok {
-		if err := validResponse.VisitListRoleMappingsResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListClusterRoleBindingsResponseObject); ok {
+		if err := validResponse.VisitListClusterRoleBindingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8279,11 +9479,11 @@ func (sh *strictHandler) ListRoleMappings(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// AddRoleMapping operation middleware
-func (sh *strictHandler) AddRoleMapping(w http.ResponseWriter, r *http.Request) {
-	var request AddRoleMappingRequestObject
+// CreateClusterRoleBinding operation middleware
+func (sh *strictHandler) CreateClusterRoleBinding(w http.ResponseWriter, r *http.Request) {
+	var request CreateClusterRoleBindingRequestObject
 
-	var body AddRoleMappingJSONRequestBody
+	var body CreateClusterRoleBindingJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -8291,18 +9491,18 @@ func (sh *strictHandler) AddRoleMapping(w http.ResponseWriter, r *http.Request) 
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.AddRoleMapping(ctx, request.(AddRoleMappingRequestObject))
+		return sh.ssi.CreateClusterRoleBinding(ctx, request.(CreateClusterRoleBindingRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AddRoleMapping")
+		handler = middleware(handler, "CreateClusterRoleBinding")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(AddRoleMappingResponseObject); ok {
-		if err := validResponse.VisitAddRoleMappingResponse(w); err != nil {
+	} else if validResponse, ok := response.(CreateClusterRoleBindingResponseObject); ok {
+		if err := validResponse.VisitCreateClusterRoleBindingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8310,25 +9510,25 @@ func (sh *strictHandler) AddRoleMapping(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// RemoveRoleMapping operation middleware
-func (sh *strictHandler) RemoveRoleMapping(w http.ResponseWriter, r *http.Request, mappingId MappingIdParam) {
-	var request RemoveRoleMappingRequestObject
+// DeleteClusterRoleBinding operation middleware
+func (sh *strictHandler) DeleteClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string) {
+	var request DeleteClusterRoleBindingRequestObject
 
-	request.MappingId = mappingId
+	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RemoveRoleMapping(ctx, request.(RemoveRoleMappingRequestObject))
+		return sh.ssi.DeleteClusterRoleBinding(ctx, request.(DeleteClusterRoleBindingRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RemoveRoleMapping")
+		handler = middleware(handler, "DeleteClusterRoleBinding")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RemoveRoleMappingResponseObject); ok {
-		if err := validResponse.VisitRemoveRoleMappingResponse(w); err != nil {
+	} else if validResponse, ok := response.(DeleteClusterRoleBindingResponseObject); ok {
+		if err := validResponse.VisitDeleteClusterRoleBindingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8336,13 +9536,39 @@ func (sh *strictHandler) RemoveRoleMapping(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// UpdateRoleMapping operation middleware
-func (sh *strictHandler) UpdateRoleMapping(w http.ResponseWriter, r *http.Request, mappingId MappingIdParam) {
-	var request UpdateRoleMappingRequestObject
+// GetClusterRoleBinding operation middleware
+func (sh *strictHandler) GetClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string) {
+	var request GetClusterRoleBindingRequestObject
 
-	request.MappingId = mappingId
+	request.Name = name
 
-	var body UpdateRoleMappingJSONRequestBody
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetClusterRoleBinding(ctx, request.(GetClusterRoleBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetClusterRoleBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetClusterRoleBindingResponseObject); ok {
+		if err := validResponse.VisitGetClusterRoleBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateClusterRoleBinding operation middleware
+func (sh *strictHandler) UpdateClusterRoleBinding(w http.ResponseWriter, r *http.Request, name string) {
+	var request UpdateClusterRoleBindingRequestObject
+
+	request.Name = name
+
+	var body UpdateClusterRoleBindingJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -8350,18 +9576,18 @@ func (sh *strictHandler) UpdateRoleMapping(w http.ResponseWriter, r *http.Reques
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateRoleMapping(ctx, request.(UpdateRoleMappingRequestObject))
+		return sh.ssi.UpdateClusterRoleBinding(ctx, request.(UpdateClusterRoleBindingRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateRoleMapping")
+		handler = middleware(handler, "UpdateClusterRoleBinding")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateRoleMappingResponseObject); ok {
-		if err := validResponse.VisitUpdateRoleMappingResponse(w); err != nil {
+	} else if validResponse, ok := response.(UpdateClusterRoleBindingResponseObject); ok {
+		if err := validResponse.VisitUpdateClusterRoleBindingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8369,23 +9595,23 @@ func (sh *strictHandler) UpdateRoleMapping(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-// ListRoles operation middleware
-func (sh *strictHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
-	var request ListRolesRequestObject
+// ListClusterRoles operation middleware
+func (sh *strictHandler) ListClusterRoles(w http.ResponseWriter, r *http.Request) {
+	var request ListClusterRolesRequestObject
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListRoles(ctx, request.(ListRolesRequestObject))
+		return sh.ssi.ListClusterRoles(ctx, request.(ListClusterRolesRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListRoles")
+		handler = middleware(handler, "ListClusterRoles")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListRolesResponseObject); ok {
-		if err := validResponse.VisitListRolesResponse(w); err != nil {
+	} else if validResponse, ok := response.(ListClusterRolesResponseObject); ok {
+		if err := validResponse.VisitListClusterRolesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8393,11 +9619,11 @@ func (sh *strictHandler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// AddRole operation middleware
-func (sh *strictHandler) AddRole(w http.ResponseWriter, r *http.Request) {
-	var request AddRoleRequestObject
+// CreateClusterRole operation middleware
+func (sh *strictHandler) CreateClusterRole(w http.ResponseWriter, r *http.Request) {
+	var request CreateClusterRoleRequestObject
 
-	var body AddRoleJSONRequestBody
+	var body CreateClusterRoleJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -8405,18 +9631,18 @@ func (sh *strictHandler) AddRole(w http.ResponseWriter, r *http.Request) {
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.AddRole(ctx, request.(AddRoleRequestObject))
+		return sh.ssi.CreateClusterRole(ctx, request.(CreateClusterRoleRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "AddRole")
+		handler = middleware(handler, "CreateClusterRole")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(AddRoleResponseObject); ok {
-		if err := validResponse.VisitAddRoleResponse(w); err != nil {
+	} else if validResponse, ok := response.(CreateClusterRoleResponseObject); ok {
+		if err := validResponse.VisitCreateClusterRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8424,26 +9650,26 @@ func (sh *strictHandler) AddRole(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// RemoveRole operation middleware
-func (sh *strictHandler) RemoveRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam, params RemoveRoleParams) {
-	var request RemoveRoleRequestObject
+// DeleteClusterRole operation middleware
+func (sh *strictHandler) DeleteClusterRole(w http.ResponseWriter, r *http.Request, name string, params DeleteClusterRoleParams) {
+	var request DeleteClusterRoleRequestObject
 
-	request.RoleName = roleName
+	request.Name = name
 	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.RemoveRole(ctx, request.(RemoveRoleRequestObject))
+		return sh.ssi.DeleteClusterRole(ctx, request.(DeleteClusterRoleRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "RemoveRole")
+		handler = middleware(handler, "DeleteClusterRole")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(RemoveRoleResponseObject); ok {
-		if err := validResponse.VisitRemoveRoleResponse(w); err != nil {
+	} else if validResponse, ok := response.(DeleteClusterRoleResponseObject); ok {
+		if err := validResponse.VisitDeleteClusterRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8451,25 +9677,25 @@ func (sh *strictHandler) RemoveRole(w http.ResponseWriter, r *http.Request, role
 	}
 }
 
-// GetRole operation middleware
-func (sh *strictHandler) GetRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam) {
-	var request GetRoleRequestObject
+// GetClusterRole operation middleware
+func (sh *strictHandler) GetClusterRole(w http.ResponseWriter, r *http.Request, name string) {
+	var request GetClusterRoleRequestObject
 
-	request.RoleName = roleName
+	request.Name = name
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetRole(ctx, request.(GetRoleRequestObject))
+		return sh.ssi.GetClusterRole(ctx, request.(GetClusterRoleRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetRole")
+		handler = middleware(handler, "GetClusterRole")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetRoleResponseObject); ok {
-		if err := validResponse.VisitGetRoleResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetClusterRoleResponseObject); ok {
+		if err := validResponse.VisitGetClusterRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8477,13 +9703,13 @@ func (sh *strictHandler) GetRole(w http.ResponseWriter, r *http.Request, roleNam
 	}
 }
 
-// UpdateRole operation middleware
-func (sh *strictHandler) UpdateRole(w http.ResponseWriter, r *http.Request, roleName RoleNameParam) {
-	var request UpdateRoleRequestObject
+// UpdateClusterRole operation middleware
+func (sh *strictHandler) UpdateClusterRole(w http.ResponseWriter, r *http.Request, name string) {
+	var request UpdateClusterRoleRequestObject
 
-	request.RoleName = roleName
+	request.Name = name
 
-	var body UpdateRoleJSONRequestBody
+	var body UpdateClusterRoleJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -8491,18 +9717,18 @@ func (sh *strictHandler) UpdateRole(w http.ResponseWriter, r *http.Request, role
 	request.Body = &body
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateRole(ctx, request.(UpdateRoleRequestObject))
+		return sh.ssi.UpdateClusterRole(ctx, request.(UpdateClusterRoleRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateRole")
+		handler = middleware(handler, "UpdateClusterRole")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
 
 	if err != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(UpdateRoleResponseObject); ok {
-		if err := validResponse.VisitUpdateRoleResponse(w); err != nil {
+	} else if validResponse, ok := response.(UpdateClusterRoleResponseObject); ok {
+		if err := validResponse.VisitUpdateClusterRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -9936,6 +11162,302 @@ func (sh *strictHandler) GetProjectDeploymentPipeline(w http.ResponseWriter, r *
 	}
 }
 
+// ListNamespaceRoleBindings operation middleware
+func (sh *strictHandler) ListNamespaceRoleBindings(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, params ListNamespaceRoleBindingsParams) {
+	var request ListNamespaceRoleBindingsRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListNamespaceRoleBindings(ctx, request.(ListNamespaceRoleBindingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListNamespaceRoleBindings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListNamespaceRoleBindingsResponseObject); ok {
+		if err := validResponse.VisitListNamespaceRoleBindingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNamespaceRoleBinding operation middleware
+func (sh *strictHandler) CreateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
+	var request CreateNamespaceRoleBindingRequestObject
+
+	request.NamespaceName = namespaceName
+
+	var body CreateNamespaceRoleBindingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNamespaceRoleBinding(ctx, request.(CreateNamespaceRoleBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNamespaceRoleBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNamespaceRoleBindingResponseObject); ok {
+		if err := validResponse.VisitCreateNamespaceRoleBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNamespaceRoleBinding operation middleware
+func (sh *strictHandler) DeleteNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string) {
+	var request DeleteNamespaceRoleBindingRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNamespaceRoleBinding(ctx, request.(DeleteNamespaceRoleBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNamespaceRoleBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNamespaceRoleBindingResponseObject); ok {
+		if err := validResponse.VisitDeleteNamespaceRoleBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNamespaceRoleBinding operation middleware
+func (sh *strictHandler) GetNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string) {
+	var request GetNamespaceRoleBindingRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNamespaceRoleBinding(ctx, request.(GetNamespaceRoleBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNamespaceRoleBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNamespaceRoleBindingResponseObject); ok {
+		if err := validResponse.VisitGetNamespaceRoleBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNamespaceRoleBinding operation middleware
+func (sh *strictHandler) UpdateNamespaceRoleBinding(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string) {
+	var request UpdateNamespaceRoleBindingRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+
+	var body UpdateNamespaceRoleBindingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNamespaceRoleBinding(ctx, request.(UpdateNamespaceRoleBindingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNamespaceRoleBinding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNamespaceRoleBindingResponseObject); ok {
+		if err := validResponse.VisitUpdateNamespaceRoleBindingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListNamespaceRoles operation middleware
+func (sh *strictHandler) ListNamespaceRoles(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
+	var request ListNamespaceRolesRequestObject
+
+	request.NamespaceName = namespaceName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListNamespaceRoles(ctx, request.(ListNamespaceRolesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListNamespaceRoles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListNamespaceRolesResponseObject); ok {
+		if err := validResponse.VisitListNamespaceRolesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNamespaceRole operation middleware
+func (sh *strictHandler) CreateNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
+	var request CreateNamespaceRoleRequestObject
+
+	request.NamespaceName = namespaceName
+
+	var body CreateNamespaceRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNamespaceRole(ctx, request.(CreateNamespaceRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNamespaceRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNamespaceRoleResponseObject); ok {
+		if err := validResponse.VisitCreateNamespaceRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNamespaceRole operation middleware
+func (sh *strictHandler) DeleteNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string, params DeleteNamespaceRoleParams) {
+	var request DeleteNamespaceRoleRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNamespaceRole(ctx, request.(DeleteNamespaceRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNamespaceRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNamespaceRoleResponseObject); ok {
+		if err := validResponse.VisitDeleteNamespaceRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNamespaceRole operation middleware
+func (sh *strictHandler) GetNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string) {
+	var request GetNamespaceRoleRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNamespaceRole(ctx, request.(GetNamespaceRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNamespaceRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNamespaceRoleResponseObject); ok {
+		if err := validResponse.VisitGetNamespaceRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNamespaceRole operation middleware
+func (sh *strictHandler) UpdateNamespaceRole(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam, name string) {
+	var request UpdateNamespaceRoleRequestObject
+
+	request.NamespaceName = namespaceName
+	request.Name = name
+
+	var body UpdateNamespaceRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNamespaceRole(ctx, request.(UpdateNamespaceRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNamespaceRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNamespaceRoleResponseObject); ok {
+		if err := validResponse.VisitUpdateNamespaceRoleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListSecretReferences operation middleware
 func (sh *strictHandler) ListSecretReferences(w http.ResponseWriter, r *http.Request, namespaceName NamespaceNameParam) {
 	var request ListSecretReferencesRequestObject
@@ -10373,257 +11895,278 @@ func (sh *strictHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"l7BvQT5f2e+fvv+/AAAA//8U6vHjf+MBAA==",
+	"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",
+	"AQAA///W49eW+yACAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

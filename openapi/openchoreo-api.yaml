@@ -1655,266 +1655,6 @@ paths:
   # =============================================================================
   # Authorization Endpoints
   # =============================================================================
-
-  /api/v1/authz/roles:
-    get:
-      operationId: listRoles
-      summary: List roles
-      description: Returns all defined authorization roles.
-      tags: [Authorization]
-      responses:
-        '200':
-          description: List of roles
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Role'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    post:
-      operationId: addRole
-      summary: Create role
-      description: Creates a new authorization role.
-      tags: [Authorization]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Role'
-      responses:
-        '201':
-          description: Role created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/authz/roles/{roleName}:
-    get:
-      operationId: getRole
-      summary: Get role
-      description: Returns details of a specific role.
-      tags: [Authorization]
-      parameters:
-        - $ref: '#/components/parameters/RoleNameParam'
-      responses:
-        '200':
-          description: Role details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Role'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    put:
-      operationId: updateRole
-      summary: Update role
-      description: Updates an existing role's actions.
-      tags: [Authorization]
-      parameters:
-        - $ref: '#/components/parameters/RoleNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateRoleRequest'
-      responses:
-        '200':
-          description: Role updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    delete:
-      operationId: removeRole
-      summary: Delete role
-      description: Deletes a role. Use force=true to also remove associated mappings.
-      tags: [Authorization]
-      parameters:
-        - $ref: '#/components/parameters/RoleNameParam'
-        - name: force
-          in: query
-          required: false
-          description: Force deletion and remove all associated role mappings
-          schema:
-            type: boolean
-            default: false
-      responses:
-        '204':
-          description: Role deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/authz/role-mappings:
-    get:
-      operationId: listRoleMappings
-      summary: List role mappings
-      description: Returns role-entitlement mappings. Filter by role name or entitlement.
-      tags: [Authorization]
-      parameters:
-        - name: role
-          in: query
-          required: false
-          description: Filter by role name
-          schema:
-            type: string
-        - name: claim
-          in: query
-          required: false
-          description: Filter by entitlement claim (requires value parameter)
-          schema:
-            type: string
-        - name: value
-          in: query
-          required: false
-          description: Filter by entitlement value (requires claim parameter)
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of role mappings
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RoleEntitlementMapping'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    post:
-      operationId: addRoleMapping
-      summary: Create role mapping
-      description: Creates a new role-entitlement mapping.
-      tags: [Authorization]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RoleEntitlementMapping'
-      responses:
-        '201':
-          description: Role mapping created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/authz/role-mappings/{mappingId}:
-    put:
-      operationId: updateRoleMapping
-      summary: Update role mapping
-      description: Updates an existing role-entitlement mapping.
-      tags: [Authorization]
-      parameters:
-        - $ref: '#/components/parameters/MappingIdParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateRoleMappingRequest'
-      responses:
-        '200':
-          description: Role mapping updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MessageResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-    delete:
-      operationId: removeRoleMapping
-      summary: Delete role mapping
-      description: Deletes a role-entitlement mapping.
-      tags: [Authorization]
-      parameters:
-        - $ref: '#/components/parameters/MappingIdParam'
-      responses:
-        '204':
-          description: Role mapping deleted successfully
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/authz/actions:
     get:
       operationId: listActions
@@ -2014,16 +1754,6 @@ paths:
           description: Component scope
           schema:
             type: string
-        - name: ou
-          in: query
-          required: false
-          description: Namespace units scope
-          schema:
-            type: array
-            items:
-              type: string
-          style: form
-          explode: true
       responses:
         '200':
           description: Subject profile
@@ -2037,6 +1767,690 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterroles:
+    get:
+      operationId: listClusterRoles
+      summary: List cluster roles
+      description: Returns all cluster-scoped authorization roles.
+      tags: [Authorization]
+      responses:
+        '200':
+          description: List of cluster roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterRole
+      summary: Create cluster role
+      description: Creates a new cluster-scoped authorization role.
+      tags: [Authorization]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterRoleRequest'
+      responses:
+        '201':
+          description: Cluster role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterroles/{name}:
+    get:
+      operationId: getClusterRole
+      summary: Get cluster role
+      description: Returns details of a specific cluster role.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role name
+          schema:
+            type: string
+            example: cluster-admin
+      responses:
+        '200':
+          description: Cluster role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterRole
+      summary: Update cluster role
+      description: Updates an existing cluster role's actions and description.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role name
+          schema:
+            type: string
+            example: cluster-admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClusterRoleRequest'
+      responses:
+        '200':
+          description: Cluster role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterRole
+      summary: Delete cluster role
+      description: Deletes a cluster role. Use force=true to also remove associated bindings.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role name
+          schema:
+            type: string
+            example: cluster-admin
+        - name: force
+          in: query
+          required: false
+          description: Force deletion and remove all associated role bindings
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Cluster role deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterrolebindings:
+    get:
+      operationId: listClusterRoleBindings
+      summary: List cluster role bindings
+      description: Returns all cluster-scoped role bindings. Supports filtering by role name and/or entitlement.
+      tags: [Authorization]
+      parameters:
+        - name: roleName
+          in: query
+          required: false
+          description: Filter by role name
+          schema:
+            type: string
+            example: admin
+        - name: claim
+          in: query
+          required: false
+          description: Filter by entitlement claim (must be used with value parameter)
+          schema:
+            type: string
+            example: group
+        - name: value
+          in: query
+          required: false
+          description: Filter by entitlement value (must be used with claim parameter)
+          schema:
+            type: string
+            example: admins
+        - name: effect
+          in: query
+          required: false
+          description: filter by binding effect (allow or deny)
+          schema:
+            type: string
+            enum: [allow, deny]
+      responses:
+        '200':
+          description: List of cluster role bindings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleEntitlementMapping'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterRoleBinding
+      summary: Create cluster role binding
+      description: Creates a new cluster-scoped role binding.
+      tags: [Authorization]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterRoleBindingRequest'
+      responses:
+        '201':
+          description: Cluster role binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterrolebindings/{name}:
+    get:
+      operationId: getClusterRoleBinding
+      summary: Get cluster role binding
+      description: Returns details of a specific cluster role binding.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role binding name
+          schema:
+            type: string
+            example: admin-binding
+      responses:
+        '200':
+          description: Cluster role binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterRoleBinding
+      summary: Update cluster role binding
+      description: Updates an existing cluster role binding.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role binding name
+          schema:
+            type: string
+            example: admin-binding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClusterRoleBindingRequest'
+      responses:
+        '200':
+          description: Cluster role binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterRoleBinding
+      summary: Delete cluster role binding
+      description: Deletes a cluster role binding.
+      tags: [Authorization]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: Cluster role binding name
+          schema:
+            type: string
+            example: admin-binding
+      responses:
+        '204':
+          description: Cluster role binding deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/roles:
+    get:
+      operationId: listNamespaceRoles
+      summary: List namespace roles
+      description: Returns all namespace-scoped authorization roles.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      responses:
+        '200':
+          description: List of namespace roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createNamespaceRole
+      summary: Create namespace role
+      description: Creates a new namespace-scoped authorization role.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNamespaceRoleRequest'
+      responses:
+        '201':
+          description: Namespace role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/roles/{name}:
+    get:
+      operationId: getNamespaceRole
+      summary: Get namespace role
+      description: Returns details of a specific namespace role.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role name
+          schema:
+            type: string
+            example: developer
+      responses:
+        '200':
+          description: Namespace role details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateNamespaceRole
+      summary: Update namespace role
+      description: Updates an existing namespace role's actions and description.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role name
+          schema:
+            type: string
+            example: developer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNamespaceRoleRequest'
+      responses:
+        '200':
+          description: Namespace role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteNamespaceRole
+      summary: Delete namespace role
+      description: Deletes a namespace role. Use force=true to also remove associated bindings.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role name
+          schema:
+            type: string
+            example: developer
+        - name: force
+          in: query
+          required: false
+          description: Force deletion and remove all associated role bindings
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Namespace role deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/rolebindings:
+    get:
+      operationId: listNamespaceRoleBindings
+      summary: List namespace role bindings
+      description: Returns all namespace-scoped role bindings. Supports filtering by role reference and/or entitlement.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: roleName
+          in: query
+          required: false
+          description: Filter by role reference name
+          schema:
+            type: string
+            example: developer
+        - name: roleNamespace
+          in: query
+          required: false
+          description: Filter by role reference namespace (optional, for namespace-scoped roles)
+          schema:
+            type: string
+            example: acme
+        - name: claim
+          in: query
+          required: false
+          description: Filter by entitlement claim (must be used with value parameter)
+          schema:
+            type: string
+            example: group
+        - name: value
+          in: query
+          required: false
+          description: Filter by entitlement value (must be used with claim parameter)
+          schema:
+            type: string
+            example: developers
+        - name: effect
+          in: query
+          required: false
+          description: filter by binding effect (allow or deny)
+          schema:
+            type: string
+            enum: [allow, deny]
+      responses:
+        '200':
+          description: List of namespace role bindings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createNamespaceRoleBinding
+      summary: Create namespace role binding
+      description: Creates a new namespace-scoped role binding.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNamespaceRoleBindingRequest'
+      responses:
+        '201':
+          description: Namespace role binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/rolebindings/{name}:
+    get:
+      operationId: getNamespaceRoleBinding
+      summary: Get namespace role binding
+      description: Returns details of a specific namespace role binding.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role binding name
+          schema:
+            type: string
+            example: developer-binding
+      responses:
+        '200':
+          description: Namespace role binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateNamespaceRoleBinding
+      summary: Update namespace role binding
+      description: Updates an existing namespace role binding.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role binding name
+          schema:
+            type: string
+            example: developer-binding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNamespaceRoleBindingRequest'
+      responses:
+        '200':
+          description: Namespace role binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleEntitlementMapping'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteNamespaceRoleBinding
+      summary: Delete namespace role binding
+      description: Deletes a namespace role binding.
+      tags: [Authorization]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - name: name
+          in: path
+          required: true
+          description: Namespace role binding name
+          schema:
+            type: string
+            example: developer-binding
+      responses:
+        '204':
+          description: Namespace role binding deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -4607,6 +5021,14 @@ components:
           items:
             type: string
           example: ["read", "write", "delete"]
+        namespace:
+          type: string
+          description: Namespace for namespace-scoped roles, empty for cluster roles
+          example: my-namespace
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Full administrative access
 
     UpdateRoleRequest:
       type: object
@@ -4654,6 +5076,19 @@ components:
           description: Component name
           example: api-service
 
+    TargetPath:
+      type: object
+      description: Target resource path within a namespace (project/component only)
+      properties:
+        project:
+          type: string
+          description: Project name
+          example: my-project
+        component:
+          type: string
+          description: Component name
+          example: api-service
+
     AuthzContext:
       type: object
       description: Additional context for authorization
@@ -4662,16 +5097,19 @@ components:
     RoleEntitlementMapping:
       type: object
       description: Mapping of a role to an entitlement within a scope
+      required:
+        - name
+        - role
+        - entitlement
+        - hierarchy
+        - effect
       properties:
-        id:
-          type: integer
-          format: int64
-          description: Unique mapping ID
-          example: 123
-        role_name:
+        name:
           type: string
-          description: Name of the role being assigned
-          example: admin
+          description: Unique mapping name
+          example: admin-binding
+        role:
+          $ref: '#/components/schemas/RoleRef'
         entitlement:
           $ref: '#/components/schemas/Entitlement'
         hierarchy:
@@ -4680,6 +5118,7 @@ components:
           type: string
           description: Policy effect (allow or deny)
           enum: [allow, deny]
+          default: allow
           example: allow
         context:
           $ref: '#/components/schemas/AuthzContext'
@@ -4688,21 +5127,22 @@ components:
       type: object
       description: Request to update a role mapping
       required:
-        - role_name
+        - role
         - entitlement
+        - hierarchy
+        - effect
       properties:
-        role_name:
-          type: string
-          description: Role name
-          example: admin
+        role:
+          $ref: '#/components/schemas/RoleRef'
         entitlement:
           $ref: '#/components/schemas/Entitlement'
         hierarchy:
           $ref: '#/components/schemas/ResourceHierarchy'
         effect:
           type: string
-          description: Policy effect
+          description: Policy effect (allow or deny)
           enum: [allow, deny]
+          default: allow
           example: allow
         context:
           $ref: '#/components/schemas/AuthzContext'
@@ -4712,6 +5152,8 @@ components:
       description: Authenticated subject context
       required:
         - type
+        - entitlement_claim
+        - entitlement_values
       properties:
         type:
           type: string
@@ -4753,6 +5195,7 @@ components:
       required:
         - resource
         - action
+        - subject_context
       properties:
         subject_context:
           $ref: '#/components/schemas/SubjectContext'
@@ -4852,6 +5295,210 @@ components:
           format: date-time
           description: Time when capabilities were evaluated
           example: "2025-01-06T10:00:00Z"
+
+    ClusterRoleRef:
+      type: object
+      description: Reference to a cluster role by name only
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Cluster role name
+          example: admin
+
+    RoleRef:
+      type: object
+      description: Reference to a role by name and namespace
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Role name
+          example: developer
+        namespace:
+          type: string
+          description: Namespace for namespace-scoped roles, empty for cluster roles
+          example: my-namespace
+
+    CreateClusterRoleRequest:
+      type: object
+      description: Request to create a cluster-scoped role
+      required:
+        - name
+        - actions
+      properties:
+        name:
+          type: string
+          description: Unique cluster role name
+          example: cluster-admin
+        actions:
+          type: array
+          description: List of actions this role permits
+          items:
+            type: string
+          example: ["read", "write", "delete"]
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Full cluster administration access
+
+    UpdateClusterRoleRequest:
+      type: object
+      description: Request to update a cluster role
+      required:
+        - actions
+      properties:
+        actions:
+          type: array
+          description: List of actions this role permits
+          items:
+            type: string
+          example: ["read", "write"]
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Updated cluster admin role
+
+    CreateClusterRoleBindingRequest:
+      type: object
+      description: Request to create a cluster-scoped role binding
+      required:
+        - name
+        - entitlement
+        - role
+      properties:
+        name:
+          type: string
+          description: Unique cluster role binding name
+          example: admin-binding
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        role:
+          type: string
+          description: Cluster role name
+          example: admin
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+
+    UpdateClusterRoleBindingRequest:
+      type: object
+      description: Request to update a cluster role binding
+      required:
+        - entitlement
+        - role
+      properties:
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        role:
+          type: string
+          description: Cluster role name
+          example: admin
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+
+    CreateNamespaceRoleRequest:
+      type: object
+      description: Request to create a namespace-scoped role
+      required:
+        - name
+        - actions
+      properties:
+        name:
+          type: string
+          description: Unique namespace role name
+          example: developer
+        actions:
+          type: array
+          description: List of actions this role permits
+          items:
+            type: string
+          example: ["read", "write"]
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Developer access within namespace
+
+    UpdateNamespaceRoleRequest:
+      type: object
+      description: Request to update a namespace role
+      required:
+        - actions
+      properties:
+        actions:
+          type: array
+          description: List of actions this role permits
+          items:
+            type: string
+          example: ["read", "write"]
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Updated developer role
+
+    CreateNamespaceRoleBindingRequest:
+      type: object
+      description: Request to create a namespace-scoped role binding
+      required:
+        - name
+        - namespace
+        - entitlement
+        - roleRef
+      properties:
+        name:
+          type: string
+          description: Unique namespace role binding name
+          example: developer-binding
+        namespace:
+          type: string
+          description: Target namespace for this role binding
+          example: my-namespace
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        roleRef:
+          $ref: '#/components/schemas/RoleRef'
+        targetPath:
+          $ref: '#/components/schemas/TargetPath'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+
+    UpdateNamespaceRoleBindingRequest:
+      type: object
+      description: Request to update a namespace role binding
+      required:
+        - namespace
+        - entitlement
+        - roleRef
+      properties:
+        namespace:
+          type: string
+          description: Target namespace for this role binding
+          example: my-namespace
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        roleRef:
+          $ref: '#/components/schemas/RoleRef'
+        targetPath:
+          $ref: '#/components/schemas/TargetPath'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
 
     # -------------------------------------------------------------------------
     # Webhook Schemas
