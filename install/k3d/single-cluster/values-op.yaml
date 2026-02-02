@@ -39,3 +39,5 @@ security:
 
 gateway:
   enabled: true
+  envoy:
+    mountTmpVolume: true
