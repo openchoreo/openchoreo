@@ -9,10 +9,6 @@ kubeAPI:
   hostPort: "6553"
 # Observability Plane uses port range 11xxx
 ports:
-  # Observer API
-  - port: 11080:8080
-    nodeFilters:
-      - loadbalancer
   # OpenSearch Dashboard
   - port: 11081:5601
     nodeFilters:
