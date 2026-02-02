@@ -28,8 +28,8 @@ const (
 	BuildPlaneCleanupFinalizer = "openchoreo.dev/buildplane-cleanup"
 )
 
-// BuildPlaneReconciler reconciles a BuildPlane object
-type BuildPlaneReconciler struct {
+// Reconciler reconciles a BuildPlane object
+type Reconciler struct {
 	client.Client
 	Scheme        *runtime.Scheme
 	Recorder      record.EventRecorder
@@ -44,7 +44,7 @@ type BuildPlaneReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Fetch the BuildPlane instance
@@ -135,13 +135,13 @@ func (r *BuildPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
 }
 
-func (r *BuildPlaneReconciler) shouldIgnoreReconcile(buildPlane *openchoreov1alpha1.BuildPlane) bool {
+func (r *Reconciler) shouldIgnoreReconcile(buildPlane *openchoreov1alpha1.BuildPlane) bool {
 	return meta.FindStatusCondition(buildPlane.Status.Conditions, string(controller.TypeCreated)) != nil
 }
 
 // ensureFinalizer ensures that the finalizer is added to the buildplane.
 // The first return value indicates whether the finalizer was added to the buildplane.
-func (r *BuildPlaneReconciler) ensureFinalizer(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (bool, error) {
 	if !buildPlane.DeletionTimestamp.IsZero() {
 		return false, nil
 	}
@@ -153,7 +153,7 @@ func (r *BuildPlaneReconciler) ensureFinalizer(ctx context.Context, buildPlane *
 	return false, nil
 }
 
-func (r *BuildPlaneReconciler) finalize(ctx context.Context, _, buildPlane *openchoreov1alpha1.BuildPlane) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, _, buildPlane *openchoreov1alpha1.BuildPlane) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
 
 	if !controllerutil.ContainsFinalizer(buildPlane, BuildPlaneCleanupFinalizer) {
@@ -186,7 +186,7 @@ func (r *BuildPlaneReconciler) finalize(ctx context.Context, _, buildPlane *open
 }
 
 // invalidateCache invalidates the cached Kubernetes client for this BuildPlane
-func (r *BuildPlaneReconciler) invalidateCache(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) {
+func (r *Reconciler) invalidateCache(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) {
 	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
 
 	effectivePlaneID := buildPlane.Spec.PlaneID
@@ -210,7 +210,7 @@ func (r *BuildPlaneReconciler) invalidateCache(ctx context.Context, buildPlane *
 }
 
 // notifyGateway notifies the cluster gateway about BuildPlane lifecycle events
-func (r *BuildPlaneReconciler) notifyGateway(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane, event string) error {
+func (r *Reconciler) notifyGateway(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane, event string) error {
 	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
 
 	effectivePlaneID := buildPlane.Spec.PlaneID
@@ -247,7 +247,7 @@ func (r *BuildPlaneReconciler) notifyGateway(ctx context.Context, buildPlane *op
 
 // populateAgentConnectionStatus queries the cluster-gateway for agent connection status
 // and populates the BuildPlane status fields (without persisting to API server)
-func (r *BuildPlaneReconciler) populateAgentConnectionStatus(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) error {
+func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) error {
 	logger := log.FromContext(ctx).WithValues("buildplane", buildPlane.Name)
 
 	// Skip if gateway client not configured
@@ -324,7 +324,7 @@ func NewBuildPlaneCreatedCondition(generation int64) metav1.Condition {
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BuildPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
 		r.Recorder = mgr.GetEventRecorderFor("buildplane-controller")
 	}

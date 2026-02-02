@@ -27,7 +27,7 @@ const (
 
 // ensureFinalizer ensures that the finalizer is added to the ComponentWorkflowRun.
 // Returns true if the finalizer was added (indicating the caller should return early).
-func (r *ComponentWorkflowRunReconciler) ensureFinalizer(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (bool, error) {
+func (r *Reconciler) ensureFinalizer(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (bool, error) {
 	// If already being deleted, no need to add finalizer
 	if !cwRun.DeletionTimestamp.IsZero() {
 		return false, nil
@@ -41,7 +41,7 @@ func (r *ComponentWorkflowRunReconciler) ensureFinalizer(ctx context.Context, cw
 }
 
 // finalize cleans up the build plane resources associated with the ComponentWorkflowRun.
-func (r *ComponentWorkflowRunReconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
+func (r *Reconciler) finalize(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	if !controllerutil.ContainsFinalizer(cwRun, ComponentWorkflowRunCleanupFinalizer) {
@@ -93,7 +93,7 @@ func (r *ComponentWorkflowRunReconciler) finalize(ctx context.Context, cwRun *op
 }
 
 // deleteResource deletes a single resource from the build plane using the ResourceReference.
-func (r *ComponentWorkflowRunReconciler) deleteResource(ctx context.Context, bpClient client.Client, ref openchoreodevv1alpha1.ResourceReference) error {
+func (r *Reconciler) deleteResource(ctx context.Context, bpClient client.Client, ref openchoreodevv1alpha1.ResourceReference) error {
 	gv, err := schema.ParseGroupVersion(ref.APIVersion)
 	if err != nil {
 		return fmt.Errorf("failed to parse API version %q: %w", ref.APIVersion, err)
@@ -117,7 +117,7 @@ func (r *ComponentWorkflowRunReconciler) deleteResource(ctx context.Context, bpC
 }
 
 // removeFinalizer removes the finalizer from the ComponentWorkflowRun.
-func (r *ComponentWorkflowRunReconciler) removeFinalizer(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
+func (r *Reconciler) removeFinalizer(ctx context.Context, cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) (ctrl.Result, error) {
 	if controllerutil.RemoveFinalizer(cwRun, ComponentWorkflowRunCleanupFinalizer) {
 		if err := r.Update(ctx, cwRun); err != nil {
 			return ctrl.Result{}, err

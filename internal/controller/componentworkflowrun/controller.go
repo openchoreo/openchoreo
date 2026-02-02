@@ -28,8 +28,8 @@ import (
 	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 )
 
-// ComponentWorkflowRunReconciler reconciles a ComponentWorkflowRun object
-type ComponentWorkflowRunReconciler struct {
+// Reconciler reconciles a ComponentWorkflowRun object
+type Reconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	K8sClientMgr *kubernetesClient.KubeMultiClientManager
@@ -51,7 +51,7 @@ type ComponentWorkflowRunReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx).WithValues("componentworkflowrun", req.NamespacedName)
 
 	componentWorkflowRun := &openchoreodevv1alpha1.ComponentWorkflowRun{}
@@ -177,7 +177,7 @@ func (r *ComponentWorkflowRunReconciler) Reconcile(ctx context.Context, req ctrl
 	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient), nil
 }
 
-func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
+func (r *Reconciler) handleWorkloadCreation(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	bpClient client.Client) ctrl.Result {
@@ -199,7 +199,7 @@ func (r *ComponentWorkflowRunReconciler) handleWorkloadCreation(
 	return ctrl.Result{}
 }
 
-func (r *ComponentWorkflowRunReconciler) ensureRunResource(
+func (r *Reconciler) ensureRunResource(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	output *componentworkflowpipeline.RenderOutput,
@@ -242,7 +242,7 @@ func (r *ComponentWorkflowRunReconciler) ensureRunResource(
 	return ctrl.Result{Requeue: true}
 }
 
-func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
+func (r *Reconciler) syncWorkflowRunStatus(
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	runResource *argoproj.Workflow,
 ) ctrl.Result {
@@ -270,7 +270,7 @@ func (r *ComponentWorkflowRunReconciler) syncWorkflowRunStatus(
 	}
 }
 
-func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
+func (r *Reconciler) applyRenderedRunResource(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	resource map[string]any,
@@ -336,7 +336,7 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedRunResource(
 }
 
 // applyRenderedResources applies additional rendered resources (e.g., secrets, configmaps) to the build plane.
-func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
+func (r *Reconciler) applyRenderedResources(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	resources []componentworkflowpipeline.RenderedResource,
@@ -405,7 +405,7 @@ func (r *ComponentWorkflowRunReconciler) applyRenderedResources(
 	return &appliedResources, nil
 }
 
-func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
+func (r *Reconciler) createWorkloadFromComponentWorkflowRun(
 	ctx context.Context,
 	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 	bpClient client.Client,
@@ -458,7 +458,7 @@ func (r *ComponentWorkflowRunReconciler) createWorkloadFromComponentWorkflowRun(
 	return false, nil
 }
 
-func (r *ComponentWorkflowRunReconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
+func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.BuildPlane) (client.Client, error) {
 	bpClient, err := kubernetesClient.GetK8sClientFromBuildPlane(r.K8sClientMgr, buildPlane, r.GatewayURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
@@ -467,7 +467,7 @@ func (r *ComponentWorkflowRunReconciler) getBuildPlaneClient(buildPlane *opencho
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ComponentWorkflowRunReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.K8sClientMgr == nil {
 		r.K8sClientMgr = kubernetesClient.NewManager()
 	}

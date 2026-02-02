@@ -82,7 +82,7 @@ var _ = Describe("ComponentWorkflowRun Controller", func() {
 
 		It("should handle reconciliation when resource not found", func() {
 			By("Reconciling a non-existent resource")
-			reconciler := &ComponentWorkflowRunReconciler{
+			reconciler := &Reconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
 			}

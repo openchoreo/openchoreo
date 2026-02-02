@@ -23,7 +23,7 @@ const (
 
 // ensurePrerequisites creates prerequisite resources in the build plane
 // before creating the component workflow run: create namespace, service account, role, and role binding.
-func (r *ComponentWorkflowRunReconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, bpClient client.Client) error {
+func (r *Reconciler) ensurePrerequisites(ctx context.Context, namespace, serviceAccountName string, bpClient client.Client) error {
 	logger := log.FromContext(ctx).WithValues("namespace", namespace, "serviceAccount", serviceAccountName)
 
 	roleName := fmt.Sprintf("%s-%s", serviceAccountName, workflowRoleNameSuffix)

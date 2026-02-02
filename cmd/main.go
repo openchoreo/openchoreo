@@ -228,7 +228,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&buildplane.BuildPlaneReconciler{
+	if err := (&buildplane.Reconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
 		ClientMgr:     k8sClientMgr,
@@ -245,7 +245,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&componentworkflowrun.ComponentWorkflowRunReconciler{
+	if err := (&componentworkflowrun.Reconciler{
 		Client:       mgr.GetClient(),
 		K8sClientMgr: k8sClientMgr,
 		Scheme:       mgr.GetScheme(),

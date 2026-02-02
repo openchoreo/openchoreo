@@ -14,8 +14,8 @@ import (
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// ComponentWorkflowReconciler reconciles a ComponentWorkflow object
-type ComponentWorkflowReconciler struct {
+// Reconciler reconciles a ComponentWorkflow object
+type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -33,7 +33,7 @@ type ComponentWorkflowReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
-func (r *ComponentWorkflowReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = logf.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -42,7 +42,7 @@ func (r *ComponentWorkflowReconciler) Reconcile(ctx context.Context, req ctrl.Re
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ComponentWorkflowReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreodevv1alpha1.ComponentWorkflow{}).
 		Named("componentworkflow").
