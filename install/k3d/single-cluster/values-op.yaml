@@ -3,6 +3,7 @@
 global:
   # Single-cluster non-HA mode uses standalone OpenSearch instead of operator
   installationMode: singleCluster
+  baseDomain: openchoreo.localhost
 
 # Use standalone OpenSearch (not operator-managed cluster)
 openSearch:
@@ -35,3 +36,6 @@ security:
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
     tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+
+gateway:
+  enabled: true

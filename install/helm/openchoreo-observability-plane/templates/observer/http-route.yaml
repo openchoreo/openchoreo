@@ -6,11 +6,15 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
-  - name: kgateway-envoy
+  - name: gateway-default
+    namespace: {{ .Release.Namespace }}
   hostnames:
   - observer.{{ .Values.global.baseDomain }}
   rules:
-  - filters:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
     backendRefs:
     - name: observer
       port: 8080

@@ -37,8 +37,8 @@ ports:
     nodeFilters:
       - loadbalancer
   # Observability Plane uses port range 11xxx
-  # Observer API
-  - port: 11080:8080
+  # HTTP traffic to CLI and and API (Kgateway LoadBalancer on port 8075)
+  - port: 11080:8075
     nodeFilters:
       - loadbalancer
   # OpenSearch Dashboard
