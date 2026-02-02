@@ -19,12 +19,21 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
+//nolint:gosec // False positive: these are annotation keys and namespace prefixes, not credentials
 const (
-	gitSecretSystemNamespace = "openchoreo-system"
-	gitSecretTypeLabel       = "openchoreo.dev/secret-type"
-	gitSecretTypeValue       = "git-credentials"
-	ownerNamespaceLabel      = "openchoreo.dev/owner-namespace"
+	secretTypeBasicAuth         = "basic-auth"
+	secretTypeSSHAuth           = "ssh-auth"
+	gitSecretTypeAnnotation     = "openchoreo.dev/secret-type"
+	gitSecretTypeValue          = "git-credentials"
+	gitSecretAuthTypeAnnotation = "kubernetes.io/secret-type"
+	ownerNamespaceLabel         = "openchoreo.dev/owner-namespace"
+	gitSecretNamespacePrefix    = "openchoreo-ci-"
 )
+
+// getCINamespace returns the CI namespace for a given control plane namespace
+func getCINamespace(namespaceName string) string {
+	return gitSecretNamespacePrefix + namespaceName
+}
 
 // GitSecretService handles git secret-related business logic
 type GitSecretService struct {
@@ -57,14 +66,14 @@ func NewGitSecretService(
 
 // CreateGitSecret creates a git secret across control and build planes
 func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName string, req *models.CreateGitSecretRequest) (*models.GitSecretResponse, error) {
-	s.logger.Debug("Creating git secret", "namespace", namespaceName, "secret", req.SecretName)
+	s.logger.Debug("Creating git secret", "namespace", namespaceName, "secret", req.SecretName, "type", req.SecretType)
 
 	req.Sanitize()
 
-	// if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateGitSecret, ResourceTypeGitSecret, req.SecretName,
-	//	authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
-	//	return nil, err
-	//}
+	// Validate secretType
+	if req.SecretType != secretTypeBasicAuth && req.SecretType != secretTypeSSHAuth {
+		return nil, ErrInvalidSecretType
+	}
 
 	buildPlane, err := s.getBuildPlane(ctx, namespaceName)
 	if err != nil {
@@ -84,24 +93,25 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get build plane client: %w", err)
 	}
 
-	// Ensure openchoreo-system namespace exists in build plane
-	if err := s.ensureNamespaceExists(ctx, buildPlaneClient, gitSecretSystemNamespace); err != nil {
+	// Create namespace: openchoreo-ci-{namespaceName}
+	ciNamespace := getCINamespace(namespaceName)
+	if err := s.ensureNamespaceExists(ctx, buildPlaneClient, ciNamespace); err != nil {
 		return nil, err
 	}
 
-	secret := s.buildGitSecret(req.SecretName, namespaceName, req.Token)
+	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Token, req.SSHKey)
 	if err := buildPlaneClient.Create(ctx, secret); err != nil {
 		s.logger.Error("Failed to create build plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create build plane secret: %w", err)
 	}
 
-	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName)
+	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType)
 	if err := buildPlaneClient.Create(ctx, pushSecret); err != nil {
 		s.logger.Error("Failed to create push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create push secret: %w", err)
 	}
 
-	secretReference := s.buildSecretReference(namespaceName, req.SecretName)
+	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType)
 	if err := s.k8sClient.Create(ctx, secretReference); err != nil {
 		s.logger.Error("Failed to create secret reference", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
@@ -128,25 +138,49 @@ func (s *GitSecretService) getBuildPlane(ctx context.Context, namespaceName stri
 	return &buildPlanes.Items[0], nil
 }
 
-func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, token string) *corev1.Secret {
+func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, token, sshKey string) *corev1.Secret {
+	var k8sSecretType corev1.SecretType
+	var secretData map[string]string
+
+	if secretType == secretTypeBasicAuth {
+		k8sSecretType = corev1.SecretTypeBasicAuth
+		secretData = map[string]string{
+			"password": token,
+		}
+	} else { // secretTypeSSHAuth
+		k8sSecretType = corev1.SecretTypeSSHAuth
+		secretData = map[string]string{
+			"ssh-privatekey": sshKey,
+		}
+	}
+
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: gitSecretSystemNamespace,
+			Namespace: ciNamespace,
 			Labels: map[string]string{
 				ownerNamespaceLabel: ownerNamespace,
-				gitSecretTypeLabel:  gitSecretTypeValue,
 			},
 		},
-		Type: corev1.SecretTypeBasicAuth,
-		StringData: map[string]string{
-			"password": token,
-		},
+		Type:       k8sSecretType,
+		StringData: secretData,
 	}
 }
 
-func (s *GitSecretService) buildSecretReference(namespaceName, secretName string) *openchoreov1alpha1.SecretReference {
+func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType string) *openchoreov1alpha1.SecretReference {
 	remoteKey := fmt.Sprintf("%s/git/%s", namespaceName, secretName)
+
+	var k8sSecretType corev1.SecretType
+	var secretKeyField string
+
+	if secretType == secretTypeBasicAuth {
+		k8sSecretType = corev1.SecretTypeBasicAuth
+		secretKeyField = "password"
+	} else { // secretTypeSSHAuth
+		k8sSecretType = corev1.SecretTypeSSHAuth
+		secretKeyField = "ssh-privatekey"
+	}
+
 	return &openchoreov1alpha1.SecretReference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: openchoreov1alpha1.GroupVersion.String(),
@@ -155,20 +189,21 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName string
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: namespaceName,
-			Labels: map[string]string{
-				gitSecretTypeLabel: gitSecretTypeValue,
+			Annotations: map[string]string{
+				gitSecretAuthTypeAnnotation: secretType,
+				gitSecretTypeAnnotation:     gitSecretTypeValue,
 			},
 		},
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			Template: openchoreov1alpha1.SecretTemplate{
-				Type: corev1.SecretTypeBasicAuth,
+				Type: k8sSecretType,
 			},
 			Data: []openchoreov1alpha1.SecretDataSource{
 				{
-					SecretKey: "password",
+					SecretKey: secretKeyField,
 					RemoteRef: openchoreov1alpha1.RemoteReference{
 						Key:      remoteKey,
-						Property: "password",
+						Property: secretKeyField,
 					},
 				},
 			},
@@ -177,16 +212,23 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName string
 }
 
 // createPushSecret creates an unstructured PushSecret resource for build planes.
-func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace string) *unstructured.Unstructured {
+func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType string) *unstructured.Unstructured {
 	remoteKey := fmt.Sprintf("secret/data/%s/git/%s", ownerNamespace, name)
+
+	var secretKeyField string
+	if secretType == secretTypeBasicAuth {
+		secretKeyField = "password"
+	} else { // secretTypeSSHAuth
+		secretKeyField = "ssh-privatekey"
+	}
+
 	pushSecret := &unstructured.Unstructured{}
 	pushSecret.SetAPIVersion("external-secrets.io/v1alpha1")
 	pushSecret.SetKind("PushSecret")
 	pushSecret.SetName(name)
-	pushSecret.SetNamespace(gitSecretSystemNamespace)
+	pushSecret.SetNamespace(ciNamespace)
 	pushSecret.SetLabels(map[string]string{
 		ownerNamespaceLabel: ownerNamespace,
-		gitSecretTypeLabel:  gitSecretTypeValue,
 	})
 
 	pushSecret.Object["spec"] = map[string]interface{}{
@@ -206,10 +248,10 @@ func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 		"data": []map[string]interface{}{
 			{
 				"match": map[string]interface{}{
-					"secretKey": "password",
+					"secretKey": secretKeyField,
 					"remoteRef": map[string]interface{}{
 						"remoteKey": remoteKey,
-						"property":  "password",
+						"property":  secretKeyField,
 					},
 				},
 			},
@@ -250,11 +292,10 @@ func (s *GitSecretService) ensureNamespaceExists(ctx context.Context, k8sClient 
 func (s *GitSecretService) ListGitSecrets(ctx context.Context, namespaceName string) ([]models.GitSecretResponse, error) {
 	s.logger.Debug("Listing git secrets", "namespace", namespaceName)
 
-	// List SecretReference CRDs with git-credentials label in the namespace
+	// List SecretReference CRDs with git-credentials annotation in the namespace
 	var secretRefs openchoreov1alpha1.SecretReferenceList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
-		client.MatchingLabels{gitSecretTypeLabel: gitSecretTypeValue},
 	}
 	if err := s.k8sClient.List(ctx, &secretRefs, listOpts...); err != nil {
 		s.logger.Error("Failed to list secret references", "error", err, "namespace", namespaceName)
@@ -263,10 +304,13 @@ func (s *GitSecretService) ListGitSecrets(ctx context.Context, namespaceName str
 
 	secrets := make([]models.GitSecretResponse, 0, len(secretRefs.Items))
 	for _, ref := range secretRefs.Items {
-		secrets = append(secrets, models.GitSecretResponse{
-			Name:      ref.Name,
-			Namespace: ref.Namespace,
-		})
+		// Filter by annotation (since we can't use MatchingLabels with annotations)
+		if ref.Annotations[gitSecretTypeAnnotation] == gitSecretTypeValue {
+			secrets = append(secrets, models.GitSecretResponse{
+				Name:      ref.Name,
+				Namespace: ref.Namespace,
+			})
+		}
 	}
 
 	return secrets, nil
@@ -287,8 +331,8 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 		return fmt.Errorf("failed to get secret reference: %w", err)
 	}
 
-	// Verify it's a git secret by checking the label
-	if secretRef.Labels[gitSecretTypeLabel] != gitSecretTypeValue {
+	// Verify it's a git secret by checking the annotation
+	if secretRef.Annotations[gitSecretTypeAnnotation] != gitSecretTypeValue {
 		return ErrGitSecretNotFound
 	}
 
@@ -304,12 +348,14 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 		return fmt.Errorf("failed to get build plane client: %w", err)
 	}
 
+	ciNamespace := getCINamespace(namespaceName)
+
 	// Delete PushSecret from build plane
 	pushSecret := &unstructured.Unstructured{}
 	pushSecret.SetAPIVersion("external-secrets.io/v1alpha1")
 	pushSecret.SetKind("PushSecret")
 	pushSecret.SetName(secretName)
-	pushSecret.SetNamespace(gitSecretSystemNamespace)
+	pushSecret.SetNamespace(ciNamespace)
 	if err := buildPlaneClient.Delete(ctx, pushSecret); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			s.logger.Error("Failed to delete push secret", "error", err, "namespace", namespaceName, "secret", secretName)
@@ -322,7 +368,7 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: gitSecretSystemNamespace,
+			Namespace: ciNamespace,
 		},
 	}
 	if err := buildPlaneClient.Delete(ctx, secret); err != nil {

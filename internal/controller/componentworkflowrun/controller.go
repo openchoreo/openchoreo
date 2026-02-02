@@ -296,6 +296,12 @@ func (r *Reconciler) applyRenderedRunResource(
 	resource = convertParameterValuesToStrings(resource)
 	unstructuredResource := &unstructured.Unstructured{Object: resource}
 
+	// Enforce namespace isolation: override namespace to openchoreo-ci-{namespaceName}
+	// This ensures build resources are always created in the correct namespace,
+	// regardless of what the ComponentWorkflow template specifies
+	enforcedNamespace := fmt.Sprintf("openchoreo-ci-%s", componentWorkflowRun.Namespace)
+	unstructuredResource.SetNamespace(enforcedNamespace)
+
 	name := unstructuredResource.GetName()
 	namespace := unstructuredResource.GetNamespace()
 	kind := unstructuredResource.GetKind()
@@ -367,6 +373,12 @@ func (r *Reconciler) applyRenderedResources(
 
 	for _, res := range resources {
 		unstructuredResource := &unstructured.Unstructured{Object: res.Resource}
+
+		// Enforce namespace isolation: override namespace to openchoreo-ci-{namespaceName}
+		// This ensures build resources are always created in the correct namespace,
+		// regardless of what the ComponentWorkflow template specifies
+		enforcedNamespace := fmt.Sprintf("openchoreo-ci-%s", componentWorkflowRun.Namespace)
+		unstructuredResource.SetNamespace(enforcedNamespace)
 
 		// Add labels to track ownership
 		labels := unstructuredResource.GetLabels()
@@ -498,11 +510,18 @@ func (r *ComponentWorkflowRunReconciler) resolveGitSecret(ctx context.Context, n
 
 	dataSource := secretRef.Spec.Data[0]
 
+	// Extract secret type from spec.template.type
+	secretType := string(secretRef.Spec.Template.Type)
+	if secretType == "" {
+		secretType = "kubernetes.io/basic-auth" //nolint:gosec // False positive: this is a secret type constant, not credentials
+	}
+
 	return &componentworkflowpipeline.GitSecretInfo{
 		Name:      secretRefName,
 		Key:       dataSource.SecretKey,
 		RemoteKey: dataSource.RemoteRef.Key,
 		Property:  dataSource.RemoteRef.Property,
+		Type:      secretType,
 	}, nil
 }
 

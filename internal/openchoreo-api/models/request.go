@@ -385,7 +385,12 @@ func (req *UpdateComponentTraitsRequest) Sanitize() {
 // CreateGitSecretRequest represents the request to create a git secret
 type CreateGitSecretRequest struct {
 	SecretName string `json:"secretName"`
-	Token      string `json:"token"`
+	// SecretType specifies the authentication type: "basic-auth" for token-based auth, "ssh-auth" for SSH key-based auth
+	SecretType string `json:"secretType"`
+	// Token is the authentication token (required for basic-auth type)
+	Token string `json:"token,omitempty"`
+	// SSHKey is the SSH private key (required for ssh-auth type)
+	SSHKey string `json:"sshKey,omitempty"`
 }
 
 // Validate validates the CreateGitSecretRequest
@@ -393,18 +398,43 @@ func (req *CreateGitSecretRequest) Validate() error {
 	if strings.TrimSpace(req.SecretName) == "" {
 		return errors.New("secretName is required")
 	}
-	if strings.TrimSpace(req.Token) == "" {
-		return errors.New("token is required")
-	}
 	if len(req.SecretName) > 253 {
 		return errors.New("secretName must be at most 253 characters")
 	}
+
+	// Validate secretType
+	secretType := strings.TrimSpace(req.SecretType)
+	//nolint:gosec // False positive: these are type checks, not hardcoded credentials
+	if secretType != "basic-auth" && secretType != "ssh-auth" {
+		return errors.New("secretType must be 'basic-auth' or 'ssh-auth'")
+	}
+
+	// Validate credentials match type
+	if secretType == "basic-auth" {
+		if strings.TrimSpace(req.Token) == "" {
+			return errors.New("token is required for basic-auth type")
+		}
+		if strings.TrimSpace(req.SSHKey) != "" {
+			return errors.New("sshKey must not be provided for basic-auth type")
+		}
+	} else { // ssh-auth
+		if strings.TrimSpace(req.SSHKey) == "" {
+			return errors.New("sshKey is required for ssh-auth type")
+		}
+		if strings.TrimSpace(req.Token) != "" {
+			return errors.New("token must not be provided for ssh-auth type")
+		}
+	}
+
 	return nil
 }
 
 // Sanitize sanitizes the CreateGitSecretRequest by trimming whitespace
 func (req *CreateGitSecretRequest) Sanitize() {
 	req.SecretName = strings.TrimSpace(req.SecretName)
+	req.SecretType = strings.TrimSpace(req.SecretType)
+	req.Token = strings.TrimSpace(req.Token)
+	req.SSHKey = strings.TrimSpace(req.SSHKey)
 }
 
 // CreateWorkflowRunRequest represents the request to create a new workflow run

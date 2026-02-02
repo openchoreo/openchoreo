@@ -88,4 +88,8 @@ type GitSecretInfo struct {
 
 	// Property is the property within the remote secret
 	Property string
+
+	// Type is the secret type (e.g., "kubernetes.io/basic-auth" or "kubernetes.io/ssh-auth")
+	// retrieved from SecretReference spec.template.type
+	Type string
 }

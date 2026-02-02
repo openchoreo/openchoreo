@@ -42,6 +42,8 @@ var (
 	ErrGitSecretAlreadyExists       = errors.New("git secret already exists")
 	ErrGitSecretNotFound            = errors.New("git secret not found")
 	ErrSecretStoreNotConfigured     = errors.New("secret store not configured")
+	ErrInvalidSecretType            = errors.New("secret type must be 'basic-auth' or 'ssh-auth'")
+	ErrInvalidCredentials           = errors.New("for basic-auth type, provide 'token'; for ssh-auth type, provide 'sshKey'")
 )
 
 // Error codes for API responses
@@ -86,4 +88,6 @@ const (
 	CodeGitSecretExists              = "GIT_SECRET_EXISTS"
 	CodeGitSecretNotFound            = "GIT_SECRET_NOT_FOUND"
 	CodeSecretStoreNotConfigured     = "SECRET_STORE_NOT_CONFIGURED"
+	CodeInvalidSecretType            = "INVALID_SECRET_TYPE"
+	CodeInvalidCredentials           = "INVALID_CREDENTIALS" //nolint:gosec // False positive: this is an error code, not credentials
 )

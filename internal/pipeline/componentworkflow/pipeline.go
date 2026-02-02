@@ -173,13 +173,17 @@ func shouldSkipResource(resource map[string]any) bool {
 	return false
 }
 
-// buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, parameters.*, and gitSecret.* variables.
+// buildCELContext builds the CEL evaluation context with metadata.*, systemParameters.*, parameters.*, and secretRef.* variables.
 func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
+	// Build enforced namespace value
+	ciNamespace := fmt.Sprintf("openchoreo-ci-%s", input.Context.NamespaceName)
+
 	metadata := map[string]any{
 		"namespaceName":   input.Context.NamespaceName,
 		"projectName":     input.Context.ProjectName,
 		"componentName":   input.Context.ComponentName,
 		"workflowRunName": input.Context.WorkflowRunName,
+		"namespace":       ciNamespace, // Enforced CI namespace
 	}
 
 	// Build system parameters - these are the actual values from ComponentWorkflowRun
@@ -197,21 +201,24 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 		"parameters":       parameters,
 	}
 
-	// Always add gitSecret to context, with empty strings if not provided
-	// This prevents rendering errors when templates reference gitSecret fields
+	// BREAKING CHANGE: Replace gitSecret with secretRef
+	// Always add secretRef to context, with empty strings if not provided
+	// This prevents rendering errors when templates reference secretRef fields
 	if input.Context.GitSecret != nil {
-		celContext["gitSecret"] = map[string]any{
+		celContext["secretRef"] = map[string]any{
 			"name":      input.Context.GitSecret.Name,
 			"key":       input.Context.GitSecret.Key,
 			"remoteKey": input.Context.GitSecret.RemoteKey,
 			"property":  input.Context.GitSecret.Property,
+			"type":      input.Context.GitSecret.Type,
 		}
 	} else {
-		celContext["gitSecret"] = map[string]any{
+		celContext["secretRef"] = map[string]any{
 			"name":      "",
 			"key":       "",
 			"remoteKey": "",
 			"property":  "",
+			"type":      "",
 		}
 	}
 

@@ -61,7 +61,7 @@ func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
 
 	if err := req.Validate(); err != nil {
 		h.logger.Error("Request validation failed", "error", err)
-		writeErrorResponse(w, http.StatusBadRequest, "Invalid request data", services.CodeInvalidInput)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
 		return
 	}
 
@@ -73,6 +73,14 @@ func (h *Handler) CreateGitSecret(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, services.ErrForbidden) {
 			h.logger.Warn("Unauthorized to create git secret", "namespace", namespaceName, "secret", req.SecretName)
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidSecretType) {
+			writeErrorResponse(w, http.StatusBadRequest, services.ErrInvalidSecretType.Error(), services.CodeInvalidSecretType)
+			return
+		}
+		if errors.Is(err, services.ErrInvalidCredentials) {
+			writeErrorResponse(w, http.StatusBadRequest, services.ErrInvalidCredentials.Error(), services.CodeInvalidCredentials)
 			return
 		}
 		if errors.Is(err, services.ErrGitSecretAlreadyExists) {
