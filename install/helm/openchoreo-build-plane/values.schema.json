@@ -1036,201 +1036,19 @@
           "title": "fullnameOverride",
           "type": "string"
         },
-        "nameOverride": {
-          "default": "openbao",
-          "description": "Override the name of OpenBao resources",
-          "title": "nameOverride",
-          "type": "string"
-        },
-        "server": {
-          "additionalProperties": true,
-          "description": "OpenBao server configuration",
-          "properties": {
-            "dev": {
-              "additionalProperties": true,
-              "description": "Development mode configuration. WARNING - dev mode is NOT for production use.",
-              "properties": {
-                "devRootToken": {
-                  "default": "root",
-                  "description": "Root token for dev mode. Only used in development.",
-                  "title": "devRootToken",
-                  "type": "string"
-                },
-                "enabled": {
-                  "default": true,
-                  "description": "Enable OpenBao dev mode (in-memory storage, auto-unsealed)",
-                  "title": "enabled",
-                  "type": "boolean"
-                },
-                "logLevel": {
-                  "default": "info",
-                  "description": "Log level for OpenBao server",
-                  "enum": [
-                    "trace",
-                    "debug",
-                    "info",
-                    "warn",
-                    "error"
-                  ],
-                  "required": [],
-                  "title": "logLevel"
-                }
-              },
-              "required": [],
-              "title": "dev",
-              "type": "object"
-            },
-            "readinessProbe": {
-              "additionalProperties": true,
-              "description": "Readiness probe configuration for OpenBao server",
-              "properties": {
-                "exec": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "command": {
-                      "items": {
-                        "anyOf": [
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "string"
-                          },
-                          {
-                            "type": "string"
-                          }
-                        ],
-                        "required": []
-                      },
-                      "title": "command",
-                      "type": "array"
-                    }
-                  },
-                  "required": [
-                    "command"
-                  ],
-                  "title": "exec",
-                  "type": "object"
-                },
-                "failureThreshold": {
-                  "default": 3,
-                  "title": "failureThreshold",
-                  "type": "integer"
-                },
-                "initialDelaySeconds": {
-                  "default": 5,
-                  "title": "initialDelaySeconds",
-                  "type": "integer"
-                },
-                "periodSeconds": {
-                  "default": 10,
-                  "title": "periodSeconds",
-                  "type": "integer"
-                },
-                "timeoutSeconds": {
-                  "default": 10,
-                  "title": "timeoutSeconds",
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "exec",
-                "initialDelaySeconds",
-                "timeoutSeconds",
-                "periodSeconds",
-                "failureThreshold"
-              ],
-              "title": "readinessProbe",
-              "type": "object"
-            },
-            "resources": {
-              "additionalProperties": true,
-              "description": "Resource limits and requests for the OpenBao server",
-              "properties": {
-                "limits": {
-                  "additionalProperties": true,
-                  "properties": {
-                    "cpu": {
-                      "default": "100m",
-                      "description": "CPU limit for the OpenBao server",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "128Mi",
-                      "description": "Memory limit for the OpenBao server",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "limits",
-                  "type": "object"
-                },
-                "requests": {
-                  "additionalProperties": true,
-                  "properties": {
-                    "cpu": {
-                      "default": "50m",
-                      "description": "CPU request for the OpenBao server",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "64Mi",
-                      "description": "Memory request for the OpenBao server",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "requests",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "resources",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "server",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "openbao",
-      "type": "object"
-    },
-    "vault": {
-      "additionalProperties": true,
-      "description": "HashiCorp Vault sub-chart configuration for secrets management. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/hashicorp/vault-helm for all options.",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable HashiCorp Vault installation",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "fullnameOverride": {
-          "default": "hashicorp-vault",
-          "description": "Override the full name of Vault resources",
-          "title": "fullnameOverride",
-          "type": "string"
-        },
         "injector": {
           "additionalProperties": true,
-          "description": "Vault Agent Injector configuration",
+          "description": "OpenBao Agent Injector configuration",
           "properties": {
             "enabled": {
               "default": false,
-              "description": "Enable the Vault Agent Injector",
+              "description": "Enable the OpenBao Agent Injector",
               "title": "enabled",
               "type": "boolean"
             },
             "resources": {
               "additionalProperties": true,
-              "description": "Resource limits and requests for the Vault injector",
+              "description": "Resource limits and requests for the OpenBao injector",
               "properties": {
                 "limits": {
                   "additionalProperties": false,
@@ -1288,18 +1106,18 @@
           "type": "object"
         },
         "nameOverride": {
-          "default": "hashicorp-vault",
-          "description": "Override the name of Vault resources",
+          "default": "openbao",
+          "description": "Override the name of OpenBao resources",
           "title": "nameOverride",
           "type": "string"
         },
         "secretStore": {
           "additionalProperties": false,
-          "description": "ClusterSecretStore configuration for ESO integration with Vault",
+          "description": "ClusterSecretStore configuration for ESO integration with OpenBao",
           "properties": {
             "auth": {
               "additionalProperties": false,
-              "description": "Authentication configuration for Vault",
+              "description": "Authentication configuration for OpenBao",
               "properties": {
                 "kubernetes": {
                   "additionalProperties": false,
@@ -1307,25 +1125,25 @@
                   "properties": {
                     "mountPath": {
                       "default": "kubernetes",
-                      "description": "Vault auth method mount path",
+                      "description": "OpenBao auth method mount path",
                       "title": "mountPath",
                       "type": "string"
                     },
                     "role": {
                       "default": "openchoreo-secret-writer-role",
-                      "description": "Vault role name for authentication. Use openchoreo-secret-writer-role for PushSecrets support.",
+                      "description": "OpenBao role name for authentication. Use openchoreo-secret-writer-role for PushSecrets support.",
                       "title": "role",
                       "type": "string"
                     },
                     "serviceAccountName": {
                       "default": "external-secrets",
-                      "description": "ServiceAccount name for Vault authentication",
+                      "description": "ServiceAccount name for OpenBao authentication",
                       "title": "serviceAccountName",
                       "type": "string"
                     },
                     "serviceAccountNamespace": {
                       "default": "",
-                      "description": "Namespace of the ServiceAccount for Vault authentication. Defaults to release namespace.",
+                      "description": "Namespace of the ServiceAccount for OpenBao authentication. Defaults to release namespace.",
                       "title": "serviceAccountNamespace",
                       "type": "string"
                     }
@@ -1340,20 +1158,20 @@
               "type": "object"
             },
             "name": {
-              "default": "vault",
+              "default": "openbao",
               "description": "Name of the ClusterSecretStore resource",
               "title": "name",
               "type": "string"
             },
             "path": {
               "default": "secret",
-              "description": "Vault secrets engine path",
+              "description": "OpenBao secrets engine path",
               "title": "path",
               "type": "string"
             },
             "version": {
               "default": "v2",
-              "description": "Vault KV secrets engine version (v1 or v2)",
+              "description": "OpenBao KV secrets engine version (v1 or v2)",
               "title": "version",
               "type": "string"
             }
@@ -1364,7 +1182,7 @@
         },
         "server": {
           "additionalProperties": true,
-          "description": "Vault server configuration",
+          "description": "OpenBao server configuration",
           "properties": {
             "dev": {
               "additionalProperties": true,
@@ -1378,13 +1196,13 @@
                 },
                 "enabled": {
                   "default": true,
-                  "description": "Enable Vault dev mode (in-memory storage, auto-unsealed)",
+                  "description": "Enable OpenBao dev mode (in-memory storage, auto-unsealed)",
                   "title": "enabled",
                   "type": "boolean"
                 },
                 "logLevel": {
                   "default": "info",
-                  "description": "Log level for Vault server",
+                  "description": "Log level for OpenBao server",
                   "enum": [
                     "trace",
                     "debug",
@@ -1400,9 +1218,24 @@
               "title": "dev",
               "type": "object"
             },
+            "image": {
+              "additionalProperties": true,
+              "description": "OpenBao server image configuration",
+              "properties": {
+                "tag": {
+                  "default": "2.4.4",
+                  "description": "Image tag to use for OpenBao server",
+                  "title": "tag",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "image",
+              "type": "object"
+            },
             "readinessProbe": {
               "additionalProperties": true,
-              "description": "Readiness probe configuration for Vault server",
+              "description": "Readiness probe configuration for OpenBao server",
               "properties": {
                 "exec": {
                   "additionalProperties": false,
@@ -1438,7 +1271,7 @@
                   "type": "integer"
                 },
                 "initialDelaySeconds": {
-                  "default": 5,
+                  "default": 15,
                   "title": "initialDelaySeconds",
                   "type": "integer"
                 },
@@ -1448,7 +1281,7 @@
                   "type": "integer"
                 },
                 "timeoutSeconds": {
-                  "default": 10,
+                  "default": 15,
                   "title": "timeoutSeconds",
                   "type": "integer"
                 }
@@ -1465,7 +1298,7 @@
             },
             "resources": {
               "additionalProperties": true,
-              "description": "Resource limits and requests for the Vault server",
+              "description": "Resource limits and requests for the OpenBao server",
               "properties": {
                 "limits": {
                   "additionalProperties": false,
@@ -1524,7 +1357,7 @@
         }
       },
       "required": [],
-      "title": "vault",
+      "title": "openbao",
       "type": "object"
     },
     "waitJob": {
