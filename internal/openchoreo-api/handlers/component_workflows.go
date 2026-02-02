@@ -227,3 +227,61 @@ func (h *Handler) GetComponentWorkflowRun(w http.ResponseWriter, r *http.Request
 	// Success response
 	writeSuccessResponse(w, http.StatusOK, workflowRun)
 }
+
+// GetComponentWorkflowRunStatus retrieves the status of a component workflow run
+func (h *Handler) GetComponentWorkflowRunStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+	log.Info("GetComponentWorkflowRunStatus handler called")
+
+	// Extract parameters from URL path
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	runName := r.PathValue("runName")
+
+	if namespaceName == "" {
+		log.Warn("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
+		return
+	}
+
+	if projectName == "" {
+		log.Warn("Project name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Project name is required", "INVALID_PROJECT_NAME")
+		return
+	}
+
+	if componentName == "" {
+		log.Warn("Component name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Component name is required", "INVALID_COMPONENT_NAME")
+		return
+	}
+
+	if runName == "" {
+		log.Warn("Workflow run name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Workflow run name is required", "INVALID_RUN_NAME")
+		return
+	}
+
+	// Call service to get component workflow run status
+	status, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunStatus(ctx, namespaceName, projectName, componentName, runName)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
+			log.Warn("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to view component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		log.Error("Failed to get component workflow run status", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run status", "INTERNAL_ERROR")
+		return
+	}
+
+	// Success response
+	writeSuccessResponse(w, http.StatusOK, status)
+}

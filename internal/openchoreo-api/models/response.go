@@ -428,3 +428,18 @@ type GitSecretResponse struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 }
+
+// ComponentWorkflowRunStatusResponse represents the status of a component workflow run
+type ComponentWorkflowRunStatusResponse struct {
+	Status string               `json:"status"` // Overall workflow status (Pending/Running/Completed/Failed)
+	Steps  []WorkflowStepStatus `json:"steps"`  // Array of step-level statuses
+	LogURL string               `json:"logURL"` // Log URL for the workflow run (obs plane url, OC API url, or empty)
+}
+
+// WorkflowStepStatus represents the status of an individual workflow step
+type WorkflowStepStatus struct {
+	Name       string     `json:"name"`       // Step name/template name
+	Phase      string     `json:"phase"`      // Step phase (Pending|Running|Succeeded|Failed|Skipped|Error)
+	StartedAt  *time.Time `json:"startedAt"`  // When step started
+	FinishedAt *time.Time `json:"finishedAt"` // When step finished
+}

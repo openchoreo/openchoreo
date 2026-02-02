@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"regexp"
 	"strings"
+	"time"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -29,17 +30,19 @@ import (
 
 // ComponentWorkflowService handles component workflow-related business logic
 type ComponentWorkflowService struct {
-	k8sClient client.Client
-	logger    *slog.Logger
-	authzPDP  authz.PDP
+	k8sClient         client.Client
+	logger            *slog.Logger
+	authzPDP          authz.PDP
+	buildPlaneService *BuildPlaneService
 }
 
 // NewComponentWorkflowService creates a new component workflow service
-func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *ComponentWorkflowService {
+func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP, buildPlaneService *BuildPlaneService) *ComponentWorkflowService {
 	return &ComponentWorkflowService{
-		k8sClient: k8sClient,
-		logger:    logger,
-		authzPDP:  authzPDP,
+		k8sClient:         k8sClient,
+		logger:            logger,
+		authzPDP:          authzPDP,
+		buildPlaneService: buildPlaneService,
 	}
 }
 
@@ -459,4 +462,124 @@ func generateShortUUID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// GetComponentWorkflowRunStatus retrieves the status of a component workflow run
+func (s *ComponentWorkflowService) GetComponentWorkflowRunStatus(ctx context.Context, namespaceName, projectName, componentName, runName string) (*models.ComponentWorkflowRunStatusResponse, error) {
+	s.logger.Debug("Getting component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, runName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	// Get ComponentWorkflowRun
+	var workflowRun openchoreov1alpha1.ComponentWorkflowRun
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: namespaceName,
+	}, &workflowRun)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Component workflow run not found", "namespace", namespaceName, "run", runName)
+			return nil, ErrComponentWorkflowRunNotFound
+		}
+		s.logger.Error("Failed to get component workflow run", "error", err)
+		return nil, fmt.Errorf("failed to get component workflow run: %w", err)
+	}
+
+	// Verify the workflow run belongs to the specified component
+	if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
+		s.logger.Warn("Component workflow run does not belong to the specified component",
+			"namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+		return nil, ErrComponentWorkflowRunNotFound
+	}
+
+	// Extract overall status of the workflow run from conditions
+	overallStatus := getComponentWorkflowStatus(workflowRun.Status.Conditions)
+
+	// Map tasks to WorkflowStepStatus
+	steps := make([]models.WorkflowStepStatus, 0, len(workflowRun.Status.Tasks))
+	for _, task := range workflowRun.Status.Tasks {
+		step := models.WorkflowStepStatus{
+			Name:  task.Name,
+			Phase: task.Phase,
+		}
+		if task.StartedAt != nil {
+			startedAt := task.StartedAt.Time
+			step.StartedAt = &startedAt
+		}
+		if task.FinishedAt != nil {
+			finishedAt := task.FinishedAt.Time
+			step.FinishedAt = &finishedAt
+		}
+		steps = append(steps, step)
+	}
+
+	// Determine observability URL
+	obsURL := s.getWorkflowRunObservabilityURL(ctx, &workflowRun, namespaceName)
+
+	return &models.ComponentWorkflowRunStatusResponse{
+		Status: overallStatus,
+		Steps:  steps,
+		LogURL: obsURL,
+	}, nil
+}
+
+// getWorkflowRunObservabilityURL determines the observability URL
+// based on age and TTL of the workflow run, and observability configuration of the build plane
+// This URL is used to fetch logs of the workflow run
+// TODO: Extend to fetch events of the workflow run
+// TODO: Extend to integrate external CI systems (eg. Jenkins)
+func (s *ComponentWorkflowService) getWorkflowRunObservabilityURL(ctx context.Context, workflowRun *openchoreov1alpha1.ComponentWorkflowRun, namespaceName string) string {
+	// Get TTL from config (default 1 hour)
+	// TODO: Extract the TTL from the cluster workflow template
+	ttl := 1 * time.Hour
+
+	// Calculate age
+	age := time.Since(workflowRun.CreationTimestamp.Time)
+
+	// If age < TTL, use openchoreo-api endpoint
+	if age < ttl {
+		return fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/workflow-runs/%s/logs",
+			namespaceName, workflowRun.Spec.Owner.ProjectName, workflowRun.Spec.Owner.ComponentName, workflowRun.Name)
+	}
+
+	// If age >= TTL, check whether the build plane has observability configured
+	buildPlane, err := s.buildPlaneService.GetBuildPlane(ctx, namespaceName)
+	if err != nil {
+		s.logger.Debug("Failed to get build plane for observability URL", "error", err)
+		return ""
+	}
+
+	observerURL, err := s.getBuildPlaneObservabilityURL(ctx, buildPlane)
+	if err != nil || observerURL == "" {
+		s.logger.Debug("Observability not configured for build plane", "buildPlane", buildPlane.Name)
+		return ""
+	}
+
+	return fmt.Sprintf("%s/api/logs/build/%s", // TODO: Modify when observer API endpoints are updated
+		observerURL, workflowRun.Name)
+}
+
+// getBuildPlaneObservabilityURL gets the observer URL from build plane's observability plane
+func (s *ComponentWorkflowService) getBuildPlaneObservabilityURL(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (string, error) {
+	if buildPlane.Spec.ObservabilityPlaneRef == "" {
+		return "", nil
+	}
+
+	var observabilityPlane openchoreov1alpha1.ObservabilityPlane
+	err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      buildPlane.Spec.ObservabilityPlaneRef,
+		Namespace: buildPlane.Namespace,
+	}, &observabilityPlane)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to get observability plane: %w", err)
+	}
+
+	return observabilityPlane.Spec.ObserverURL, nil
 }

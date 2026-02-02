@@ -70,7 +70,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP)
 
 	// Create ComponentWorkflow service
-	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP)
+	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP, buildPlaneService)
 
 	// Create webhook service (handles all git providers)
 	webhookService := NewWebhookService(k8sClient, componentWorkflowService)
