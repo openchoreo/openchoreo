@@ -30,25 +30,25 @@ spec:
         - -c
         - |
           set -e
-          echo "=== Patching gateway-default deployment with /tmp volume ==="
+          echo "=== Patching observability-gateway-default deployment with /tmp volume ==="
 
           # Wait for deployment to exist
           retries=0
           max_retries=60
-          until kubectl get deployment gateway-default -n {{ .Release.Namespace }} &> /dev/null; do
+          until kubectl get deployment observability-gateway-default -n {{ .Release.Namespace }} &> /dev/null; do
             retries=$((retries+1))
             if [ $retries -gt $max_retries ]; then
-              echo "ERROR: Timeout waiting for gateway-default deployment"
+              echo "ERROR: Timeout waiting for observability-gateway-default deployment"
               exit 1
             fi
-            echo "Waiting for gateway-default deployment... ($retries/$max_retries)"
+            echo "Waiting for observability-gateway-default deployment... ($retries/$max_retries)"
             sleep 5
           done
 
-          echo "✓ gateway-default deployment found"
+          echo "✓ observability-gateway-default deployment found"
 
           # Check if tmp volume already exists
-          if kubectl get deployment gateway-default -n {{ .Release.Namespace }} -o jsonpath='{.spec.template.spec.volumes[?(@.name=="tmp")]}' | grep -q "tmp"; then
+          if kubectl get deployment observability-gateway-default -n {{ .Release.Namespace }} -o jsonpath='{.spec.template.spec.volumes[?(@.name=="tmp")]}' | grep -q "tmp"; then
             echo "✓ /tmp volume already mounted, skipping patch"
             exit 0
           fi
@@ -56,7 +56,7 @@ spec:
           echo "Applying patch to add /tmp volume..."
 
           # Apply the patch
-          kubectl patch deployment gateway-default -n {{ .Release.Namespace }} --type='json' -p='[
+          kubectl patch deployment observability-gateway-default -n {{ .Release.Namespace }} --type='json' -p='[
             {
               "op": "add",
               "path": "/spec/template/spec/volumes/-",
@@ -73,7 +73,7 @@ spec:
 
           # Wait for new pods to be ready
           echo "Waiting for gateway pod to be ready..."
-          kubectl rollout status deployment/gateway-default -n {{ .Release.Namespace }} --timeout=300s
+          kubectl rollout status deployment/observability-gateway-default -n {{ .Release.Namespace }} --timeout=300s
 
           echo "✓ Gateway deployment is ready"
 {{- end }}

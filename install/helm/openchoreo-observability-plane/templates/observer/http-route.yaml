@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
-  - name: gateway-default
+  - name: observability-gateway-default
     namespace: {{ .Release.Namespace }}
   hostnames:
   - observer.{{ .Values.global.baseDomain }}
