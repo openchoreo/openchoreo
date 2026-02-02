@@ -59,34 +59,34 @@ spec:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${gitSecret.name}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          name: ${secretRef.name}-git-secret
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
             kind: ClusterSecretStore
-            name: vault
+            name: openbao
           target:
-            name: ${gitSecret.name}-git-secret
+            name: ${secretRef.name}-git-secret
             creationPolicy: Owner
             template:
-              type: kubernetes.io/basic-auth
+              type: ${secretRef.type}
           data:
-            - secretKey: ${gitSecret.key}
+            - secretKey: ${secretRef.key}
               remoteRef:
-                key: ${gitSecret.remoteKey}
-                property: ${gitSecret.property}
+                key: ${secretRef.remoteKey}
+                property: ${secretRef.property}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
+            name: openbao
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
