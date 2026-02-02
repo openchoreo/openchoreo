@@ -28,9 +28,9 @@ func NewAuthzService(pap authz.PAP, pdp authz.PDP, logger *slog.Logger) *AuthzSe
 	}
 }
 
-// ListRoles lists all authorization roles
+// ListRoles lists all authorization roles (both cluster and namespace-scoped)
 func (s *AuthzService) ListRoles(ctx context.Context) ([]*authz.Role, error) {
-	s.logger.Debug("Listing authorization roles")
+	s.logger.Debug("Listing all authorization roles")
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRole, ResourceTypeRole, "*",
 		authz.ResourceHierarchy{}); err != nil {
@@ -46,16 +46,57 @@ func (s *AuthzService) ListRoles(ctx context.Context) ([]*authz.Role, error) {
 	return roles, nil
 }
 
-// GetRole retrieves a specific role by name
-func (s *AuthzService) GetRole(ctx context.Context, roleName string) (*authz.Role, error) {
-	s.logger.Debug("Getting authorization role", "role", roleName)
+// ListClusterRoles lists only cluster-scoped roles
+func (s *AuthzService) ListClusterRoles(ctx context.Context) ([]*authz.Role, error) {
+	s.logger.Debug("Listing cluster authorization roles")
 
-	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRole, ResourceTypeRole, roleName,
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRole, ResourceTypeRole, "*",
 		authz.ResourceHierarchy{}); err != nil {
 		return nil, err
 	}
 
-	role, err := s.pap.GetRole(ctx, &authz.RoleRef{Name: roleName})
+	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{Namespace: ""})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster roles: %w", err)
+	}
+
+	s.logger.Debug("Listed cluster authorization roles", "count", len(roles))
+	return roles, nil
+}
+
+// ListNamespaceRoles lists namespace-scoped roles for a specific namespace
+func (s *AuthzService) ListNamespaceRoles(ctx context.Context, namespace string) ([]*authz.Role, error) {
+	s.logger.Debug("Listing namespace authorization roles", "namespace", namespace)
+
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRole, ResourceTypeRole, "*",
+		authz.ResourceHierarchy{Namespace: namespace}); err != nil {
+		return nil, err
+	}
+
+	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{Namespace: namespace})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespace roles: %w", err)
+	}
+
+	s.logger.Debug("Listed namespace authorization roles", "namespace", namespace, "count", len(roles))
+	return roles, nil
+}
+
+// GetRoleByRef retrieves a specific role by RoleRef (name and namespace)
+func (s *AuthzService) GetRoleByRef(ctx context.Context, roleRef *authz.RoleRef) (*authz.Role, error) {
+	s.logger.Debug("Getting authorization role", "role", roleRef.Name, "namespace", roleRef.Namespace)
+
+	hierarchy := authz.ResourceHierarchy{}
+	if roleRef.Namespace != "" {
+		hierarchy.Namespace = roleRef.Namespace
+	}
+
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRole, ResourceTypeRole, roleRef.Name,
+		hierarchy); err != nil {
+		return nil, err
+	}
+
+	role, err := s.pap.GetRole(ctx, roleRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -65,10 +106,15 @@ func (s *AuthzService) GetRole(ctx context.Context, roleName string) (*authz.Rol
 
 // AddRole creates a new authorization role
 func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
-	s.logger.Debug("Adding authorization role", "role", role.Name, "actions", role.Actions)
+	s.logger.Debug("Adding authorization role", "role", role.Name, "namespace", role.Namespace, "actions", role.Actions)
+
+	hierarchy := authz.ResourceHierarchy{}
+	if role.Namespace != "" {
+		hierarchy.Namespace = role.Namespace
+	}
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionCreateRole, ResourceTypeRole, role.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		hierarchy); err != nil {
 		return err
 	}
 
@@ -76,31 +122,35 @@ func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 		return fmt.Errorf("failed to add role: %w", err)
 	}
 
-	s.logger.Debug("Authorization role added", "role", role.Name)
+	s.logger.Debug("Authorization role added", "role", role.Name, "namespace", role.Namespace)
 	return nil
 }
 
-// RemoveRole deletes an authorization role
+// RemoveRoleByRef deletes an authorization role by RoleRef
 // If force is true, it will also remove all associated role-entitlement mappings
-func (s *AuthzService) RemoveRole(ctx context.Context, roleName string, force bool) error {
-	s.logger.Debug("Removing authorization role", "role", roleName, "force", force)
+func (s *AuthzService) RemoveRoleByRef(ctx context.Context, roleRef *authz.RoleRef, force bool) error {
+	s.logger.Debug("Removing authorization role", "role", roleRef.Name, "namespace", roleRef.Namespace, "force", force)
 
-	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionDeleteRole, ResourceTypeRole, roleName,
-		authz.ResourceHierarchy{}); err != nil {
+	hierarchy := authz.ResourceHierarchy{}
+	if roleRef.Namespace != "" {
+		hierarchy.Namespace = roleRef.Namespace
+	}
+
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionDeleteRole, ResourceTypeRole, roleRef.Name,
+		hierarchy); err != nil {
 		return err
 	}
 
-	roleRef := &authz.RoleRef{Name: roleName}
 	if force {
 		if err := s.pap.ForceRemoveRole(ctx, roleRef); err != nil {
 			return fmt.Errorf("failed to force remove role: %w", err)
 		}
-		s.logger.Debug("Authorization role and mappings removed", "role", roleName)
+		s.logger.Debug("Authorization role and mappings removed", "role", roleRef.Name, "namespace", roleRef.Namespace)
 	} else {
 		if err := s.pap.RemoveRole(ctx, roleRef); err != nil {
 			return fmt.Errorf("failed to remove role: %w", err)
 		}
-		s.logger.Debug("Authorization role removed", "role", roleName)
+		s.logger.Debug("Authorization role removed", "role", roleRef.Name, "namespace", roleRef.Namespace)
 	}
 
 	return nil
@@ -108,10 +158,15 @@ func (s *AuthzService) RemoveRole(ctx context.Context, roleName string, force bo
 
 // UpdateRole updates an existing authorization role
 func (s *AuthzService) UpdateRole(ctx context.Context, role *authz.Role) error {
-	s.logger.Debug("Updating authorization role", "role", role.Name, "actions", role.Actions)
+	s.logger.Debug("Updating authorization role", "role", role.Name, "namespace", role.Namespace, "actions", role.Actions)
+
+	hierarchy := authz.ResourceHierarchy{}
+	if role.Namespace != "" {
+		hierarchy.Namespace = role.Namespace
+	}
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionUpdateRole, ResourceTypeRole, role.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		hierarchy); err != nil {
 		return err
 	}
 
@@ -119,15 +174,15 @@ func (s *AuthzService) UpdateRole(ctx context.Context, role *authz.Role) error {
 		return fmt.Errorf("failed to update role: %w", err)
 	}
 
-	s.logger.Debug("Authorization role updated", "role", role.Name)
+	s.logger.Debug("Authorization role updated", "role", role.Name, "namespace", role.Namespace)
 	return nil
 }
 
-// ListRoleMappings lists role-entitlement mappings with optional filters
+// ListClusterRoleMappings lists cluster role-entitlement mappings with optional filters
 // Supports filtering by:
 //   - roleName: Filter by role name
 //   - claim & value: Filter by entitlement (both must be provided together)
-func (s *AuthzService) ListRoleMappings(ctx context.Context, roleName, claim, value string) ([]*authz.RoleEntitlementMapping, error) {
+func (s *AuthzService) ListClusterRoleMappings(ctx context.Context, roleName, claim, value, effect string) ([]*authz.RoleEntitlementMapping, error) {
 	s.logger.Debug("Listing authorization role mappings with filters",
 		"role", roleName, "claim", claim, "value", value)
 
@@ -150,15 +205,91 @@ func (s *AuthzService) ListRoleMappings(ctx context.Context, roleName, claim, va
 				Value: value,
 			}
 		}
+		if effect != "" {
+			effectType := authz.PolicyEffectType(effect)
+			filter.Effect = &effectType
+		}
 	}
 
 	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
 	}
+	// Filter to only cluster-scoped bindings (those without namespace in hierarchy)
+	clusterMappings := make([]*authz.RoleEntitlementMapping, 0)
+	for _, mapping := range mappings {
+		if mapping.Hierarchy.Namespace == "" && mapping.RoleRef.Namespace == "" {
+			clusterMappings = append(clusterMappings, mapping)
+		}
+	}
 
-	s.logger.Debug("Listed authorization role mappings with filters", "count", len(mappings))
-	return mappings, nil
+	s.logger.Debug("Listed authorization role mappings with filters", "count", len(clusterMappings))
+	return clusterMappings, nil
+}
+
+// ListNamespacedRoleMappings lists namespaced role-entitlement mappings with optional filters
+// Supports filtering by:
+//   - roleName: Filter by role name
+//   - claim & value: Filter by entitlement (both must be provided together)
+func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, roleRef *authz.RoleRef, claim, value, effect string) ([]*authz.RoleEntitlementMapping, error) {
+	s.logger.Debug("Listing authorization role mappings with filters",
+		"role", roleRef.Name, "claim", claim, "value", value)
+
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRoleMapping, ResourceTypeRoleMapping, "*",
+		authz.ResourceHierarchy{
+			Namespace: roleRef.Namespace,
+		}); err != nil {
+		return nil, err
+	}
+
+	var filter *authz.RoleEntitlementMappingFilter
+	if roleRef.Name != "" || roleRef.Namespace != "" || (claim != "" && value != "") {
+		filter = &authz.RoleEntitlementMappingFilter{}
+
+		filter.RoleRef = &authz.RoleRef{Name: roleRef.Name, Namespace: roleRef.Namespace}
+
+		if claim != "" && value != "" {
+			filter.Entitlement = &authz.Entitlement{
+				Claim: claim,
+				Value: value,
+			}
+		}
+		if effect != "" {
+			effectType := authz.PolicyEffectType(effect)
+			filter.Effect = &effectType
+		}
+
+	}
+
+	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list role mappings: %w", err)
+	}
+	// Filter to only namespaced bindings (those with namespace in hierarchy)
+	clusterMappings := make([]*authz.RoleEntitlementMapping, 0)
+	for _, mapping := range mappings {
+		if mapping.Hierarchy.Namespace != "" {
+			clusterMappings = append(clusterMappings, mapping)
+		}
+	}
+
+	s.logger.Debug("Listed authorization role mappings with filters", "count", len(clusterMappings))
+	return clusterMappings, nil
+}
+
+func (s *AuthzService) GetRoleMapping(ctx context.Context, mappingRef *authz.MappingRef) (*authz.RoleEntitlementMapping, error) {
+	s.logger.Debug("Getting authorization role mapping", "mapping_name", mappingRef.Name, "mapping_namespace", mappingRef.Namespace)
+
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRoleMapping, ResourceTypeRoleMapping, mappingRef.Name,
+		authz.ResourceHierarchy{}); err != nil {
+		return nil, err
+	}
+	mapping, err := s.pap.GetRoleEntitlementMapping(ctx, mappingRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get role mapping: %w", err)
+	}
+	s.logger.Debug("Got authorization role mapping", "mapping_name", mappingRef.Name, "mapping_namespace", mappingRef.Namespace)
+	return mapping, nil
 }
 
 // AddRoleMapping creates a new role-entitlement mapping
@@ -184,13 +315,13 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 // UpdateRoleMapping updates an existing role-entitlement mapping
 func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.RoleEntitlementMapping) error {
 	s.logger.Debug("Updating authorization role entitlement mapping",
-		"mapping_id", mapping.ID,
+		"mapping_name", mapping.Name,
 		"entitlement_claim", mapping.Entitlement.Claim,
 		"entitlement_value", mapping.Entitlement.Value,
 		"role", mapping.RoleRef.Name,
 		"hierarchy", mapping.Hierarchy)
 
-	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionUpdateRoleMapping, ResourceTypeRoleMapping, fmt.Sprintf("%d", mapping.ID),
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionUpdateRoleMapping, ResourceTypeRoleMapping, mapping.Name,
 		authz.ResourceHierarchy{}); err != nil {
 		return err
 	}
@@ -198,24 +329,24 @@ func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.Rol
 	if err := s.pap.UpdateRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to update role mapping: %w", err)
 	}
-	s.logger.Debug("Authorization role entitlement mapping updated", "mapping_id", mapping.ID)
+	s.logger.Debug("Authorization role entitlement mapping updated", "mapping_name", mapping.Name)
 	return nil
 }
 
-// RemoveRoleMappingByID removes a role-entitlement mapping by ID
-func (s *AuthzService) RemoveRoleMappingByID(ctx context.Context, mappingID uint) error {
-	s.logger.Debug("Removing authorization role mapping", "mapping_id", mappingID)
+// RemoveRoleMapping removes a role-entitlement mapping by MappingRef (name and namespace)
+func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mappingRef *authz.MappingRef) error {
+	s.logger.Debug("Removing authorization role mapping", "mapping_name", mappingRef.Name, "mapping_namespace", mappingRef.Namespace)
 
-	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionDeleteRoleMapping, ResourceTypeRoleMapping, fmt.Sprintf("%d", mappingID),
+	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionDeleteRoleMapping, ResourceTypeRoleMapping, mappingRef.Name,
 		authz.ResourceHierarchy{}); err != nil {
 		return err
 	}
 
-	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mappingID); err != nil {
+	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mappingRef); err != nil {
 		return fmt.Errorf("failed to remove role mapping: %w", err)
 	}
 
-	s.logger.Debug("Authorization role mapping removed", "mapping_id", mappingID)
+	s.logger.Debug("Authorization role mapping removed", "mapping_name", mappingRef.Name)
 	return nil
 }
 

@@ -44,6 +44,11 @@ var (
 	ErrSecretStoreNotConfigured     = errors.New("secret store not configured")
 	ErrInvalidSecretType            = errors.New("secret type must be 'basic-auth' or 'ssh-auth'")
 	ErrInvalidCredentials           = errors.New("for basic-auth type, provide 'token'; for ssh-auth type, provide 'sshKey'")
+	ErrRoleAlreadyExists            = errors.New("role already exists")
+	ErrRoleNotFound                 = errors.New("role not found")
+	ErrRoleInUse                    = errors.New("role is in use")
+	ErrRoleBindingAlreadyExists     = errors.New("role binding already exists")
+	ErrRoleBindingNotFound          = errors.New("role binding not found")
 )
 
 // Error codes for API responses
@@ -90,4 +95,9 @@ const (
 	CodeSecretStoreNotConfigured     = "SECRET_STORE_NOT_CONFIGURED"
 	CodeInvalidSecretType            = "INVALID_SECRET_TYPE"
 	CodeInvalidCredentials           = "INVALID_CREDENTIALS" //nolint:gosec // False positive: this is an error code, not credentials
+	CodeRoleExists                   = "ROLE_EXISTS"
+	CodeRoleNotFound                 = "ROLE_NOT_FOUND"
+	CodeRoleInUse                    = "ROLE_IN_USE"
+	CodeRoleBindingExists            = "ROLE_BINDING_EXISTS"
+	CodeRoleBindingNotFound          = "ROLE_BINDING_NOT_FOUND"
 )
