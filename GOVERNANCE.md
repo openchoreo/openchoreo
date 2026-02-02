@@ -26,7 +26,7 @@ While OpenChoreo was initially created by contributors from WSO2, it is a vendor
 
 ### Maintainers
 
-Maintainers have write access to the OpenChoreo GitHub repositories and are responsible for the overall health, direction, and sustainability of the project. A list of current maintainers is maintained in the `[MAINTAINERS.md](./MAINTAINERS.md)` file.
+Maintainers have write access to the OpenChoreo GitHub repositories and are responsible for the overall health, direction, and sustainability of the project. A list of current maintainers is maintained in the [MAINTAINERS.md](./MAINTAINERS.md) file.
 
 Maintainer responsibilities include:
 
@@ -80,8 +80,8 @@ A formal vote is required for:
 New maintainers are selected based on demonstrated merit and sustained contributions to the project. Typical criteria include:
 
 - Sustained and meaningful contributions over time (code, documentation, design discussions, or reviews)
-  - perform reviews at least for 10 non-trivial PRs
-  - contribute at least 20 non-trivial PRs and have them merged 
+  - perform reviews for at least 10 non-trivial PRs
+  - contribute at least 20 non-trivial PRs and have them merged
 - Demonstrated technical leadership and architectural understanding
 - Active participation in project discussions and reviews
 - Familiarity with project workflows, contribution guidelines, and quality standards
@@ -114,7 +114,7 @@ OpenChoreo adopts the CNCF Code of Conduct. All participants are expected to adh
 
 ## Security
 
-Security vulnerabilities should be reported privately following the process described in `[SECURITY.md](./SECURITY.md)`.
+Security vulnerabilities should be reported privately following the process described in [SECURITY.md](./SECURITY.md).
 
 ## Amendments
 
