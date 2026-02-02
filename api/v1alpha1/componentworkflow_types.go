@@ -114,8 +114,8 @@ type SystemParametersSchema struct {
 type RepositorySchema struct {
 	// URL is the schema definition for the Git repository URL field.
 	// Must be a string type schema definition.
+	// Supports HTTP/HTTPS and SSH URL formats in default values.
 	// Format: 'string | default=value description=... enum=val1,val2'
-	// Example: 'string | description="Git repository URL for the component source code"'
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=6
 	// +kubebuilder:validation:Pattern=`^string(\s*\|.*)?$`

@@ -193,8 +193,12 @@ spec:
                           url:
                             description: |-
                               URL is the Git repository URL for the component source code.
-                              Example: "https://github.com/openchoreo/sample-workloads"
-                            pattern: ^https?://
+                              Supports HTTP/HTTPS and SSH formats.
+                              Examples:
+                                - "https://github.com/openchoreo/sample-workloads"
+                                - "git@github.com:openchoreo/sample-workloads.git"
+                                - "ssh://git@github.com/openchoreo/sample-workloads.git"
+                            pattern: ^(https?://|ssh://|git@[^:]+:)
                             type: string
                         required:
                         - appPath

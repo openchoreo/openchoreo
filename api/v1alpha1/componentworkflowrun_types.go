@@ -73,9 +73,13 @@ type SystemParametersValues struct {
 // RepositoryValues contains the actual repository parameter values.
 type RepositoryValues struct {
 	// URL is the Git repository URL for the component source code.
-	// Example: "https://github.com/openchoreo/sample-workloads"
+	// Supports HTTP/HTTPS and SSH formats.
+	// Examples:
+	//   - "https://github.com/openchoreo/sample-workloads"
+	//   - "git@github.com:openchoreo/sample-workloads.git"
+	//   - "ssh://git@github.com/openchoreo/sample-workloads.git"
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^https?://`
+	// +kubebuilder:validation:Pattern=`^(https?://|ssh://|git@[^:]+:)`
 	URL string `json:"url"`
 
 	// SecretRef is the name of the SecretReference for Git credentials.
