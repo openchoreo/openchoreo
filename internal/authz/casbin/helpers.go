@@ -406,11 +406,6 @@ func normalizeNamespace(namespace string) string {
 	return namespace
 }
 
-// isClusterRole returns true if the namespace is empty (cluster-scoped)
-func isClusterRole(namespace string) bool {
-	return namespace == ""
-}
-
 // computeActionsDiff computes the difference between existing and new actions for a role
 // Returns added actions (in new but not in existing) and removed actions (in existing but not in new)
 func computeActionsDiff(existingActions, newActions []string) (added, removed []string) {

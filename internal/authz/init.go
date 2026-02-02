@@ -9,9 +9,10 @@ import (
 	"log/slog"
 	"time"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+
 	"github.com/openchoreo/openchoreo/internal/authz/casbin"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Config holds configuration for authorization initialization.

@@ -9,10 +9,11 @@ import (
 	"log/slog"
 
 	"github.com/casbin/casbin/v2"
-	authzv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	authzv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 // authzInformerHandler implements cache.ResourceEventHandler with incremental updates

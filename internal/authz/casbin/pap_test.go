@@ -9,10 +9,15 @@ import (
 	"slices"
 	"testing"
 
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+)
+
+const (
+	testClaimGroups = "groups"
 )
 
 // ============================================================================
@@ -362,7 +367,7 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "in-use-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "test-group",
 			},
 			RoleRef:   authzcore.RoleRef{Name: "in-use-role"},
@@ -443,7 +448,7 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "in-use-ns-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "test-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "in-use-ns-role", Namespace: testNs},
@@ -498,7 +503,7 @@ func TestCasbinEnforcer_ForceRemoveRole_ClusterRole(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "force-removable-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "test-group",
 			},
 			RoleRef:   authzcore.RoleRef{Name: "force-removable"},
@@ -595,7 +600,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "ns-admin-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "admins",
 			},
 			RoleRef: authzcore.RoleRef{Name: "ns-admin", Namespace: testNs},
@@ -821,7 +826,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "test-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "test-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "binding-test-role"},
@@ -842,7 +847,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		}
 
 		// Verify CRD spec matches
-		if crd.Spec.Entitlement.Claim != "groups" {
+		if crd.Spec.Entitlement.Claim != testClaimGroups {
 			t.Errorf("CRD entitlement claim = %s, want groups", crd.Spec.Entitlement.Claim)
 		}
 		if crd.Spec.Entitlement.Value != "test-group" {
@@ -870,7 +875,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "test-cluster-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "admin-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "cluster-binding-test-role"},
@@ -890,7 +895,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		}
 
 		// Verify CRD spec matches
-		if crd.Spec.Entitlement.Claim != "groups" {
+		if crd.Spec.Entitlement.Claim != testClaimGroups {
 			t.Errorf("CRD entitlement claim = %s, want groups", crd.Spec.Entitlement.Claim)
 		}
 		if crd.Spec.Entitlement.Value != "admin-group" {
@@ -915,7 +920,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "project-scoped-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "dev-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "project-binding-role"},
@@ -956,7 +961,7 @@ func TestCasbinEnforcer_AddRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "deny-binding",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "restricted-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "deny-binding-role"},
@@ -1055,7 +1060,7 @@ func TestCasbinEnforcer_RemoveRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: bindingName,
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "admin-group",
 			},
 			RoleRef:   authzcore.RoleRef{Name: "remove-cluster-binding-role"},
@@ -1123,7 +1128,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: bindingName,
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "dev-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "update-mapping-role"},
@@ -1146,7 +1151,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 		updatedMapping := &authzcore.RoleEntitlementMapping{
 			Name: bindingName,
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "prod-group",
 			},
 			RoleRef: authzcore.RoleRef{Name: "update-mapping-role"},
@@ -1191,7 +1196,7 @@ func TestCasbinEnforcer_UpdateRoleEntitlementMapping(t *testing.T) {
 		mapping := &authzcore.RoleEntitlementMapping{
 			Name: "non-existent-mapping",
 			Entitlement: authzcore.Entitlement{
-				Claim: "groups",
+				Claim: testClaimGroups,
 				Value: "test",
 			},
 			RoleRef: authzcore.RoleRef{Name: "nonexistent-mapping-role"},

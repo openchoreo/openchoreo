@@ -31,7 +31,6 @@ func (ce *CasbinEnforcer) AddRole(ctx context.Context, role *authzcore.Role) err
 		return ce.createClusterRole(ctx, role)
 	}
 	return ce.createNamespacedRole(ctx, role)
-
 }
 
 // RemoveRole deletes a role identified by RoleRef
@@ -233,7 +232,6 @@ func (ce *CasbinEnforcer) GetRoleEntitlementMapping(ctx context.Context, mapping
 		return ce.getClusterMapping(ctx, mappingRef)
 	}
 	return ce.getNamespacedMapping(ctx, mappingRef)
-
 }
 
 // UpdateRoleEntitlementMapping updates an existing role-entitlement mapping
@@ -332,7 +330,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 		return nil, fmt.Errorf("failed to get policies from enforcer: %w", err)
 	}
 
-	var mappings []*authzcore.RoleEntitlementMapping
+	mappings := make([]*authzcore.RoleEntitlementMapping, 0, len(policies))
 
 	for _, policy := range policies {
 		if len(policy) != 6 {

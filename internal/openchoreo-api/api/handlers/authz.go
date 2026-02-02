@@ -84,7 +84,7 @@ func (h *Handler) Evaluate(
 	}
 	if decision.Context != nil && decision.Context.Reason != "" {
 		response.Context = &struct {
-			Reason *string "json:\"reason,omitempty\""
+			Reason *string `json:"reason,omitempty"`
 		}{
 			Reason: &decision.Context.Reason,
 		}
@@ -121,7 +121,6 @@ func (h *Handler) BatchEvaluate(
 				EntitlementValues: req.SubjectContext.EntitlementValues,
 			},
 		}
-
 	}
 
 	batchReq := &authz.BatchEvaluateRequest{
@@ -146,7 +145,7 @@ func (h *Handler) BatchEvaluate(
 		}
 		if decision.Context != nil && decision.Context.Reason != "" {
 			decisions[i].Context = &struct {
-				Reason *string "json:\"reason,omitempty\""
+				Reason *string `json:"reason,omitempty"`
 			}{
 				Reason: &decision.Context.Reason,
 			}

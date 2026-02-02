@@ -258,7 +258,6 @@ func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, namespace
 			effectType := authz.PolicyEffectType(effect)
 			filter.Effect = &effectType
 		}
-
 	}
 
 	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)

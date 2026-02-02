@@ -360,7 +360,6 @@ func (h *Handler) GetClusterRoleBinding(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeSuccessResponse(w, http.StatusOK, mapping)
-
 }
 
 // CreateClusterRoleBinding handles POST /api/v1/authz/clusterrolebindings

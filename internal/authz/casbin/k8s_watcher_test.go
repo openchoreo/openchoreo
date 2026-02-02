@@ -568,10 +568,13 @@ func TestAuthzInformerHandler_HandleAddClusterBinding_Idempotent(t *testing.T) {
 func TestAuthzInformerHandler_HandleUpdateRole(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRole)
 
-	enforcer.AddGroupingPolicies([][]string{
+	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"editor", "component:view", "acme"},
 		{"editor", "component:create", "acme"},
 	})
+	if err != nil {
+		t.Fatalf("AddGroupingPolicies() error = %v", err)
+	}
 
 	oldRole := &authzv1alpha1.AuthzRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -622,7 +625,10 @@ func TestAuthzInformerHandler_HandleUpdateRole(t *testing.T) {
 func TestAuthzInformerHandler_HandleUpdateRole_NoGenerationChange(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRole)
 
-	enforcer.AddGroupingPolicy("editor", "component:view", "acme")
+	_, err := enforcer.AddGroupingPolicy("editor", "component:view", "acme")
+	if err != nil {
+		t.Fatalf("AddGroupingPolicy() error = %v", err)
+	}
 
 	oldRole := &authzv1alpha1.AuthzRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -665,10 +671,13 @@ func TestAuthzInformerHandler_HandleUpdateRole_NoGenerationChange(t *testing.T) 
 func TestAuthzInformerHandler_HandleUpdateClusterRole(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
 
-	enforcer.AddGroupingPolicies([][]string{
+	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"global-editor", "namespace:view", "*"},
 		{"global-editor", "namespace:create", "*"},
 	})
+	if err != nil {
+		t.Fatalf("AddGroupingPolicies() error = %v", err)
+	}
 
 	oldRole := &authzv1alpha1.AuthzClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -713,10 +722,13 @@ func TestAuthzInformerHandler_HandleUpdateClusterRole(t *testing.T) {
 func TestAuthzInformerHandler_HandleDeleteRole(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRole)
 
-	enforcer.AddGroupingPolicies([][]string{
+	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"editor", "component:view", "acme"},
 		{"editor", "component:create", "acme"},
 	})
+	if err != nil {
+		t.Fatalf("AddGroupingPolicies() error = %v", err)
+	}
 
 	role := &authzv1alpha1.AuthzRole{
 		ObjectMeta: metav1.ObjectMeta{Name: "editor", Namespace: "acme"},
@@ -740,10 +752,13 @@ func TestAuthzInformerHandler_HandleDeleteRole(t *testing.T) {
 func TestAuthzInformerHandler_HandleDeleteClusterRole(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRole)
 
-	enforcer.AddGroupingPolicies([][]string{
+	_, err := enforcer.AddGroupingPolicies([][]string{
 		{"global-admin", "namespace:view", "*"},
 		{"global-admin", "namespace:create", "*"},
 	})
+	if err != nil {
+		t.Fatalf("AddGroupingPolicies() error = %v", err)
+	}
 
 	clusterRole := &authzv1alpha1.AuthzClusterRole{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-admin"},
@@ -767,7 +782,10 @@ func TestAuthzInformerHandler_HandleDeleteClusterRole(t *testing.T) {
 func TestAuthzInformerHandler_HandleDeleteBinding(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRoleBinding)
 
-	enforcer.AddPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}")
+	_, err := enforcer.AddPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}")
+	if err != nil {
+		t.Fatalf("AddPolicy() error = %v", err)
+	}
 
 	binding := &authzv1alpha1.AuthzRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "dev-binding", Namespace: "acme"},
@@ -798,7 +816,10 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
 
 	// Setup: directly add policy to Casbin
-	enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}")
+	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}")
+	if err != nil {
+		t.Fatalf("AddPolicy() error = %v", err)
+	}
 
 	binding := &authzv1alpha1.AuthzClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: "global-admin-binding"},

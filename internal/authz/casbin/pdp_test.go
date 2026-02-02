@@ -10,10 +10,11 @@ import (
 	"sync"
 	"testing"
 
-	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
 const (
