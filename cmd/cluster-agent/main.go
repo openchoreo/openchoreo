@@ -28,6 +28,7 @@ func main() {
 		serverURL         string
 		planeType         string
 		planeID           string
+		tlsEnabled        bool
 		clientCertPath    string
 		clientKeyPath     string
 		serverCAPath      string
@@ -46,6 +47,8 @@ func main() {
 		"Plane type: dataplane, buildplane, or observabilityplane")
 	flag.StringVar(&planeID, "plane-id", cmdutil.GetEnv("PLANE_ID", ""),
 		"Logical plane identifier (shared across multiple CRs with same physical plane)")
+	flag.BoolVar(&tlsEnabled, "tls-enabled", cmdutil.GetEnvBool("TLS_ENABLED", true),
+		"Enable mTLS for cluster gateway connection (disable for single-cluster setups)")
 	flag.StringVar(&clientCertPath, "client-cert",
 		cmdutil.GetEnv("CLIENT_CERT_PATH", "/certs/tls.crt"),
 		"Path to client certificate")
@@ -108,6 +111,7 @@ func main() {
 		ServerURL:         serverURL,
 		PlaneType:         planeType,
 		PlaneID:           planeID,
+		TLSEnabled:        tlsEnabled,
 		ClientCertPath:    clientCertPath,
 		ClientKeyPath:     clientKeyPath,
 		ServerCAPath:      serverCAPath,

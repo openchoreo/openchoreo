@@ -7,15 +7,16 @@ import "time"
 
 // Config holds configuration for the agent server
 type Config struct {
-	Port              int
-	ServerCertPath    string
-	ServerKeyPath     string
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
-	IdleTimeout       time.Duration
-	ShutdownTimeout   time.Duration
-	HeartbeatInterval time.Duration
-	HeartbeatTimeout  time.Duration
+	Port                 int
+	ServerCertPath       string
+	ServerKeyPath        string
+	SkipClientCertVerify bool
+	ReadTimeout          time.Duration
+	WriteTimeout         time.Duration
+	IdleTimeout          time.Duration
+	ShutdownTimeout      time.Duration
+	HeartbeatInterval    time.Duration
+	HeartbeatTimeout     time.Duration
 }
 
 // RemoteServerClientConfig holds configuration for RemoteServerClient

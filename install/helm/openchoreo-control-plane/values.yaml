@@ -4211,6 +4211,12 @@ clusterGateway:
     # default: cluster-gateway-tls
     # @schema
     secretName: cluster-gateway-tls
+    # @schema
+    # type: boolean
+    # description: Skip client certificate verification for agent connections (for single-cluster setups without mTLS)
+    # default: false
+    # @schema
+    skipClientCertVerify: false
     # type: object
     # description: cert-manager issuer reference
     # @schema

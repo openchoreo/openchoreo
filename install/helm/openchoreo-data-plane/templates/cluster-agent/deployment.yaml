@@ -54,6 +54,7 @@ spec:
         - --server-url={{ .Values.clusterAgent.serverUrl }}
         - --plane-type={{ .Values.clusterAgent.planeType }}
         - --plane-id={{ .Values.clusterAgent.planeID | default .Release.Name }}
+        - --tls-enabled={{ .Values.clusterAgent.tls.enabled }}
         {{- if .Values.clusterAgent.tls.enabled }}
         - --client-cert=/certs/tls.crt
         - --client-key=/certs/tls.key

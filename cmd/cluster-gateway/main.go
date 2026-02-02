@@ -40,16 +40,17 @@ func init() {
 
 func main() {
 	var (
-		port              int
-		serverCertPath    string
-		serverKeyPath     string
-		readTimeout       time.Duration
-		writeTimeout      time.Duration
-		idleTimeout       time.Duration
-		shutdownTimeout   time.Duration
-		heartbeatInterval time.Duration
-		heartbeatTimeout  time.Duration
-		logLevel          string
+		port                 int
+		serverCertPath       string
+		serverKeyPath        string
+		skipClientCertVerify bool
+		readTimeout          time.Duration
+		writeTimeout         time.Duration
+		idleTimeout          time.Duration
+		shutdownTimeout      time.Duration
+		heartbeatInterval    time.Duration
+		heartbeatTimeout     time.Duration
+		logLevel             string
 	)
 
 	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort), "Server port")
@@ -59,6 +60,9 @@ func main() {
 	flag.StringVar(&serverKeyPath, "server-key",
 		cmdutil.GetEnv("SERVER_KEY_PATH", "/certs/tls.key"),
 		"Path to server private key")
+	flag.BoolVar(&skipClientCertVerify, "skip-client-cert-verify",
+		cmdutil.GetEnvBool("SKIP_CLIENT_CERT_VERIFY", false),
+		"Skip client certificate verification (for single-cluster setups without mTLS)")
 	flag.DurationVar(&readTimeout, "read-timeout", defaultReadTimeout, "HTTP read timeout")
 	flag.DurationVar(&writeTimeout, "write-timeout", defaultWriteTimeout, "HTTP write timeout")
 	flag.DurationVar(&idleTimeout, "idle-timeout", defaultIdleTimeout, "HTTP idle timeout")
@@ -95,15 +99,16 @@ func main() {
 	logger.Info("Kubernetes client created successfully")
 
 	config := &clustergateway.Config{
-		Port:              port,
-		ServerCertPath:    serverCertPath,
-		ServerKeyPath:     serverKeyPath,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
-		ShutdownTimeout:   shutdownTimeout,
-		HeartbeatInterval: heartbeatInterval,
-		HeartbeatTimeout:  heartbeatTimeout,
+		Port:                 port,
+		ServerCertPath:       serverCertPath,
+		ServerKeyPath:        serverKeyPath,
+		SkipClientCertVerify: skipClientCertVerify,
+		ReadTimeout:          readTimeout,
+		WriteTimeout:         writeTimeout,
+		IdleTimeout:          idleTimeout,
+		ShutdownTimeout:      shutdownTimeout,
+		HeartbeatInterval:    heartbeatInterval,
+		HeartbeatTimeout:     heartbeatTimeout,
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)

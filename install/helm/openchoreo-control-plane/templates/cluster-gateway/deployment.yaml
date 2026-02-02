@@ -52,6 +52,7 @@ spec:
         - --server-key=/certs/tls.key
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
         - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
+        - --skip-client-cert-verify={{ .Values.clusterGateway.tls.skipClientCertVerify }}
         - --log-level={{ .Values.clusterGateway.logLevel }}
         ports:
         - name: websocket

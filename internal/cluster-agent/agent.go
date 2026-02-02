@@ -35,30 +35,38 @@ type Agent struct {
 }
 
 func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *slog.Logger) (*Agent, error) {
-	// Load client certificate
-	cert, err := tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load client certificate: %w", err)
-	}
+	var cert tls.Certificate
+	var serverCertPool *x509.CertPool
 
-	// Load server CA certificate
-	serverCertPool := x509.NewCertPool()
-	if cfg.ServerCAPath != "" {
-		serverCACert, err := os.ReadFile(cfg.ServerCAPath)
+	if cfg.TLSEnabled {
+		// Load client certificate
+		var err error
+		cert, err = tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
 		if err != nil {
-			logger.Warn("failed to read server CA certificate",
-				"path", cfg.ServerCAPath,
-				"error", err,
-			)
-			logger.Warn("agent will connect without server verification")
-		} else {
-			if !serverCertPool.AppendCertsFromPEM(serverCACert) {
-				logger.Warn("failed to parse server CA certificate")
-				serverCertPool = nil
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+
+		// Load server CA certificate
+		serverCertPool = x509.NewCertPool()
+		if cfg.ServerCAPath != "" {
+			serverCACert, err := os.ReadFile(cfg.ServerCAPath)
+			if err != nil {
+				logger.Warn("failed to read server CA certificate",
+					"path", cfg.ServerCAPath,
+					"error", err,
+				)
+				logger.Warn("agent will connect without server verification")
 			} else {
-				logger.Info("server CA certificate loaded successfully")
+				if !serverCertPool.AppendCertsFromPEM(serverCACert) {
+					logger.Warn("failed to parse server CA certificate")
+					serverCertPool = nil
+				} else {
+					logger.Info("server CA certificate loaded successfully")
+				}
 			}
 		}
+	} else {
+		logger.Info("TLS disabled, connecting without mTLS")
 	}
 
 	// Create router for HTTP proxy support
@@ -153,16 +161,21 @@ func (a *Agent) connect() error {
 	query.Set("planeID", a.config.PlaneID)
 	u.RawQuery = query.Encode()
 
-	tlsConfig := &tls.Config{
-		Certificates:       []tls.Certificate{a.clientCert},
-		RootCAs:            a.serverCA,
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: a.serverCA == nil, //nolint:gosec // Intentional: insecure only when no CA provided (dev mode)
+	dialer := websocket.Dialer{
+		HandshakeTimeout: 10 * time.Second,
 	}
 
-	dialer := websocket.Dialer{
-		TLSClientConfig:  tlsConfig,
-		HandshakeTimeout: 10 * time.Second,
+	if a.config.TLSEnabled {
+		dialer.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{a.clientCert},
+			RootCAs:      a.serverCA,
+			MinVersion:   tls.VersionTLS12,
+		}
+	} else {
+		dialer.TLSClientConfig = &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: true, //nolint:gosec // Intentional: TLS disabled via configs
+		}
 	}
 
 	a.logger.Info("connecting to control plane", "url", u.String())

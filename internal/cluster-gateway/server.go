@@ -227,7 +227,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Certificate verification checks against ALL CRs with matching planeType and planeID
 	// This supports multiple CRs sharing the same physical plane with different CA certificates
-	if err := s.verifyClientCertificate(r, planeType, planeID); err != nil {
+	if s.config.SkipClientCertVerify {
+		s.logger.Debug("skipping client certificate verification", "planeType", planeType, "planeID", planeID)
+	} else if err := s.verifyClientCertificate(r, planeType, planeID); err != nil {
 		s.logger.Warn("client certificate verification failed",
 			"planeType", planeType,
 			"planeID", planeID,

@@ -1299,6 +1299,12 @@
               "description": "TLS secret name",
               "title": "secretName",
               "type": "string"
+            },
+            "skipClientCertVerify": {
+              "default": false,
+              "description": "Skip client certificate verification for agent connections (for single-cluster setups without mTLS)",
+              "title": "skipClientCertVerify",
+              "type": "boolean"
             }
           },
           "required": [],

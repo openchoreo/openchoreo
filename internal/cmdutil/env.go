@@ -16,6 +16,15 @@ func GetEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// GetEnvBool gets a boolean environment variable or returns a default value.
+// Recognizes "true", "1" as true and "false", "0" as false.
+func GetEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return value == "true" || value == "1"
+	}
+	return defaultValue
+}
+
 // GetEnvInt gets an integer environment variable or returns a default value
 func GetEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {

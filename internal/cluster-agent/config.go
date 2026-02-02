@@ -9,6 +9,7 @@ type Config struct {
 	ServerURL         string
 	PlaneType         string // "dataplane" or "buildplane" or "observabilityplane"
 	PlaneID           string // Logical plane identifier (shared across multiple CRs with same physical plane)
+	TLSEnabled        bool
 	ClientCertPath    string
 	ClientKeyPath     string
 	ServerCAPath      string
