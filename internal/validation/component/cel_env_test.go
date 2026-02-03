@@ -219,6 +219,7 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 		{"valid metadata.name", "metadata.name", false, ""},
 		{"valid metadata.componentName", "metadata.componentName", false, ""},
 		{"valid metadata.namespace", "metadata.namespace", false, ""},
+		{"valid metadata.componentNamespace", "metadata.componentNamespace", false, ""},
 		{"valid metadata.labels", "metadata.labels", false, ""},
 		{"valid metadata.podSelectors", "metadata.podSelectors", false, ""},
 

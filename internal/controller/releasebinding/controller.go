@@ -261,19 +261,20 @@ func (r *Reconciler) buildMetadataContext(
 	}
 
 	return pipelinecontext.MetadataContext{
-		Name:            baseName,
-		Namespace:       namespace,
-		Labels:          standardLabels,
-		Annotations:     map[string]string{},
-		PodSelectors:    podSelectors,
-		ComponentName:   componentName,
-		ComponentUID:    componentUID,
-		ProjectName:     projectName,
-		ProjectUID:      projectUID,
-		DataPlaneName:   dataPlaneName,
-		DataPlaneUID:    dataPlaneUID,
-		EnvironmentName: environmentName,
-		EnvironmentUID:  environmentUID,
+		Name:               baseName,
+		Namespace:          namespace,
+		ComponentNamespace: namespaceName,
+		Labels:             standardLabels,
+		Annotations:        map[string]string{},
+		PodSelectors:       podSelectors,
+		ComponentName:      componentName,
+		ComponentUID:       componentUID,
+		ProjectName:        projectName,
+		ProjectUID:         projectUID,
+		DataPlaneName:      dataPlaneName,
+		DataPlaneUID:       dataPlaneUID,
+		EnvironmentName:    environmentName,
+		EnvironmentUID:     environmentUID,
 	}
 }
 

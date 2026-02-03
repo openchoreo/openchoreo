@@ -98,7 +98,7 @@ spec:
             - name: gateway-default
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.componentName}-${metadata.environmentName}.${dataplane.publicVirtualHost}
+            - ${metadata.componentNamespace}.${metadata.componentName}-${metadata.environmentName}.${dataplane.publicVirtualHost}
           rules:
           - backendRefs:
             - name: ${metadata.componentName}

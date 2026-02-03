@@ -462,16 +462,17 @@ spec:
 				ReleaseBinding:   settings,
 				SecretReferences: secretReferences,
 				Metadata: context.MetadataContext{
-					Name:            "test-component-dev-12345678",
-					Namespace:       "test-namespace",
-					ComponentName:   "test-app",
-					ComponentUID:    "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-					ProjectName:     "test-project",
-					ProjectUID:      "b2c3d4e5-6789-01bc-def0-234567890abc",
-					DataPlaneName:   "dev-dataplane",
-					DataPlaneUID:    "c3d4e5f6-7890-12cd-ef01-34567890abcd",
-					EnvironmentName: "dev",
-					EnvironmentUID:  "d4e5f6a7-8901-23de-f012-4567890abcde",
+					Name:               "test-component-dev-12345678",
+					Namespace:          "test-namespace",
+					ComponentName:      "test-app",
+					ComponentUID:       "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+					ComponentNamespace: "test-namespace",
+					ProjectName:        "test-project",
+					ProjectUID:         "b2c3d4e5-6789-01bc-def0-234567890abc",
+					DataPlaneName:      "dev-dataplane",
+					DataPlaneUID:       "c3d4e5f6-7890-12cd-ef01-34567890abcd",
+					EnvironmentName:    "dev",
+					EnvironmentUID:     "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
 						"openchoreo.dev/component":   "test-component",
 						"openchoreo.dev/environment": "dev",
@@ -600,8 +601,8 @@ func TestValidateResources(t *testing.T) {
 func TestPipeline_SchemaValidation(t *testing.T) {
 	baseMetadata := context.MetadataContext{
 		Name: "test", Namespace: "ns", ComponentName: "app", ComponentUID: "uid1",
-		ProjectName: "proj", ProjectUID: "uid2", DataPlaneName: "dp", DataPlaneUID: "uid3",
-		EnvironmentName: "dev", EnvironmentUID: "uid4",
+		ComponentNamespace: "ns", ProjectName: "proj", ProjectUID: "uid2",
+		DataPlaneName: "dp", DataPlaneUID: "uid3", EnvironmentName: "dev", EnvironmentUID: "uid4",
 		Labels: map[string]string{}, Annotations: map[string]string{},
 		PodSelectors: map[string]string{"k": "v"},
 	}

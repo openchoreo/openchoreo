@@ -52,6 +52,10 @@ type MetadataContext struct {
 	// Example: "dp-acme-corp-payment-dev-x1y2z3w4"
 	Namespace string `json:"namespace" validate:"required"`
 
+	// ComponentNamespace is the namespace on which the component is created.
+	// Example: "cp-acme-corp"
+	ComponentNamespace string `json:"componentNamespace" validate:"required"`
+
 	// Labels are common labels to add to all resources.
 	// Example: {"openchoreo.dev/component": "my-service", ...}
 	Labels map[string]string `json:"labels" validate:"required"`
