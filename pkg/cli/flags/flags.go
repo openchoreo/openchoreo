@@ -382,14 +382,42 @@ var (
 		Name:  "url",
 		Usage: "Control plane URL to update",
 	}
+
+	// Component deploy flags
+
+	Release = Flag{
+		Name:  "release",
+		Usage: "Component release name to deploy to lowest environment",
+	}
+
+	To = Flag{
+		Name:  "to",
+		Usage: "Target environment to promote to",
+	}
+
+	Set = Flag{
+		Name:  "set",
+		Usage: "Set override values (format: type.path=value)",
+		Type:  "stringArray",
+	}
+
+	Interactive = Flag{
+		Name:      "interactive",
+		Shorthand: "i",
+		Usage:     "Interactive mode for selecting release and overrides",
+		Type:      "bool",
+	}
 )
 
 // AddFlags adds the specified flags to the given command.
 func AddFlags(cmd *cobra.Command, flags ...Flag) {
 	for _, flag := range flags {
-		if flag.Type == "bool" {
+		switch flag.Type {
+		case "bool":
 			cmd.Flags().BoolP(flag.Name, flag.Shorthand, false, flag.Usage)
-		} else {
+		case "stringArray":
+			cmd.Flags().StringArrayP(flag.Name, flag.Shorthand, nil, flag.Usage)
+		default:
 			// Default to string type
 			cmd.Flags().StringP(flag.Name, flag.Shorthand, "", flag.Usage)
 		}

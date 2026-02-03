@@ -20,6 +20,7 @@ type CommandImplementationInterface interface {
 	ScaffoldAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
+	DeployAPI
 	ListAPI
 }
 
@@ -98,6 +99,11 @@ type ComponentReleaseAPI interface {
 // ReleaseBindingAPI defines release binding operations (file-system mode)
 type ReleaseBindingAPI interface {
 	GenerateReleaseBinding(params GenerateReleaseBindingParams) error
+}
+
+// DeployAPI defines methods for deploying and promoting components
+type DeployAPI interface {
+	DeployComponent(params DeployComponentParams) error
 }
 
 // ListAPI defines methods for listing resources

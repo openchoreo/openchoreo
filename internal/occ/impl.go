@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/deploy"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/list"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
@@ -161,6 +162,13 @@ func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComp
 func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
 	bindingImpl := releasebinding.NewReleaseBindingImpl()
 	return bindingImpl.GenerateReleaseBinding(params)
+}
+
+// Deploy Operations
+
+func (c *CommandImplementation) DeployComponent(params api.DeployComponentParams) error {
+	deployImpl := deploy.NewDeployImpl()
+	return deployImpl.DeployComponent(params)
 }
 
 // List Operations

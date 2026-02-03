@@ -26,6 +26,7 @@ func NewComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	componentCmd.AddCommand(
 		newListComponentCmd(impl),
 		newScaffoldComponentCmd(impl),
+		newDeployComponentCmd(impl),
 	)
 
 	return componentCmd

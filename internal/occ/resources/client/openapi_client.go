@@ -210,3 +210,87 @@ func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string)
 	}
 	return resp.JSON200, nil
 }
+
+// CreateComponentRelease creates a new component release
+func (c *Client) CreateComponentRelease(ctx context.Context, namespaceName, projectName, componentName string, req gen.CreateComponentReleaseRequest) (*gen.ComponentRelease, error) {
+	resp, err := c.client.CreateComponentReleaseWithResponse(ctx, namespaceName, projectName, componentName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create component release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON201, nil
+}
+
+// ListReleaseBindings retrieves all release bindings for a component
+func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ReleaseBindingList, error) {
+	resp, err := c.client.ListReleaseBindingsWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListReleaseBindingsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list release bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// PatchReleaseBinding updates a release binding
+func (c *Client) PatchReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req gen.PatchReleaseBindingRequest) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.PatchReleaseBindingWithResponse(ctx, namespaceName, projectName, componentName, bindingName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to patch release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeployRelease deploys a component release to the root environment
+func (c *Client) DeployRelease(ctx context.Context, namespaceName, projectName, componentName string, req gen.DeployReleaseRequest) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.DeployReleaseWithResponse(ctx, namespaceName, projectName, componentName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deploy release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON201, nil
+}
+
+// PromoteComponent promotes a component from source to target environment
+func (c *Client) PromoteComponent(ctx context.Context, namespaceName, projectName, componentName string, req gen.PromoteComponentRequest) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.PromoteComponentWithResponse(ctx, namespaceName, projectName, componentName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to promote component: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetProject retrieves a project by name
+func (c *Client) GetProject(ctx context.Context, namespaceName, projectName string) (*gen.Project, error) {
+	resp, err := c.client.GetProjectWithResponse(ctx, namespaceName, projectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectDeploymentPipeline retrieves a project's deployment pipeline
+func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (*gen.DeploymentPipeline, error) {
+	resp, err := c.client.GetProjectDeploymentPipelineWithResponse(ctx, namespaceName, projectName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project deployment pipeline: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}

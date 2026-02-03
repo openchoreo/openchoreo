@@ -412,3 +412,14 @@ type ListComponentWorkflowsParams struct {
 type ListSecretReferencesParams struct {
 	Namespace string
 }
+
+// DeployComponentParams defines parameters for deploying or promoting a component
+type DeployComponentParams struct {
+	ComponentName string
+	Namespace     string
+	Project       string
+	Release       string   // --release flag (optional release name)
+	To            string   // --to flag (target env for promotion)
+	Set           []string // --set values (type.path=value)
+	OutputFormat  string
+}

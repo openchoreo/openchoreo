@@ -593,6 +593,23 @@ This command allows you to:
 		Long:    `Manage components for OpenChoreo.`,
 	}
 
+	DeployComponent = Command{
+		Use:   "deploy [COMPONENT_NAME]",
+		Short: "Deploy or promote a component",
+		Long:  "Deploy a component release to the root environment or promote to the next environment in the pipeline.",
+		Example: fmt.Sprintf(`  # Deploy latest release to root environment
+  %[1]s component deploy api-service --namespace acme-corp --project online-store
+
+  # Deploy specific release
+  %[1]s component deploy api-service --release api-service-20260126-143022-1
+
+  # Promote to next environment
+  %[1]s component deploy api-service --to staging
+
+  # Deploy with overrides
+  %[1]s component deploy api-service --set componentTypeEnvOverrides.replicas=3`, messages.DefaultCLIName),
+	}
+
 	Environment = Command{
 		Use:     "environment",
 		Aliases: []string{"env", "environments", "envs"},

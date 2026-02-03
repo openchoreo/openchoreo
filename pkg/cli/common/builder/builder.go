@@ -37,6 +37,11 @@ func (f *FlagGetter) GetInt(flag flags.Flag) int {
 	return val
 }
 
+func (f *FlagGetter) GetStringArray(flag flags.Flag) []string {
+	val, _ := f.cmd.Flags().GetStringArray(flag.Name)
+	return val
+}
+
 func (f *FlagGetter) GetArgs() []string {
 	return f.args
 }
