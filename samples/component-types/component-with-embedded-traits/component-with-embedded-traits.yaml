@@ -1,0 +1,346 @@
+# Copyright 2025 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# This sample demonstrates PE-defined embedded traits in ComponentTypes.
+#
+# Key concepts:
+# 1. Embedded traits (spec.traits) are pre-configured by the PE in the ComponentType
+# 2. PE can lock values (concrete) or wire them via CEL expressions
+# 3. Developers configure through ComponentType schema - they don't need to know about the underlying trait
+# 4. Embedded trait envOverrides demonstrate two patterns:
+#    - Locked: `minReplicas: 2` - PE sets a fixed value enforced across all environments
+#    - Wired: `maxReplicas: ${envOverrides.autoscaling.maxReplicas}` - PE exposes for per-environment tuning
+# 5. Environment-specific tuning via componentTypeEnvOverrides (for wired values) or traitOverrides (for developer traits)
+
+---
+# HPA Trait - creates a HorizontalPodAutoscaler
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: horizontal-pod-autoscaler
+  namespace: default
+spec:
+  schema:
+    parameters:
+      enabled: "boolean | default=true"
+      minReplicas: "integer | default=1 | minimum=1"
+      maxReplicas: "integer | default=3 | minimum=1"
+      targetCPUPercent: "integer | default=80 | minimum=1 | maximum=100"
+
+    envOverrides:
+      minReplicas: "integer | minimum=1"
+      maxReplicas: "integer | minimum=1"
+
+  creates:
+    - includeWhen: ${parameters.enabled}
+      template:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          scaleTargetRef:
+            apiVersion: apps/v1
+            kind: Deployment
+            name: ${metadata.name}
+          minReplicas: |
+            ${has(envOverrides.minReplicas) ? envOverrides.minReplicas : parameters.minReplicas}
+          maxReplicas: |
+            ${has(envOverrides.maxReplicas) ? envOverrides.maxReplicas : parameters.maxReplicas}
+          metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: ${parameters.targetCPUPercent}
+
+---
+# Persistent Volume Trait - reused from component-with-traits sample
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: persistent-volume
+  namespace: default
+spec:
+  schema:
+    parameters:
+      volumeName: "string"
+      mountPath: "string"
+      containerName: "string | default=app"
+
+    envOverrides:
+      size: "string | default=10Gi"
+      storageClass: "string | default=local-path"
+
+  creates:
+    - template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${envOverrides.size}
+          storageClassName: ${envOverrides.storageClass}
+
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${parameters.volumeName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${trait.instanceName}
+
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      operations:
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${parameters.volumeName}
+            mountPath: ${parameters.mountPath}
+
+---
+# ComponentType with embedded HPA trait
+# The PE exposes autoscaling through ComponentType schema, wired to the embedded HPA trait
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentType
+metadata:
+  name: service-with-autoscaling
+  namespace: default
+spec:
+  workloadType: deployment
+
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
+      # Autoscaling parameters - wired to embedded HPA trait
+      autoscaling:
+        $default: {}
+        enabled: "boolean | default=false"
+        minReplicas: "integer | default=1 | minimum=1"
+        maxReplicas: "integer | default=5 | minimum=1"
+        targetCPUPercent: "integer | default=80 | minimum=1 | maximum=100"
+
+    envOverrides:
+      resources:
+        $default: {}
+        requests:
+          $default: {}
+          cpu: "string | default=100m"
+          memory: "string | default=256Mi"
+        limits:
+          $default: {}
+          cpu: "string | default=1000m"
+          memory: "string | default=1Gi"
+      # Environment-specific autoscaling override - wired to trait envOverrides
+      # PE exposes maxReplicas for per-environment tuning; minReplicas is locked by PE
+      autoscaling:
+        $default: {}
+        maxReplicas: "integer | minimum=1 | default=10"
+
+  # Embedded traits - automatically applied to all Components of this type
+  traits:
+    - name: horizontal-pod-autoscaler
+      instanceName: autoscaler
+      # Wire ComponentType parameters to trait parameters
+      parameters:
+        enabled: ${parameters.autoscaling.enabled}
+        minReplicas: ${parameters.autoscaling.minReplicas}
+        maxReplicas: ${parameters.autoscaling.maxReplicas}
+        targetCPUPercent: ${parameters.autoscaling.targetCPUPercent}
+      # Embedded trait envOverrides: mix of locked and wired values
+      envOverrides:
+        # Locked: PE sets minReplicas to 2 for all environments (platform policy)
+        minReplicas: 2
+        # Wired: PE exposes maxReplicas through ComponentType envOverrides for per-env tuning
+        maxReplicas: ${envOverrides.autoscaling.maxReplicas}
+
+  # Restrict which traits developers can add
+  allowedTraits:
+    - persistent-volume
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # When autoscaling is enabled, HPA manages replicas
+          replicas: |
+            ${parameters.autoscaling.enabled ? oc_omit() : parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  ports:
+                    - name: http
+                      containerPort: ${parameters.port}
+                      protocol: TCP
+                  resources:
+                    requests:
+                      cpu: ${envOverrides.resources.requests.cpu}
+                      memory: ${envOverrides.resources.requests.memory}
+                    limits:
+                      cpu: ${envOverrides.resources.limits.cpu}
+                      memory: ${envOverrides.resources.limits.memory}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports:
+            - name: http
+              port: 80
+              targetPort: ${parameters.port}
+              protocol: TCP
+
+    - id: httproute
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: gateway-default
+              namespace: openchoreo-data-plane
+          hostnames:
+            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
+          rules:
+          - matches:
+            - path:
+                type: PathPrefix
+                value: /${metadata.name}
+              method: GET
+            filters:
+              - type: URLRewrite
+                urlRewrite:
+                  path:
+                    type: ReplacePrefixMatch
+                    replacePrefixMatch: /
+            backendRefs:
+            - name: ${metadata.name}
+              port: 80
+
+---
+# Component using the ComponentType with embedded traits
+# Developer enables autoscaling through ComponentType parameters
+# The HPA trait is automatically applied - developer doesn't configure it directly
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app-with-embedded-traits
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  componentType: deployment/service-with-autoscaling
+  autoDeploy: true
+
+  parameters:
+    port: 9090
+    # Enable autoscaling - this activates the embedded HPA trait
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUPercent: 70
+
+  # Developer can add allowed traits (but NOT HPA - it's embedded)
+  traits:
+    - name: persistent-volume
+      instanceName: data-storage
+      parameters:
+        volumeName: app-data
+        mountPath: /var/data
+        containerName: app
+
+---
+# Workload provides the container image
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-with-embedded-traits-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-with-embedded-traits
+
+  containers:
+    app:
+      image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+      args:
+        - --port
+        - "9090"
+
+---
+# ReleaseBinding for development environment
+# Platform admin can override autoscaling per environment
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: demo-app-with-embedded-traits-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-with-embedded-traits
+
+  environment: development
+
+  componentTypeEnvOverrides:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+    # Override maxReplicas for dev environment (wired through ComponentType envOverrides)
+    # Note: minReplicas is locked by PE at 2, cannot be overridden here
+    autoscaling:
+      maxReplicas: 3
+
+  traitOverrides:
+    # Override persistent volume size for dev
+    data-storage:
+      size: "1Gi"
+      storageClass: "local-path"
