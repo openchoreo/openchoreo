@@ -290,6 +290,7 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 		roleNamespace,
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	)
 	if err != nil {
 		h.logger.Warn("failed to check policy for binding", "binding", binding.Name, "error", err)
@@ -298,7 +299,7 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 		return nil
 	}
 
-	// Format: p, subject, resourcePath, roleName, roleNamespace, effect, context
+	// Format: p, subject, resourcePath, roleName, roleNamespace, effect, context, binding_name
 	if _, err := h.enforcer.AddPolicy(
 		subject,
 		resourcePath,
@@ -306,6 +307,7 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 		roleNamespace,
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	); err != nil {
 		return fmt.Errorf("failed to add policy for binding %s: %w", binding.Name, err)
 	}
@@ -351,6 +353,7 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 		roleNamespace,
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	)
 	if err != nil {
 		h.logger.Warn("failed to check policy for cluster binding", "binding", binding.Name, "error", err)
@@ -359,7 +362,7 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 		return nil
 	}
 
-	// Format: p, subject, resourcePath, roleName, "*", effect, context
+	// Format: p, subject, resourcePath, roleName, "*", effect, context, binding_name
 	if _, err := h.enforcer.AddPolicy(
 		subject,
 		resourcePath,
@@ -367,6 +370,7 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 		roleNamespace,
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	); err != nil {
 		return fmt.Errorf("failed to add policy for cluster binding %s: %w", binding.Name, err)
 	}
@@ -540,6 +544,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 		oldRoleNamespace,
 		oldEffect,
 		string(emptyContextJSON),
+		oldBinding.Name,
 	}
 
 	//  new policy
@@ -568,6 +573,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 		newRoleNamespace,
 		newEffect,
 		string(emptyContextJSON),
+		newBinding.Name,
 	}
 
 	ok, err := h.enforcer.UpdatePolicy(existingPolicy, newPolicy)
@@ -616,6 +622,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 		"*",
 		oldEffect,
 		string(emptyContextJSON),
+		oldBinding.Name,
 	}
 
 	// Build new policy
@@ -634,6 +641,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 		"*",
 		newEffect,
 		string(emptyContextJSON),
+		newBinding.Name,
 	}
 
 	ok, err := h.enforcer.UpdatePolicy(existingPolicy, newPolicy)
@@ -758,6 +766,7 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 		roleNamespace,
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to remove binding policy: %w", err)
@@ -796,6 +805,7 @@ func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error
 		"*",
 		effect,
 		emptyContextJSON,
+		binding.Name,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to remove cluster binding policy: %w", err)

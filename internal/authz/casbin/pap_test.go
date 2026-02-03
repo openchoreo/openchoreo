@@ -379,7 +379,7 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 		}
 
 		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "*", "in-use-role", "*", "allow", "{}")
+		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "*", "in-use-role", "*", "allow", "{}", "in-use-binding")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -462,7 +462,7 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 		}
 
 		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "in-use-ns-role", testNs, "allow", "{}")
+		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "in-use-ns-role", testNs, "allow", "{}", "in-use-ns-binding")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -519,7 +519,7 @@ func TestCasbinEnforcer_ForceRemoveRole_ClusterRole(t *testing.T) {
 		if err != nil {
 			t.Fatalf("AddGroupingPolicy() error = %v", err)
 		}
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "*", "force-removable", "*", "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "*", "force-removable", "*", "allow", "{}", "force-removable-binding")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}
@@ -618,7 +618,7 @@ func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
 		if err != nil {
 			t.Fatalf("AddGroupingPolicy() error = %v", err)
 		}
-		_, err = enforcer.enforcer.AddPolicy("groups:admins", "ns/acme", "ns-admin", testNs, "allow", "{}")
+		_, err = enforcer.enforcer.AddPolicy("groups:admins", "ns/acme", "ns-admin", testNs, "allow", "{}", "ns-admin-binding")
 		if err != nil {
 			t.Fatalf("AddPolicy() error = %v", err)
 		}

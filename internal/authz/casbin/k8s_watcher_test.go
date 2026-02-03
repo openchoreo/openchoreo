@@ -244,7 +244,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 	tests := []struct {
 		name       string
 		binding    *authzv1alpha1.AuthzRoleBinding
-		wantPolicy []string // Expected policy: [subject, resource, role, context, effect, context]
+		wantPolicy []string // Expected policy: [subject, resource, role, namespace, effect, context, binding_name]
 	}{
 		{
 			name: "add binding at namespace level",
@@ -262,7 +262,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:developers", "ns/acme", "editor", "acme", "allow", "{}"},
+			wantPolicy: []string{"groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding"},
 		},
 		{
 			name: "add binding at project level",
@@ -283,7 +283,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:project-team", "ns/acme/project/my-project", "viewer", "acme", "allow", "{}"},
+			wantPolicy: []string{"groups:project-team", "ns/acme/project/my-project", "viewer", "acme", "allow", "{}", "project-binding"},
 		},
 		{
 			name: "add binding at component level",
@@ -305,7 +305,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"sub:user-123", "ns/acme/project/my-project/component/my-component", "deployer", "acme", "allow", "{}"},
+			wantPolicy: []string{"sub:user-123", "ns/acme/project/my-project/component/my-component", "deployer", "acme", "allow", "{}", "component-binding"},
 		},
 		{
 			name: "add deny binding",
@@ -326,7 +326,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectDeny,
 				},
 			},
-			wantPolicy: []string{"groups:restricted-group", "ns/acme/project/secret-project", "editor", "acme", "deny", "{}"},
+			wantPolicy: []string{"groups:restricted-group", "ns/acme/project/secret-project", "editor", "acme", "deny", "{}", "deny-binding"},
 		},
 		{
 			name: "add binding referencing cluster role",
@@ -344,7 +344,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:admins", "ns/acme", "global-admin", "*", "allow", "{}"},
+			wantPolicy: []string{"groups:admins", "ns/acme", "global-admin", "*", "allow", "{}", "cluster-role-binding"},
 		},
 	}
 
@@ -357,7 +357,7 @@ func TestAuthzInformerHandler_HandleAddBinding(t *testing.T) {
 				t.Fatalf("handleAddBinding() error = %v", err)
 			}
 
-			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5])
+			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5], tt.wantPolicy[6])
 			if err != nil {
 				t.Fatalf("HasPolicy() error = %v", err)
 			}
@@ -464,7 +464,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 	tests := []struct {
 		name       string
 		binding    *authzv1alpha1.AuthzClusterRoleBinding
-		wantPolicy []string // Expected policy: [subject, "*", role, "*", effect, context]
+		wantPolicy []string // Expected policy: [subject, "*", role, "*", effect, context, binding_name]
 	}{
 		{
 			name: "add cluster binding with allow effect",
@@ -482,7 +482,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectAllow,
 				},
 			},
-			wantPolicy: []string{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}"},
+			wantPolicy: []string{"groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding"},
 		},
 		{
 			name: "add cluster binding with deny effect",
@@ -500,7 +500,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 					Effect: authzv1alpha1.EffectDeny,
 				},
 			},
-			wantPolicy: []string{"groups:blocked-group", "*", "all-access", "*", "deny", "{}"},
+			wantPolicy: []string{"groups:blocked-group", "*", "all-access", "*", "deny", "{}", "global-deny-binding"},
 		},
 	}
 
@@ -513,7 +513,7 @@ func TestAuthzInformerHandler_HandleAddClusterBinding(t *testing.T) {
 				t.Fatalf("handleAddClusterBinding() error = %v", err)
 			}
 
-			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5])
+			hasPolicy, err := enforcer.HasPolicy(tt.wantPolicy[0], tt.wantPolicy[1], tt.wantPolicy[2], tt.wantPolicy[3], tt.wantPolicy[4], tt.wantPolicy[5], tt.wantPolicy[6])
 			if err != nil {
 				t.Fatalf("HasPolicy() error = %v", err)
 			}
@@ -782,7 +782,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterRole(t *testing.T) {
 func TestAuthzInformerHandler_HandleDeleteBinding(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzRoleBinding)
 
-	_, err := enforcer.AddPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}")
+	_, err := enforcer.AddPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding")
 	if err != nil {
 		t.Fatalf("AddPolicy() error = %v", err)
 	}
@@ -806,7 +806,7 @@ func TestAuthzInformerHandler_HandleDeleteBinding(t *testing.T) {
 		t.Fatalf("handleDeleteBinding() error = %v", err)
 	}
 
-	hasPolicy, _ := enforcer.HasPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}")
+	hasPolicy, _ := enforcer.HasPolicy("groups:developers", "ns/acme", "editor", "acme", "allow", "{}", "dev-binding")
 	if hasPolicy {
 		t.Error("policy should be removed after delete")
 	}
@@ -816,7 +816,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 	handler, enforcer := setupTestHandler(t, CRDTypeAuthzClusterRoleBinding)
 
 	// Setup: directly add policy to Casbin
-	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}")
+	_, err := enforcer.AddPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
 	if err != nil {
 		t.Fatalf("AddPolicy() error = %v", err)
 	}
@@ -840,7 +840,7 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding(t *testing.T) {
 		t.Fatalf("handleDeleteClusterBinding() error = %v", err)
 	}
 
-	hasPolicy, _ := enforcer.HasPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}")
+	hasPolicy, _ := enforcer.HasPolicy("groups:platform-admins", "*", "super-admin", "*", "allow", "{}", "global-admin-binding")
 	if hasPolicy {
 		t.Error("policy should be removed after delete")
 	}

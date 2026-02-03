@@ -12,6 +12,9 @@ metadata:
     {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
     openchoreo.io/bootstrap: "true"
 spec:
+  {{- if and .description (ne .description "") }}
+  description: {{ .description | quote }}
+  {{- end }}
   actions:
     {{- range .actions }}
     - {{ . | quote }}
@@ -28,6 +31,9 @@ metadata:
     {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
     openchoreo.io/bootstrap: "true"
 spec:
+  {{- if and .description (ne .description "") }}
+  description: {{ .description | quote }}
+  {{- end }}
   actions:
     {{- range .actions }}
     - {{ . | quote }}

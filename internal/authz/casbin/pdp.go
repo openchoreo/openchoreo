@@ -99,8 +99,8 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 		}
 
 		for _, policy := range policies {
-			if len(policy) != 6 {
-				ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 6, "got", len(policy))
+			if len(policy) != 7 {
+				ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 7, "got", len(policy))
 				continue
 			}
 

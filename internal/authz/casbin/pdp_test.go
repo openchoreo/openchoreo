@@ -75,7 +75,7 @@ func syncGroupingPolicies(t *testing.T, enforcer *CasbinEnforcer, policies [][]s
 }
 
 // syncPolicies directly adds policies to Casbin enforcer.
-// Format: [subject, resource_path, role, role_namespace, effect, context]
+// Format: [subject, resource_path, role, role_namespace, effect, context, binding_name]
 func syncPolicies(t *testing.T, enforcer *CasbinEnforcer, policies [][]string) {
 	t.Helper()
 	if len(policies) > 0 {
@@ -109,14 +109,14 @@ func TestCasbinEnforcer_Evaluate_ClusterRoles_Focused(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"groups:test-group", "ns/acme", "multi-role", "*", "allow", "{}"},
-		{"groups:global-admin-group", "*", "global-admin", "*", "allow", "{}"},
-		{"groups:component-group", "ns/acme/project/p1/component/c1", "component-deployer", "*", "allow", "{}"},
-		{"groups:project-group", "ns/acme/project/p2", "project-admin", "*", "allow", "{}"},
-		{"groups:multi-role-group", "ns/acme", "reader", "*", "allow", "{}"},
-		{"groups:multi-role-group", "ns/acme", "writer", "*", "allow", "{}"},
-		{"sub:user-123", "ns/acme", "sub-claim-role", "*", "allow", "{}"},
-		{"groups:sa-group", "ns/acme", "service-account-role", "*", "allow", "{}"},
+		{"groups:test-group", "ns/acme", "multi-role", "*", "allow", "{}", "test-binding-1"},
+		{"groups:global-admin-group", "*", "global-admin", "*", "allow", "{}", "global-admin-binding"},
+		{"groups:component-group", "ns/acme/project/p1/component/c1", "component-deployer", "*", "allow", "{}", "component-binding"},
+		{"groups:project-group", "ns/acme/project/p2", "project-admin", "*", "allow", "{}", "project-binding"},
+		{"groups:multi-role-group", "ns/acme", "reader", "*", "allow", "{}", "reader-binding"},
+		{"groups:multi-role-group", "ns/acme", "writer", "*", "allow", "{}", "writer-binding"},
+		{"sub:user-123", "ns/acme", "sub-claim-role", "*", "allow", "{}", "sub-claim-binding"},
+		{"groups:sa-group", "ns/acme", "service-account-role", "*", "allow", "{}", "sa-binding"},
 	})
 
 	tests := []struct {
@@ -325,10 +325,10 @@ func TestCasbinEnforcer_Evaluate_NamespaceRoles_Focused(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"groups:ns-engineer-group", "ns/acme", "ns-engineer", "acme", "allow", "{}"},
-		{"groups:ns-project-lead-group", "ns/acme/project/p1", "ns-project-lead", "acme", "allow", "{}"},
-		{"groups:ns-multi-role-group", "ns/acme", "ns-reader", "acme", "allow", "{}"},
-		{"groups:ns-multi-role-group", "ns/acme", "ns-writer", "acme", "allow", "{}"},
+		{"groups:ns-engineer-group", "ns/acme", "ns-engineer", "acme", "allow", "{}", "ns-engineer-binding"},
+		{"groups:ns-project-lead-group", "ns/acme/project/p1", "ns-project-lead", "acme", "allow", "{}", "ns-project-lead-binding"},
+		{"groups:ns-multi-role-group", "ns/acme", "ns-reader", "acme", "allow", "{}", "ns-reader-binding"},
+		{"groups:ns-multi-role-group", "ns/acme", "ns-writer", "acme", "allow", "{}", "ns-writer-binding"},
 	})
 
 	tests := []struct {
@@ -441,15 +441,15 @@ func TestCasbinEnforcer_Evaluate_DenyPolicies_Focused(t *testing.T) {
 
 	syncPolicies(t, enforcer, [][]string{
 		// Cluster role: allow at namespace level
-		{"groups:user-group", "ns/acme", "developer", "*", "allow", "{}"},
+		{"groups:user-group", "ns/acme", "developer", "*", "allow", "{}", "developer-allow-binding"},
 		// Cluster role: deny at project level
-		{"groups:user-group", "ns/acme/project/secret", "developer", "*", "deny", "{}"},
+		{"groups:user-group", "ns/acme/project/secret", "developer", "*", "deny", "{}", "developer-deny-binding"},
 		// Namespace role: allow at namespace level
-		{"groups:ns-user-group", "ns/acme", "ns-developer", "acme", "allow", "{}"},
+		{"groups:ns-user-group", "ns/acme", "ns-developer", "acme", "allow", "{}", "ns-developer-allow-binding"},
 		// Namespace role: deny at component level
-		{"groups:ns-user-group", "ns/acme/project/p1/component/restricted", "ns-developer", "acme", "deny", "{}"},
+		{"groups:ns-user-group", "ns/acme/project/p1/component/restricted", "ns-developer", "acme", "deny", "{}", "ns-developer-deny-binding"},
 		// Cross-role deny: namespace role deny for cluster role user
-		{"groups:user-group", "ns/acme/project/public/component/forbidden", "ns-developer", "acme", "deny", "{}"},
+		{"groups:user-group", "ns/acme/project/public/component/forbidden", "ns-developer", "acme", "deny", "{}", "cross-role-deny-binding"},
 	})
 
 	tests := []struct {
@@ -554,8 +554,8 @@ func TestCasbinEnforcer_Evaluate_CrossNamespaceIsolation_Focused(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"groups:acme-engineer-group", "ns/acme", "ns-engineer", "acme", "allow", "{}"},
-		{"groups:other-engineer-group", "ns/other-namespace", "ns-engineer", "other-namespace", "allow", "{}"},
+		{"groups:acme-engineer-group", "ns/acme", "ns-engineer", "acme", "allow", "{}", "acme-engineer-binding"},
+		{"groups:other-engineer-group", "ns/other-namespace", "ns-engineer", "other-namespace", "allow", "{}", "other-engineer-binding"},
 	})
 
 	tests := []struct {
@@ -666,12 +666,12 @@ func TestCasbinEnforcer_Evaluate_RoleInteractions_Focused(t *testing.T) {
 
 	syncPolicies(t, enforcer, [][]string{
 		// Cluster role mapping for cluster-users
-		{"groups:cluster-users", "ns/acme", "developer", "*", "allow", "{}"},
+		{"groups:cluster-users", "ns/acme", "developer", "*", "allow", "{}", "cluster-users-binding"},
 		// Namespace role mapping for ns-users
-		{"groups:ns-users", "ns/acme", "developer", "acme", "allow", "{}"},
+		{"groups:ns-users", "ns/acme", "developer", "acme", "allow", "{}", "ns-users-binding"},
 		// Same group "engineering" mapped to both cluster viewer and namespace deployer
-		{"groups:engineering", "ns/acme", "viewer", "*", "allow", "{}"},
-		{"groups:engineering", "ns/acme", "deployer", "acme", "allow", "{}"},
+		{"groups:engineering", "ns/acme", "viewer", "*", "allow", "{}", "engineering-viewer-binding"},
+		{"groups:engineering", "ns/acme", "deployer", "acme", "allow", "{}", "engineering-deployer-binding"},
 	})
 
 	tests := []struct {
@@ -817,8 +817,8 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"groups:dev-group", "ns/acme", "reader", "*", "allow", "{}"},
-		{"groups:dev-group", "ns/acme/project/p1", "writer", "*", "allow", "{}"},
+		{"groups:dev-group", "ns/acme", "reader", "*", "allow", "{}", "dev-reader-binding"},
+		{"groups:dev-group", "ns/acme/project/p1", "writer", "*", "allow", "{}", "dev-writer-binding"},
 	})
 
 	batchRequest := &authzcore.BatchEvaluateRequest{
@@ -904,10 +904,10 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"group:group1", "ns/acme", "viewer", "*", "allow", "{}"},
-		{"group:group1", "ns/acme/project/p1", "viewer", "*", "deny", "{}"},
-		{"group:group1", "ns/other-namespace", "viewer", "*", "allow", "{}"},
-		{"group:group1", "ns/acme", "editor", "acme", "allow", "{}"},
+		{"group:group1", "ns/acme", "viewer", "*", "allow", "{}", "group1-viewer-acme"},
+		{"group:group1", "ns/acme/project/p1", "viewer", "*", "deny", "{}", "group1-viewer-deny"},
+		{"group:group1", "ns/other-namespace", "viewer", "*", "allow", "{}", "group1-viewer-other"},
+		{"group:group1", "ns/acme", "editor", "acme", "allow", "{}", "group1-editor-acme"},
 	})
 
 	tests := []struct {
@@ -1133,10 +1133,10 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 	})
 
 	syncPolicies(t, enforcer, [][]string{
-		{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}"},
-		{"groups:dev-group", "ns/acme/project/p1", "viewer", "*", "allow", "{}"},
-		{"groups:dev-group", "ns/acme/project/secret", "editor", "*", "deny", "{}"},
-		{"groups:dev-group", "ns/acme", "editor", "acme", "allow", "{}"},
+		{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}", "dev-editor-binding-1"},
+		{"groups:dev-group", "ns/acme/project/p1", "viewer", "*", "allow", "{}", "dev-viewer-p1"},
+		{"groups:dev-group", "ns/acme/project/secret", "editor", "*", "deny", "{}", "dev-editor-deny"},
+		{"groups:dev-group", "ns/acme", "editor", "acme", "allow", "{}", "dev-editor-binding-2"},
 	})
 	type expectedCapability struct {
 		action       string

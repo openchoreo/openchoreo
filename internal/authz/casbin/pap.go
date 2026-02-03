@@ -323,7 +323,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 		}
 	}
 
-	// Policy format: [subject, resource, role, namespace, effect, context]
+	// Policy format: [subject, resource, role, namespace, effect, context, binding_name]
 	// Filter starting from index 0: subject, resource (skip with ""), role, namespace
 	policies, err = ce.enforcer.GetFilteredPolicy(0, subject, "", roleName, roleNamespace, effect)
 	if err != nil {
@@ -333,18 +333,19 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 	mappings := make([]*authzcore.RoleEntitlementMapping, 0, len(policies))
 
 	for _, policy := range policies {
-		if len(policy) != 6 {
-			ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 6, "got", len(policy))
+		if len(policy) != 7 {
+			ce.logger.Warn("skipping malformed policy", "policy", policy, "expected", 7, "got", len(policy))
 			continue
 		}
 
-		// Policy format: [subject, resource, role, namespace, effect, context]
+		// Policy format: [subject, resource, role, namespace, effect, context, binding_name]
 		policySubject := policy[0]
 		resourcePath := policy[1]
 		policyRole := policy[2]
 		policyNamespace := policy[3]
 		policyEffect := policy[4]
 		// policy[5] is context
+		bindingName := policy[6]
 
 		// Parse subject into entitlement claim and value
 		entitlementClaim, entitlementValue, err := parseSubject(policySubject)
@@ -363,6 +364,7 @@ func (ce *CasbinEnforcer) ListRoleEntitlementMappings(ctx context.Context, filte
 		}
 
 		mapping := &authzcore.RoleEntitlementMapping{
+			Name: bindingName,
 			RoleRef: authzcore.RoleRef{
 				Name:      policyRole,
 				Namespace: roleNs,
@@ -670,6 +672,7 @@ func (ce *CasbinEnforcer) updateClusterRole(ctx context.Context, role *authzcore
 	}
 
 	clusterRole.Spec.Actions = role.Actions
+	clusterRole.Spec.Description = role.Description
 
 	if err := ce.k8sClient.Update(ctx, clusterRole); err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -694,6 +697,7 @@ func (ce *CasbinEnforcer) updateNamespacedRole(ctx context.Context, role *authzc
 	}
 
 	namespacedRole.Spec.Actions = role.Actions
+	namespacedRole.Spec.Description = role.Description
 
 	if err := ce.k8sClient.Update(ctx, namespacedRole); err != nil {
 		if k8serrors.IsNotFound(err) {
