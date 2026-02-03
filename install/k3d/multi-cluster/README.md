@@ -282,7 +282,15 @@ Or from the remote repository:
 kubectl --context k3d-openchoreo-cp apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
 ```
 
-### 7. Create BuildPlane Resource (optional)
+### 7. Label Default Namespace
+
+Label the default namespace to mark it as a control plane namespace:
+
+```bash
+kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/controlplane-namespace=true
+```
+
+### 8. Create BuildPlane Resource (optional)
 
 Similar to the DataPlane, use `add-build-plane.sh` to automatically extract and configure. All BuildPlanes use cluster agent for secure communication.
 
@@ -322,7 +330,7 @@ kubectl --context k3d-openchoreo-cp create secret generic buildplane-default-ca 
 ```
 </details>
 
-### 8. Create ObservabilityPlane Resource (optional)
+### 9. Create ObservabilityPlane Resource (optional)
 
 Similar to the DataPlane and BuildPlane, use `add-observability-plane.sh` to automatically extract and configure:
 
@@ -364,12 +372,12 @@ kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-def
 ```
 </details>
 
-### 9. Configure DataPlane to use default ObservabilityPlane (Optional)
+### 10. Configure DataPlane to use default ObservabilityPlane (Optional)
 ```
 kubectl --context k3d-openchoreo-cp patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
 
-### 10. Configure BuildPlane (if installed) to use default ObservabilityPlane
+### 11. Configure BuildPlane (if installed) to use default ObservabilityPlane
 ```
 kubectl --context k3d-openchoreo-cp patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
 ```
