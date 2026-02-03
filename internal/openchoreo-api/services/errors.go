@@ -3,7 +3,11 @@
 
 package services
 
-import "errors"
+import (
+	"errors"
+
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+)
 
 // Common service errors
 var (
@@ -44,11 +48,15 @@ var (
 	ErrSecretStoreNotConfigured     = errors.New("secret store not configured")
 	ErrInvalidSecretType            = errors.New("secret type must be 'basic-auth' or 'ssh-auth'")
 	ErrInvalidCredentials           = errors.New("for basic-auth type, provide 'token'; for ssh-auth type, provide 'sshKey'")
-	ErrRoleAlreadyExists            = errors.New("role already exists")
-	ErrRoleNotFound                 = errors.New("role not found")
-	ErrRoleInUse                    = errors.New("role is in use")
-	ErrRoleBindingAlreadyExists     = errors.New("role binding already exists")
-	ErrRoleBindingNotFound          = errors.New("role binding not found")
+)
+
+// Authorization errors (re-exported from authz core for service layer consistency)
+var (
+	ErrRoleAlreadyExists        = authzcore.ErrRoleAlreadyExists
+	ErrRoleNotFound             = authzcore.ErrRoleNotFound
+	ErrRoleInUse                = authzcore.ErrRoleInUse
+	ErrRoleBindingAlreadyExists = authzcore.ErrRoleMappingAlreadyExists
+	ErrRoleBindingNotFound      = authzcore.ErrRoleMappingNotFound
 )
 
 // Error codes for API responses

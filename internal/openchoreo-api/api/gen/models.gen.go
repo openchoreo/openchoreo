@@ -709,11 +709,8 @@ type CreateNamespaceRoleBindingRequest struct {
 	// Name Unique namespace role binding name
 	Name string `json:"name"`
 
-	// Namespace Target namespace for this role binding
-	Namespace string `json:"namespace"`
-
-	// RoleRef Reference to a role by name and namespace
-	RoleRef RoleRef `json:"roleRef"`
+	// Role Reference to a role by name and namespace
+	Role RoleRef `json:"role"`
 
 	// TargetPath Target resource path within a namespace (project/component only)
 	TargetPath *TargetPath `json:"targetPath,omitempty"`
@@ -1583,7 +1580,7 @@ type UpdateBindingRequestReleaseState string
 // UpdateClusterRoleBindingRequest Request to update a cluster role binding
 type UpdateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
-	Effect *UpdateClusterRoleBindingRequestEffect `json:"effect,omitempty"`
+	Effect UpdateClusterRoleBindingRequestEffect `json:"effect"`
 
 	// Entitlement Entitlement with claim and value
 	Entitlement Entitlement `json:"entitlement"`
@@ -1639,19 +1636,16 @@ type UpdateComponentWorkflowRequest struct {
 // UpdateNamespaceRoleBindingRequest Request to update a namespace role binding
 type UpdateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
-	Effect *UpdateNamespaceRoleBindingRequestEffect `json:"effect,omitempty"`
+	Effect UpdateNamespaceRoleBindingRequestEffect `json:"effect"`
 
 	// Entitlement Entitlement with claim and value
 	Entitlement Entitlement `json:"entitlement"`
 
-	// Namespace Target namespace for this role binding
-	Namespace string `json:"namespace"`
-
-	// RoleRef Reference to a role by name and namespace
-	RoleRef RoleRef `json:"roleRef"`
+	// Role Reference to a role by name and namespace
+	Role RoleRef `json:"role"`
 
 	// TargetPath Target resource path within a namespace (project/component only)
-	TargetPath *TargetPath `json:"targetPath,omitempty"`
+	TargetPath TargetPath `json:"targetPath"`
 }
 
 // UpdateNamespaceRoleBindingRequestEffect Policy effect (allow or deny)

@@ -765,11 +765,15 @@ func (ce *CasbinEnforcer) buildBindingFromMapping(mapping *authzcore.RoleEntitle
 func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcore.RoleEntitlementMapping {
 	switch b := binding.(type) {
 	case openchoreov1alpha1.AuthzRoleBinding:
+		ns := b.Namespace
+		if b.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
+			ns = ""
+		}
 		return &authzcore.RoleEntitlementMapping{
 			Name: b.Name,
 			RoleRef: authzcore.RoleRef{
 				Name:      b.Spec.RoleRef.Name,
-				Namespace: b.Namespace,
+				Namespace: ns,
 			},
 			Entitlement: authzcore.Entitlement{
 				Claim: b.Spec.Entitlement.Claim,
@@ -787,7 +791,7 @@ func (ce *CasbinEnforcer) convertBindingToMapping(binding interface{}) *authzcor
 			Name: b.Name,
 			RoleRef: authzcore.RoleRef{
 				Name:      b.Spec.RoleRef.Name,
-				Namespace: "", // Cluster-scoped
+				Namespace: "",
 			},
 			Entitlement: authzcore.Entitlement{
 				Claim: b.Spec.Entitlement.Claim,

@@ -352,6 +352,7 @@ func (h *Handler) GetClusterRoleBinding(w http.ResponseWriter, r *http.Request) 
 		}
 		if errors.Is(err, authz.ErrRoleMappingNotFound) {
 			writeErrorResponse(w, http.StatusNotFound, "Cluster role binding not found", services.CodeNotFound)
+			return
 		}
 		if handleAuthzDisabledError(w, err) {
 			return
@@ -385,7 +386,7 @@ func (h *Handler) CreateClusterRoleBinding(w http.ResponseWriter, r *http.Reques
 
 	mapping := &authz.RoleEntitlementMapping{
 		Name:    req.Name,
-		RoleRef: authz.RoleRef{Name: req.Name, Namespace: ""},
+		RoleRef: authz.RoleRef{Name: req.Role, Namespace: ""},
 		Entitlement: authz.Entitlement{
 			Claim: req.Entitlement.Claim,
 			Value: req.Entitlement.Value,
@@ -431,20 +432,15 @@ func (h *Handler) UpdateClusterRoleBinding(w http.ResponseWriter, r *http.Reques
 	ctx := r.Context()
 	setAuditResource(ctx, "cluster_role_binding", name, name)
 
-	effect := authz.PolicyEffectAllow
-	if req.Effect != nil {
-		effect = authz.PolicyEffectType(*req.Effect)
-	}
-
 	mapping := &authz.RoleEntitlementMapping{
 		Name:    name,
-		RoleRef: authz.RoleRef{Name: name, Namespace: ""},
+		RoleRef: authz.RoleRef{Name: req.Role, Namespace: ""},
 		Entitlement: authz.Entitlement{
 			Claim: req.Entitlement.Claim,
 			Value: req.Entitlement.Value,
 		},
 		Hierarchy: authz.ResourceHierarchy{},
-		Effect:    effect,
+		Effect:    authz.PolicyEffectType(req.Effect),
 	}
 
 	if err := h.services.AuthzService.UpdateRoleMapping(ctx, mapping); err != nil {
@@ -804,6 +800,11 @@ func (h *Handler) CreateNamespaceRoleBinding(w http.ResponseWriter, r *http.Requ
 		writeErrorResponse(w, http.StatusBadRequest, "Role binding name is required", services.CodeInvalidInput)
 		return
 	}
+	roleNs := getStringValue(req.Role.Namespace)
+	if roleNs != "" && roleNs != namespaceName {
+		writeErrorResponse(w, http.StatusBadRequest, "Role reference namespace does not match the target namespace", services.CodeInvalidInput)
+		return
+	}
 
 	ctx := r.Context()
 	setAuditResource(ctx, "namespace_role_binding", req.Name, req.Name)
@@ -824,15 +825,15 @@ func (h *Handler) CreateNamespaceRoleBinding(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	hierarchy := authz.ResourceHierarchy{
-		Namespace: req.Namespace,
+		Namespace: namespaceName,
 		Project:   targetPathProject,
 		Component: targetPathComponent,
 	}
 	mapping := &authz.RoleEntitlementMapping{
 		Name: req.Name,
 		RoleRef: authz.RoleRef{
-			Name:      req.RoleRef.Name,
-			Namespace: getStringValue(req.RoleRef.Namespace),
+			Name:      req.Role.Name,
+			Namespace: getStringValue(req.Role.Namespace),
 		},
 		Entitlement: authz.Entitlement{
 			Claim: req.Entitlement.Claim,
@@ -884,38 +885,32 @@ func (h *Handler) UpdateNamespaceRoleBinding(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	setAuditResource(ctx, "namespace_role_binding", name, name)
 
-	effect := authz.PolicyEffectAllow
-	if req.Effect != nil {
-		effect = authz.PolicyEffectType(*req.Effect)
-	}
-
 	targetPathComponent := ""
 	targetPathProject := ""
-	if req.TargetPath != nil {
-		if req.TargetPath.Project != nil {
-			targetPathProject = *req.TargetPath.Project
-		}
-		if req.TargetPath.Component != nil {
-			targetPathComponent = *req.TargetPath.Component
-		}
+	if req.TargetPath.Project != nil {
+		targetPathProject = *req.TargetPath.Project
 	}
+	if req.TargetPath.Component != nil {
+		targetPathComponent = *req.TargetPath.Component
+	}
+
 	hierarchy := authz.ResourceHierarchy{
-		Namespace: req.Namespace,
+		Namespace: namespaceName,
 		Project:   targetPathProject,
 		Component: targetPathComponent,
 	}
 	mapping := &authz.RoleEntitlementMapping{
 		Name: name,
 		RoleRef: authz.RoleRef{
-			Name:      req.RoleRef.Name,
-			Namespace: getStringValue(req.RoleRef.Namespace),
+			Name:      req.Role.Name,
+			Namespace: getStringValue(req.Role.Namespace),
 		},
 		Entitlement: authz.Entitlement{
 			Claim: req.Entitlement.Claim,
 			Value: req.Entitlement.Value,
 		},
 		Hierarchy: hierarchy,
-		Effect:    effect,
+		Effect:    authz.PolicyEffectType(req.Effect),
 	}
 
 	if err := h.services.AuthzService.UpdateRoleMapping(ctx, mapping); err != nil {

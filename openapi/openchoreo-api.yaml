@@ -5392,6 +5392,7 @@ components:
       required:
         - entitlement
         - role
+        - effect
       properties:
         entitlement:
           $ref: '#/components/schemas/Entitlement'
@@ -5450,21 +5451,16 @@ components:
       description: Request to create a namespace-scoped role binding
       required:
         - name
-        - namespace
         - entitlement
-        - roleRef
+        - role
       properties:
         name:
           type: string
           description: Unique namespace role binding name
           example: developer-binding
-        namespace:
-          type: string
-          description: Target namespace for this role binding
-          example: my-namespace
         entitlement:
           $ref: '#/components/schemas/Entitlement'
-        roleRef:
+        role:
           $ref: '#/components/schemas/RoleRef'
         targetPath:
           $ref: '#/components/schemas/TargetPath'
@@ -5479,17 +5475,14 @@ components:
       type: object
       description: Request to update a namespace role binding
       required:
-        - namespace
         - entitlement
-        - roleRef
+        - role
+        - targetPath
+        - effect
       properties:
-        namespace:
-          type: string
-          description: Target namespace for this role binding
-          example: my-namespace
         entitlement:
           $ref: '#/components/schemas/Entitlement'
-        roleRef:
+        role:
           $ref: '#/components/schemas/RoleRef'
         targetPath:
           $ref: '#/components/schemas/TargetPath'
