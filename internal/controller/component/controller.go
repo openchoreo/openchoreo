@@ -297,6 +297,15 @@ func (r *Reconciler) validateTraits(ctx context.Context, comp *openchoreov1alpha
 				return false
 			}
 		}
+	} else {
+		// If allowedTraits is empty, no traits are allowed
+		if len(comp.Spec.Traits) > 0 {
+			msg := fmt.Sprintf("No traits are allowed by ComponentType %q, but component has %d trait(s)",
+				ct.Name, len(comp.Spec.Traits))
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+			logger.Info(msg, "component", comp.Name)
+			return false
+		}
 	}
 
 	// Validate instance name uniqueness across embedded and component-level traits
