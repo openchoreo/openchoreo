@@ -187,7 +187,15 @@ Or from the remote repository:
 kubectl --context k3d-openchoreo apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
 ```
 
-### 7. Create BuildPlane Resource (optional)
+### 7. Label Default Namespace
+
+Label the default namespace to mark it as a control plane namespace:
+
+```bash
+kubectl label namespace default openchoreo.dev/controlplane-namespace=true
+```
+
+### 8. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
@@ -199,7 +207,7 @@ Create a BuildPlane resource to enable building from source. All BuildPlanes use
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-### 8. Create ObservabilityPlane Resource (optional)
+### 9. Create ObservabilityPlane Resource (optional)
 
 Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 
