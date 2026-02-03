@@ -139,7 +139,7 @@ func main() {
 	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
 
 	// API routes - Workflow Run Logs
-	api.HandleFunc("POST /api/logs/workflow-run/{runId}", handler.GetWorkflowRunLogs)
+	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", handler.GetWorkflowRunLogs)
 
 	// API routes - Logs
 	api.HandleFunc("POST /api/logs/component/{componentId}", handler.GetComponentLogs)

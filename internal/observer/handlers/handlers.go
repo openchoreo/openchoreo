@@ -345,7 +345,7 @@ func (h *Handler) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, result)
 }
 
-// GetWorkflowRunLogs handles POST /api/logs/workflow-run/{runId}
+// GetWorkflowRunLogs handles POST /api/v1/workflow-runs/{runId}/logs
 func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 	runID := httputil.GetPathParam(r, "runId")
 	if runID == "" {
