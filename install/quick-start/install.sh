@@ -139,7 +139,10 @@ fi
 # Step 11: Install default OpenChoreo resources (Project, Environments, ComponentTypes, etc.)
 install_default_resources
 
-# Step 12: Add default buildplane (if build plane enabled)
+# Step 12: Label default namespace
+label_default_namespace
+
+# Step 13: Add default buildplane (if build plane enabled)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-build-plane.sh" --name default
@@ -148,7 +151,7 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     fi
 fi
 
-# Step 13: Add default observabilityplane (if observability plane enabled)
+# Step 14: Add default observabilityplane (if observability plane enabled)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
@@ -157,12 +160,12 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     fi
 fi
 
-# Step 14: Configure the dataplane and buildplane with observabilityplane reference
+# Step 15: Configure the dataplane and buildplane with observabilityplane reference
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     configure_observabilityplane_reference
 fi
 
-# Step 15: Configure OCC CLI login
+# Step 16: Configure OCC CLI login
 if [[ -f "${SCRIPT_DIR}/occ-login.sh" ]]; then
     bash "${SCRIPT_DIR}/occ-login.sh"
 else
