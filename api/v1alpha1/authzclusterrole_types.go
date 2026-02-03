@@ -21,7 +21,6 @@ type AuthzClusterRoleSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
-// +kubebuilder:printcolumn:name="Actions",type=string,JSONPath=`.spec.actions`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // AuthzClusterRole is the Schema for the authzclusterroles API

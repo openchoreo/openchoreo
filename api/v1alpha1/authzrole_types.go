@@ -21,7 +21,6 @@ type AuthzRoleSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
-// +kubebuilder:printcolumn:name="Actions",type=string,JSONPath=`.spec.actions`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // AuthzRole is the Schema for the authzroles API

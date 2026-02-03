@@ -43,9 +43,6 @@ type AuthzRoleBindingSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=`.spec.entitlement.value`
-// +kubebuilder:printcolumn:name="Role",type=string,JSONPath=`.spec.roleRef.name`
-// +kubebuilder:printcolumn:name="Effect",type=string,JSONPath=`.spec.effect`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // AuthzRoleBinding is the Schema for the authzrolebindings API

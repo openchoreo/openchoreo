@@ -15,9 +15,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.actions
-      name: Actions
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

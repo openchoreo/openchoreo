@@ -15,15 +15,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.entitlement.value
-      name: Subject
-      type: string
-    - jsonPath: .spec.roleRef.name
-      name: Role
-      type: string
-    - jsonPath: .spec.effect
-      name: Effect
-      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
