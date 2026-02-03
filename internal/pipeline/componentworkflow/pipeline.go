@@ -127,6 +127,15 @@ func (p *Pipeline) renderResources(resources []v1alpha1.ComponentWorkflowResourc
 
 	renderedResources := make([]RenderedResource, 0, len(resources))
 	for _, res := range resources {
+		// Check if resource should be included based on includeWhen condition
+		include, err := p.shouldIncludeResource(res.IncludeWhen, celContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate includeWhen for resource %q: %w", res.ID, err)
+		}
+		if !include {
+			continue
+		}
+
 		rendered, err := p.renderTemplate(res.Template, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render resource %q: %w", res.ID, err)
@@ -148,6 +157,33 @@ func (p *Pipeline) renderResources(resources []v1alpha1.ComponentWorkflowResourc
 	}
 
 	return renderedResources, nil
+}
+
+// shouldIncludeResource evaluates the includeWhen expression to determine if a resource should be rendered.
+//
+// Returns:
+//   - true if includeWhen is empty (default behavior - resource is always created)
+//   - true if includeWhen evaluates to true
+//   - false if includeWhen evaluates to false
+//   - error for evaluation failures (including missing data)
+//
+// This follows the same pattern as component renderer's ShouldInclude.
+func (p *Pipeline) shouldIncludeResource(includeWhen string, context map[string]any) (bool, error) {
+	if includeWhen == "" {
+		return true, nil
+	}
+
+	result, err := p.templateEngine.Render(includeWhen, context)
+	if err != nil {
+		return false, err
+	}
+
+	boolResult, ok := result.(bool)
+	if !ok {
+		return false, fmt.Errorf("includeWhen must evaluate to boolean, got %T", result)
+	}
+
+	return boolResult, nil
 }
 
 // shouldSkipResource checks if a rendered resource should be skipped.
@@ -201,10 +237,12 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 		"parameters":       parameters,
 	}
 
-	// BREAKING CHANGE: Replace gitSecret with secretRef
-	// Always add secretRef to context, with empty strings if not provided
-	// This prevents rendering errors when templates reference secretRef fields
-	if input.Context.GitSecret != nil {
+	// Add secretRef to CEL context only if it has valid required fields.
+	if input.Context.GitSecret != nil &&
+		input.Context.GitSecret.Name != "" &&
+		input.Context.GitSecret.Key != "" &&
+		input.Context.GitSecret.RemoteKey != "" {
+		// SecretRef has all required fields, add it to context for template rendering
 		celContext["secretRef"] = map[string]any{
 			"name":      input.Context.GitSecret.Name,
 			"key":       input.Context.GitSecret.Key,
@@ -213,6 +251,8 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 			"type":      input.Context.GitSecret.Type,
 		}
 	} else {
+		// SecretRef not provided or has empty required fields.
+		// Add empty values to prevent CEL errors if templates reference secretRef without checking.
 		celContext["secretRef"] = map[string]any{
 			"name":      "",
 			"key":       "",

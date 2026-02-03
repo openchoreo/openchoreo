@@ -20,12 +20,13 @@ const (
 )
 
 const (
-	ReasonWorkflowPending      controller.ConditionReason = "WorkflowPending"
-	ReasonWorkflowRunning      controller.ConditionReason = "WorkflowRunning"
-	ReasonWorkflowSucceeded    controller.ConditionReason = "WorkflowSucceeded"
-	ReasonWorkflowFailed       controller.ConditionReason = "WorkflowFailed"
-	ReasonWorkloadUpdated      controller.ConditionReason = "WorkloadUpdated"
-	ReasonWorkloadUpdateFailed controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonWorkflowPending       controller.ConditionReason = "WorkflowPending"
+	ReasonWorkflowRunning       controller.ConditionReason = "WorkflowRunning"
+	ReasonWorkflowSucceeded     controller.ConditionReason = "WorkflowSucceeded"
+	ReasonWorkflowFailed        controller.ConditionReason = "WorkflowFailed"
+	ReasonWorkloadUpdated       controller.ConditionReason = "WorkloadUpdated"
+	ReasonWorkloadUpdateFailed  controller.ConditionReason = "WorkloadUpdateFailed"
+	ReasonSecretResolutionError controller.ConditionReason = "SecretResolutionError"
 )
 
 func setWorkflowPendingCondition(componentWorkflowRun *openchoreov1alpha1.ComponentWorkflowRun) {
@@ -129,6 +130,23 @@ func setWorkloadUpdateFailedCondition(componentWorkflowRun *openchoreov1alpha1.C
 		Status:             metav1.ConditionFalse,
 		Reason:             string(ReasonWorkloadUpdateFailed),
 		Message:            "Failed to create/update workload CR",
+		ObservedGeneration: componentWorkflowRun.Generation,
+	})
+}
+
+func setSecretResolutionFailedCondition(componentWorkflowRun *openchoreov1alpha1.ComponentWorkflowRun, message string) {
+	meta.SetStatusCondition(&componentWorkflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowFailed),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonSecretResolutionError),
+		Message:            message,
+		ObservedGeneration: componentWorkflowRun.Generation,
+	})
+	meta.SetStatusCondition(&componentWorkflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowCompleted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonSecretResolutionError),
+		Message:            "Failed to resolve git secret",
 		ObservedGeneration: componentWorkflowRun.Generation,
 	})
 }

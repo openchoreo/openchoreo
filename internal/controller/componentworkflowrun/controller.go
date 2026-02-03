@@ -160,6 +160,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			logger.Error(err, "failed to resolve git secret",
 				"secretRef", secretRef,
 				"namespace", componentWorkflowRun.Namespace)
+			// If SecretReference CR not found, set failure condition and don't requeue
+			if errors.IsNotFound(err) {
+				setSecretResolutionFailedCondition(componentWorkflowRun, err.Error())
+				return ctrl.Result{}, nil
+			}
+			// For other transient errors (validation failures, empty data), requeue
 			return ctrl.Result{Requeue: true}, nil
 		}
 		gitSecret = gitSecretInfo
@@ -494,7 +500,10 @@ func (r *Reconciler) getBuildPlaneClient(buildPlane *openchoreodevv1alpha1.Build
 }
 
 // resolveGitSecret reads the SecretReference CR and extracts git secret information for template rendering.
-func (r *ComponentWorkflowRunReconciler) resolveGitSecret(ctx context.Context, namespace, secretRefName string) (*componentworkflowpipeline.GitSecretInfo, error) {
+// Returns an error if the SecretReference CR is not found or has no data sources.
+// If fields within the SecretReference have empty values, they are rendered as empty strings,
+// allowing the pipeline to skip resources with invalid names during rendering.
+func (r *Reconciler) resolveGitSecret(ctx context.Context, namespace, secretRefName string) (*componentworkflowpipeline.GitSecretInfo, error) {
 	secretRef := &openchoreodevv1alpha1.SecretReference{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      secretRefName,
@@ -516,11 +525,13 @@ func (r *ComponentWorkflowRunReconciler) resolveGitSecret(ctx context.Context, n
 		secretType = "kubernetes.io/basic-auth" //nolint:gosec // False positive: this is a secret type constant, not credentials
 	}
 
+	// Return GitSecretInfo even if fields are empty.
+	// The rendering pipeline will check field validity and skip resources via includeWhen.
 	return &componentworkflowpipeline.GitSecretInfo{
 		Name:      secretRefName,
 		Key:       dataSource.SecretKey,
 		RemoteKey: dataSource.RemoteRef.Key,
-		Property:  dataSource.RemoteRef.Property,
+		Property:  dataSource.RemoteRef.Property, // Property is optional
 		Type:      secretType,
 	}, nil
 }
