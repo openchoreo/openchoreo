@@ -10,6 +10,8 @@ spec:
     - google-cloud-buildpacks
     - docker
 
+  allowedTraits: []
+
   schema:
     types:
       ResourceRequirements:

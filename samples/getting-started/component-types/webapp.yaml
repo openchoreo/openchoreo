@@ -10,6 +10,9 @@ spec:
     - react
     - docker
 
+  allowedTraits:
+    - api-configuration
+
   schema:
     types:
       ResourceRequirements:

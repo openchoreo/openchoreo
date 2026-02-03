@@ -11,6 +11,9 @@ spec:
     - ballerina-buildpack
     - docker
 
+  allowedTraits:
+    - api-configuration
+
   schema:
     types:
       ResourceRequirements:
