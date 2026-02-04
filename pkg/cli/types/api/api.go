@@ -120,4 +120,8 @@ type ListAPI interface {
 	ListWorkflows(params ListWorkflowsParams) error
 	ListComponentWorkflows(params ListComponentWorkflowsParams) error
 	ListSecretReferences(params ListSecretReferencesParams) error
+	ListComponentReleases(params ListComponentReleasesParams) error
+	ListReleaseBindings(params ListReleaseBindingsParams) error
+	ListWorkflowRuns(params ListWorkflowRunsParams) error
+	ListComponentWorkflowRuns(params ListComponentWorkflowRunsParams) error
 }

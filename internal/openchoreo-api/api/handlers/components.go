@@ -240,7 +240,39 @@ func (h *Handler) ListComponentReleases(
 	ctx context.Context,
 	request gen.ListComponentReleasesRequestObject,
 ) (gen.ListComponentReleasesResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("ListComponentReleases called",
+		"namespaceName", request.NamespaceName,
+		"projectName", request.ProjectName,
+		"componentName", request.ComponentName)
+
+	releases, err := h.services.ComponentService.ListComponentReleases(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListComponentReleases403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			return gen.ListComponentReleases404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.ListComponentReleases404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		h.logger.Error("Failed to list component releases", "error", err)
+		return gen.ListComponentReleases500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result := gen.ComponentReleaseList{
+		Items: make([]gen.ComponentRelease, 0, len(releases)),
+	}
+	for _, release := range releases {
+		result.Items = append(result.Items, toGenComponentRelease(release))
+	}
+
+	return gen.ListComponentReleases200JSONResponse(result), nil
 }
 
 // CreateComponentRelease creates an immutable release snapshot

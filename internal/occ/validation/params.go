@@ -59,6 +59,14 @@ func ValidateParams(cmdType CommandType, resource ResourceType, params interface
 		return validateComponentWorkflowParams(cmdType, params)
 	case ResourceSecretReference:
 		return validateSecretReferenceParams(cmdType, params)
+	case ResourceComponentRelease:
+		return validateComponentReleaseParams(cmdType, params)
+	case ResourceReleaseBinding:
+		return validateReleaseBindingParams(cmdType, params)
+	case ResourceWorkflowRun:
+		return validateWorkflowRunParams(cmdType, params)
+	case ResourceComponentWorkflowRun:
+		return validateComponentWorkflowRunParams(cmdType, params)
 	default:
 		return fmt.Errorf("unknown resource type: %s", resource)
 	}
@@ -584,6 +592,67 @@ func validateSecretReferenceParams(cmdType CommandType, params interface{}) erro
 	if cmdType == CmdList {
 		if p, ok := params.(api.ListSecretReferencesParams); ok {
 			return validateNamespace(ResourceSecretReference, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateComponentReleaseParams validates parameters for component release operations
+func validateComponentReleaseParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListComponentReleasesParams); ok {
+			fields := map[string]string{
+				"namespace": p.Namespace,
+				"project":   p.Project,
+				"component": p.Component,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(CmdList, ResourceComponentRelease, fields)
+			}
+		}
+	}
+	return nil
+}
+
+// validateReleaseBindingParams validates parameters for release binding operations
+func validateReleaseBindingParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListReleaseBindingsParams); ok {
+			fields := map[string]string{
+				"namespace": p.Namespace,
+				"project":   p.Project,
+				"component": p.Component,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(CmdList, ResourceReleaseBinding, fields)
+			}
+		}
+	}
+	return nil
+}
+
+// validateWorkflowRunParams validates parameters for workflow run operations
+func validateWorkflowRunParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListWorkflowRunsParams); ok {
+			return validateNamespace(ResourceWorkflowRun, p.Namespace)
+		}
+	}
+	return nil
+}
+
+// validateComponentWorkflowRunParams validates parameters for component workflow run operations
+func validateComponentWorkflowRunParams(cmdType CommandType, params interface{}) error {
+	if cmdType == CmdList {
+		if p, ok := params.(api.ListComponentWorkflowRunsParams); ok {
+			fields := map[string]string{
+				"namespace": p.Namespace,
+				"project":   p.Project,
+				"component": p.Component,
+			}
+			if !checkRequiredFields(fields) {
+				return generateHelpError(CmdList, ResourceComponentWorkflowRun, fields)
+			}
 		}
 	}
 	return nil

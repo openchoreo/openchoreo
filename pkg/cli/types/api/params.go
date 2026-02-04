@@ -423,3 +423,29 @@ type DeployComponentParams struct {
 	Set           []string // --set values (type.path=value)
 	OutputFormat  string
 }
+
+// ListComponentReleasesParams defines parameters for listing component releases
+type ListComponentReleasesParams struct {
+	Namespace string
+	Project   string
+	Component string
+}
+
+// ListReleaseBindingsParams defines parameters for listing release bindings
+type ListReleaseBindingsParams struct {
+	Namespace string
+	Project   string
+	Component string
+}
+
+// ListWorkflowRunsParams defines parameters for listing workflow runs
+type ListWorkflowRunsParams struct {
+	Namespace string
+}
+
+// ListComponentWorkflowRunsParams defines parameters for listing component workflow runs
+type ListComponentWorkflowRunsParams struct {
+	Namespace string
+	Project   string
+	Component string
+}

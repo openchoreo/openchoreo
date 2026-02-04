@@ -235,6 +235,42 @@ func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, project
 	return resp.JSON200, nil
 }
 
+// ListComponentReleases retrieves all component releases for a component
+func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentReleaseList, error) {
+	resp, err := c.client.ListComponentReleasesWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListComponentReleasesParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list component releases: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListWorkflowRuns retrieves all workflow runs for a namespace
+func (c *Client) ListWorkflowRuns(ctx context.Context, namespaceName string) (*gen.WorkflowRunList, error) {
+	resp, err := c.client.ListWorkflowRunsWithResponse(ctx, namespaceName, &gen.ListWorkflowRunsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list workflow runs: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListComponentWorkflowRuns retrieves all component workflow runs for a component
+func (c *Client) ListComponentWorkflowRuns(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentWorkflowRunList, error) {
+	resp, err := c.client.ListComponentWorkflowRunsWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListComponentWorkflowRunsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list component workflow runs: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // PatchReleaseBinding updates a release binding
 func (c *Client) PatchReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req gen.PatchReleaseBindingRequest) (*gen.ReleaseBinding, error) {
 	resp, err := c.client.PatchReleaseBindingWithResponse(ctx, namespaceName, projectName, componentName, bindingName, req)

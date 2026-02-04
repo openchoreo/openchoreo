@@ -709,9 +709,10 @@ This command allows you to:
 	// ------------------------------------------------------------------------
 
 	ComponentReleaseRoot = Command{
-		Use:   "component-release",
-		Short: "Manage component releases",
-		Long:  "Commands for managing component releases in file-system mode",
+		Use:     "componentrelease",
+		Aliases: []string{"component-release"},
+		Short:   "Manage component releases",
+		Long:    "Commands for managing component releases in file-system mode",
 	}
 
 	ComponentReleaseGenerate = Command{
@@ -719,19 +720,19 @@ This command allows you to:
 		Short: "Generate component releases",
 		Long:  "Generate ComponentRelease resources from Component, Workload, ComponentType, and Trait definitions",
 		Example: fmt.Sprintf(`  # Generate releases for all components
-  %[1]s component-release generate --all
+  %[1]s componentrelease generate --all
 
   # Generate releases for all components in a specific project
-  %[1]s component-release generate --project demo-project
+  %[1]s componentrelease generate --project demo-project
 
   # Generate release for a specific component (requires --project)
-  %[1]s component-release generate --project demo-project --component greeter-service
+  %[1]s componentrelease generate --project demo-project --component greeter-service
 
   # Dry run (preview without writing)
-  %[1]s component-release generate --all --dry-run
+  %[1]s componentrelease generate --all --dry-run
 
   # Custom output path
-  %[1]s component-release generate --all --output-path /custom/path`, messages.DefaultCLIName),
+  %[1]s componentrelease generate --all --output-path /custom/path`, messages.DefaultCLIName),
 	}
 
 	// ------------------------------------------------------------------------
@@ -739,9 +740,10 @@ This command allows you to:
 	// ------------------------------------------------------------------------
 
 	ReleaseBindingRoot = Command{
-		Use:   "release-binding",
-		Short: "Manage release bindings",
-		Long:  "Commands for managing release bindings in file-system mode",
+		Use:     "releasebinding",
+		Aliases: []string{"release-binding"},
+		Short:   "Manage release bindings",
+		Long:    "Commands for managing release bindings in file-system mode",
 	}
 
 	ReleaseBindingGenerate = Command{
@@ -749,24 +751,24 @@ This command allows you to:
 		Short: "Generate release bindings for components",
 		Long:  "Generate ReleaseBinding resources that bind component releases to environments",
 		Example: fmt.Sprintf(`  # Generate bindings for all components in development environment
-  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all
+  %[1]s releasebinding generate --target-env development --use-pipeline default-pipeline --all
 
   # Generate bindings for all components in a specific project
-  %[1]s release-binding generate --target-env staging --use-pipeline default-pipeline --project demo-project
+  %[1]s releasebinding generate --target-env staging --use-pipeline default-pipeline --project demo-project
 
   # Generate binding for a specific component
-  %[1]s release-binding generate --target-env production --use-pipeline default-pipeline \
+  %[1]s releasebinding generate --target-env production --use-pipeline default-pipeline \
     --project demo-project --component greeter-service
 
   # Generate binding with explicit component release
-  %[1]s release-binding generate --target-env production --use-pipeline default-pipeline \
+  %[1]s releasebinding generate --target-env production --use-pipeline default-pipeline \
     --project demo-project --component greeter-service --component-release greeter-service-20251222-3
 
   # Dry run (preview without writing)
-  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all --dry-run
+  %[1]s releasebinding generate --target-env development --use-pipeline default-pipeline --all --dry-run
 
   # Custom output path
-  %[1]s release-binding generate --target-env development --use-pipeline default-pipeline --all \
+  %[1]s releasebinding generate --target-env development --use-pipeline default-pipeline --all \
     --output-path /custom/path`, messages.DefaultCLIName),
 	}
 
@@ -800,6 +802,56 @@ This command allows you to:
 
 	// FlagDeployableArtifactDesc is used for the --deployableartifact flag.
 	FlagDeployableArtifactDesc = "Deployable artifact name stored in this configuration context"
+
+	// ------------------------------------------------------------------------
+	// Component Release, Release Binding, Workflow Run, and Component Workflow Run List Commands
+	// ------------------------------------------------------------------------
+
+	ListComponentRelease = Command{
+		Use:   "list",
+		Short: "List component releases",
+		Long:  `List all component releases for a specific component.`,
+		Example: `  # List all component releases for a component
+  occ componentrelease list --namespace acme-corp --project online-store --component product-catalog`,
+	}
+
+	ListReleaseBinding = Command{
+		Use:   "list",
+		Short: "List release bindings",
+		Long:  `List all release bindings for a specific component.`,
+		Example: `  # List all release bindings for a component
+  occ releasebinding list --namespace acme-corp --project online-store --component product-catalog`,
+	}
+
+	ListWorkflowRun = Command{
+		Use:   "list",
+		Short: "List workflow runs",
+		Long:  `List all workflow runs in a namespace.`,
+		Example: `  # List all workflow runs in a namespace
+  occ workflowrun list --namespace acme-corp`,
+	}
+
+	ListComponentWorkflowRun = Command{
+		Use:   "list",
+		Short: "List component workflow runs",
+		Long:  `List all component workflow runs for a specific component.`,
+		Example: `  # List all component workflow runs for a component
+  occ componentworkflowrun list --namespace acme-corp --project online-store --component product-catalog`,
+	}
+
+	WorkflowRun = Command{
+		Use:     "workflowrun",
+		Aliases: []string{"wr", "workflowruns"},
+		Short:   "Manage workflow runs",
+		Long:    `Manage workflow runs for OpenChoreo.`,
+	}
+
+	ComponentWorkflowRun = Command{
+		Use:     "componentworkflowrun",
+		Aliases: []string{"cwr", "componentworkflowruns"},
+		Short:   "Manage component workflow runs",
+		Long:    `Manage component workflow runs for OpenChoreo.`,
+	}
 
 	// ------------------------------------------------------------------------
 	// Delete Command Definitions

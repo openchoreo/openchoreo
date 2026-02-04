@@ -9,9 +9,10 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/apply"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/buildplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/component"
-	componentrelease "github.com/openchoreo/openchoreo/pkg/cli/cmd/component-release"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentworkflow"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentworkflowrun"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/dataplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/delete"
@@ -21,11 +22,12 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/namespace"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/project"
-	releasebinding "github.com/openchoreo/openchoreo/pkg/cli/cmd/release-binding"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/trait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/version"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflow"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/workload"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -61,6 +63,8 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		trait.NewTraitCmd(impl),
 		workflow.NewWorkflowCmd(impl),
 		componentworkflow.NewComponentWorkflowCmd(impl),
+		workflowrun.NewWorkflowRunCmd(impl),
+		componentworkflowrun.NewComponentWorkflowRunCmd(impl),
 		secretreference.NewSecretReferenceCmd(impl),
 		workload.NewWorkloadCmd(impl),
 	)

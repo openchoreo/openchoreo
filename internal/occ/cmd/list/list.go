@@ -269,3 +269,87 @@ func (l *ListImpl) ListSecretReferences(params api.ListSecretReferencesParams) e
 
 	return output.PrintSecretReferences(result)
 }
+
+// ListComponentReleases lists all component releases for a component
+func (l *ListImpl) ListComponentReleases(params api.ListComponentReleasesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentRelease, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListComponentReleases(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to list component releases: %w", err)
+	}
+
+	return output.PrintComponentReleases(result)
+}
+
+// ListReleaseBindings lists all release bindings for a component
+func (l *ListImpl) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListReleaseBindings(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to list release bindings: %w", err)
+	}
+
+	return output.PrintReleaseBindings(result)
+}
+
+// ListWorkflowRuns lists all workflow runs in a namespace
+func (l *ListImpl) ListWorkflowRuns(params api.ListWorkflowRunsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflowRun, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListWorkflowRuns(ctx, params.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to list workflow runs: %w", err)
+	}
+
+	return output.PrintWorkflowRuns(result)
+}
+
+// ListComponentWorkflowRuns lists all component workflow runs for a component
+func (l *ListImpl) ListComponentWorkflowRuns(params api.ListComponentWorkflowRunsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentWorkflowRun, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListComponentWorkflowRuns(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to list component workflow runs: %w", err)
+	}
+
+	return output.PrintComponentWorkflowRuns(result)
+}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/pkg/cli/common/auth"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/builder"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
@@ -24,7 +25,10 @@ func NewReleaseBindingCmd(impl api.CommandImplementationInterface) *cobra.Comman
 		Long:  constants.ReleaseBindingRoot.Long,
 	}
 
-	cmd.AddCommand(newGenerateCmd(impl))
+	cmd.AddCommand(
+		newGenerateCmd(impl),
+		newListCmd(impl),
+	)
 	return cmd
 }
 
@@ -113,4 +117,25 @@ func isFlagInArgs(flagName string) bool {
 		}
 	}
 	return false
+}
+
+// newListCmd creates the release-binding list command
+func newListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	return (&builder.CommandBuilder{
+		Command: constants.ListReleaseBinding,
+		Flags: []flags.Flag{
+			flags.Namespace,
+			flags.Project,
+			flags.Component,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			params := api.ListReleaseBindingsParams{
+				Namespace: fg.GetString(flags.Namespace),
+				Project:   fg.GetString(flags.Project),
+				Component: fg.GetString(flags.Component),
+			}
+			return impl.ListReleaseBindings(params)
+		},
+		PreRunE: auth.RequireLogin(impl),
+	}).Build()
 }

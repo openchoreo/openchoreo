@@ -232,3 +232,23 @@ func (c *CommandImplementation) ListSecretReferences(params api.ListSecretRefere
 	listImpl := list.NewListImpl()
 	return listImpl.ListSecretReferences(params)
 }
+
+func (c *CommandImplementation) ListComponentReleases(params api.ListComponentReleasesParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListComponentReleases(params)
+}
+
+func (c *CommandImplementation) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListReleaseBindings(params)
+}
+
+func (c *CommandImplementation) ListWorkflowRuns(params api.ListWorkflowRunsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListWorkflowRuns(params)
+}
+
+func (c *CommandImplementation) ListComponentWorkflowRuns(params api.ListComponentWorkflowRunsParams) error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListComponentWorkflowRuns(params)
+}

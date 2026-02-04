@@ -5,11 +5,13 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
 	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 // ListWorkflows returns a list of generic workflows
@@ -61,7 +63,25 @@ func (h *Handler) ListWorkflowRuns(
 	ctx context.Context,
 	request gen.ListWorkflowRunsRequestObject,
 ) (gen.ListWorkflowRunsResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("ListWorkflowRuns called", "namespaceName", request.NamespaceName)
+
+	runs, err := h.services.WorkflowRunService.ListWorkflowRuns(ctx, request.NamespaceName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to list workflow runs", "error", err)
+		return gen.ListWorkflowRuns500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result := gen.WorkflowRunList{
+		Items: make([]gen.WorkflowRun, 0, len(runs)),
+	}
+	for _, run := range runs {
+		result.Items = append(result.Items, toGenWorkflowRun(run))
+	}
+
+	return gen.ListWorkflowRuns200JSONResponse(result), nil
 }
 
 // CreateWorkflowRun creates a new workflow run
@@ -78,4 +98,37 @@ func (h *Handler) GetWorkflowRun(
 	request gen.GetWorkflowRunRequestObject,
 ) (gen.GetWorkflowRunResponseObject, error) {
 	return nil, errNotImplemented
+}
+
+// toGenWorkflowRun converts models.WorkflowRunResponse to gen.WorkflowRun
+func toGenWorkflowRun(r *models.WorkflowRunResponse) gen.WorkflowRun {
+	if r == nil {
+		return gen.WorkflowRun{}
+	}
+
+	result := gen.WorkflowRun{
+		Name:         r.Name,
+		OrgName:      r.NamespaceName,
+		WorkflowName: r.WorkflowName,
+		Status:       gen.WorkflowRunStatus(r.Status),
+		CreatedAt:    r.CreatedAt,
+	}
+
+	if r.FinishedAt != nil {
+		result.FinishedAt = r.FinishedAt
+	}
+
+	if r.Phase != "" {
+		result.Phase = &r.Phase
+	}
+
+	if r.Parameters != nil {
+		result.Parameters = &r.Parameters
+	}
+
+	if r.UUID != "" {
+		result.Uuid = &r.UUID
+	}
+
+	return result
 }
