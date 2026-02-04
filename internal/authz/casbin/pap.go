@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package casbin
@@ -437,9 +437,9 @@ func (ce *CasbinEnforcer) updateClusterRoleBinding(ctx context.Context, mapping 
 	}
 
 	// Determine the role kind based on whether the role is cluster-scoped or not
-	roleKind := CRDTypeAuthzRole
+	roleKind := openchoreov1alpha1.RoleRefKindAuthzRole
 	if isClusterScoped(mapping.RoleRef.Namespace) {
-		roleKind = CRDTypeAuthzClusterRole
+		roleKind = openchoreov1alpha1.RoleRefKindAuthzClusterRole
 	}
 
 	// Update spec fields directly on the existing object
@@ -472,9 +472,9 @@ func (ce *CasbinEnforcer) updateNamespacedRoleBinding(ctx context.Context, mappi
 	}
 
 	// Determine the role kind based on whether the role is cluster-scoped or not
-	roleKind := CRDTypeAuthzRole
+	roleKind := openchoreov1alpha1.RoleRefKindAuthzRole
 	if isClusterScoped(mapping.RoleRef.Namespace) {
-		roleKind = CRDTypeAuthzClusterRole
+		roleKind = openchoreov1alpha1.RoleRefKindAuthzClusterRole
 	}
 
 	// Update spec fields directly on the existing object
@@ -649,7 +649,7 @@ func (ce *CasbinEnforcer) deleteNamespacedBindingsForRole(ctx context.Context, r
 	}
 
 	for _, binding := range roleBindingList.Items {
-		if binding.Spec.RoleRef.Name == roleName && binding.Spec.RoleRef.Kind == "AuthzRole" {
+		if binding.Spec.RoleRef.Name == roleName && binding.Spec.RoleRef.Kind == openchoreov1alpha1.RoleRefKindAuthzRole {
 			if err := ce.k8sClient.Delete(ctx, &binding); err != nil {
 				ce.logger.Warn("failed to delete AuthzRoleBinding", "name", binding.Name, "namespace", binding.Namespace, "error", err)
 			} else {
@@ -713,9 +713,9 @@ func (ce *CasbinEnforcer) updateNamespacedRole(ctx context.Context, role *authzc
 // buildBindingFromMapping converts core RoleEntitlementMapping to CRD binding objects
 func (ce *CasbinEnforcer) buildBindingFromMapping(mapping *authzcore.RoleEntitlementMapping) client.Object {
 	// Determine the role kind based on whether the role is cluster-scoped or not
-	roleKind := CRDTypeAuthzRole
+	roleKind := openchoreov1alpha1.RoleRefKindAuthzRole
 	if isClusterScoped(mapping.RoleRef.Namespace) {
-		roleKind = CRDTypeAuthzClusterRole
+		roleKind = openchoreov1alpha1.RoleRefKindAuthzClusterRole
 	}
 
 	// If hierarchy namespace is empty means cluster-scoped binding

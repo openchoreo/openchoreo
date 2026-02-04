@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package casbin
@@ -24,7 +24,6 @@ var embeddedModel string
 type CasbinEnforcer struct {
 	enforcer    casbin.IEnforcer
 	k8sClient   client.Client
-	ctx         context.Context
 	logger      *slog.Logger
 	enableCache bool
 	cacheTTL    int
@@ -47,8 +46,8 @@ type policyInfo struct {
 	effect        string
 }
 
-// NewCasbinEnforcer creates a new Casbin-based authorizer using Kubernetes CRD adapter
-func NewCasbinEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
+// NewEnforcer creates a new Casbin-based authorizer using Kubernetes CRD adapter
+func NewEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Logger) (*CasbinEnforcer, error) {
 	if config.K8sClient == nil {
 		return nil, fmt.Errorf("K8sClient is required in CasbinConfig")
 	}
@@ -108,7 +107,6 @@ func NewCasbinEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Lo
 	ce := &CasbinEnforcer{
 		enforcer:    enforcer,
 		k8sClient:   config.K8sClient,
-		ctx:         ctx,
 		logger:      logger,
 		enableCache: config.CacheEnabled,
 		cacheTTL:    int(config.CacheTTL),

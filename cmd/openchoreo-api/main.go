@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/pflag"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -88,8 +89,8 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Initialize authorization and Kubernetes client
-	runtime, err := initializeAuthz(ctx, &cfg, logger)
+	// Set up runtime
+	runtime, err := setupRuntime(ctx, &cfg, logger)
 	if err != nil {
 		logger.Error("Failed to initialize authorization", slog.Any("error", err))
 		os.Exit(1)
@@ -127,8 +128,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create a direct Kubernetes client for the service layer.
+	k8sClient, err := k8s.NewK8sClient()
+	if err != nil {
+		logger.Error("Failed to create Kubernetes client", slog.Any("error", err))
+		os.Exit(1)
+	}
+
 	// Initialize services with PAP and PDP
-	services := services.NewServices(runtime.client, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL)
+	services := services.NewServices(k8sClient, k8sClientMgr, runtime.pap, runtime.pdp, logger, gatewayURL)
 
 	// Initialize legacy HTTP handlers with unified config
 	legacyHandler := handlers.New(services, &cfg, logger.With("component", "legacy-handlers"))
@@ -188,65 +196,47 @@ func setupFlags() (*pflag.FlagSet, *cliFlags) {
 	return flags, cli
 }
 
-// authzRuntime holds authorization components initialized at startup.
-type authzRuntime struct {
-	client client.Client
-	pap    authzcore.PAP
-	pdp    authzcore.PDP
+// runtime holds the components initialized at startup.
+type runtime struct {
+	pap authzcore.PAP
+	pdp authzcore.PDP
 	// start runs any background processes (manager, cache sync). No-op when authz disabled.
 	start func(context.Context) error
 }
 
-// initializeAuthz sets up authorization and Kubernetes client based on configuration.
-// When authz is enabled, it creates a controller-runtime manager with informer-based cache.
-// When disabled, it creates a simple Kubernetes client and passthrough authorizer.
-func initializeAuthz(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*authzRuntime, error) {
+// setupRuntime bootstraps the authorization runtime. When authorization is
+// enabled it creates a controller-runtime manager with an informer-based cache
+// for the authz CRDs; when disabled the manager is left nil and
+// authz.Initialize returns a passthrough implementation.
+func setupRuntime(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*runtime, error) {
 	authzCfg := cfg.Security.Authorization
+	var mgr ctrl.Manager
 
-	if !authzCfg.Enabled {
-		logger.Info("Authorization disabled - using simple client and passthrough authorizer")
-
-		k8sClient, err := k8s.NewK8sClient()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	// When enabled, create a controller-runtime manager with informers for authz CRDs
+	if authzCfg.Enabled {
+		logger.Info("Setting up controller manager for authorization CRD informers")
+		cacheOpts := cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&openchoreov1alpha1.AuthzRole{}:               {},
+				&openchoreov1alpha1.AuthzClusterRole{}:        {},
+				&openchoreov1alpha1.AuthzRoleBinding{}:        {},
+				&openchoreov1alpha1.AuthzClusterRoleBinding{}: {},
+			},
+		}
+		if authzCfg.ResyncInterval > 0 {
+			cacheOpts.SyncPeriod = &authzCfg.ResyncInterval
+			logger.Info("Informer resync enabled", "interval", authzCfg.ResyncInterval)
 		}
 
-		pap, pdp, err := authz.Initialize(ctx, nil, authzCfg.ToAuthzConfig(), logger)
+		var err error
+		mgr, err = ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+			LeaderElection: false,
+			Metrics:        metricsserver.Options{BindAddress: "0"},
+			Cache:          cacheOpts,
+		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to initialize disabled authorizer: %w", err)
+			return nil, fmt.Errorf("failed to create controller manager: %w", err)
 		}
-
-		return &authzRuntime{
-			client: k8sClient,
-			pap:    pap,
-			pdp:    pdp,
-			start:  func(context.Context) error { return nil }, // no-op
-		}, nil
-	}
-
-	// Authorization enabled - create controller-runtime manager
-	logger.Info("Authorization enabled - initializing controller manager")
-
-	cacheOpts := cache.Options{
-		ByObject: map[client.Object]cache.ByObject{
-			&openchoreov1alpha1.AuthzRole{}:               {},
-			&openchoreov1alpha1.AuthzClusterRole{}:        {},
-			&openchoreov1alpha1.AuthzRoleBinding{}:        {},
-			&openchoreov1alpha1.AuthzClusterRoleBinding{}: {},
-		},
-	}
-	if authzCfg.ResyncInterval > 0 {
-		cacheOpts.SyncPeriod = &authzCfg.ResyncInterval
-		logger.Info("Informer resync enabled", "interval", authzCfg.ResyncInterval)
-	}
-
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		LeaderElection: false,
-		Metrics:        metricsserver.Options{BindAddress: "0"},
-		Cache:          cacheOpts,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create controller manager: %w", err)
 	}
 
 	pap, pdp, err := authz.Initialize(ctx, mgr, authzCfg.ToAuthzConfig(), logger)
@@ -254,24 +244,27 @@ func initializeAuthz(ctx context.Context, cfg *config.Config, logger *slog.Logge
 		return nil, fmt.Errorf("failed to initialize authorization: %w", err)
 	}
 
-	return &authzRuntime{
-		client: mgr.GetClient(),
-		pap:    pap,
-		pdp:    pdp,
-		start: func(ctx context.Context) error {
-			// Start manager in background
+	rt := &runtime{pap: pap, pdp: pdp, start: func(context.Context) error { return nil }}
+	if mgr != nil {
+		rt.start = func(ctx context.Context) error {
 			go func() {
 				if err := mgr.Start(ctx); err != nil {
 					logger.Error("Controller manager error", slog.Any("error", err))
 				}
 			}()
 
+			// timeout to avoid blocking startup indefinitely
+			syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+
 			// Wait for cache sync
-			if !mgr.GetCache().WaitForCacheSync(ctx) {
+			if !mgr.GetCache().WaitForCacheSync(syncCtx) {
 				return fmt.Errorf("failed to sync authz cache")
 			}
 			logger.Info("Authz cache synced - policies loaded")
 			return nil
-		},
-	}, nil
+		}
+	}
+
+	return rt, nil
 }

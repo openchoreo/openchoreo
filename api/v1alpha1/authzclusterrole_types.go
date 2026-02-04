@@ -11,6 +11,7 @@ import (
 type AuthzClusterRoleSpec struct {
 	// Actions is the list of actions this role can perform
 	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:example:={"component:create"}
 	// +required
 	Actions []string `json:"actions"`
 

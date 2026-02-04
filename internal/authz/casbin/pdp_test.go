@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package casbin
@@ -54,7 +54,7 @@ func setupTestEnforcer(t *testing.T) *CasbinEnforcer {
 		K8sClient:    fakeClient,
 	}
 
-	enforcer, err := NewCasbinEnforcer(context.Background(), config, logger)
+	enforcer, err := NewEnforcer(context.Background(), config, logger)
 	if err != nil {
 		t.Fatalf("failed to create enforcer: %v", err)
 	}

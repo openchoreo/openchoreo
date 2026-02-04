@@ -45,6 +45,8 @@ spec:
             properties:
               actions:
                 description: Actions is the list of actions this role can perform
+                example:
+                - component:create
                 items:
                   type: string
                 minItems: 1

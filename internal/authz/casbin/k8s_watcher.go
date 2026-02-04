@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package casbin
@@ -32,6 +32,8 @@ func SetupAuthzWatchers(
 	enforcer casbin.IEnforcer,
 	logger *slog.Logger,
 ) error {
+	logger = logger.With("watcher", "authz")
+
 	if err := setupAuthzRoleWatcher(ctx, mgr, enforcer, logger); err != nil {
 		return err
 	}
@@ -73,7 +75,7 @@ func setupAuthzRoleWatcher(
 		return fmt.Errorf("failed to add AuthzRole event handler: %w", err)
 	}
 
-	logger.Info("Set up informer for AuthzRole CRDs")
+	logger.Info("Set up event handler for AuthzRole CRDs")
 	return nil
 }
 
@@ -99,7 +101,7 @@ func setupAuthzClusterRoleWatcher(
 		return fmt.Errorf("failed to add AuthzClusterRole event handler: %w", err)
 	}
 
-	logger.Info("Set up informer for AuthzClusterRole CRDs")
+	logger.Info("Set up event handler for AuthzClusterRole CRDs")
 	return nil
 }
 
@@ -125,7 +127,7 @@ func setupAuthzRoleBindingWatcher(
 		return fmt.Errorf("failed to add AuthzRoleBinding event handler: %w", err)
 	}
 
-	logger.Info("Set up informer for AuthzRoleBinding CRDs")
+	logger.Info("Set up event handler for AuthzRoleBinding CRDs")
 	return nil
 }
 
@@ -151,28 +153,28 @@ func setupAuthzClusterRoleBindingWatcher(
 		return fmt.Errorf("failed to add AuthzClusterRoleBinding event handler: %w", err)
 	}
 
-	logger.Info("Set up informer for AuthzClusterRoleBinding CRDs")
+	logger.Info("Set up event handler for AuthzClusterRoleBinding CRDs")
 	return nil
 }
 
 // OnAdd handles CREATE events with incremental policy addition
 func (h *authzInformerHandler) OnAdd(obj interface{}, isInInitialList bool) {
 	if err := h.handleAdd(obj); err != nil {
-		h.logger.Error("Incremental add failed, will recover on next periodic sync", "error", err)
+		h.logger.Error("Incremental add failed", "error", err)
 	}
 }
 
 // OnUpdate handles UPDATE events by removing old and adding new
 func (h *authzInformerHandler) OnUpdate(oldObj, newObj interface{}) {
 	if err := h.handleUpdate(oldObj, newObj); err != nil {
-		h.logger.Error("Incremental update failed, will recover on next periodic sync", "error", err)
+		h.logger.Error("Incremental update failed", "error", err)
 	}
 }
 
 // OnDelete handles DELETE events with incremental policy removal
 func (h *authzInformerHandler) OnDelete(obj interface{}) {
 	if err := h.handleDelete(obj); err != nil {
-		h.logger.Warn("Incremental delete failed, will recover on next periodic sync", "error", err)
+		h.logger.Warn("Incremental delete failed", "error", err)
 	}
 }
 
@@ -199,19 +201,14 @@ func (h *authzInformerHandler) handleAddRole(obj interface{}) error {
 		return nil
 	}
 
-	// Add each action as a grouping policy: g, roleName, action, namespace
-	// Check existence first to avoid unnecessary writes
-	for _, action := range role.Spec.Actions {
-		exists, err := h.enforcer.HasGroupingPolicy(role.Name, action, role.Namespace)
-		if err != nil {
-			h.logger.Warn("failed to check grouping policy for role", "role", role.Name, "error", err)
-		}
-		if exists {
-			continue
-		}
-		if _, err := h.enforcer.AddGroupingPolicy(role.Name, action, role.Namespace); err != nil {
-			return fmt.Errorf("failed to add grouping policy for role %s: %w", role.Name, err)
-		}
+	// Batch add grouping policies: g, roleName, action, namespace
+	// AddGroupingPoliciesEx skips duplicates and adds the rest in a single lock.
+	rules := make([][]string, len(role.Spec.Actions))
+	for i, action := range role.Spec.Actions {
+		rules[i] = []string{role.Name, action, role.Namespace}
+	}
+	if _, err := h.enforcer.AddGroupingPoliciesEx(rules); err != nil {
+		return fmt.Errorf("failed to add grouping policies for role %s: %w", role.Name, err)
 	}
 
 	h.logger.Debug("role policies added successfully",
@@ -229,18 +226,14 @@ func (h *authzInformerHandler) handleAddClusterRole(obj interface{}) error {
 		return nil
 	}
 
-	// Add each action as a grouping policy: g, roleName, action, "*" (cluster-scoped)
-	for _, action := range clusterRole.Spec.Actions {
-		exists, err := h.enforcer.HasGroupingPolicy(clusterRole.Name, action, "*")
-		if err != nil {
-			h.logger.Warn("failed to check grouping policy for cluster role", "role", clusterRole.Name, "error", err)
-		}
-		if exists {
-			continue
-		}
-		if _, err := h.enforcer.AddGroupingPolicy(clusterRole.Name, action, "*"); err != nil {
-			return fmt.Errorf("failed to add grouping policy for cluster role %s: %w", clusterRole.Name, err)
-		}
+	// Batch add grouping policies: g, roleName, action, "*" (cluster-scoped)
+	// AddGroupingPoliciesEx skips duplicates and adds the rest in a single lock.
+	rules := make([][]string, len(clusterRole.Spec.Actions))
+	for i, action := range clusterRole.Spec.Actions {
+		rules[i] = []string{clusterRole.Name, action, "*"}
+	}
+	if _, err := h.enforcer.AddGroupingPoliciesEx(rules); err != nil {
+		return fmt.Errorf("failed to add grouping policies for cluster role %s: %w", clusterRole.Name, err)
 	}
 
 	h.logger.Debug("cluster role policies added successfully",
@@ -751,7 +744,7 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 		Component: binding.Spec.TargetPath.Component,
 	})
 	roleNamespace := binding.Namespace
-	if binding.Spec.RoleRef.Kind == "AuthzClusterRole" {
+	if binding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
 		roleNamespace = "*"
 	}
 	effect := string(binding.Spec.Effect)

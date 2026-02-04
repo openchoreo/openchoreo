@@ -100,14 +100,25 @@ type EntitlementClaim struct {
 	Value string `json:"value"`
 }
 
+// RoleRefKind defines the kind of role referenced by a RoleRef
+// +kubebuilder:validation:Enum=AuthzRole;AuthzClusterRole
+type RoleRefKind string
+
+const (
+	// RoleRefKindAuthzRole references a namespaced AuthzRole
+	RoleRefKindAuthzRole RoleRefKind = "AuthzRole"
+
+	// RoleRefKindAuthzClusterRole references a cluster-scoped AuthzClusterRole
+	RoleRefKindAuthzClusterRole RoleRefKind = "AuthzClusterRole"
+)
+
 // RoleRef represents a reference to an AuthzRole or AuthzClusterRole
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 type RoleRef struct {
 	// Kind is the kind of role (AuthzRole or AuthzClusterRole)
 	// For AuthzRoleBinding: AuthzRole must be in the same namespace
-	// +kubebuilder:validation:Enum=AuthzRole;AuthzClusterRole
 	// +required
-	Kind string `json:"kind"`
+	Kind RoleRefKind `json:"kind"`
 
 	// Name is the name of the role
 	// +required

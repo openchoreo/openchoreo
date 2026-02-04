@@ -39,7 +39,7 @@ func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, logger *slog.
 	log := logger.With("module", "authz")
 
 	if !cfg.Enabled {
-		log.Debug("Authorization disabled - using passthrough implementation")
+		log.Info("Authorization disabled - using passthrough implementation")
 		passthroughAuthz := NewDisabledAuthorizer(logger)
 		return passthroughAuthz, passthroughAuthz, nil
 	}
@@ -52,7 +52,7 @@ func Initialize(ctx context.Context, mgr ctrl.Manager, cfg Config, logger *slog.
 		CacheTTL:     cfg.CacheTTL,
 	}
 
-	casbinAuthz, err := casbin.NewCasbinEnforcer(ctx, casbinConfig, logger)
+	casbinAuthz, err := casbin.NewEnforcer(ctx, casbinConfig, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize Casbin enforcer: %w", err)
 	}
