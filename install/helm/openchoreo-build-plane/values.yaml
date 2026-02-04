@@ -638,7 +638,7 @@ openbao:
   # description: Enable OpenBao installation
   # default: false
   # @schema
-  enabled: false
+  enabled: true
 
   # @schema
   # type: string
