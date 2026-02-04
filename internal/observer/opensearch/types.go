@@ -67,6 +67,13 @@ type LogEntry struct {
 	Labels        map[string]string `json:"labels"`
 }
 
+// ComponentWorkflowRunLogEntry represents a log entry for component workflow run logs
+// Not using LogEntry struct as loglevel, labels, etc. are not relevant for component workflow run logs
+type ComponentWorkflowRunLogEntry struct {
+	Timestamp string `json:"timestamp"`
+	Log       string `json:"log"`
+}
+
 // TraceResponse represents the response structure for trace queries
 type TraceResponse struct {
 	Traces []Trace `json:"traces"`
@@ -136,6 +143,13 @@ type GatewayQueryParams struct {
 type WorkflowRunQueryParams struct {
 	QueryParams
 	WorkflowRunID string `json:"workflowRunId"`
+}
+
+// ComponentWorkflowRunQueryParams holds component workflow run-specific query parameters
+type ComponentWorkflowRunQueryParams struct {
+	RunName  string `json:"runName"`
+	StepName string `json:"stepName"`
+	Limit    int    `json:"limit"`
 }
 
 // buildSearchBody converts a query map to an io.Reader for the search request

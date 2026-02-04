@@ -150,7 +150,9 @@ func main() {
 	api := routes.With(jwtAuth)
 
 	// API routes - Build Logs
-	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs)
+	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
+		"workflow-runs/{runName}/logs", handler.GetComponentWorkflowRunLogs)
+	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs) // TODO: Deprecate this endpoint
 
 	// API routes - Workflow Run Logs
 	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", handler.GetWorkflowRunLogs)

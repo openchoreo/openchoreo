@@ -203,6 +203,58 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 	return query
 }
 
+// BuildComponentWorkflowRunLogsQuery builds a query for component workflow run logs
+func (qb *QueryBuilder) BuildComponentWorkflowRunLogsQuery(params ComponentWorkflowRunQueryParams) map[string]interface{} {
+	// Construct pod name pattern for Argo Workflow: runName-stepName-* or runName-* if stepName is empty
+	var podNamePattern string
+	if params.StepName != "" {
+		podNamePattern = fmt.Sprintf("%s-%s-*", params.RunName, params.StepName)
+	} else {
+		podNamePattern = params.RunName + "-*"
+	}
+
+	// Build query with wildcard search on pod name
+	mustConditions := []map[string]interface{}{
+		{
+			"wildcard": map[string]interface{}{
+				labels.KubernetesPodName + ".keyword": podNamePattern,
+			},
+		},
+	}
+
+	// Logs from init and wait containers are not relevant. Hence, excluded.
+	mustNotConditions := []map[string]interface{}{
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "init",
+			},
+		},
+		{
+			"term": map[string]interface{}{
+				labels.KubernetesContainerName + ".keyword": "wait",
+			},
+		},
+	}
+
+	query := map[string]interface{}{
+		"size": params.Limit,
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must":     mustConditions,
+				"must_not": mustNotConditions,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{
+				"@timestamp": map[string]interface{}{
+					"order": "asc",
+				},
+			},
+		},
+	}
+	return query
+}
+
 // BuildComponentLogsQuery builds a query for component logs with wildcard search
 func (qb *QueryBuilder) BuildComponentLogsQuery(params ComponentQueryParams) map[string]interface{} {
 	mustConditions := []map[string]interface{}{

@@ -28,6 +28,10 @@ const (
 	ascendingSortOrder = "asc"
 )
 
+const (
+	defaultWorkflowRunLogsLimit = 1000
+)
+
 // isAIRCAEnabled checks if AI RCA analysis is enabled via environment variable
 func isAIRCAEnabled() bool {
 	enabled, _ := strconv.ParseBool(os.Getenv("AI_RCA_ENABLED"))
@@ -398,6 +402,79 @@ func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.writeJSON(w, http.StatusOK, result)
+}
+
+// GetComponentWorkflowRunLogs handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs
+func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	runName := r.PathValue("runName")
+	if runName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgWorkflowRunIDRequired)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if h.authzPDP != nil {
+		// Hierarchy fields are required for authorization but optional when authz is disabled
+		if namespaceName == "" || projectName == "" || componentName == "" {
+			h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+				ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+			return
+		}
+
+		if err := observerAuthz.CheckAuthorization(
+			r.Context(),
+			h.logger,
+			h.authzPDP,
+			observerAuthz.ActionViewLogs,
+			observerAuthz.ResourceTypeComponentWorkflowRun,
+			runName,
+			authzcore.ResourceHierarchy{
+				Namespace: namespaceName,
+				Project:   projectName,
+				Component: componentName,
+			},
+		); err != nil {
+			if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+				h.writeErrorResponse(w, http.StatusForbidden,
+					ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+				return
+			}
+			if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+				h.writeErrorResponse(w, http.StatusUnauthorized,
+					ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+				return
+			}
+			if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+				h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+				h.writeErrorResponse(w, http.StatusInternalServerError,
+					ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+				return
+			}
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+	} else {
+		h.logger.Debug("Authorization check skipped for component workflow run logs", "namespace", namespaceName,
+			"project", projectName, "component", componentName, "run", runName)
+	}
+
+	// Get optional step query parameter
+	step := r.URL.Query().Get("step")
+
+	ctx := r.Context()
+	logs, err := h.service.GetComponentWorkflowRunLogs(ctx, runName, step, defaultWorkflowRunLogsLimit)
+	if err != nil {
+		h.logger.Error("Failed to get component workflow run logs", "namespace", namespaceName, "project", projectName,
+			"component", componentName, "run", runName, "step", step, "error", err)
+		h.writeErrorResponse(w, http.StatusInternalServerError, ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToRetrieveLogs)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, logs)
 }
 
 // GetComponentLogs handles POST /api/logs/component/{componentId}

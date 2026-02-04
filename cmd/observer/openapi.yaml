@@ -103,6 +103,101 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs:
+    get:
+      tags:
+        - Logs
+      summary: Get workflow run logs (stream)
+      description: |
+        Returns logs from a workflow run stored in the observability plane.
+        This endpoint is used when logs are older than the TTL and have been archived to OpenSearch.
+        Logs are returned as a JSON array of log entries with timestamps, optionally filtered by step.
+      operationId: getComponentWorkflowRunLogs
+      parameters:
+        - name: namespaceName
+          in: path
+          required: true
+          description: The namespace name
+          schema:
+            type: string
+            example: "reading-list-service-workflow-290506e5"
+        - name: projectName
+          in: path
+          required: true
+          description: The project name
+          schema:
+            type: string
+            example: "default"
+        - name: componentName
+          in: path
+          required: true
+          description: The component name
+          schema:
+            type: string
+            example: "reading-list-service"
+        - name: runName
+          in: path
+          required: true
+          description: The workflow run name
+          schema:
+            type: string
+            example: "reading-list-service-workflow-290506e5"
+        - name: step
+          in: query
+          required: false
+          description: Filter logs by a specific workflow step name
+          schema:
+            type: string
+            example: build-step
+      responses:
+        '200':
+          description: Successfully retrieved workflow run logs
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Array of log entries with timestamps
+                items:
+                  $ref: '#/components/schemas/ComponentWorkflowRunLogEntry'
+              example:
+                - timestamp: "2025-01-06T10:00:00.123Z"
+                  log: "Building application..."
+                - timestamp: "2025-01-06T10:00:05.456Z"
+                  log: "Build completed successfully"
+                - timestamp: "2025-01-06T10:00:10.789Z"
+                  log: "Pushing image to registry..."
+                - timestamp: "2025-01-06T10:00:15.012Z"
+                  log: "Image pushed successfully"
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workflow run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/logs/component/{componentId}:
     post:
       tags:
@@ -1100,6 +1195,22 @@ components:
           type: string
           description: Human-readable error message
           example: "Invalid request format"
+
+    ComponentWorkflowRunLogEntry:
+      type: object
+      description: A single log entry from a component workflow run
+      required:
+        - log
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the log entry was generated (RFC3339 format)
+          example: "2025-01-06T10:00:00.123Z"
+        log:
+          type: string
+          description: The log message content
+          example: "Building application..."
 
     AlertingRuleRequest:
       type: object
