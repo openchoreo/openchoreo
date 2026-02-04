@@ -319,6 +319,32 @@ func TestBuildSystemParameters(t *testing.T) {
 			},
 		},
 		{
+			name: "system parameters with secretRef",
+			input: v1alpha1.SystemParametersValues{
+				Repository: v1alpha1.RepositoryValues{
+					URL: "https://github.com/test/repo",
+					Revision: v1alpha1.RepositoryRevisionValues{
+						Branch: "main",
+						Commit: "abc123",
+					},
+					AppPath:   "/app",
+					SecretRef: "my-git-secret",
+				},
+			},
+			expected: map[string]interface{}{
+				"repository": map[string]interface{}{
+					"url": "https://github.com/test/repo",
+					"revision": map[string]interface{}{
+						"branch": "main",
+						"commit": "abc123",
+					},
+					"appPath":   "/app",
+					"secretRef": "my-git-secret",
+				},
+				"secretRef": "my-git-secret",
+			},
+		},
+		{
 			name:  "empty system parameters",
 			input: v1alpha1.SystemParametersValues{},
 			expected: map[string]interface{}{

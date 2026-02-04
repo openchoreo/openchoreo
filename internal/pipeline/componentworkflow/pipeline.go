@@ -276,14 +276,17 @@ func buildSystemParameters(sysParams v1alpha1.SystemParametersValues) map[string
 		"appPath": sysParams.Repository.AppPath,
 	}
 
-	// Add secretRef if provided
-	if sysParams.Repository.SecretRef != "" {
-		repoMap["secretRef"] = sysParams.Repository.SecretRef
-	}
-
-	return map[string]any{
+	result := map[string]any{
 		"repository": repoMap,
 	}
+
+	// Add secretRef if provided - both in repository and at top level for convenience
+	if sysParams.Repository.SecretRef != "" {
+		repoMap["secretRef"] = sysParams.Repository.SecretRef
+		result["secretRef"] = sysParams.Repository.SecretRef
+	}
+
+	return result
 }
 
 // buildParameters builds the developer parameters with defaults applied from the ComponentWorkflow schema.
