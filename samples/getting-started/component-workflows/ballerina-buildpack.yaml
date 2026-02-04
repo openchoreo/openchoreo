@@ -10,6 +10,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -22,7 +23,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -52,11 +53,12 @@ spec:
         name: ballerina-buildpack
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${secretRef.name}-git-secret
+          name: ${metadata.workflowRunName}-git-secret
           namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
@@ -64,7 +66,7 @@ spec:
             kind: ClusterSecretStore
             name: openbao
           target:
-            name: ${secretRef.name}-git-secret
+            name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
               type: ${secretRef.type}

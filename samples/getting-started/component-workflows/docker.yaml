@@ -26,7 +26,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -51,7 +51,7 @@ spec:
           - name: image-tag
             value: v1
           - name: git-secret
-            value: ${secretRef.name}-git-secret
+            value: ${metadata.workflowRunName}-git-secret
           - name: registry-push-secret
             value: ${metadata.workflowRunName}-registry-push-secret
       serviceAccountName: workflow-sa
@@ -60,11 +60,12 @@ spec:
         name: docker
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
-          name: ${secretRef.name}-git-secret
+          name: ${metadata.workflowRunName}-git-secret
           namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
@@ -72,7 +73,7 @@ spec:
             kind: ClusterSecretStore
             name: openbao
           target:
-            name: ${secretRef.name}-git-secret
+            name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
             template:
               type: ${secretRef.type}

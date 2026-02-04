@@ -4,68 +4,92 @@ metadata:
   name: google-cloud-buildpacks
   namespace: default
   annotations:
-    openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
+    openchoreo.dev/description: "Google Cloud Buildpacks workflow for auto-detecting and building applications without Dockerfiles"
 spec:
-  # Template Variable Reference (processed by controller):
-  # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
-  # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
-  # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
-  # ${metadata.namespaceName}    - Namespace name (namespace)
-  # ${systemParameters.*}        - System-provided values from systemParameters schema
-  # ${parameters.*}              - Developer-provided values from parameters schema
+  # Template Variable Reference (processed by ComponentWorkflowRun controller):
+  # ${metadata.workflowRunName}  - Generated name for this workflow run instance
+  # ${metadata.componentName}    - Name of the component triggering this workflow
+  # ${metadata.projectName}      - Name of the project containing the component
+  # ${metadata.namespaceName}    - Organization namespace where the component resides
+  # ${metadata.namespace}        - Full namespace path for resource deployment
+  # ${systemParameters.*}        - Structured system parameters defined in schema (repository, revision, etc.)
+  # ${parameters.*}              - Custom developer parameters defined in schema (version, testMode, cache, etc.)
+  # ${secretRef.*}               - Secret reference details when systemParameters.repository.secretRef is provided
 
-  # Schema definition for component workflows
+  # Schema definition for workflow parameters
+  # Defines the contract between platform engineers (who create workflows) and developers (who use them)
   schema:
-    # Types - Reusable type definitions for complex structures
-    # These can be referenced in parameters using the type name (e.g., "[]Endpoint", "ResourceRequirements")
-    # Allows defining lists, arrays, and nested objects with consistent structure
+    # Custom type definitions for reusable complex structures
+    # These types can be referenced in parameters using their name (e.g., "[]Endpoint", "ResourceRequirements")
+    # Enables strongly-typed nested objects, arrays, and lists with validation
     types:
+      # Endpoint type - Defines service endpoints exposed by the component
       Endpoint:
         name: "string"
         port: "integer"
         type: "string | enum=REST,HTTP,TCP,UDP"
         schemaFile: "string | description='Path to the schema file defining the endpoint structure'"
+
+      # ResourceRequirements type - Kubernetes resource requests and limits
       ResourceRequirements:
         requests: "ResourceQuantity | default={}"
         limits: "ResourceQuantity | default={}"
+
+      # ResourceQuantity type - CPU and memory resource specifications
       ResourceQuantity:
         cpu: "string | default=100m"
         memory: "string | default=256Mi"
-        
-    # System parameters - Required structured parameters for component workflows
-    # These fields are necessary for workflow-specific platform features
-    # Platform Engineers can customize defaults, enums, and descriptions, but must maintain the field structure
+
+    # System parameters - Structured parameters for component-specific workflow features
+    # These provide the foundation for build automation (webhooks, auto-build, UI triggers)
+    # Platform Engineers can customize defaults, enums, and descriptions
+    # The field structure (especially repository.*) must be maintained for platform features to work
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for private repository Git credentials (optional for public repos)"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the application directory within the repository"
 
-    # Developer-configurable parameters - PE-defined schema for additional build configuration
+    # Developer-configurable parameters - Custom parameters defined by Platform Engineers
+    # These allow developers to customize the build process within PE-defined constraints
+    # This workflow demonstrates advanced parameter features: nested objects, arrays, enums, and custom types
     parameters:
+      # Simple scalar parameters
       version: integer | default=1 description="Build version number for image tagging"
       testMode: string | enum=unit,integration,none default=unit description="Test mode to execute (unit, integration, or none)"
+
+      # Array parameters for container customization
       command: '[]string | default=[] description="Custom command to override the default entrypoint"'
       args: '[]string | default=[] description="Custom arguments to pass to the command"'
+
+      # Build timeout configuration
       timeout: string | default="30m" description="Build timeout duration (e.g., 30m, 1h)"
+
+      # Nested object for cache configuration
       cache:
         enabled: boolean | default=true description="Enable build cache to speed up subsequent builds"
         paths: '[]string | default=["/root/.cache"] description="Paths to cache between builds"'
+
+      # Nested object for build constraints
       limits:
         maxRetries: integer | default=3 minimum=0 maximum=10 description="Maximum number of retry attempts on build failure"
         maxDurationMinutes: integer | default=60 minimum=5 maximum=240 description="Maximum build duration in minutes"
-      endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
-      resources: "ResourceRequirements | default={}"
 
-  # Rendered workflow resource for ComponentWorkflowRun executions
+      # Custom type parameters - Reference types defined above
+      endpoints: '[]Endpoint | default=[] description="List of service endpoints exposed by the component"'
+      resources: "ResourceRequirements | default={} description='CPU and memory resource constraints for the build'"
+
+  # Workflow template that gets instantiated for each ComponentWorkflowRun
+  # This generates an Argo Workflow resource in the build plane cluster
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -105,7 +129,9 @@ spec:
             value: ${parameters.endpoints}
           - name: resources
             value: ${parameters.resources}
-          # PE-controlled hardcoded parameters
+
+          # Platform Engineer-controlled parameters - Hardcoded values not exposed to developers
+          # These ensure consistency and enforce organizational policies
           - name: builder-image
             value: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
           - name: registry-url
@@ -127,33 +153,44 @@ spec:
         clusterScope: true
         name: google-cloud-buildpacks
 
+  # Additional Kubernetes resources created alongside the workflow
+  # These resources are deployed to the build plane namespace before the workflow executes
   resources:
+    # Git credentials secret - Only created when secretRef is provided (for private repositories)
+    # Uses External Secrets Operator to fetch credentials from the secret store (OpenBao)
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: openbao
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
+            template:
+              type: ${secretRef.type}
           data:
-            - secretKey: git-token
+            - secretKey: ${secretRef.key}
               remoteRef:
-                key: git-token
+                key: ${secretRef.remoteKey}
+                property: ${secretRef.property}
+
+    # Container registry push credentials - Always created
+    # Used to authenticate and push the built container image to the registry
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:

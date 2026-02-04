@@ -1779,7 +1779,8 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 			Name: component.Spec.Workflow.Name,
 			SystemParameters: &models.ComponentWorkflowSystemParams{
 				Repository: models.ComponentWorkflowRepository{
-					URL: component.Spec.Workflow.SystemParameters.Repository.URL,
+					URL:       component.Spec.Workflow.SystemParameters.Repository.URL,
+					SecretRef: component.Spec.Workflow.SystemParameters.Repository.SecretRef,
 					Revision: models.ComponentWorkflowRepositoryRevision{
 						Branch: component.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
 						Commit: component.Spec.Workflow.SystemParameters.Repository.Revision.Commit,

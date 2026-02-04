@@ -6,38 +6,45 @@ metadata:
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
-  # Template Variable Reference (processed by controller):
-  # ${metadata.workflowRunName}  - ComponentWorkflowRun CR name
-  # ${metadata.componentName}    - Component name (Only accessible for component level component-workflows)
-  # ${metadata.projectName}      - Project name (Only accessible for component level component-workflows)
-  # ${metadata.namespaceName}    - Namespace name (namespace)
-  # ${systemParameters.*}        - Developer-provided values from systemParameters schema
-  # ${parameters.*}              - Developer-provided values from parameters schema
+  # Template Variable Reference (processed by ComponentWorkflowRun controller):
+  # ${metadata.workflowRunName}  - Generated name for this workflow run instance
+  # ${metadata.componentName}    - Name of the component triggering this workflow
+  # ${metadata.projectName}      - Name of the project containing the component
+  # ${metadata.namespaceName}    - Organization namespace where the component resides
+  # ${metadata.namespace}        - Full namespace path for resource deployment
+  # ${systemParameters.*}        - Structured system parameters defined in schema (repository, revision, etc.)
+  # ${parameters.*}              - Custom developer parameters defined in schema (nodeVersion, etc.)
+  # ${secretRef.*}               - Secret reference details when systemParameters.repository.secretRef is provided
 
-  # Schema definition for component workflows
+  # Schema definition for workflow parameters
+  # Defines the contract between platform engineers (who create workflows) and developers (who use them)
   schema:
-    # System parameters - Required structured parameters for component workflows
-    # These fields are necessary for workflow-specific platform features
-    # Platform Engineers can customize defaults, enums, and descriptions, but must maintain the field structure
+    # System parameters - Structured parameters for component-specific workflow features
+    # These provide the foundation for build automation (webhooks, auto-build, UI triggers)
+    # Platform Engineers can customize defaults, enums, and descriptions
+    # The field structure (especially repository.*) must be maintained for platform features to work
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for private repository Git credentials (optional for public repos)"
         revision:
           branch: string | default=main description="Git branch to checkout"
-          commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
+          commit: string | description="Git commit SHA or reference (optional, defaults to latest commit on branch)"
         appPath: string | default=. description="Path to the React application directory within the repository"
 
-    # Developer-configurable parameters - PE-defined schema for additional build configuration
+    # Developer-configurable parameters - Custom parameters defined by Platform Engineers
+    # These allow developers to customize the build process within PE-defined constraints
     parameters:
       nodeVersion: string | default="18" enum=16,18,20,22 description="Node.js version to use for building the React application"
 
-  # Rendered workflow resource for ComponentWorkflowRun executions
+  # Workflow template that gets instantiated for each ComponentWorkflowRun
+  # This generates an Argo Workflow resource in the build plane cluster
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -57,7 +64,9 @@ spec:
           # Parameters from parameters (developer-facing)
           - name: node-version
             value: ${parameters.nodeVersion}
-          # PE-controlled hardcoded parameters
+
+          # Platform Engineer-controlled parameters - Hardcoded values not exposed to developers
+          # These ensure consistency and enforce organizational policies
           - name: image-name
             value: ${metadata.projectName}-${metadata.componentName}
           - name: image-tag
@@ -71,33 +80,44 @@ spec:
         clusterScope: true
         name: react
 
+  # Additional Kubernetes resources created alongside the workflow
+  # These resources are deployed to the build plane namespace before the workflow executes
   resources:
+    # Git credentials secret - Only created when secretRef is provided (for private repositories)
+    # Uses External Secrets Operator to fetch credentials from the secret store (OpenBao)
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: openbao
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
+            template:
+              type: ${secretRef.type}
           data:
-            - secretKey: git-token
+            - secretKey: ${secretRef.key}
               remoteRef:
-                key: git-token
+                key: ${secretRef.remoteKey}
+                property: ${secretRef.property}
+
+    # Container registry push credentials - Always created
+    # Used to authenticate and push the built React application image to the registry
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
