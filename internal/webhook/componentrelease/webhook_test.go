@@ -67,7 +67,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 						},
 					},
 				},
-				ComponentProfile: openchoreodevv1alpha1.ComponentProfile{},
+				ComponentProfile: &openchoreodevv1alpha1.ComponentProfile{},
 				Workload: openchoreodevv1alpha1.WorkloadTemplateSpec{
 					Containers: map[string]openchoreodevv1alpha1.Container{
 						"app": {

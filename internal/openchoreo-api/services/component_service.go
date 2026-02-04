@@ -222,14 +222,16 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 		traits[componentTrait.Name] = trait.Spec
 	}
 
-	// Build ComponentProfile from Component parameters
-	componentProfile := openchoreov1alpha1.ComponentProfile{}
-	if component.Spec.Parameters != nil {
-		componentProfile.Parameters = component.Spec.Parameters
-	}
-
-	if component.Spec.Traits != nil {
-		componentProfile.Traits = component.Spec.Traits
+	// Build ComponentProfile from Component parameters (only if there's content)
+	var componentProfile *openchoreov1alpha1.ComponentProfile
+	if component.Spec.Parameters != nil || len(component.Spec.Traits) > 0 {
+		componentProfile = &openchoreov1alpha1.ComponentProfile{}
+		if component.Spec.Parameters != nil {
+			componentProfile.Parameters = component.Spec.Parameters
+		}
+		if component.Spec.Traits != nil {
+			componentProfile.Traits = component.Spec.Traits
+		}
 	}
 
 	// Build workload template spec from workload spec

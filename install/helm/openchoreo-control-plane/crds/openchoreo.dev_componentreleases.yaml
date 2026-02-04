@@ -640,7 +640,6 @@ spec:
                 - message: spec.workload is immutable
                   rule: self == oldSelf
             required:
-            - componentProfile
             - componentType
             - owner
             - workload

@@ -524,7 +524,11 @@ func (in *ComponentReleaseSpec) DeepCopyInto(out *ComponentReleaseSpec) {
 			(*out)[key] = *val.DeepCopy()
 		}
 	}
-	in.ComponentProfile.DeepCopyInto(&out.ComponentProfile)
+	if in.ComponentProfile != nil {
+		in, out := &in.ComponentProfile, &out.ComponentProfile
+		*out = new(ComponentProfile)
+		(*in).DeepCopyInto(*out)
+	}
 	in.Workload.DeepCopyInto(&out.Workload)
 }
 

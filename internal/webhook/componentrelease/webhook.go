@@ -85,24 +85,26 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	// Note: Required field validations (owner, componentType, workload, traits.name, traits.instanceName) are enforced by the CRD schema
 
-	// Validate unique trait instance names and trait existence
-	instanceNames := make(map[string]bool)
-	for i, trait := range componentrelease.Spec.ComponentProfile.Traits {
-		traitPath := field.NewPath("spec", "componentProfile", "traits").Index(i)
+	// Validate unique trait instance names and trait existence (only if ComponentProfile is non-nil)
+	if componentrelease.Spec.ComponentProfile != nil {
+		instanceNames := make(map[string]bool)
+		for i, trait := range componentrelease.Spec.ComponentProfile.Traits {
+			traitPath := field.NewPath("spec", "componentProfile", "traits").Index(i)
 
-		if instanceNames[trait.InstanceName] {
-			allErrs = append(allErrs, field.Duplicate(
-				traitPath.Child("instanceName"),
-				trait.InstanceName))
-		}
-		instanceNames[trait.InstanceName] = true
+			if instanceNames[trait.InstanceName] {
+				allErrs = append(allErrs, field.Duplicate(
+					traitPath.Child("instanceName"),
+					trait.InstanceName))
+			}
+			instanceNames[trait.InstanceName] = true
 
-		// Verify the trait spec exists in the traits map
-		if _, exists := componentrelease.Spec.Traits[trait.Name]; !exists {
-			allErrs = append(allErrs, field.Invalid(
-				traitPath.Child("name"),
-				trait.Name,
-				fmt.Sprintf("trait '%s' referenced in componentProfile but not found in traits snapshot", trait.Name)))
+			// Verify the trait spec exists in the traits map
+			if _, exists := componentrelease.Spec.Traits[trait.Name]; !exists {
+				allErrs = append(allErrs, field.Invalid(
+					traitPath.Child("name"),
+					trait.Name,
+					fmt.Sprintf("trait '%s' referenced in componentProfile but not found in traits snapshot", trait.Name)))
+			}
 		}
 	}
 
@@ -228,7 +230,7 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 
 	// Unmarshal component profile parameters (treat nil/empty as empty object)
 	var componentParams map[string]any
-	if release.Spec.ComponentProfile.Parameters != nil && len(release.Spec.ComponentProfile.Parameters.Raw) > 0 {
+	if release.Spec.ComponentProfile != nil && release.Spec.ComponentProfile.Parameters != nil && len(release.Spec.ComponentProfile.Parameters.Raw) > 0 {
 		if err := yaml.Unmarshal(release.Spec.ComponentProfile.Parameters.Raw, &componentParams); err != nil {
 			allErrs = append(allErrs, field.Invalid(
 				basePath,
@@ -255,6 +257,12 @@ func validateComponentParameters(release *openchoreodevv1alpha1.ComponentRelease
 // validateTraitInstanceParameters validates trait instance parameters against Trait schemas
 func validateTraitInstanceParameters(release *openchoreodevv1alpha1.ComponentRelease) field.ErrorList {
 	allErrs := field.ErrorList{}
+
+	// If ComponentProfile is nil, there are no trait instances to validate
+	if release.Spec.ComponentProfile == nil {
+		return allErrs
+	}
+
 	basePath := field.NewPath("spec", "componentProfile", "traits")
 
 	for i, traitInstance := range release.Spec.ComponentProfile.Traits {

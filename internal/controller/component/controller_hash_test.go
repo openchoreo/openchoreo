@@ -26,7 +26,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
@@ -44,7 +44,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
@@ -59,7 +59,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
@@ -77,7 +77,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
@@ -92,7 +92,7 @@ func TestComputeReleaseHash(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
@@ -311,7 +311,7 @@ func TestHashOutputExamples(t *testing.T) {
 				ComponentType: openchoreov1alpha1.ComponentTypeSpec{
 					WorkloadType: "deployment",
 				},
-				ComponentProfile: openchoreov1alpha1.ComponentProfile{
+				ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3, "port": 8080}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{

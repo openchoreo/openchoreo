@@ -144,9 +144,6 @@ func (g *ReleaseGenerator) buildRelease(
 			"componentName": comp.Name,
 			"projectName":   comp.ProjectName(),
 		},
-		"componentProfile": map[string]interface{}{
-			"parameters": comp.GetParameters(),
-		},
 		"componentType": map[string]interface{}{
 			"workloadType": ct.WorkloadType(),
 			"schema":       ct.GetSchema(),
@@ -157,10 +154,17 @@ func (g *ReleaseGenerator) buildRelease(
 		},
 	}
 
-	// Add traits to componentProfile if present
+	// Build componentProfile only if there's content to add
+	componentProfile := make(map[string]interface{})
+	if params := comp.GetParameters(); len(params) > 0 {
+		componentProfile["parameters"] = params
+	}
 	if len(profileTraits) > 0 {
-		componentProfile := spec["componentProfile"].(map[string]interface{})
 		componentProfile["traits"] = profileTraits
+	}
+	// Only add componentProfile to spec if it has content
+	if len(componentProfile) > 0 {
+		spec["componentProfile"] = componentProfile
 	}
 
 	// Add traits map if present

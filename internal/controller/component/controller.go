@@ -616,9 +616,13 @@ func buildTraitsMap(traits []openchoreov1alpha1.Trait) map[string]openchoreov1al
 	return traitsMap
 }
 
-// buildComponentProfile extracts the ComponentProfile from the Component
-func buildComponentProfile(comp *openchoreov1alpha1.Component) openchoreov1alpha1.ComponentProfile {
-	return openchoreov1alpha1.ComponentProfile{
+// buildComponentProfile extracts the ComponentProfile from the Component.
+// Returns nil if the component has no parameters and no traits.
+func buildComponentProfile(comp *openchoreov1alpha1.Component) *openchoreov1alpha1.ComponentProfile {
+	if comp.Spec.Parameters == nil && len(comp.Spec.Traits) == 0 {
+		return nil
+	}
+	return &openchoreov1alpha1.ComponentProfile{
 		Parameters: comp.Spec.Parameters,
 		Traits:     comp.Spec.Traits,
 	}

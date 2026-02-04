@@ -29,9 +29,9 @@ type ComponentReleaseSpec struct {
 
 	// ComponentProfile contains the immutable snapshot of parameter values and trait configs
 	// specified for this component at release time
-	// +kubebuilder:validation:Required
+	// +optional
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentProfile is immutable"
-	ComponentProfile ComponentProfile `json:"componentProfile"`
+	ComponentProfile *ComponentProfile `json:"componentProfile,omitempty"`
 
 	// Workload is a full embedded copy of the Workload
 	// This preserves the workload spec with the built image

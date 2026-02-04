@@ -54,7 +54,7 @@ var _ = Describe("ComponentRelease Controller", func() {
 								},
 							},
 						},
-						ComponentProfile: openchoreov1alpha1.ComponentProfile{
+						ComponentProfile: &openchoreov1alpha1.ComponentProfile{
 							Parameters: &runtime.RawExtension{
 								Raw: []byte(`{"replicas":1,"image":"nginx:latest"}`),
 							},

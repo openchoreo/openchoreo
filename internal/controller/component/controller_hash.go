@@ -21,7 +21,7 @@ type ReleaseSpec struct {
 	Traits map[string]openchoreov1alpha1.TraitSpec `json:"traits,omitempty"`
 
 	// ComponentProfile contains parameter values and trait configurations
-	ComponentProfile openchoreov1alpha1.ComponentProfile `json:"componentProfile"`
+	ComponentProfile *openchoreov1alpha1.ComponentProfile `json:"componentProfile,omitempty"`
 
 	// Workload is the embedded Workload template specification
 	Workload openchoreov1alpha1.WorkloadTemplateSpec `json:"workload"`
@@ -79,10 +79,13 @@ func BuildReleaseSpec(
 		}
 	}
 
-	// Build component profile
-	componentProfile := openchoreov1alpha1.ComponentProfile{
-		Parameters: comp.Spec.Parameters,
-		Traits:     comp.Spec.Traits,
+	// Build component profile (only if there's content)
+	var componentProfile *openchoreov1alpha1.ComponentProfile
+	if comp.Spec.Parameters != nil || len(comp.Spec.Traits) > 0 {
+		componentProfile = &openchoreov1alpha1.ComponentProfile{
+			Parameters: comp.Spec.Parameters,
+			Traits:     comp.Spec.Traits,
+		}
 	}
 
 	// Construct ReleaseSpec
