@@ -168,7 +168,7 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 }
 
 func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType string) *openchoreov1alpha1.SecretReference {
-	remoteKey := fmt.Sprintf("%s/git/%s", namespaceName, secretName)
+	remoteKey := fmt.Sprintf("secret/%s/git/%s", namespaceName, secretName)
 
 	var k8sSecretType corev1.SecretType
 	var secretKeyField string
@@ -213,7 +213,7 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secre
 
 // createPushSecret creates an unstructured PushSecret resource for build planes.
 func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType string) *unstructured.Unstructured {
-	remoteKey := fmt.Sprintf("secret/data/%s/git/%s", ownerNamespace, name)
+	remoteKey := fmt.Sprintf("secret/%s/git/%s", ownerNamespace, name)
 
 	var secretKeyField string
 	if secretType == secretTypeBasicAuth {

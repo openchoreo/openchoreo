@@ -282,7 +282,7 @@ $PLANE_ID_FIELD
   clusterAgent:
 $CLIENT_CA_CONFIG
   secretStoreRef:
-      name: default
+      name: openbao
 EOF
 )
 
