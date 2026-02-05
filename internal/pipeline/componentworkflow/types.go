@@ -80,16 +80,29 @@ type GitSecretInfo struct {
 	// Name is the name of the secret reference
 	Name string
 
-	// Key is the secretKey from the SecretReference data
-	Key string
-
-	// RemoteKey is the key path in the external secret store
-	RemoteKey string
-
-	// Property is the property within the remote secret
-	Property string
-
 	// Type is the secret type (e.g., "kubernetes.io/basic-auth" or "kubernetes.io/ssh-auth")
 	// retrieved from SecretReference spec.template.type
 	Type string
+
+	// Data contains the mapping of secret keys to external secret references
+	// This allows supporting multiple data fields like username and password
+	Data []SecretDataInfo
+}
+
+// SecretDataInfo represents a single secret data source mapping.
+type SecretDataInfo struct {
+	// SecretKey is the key name in the Kubernetes Secret
+	SecretKey string
+
+	// RemoteRef contains the external secret store reference
+	RemoteRef RemoteRefInfo
+}
+
+// RemoteRefInfo contains the remote reference information for a secret.
+type RemoteRefInfo struct {
+	// Key is the path in the external secret store
+	Key string
+
+	// Property is the specific field within the secret (optional)
+	Property string
 }

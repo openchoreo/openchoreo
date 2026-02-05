@@ -512,12 +512,22 @@ func (r *Reconciler) resolveGitSecret(ctx context.Context, namespace, secretRefN
 		return nil, fmt.Errorf("failed to get SecretReference %q in namespace %q: %w", secretRefName, namespace, err)
 	}
 
-	// Extract the first data source (git secrets typically have one entry for password/token)
+	// Extract all data sources from the SecretReference
 	if len(secretRef.Spec.Data) == 0 {
 		return nil, fmt.Errorf("SecretReference %q has no data sources", secretRefName)
 	}
 
-	dataSource := secretRef.Spec.Data[0]
+	// Convert all SecretDataSource entries to SecretDataInfo
+	dataInfos := make([]componentworkflowpipeline.SecretDataInfo, len(secretRef.Spec.Data))
+	for i, dataSource := range secretRef.Spec.Data {
+		dataInfos[i] = componentworkflowpipeline.SecretDataInfo{
+			SecretKey: dataSource.SecretKey,
+			RemoteRef: componentworkflowpipeline.RemoteRefInfo{
+				Key:      dataSource.RemoteRef.Key,
+				Property: dataSource.RemoteRef.Property, // Property is optional
+			},
+		}
+	}
 
 	// Extract secret type from spec.template.type
 	secretType := string(secretRef.Spec.Template.Type)
@@ -525,14 +535,12 @@ func (r *Reconciler) resolveGitSecret(ctx context.Context, namespace, secretRefN
 		secretType = "kubernetes.io/basic-auth" //nolint:gosec // False positive: this is a secret type constant, not credentials
 	}
 
-	// Return GitSecretInfo even if fields are empty.
+	// Return GitSecretInfo with all data sources.
 	// The rendering pipeline will check field validity and skip resources via includeWhen.
 	return &componentworkflowpipeline.GitSecretInfo{
-		Name:      secretRefName,
-		Key:       dataSource.SecretKey,
-		RemoteKey: dataSource.RemoteRef.Key,
-		Property:  dataSource.RemoteRef.Property, // Property is optional
-		Type:      secretType,
+		Name: secretRefName,
+		Type: secretType,
+		Data: dataInfos,
 	}, nil
 }
 

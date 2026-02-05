@@ -240,25 +240,32 @@ func (p *Pipeline) buildCELContext(input *RenderInput) (map[string]any, error) {
 	// Add secretRef to CEL context only if it has valid required fields.
 	if input.Context.GitSecret != nil &&
 		input.Context.GitSecret.Name != "" &&
-		input.Context.GitSecret.Key != "" &&
-		input.Context.GitSecret.RemoteKey != "" {
+		len(input.Context.GitSecret.Data) > 0 {
 		// SecretRef has all required fields, add it to context for template rendering
+		// Convert Data to a format suitable for CEL templates
+		dataArray := make([]map[string]any, len(input.Context.GitSecret.Data))
+		for i, d := range input.Context.GitSecret.Data {
+			dataArray[i] = map[string]any{
+				"secretKey": d.SecretKey,
+				"remoteRef": map[string]any{
+					"key":      d.RemoteRef.Key,
+					"property": d.RemoteRef.Property,
+				},
+			}
+		}
+
 		celContext["secretRef"] = map[string]any{
-			"name":      input.Context.GitSecret.Name,
-			"key":       input.Context.GitSecret.Key,
-			"remoteKey": input.Context.GitSecret.RemoteKey,
-			"property":  input.Context.GitSecret.Property,
-			"type":      input.Context.GitSecret.Type,
+			"name": input.Context.GitSecret.Name,
+			"type": input.Context.GitSecret.Type,
+			"data": dataArray,
 		}
 	} else {
 		// SecretRef not provided or has empty required fields.
 		// Add empty values to prevent CEL errors if templates reference secretRef without checking.
 		celContext["secretRef"] = map[string]any{
-			"name":      "",
-			"key":       "",
-			"remoteKey": "",
-			"property":  "",
-			"type":      "",
+			"name": "",
+			"type": "",
+			"data": []map[string]any{},
 		}
 	}
 
