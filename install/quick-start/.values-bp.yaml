@@ -44,3 +44,8 @@ clusterAgent:
     serverCAValue: ""
   # Namespace where cluster-gateway CA ConfigMap exists (control plane)
   serverCANamespace: openchoreo-control-plane
+
+openbao:
+  server:
+    dev:
+      enabled: true

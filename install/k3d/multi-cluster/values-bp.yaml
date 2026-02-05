@@ -76,3 +76,8 @@ fluent-bit:
 # External Secrets Operator configuration
 external-secrets:
   enabled: true
+
+openbao:
+  server:
+    dev:
+      enabled: true

@@ -1025,7 +1025,7 @@
       "description": "OpenBao sub-chart configuration for secrets management. OpenBao is an open-source fork of HashiCorp Vault. Used as a backend for External Secrets Operator PushSecrets in development/testing. See https://github.com/openbao/openbao-helm for all options.",
       "properties": {
         "enabled": {
-          "default": false,
+          "default": true,
           "description": "Enable OpenBao installation",
           "title": "enabled",
           "type": "boolean"
@@ -1195,7 +1195,7 @@
                   "type": "string"
                 },
                 "enabled": {
-                  "default": true,
+                  "default": false,
                   "description": "Enable OpenBao dev mode (in-memory storage, auto-unsealed)",
                   "title": "enabled",
                   "type": "boolean"

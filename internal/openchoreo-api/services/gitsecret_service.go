@@ -343,7 +343,7 @@ func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, s
 		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
 		return err
 	}
-	
+
 	// First, verify the secret reference exists
 	secretRef := &openchoreov1alpha1.SecretReference{}
 	key := client.ObjectKey{Name: secretName, Namespace: namespaceName}

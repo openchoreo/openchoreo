@@ -636,7 +636,7 @@ openbao:
   # @schema
   # type: boolean
   # description: Enable OpenBao installation
-  # default: false
+  # default: true
   # @schema
   enabled: true
 
@@ -695,9 +695,9 @@ openbao:
       # @schema
       # type: boolean
       # description: Enable OpenBao dev mode (in-memory storage, auto-unsealed)
-      # default: true
+      # default: false
       # @schema
-      enabled: true
+      enabled: false
 
       # @schema
       # type: string

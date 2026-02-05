@@ -1,0 +1,17 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: observer-mcp-timeout
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: observer
+  timeouts:
+    # Disable request timeout for MCP streaming connections
+    request: "0s"
+    # Set very long idle timeout for streaming
+    streamIdle: "24h"
+{{- end }}

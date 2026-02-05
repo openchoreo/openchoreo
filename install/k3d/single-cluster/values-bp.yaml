@@ -28,3 +28,8 @@ external-secrets:
 # including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
 fluent-bit:
   enabled: false
+
+openbao:
+  server:
+    dev:
+      enabled: true
