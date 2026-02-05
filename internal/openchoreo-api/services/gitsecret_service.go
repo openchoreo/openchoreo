@@ -106,19 +106,19 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, err
 	}
 
-	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Token, req.SSHKey)
+	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Username, req.Token, req.SSHKey)
 	if err := buildPlaneClient.Create(ctx, secret); err != nil {
 		s.logger.Error("Failed to create build plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create build plane secret: %w", err)
 	}
 
-	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType)
+	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType, req.Username)
 	if err := buildPlaneClient.Create(ctx, pushSecret); err != nil {
 		s.logger.Error("Failed to create push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create push secret: %w", err)
 	}
 
-	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType)
+	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username)
 	if err := s.k8sClient.Create(ctx, secretReference); err != nil {
 		s.logger.Error("Failed to create secret reference", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
@@ -145,7 +145,7 @@ func (s *GitSecretService) getBuildPlane(ctx context.Context, namespaceName stri
 	return &buildPlanes.Items[0], nil
 }
 
-func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, token, sshKey string) *corev1.Secret {
+func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, username, token, sshKey string) *corev1.Secret {
 	var k8sSecretType corev1.SecretType
 	var secretData map[string]string
 
@@ -153,6 +153,10 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 		k8sSecretType = corev1.SecretTypeBasicAuth
 		secretData = map[string]string{
 			"password": token,
+		}
+		// Add username if provided
+		if username != "" {
+			secretData["username"] = username
 		}
 	} else { // secretTypeSSHAuth
 		k8sSecretType = corev1.SecretTypeSSHAuth
@@ -174,18 +178,47 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 	}
 }
 
-func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType string) *openchoreov1alpha1.SecretReference {
+func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType, username string) *openchoreov1alpha1.SecretReference {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", namespaceName, secretName)
 
 	var k8sSecretType corev1.SecretType
-	var secretKeyField string
+	var dataSources []openchoreov1alpha1.SecretDataSource
 
 	if secretType == secretTypeBasicAuth {
 		k8sSecretType = corev1.SecretTypeBasicAuth
-		secretKeyField = "password"
+
+		// Always add password field
+		dataSources = []openchoreov1alpha1.SecretDataSource{
+			{
+				SecretKey: "password",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "password",
+				},
+			},
+		}
+
+		// Add username field if provided
+		if username != "" {
+			dataSources = append(dataSources, openchoreov1alpha1.SecretDataSource{
+				SecretKey: "username",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "username",
+				},
+			})
+		}
 	} else { // secretTypeSSHAuth
 		k8sSecretType = corev1.SecretTypeSSHAuth
-		secretKeyField = "ssh-privatekey"
+		dataSources = []openchoreov1alpha1.SecretDataSource{
+			{
+				SecretKey: "ssh-privatekey",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "ssh-privatekey",
+				},
+			},
+		}
 	}
 
 	return &openchoreov1alpha1.SecretReference{
@@ -205,28 +238,55 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secre
 			Template: openchoreov1alpha1.SecretTemplate{
 				Type: k8sSecretType,
 			},
-			Data: []openchoreov1alpha1.SecretDataSource{
-				{
-					SecretKey: secretKeyField,
-					RemoteRef: openchoreov1alpha1.RemoteReference{
-						Key:      remoteKey,
-						Property: secretKeyField,
-					},
-				},
-			},
+			Data: dataSources,
 		},
 	}
 }
 
 // createPushSecret creates an unstructured PushSecret resource for build planes.
-func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType string) *unstructured.Unstructured {
+func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType, username string) *unstructured.Unstructured {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", ownerNamespace, name)
 
-	var secretKeyField string
+	var dataMatches []map[string]interface{}
+
 	if secretType == secretTypeBasicAuth {
-		secretKeyField = "password"
+		// Always add password field
+		dataMatches = []map[string]interface{}{
+			{
+				"match": map[string]interface{}{
+					"secretKey": "password",
+					"remoteRef": map[string]interface{}{
+						"remoteKey": remoteKey,
+						"property":  "password",
+					},
+				},
+			},
+		}
+
+		// Add username field if provided
+		if username != "" {
+			dataMatches = append(dataMatches, map[string]interface{}{
+				"match": map[string]interface{}{
+					"secretKey": "username",
+					"remoteRef": map[string]interface{}{
+						"remoteKey": remoteKey,
+						"property":  "username",
+					},
+				},
+			})
+		}
 	} else { // secretTypeSSHAuth
-		secretKeyField = "ssh-privatekey"
+		dataMatches = []map[string]interface{}{
+			{
+				"match": map[string]interface{}{
+					"secretKey": "ssh-privatekey",
+					"remoteRef": map[string]interface{}{
+						"remoteKey": remoteKey,
+						"property":  "ssh-privatekey",
+					},
+				},
+			},
+		}
 	}
 
 	pushSecret := &unstructured.Unstructured{}
@@ -252,17 +312,7 @@ func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 				"name": name,
 			},
 		},
-		"data": []map[string]interface{}{
-			{
-				"match": map[string]interface{}{
-					"secretKey": secretKeyField,
-					"remoteRef": map[string]interface{}{
-						"remoteKey": remoteKey,
-						"property":  secretKeyField,
-					},
-				},
-			},
-		},
+		"data": dataMatches,
 	}
 	return pushSecret
 }

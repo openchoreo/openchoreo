@@ -388,6 +388,8 @@ type CreateGitSecretRequest struct {
 	SecretName string `json:"secretName"`
 	// SecretType specifies the authentication type: "basic-auth" for token-based auth, "ssh-auth" for SSH key-based auth
 	SecretType string `json:"secretType"`
+	// Username is the username for basic authentication (optional for basic-auth type)
+	Username string `json:"username,omitempty"`
 	// Token is the authentication token (required for basic-auth type)
 	Token string `json:"token,omitempty"`
 	// SSHKey is the SSH private key (required for ssh-auth type)
@@ -418,12 +420,16 @@ func (req *CreateGitSecretRequest) Validate() error {
 		if strings.TrimSpace(req.SSHKey) != "" {
 			return errors.New("sshKey must not be provided for basic-auth type")
 		}
+		// Username is optional for basic-auth
 	} else { // ssh-auth
 		if strings.TrimSpace(req.SSHKey) == "" {
 			return errors.New("sshKey is required for ssh-auth type")
 		}
 		if strings.TrimSpace(req.Token) != "" {
 			return errors.New("token must not be provided for ssh-auth type")
+		}
+		if strings.TrimSpace(req.Username) != "" {
+			return errors.New("username must not be provided for ssh-auth type")
 		}
 	}
 
@@ -434,6 +440,7 @@ func (req *CreateGitSecretRequest) Validate() error {
 func (req *CreateGitSecretRequest) Sanitize() {
 	req.SecretName = strings.TrimSpace(req.SecretName)
 	req.SecretType = strings.TrimSpace(req.SecretType)
+	req.Username = strings.TrimSpace(req.Username)
 	req.Token = strings.TrimSpace(req.Token)
 	req.SSHKey = strings.TrimSpace(req.SSHKey)
 }
