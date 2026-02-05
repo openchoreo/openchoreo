@@ -953,6 +953,31 @@ clusterAgent:
 
   # @schema
   # type: object
+  # description: Pod Disruption Budget configuration for cluster agent
+  # @schema
+  podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Enable PodDisruptionBudget for cluster agent
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: integer
+    # description: Minimum number of pods that must be available
+    # minimum: 0
+    # default: 1
+    # @schema
+    minAvailable: 1
+    # @schema
+    # type: [integer, "null"]
+    # description: Maximum number of pods that can be unavailable
+    # minimum: 0
+    # @schema
+    maxUnavailable: null
+
+  # @schema
+  # type: object
   # additionalProperties: false
   # description: Service account configuration for cluster agent
   # @schema

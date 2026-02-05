@@ -273,6 +273,39 @@
           "title": "podAnnotations",
           "type": "object"
         },
+        "podDisruptionBudget": {
+          "additionalProperties": false,
+          "description": "Pod Disruption Budget configuration for cluster agent",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable PodDisruptionBudget for cluster agent",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "maxUnavailable": {
+              "default": "null",
+              "description": "Maximum number of pods that can be unavailable",
+              "minimum": 0,
+              "required": [],
+              "title": "maxUnavailable",
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "minAvailable": {
+              "default": 1,
+              "description": "Minimum number of pods that must be available",
+              "minimum": 0,
+              "title": "minAvailable",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podDisruptionBudget",
+          "type": "object"
+        },
         "podSecurityContext": {
           "additionalProperties": true,
           "description": "Pod security context for cluster agent",

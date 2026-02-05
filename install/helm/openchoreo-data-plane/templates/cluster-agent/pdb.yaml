@@ -1,0 +1,22 @@
+{{- if and .Values.clusterAgent.enabled .Values.clusterAgent.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-pdb
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-agent
+spec:
+  {{- if .Values.clusterAgent.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.clusterAgent.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  {{- if .Values.clusterAgent.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.clusterAgent.podDisruptionBudget.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: cluster-agent
+      app.kubernetes.io/component: cluster-agent
+      {{- include "openchoreo-data-plane.selectorLabels" . | nindent 6 }}
+{{- end }}
