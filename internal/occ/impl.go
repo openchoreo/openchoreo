@@ -7,10 +7,10 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
-	componentrelease "github.com/openchoreo/openchoreo/internal/occ/cmd/component-release"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/component"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/dataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/environment"
@@ -18,12 +18,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/deploy"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/list"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
-	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/release-binding"
-	scaffoldcomponent "github.com/openchoreo/openchoreo/internal/occ/cmd/scaffold/component"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -47,11 +45,6 @@ func (c *CommandImplementation) CreateNamespace(params api.CreateNamespaceParams
 func (c *CommandImplementation) CreateProject(params api.CreateProjectParams) error {
 	projImpl := project.NewCreateProjImpl(constants.ProjectV1Config)
 	return projImpl.CreateProject(params)
-}
-
-func (c *CommandImplementation) CreateComponent(params api.CreateComponentParams) error {
-	compImpl := component.NewCreateCompImpl(constants.ComponentV1Config)
-	return compImpl.CreateComponent(params)
 }
 
 func (c *CommandImplementation) CreateDeployment(params api.CreateDeploymentParams) error {
@@ -111,8 +104,6 @@ func (c *CommandImplementation) Logout() error {
 	return logoutImpl.Logout()
 }
 
-// Configuration Operations
-
 func (c *CommandImplementation) Apply(params api.ApplyParams) error {
 	applyImpl := apply.NewApplyImpl()
 	return applyImpl.Apply(params)
@@ -145,11 +136,21 @@ func (c *CommandImplementation) SetControlPlane(params api.SetControlPlaneParams
 	return configContextImpl.SetControlPlane(params)
 }
 
-// Scaffold Operations
+// Component Operations
+
+func (c *CommandImplementation) DeployComponent(params api.DeployComponentParams) error {
+	compImpl := component.NewCompImpl(constants.ComponentV1Config)
+	return compImpl.DeployComponent(params)
+}
+
+func (c *CommandImplementation) ListComponents(params api.ListComponentsParams) error {
+	compImpl := component.NewCompImpl(constants.ComponentV1Config)
+	return compImpl.ListComponents(params)
+}
 
 func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentParams) error {
-	scaffoldImpl := scaffoldcomponent.NewScaffoldComponentImpl()
-	return scaffoldImpl.ScaffoldComponent(params)
+	compImpl := component.NewCompImpl(constants.ComponentV1Config)
+	return compImpl.ScaffoldComponent(params)
 }
 
 // Component Release Operations (File-System Mode)
@@ -159,6 +160,13 @@ func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComp
 	return releaseImpl.GenerateComponentRelease(params)
 }
 
+// Component Release Operations (Api-Server Mode)
+
+func (c *CommandImplementation) ListComponentReleases(params api.ListComponentReleasesParams) error {
+	componentReleaseImpl := componentrelease.NewComponentReleaseImpl()
+	return componentReleaseImpl.ListComponentReleases(params)
+}
+
 // Release Binding Operations (File-System Mode)
 
 func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
@@ -166,11 +174,9 @@ func (c *CommandImplementation) GenerateReleaseBinding(params api.GenerateReleas
 	return bindingImpl.GenerateReleaseBinding(params)
 }
 
-// Deploy Operations
-
-func (c *CommandImplementation) DeployComponent(params api.DeployComponentParams) error {
-	deployImpl := deploy.NewDeployImpl()
-	return deployImpl.DeployComponent(params)
+func (c *CommandImplementation) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
+	bindingImpl := releasebinding.NewReleaseBindingImpl()
+	return bindingImpl.ListReleaseBindings(params)
 }
 
 // List Operations
@@ -183,11 +189,6 @@ func (c *CommandImplementation) ListNamespaces(params api.ListNamespacesParams) 
 func (c *CommandImplementation) ListProjects(params api.ListProjectsParams) error {
 	listImpl := list.NewListImpl()
 	return listImpl.ListProjects(params)
-}
-
-func (c *CommandImplementation) ListComponents(params api.ListComponentsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListComponents(params)
 }
 
 func (c *CommandImplementation) ListEnvironments(params api.ListEnvironmentsParams) error {
@@ -225,24 +226,9 @@ func (c *CommandImplementation) ListWorkflows(params api.ListWorkflowsParams) er
 	return listImpl.ListWorkflows(params)
 }
 
-func (c *CommandImplementation) ListComponentWorkflows(params api.ListComponentWorkflowsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListComponentWorkflows(params)
-}
-
 func (c *CommandImplementation) ListSecretReferences(params api.ListSecretReferencesParams) error {
 	listImpl := list.NewListImpl()
 	return listImpl.ListSecretReferences(params)
-}
-
-func (c *CommandImplementation) ListComponentReleases(params api.ListComponentReleasesParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListComponentReleases(params)
-}
-
-func (c *CommandImplementation) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
-	listImpl := list.NewListImpl()
-	return listImpl.ListReleaseBindings(params)
 }
 
 func (c *CommandImplementation) ListWorkflowRuns(params api.ListWorkflowRunsParams) error {
@@ -258,11 +244,18 @@ func (c *CommandImplementation) ListComponentWorkflowRuns(params api.ListCompone
 // Workflow Run Operations
 
 func (c *CommandImplementation) StartWorkflowRun(params api.StartWorkflowRunParams) error {
-	startImpl := workflow.NewStartImpl()
-	return startImpl.StartWorkflowRun(params)
+	workflowImpl := workflow.NewWorkflowImpl()
+	return workflowImpl.StartWorkflowRun(params)
+}
+
+// Component Workflow Operations
+
+func (c *CommandImplementation) ListComponentWorkflows(params api.ListComponentWorkflowsParams) error {
+	componentWorkflowImpl := componentworkflow.NewComponentWorkflowImpl()
+	return componentWorkflowImpl.ListComponentWorkflows(params)
 }
 
 func (c *CommandImplementation) StartComponentWorkflowRun(params api.StartComponentWorkflowRunParams) error {
-	startImpl := componentworkflow.NewStartImpl()
-	return startImpl.StartComponentWorkflowRun(params)
+	componentWorkflowImpl := componentworkflow.NewComponentWorkflowImpl()
+	return componentWorkflowImpl.StartComponentWorkflowRun(params)
 }

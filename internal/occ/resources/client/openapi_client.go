@@ -103,6 +103,18 @@ func (c *Client) ListComponents(ctx context.Context, namespaceName, projectName 
 	return resp.JSON200, nil
 }
 
+// GetComponent retrieves a specific component
+func (c *Client) GetComponent(ctx context.Context, namespaceName, projectName, componentName string) (*gen.Component, error) {
+	resp, err := c.client.GetComponentWithResponse(ctx, namespaceName, projectName, componentName, &gen.GetComponentParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // ListEnvironments retrieves all environments for a namespace
 func (c *Client) ListEnvironments(ctx context.Context, namespaceName string, params *gen.ListEnvironmentsParams) (*gen.EnvironmentList, error) {
 	resp, err := c.client.ListEnvironmentsWithResponse(ctx, namespaceName, params)
@@ -353,6 +365,30 @@ func (c *Client) CreateWorkflowRun(
 	}
 
 	return resp.JSON201, nil
+}
+
+// UpdateComponentWorkflowParameters updates workflow parameters for a component
+func (c *Client) UpdateComponentWorkflowParameters(
+	ctx context.Context,
+	namespace, project, component string,
+	body gen.UpdateComponentWorkflowParametersJSONRequestBody,
+) error {
+	resp, err := c.client.UpdateComponentWorkflowParametersWithResponse(
+		ctx,
+		namespace,
+		project,
+		component,
+		body,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update component workflow parameters: %w", err)
+	}
+
+	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+
+	return nil
 }
 
 // CreateComponentWorkflowRun creates a new component workflow run

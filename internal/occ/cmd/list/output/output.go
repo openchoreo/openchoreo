@@ -14,7 +14,7 @@ import (
 
 // PrintNamespaces prints namespaces in table format
 func PrintNamespaces(list *gen.NamespaceList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No namespaces found")
 		return nil
 	}
@@ -33,7 +33,7 @@ func PrintNamespaces(list *gen.NamespaceList) error {
 
 // PrintProjects prints projects in table format
 func PrintProjects(list *gen.ProjectList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No projects found")
 		return nil
 	}
@@ -52,7 +52,7 @@ func PrintProjects(list *gen.ProjectList) error {
 
 // PrintComponents prints components in table format
 func PrintComponents(list *gen.ComponentList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No components found")
 		return nil
 	}
@@ -73,7 +73,7 @@ func PrintComponents(list *gen.ComponentList) error {
 
 // PrintEnvironments prints environments in table format
 func PrintEnvironments(list *gen.EnvironmentList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No environments found")
 		return nil
 	}
@@ -102,7 +102,7 @@ func PrintEnvironments(list *gen.EnvironmentList) error {
 
 // PrintDataPlanes prints data planes in table format
 func PrintDataPlanes(list *gen.DataPlaneList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No data planes found")
 		return nil
 	}
@@ -121,7 +121,7 @@ func PrintDataPlanes(list *gen.DataPlaneList) error {
 
 // PrintBuildPlanes prints build planes in table format
 func PrintBuildPlanes(list *gen.BuildPlaneList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No build planes found")
 		return nil
 	}
@@ -140,7 +140,7 @@ func PrintBuildPlanes(list *gen.BuildPlaneList) error {
 
 // PrintObservabilityPlanes prints observability planes in table format
 func PrintObservabilityPlanes(list *gen.ObservabilityPlaneList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No observability planes found")
 		return nil
 	}
@@ -159,7 +159,7 @@ func PrintObservabilityPlanes(list *gen.ObservabilityPlaneList) error {
 
 // PrintComponentTypes prints component types in table format
 func PrintComponentTypes(list *gen.ComponentTypeList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No component types found")
 		return nil
 	}
@@ -179,7 +179,7 @@ func PrintComponentTypes(list *gen.ComponentTypeList) error {
 
 // PrintTraits prints traits in table format
 func PrintTraits(list *gen.TraitList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No traits found")
 		return nil
 	}
@@ -198,7 +198,7 @@ func PrintTraits(list *gen.TraitList) error {
 
 // PrintWorkflows prints workflows in table format
 func PrintWorkflows(list *gen.WorkflowList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No workflows found")
 		return nil
 	}
@@ -218,7 +218,7 @@ func PrintWorkflows(list *gen.WorkflowList) error {
 
 // PrintComponentWorkflows prints component workflows in table format
 func PrintComponentWorkflows(list *gen.ComponentWorkflowTemplateList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No component workflows found")
 		return nil
 	}
@@ -237,7 +237,7 @@ func PrintComponentWorkflows(list *gen.ComponentWorkflowTemplateList) error {
 
 // PrintSecretReferences prints secret references in table format
 func PrintSecretReferences(list *gen.SecretReferenceList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No secret references found")
 		return nil
 	}
@@ -256,7 +256,7 @@ func PrintSecretReferences(list *gen.SecretReferenceList) error {
 
 // PrintComponentReleases prints component releases in table format
 func PrintComponentReleases(list *gen.ComponentReleaseList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No component releases found")
 		return nil
 	}
@@ -281,7 +281,7 @@ func PrintComponentReleases(list *gen.ComponentReleaseList) error {
 
 // PrintReleaseBindings prints release bindings in table format
 func PrintReleaseBindings(list *gen.ReleaseBindingList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No release bindings found")
 		return nil
 	}
@@ -311,7 +311,7 @@ func PrintReleaseBindings(list *gen.ReleaseBindingList) error {
 
 // PrintWorkflowRuns prints workflow runs in table format
 func PrintWorkflowRuns(list *gen.WorkflowRunList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No workflow runs found")
 		return nil
 	}
@@ -332,7 +332,7 @@ func PrintWorkflowRuns(list *gen.WorkflowRunList) error {
 
 // PrintComponentWorkflowRuns prints component workflow runs in table format
 func PrintComponentWorkflowRuns(list *gen.ComponentWorkflowRunList) error {
-	if len(list.Items) == 0 {
+	if list == nil || len(list.Items) == 0 {
 		fmt.Println("No component workflow runs found")
 		return nil
 	}
@@ -343,7 +343,7 @@ func PrintComponentWorkflowRuns(list *gen.ComponentWorkflowRunList) error {
 	for _, run := range list.Items {
 		status := ""
 		if run.Status != nil {
-			status = string(*run.Status)
+			status = *run.Status
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			run.Name,

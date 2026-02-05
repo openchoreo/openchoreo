@@ -5,8 +5,11 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -53,7 +56,56 @@ func (h *Handler) UpdateComponentWorkflowParameters(
 	ctx context.Context,
 	request gen.UpdateComponentWorkflowParametersRequestObject,
 ) (gen.UpdateComponentWorkflowParametersResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("UpdateComponentWorkflowParameters called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName)
+
+	// Convert gen.UpdateComponentWorkflowRequest to models.UpdateComponentWorkflowRequest
+	req, err := toModelsUpdateComponentWorkflowRequest(request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert request", "error", err)
+		return gen.UpdateComponentWorkflowParameters400JSONResponse{
+			BadRequestJSONResponse: badRequest("Invalid request body"),
+		}, nil
+	}
+
+	// Call service to update workflow parameters
+	component, err := h.services.ComponentService.UpdateComponentWorkflowParameters(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		req,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.UpdateComponentWorkflowParameters404JSONResponse{
+				NotFoundJSONResponse: notFound("Component"),
+			}, nil
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			return gen.UpdateComponentWorkflowParameters404JSONResponse{
+				NotFoundJSONResponse: notFound("Project"),
+			}, nil
+		}
+		if errors.Is(err, services.ErrWorkflowSchemaInvalid) {
+			return gen.UpdateComponentWorkflowParameters400JSONResponse{
+				BadRequestJSONResponse: badRequest("Invalid workflow parameters"),
+			}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateComponentWorkflowParameters403JSONResponse{
+				ForbiddenJSONResponse: forbidden(),
+			}, nil
+		}
+		h.logger.Error("Failed to update component workflow parameters", "error", err)
+		return gen.UpdateComponentWorkflowParameters500JSONResponse{
+			InternalErrorJSONResponse: internalError(),
+		}, nil
+	}
+
+	return gen.UpdateComponentWorkflowParameters200JSONResponse(toGenComponent(component)), nil
 }
 
 // ListComponentWorkflowRuns returns a list of workflow runs for a component
@@ -238,4 +290,48 @@ func toGenComponentWorkflowRun(run *models.ComponentWorkflowResponse) gen.Compon
 		result.Workflow = &workflow
 	}
 	return result
+}
+
+// toModelsUpdateComponentWorkflowRequest converts gen.UpdateComponentWorkflowRequest to models.UpdateComponentWorkflowRequest
+func toModelsUpdateComponentWorkflowRequest(req *gen.UpdateComponentWorkflowRequest) (*models.UpdateComponentWorkflowRequest, error) {
+	if req == nil {
+		return &models.UpdateComponentWorkflowRequest{}, nil
+	}
+
+	result := &models.UpdateComponentWorkflowRequest{}
+
+	// Convert parameters if provided
+	if req.Parameters != nil {
+		// Marshal to JSON and unmarshal to runtime.RawExtension
+		parametersJSON, err := json.Marshal(req.Parameters)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal parameters: %w", err)
+		}
+		result.Parameters = &runtime.RawExtension{Raw: parametersJSON}
+	}
+
+	// Convert system parameters if provided
+	if req.SystemParameters != nil && req.SystemParameters.Repository != nil {
+		repo := req.SystemParameters.Repository
+		result.SystemParameters = &models.ComponentWorkflowSystemParams{
+			Repository: models.ComponentWorkflowRepository{},
+		}
+
+		if repo.Url != nil {
+			result.SystemParameters.Repository.URL = *repo.Url
+		}
+		if repo.AppPath != nil {
+			result.SystemParameters.Repository.AppPath = *repo.AppPath
+		}
+		if repo.Revision != nil {
+			if repo.Revision.Branch != nil {
+				result.SystemParameters.Repository.Revision.Branch = *repo.Revision.Branch
+			}
+			if repo.Revision.Commit != nil {
+				result.SystemParameters.Repository.Revision.Commit = *repo.Revision.Commit
+			}
+		}
+	}
+
+	return result, nil
 }

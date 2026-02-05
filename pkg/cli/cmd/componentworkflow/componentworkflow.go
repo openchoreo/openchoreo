@@ -50,13 +50,15 @@ func newStartComponentWorkflowCmd(impl api.CommandImplementationInterface) *cobr
 			flags.Project,
 			flags.Component,
 			flags.Commit,
+			flags.Set,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.StartComponentWorkflowRun(api.StartComponentWorkflowRunParams{
-				Namespace: fg.GetString(flags.Namespace),
-				Project:   fg.GetString(flags.Project),
-				Component: fg.GetString(flags.Component),
-				Commit:    fg.GetString(flags.Commit),
+				Namespace:  fg.GetString(flags.Namespace),
+				Project:    fg.GetString(flags.Project),
+				Component:  fg.GetString(flags.Component),
+				Commit:     fg.GetString(flags.Commit),
+				Parameters: fg.GetStringArray(flags.Set),
 			})
 		},
 		PreRunE: auth.RequireLogin(impl),

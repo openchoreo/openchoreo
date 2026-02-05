@@ -14,30 +14,39 @@ type CommandImplementationInterface interface {
 	LogoutAPI
 	EnvironmentAPI
 	DataPlaneAPI
+	BuildPlaneAPI
+	ObservabilityPlaneAPI
 	ConfigContextAPI
 	DeploymentPipelineAPI
 	WorkloadAPI
-	ScaffoldAPI
+	ComponentTypeAPI
+	TraitAPI
+	SecretReferenceAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
-	DeployAPI
-	ListAPI
+	WorkflowAPI
+	ComponentWorkflowAPI
+	ComponentWorkflowRunAPI
 	WorkflowRunAPI
 }
 
 // NamespaceAPI defines namespace-related operations
 type NamespaceAPI interface {
 	CreateNamespace(params CreateNamespaceParams) error
+	ListNamespaces(params ListNamespacesParams) error
 }
 
 // ProjectAPI defines project-related operations
 type ProjectAPI interface {
 	CreateProject(params CreateProjectParams) error
+	ListProjects(params ListProjectsParams) error
 }
 
 // ComponentAPI defines component-related operations
 type ComponentAPI interface {
-	CreateComponent(params CreateComponentParams) error
+	ListComponents(params ListComponentsParams) error
+	ScaffoldComponent(params ScaffoldComponentParams) error
+	DeployComponent(params DeployComponentParams) error
 }
 
 // ApplyAPI defines methods for applying configurations
@@ -64,10 +73,20 @@ type LogoutAPI interface {
 
 type EnvironmentAPI interface {
 	CreateEnvironment(params CreateEnvironmentParams) error
+	ListEnvironments(params ListEnvironmentsParams) error
 }
 
 type DataPlaneAPI interface {
 	CreateDataPlane(params CreateDataPlaneParams) error
+	ListDataPlanes(params ListDataPlanesParams) error
+}
+
+type BuildPlaneAPI interface {
+	ListBuildPlanes(params ListBuildPlanesParams) error
+}
+
+type ObservabilityPlaneAPI interface {
+	ListObservabilityPlanes(params ListObservabilityPlanesParams) error
 }
 
 type ConfigContextAPI interface {
@@ -87,48 +106,50 @@ type WorkloadAPI interface {
 	CreateWorkload(params CreateWorkloadParams) error
 }
 
-// ScaffoldAPI defines methods for scaffolding resources
-type ScaffoldAPI interface {
-	ScaffoldComponent(params ScaffoldComponentParams) error
+// ComponentTypeAPI defines component type operations
+type ComponentTypeAPI interface {
+	ListComponentTypes(params ListComponentTypesParams) error
+}
+
+// TraitAPI defines trait operations
+type TraitAPI interface {
+	ListTraits(params ListTraitsParams) error
+}
+
+// SecretReferenceAPI defines secret reference operations
+type SecretReferenceAPI interface {
+	ListSecretReferences(params ListSecretReferencesParams) error
 }
 
 // ComponentReleaseAPI defines component release operations (file-system mode)
 type ComponentReleaseAPI interface {
 	GenerateComponentRelease(params GenerateComponentReleaseParams) error
+	ListComponentReleases(params ListComponentReleasesParams) error
 }
 
 // ReleaseBindingAPI defines release binding operations (file-system mode)
 type ReleaseBindingAPI interface {
 	GenerateReleaseBinding(params GenerateReleaseBindingParams) error
-}
-
-// DeployAPI defines methods for deploying and promoting components
-type DeployAPI interface {
-	DeployComponent(params DeployComponentParams) error
-}
-
-// ListAPI defines methods for listing resources
-type ListAPI interface {
-	ListNamespaces(params ListNamespacesParams) error
-	ListProjects(params ListProjectsParams) error
-	ListComponents(params ListComponentsParams) error
-	ListEnvironments(params ListEnvironmentsParams) error
-	ListDataPlanes(params ListDataPlanesParams) error
-	ListBuildPlanes(params ListBuildPlanesParams) error
-	ListObservabilityPlanes(params ListObservabilityPlanesParams) error
-	ListComponentTypes(params ListComponentTypesParams) error
-	ListTraits(params ListTraitsParams) error
-	ListWorkflows(params ListWorkflowsParams) error
-	ListComponentWorkflows(params ListComponentWorkflowsParams) error
-	ListSecretReferences(params ListSecretReferencesParams) error
-	ListComponentReleases(params ListComponentReleasesParams) error
 	ListReleaseBindings(params ListReleaseBindingsParams) error
-	ListWorkflowRuns(params ListWorkflowRunsParams) error
-	ListComponentWorkflowRuns(params ListComponentWorkflowRunsParams) error
 }
 
 // WorkflowRunAPI defines methods for starting workflow runs
 type WorkflowRunAPI interface {
 	StartWorkflowRun(params StartWorkflowRunParams) error
+	ListWorkflowRuns(params ListWorkflowRunsParams) error
+}
+
+// WorkflowAPI defines workflow operations
+type WorkflowAPI interface {
+	ListWorkflows(params ListWorkflowsParams) error
+}
+
+type ComponentWorkflowAPI interface {
+	ListComponentWorkflows(params ListComponentWorkflowsParams) error
 	StartComponentWorkflowRun(params StartComponentWorkflowRunParams) error
+}
+
+// ComponentWorkflowRunAPI defines methods for starting component workflow runs
+type ComponentWorkflowRunAPI interface {
+	ListComponentWorkflowRuns(params ListComponentWorkflowRunsParams) error
 }

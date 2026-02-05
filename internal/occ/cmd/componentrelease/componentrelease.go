@@ -4,6 +4,7 @@
 package componentrelease
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,10 +13,13 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	printoutput "github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
@@ -29,6 +33,27 @@ type ComponentReleaseImpl struct{}
 // NewComponentReleaseImpl creates a new ComponentReleaseImpl
 func NewComponentReleaseImpl() *ComponentReleaseImpl {
 	return &ComponentReleaseImpl{}
+}
+
+// ListComponentReleases lists all component releases for a component
+func (l *ComponentReleaseImpl) ListComponentReleases(params api.ListComponentReleasesParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentRelease, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListComponentReleases(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to list component releases: %w", err)
+	}
+
+	return printoutput.PrintComponentReleases(result)
 }
 
 // GenerateComponentRelease implements the component-release generate command

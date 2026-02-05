@@ -45,13 +45,12 @@ func newListWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command 
 func newStartWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd := (&builder.CommandBuilder{
 		Command: constants.StartWorkflow,
-		Flags:   []flags.Flag{flags.Namespace, flags.Set},
+		Flags:   []flags.Flag{flags.Namespace},
 		RunE: func(fg *builder.FlagGetter) error {
 			workflowName := fg.GetArgs()[0]
 			return impl.StartWorkflowRun(api.StartWorkflowRunParams{
 				Namespace:    fg.GetString(flags.Namespace),
 				WorkflowName: workflowName,
-				Parameters:   fg.GetStringArray(flags.Set),
 			})
 		},
 		PreRunE: auth.RequireLogin(impl),

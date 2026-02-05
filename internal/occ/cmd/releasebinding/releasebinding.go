@@ -4,6 +4,7 @@
 package releasebinding
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,11 +13,14 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	printoutput "github.com/openchoreo/openchoreo/internal/occ/cmd/list/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
@@ -30,6 +34,27 @@ type ReleaseBindingImpl struct{}
 // NewReleaseBindingImpl creates a new ReleaseBindingImpl
 func NewReleaseBindingImpl() *ReleaseBindingImpl {
 	return &ReleaseBindingImpl{}
+}
+
+// ListReleaseBindings lists all release bindings for a component
+func (l *ReleaseBindingImpl) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
+	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListReleaseBindings(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to list release bindings: %w", err)
+	}
+
+	return printoutput.PrintReleaseBindings(result)
 }
 
 // GenerateReleaseBinding implements the release-binding generate command

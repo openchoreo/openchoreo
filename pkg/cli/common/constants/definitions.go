@@ -825,10 +825,6 @@ This command allows you to:
 	// FlagDeployableArtifactDesc is used for the --deployableartifact flag.
 	FlagDeployableArtifactDesc = "Deployable artifact name stored in this configuration context"
 
-	// ------------------------------------------------------------------------
-	// Component Release, Release Binding, Workflow Run, and Component Workflow Run List Commands
-	// ------------------------------------------------------------------------
-
 	ListComponentRelease = Command{
 		Use:   "list",
 		Short: "List component releases",

@@ -60,27 +60,6 @@ func (l *ListImpl) ListProjects(params api.ListProjectsParams) error {
 	return output.PrintProjects(result)
 }
 
-// ListComponents lists all components in a project
-func (l *ListImpl) ListComponents(params api.ListComponentsParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponent, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.ListComponents(ctx, params.Namespace, params.Project, &gen.ListComponentsParams{})
-	if err != nil {
-		return fmt.Errorf("failed to list components: %w", err)
-	}
-
-	return output.PrintComponents(result)
-}
-
 // ListEnvironments lists all environments in a namespace
 func (l *ListImpl) ListEnvironments(params api.ListEnvironmentsParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceEnvironment, params); err != nil {
@@ -228,27 +207,6 @@ func (l *ListImpl) ListWorkflows(params api.ListWorkflowsParams) error {
 	return output.PrintWorkflows(result)
 }
 
-// ListComponentWorkflows lists all component workflows in a namespace
-func (l *ListImpl) ListComponentWorkflows(params api.ListComponentWorkflowsParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentWorkflow, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.ListComponentWorkflows(ctx, params.Namespace, &gen.ListComponentWorkflowsParams{})
-	if err != nil {
-		return fmt.Errorf("failed to list component workflows: %w", err)
-	}
-
-	return output.PrintComponentWorkflows(result)
-}
-
 // ListSecretReferences lists all secret references in a namespace
 func (l *ListImpl) ListSecretReferences(params api.ListSecretReferencesParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceSecretReference, params); err != nil {
@@ -268,48 +226,6 @@ func (l *ListImpl) ListSecretReferences(params api.ListSecretReferencesParams) e
 	}
 
 	return output.PrintSecretReferences(result)
-}
-
-// ListComponentReleases lists all component releases for a component
-func (l *ListImpl) ListComponentReleases(params api.ListComponentReleasesParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentRelease, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.ListComponentReleases(ctx, params.Namespace, params.Project, params.Component)
-	if err != nil {
-		return fmt.Errorf("failed to list component releases: %w", err)
-	}
-
-	return output.PrintComponentReleases(result)
-}
-
-// ListReleaseBindings lists all release bindings for a component
-func (l *ListImpl) ListReleaseBindings(params api.ListReleaseBindingsParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.ListReleaseBindings(ctx, params.Namespace, params.Project, params.Component)
-	if err != nil {
-		return fmt.Errorf("failed to list release bindings: %w", err)
-	}
-
-	return output.PrintReleaseBindings(result)
 }
 
 // ListWorkflowRuns lists all workflow runs in a namespace

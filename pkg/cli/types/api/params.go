@@ -454,13 +454,13 @@ type ListComponentWorkflowRunsParams struct {
 type StartWorkflowRunParams struct {
 	Namespace    string
 	WorkflowName string
-	Parameters   []string // --set key=value format
 }
 
 // StartComponentWorkflowRunParams defines parameters for starting a component workflow run
 type StartComponentWorkflowRunParams struct {
-	Namespace string
-	Project   string
-	Component string
-	Commit    string // Optional commit SHA
+	Namespace  string
+	Project    string
+	Component  string
+	Commit     string   // Git commit SHA
+	Parameters []string // --set key=value format
 }

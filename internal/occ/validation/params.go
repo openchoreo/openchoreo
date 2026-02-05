@@ -127,6 +127,25 @@ func validateComponentParams(cmdType CommandType, params interface{}) error {
 		}
 	case CmdList:
 		return validateComponentListParams(params)
+	case CmdDeploy:
+		return validateDeployComponentParams(params)
+	}
+	return nil
+}
+
+// validateDeployComponentParams validates parameters for deploy component operations
+func validateDeployComponentParams(params interface{}) error {
+	if p, ok := params.(api.DeployComponentParams); ok {
+		fields := map[string]string{
+			"namespace": p.Namespace,
+			"project":   p.Project,
+		}
+		if !checkRequiredFields(fields) {
+			return generateHelpError(CmdDeploy, ResourceComponent, fields)
+		}
+		if p.ComponentName == "" {
+			return fmt.Errorf("component name is required")
+		}
 	}
 	return nil
 }

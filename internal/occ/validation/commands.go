@@ -18,6 +18,7 @@ const (
 	CmdLogs   CommandType = "logs"
 	CmdApply  CommandType = "apply"
 	CmdDelete CommandType = "delete"
+	CmdDeploy CommandType = "deploy"
 )
 
 // ResourceType represents the resource being managed

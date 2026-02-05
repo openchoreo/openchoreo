@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,7 +93,7 @@ func (h *Handler) CreateComponent(
 // toGenComponent converts models.ComponentResponse to gen.Component
 func toGenComponent(c *models.ComponentResponse) gen.Component {
 	uid, _ := uuid.Parse(c.UID)
-	return gen.Component{
+	component := gen.Component{
 		Uid:           uid,
 		Name:          c.Name,
 		Type:          c.Type,
@@ -103,8 +104,70 @@ func toGenComponent(c *models.ComponentResponse) gen.Component {
 		Description:   ptr.To(c.Description),
 		Status:        ptr.To(c.Status),
 		AutoDeploy:    ptr.To(c.AutoDeploy),
-		// TODO: Convert workload and componentWorkflow fields
 	}
+
+	// Convert ComponentWorkflow if present
+	if c.ComponentWorkflow != nil {
+		component.ComponentWorkflow = toGenComponentWorkflowConfig(c.ComponentWorkflow)
+	}
+
+	// TODO: Convert workload field
+
+	return component
+}
+
+// toGenComponentWorkflowConfig converts models.ComponentWorkflow to gen.ComponentWorkflowConfig
+func toGenComponentWorkflowConfig(cw *models.ComponentWorkflow) *gen.ComponentWorkflowConfig {
+	if cw == nil {
+		return nil
+	}
+
+	config := &gen.ComponentWorkflowConfig{
+		Name: ptr.To(cw.Name),
+	}
+
+	// Convert Parameters from runtime.RawExtension to map[string]interface{}
+	if cw.Parameters != nil && cw.Parameters.Raw != nil {
+		var params map[string]interface{}
+		if err := json.Unmarshal(cw.Parameters.Raw, &params); err == nil {
+			config.Parameters = &params
+		}
+	}
+
+	// Convert SystemParameters
+	if cw.SystemParameters != nil {
+		config.SystemParameters = &struct {
+			Repository *struct {
+				AppPath  *string `json:"appPath,omitempty"`
+				Revision *struct {
+					Branch *string `json:"branch,omitempty"`
+					Commit *string `json:"commit,omitempty"`
+				} `json:"revision,omitempty"`
+				Url *string `json:"url,omitempty"` //nolint
+			} `json:"repository,omitempty"`
+		}{
+			Repository: &struct {
+				AppPath  *string `json:"appPath,omitempty"`
+				Revision *struct {
+					Branch *string `json:"branch,omitempty"`
+					Commit *string `json:"commit,omitempty"`
+				} `json:"revision,omitempty"`
+				Url *string `json:"url,omitempty"` //nolint
+			}{
+				AppPath: ptr.To(cw.SystemParameters.Repository.AppPath),
+				Revision: &struct {
+					Branch *string `json:"branch,omitempty"`
+					Commit *string `json:"commit,omitempty"`
+				}{
+					Branch: ptr.To(cw.SystemParameters.Repository.Revision.Branch),
+					Commit: ptr.To(cw.SystemParameters.Repository.Revision.Commit),
+				},
+				Url: ptr.To(cw.SystemParameters.Repository.URL),
+			},
+		}
+	}
+
+	return config
 }
 
 // toModelCreateComponentRequest converts gen.CreateComponentRequest to models.CreateComponentRequest
@@ -184,7 +247,43 @@ func (h *Handler) GetComponent(
 	ctx context.Context,
 	request gen.GetComponentRequestObject,
 ) (gen.GetComponentResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Debug("GetComponent called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName)
+
+	// Parse additional resources from query params (comma-separated string)
+	var additionalResources []string
+	if request.Params.Include != nil && *request.Params.Include != "" {
+		// Split comma-separated values
+		parts := strings.Split(*request.Params.Include, ",")
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				additionalResources = append(additionalResources, trimmed)
+			}
+		}
+	}
+
+	component, err := h.services.ComponentService.GetComponent(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		additionalResources,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.GetComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		h.logger.Error("Failed to get component", "error", err)
+		return gen.GetComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetComponent200JSONResponse(toGenComponent(component)), nil
 }
 
 // PatchComponent updates a component with partial data
@@ -578,11 +677,11 @@ func toGenReleaseBinding(r *models.ReleaseBindingResponse) gen.ReleaseBinding {
 		result.ReleaseName = &r.ReleaseName
 	}
 
-	if r.ComponentTypeEnvOverrides != nil && len(r.ComponentTypeEnvOverrides) > 0 {
+	if len(r.ComponentTypeEnvOverrides) > 0 {
 		result.ComponentTypeEnvOverrides = &r.ComponentTypeEnvOverrides
 	}
 
-	if r.TraitOverrides != nil && len(r.TraitOverrides) > 0 {
+	if len(r.TraitOverrides) > 0 {
 		result.TraitOverrides = &r.TraitOverrides
 	}
 
