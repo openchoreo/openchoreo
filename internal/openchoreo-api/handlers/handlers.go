@@ -117,10 +117,16 @@ func (h *Handler) Routes() http.Handler {
 	// ComponentType endpoints
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types", h.ListComponentTypes)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.GetComponentTypeDefinition)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.UpdateComponentTypeDefinition)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.DeleteComponentTypeDefinition)
 
 	// Workflow endpoints (generic workflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows", h.ListWorkflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/schema", h.GetWorkflowSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.GetWorkflowDefinition)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.UpdateWorkflowDefinition)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/workflows/{workflowName}/definition", h.DeleteWorkflowDefinition)
 
 	// WorkflowRun endpoints (generic workflow executions)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs", h.ListWorkflowRuns)
@@ -130,6 +136,9 @@ func (h *Handler) Routes() http.Handler {
 	// ComponentWorkflow endpoints (component-specific workflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.GetComponentWorkflowDefinition)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.UpdateComponentWorkflowDefinition)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.DeleteComponentWorkflowDefinition)
 	api.HandleFunc("PATCH "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters", h.UpdateComponentWorkflowParameters)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.CreateComponentWorkflowRun)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs", h.ListComponentWorkflowRuns)
@@ -138,6 +147,9 @@ func (h *Handler) Routes() http.Handler {
 	// Trait endpoints
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits", h.ListTraits)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/schema", h.GetTraitSchema)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/definition", h.GetTraitDefinition)
+	api.HandleFunc("PUT "+v1+"/namespaces/{namespaceName}/traits/{traitName}/definition", h.UpdateTraitDefinition)
+	api.HandleFunc("DELETE "+v1+"/namespaces/{namespaceName}/traits/{traitName}/definition", h.DeleteTraitDefinition)
 
 	// Project management
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects", h.ListProjects)
