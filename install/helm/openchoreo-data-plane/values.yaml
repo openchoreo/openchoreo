@@ -477,6 +477,22 @@ gateway:
 
   # @schema
   # type: object
+  # additionalProperties: true
+  # description: |
+  #   Gateway infrastructure configuration passed to the generated Service.
+  #   Used to configure cloud provider load balancer settings via annotations.
+  #   Example for AWS with Elastic IP:
+  #     infrastructure:
+  #       annotations:
+  #         service.beta.kubernetes.io/aws-load-balancer-type: "external"
+  #         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+  #         service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+  #         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: "eipalloc-xxx"
+  # @schema
+  infrastructure: {}
+
+  # @schema
+  # type: object
   # description: Self-signed ClusterIssuer configuration
   # @schema
   selfSignedIssuer:

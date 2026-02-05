@@ -12,6 +12,10 @@ metadata:
   {{- end }}
 spec:
   gatewayClassName: kgateway
+  {{- with .Values.gateway.infrastructure }}
+  infrastructure:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   listeners:
     - name: http
       protocol: HTTP

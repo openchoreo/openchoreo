@@ -8,6 +8,10 @@ metadata:
     cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
 spec:
   gatewayClassName: kgateway
+  {{- with .Values.gateway.infrastructure }}
+  infrastructure:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   listeners:
     - name: http
       protocol: HTTP
