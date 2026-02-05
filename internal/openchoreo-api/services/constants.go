@@ -58,11 +58,9 @@ const (
 	SystemActionCreateComponentWorkflow  systemAction = "componentworkflow:create"
 	SystemActionViewComponentWorkflowRun systemAction = "componentworkflowrun:view"
 
-	SystemActionViewSecretReference systemAction = "secretreference:view"
-
-	SystemActionCreateGitSecret systemAction = "gitsecret:create"
-	SystemActionListGitSecrets  systemAction = "gitsecret:list"
-	SystemActionDeleteGitSecret systemAction = "gitsecret:delete"
+	SystemActionCreateSecretReference systemAction = "secretreference:create"
+	SystemActionViewSecretReference   systemAction = "secretreference:view"
+	SystemActionDeleteSecretReference systemAction = "secretreference:delete"
 )
 
 type ResourceType string
@@ -87,7 +85,6 @@ const (
 	ResourceTypeComponentWorkflow    ResourceType = "componentWorkflow"
 	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
 	ResourceTypeSecretReference      ResourceType = "secretReference"
-	ResourceTypeGitSecret            ResourceType = "gitSecret"
 )
 
 // Workflow run status constants

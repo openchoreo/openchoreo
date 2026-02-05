@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -69,6 +70,12 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 	s.logger.Debug("Creating git secret", "namespace", namespaceName, "secret", req.SecretName, "type", req.SecretType)
 
 	req.Sanitize()
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateSecretReference, ResourceTypeSecretReference, req.SecretName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return nil, err
+	}
 
 	// Validate secretType
 	if req.SecretType != secretTypeBasicAuth && req.SecretType != secretTypeSSHAuth {
@@ -306,6 +313,17 @@ func (s *GitSecretService) ListGitSecrets(ctx context.Context, namespaceName str
 	for _, ref := range secretRefs.Items {
 		// Filter by annotation (since we can't use MatchingLabels with annotations)
 		if ref.Annotations[gitSecretTypeAnnotation] == gitSecretTypeValue {
+			// Authorization check for each secret
+			if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewSecretReference, ResourceTypeSecretReference, ref.Name,
+				authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+				if errors.Is(err, ErrForbidden) {
+					// Skip unauthorized secrets silently
+					s.logger.Debug("Skipping unauthorized git secret", "namespace", namespaceName, "secret", ref.Name)
+					continue
+				}
+				// Return system errors
+				return nil, err
+			}
 			secrets = append(secrets, models.GitSecretResponse{
 				Name:      ref.Name,
 				Namespace: ref.Namespace,
@@ -320,6 +338,12 @@ func (s *GitSecretService) ListGitSecrets(ctx context.Context, namespaceName str
 func (s *GitSecretService) DeleteGitSecret(ctx context.Context, namespaceName, secretName string) error {
 	s.logger.Debug("Deleting git secret", "namespace", namespaceName, "secret", secretName)
 
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionDeleteSecretReference, ResourceTypeSecretReference, secretName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return err
+	}
+	
 	// First, verify the secret reference exists
 	secretRef := &openchoreov1alpha1.SecretReference{}
 	key := client.ObjectKey{Name: secretName, Namespace: namespaceName}
