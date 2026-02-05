@@ -2297,6 +2297,18 @@ clusterAgent:
     renewBefore: 360h
 
   # @schema
+  # type: object
+  # description: Copy CA job configuration
+  # @schema
+  copyCAJob:
+    # @schema
+    # type: integer
+    # description: Time in seconds after job completion before automatic cleanup (0 disables cleanup)
+    # default: 600
+    # @schema
+    ttlSecondsAfterFinished: 600
+
+  # @schema
   # type: string
   # description: Namespace where cluster-gateway CA ConfigMap exists
   # default: openchoreo-control-plane

@@ -918,6 +918,21 @@
           "title": "affinity",
           "type": "object"
         },
+        "caExtractorJob": {
+          "additionalProperties": false,
+          "description": "CA extractor job configuration",
+          "properties": {
+            "ttlSecondsAfterFinished": {
+              "default": 600,
+              "description": "Time in seconds after job completion before automatic cleanup (0 disables cleanup)",
+              "title": "ttlSecondsAfterFinished",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "caExtractorJob",
+          "type": "object"
+        },
         "enabled": {
           "default": true,
           "description": "Enable the cluster gateway",

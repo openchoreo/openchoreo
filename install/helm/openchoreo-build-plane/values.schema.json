@@ -150,6 +150,21 @@
           "title": "affinity",
           "type": "object"
         },
+        "copyCAJob": {
+          "additionalProperties": false,
+          "description": "Copy CA job configuration",
+          "properties": {
+            "ttlSecondsAfterFinished": {
+              "default": 600,
+              "description": "Time in seconds after job completion before automatic cleanup (0 disables cleanup)",
+              "title": "ttlSecondsAfterFinished",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "copyCAJob",
+          "type": "object"
+        },
         "dnsRewrite": {
           "additionalProperties": false,
           "description": "DNS rewrite configuration for multi-cluster k3d setups. Configures CoreDNS to rewrite *.openchoreo.localhost to host.k3d.internal.",

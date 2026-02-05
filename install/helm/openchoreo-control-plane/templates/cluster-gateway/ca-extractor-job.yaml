@@ -2,7 +2,7 @@
 {{- if .Values.clusterGateway.tls.enabled }}
 ---
 # Job to extract CA certificate from cluster-gateway TLS secret and populate ConfigMap
-# This is needed for controller manager to verify the gateway server
+# This is needed for controller manager and cluster agents to verify the gateway server
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -12,10 +12,13 @@ metadata:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-gateway
   annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "5"
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
 spec:
+  {{- if .Values.clusterGateway.caExtractorJob.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.clusterGateway.caExtractorJob.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     metadata:
       labels:

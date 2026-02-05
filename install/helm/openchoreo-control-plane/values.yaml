@@ -4295,6 +4295,18 @@ clusterGateway:
     # @schema
     renewBefore: 360h
 
+  # @schema
+  # type: object
+  # description: CA extractor job configuration
+  # @schema
+  caExtractorJob:
+    # @schema
+    # type: integer
+    # description: Time in seconds after job completion before automatic cleanup (0 disables cleanup)
+    # default: 600
+    # @schema
+    ttlSecondsAfterFinished: 600
+
   # type: object
   # description: Pod security context
   # @schema
