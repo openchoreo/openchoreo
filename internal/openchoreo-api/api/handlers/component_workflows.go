@@ -5,11 +5,13 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
 	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 // ListComponentWorkflows returns a list of component workflows
@@ -93,7 +95,40 @@ func (h *Handler) CreateComponentWorkflowRun(
 	ctx context.Context,
 	request gen.CreateComponentWorkflowRunRequestObject,
 ) (gen.CreateComponentWorkflowRunResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("CreateComponentWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName)
+
+	// Extract commit from query params (defaults to empty string if not provided)
+	commit := ""
+	if request.Params.Commit != nil {
+		commit = *request.Params.Commit
+	}
+
+	// Call service to trigger workflow
+	workflowRun, err := h.services.ComponentWorkflowService.TriggerWorkflow(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		commit,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.CreateComponentWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		if errors.Is(err, services.ErrInvalidCommitSHA) {
+			return gen.CreateComponentWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest("Invalid commit SHA format")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateComponentWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to create component workflow run", "error", err)
+		return gen.CreateComponentWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.CreateComponentWorkflowRun201JSONResponse(toGenComponentWorkflowRun(workflowRun)), nil
 }
 
 // GetComponentWorkflowRun returns details of a specific workflow run
@@ -101,7 +136,31 @@ func (h *Handler) GetComponentWorkflowRun(
 	ctx context.Context,
 	request gen.GetComponentWorkflowRunRequestObject,
 ) (gen.GetComponentWorkflowRunResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("GetComponentWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName,
+		"runName", request.RunName)
+
+	workflowRun, err := h.services.ComponentWorkflowService.GetComponentWorkflowRun(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		request.RunName,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
+			return gen.GetComponentWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("ComponentWorkflowRun")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetComponentWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to get component workflow run", "error", err)
+		return gen.GetComponentWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetComponentWorkflowRun200JSONResponse(toGenComponentWorkflowRun(workflowRun)), nil
 }
 
 // toGenComponentWorkflowTemplate converts models.WorkflowResponse to gen.ComponentWorkflowTemplate

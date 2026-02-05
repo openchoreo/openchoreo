@@ -23,6 +23,7 @@ func NewComponentWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Com
 
 	componentWorkflowCmd.AddCommand(
 		newListComponentWorkflowCmd(impl),
+		newStartComponentWorkflowCmd(impl),
 	)
 
 	return componentWorkflowCmd
@@ -35,6 +36,27 @@ func newListComponentWorkflowCmd(impl api.CommandImplementationInterface) *cobra
 		RunE: func(fg *builder.FlagGetter) error {
 			return impl.ListComponentWorkflows(api.ListComponentWorkflowsParams{
 				Namespace: fg.GetString(flags.Namespace),
+			})
+		},
+		PreRunE: auth.RequireLogin(impl),
+	}).Build()
+}
+
+func newStartComponentWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	return (&builder.CommandBuilder{
+		Command: constants.StartComponentWorkflow,
+		Flags: []flags.Flag{
+			flags.Namespace,
+			flags.Project,
+			flags.Component,
+			flags.Commit,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			return impl.StartComponentWorkflowRun(api.StartComponentWorkflowRunParams{
+				Namespace: fg.GetString(flags.Namespace),
+				Project:   fg.GetString(flags.Project),
+				Component: fg.GetString(flags.Component),
+				Commit:    fg.GetString(flags.Commit),
 			})
 		},
 		PreRunE: auth.RequireLogin(impl),

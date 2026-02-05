@@ -8,6 +8,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
 	componentrelease "github.com/openchoreo/openchoreo/internal/occ/cmd/component-release"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/component"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/dataplane"
@@ -23,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	releasebinding "github.com/openchoreo/openchoreo/internal/occ/cmd/release-binding"
 	scaffoldcomponent "github.com/openchoreo/openchoreo/internal/occ/cmd/scaffold/component"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -251,4 +253,16 @@ func (c *CommandImplementation) ListWorkflowRuns(params api.ListWorkflowRunsPara
 func (c *CommandImplementation) ListComponentWorkflowRuns(params api.ListComponentWorkflowRunsParams) error {
 	listImpl := list.NewListImpl()
 	return listImpl.ListComponentWorkflowRuns(params)
+}
+
+// Workflow Run Operations
+
+func (c *CommandImplementation) StartWorkflowRun(params api.StartWorkflowRunParams) error {
+	startImpl := workflow.NewStartImpl()
+	return startImpl.StartWorkflowRun(params)
+}
+
+func (c *CommandImplementation) StartComponentWorkflowRun(params api.StartComponentWorkflowRunParams) error {
+	startImpl := componentworkflow.NewStartImpl()
+	return startImpl.StartComponentWorkflowRun(params)
 }

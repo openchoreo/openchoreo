@@ -22,6 +22,7 @@ type CommandImplementationInterface interface {
 	ReleaseBindingAPI
 	DeployAPI
 	ListAPI
+	WorkflowRunAPI
 }
 
 // NamespaceAPI defines namespace-related operations
@@ -124,4 +125,10 @@ type ListAPI interface {
 	ListReleaseBindings(params ListReleaseBindingsParams) error
 	ListWorkflowRuns(params ListWorkflowRunsParams) error
 	ListComponentWorkflowRuns(params ListComponentWorkflowRunsParams) error
+}
+
+// WorkflowRunAPI defines methods for starting workflow runs
+type WorkflowRunAPI interface {
+	StartWorkflowRun(params StartWorkflowRunParams) error
+	StartComponentWorkflowRun(params StartComponentWorkflowRunParams) error
 }

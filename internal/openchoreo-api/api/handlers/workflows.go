@@ -89,7 +89,30 @@ func (h *Handler) CreateWorkflowRun(
 	ctx context.Context,
 	request gen.CreateWorkflowRunRequestObject,
 ) (gen.CreateWorkflowRunResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("CreateWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"workflow", request.Body.WorkflowName)
+
+	// Convert request to models.CreateWorkflowRunRequest
+	req := &models.CreateWorkflowRunRequest{
+		WorkflowName: request.Body.WorkflowName,
+		Parameters:   request.Body.Parameters,
+	}
+
+	// Call service to create workflow run
+	workflowRun, err := h.services.WorkflowRunService.CreateWorkflowRun(ctx, request.NamespaceName, req)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowNotFound) {
+			return gen.CreateWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to create workflow run", "error", err)
+		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.CreateWorkflowRun201JSONResponse(toGenWorkflowRun(workflowRun)), nil
 }
 
 // GetWorkflowRun returns a specific workflow run
@@ -97,7 +120,23 @@ func (h *Handler) GetWorkflowRun(
 	ctx context.Context,
 	request gen.GetWorkflowRunRequestObject,
 ) (gen.GetWorkflowRunResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Info("GetWorkflowRun called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	workflowRun, err := h.services.WorkflowRunService.GetWorkflowRun(ctx, request.NamespaceName, request.RunName)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			return gen.GetWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to get workflow run", "error", err)
+		return gen.GetWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetWorkflowRun200JSONResponse(toGenWorkflowRun(workflowRun)), nil
 }
 
 // toGenWorkflowRun converts models.WorkflowRunResponse to gen.WorkflowRun

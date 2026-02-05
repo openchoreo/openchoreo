@@ -505,12 +505,34 @@ This command allows you to:
   occ workflow list --namespace acme-corp`,
 	}
 
+	StartWorkflow = Command{
+		Use:   "start WORKFLOW_NAME",
+		Short: "Start a workflow run",
+		Long:  `Start a new workflow run with optional parameters.`,
+		Example: `  # Start a workflow
+  occ workflow start database-migration --namespace acme-corp
+
+  # Start with parameters
+  occ workflow start migration --namespace acme --set version=v2 --set dry_run=false`,
+	}
+
 	ListComponentWorkflow = Command{
 		Use:   "list",
 		Short: "List component workflows",
 		Long:  `List all component workflow templates available in a namespace.`,
 		Example: `  # List all component workflows in a namespace
   occ componentworkflow list --namespace acme-corp`,
+	}
+
+	StartComponentWorkflow = Command{
+		Use:   "start",
+		Short: "Start a component workflow run (build)",
+		Long:  `Start a new component workflow run with repository parameters.`,
+		Example: `  # Start component workflow with commit
+  occ componentworkflow start --namespace acme --project shop --component api --commit abc123
+
+  # Start with specific branch
+  occ componentworkflow start --namespace acme --project shop --component api`,
 	}
 
 	ListSecretReference = Command{

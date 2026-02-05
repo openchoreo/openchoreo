@@ -330,3 +330,57 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 	}
 	return resp.JSON200, nil
 }
+
+// CreateWorkflowRun creates a new workflow run
+func (c *Client) CreateWorkflowRun(
+	ctx context.Context,
+	namespace string,
+	workflowName string,
+	parameters map[string]interface{},
+) (*gen.WorkflowRun, error) {
+	req := gen.CreateWorkflowRunJSONRequestBody{
+		WorkflowName: workflowName,
+		Parameters:   parameters,
+	}
+
+	resp, err := c.client.CreateWorkflowRunWithResponse(ctx, namespace, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow run: %w", err)
+	}
+
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+
+	return resp.JSON201, nil
+}
+
+// CreateComponentWorkflowRun creates a new component workflow run
+func (c *Client) CreateComponentWorkflowRun(
+	ctx context.Context,
+	namespace, project, component string,
+	commit string,
+) (*gen.ComponentWorkflowRun, error) {
+	// Prepare query params
+	params := &gen.CreateComponentWorkflowRunParams{}
+	if commit != "" {
+		params.Commit = &commit
+	}
+
+	resp, err := c.client.CreateComponentWorkflowRunWithResponse(
+		ctx,
+		namespace,
+		project,
+		component,
+		params,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create component workflow run: %w", err)
+	}
+
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+
+	return resp.JSON201, nil
+}

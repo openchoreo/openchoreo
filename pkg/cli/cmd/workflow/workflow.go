@@ -23,6 +23,7 @@ func NewWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
 
 	workflowCmd.AddCommand(
 		newListWorkflowCmd(impl),
+		newStartWorkflowCmd(impl),
 	)
 
 	return workflowCmd
@@ -39,4 +40,22 @@ func newListWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command 
 		},
 		PreRunE: auth.RequireLogin(impl),
 	}).Build()
+}
+
+func newStartWorkflowCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.StartWorkflow,
+		Flags:   []flags.Flag{flags.Namespace, flags.Set},
+		RunE: func(fg *builder.FlagGetter) error {
+			workflowName := fg.GetArgs()[0]
+			return impl.StartWorkflowRun(api.StartWorkflowRunParams{
+				Namespace:    fg.GetString(flags.Namespace),
+				WorkflowName: workflowName,
+				Parameters:   fg.GetStringArray(flags.Set),
+			})
+		},
+		PreRunE: auth.RequireLogin(impl),
+	}).Build()
+	cmd.Args = cobra.ExactArgs(1) // Require workflow name as positional arg
+	return cmd
 }

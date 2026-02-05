@@ -74,6 +74,11 @@ var (
 		Usage: messages.FlagURLDesc,
 	}
 
+	Commit = Flag{
+		Name:  "commit",
+		Usage: "Git commit SHA to use for the workflow run",
+	}
+
 	SecretRef = Flag{
 		Name:  "secretRef",
 		Usage: messages.FlagSecretRefDesc,
