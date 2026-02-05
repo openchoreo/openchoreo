@@ -81,7 +81,7 @@ curl "http://${HOSTNAME}:19080${PATH_PREFIX}/greeter/greet?name=Alice"
 
 ### Example with direct URL
 ```bash
-curl http://development.openchoreoapis.localhost:19080/greeting-service/greeter/greet
+curl http://default.development.openchoreoapis.localhost:19080/greeting-service/greeter/greet
 ```
 
 ## Troubleshooting

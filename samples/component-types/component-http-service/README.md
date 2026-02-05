@@ -74,7 +74,7 @@ kubectl get releasebinding demo-app-http-service-development -o yaml | grep -A 5
 ## Test the Service by invoking
 
 ```bash
-curl http://development.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet
+curl http://default.development.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet
 ```
 
 Output:
@@ -83,7 +83,7 @@ Hello, Stranger!
 ```
 
 ```bash
-curl "http://development.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet?name=Alice"
+curl "http://default.development.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet?name=Alice"
 ```
 
 Output:

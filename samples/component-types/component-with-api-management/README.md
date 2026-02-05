@@ -164,7 +164,7 @@ spec:
 
 This creates a basic HTTP service accessible at:
 ```
-https://{environment}.{publicVirtualHost}/my-http-service
+https://{componentNamespace}.{environment}.{publicVirtualHost}/my-http-service
 ```
 
 ### HTTP Service with API Management
@@ -202,7 +202,7 @@ spec:
 
 This creates an HTTP service with API management enabled, accessible at:
 ```
-https://{environment}.{publicVirtualHost}/my-http-service
+https://{componentNamespace}.{environment}.{publicVirtualHost}/my-http-service
 ```
 
 Traffic flows through the API Platform Gateway which:
@@ -291,7 +291,7 @@ Response:
 export TOKEN="<access_token_from_previous_response>"
 
 # Call the API
-curl https://development.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
+curl https://default.development.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 
