@@ -22,7 +22,7 @@ require (
 	github.com/knadh/koanf/v2 v2.2.1
 	github.com/modelcontextprotocol/go-sdk v1.0.0
 	github.com/oapi-codegen/runtime v1.1.2
-	github.com/onsi/ginkgo/v2 v2.28.0
+	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/opensearch-project/opensearch-go v1.1.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.2
