@@ -42,7 +42,7 @@ ports:
     nodeFilters:
       - loadbalancer
   # HTTPS traffic for OpenSearch access (Kgateway LoadBalancer on port 11443)
-  - port: 11443:11443
+  - port: 11085:11443
     nodeFilters:
       - loadbalancer
   # OpenSearch Dashboard
