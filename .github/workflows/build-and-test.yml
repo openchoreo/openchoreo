@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  IMAGE_PLATFORMS: ${{ github.event_name == 'push' && 'linux/amd64 linux/arm64' || 'linux/amd64' }}
+  CLI_EXTRA_PLATFORMS: ${{ github.event_name == 'push' && 'darwin/amd64 darwin/arm64 windows/amd64 windows/arm64' || '' }}
+
 jobs:
   lint:
     name: Lint
@@ -65,11 +69,12 @@ jobs:
 
       - name: Build multiarch binaries
         run: |
-          # Build all binaries for Linux (amd64, arm64)
-          make go.build-multiarch GO_TARGET_PLATFORMS="linux/amd64 linux/arm64"
+          make go.build-multiarch GO_TARGET_PLATFORMS="${{ env.IMAGE_PLATFORMS }}"
 
-          # Build occ for Darwin and Windows
-          make go.build-multiarch.occ GO_TARGET_PLATFORMS="darwin/amd64 darwin/arm64 windows/amd64 windows/arm64"
+          # Build occ for extra platforms (push only)
+          if [[ -n "${{ env.CLI_EXTRA_PLATFORMS }}" ]]; then
+            make go.build-multiarch.occ GO_TARGET_PLATFORMS="${{ env.CLI_EXTRA_PLATFORMS }}"
+          fi
 
       - name: Upload occ binaries
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -158,21 +163,7 @@ jobs:
 
       - name: Set executable permissions
         # See: https://github.com/actions/download-artifact/issues/14
-        run: |
-          chmod +x bin/dist/linux/amd64/occ
-          chmod +x bin/dist/linux/arm64/occ
-          chmod +x bin/dist/darwin/amd64/occ
-          chmod +x bin/dist/darwin/arm64/occ
-          chmod +x bin/dist/linux/amd64/manager
-          chmod +x bin/dist/linux/arm64/manager
-          chmod +x bin/dist/linux/amd64/openchoreo-api
-          chmod +x bin/dist/linux/arm64/openchoreo-api
-          chmod +x bin/dist/linux/amd64/observer
-          chmod +x bin/dist/linux/arm64/observer
-          chmod +x bin/dist/linux/amd64/cluster-gateway
-          chmod +x bin/dist/linux/arm64/cluster-gateway
-          chmod +x bin/dist/linux/amd64/cluster-agent
-          chmod +x bin/dist/linux/arm64/cluster-agent
+        run: find bin/dist -type f -exec chmod +x {} +
           
       - name: Login to GitHub container registry
         if: github.event_name == 'push'
@@ -195,7 +186,7 @@ jobs:
             make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
           else
             echo "Building Docker images for PR verification..."
-            make docker.build-multiarch TAG=pr-${{ github.event.pull_request.number }}
+            make docker.build-multiarch TAG=pr-${{ github.event.pull_request.number }} IMAGE_TARGET_PLATFORMS="${{ env.IMAGE_PLATFORMS }}"
           fi
 
       - name: Build and push multiarch latest-dev images
