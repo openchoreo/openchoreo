@@ -237,7 +237,7 @@ func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, namespace
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRoleMapping, ResourceTypeRoleMapping, "*",
 		authz.ResourceHierarchy{
-			Namespace: roleRef.Namespace,
+			Namespace: namespace,
 		}); err != nil {
 		return nil, err
 	}
@@ -280,7 +280,9 @@ func (s *AuthzService) GetRoleMapping(ctx context.Context, mappingRef *authz.Map
 	s.logger.Debug("Getting authorization role mapping", "mapping_name", mappingRef.Name, "mapping_namespace", mappingRef.Namespace)
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionViewRoleMapping, ResourceTypeRoleMapping, mappingRef.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		authz.ResourceHierarchy{
+			Namespace: mappingRef.Namespace,
+		}); err != nil {
 		return nil, err
 	}
 	mapping, err := s.pap.GetRoleEntitlementMapping(ctx, mappingRef)
@@ -301,7 +303,9 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 		"hierarchy", mapping.Hierarchy)
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionCreateRoleMapping, ResourceTypeRoleMapping, mapping.RoleRef.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		authz.ResourceHierarchy{
+			Namespace: mapping.Hierarchy.Namespace,
+		}); err != nil {
 		return err
 	}
 
@@ -321,7 +325,9 @@ func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.Rol
 		"hierarchy", mapping.Hierarchy)
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionUpdateRoleMapping, ResourceTypeRoleMapping, mapping.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		authz.ResourceHierarchy{
+			Namespace: mapping.Hierarchy.Namespace,
+		}); err != nil {
 		return err
 	}
 
@@ -337,7 +343,9 @@ func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mappingRef *authz.
 	s.logger.Debug("Removing authorization role mapping", "mapping_name", mappingRef.Name, "mapping_namespace", mappingRef.Namespace)
 
 	if err := checkAuthorization(ctx, s.logger, s.pdp, SystemActionDeleteRoleMapping, ResourceTypeRoleMapping, mappingRef.Name,
-		authz.ResourceHierarchy{}); err != nil {
+		authz.ResourceHierarchy{
+			Namespace: mappingRef.Namespace,
+		}); err != nil {
 		return err
 	}
 

@@ -84,6 +84,7 @@ var systemActions = []Action{
 	{Name: "role:create", IsInternal: false},
 	{Name: "role:delete", IsInternal: false},
 	{Name: "role:update", IsInternal: false},
+	{Name: "action:view", IsInternal: false},
 
 	// role mapping
 	{Name: "rolemapping:view", IsInternal: false},
