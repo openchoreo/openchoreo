@@ -6,6 +6,10 @@ metadata:
 spec:
   workloadType: deployment
 
+  allowedTraits:
+    - persistent-volume
+    - emptydir-volume
+
   schema:
     parameters:
       replicas: "integer | default=1"

@@ -7,6 +7,9 @@ metadata:
 spec:
   workloadType: deployment
 
+  allowedTraits:
+    - api-configuration
+
   schema:
     parameters:
       replicas: "integer | default=1"
