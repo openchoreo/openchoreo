@@ -134,7 +134,7 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	}
 
 	// Validate traits
-	if !r.validateTraits(ctx, comp, ct) {
+	if !r.areValidTraits(ctx, comp, ct) {
 		// Validation failed, condition already set
 		return ctrl.Result{}, nil
 	}
@@ -143,16 +143,11 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 	traits, err := r.fetchAllTraits(ctx, ct, comp)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Extract trait name from custom error type
+			msg := "One or more Traits not found"
 			var traitErr *traitFetchError
 			if errors.As(err, &traitErr) {
-				msg := fmt.Sprintf("Trait %q not found", traitErr.traitName)
-				controller.MarkFalseCondition(comp, ConditionReady, ReasonTraitNotFound, msg)
-				logger.Info(msg, "component", comp.Name)
-				return ctrl.Result{}, nil
+				msg = fmt.Sprintf("Trait %q not found", traitErr.traitName)
 			}
-			// Fallback if error type doesn't match
-			msg := "One or more Traits not found"
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonTraitNotFound, msg)
 			logger.Info(msg, "component", comp.Name)
 			return ctrl.Result{}, nil
@@ -277,9 +272,9 @@ func (r *Reconciler) validateAndFetchWorkload(ctx context.Context, comp *opencho
 	return &workloadList.Items[0], nil
 }
 
-// validateTraits validates trait configuration and instance name uniqueness.
+// areValidTraits validates trait configuration and instance name uniqueness.
 // Returns true if validation passes, false if it fails (with condition set).
-func (r *Reconciler) validateTraits(ctx context.Context, comp *openchoreov1alpha1.Component, ct *openchoreov1alpha1.ComponentType) bool {
+func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha1.Component, ct *openchoreov1alpha1.ComponentType) bool {
 	logger := log.FromContext(ctx)
 
 	// Validate allowedTraits: ensure developer's traits are in the allowed list
@@ -288,14 +283,18 @@ func (r *Reconciler) validateTraits(ctx context.Context, comp *openchoreov1alpha
 		for _, name := range ct.Spec.AllowedTraits {
 			allowedSet[name] = true
 		}
+		var disallowedTraits []string
 		for _, trait := range comp.Spec.Traits {
 			if !allowedSet[trait.Name] {
-				msg := fmt.Sprintf("Trait %q is not allowed by ComponentType %q; allowed traits: %v",
-					trait.Name, ct.Name, ct.Spec.AllowedTraits)
-				controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-				logger.Info(msg, "component", comp.Name)
-				return false
+				disallowedTraits = append(disallowedTraits, trait.Name)
 			}
+		}
+		if len(disallowedTraits) > 0 {
+			msg := fmt.Sprintf("Traits %v are not allowed by ComponentType %q; allowed traits: %v",
+				disallowedTraits, ct.Name, ct.Spec.AllowedTraits)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+			logger.Info(msg, "component", comp.Name)
+			return false
 		}
 	} else {
 		// If allowedTraits is empty, no traits are allowed
@@ -314,14 +313,18 @@ func (r *Reconciler) validateTraits(ctx context.Context, comp *openchoreov1alpha
 		for _, et := range ct.Spec.Traits {
 			embeddedNames[et.InstanceName] = true
 		}
+		var collidingNames []string
 		for _, t := range comp.Spec.Traits {
 			if embeddedNames[t.InstanceName] {
-				msg := fmt.Sprintf("Trait instance name %q collides with an embedded trait in ComponentType %q",
-					t.InstanceName, ct.Name)
-				controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-				logger.Info(msg, "component", comp.Name)
-				return false
+				collidingNames = append(collidingNames, t.InstanceName)
 			}
+		}
+		if len(collidingNames) > 0 {
+			msg := fmt.Sprintf("Trait instance names %v collide with embedded traits in ComponentType %q",
+				collidingNames, ct.Name)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+			logger.Info(msg, "component", comp.Name)
+			return false
 		}
 	}
 

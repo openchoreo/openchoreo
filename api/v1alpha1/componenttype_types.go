@@ -45,7 +45,6 @@ type ComponentTypeSpec struct {
 	Traits []ComponentTypeTrait `json:"traits,omitempty"`
 
 	// AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
-	// If empty or omitted, all traits are allowed.
 	// Trait names listed here must not overlap with traits already embedded in spec.traits.
 	// +optional
 	AllowedTraits []string `json:"allowedTraits,omitempty"`

@@ -197,7 +197,8 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 
 	baseMetadata := MetadataContext{
 		Name: "test", Namespace: "ns", ComponentName: "app", ComponentUID: "uid1",
-		ProjectName: "proj", ProjectUID: "uid2", DataPlaneName: "dp", DataPlaneUID: "uid3",
+		ComponentNamespace: "test-namespace",
+		ProjectName:        "proj", ProjectUID: "uid2", DataPlaneName: "dp", DataPlaneUID: "uid3",
 		EnvironmentName: "dev", EnvironmentUID: "uid4",
 		Labels: map[string]string{}, Annotations: map[string]string{},
 		PodSelectors: map[string]string{"k": "v"},

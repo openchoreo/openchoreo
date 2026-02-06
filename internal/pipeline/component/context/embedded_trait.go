@@ -90,7 +90,7 @@ func resolveBindings(
 		return nil, nil
 	}
 
-	var data any
+	var data map[string]any
 	if err := json.Unmarshal(raw.Raw, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal bindings: %w", err)
 	}
