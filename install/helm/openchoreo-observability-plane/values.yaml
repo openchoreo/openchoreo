@@ -2465,6 +2465,7 @@ gateway:
 # type: object
 # description: OpenSearch Operator-based cluster configuration (preferred over openSearch Helm chart)
 # @schema
+# Requires OpenSearch Operator (https://github.com/opensearch-project/opensearch-k8s-operator) to be pre-installed
 openSearchCluster:
   # @schema
   # type: boolean

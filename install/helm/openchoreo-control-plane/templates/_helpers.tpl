@@ -123,6 +123,14 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
+Backstage secrets name.
+Uses existingSecret when provided, otherwise falls back to the chart-generated secret.
+*/}}
+{{- define "openchoreo-control-plane.backstage.secretName" -}}
+{{- .Values.backstage.existingSecret | default (printf "%s-backstage-secrets" (include "openchoreo-control-plane.fullname" .)) }}
+{{- end }}
+
+{{/*
 Backstage service account name
 Always returns openchoreo-backstage (or custom name from values).
 Service account is always created when backstage is enabled for security.

@@ -142,7 +142,7 @@ spec:
         - name: BACKSTAGE_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
               key: client-secret
         command:
         - /bin/sh

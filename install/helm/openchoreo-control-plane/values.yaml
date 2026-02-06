@@ -1878,6 +1878,13 @@ backstage:
   enabled: true
 
   # @schema
+  # type: string
+  # description: Name of an existing Secret containing backstage secrets (backend-secret, client-secret, postgres-password). When set, the chart does not create its own Secret.
+  # default: ""
+  # @schema
+  existingSecret: ""
+
+  # @schema
   # type: integer
   # description: Number of Backstage replicas
   # minimum: 1
@@ -2600,6 +2607,12 @@ backstage:
       # default: ""
       # @schema
       password: ""
+      # @schema
+      # type: boolean
+      # description: Enable SSL for the PostgreSQL connection (sets PGSSLMODE=require)
+      # default: false
+      # @schema
+      ssl: false
       # @schema
       # type: string
       # description: PostgreSQL database name

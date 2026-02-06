@@ -62,7 +62,7 @@ spec:
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
               key: backend-secret
         {{- if .Values.thunder.enabled }}
         # Thunder-specific configuration
@@ -89,7 +89,7 @@ spec:
         - name: OPENCHOREO_AUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
               key: client-secret
         # Feature flags for OpenChoreo functionality
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
@@ -118,10 +118,14 @@ spec:
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
               key: postgres-password
         - name: POSTGRES_DB
           value: {{ .Values.backstage.database.postgresql.database | quote }}
+        {{- if .Values.backstage.database.postgresql.ssl }}
+        - name: PGSSLMODE
+          value: "require"
+        {{- end }}
         {{- end }}
         livenessProbe:
           httpGet:
