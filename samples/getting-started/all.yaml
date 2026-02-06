@@ -645,6 +645,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -660,7 +661,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -694,31 +695,38 @@ spec:
         name: docker
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: default
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
-          data:
-            - secretKey: git-token
-              remoteRef:
-                key: git-token
+            template:
+              type: ${secretRef.type}
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
@@ -750,6 +758,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -763,7 +772,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -795,31 +804,38 @@ spec:
         name: react
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: default
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
-          data:
-            - secretKey: git-token
-              remoteRef:
-                key: git-token
+            template:
+              type: ${secretRef.type}
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
@@ -851,6 +867,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -863,7 +880,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -893,31 +910,38 @@ spec:
         name: ballerina-buildpack
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: default
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
-          data:
-            - secretKey: git-token
-              remoteRef:
-                key: git-token
+            template:
+              type: ${secretRef.type}
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
@@ -949,6 +973,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
+        secretRef: string | description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -961,7 +986,7 @@ spec:
     kind: Workflow
     metadata:
       name: ${metadata.workflowRunName}
-      namespace: openchoreo-ci-${metadata.namespaceName}
+      namespace: ${metadata.namespace}
     spec:
       arguments:
         parameters:
@@ -991,31 +1016,38 @@ spec:
         name: google-cloud-buildpacks
   resources:
     - id: git-secret
+      includeWhen: ${has(systemParameters.repository.secretRef)}
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-git-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: default
             kind: ClusterSecretStore
+            name: default
           target:
             name: ${metadata.workflowRunName}-git-secret
             creationPolicy: Owner
-          data:
-            - secretKey: git-token
-              remoteRef:
-                key: git-token
+            template:
+              type: ${secretRef.type}
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
         kind: ExternalSecret
         metadata:
           name: ${metadata.workflowRunName}-registry-push-secret
-          namespace: openchoreo-ci-${metadata.namespaceName}
+          namespace: ${metadata.namespace}
         spec:
           refreshInterval: 15s
           secretStoreRef:
