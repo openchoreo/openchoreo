@@ -521,19 +521,10 @@ install_helm_chart() {
 install_cert_manager() {
     log_info "Installing cert-manager..."
 
-    # Add Jetstack Helm repository
-    if ! helm repo list 2>/dev/null | grep -q "jetstack"; then
-        log_info "Adding Jetstack Helm repository..."
-        helm repo add jetstack "$CERT_MANAGER_REPO" --force-update
-    fi
-
-    # Update helm repos
-    helm repo update jetstack
-
     # Install cert-manager with CRDs
     local helm_args=(
-        "upgrade" "--install" "cert-manager" "jetstack/cert-manager"
-        "--namespace" "$CONTROL_PLANE_NS"
+        "upgrade" "--install" "cert-manager" "$CERT_MANAGER_REPO/cert-manager"
+        "--namespace" "cert-manager"
         "--create-namespace"
         "--version" "$CERT_MANAGER_VERSION"
         "--set" "crds.enabled=true"
@@ -563,7 +554,7 @@ install_cert_manager() {
     # Wait for cert-manager webhook to be ready
     log_info "Waiting for cert-manager webhook to be ready..."
     if kubectl wait --for=condition=available deployment/cert-manager-webhook \
-        -n "$CONTROL_PLANE_NS" --timeout=120s >/dev/null 2>&1; then
+        -n "cert-manager" --timeout=120s >/dev/null 2>&1; then
         log_success "cert-manager webhook is ready"
     else
         log_warning "cert-manager webhook readiness check timed out, but continuing..."
@@ -574,19 +565,12 @@ install_cert_manager() {
 install_eso() {
     log_info "Installing External Secrets Operator..."
 
-    if ! helm repo list 2>/dev/null | grep -q "external-secrets"; then
-        log_info "Adding External Secrets Helm repository..."
-        helm repo add external-secrets "$ESO_REPO" --force-update
-    fi
-
-    helm repo update external-secrets
-
     local helm_args=(
-        "upgrade" "--install" "external-secrets" "external-secrets/external-secrets"
-        "--namespace" "$DATA_PLANE_NS"
+        "upgrade" "--install" "external-secrets" "$ESO_REPO/external-secrets"
+        "--namespace" "external-secrets"
         "--create-namespace"
         "--version" "${ESO_VERSION#v}"
-        "--set" "crds.enabled=true"
+        "--set" "installCRDs=true"
         "--set" "resources.requests.cpu=10m"
         "--set" "resources.requests.memory=32Mi"
         "--set" "resources.limits.cpu=50m"

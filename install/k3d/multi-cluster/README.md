@@ -36,6 +36,7 @@ k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --version v1.19.2 \
     --namespace cert-manager \
     --create-namespace \
     --set crds.enabled=true \
@@ -94,6 +95,7 @@ docker exec k3d-openchoreo-dp-server-0 sh -c "cat /proc/sys/kernel/random/uuid |
 
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --version v1.19.2 \
     --namespace cert-manager \
     --create-namespace \
     --set crds.enabled=true \
@@ -149,6 +151,7 @@ docker exec k3d-openchoreo-bp-server-0 sh -c "cat /proc/sys/kernel/random/uuid |
 
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --version v1.19.2 \
     --namespace cert-manager \
     --create-namespace \
     --set crds.enabled=true \
@@ -197,6 +200,7 @@ docker exec k3d-openchoreo-op-server-0 sh -c "cat /proc/sys/kernel/random/uuid |
 
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+    --version v1.19.2 \
     --namespace cert-manager \
     --create-namespace \
     --set crds.enabled=true \

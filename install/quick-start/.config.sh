@@ -17,9 +17,9 @@ OBSERVABILITY_NS="openchoreo-observability-plane"
 HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 
 # Cert-manager configuration
-CERT_MANAGER_VERSION="v1.16.2"
-CERT_MANAGER_REPO="https://charts.jetstack.io"
+CERT_MANAGER_VERSION="v1.19.2"
+CERT_MANAGER_REPO="oci://quay.io/jetstack/charts"
 
 # External Secrets Operator configuration
-ESO_VERSION="v0.19.2"
-ESO_REPO="https://charts.external-secrets.io"
+ESO_VERSION="v1.3.2"
+ESO_REPO="oci://ghcr.io/external-secrets/charts"

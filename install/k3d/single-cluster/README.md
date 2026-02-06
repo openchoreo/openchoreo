@@ -39,7 +39,7 @@ kubectl apply --context k3d-openchoreo --server-side \
 #### cert-manager
 
 ```bash
-helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo \
   --namespace cert-manager \
   --create-namespace \
@@ -54,7 +54,7 @@ kubectl wait --context k3d-openchoreo \
 #### External Secrets Operator
 
 ```bash
-helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
   --kube-context k3d-openchoreo \
   --namespace external-secrets \
   --create-namespace \

@@ -98,7 +98,7 @@ cert-manager is required for TLS certificate management. Install it on each clus
 
 ```shell
 # Control Plane cluster
-helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-cp \
   --namespace cert-manager \
   --create-namespace \
@@ -110,7 +110,7 @@ kubectl wait --context k3d-openchoreo-cp \
   -n cert-manager --timeout=180s
 
 # Data Plane cluster
-helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-dp \
   --namespace cert-manager \
   --create-namespace \
@@ -128,7 +128,7 @@ External Secrets Operator (ESO) is required for syncing secrets from external se
 
 ```shell
 # Control Plane cluster
-helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
   --kube-context k3d-openchoreo-cp \
   --namespace external-secrets \
   --create-namespace \
@@ -140,7 +140,7 @@ kubectl wait --context k3d-openchoreo-cp \
   -n external-secrets --timeout=180s
 
 # Data Plane cluster
-helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
   --kube-context k3d-openchoreo-dp \
   --namespace external-secrets \
   --create-namespace \
