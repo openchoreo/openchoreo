@@ -719,11 +719,11 @@ This command allows you to:
 		Use:   "set-control-plane",
 		Short: "Configure OpenChoreo API server connection",
 		Long:  "Set the OpenChoreo API server endpoint and authentication details for remote connections.",
-		Example: fmt.Sprintf(`  # Set remote control plane endpoint
-  %[1]s config set-control-plane --endpoint https://api.choreo.example.com --token <your-token>
+		Example: fmt.Sprintf(`  # Set remote control plane url
+  %[1]s config set-control-plane --url https://api.choreo.example.com --token <your-token>
 
   # Set local control plane (for development)
-  %[1]s config set-control-plane --endpoint http://localhost:8080`, messages.DefaultCLIName),
+  %[1]s config set-control-plane --url http://localhost:8080`, messages.DefaultCLIName),
 	}
 
 	// ------------------------------------------------------------------------
