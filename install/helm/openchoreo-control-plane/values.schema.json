@@ -436,6 +436,25 @@
           "title": "externalCI",
           "type": "object"
         },
+        "extraEnv": {
+          "description": "Additional environment variables to merge with the default env array. Use this instead of overriding backstage.env to avoid sparse array issues with --set.",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraEnv",
+          "type": "array"
+        },
         "features": {
           "additionalProperties": false,
           "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",

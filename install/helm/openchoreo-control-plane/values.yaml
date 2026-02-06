@@ -2127,6 +2127,21 @@ backstage:
       value: "7007"
 
   # @schema
+  # type: array
+  # description: Additional environment variables to merge with the default env array. Use this instead of overriding backstage.env to avoid sparse array issues with --set.
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
+  extraEnv: []
+
+  # @schema
   # type: string
   # description: Backstage public base URL. If empty, auto-derived from global.baseDomain
   # default: ""

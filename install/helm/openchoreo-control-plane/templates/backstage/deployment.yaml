@@ -59,8 +59,8 @@ spec:
           name: http
           protocol: TCP
         env:
-        {{- if .Values.backstage.env }}
-        {{- toYaml .Values.backstage.env | nindent 8 }}
+        {{- with (concat (.Values.backstage.env | default list) (.Values.backstage.extraEnv | default list)) }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
         - name: OPENCHOREO_API_URL
           value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-control-plane.fullname" .) .Release.Namespace) }}
