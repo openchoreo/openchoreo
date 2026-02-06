@@ -1,5 +1,4 @@
 {{- if .Values.backstage.enabled }}
-{{- if .Values.backstage.externalCI.jenkins.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,5 +15,4 @@ data:
       baseUrl: ${JENKINS_BASE_URL}
       username: ${JENKINS_USERNAME}
       apiKey: ${JENKINS_API_KEY}
-{{- end }}
 {{- end }}

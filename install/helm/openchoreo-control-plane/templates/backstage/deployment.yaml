@@ -47,13 +47,13 @@ spec:
       - name: backstage
         image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.backstage.image.pullPolicy }}
-        {{- if .Values.backstage.externalCI.jenkins.enabled }}
         args:
         - "node"
         - "packages/backend"
         - "--config"
+        - "app-config.yaml"
+        - "--config"
         - "app-config.ci.yaml"
-        {{- end }}
         ports:
         - containerPort: 7007
           name: http
@@ -109,7 +109,6 @@ spec:
           value: {{ .Values.security.authz.enabled | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
-        {{- if .Values.backstage.externalCI.jenkins.enabled }}
         - name: JENKINS_BASE_URL
           value: {{ .Values.backstage.externalCI.jenkins.baseUrl | quote }}
         - name: JENKINS_USERNAME
@@ -119,7 +118,6 @@ spec:
             secretKeyRef:
               name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
               key: jenkins-api-key
-        {{- end }}
         # Database configuration
         {{- if eq .Values.backstage.database.type "sqlite" }}
         - name: DATABASE_CLIENT
@@ -157,7 +155,7 @@ spec:
           httpGet:
             path: /healthcheck
             port: http
-          initialDelaySeconds: 5
+          initialDelaySeconds: 10
           periodSeconds: 5
         resources:
           {{- toYaml .Values.backstage.resources | nindent 12 }}
@@ -170,12 +168,10 @@ spec:
         - name: backstage-db
           mountPath: {{ .Values.backstage.database.sqlite.mountPath }}
         {{- end }}
-        {{- if .Values.backstage.externalCI.jenkins.enabled }}
         - name: ci-config
           mountPath: /app/app-config.ci.yaml
           subPath: app-config.ci.yaml
           readOnly: true
-        {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
       - name: backstage-db
@@ -186,9 +182,7 @@ spec:
         emptyDir: {}
         {{- end }}
       {{- end }}
-      {{- if .Values.backstage.externalCI.jenkins.enabled }}
       - name: ci-config
         configMap:
           name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-ci-config
-      {{- end }}
 {{- end }}

@@ -2091,19 +2091,19 @@ backstage:
       # description: Jenkins server base URL (e.g., https://jenkins.example.com)
       # default: ""
       # @schema
-      baseUrl: ""
+      baseUrl: "https://jenkins.example.com"
       # @schema
       # type: string
       # description: Jenkins username for API authentication
       # default: ""
       # @schema
-      username: ""
+      username: "jenkins-user"
       # @schema
       # type: string
       # description: Jenkins API key/token for authentication
       # default: ""
       # @schema
-      apiKey: ""
+      apiKey: "jenkins-api-key"
 
   # @schema
   # type: array
