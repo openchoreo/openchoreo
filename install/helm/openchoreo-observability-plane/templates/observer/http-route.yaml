@@ -14,7 +14,7 @@ spec:
     - {{ .host | quote }}
     {{- end }}
     {{- else }}
-    - observer.{{ .Values.global.baseDomain | quote }}
+    - {{ printf "observer.%s" .Values.global.baseDomain | quote }}
     {{- end }}
   rules:
   - matches:
