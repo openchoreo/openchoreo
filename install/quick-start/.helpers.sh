@@ -570,6 +570,47 @@ install_cert_manager() {
     fi
 }
 
+# Install External Secrets Operator (prerequisite for secret management)
+install_eso() {
+    log_info "Installing External Secrets Operator..."
+
+    if ! helm repo list 2>/dev/null | grep -q "external-secrets"; then
+        log_info "Adding External Secrets Helm repository..."
+        helm repo add external-secrets "$ESO_REPO" --force-update
+    fi
+
+    helm repo update external-secrets
+
+    local helm_args=(
+        "upgrade" "--install" "external-secrets" "external-secrets/external-secrets"
+        "--namespace" "$DATA_PLANE_NS"
+        "--create-namespace"
+        "--version" "${ESO_VERSION#v}"
+        "--set" "crds.enabled=true"
+        "--set" "resources.requests.cpu=10m"
+        "--set" "resources.requests.memory=32Mi"
+        "--set" "resources.limits.cpu=50m"
+        "--set" "resources.limits.memory=64Mi"
+        "--set" "webhook.resources.requests.cpu=10m"
+        "--set" "webhook.resources.requests.memory=32Mi"
+        "--set" "webhook.resources.limits.cpu=50m"
+        "--set" "webhook.resources.limits.memory=64Mi"
+        "--set" "certController.resources.requests.cpu=10m"
+        "--set" "certController.resources.requests.memory=32Mi"
+        "--set" "certController.resources.limits.cpu=50m"
+        "--set" "certController.resources.limits.memory=64Mi"
+        "--wait"
+        "--timeout" "300s"
+    )
+
+    if helm "${helm_args[@]}"; then
+        log_success "External Secrets Operator installed successfully"
+    else
+        log_error "Failed to install External Secrets Operator"
+        return 1
+    fi
+}
+
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
@@ -812,7 +853,7 @@ check_system_resources() {
     # Calculate required resources based on actual measured usage:
     # - k3s kubernetes control plane: ~1.5GB baseline
     # - Control Plane pods: ~350MB (controller, api, ui, thunder)
-    # - Data Plane pods: ~200MB (envoy-gateway, external-secrets, gateway)
+    # - Data Plane pods: ~200MB (envoy-gateway, gateway)
     # - Build Plane pods: ~70MB steady + ~500MB during builds (argo, registry)
     # - Observability pods: ~1GB (OpenSearch is memory intensive)
     #

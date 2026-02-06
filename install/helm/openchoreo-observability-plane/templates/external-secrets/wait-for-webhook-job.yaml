@@ -1,4 +1,4 @@
-{{- if and (index .Values "external-secrets" "enabled") .Values.fakeSecretStore.enabled }}
+{{- if .Values.fakeSecretStore.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

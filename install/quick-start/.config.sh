@@ -19,3 +19,7 @@ HELM_REPO="oci://ghcr.io/openchoreo/helm-charts"
 # Cert-manager configuration
 CERT_MANAGER_VERSION="v1.16.2"
 CERT_MANAGER_REPO="https://charts.jetstack.io"
+
+# External Secrets Operator configuration
+ESO_VERSION="v0.19.2"
+ESO_REPO="https://charts.external-secrets.io"

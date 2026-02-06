@@ -123,18 +123,6 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
-Validation for fake secret store configuration
-This template validates that fakeSecretStore is not enabled when external-secrets is disabled.
-When external-secrets is disabled in the observability plane, fake secrets should be configured
-in the data plane's fake secret store instead.
-*/}}
-{{- define "openchoreo-observability-plane.validateFakeSecretStore" -}}
-{{- if and (not (index .Values "external-secrets" "enabled")) .Values.fakeSecretStore.enabled }}
-{{- fail "\n\nERROR: fakeSecretStore is enabled but external-secrets is disabled.\n\nSince external-secrets is disabled in the observability plane, fake secrets should be configured in the data plane's fake secret store instead.\n\nTo fix this issue:\n  1. Set fakeSecretStore.enabled=false in observability plane values\n  2. Configure fake secrets in the data plane's fake secret store\n" -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-observability-plane.clusterAgent.name" -}}

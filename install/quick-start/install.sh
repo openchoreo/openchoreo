@@ -103,6 +103,9 @@ fi
 # Step 3: Install cert-manager (prerequisite for TLS certificate management)
 install_cert_manager
 
+# Step 3.5: Install External Secrets Operator (prerequisite for secret management)
+install_eso
+
 # Step 4: Install OpenChoreo Control Plane
 install_control_plane
 

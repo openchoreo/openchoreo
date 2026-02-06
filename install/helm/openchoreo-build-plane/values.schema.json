@@ -602,33 +602,6 @@
       "title": "clusterAgent",
       "type": "object"
     },
-    "external-secrets": {
-      "additionalProperties": true,
-      "description": "External Secrets Operator sub-chart configuration. See https://github.com/external-secrets/external-secrets for all options. Single cluster - set enabled to false to use data plane's ESO. Multi-cluster - set enabled to true to install dedicated ESO in build plane.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Install External Secrets Operator in the build plane",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "fullnameOverride": {
-          "default": "external-secrets",
-          "description": "Override the full name of External Secrets resources",
-          "title": "fullnameOverride",
-          "type": "string"
-        },
-        "nameOverride": {
-          "default": "external-secrets",
-          "description": "Override the name of External Secrets resources",
-          "title": "nameOverride",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "title": "external-secrets",
-      "type": "object"
-    },
     "fakeSecretStore": {
       "additionalProperties": false,
       "description": "Fake Secret Store configuration for local development. Creates a ClusterSecretStore with static secrets for testing purposes. Not for production use.",

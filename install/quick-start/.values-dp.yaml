@@ -55,6 +55,3 @@ security:
 
 observability:
   enabled: false
-
-external-secrets:
-  enabled: true

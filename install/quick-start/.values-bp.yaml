@@ -14,11 +14,6 @@ global:
     buildpackCache:
       enabled: true
 
-# External Secrets Operator
-# Disabled in quick-start since Data Plane already has ESO in single-cluster mode
-external-secrets:
-  enabled: false
-
 # Fluent Bit logging
 # Disabled because Data Plane's FluentBit DaemonSet already collects logs
 # from ALL namespaces including openchoreo-build-plane and openchoreo-ci-*

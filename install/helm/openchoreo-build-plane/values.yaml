@@ -258,33 +258,6 @@ waitJob:
 
 # @schema
 # type: object
-# additionalProperties: true
-# description: External Secrets Operator sub-chart configuration. See https://github.com/external-secrets/external-secrets for all options. Single cluster - set enabled to false to use data plane's ESO. Multi-cluster - set enabled to true to install dedicated ESO in build plane.
-# @schema
-external-secrets:
-  # @schema
-  # type: boolean
-  # description: Install External Secrets Operator in the build plane
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: Override the full name of External Secrets resources
-  # default: external-secrets
-  # @schema
-  fullnameOverride: external-secrets
-
-  # @schema
-  # type: string
-  # description: Override the name of External Secrets resources
-  # default: external-secrets
-  # @schema
-  nameOverride: external-secrets
-
-# @schema
-# type: object
 # additionalProperties: false
 # description: Fake Secret Store configuration for local development. Creates a ClusterSecretStore with static secrets for testing purposes. Not for production use.
 # @schema

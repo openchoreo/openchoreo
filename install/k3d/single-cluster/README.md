@@ -27,21 +27,43 @@ k3d cluster create --config install/k3d/single-cluster/config.yaml
 docker exec k3d-openchoreo-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 ```
 
-### 2. Install cert-manager (Prerequisite)
+### 2. Install Prerequisites
 
-cert-manager is required for TLS certificate management:
+#### Gateway API CRDs
 
 ```bash
-helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-    --namespace cert-manager \
-    --create-namespace \
-    --set crds.enabled=true
+kubectl apply --context k3d-openchoreo --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+```
 
-# Wait for cert-manager to be ready
-kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager \
-  -n cert-manager --timeout=120s
-kubectl --context k3d-openchoreo wait --for=condition=available deployment/cert-manager-webhook \
-  -n cert-manager --timeout=120s
+#### cert-manager
+
+```bash
+helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+  --kube-context k3d-openchoreo \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.19.2 \
+  --set crds.enabled=true
+
+kubectl wait --context k3d-openchoreo \
+  --for=condition=Available deployment/cert-manager \
+  -n cert-manager --timeout=180s
+```
+
+#### External Secrets Operator
+
+```bash
+helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+kubectl wait --context k3d-openchoreo \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
 ```
 
 ### 3. Install Components

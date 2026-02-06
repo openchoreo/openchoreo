@@ -76,6 +76,82 @@ helm install cilium oci://ghcr.io/openchoreo/helm-charts/cilium \
 ```
 
 
+## Install Prerequisites
+
+### Gateway API CRDs
+
+OpenChoreo uses the Kubernetes Gateway API for traffic management. Install the experimental Gateway API CRDs on each cluster:
+
+```shell
+# Control Plane cluster
+kubectl apply --context k3d-openchoreo-cp --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+
+# Data Plane cluster
+kubectl apply --context k3d-openchoreo-dp --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+```
+
+### cert-manager
+
+cert-manager is required for TLS certificate management. Install it on each cluster that needs it:
+
+```shell
+# Control Plane cluster
+helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+  --kube-context k3d-openchoreo-cp \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.19.2 \
+  --set crds.enabled=true
+
+kubectl wait --context k3d-openchoreo-cp \
+  --for=condition=Available deployment/cert-manager \
+  -n cert-manager --timeout=180s
+
+# Data Plane cluster
+helm install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+  --kube-context k3d-openchoreo-dp \
+  --namespace cert-manager \
+  --create-namespace \
+  --version v1.19.2 \
+  --set crds.enabled=true
+
+kubectl wait --context k3d-openchoreo-dp \
+  --for=condition=Available deployment/cert-manager \
+  -n cert-manager --timeout=180s
+```
+
+### External Secrets Operator
+
+External Secrets Operator (ESO) is required for syncing secrets from external secret stores. Install it on each cluster that needs secret management:
+
+```shell
+# Control Plane cluster
+helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo-cp \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+kubectl wait --context k3d-openchoreo-cp \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
+
+# Data Plane cluster
+helm install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo-dp \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+kubectl wait --context k3d-openchoreo-dp \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
+```
+
 ## Install OpenChoreo
 
 Now you can proceed to install OpenChoreo on both the Control Plane and Data Plane clusters using Helm.

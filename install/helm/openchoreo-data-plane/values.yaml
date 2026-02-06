@@ -756,33 +756,6 @@ gateway:
 # @schema
 # type: object
 # additionalProperties: true
-# description: External Secrets Operator configuration for syncing secrets from external secret stores (Vault, AWS Secrets Manager, etc.)
-# @schema
-external-secrets:
-  # @schema
-  # type: boolean
-  # description: Enable External Secrets Operator for production secret management
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: Override the full name of External Secrets resources
-  # default: external-secrets
-  # @schema
-  fullnameOverride: external-secrets
-
-  # @schema
-  # type: string
-  # description: Override the name of External Secrets resources
-  # default: external-secrets
-  # @schema
-  nameOverride: external-secrets
-
-# @schema
-# type: object
-# additionalProperties: true
 # description: Fake Secret Store for development and testing. Replace with a real ClusterSecretStore in production.
 # @schema
 fakeSecretStore:

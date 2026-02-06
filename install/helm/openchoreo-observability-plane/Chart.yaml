@@ -32,10 +32,6 @@ dependencies:
     repository: https://opensearch-project.github.io/helm-charts/
     version: 0.3.1
     condition: data-prepper.enabled
-  - name: external-secrets
-    version: 0.19.2
-    repository: "https://charts.external-secrets.io"
-    condition: external-secrets.enabled
   - name: fluent-bit
     repository: https://fluent.github.io/helm-charts
     version: 0.54.0

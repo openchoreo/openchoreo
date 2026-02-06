@@ -473,43 +473,12 @@ data-prepper:
 # @schema
 # type: object
 # additionalProperties: true
-# description: |
-#   External Secrets Operator subchart configuration for secret management.
-#   Single cluster: Set enabled to false to use the data plane's ESO.
-#   Multi-cluster: Set enabled to true to install a dedicated ESO in the observability plane.
-# @schema
-external-secrets:
-  # @schema
-  # type: boolean
-  # description: Enable External Secrets Operator installation in this chart
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: Override the full name of External Secrets Operator resources
-  # default: external-secrets
-  # @schema
-  fullnameOverride: external-secrets
-
-  # @schema
-  # type: string
-  # description: Override the name of External Secrets Operator resources
-  # default: external-secrets
-  # @schema
-  nameOverride: external-secrets
-
-
-# @schema
-# type: object
-# additionalProperties: true
 # description: Fake Secret Store configuration for local development without a real secret backend
 # @schema
 fakeSecretStore:
   # @schema
   # type: boolean
-  # description: Enable fake secret store (requires external-secrets.enabled to be true)
+  # description: Enable fake secret store (requires External Secrets Operator to be installed)
   # default: false
   # @schema
   enabled: false

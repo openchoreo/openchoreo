@@ -1,4 +1,4 @@
-{{- if and (index .Values "external-secrets" "enabled") .Values.fakeSecretStore.enabled }}
+{{- if .Values.fakeSecretStore.enabled }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
