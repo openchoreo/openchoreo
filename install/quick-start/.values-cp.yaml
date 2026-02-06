@@ -37,30 +37,44 @@ gateway:
 
 # Security configuration for quickstart
 security:
-  authz:
-    defaultRoleMappings:
-      - role:
-          name: super-admin
-        entitlement:
-          claim: groups
-          value: platformEngineer
-        effect: allow
-      - role:
-          name: backstage-catalog-reader
-        entitlement:
-          claim: sub
-          value: openchoreo-backstage-client
-        effect: allow
-      - role:
-          name: rca-agent
-        entitlement:
-          claim: sub
-          value: openchoreo-rca-agent
-        effect: allow
-      # Quickstart CLI client credentials mapping
-      - role:
-          name: super-admin
-        entitlement:
-          claim: sub
-          value: openchoreo-cli-quickstart
-        effect: allow
+openchoreoApi:
+  config:
+    security:
+      authorization:
+        bootstrap:
+          mappings:
+            # Super admin mapping - grants platformEngineer group full access
+            - name: super-admin-binding
+              roleRef:
+                name: super-admin
+              entitlement:
+                claim: groups
+                value: platformEngineer
+              effect: allow
+
+            # Backstage catalog reader mapping - grants backstage service account read access
+            - name: backstage-catalog-reader-binding
+              roleRef:
+                name: backstage-catalog-reader
+              entitlement:
+                claim: sub
+                value: openchoreo-backstage-client
+              effect: allow
+
+            # RCA agent mapping - grants RCA service account troubleshooting access
+            - name: rca-agent-binding
+              roleRef:
+                name: rca-agent
+              entitlement:
+                claim: sub
+                value: openchoreo-rca-agent
+              effect: allow
+
+            # Quickstart CLI client credentials mapping
+            - name: quickstart-cli-super-admin-binding
+              roleRef:
+                name: super-admin
+              entitlement:
+                claim: sub
+                value: openchoreo-cli-quickstart
+              effect: allow
