@@ -182,7 +182,6 @@ data:
       "description": "OpenChoreo Backstage Portal",
       "allowed_user_types": ["engineer"],
       "token": {
-        "issuer": "thunder",
         "validity_period": 3600,
         "user_attributes": [
             "given_name",
@@ -424,7 +423,6 @@ data:
       "description": "OpenChoreo CLI Default Application",
       "allowed_user_types": ["engineer"],
       "token": {
-        "issuer": "thunder",
         "validity_period": 3600,
         "user_attributes": [
             "given_name",

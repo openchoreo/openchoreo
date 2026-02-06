@@ -1,10 +1,10 @@
 {{- if .Values.openchoreoApi.enabled }}
 {{- /* Computed defaults from helpers */ -}}
 {{- $publicUrl := printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.apiHost" .) (include "openchoreo.port" .) }}
-{{- $oidcIssuer := .Values.security.oidc.issuer }}
+{{- $oidcIssuer := .Values.security.oidc.issuer | default (include "openchoreo.thunderExternalUrl" .) }}
 {{- $jwksUrl := .Values.security.oidc.jwksUrl | default (printf "%s/oauth2/jwks" (include "openchoreo.thunderInternalUrl" .)) }}
-{{- $authzUrl := .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" $oidcIssuer) }}
-{{- $tokenUrl := .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" $oidcIssuer) }}
+{{- $authzUrl := .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" (include "openchoreo.thunderExternalUrl" .)) }}
+{{- $tokenUrl := .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderExternalUrl" .)) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -268,6 +268,13 @@ Get Thunder internal URL for pod-to-pod communication
 {{- end -}}
 
 {{/*
+Get the Thunder external URL for external communication (e.g., OIDC issuer)
+*/}}
+{{- define "openchoreo.thunderExternalUrl" -}}
+{{- printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .) -}}
+{{- end -}}
+
+{{/*
 Get the scheme (http or https) - alias for protocol
 */}}
 {{- define "openchoreo.scheme" -}}

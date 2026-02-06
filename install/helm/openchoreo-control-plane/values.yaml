@@ -100,7 +100,7 @@ security:
     # description: OIDC provider issuer URL
     # default: ""
     # @schema
-    issuer: "thunder"
+    issuer: ""
     # @schema
     # type: string
     # description: OIDC well-known configuration endpoint URL
@@ -3621,7 +3621,7 @@ thunder:
       # description: JWT issuer name
       # default: thunder
       # @schema
-      issuer: "thunder"
+      issuer: ""
       # type: integer
       # description: Token validity period in seconds
       # default: 3600
