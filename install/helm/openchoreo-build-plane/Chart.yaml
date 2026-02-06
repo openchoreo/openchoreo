@@ -28,7 +28,7 @@ dependencies:
     repository: "https://argoproj.github.io/argo-helm"
     version: 0.45.2
   - name: external-secrets
-    version: 0.19.2
+    version: 1.3.2
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
   - name: fluent-bit
