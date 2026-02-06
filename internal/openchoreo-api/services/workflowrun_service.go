@@ -211,24 +211,16 @@ func (s *WorkflowRunService) toWorkflowRunResponse(wfRun *openchoreov1alpha1.Wor
 		response.UUID = string(wfRun.UID)
 	}
 
-	// Extract status information
-	if len(wfRun.Status.Conditions) > 0 {
-		// Find the most recent condition that indicates the overall status
-		for _, condition := range wfRun.Status.Conditions {
-			if condition.Type == "Ready" || condition.Type == "Completed" {
-				response.Status = string(condition.Status)
-				response.Phase = condition.Reason
-				if condition.LastTransitionTime.Time.After(wfRun.CreationTimestamp.Time) && condition.Status == metav1.ConditionFalse && condition.Type == "Completed" {
-					response.FinishedAt = &condition.LastTransitionTime.Time
-				}
-				break
-			}
-		}
-	}
+	// Extract status from conditions using priority order
+	response.Status = getWorkflowRunStatus(wfRun.Status.Conditions)
+	response.Phase = response.Status
 
-	// Default status if not found
-	if response.Status == "" {
-		response.Status = WorkflowRunStatusPending
+	// Set FinishedAt from WorkflowCompleted condition when completed
+	for _, condition := range wfRun.Status.Conditions {
+		if condition.Type == "WorkflowCompleted" && condition.Status == metav1.ConditionTrue {
+			response.FinishedAt = &condition.LastTransitionTime.Time
+			break
+		}
 	}
 
 	// Extract parameters if available
@@ -240,6 +232,33 @@ func (s *WorkflowRunService) toWorkflowRunResponse(wfRun *openchoreov1alpha1.Wor
 	}
 
 	return response
+}
+
+// getWorkflowRunStatus determines the user-friendly status from workflow run conditions
+func getWorkflowRunStatus(conditions []metav1.Condition) string {
+	if len(conditions) == 0 {
+		return WorkflowRunStatusPending
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
+			return "Failed"
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
+			return "Succeeded"
+		}
+	}
+
+	for _, condition := range conditions {
+		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
+			return "Running"
+		}
+	}
+
+	return WorkflowRunStatusPending
 }
 
 // marshalToRawExtension marshals a map to runtime.RawExtension
