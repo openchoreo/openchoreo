@@ -82,6 +82,25 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, ErrInvalidSecretType
 	}
 
+	// Check if SecretReference already exists in control plane
+	existingSecretRef := &openchoreov1alpha1.SecretReference{}
+	secretRefKey := client.ObjectKey{Name: req.SecretName, Namespace: namespaceName}
+	if err := s.k8sClient.Get(ctx, secretRefKey, existingSecretRef); err == nil {
+		// SecretReference exists - check if it's a git secret
+		if existingSecretRef.Annotations[gitSecretTypeAnnotation] == gitSecretTypeValue {
+			s.logger.Warn("Git secret already exists", "namespace", namespaceName, "secret", req.SecretName)
+			return nil, ErrGitSecretAlreadyExists
+		}
+		// Not a git secret, but name collision with another SecretReference
+		s.logger.Warn("SecretReference with same name already exists", "namespace", namespaceName, "secret", req.SecretName)
+		return nil, ErrGitSecretAlreadyExists
+	} else if client.IgnoreNotFound(err) != nil {
+		// Error checking SecretReference (not a NotFound error)
+		s.logger.Error("Failed to check existing secret reference", "error", err, "namespace", namespaceName, "secret", req.SecretName)
+		return nil, fmt.Errorf("failed to check existing secret reference: %w", err)
+	}
+	// SecretReference doesn't exist, proceed with creation
+
 	buildPlane, err := s.getBuildPlane(ctx, namespaceName)
 	if err != nil {
 		return nil, err
@@ -106,24 +125,30 @@ func (s *GitSecretService) CreateGitSecret(ctx context.Context, namespaceName st
 		return nil, err
 	}
 
-	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Username, req.Token, req.SSHKey)
-	if err := buildPlaneClient.Create(ctx, secret); err != nil {
-		s.logger.Error("Failed to create build plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
-		return nil, fmt.Errorf("failed to create build plane secret: %w", err)
+	// Create or update K8s Secret in build plane using Server-Side Apply
+	secret := s.buildGitSecret(req.SecretName, namespaceName, ciNamespace, req.SecretType, req.Username, req.Token, req.SSHKey, req.SSHKeyId)
+	if err := buildPlaneClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
+		s.logger.Error("Failed to apply build plane secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
+		return nil, fmt.Errorf("failed to apply build plane secret: %w", err)
 	}
+	s.logger.Debug("Successfully applied K8s secret in build plane", "namespace", ciNamespace, "secret", req.SecretName)
 
-	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType, req.Username)
-	if err := buildPlaneClient.Create(ctx, pushSecret); err != nil {
-		s.logger.Error("Failed to create push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
-		return nil, fmt.Errorf("failed to create push secret: %w", err)
+	// Create or update PushSecret in build plane using Server-Side Apply
+	pushSecret := s.createPushSecret(req.SecretName, secretStoreName, namespaceName, ciNamespace, req.SecretType, req.Username, req.SSHKeyId)
+	if err := buildPlaneClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner("openchoreo-api")); err != nil {
+		s.logger.Error("Failed to apply push secret", "error", err, "namespace", namespaceName, "secret", req.SecretName)
+		return nil, fmt.Errorf("failed to apply push secret: %w", err)
 	}
+	s.logger.Debug("Successfully applied PushSecret in build plane", "namespace", ciNamespace, "secret", req.SecretName)
 
-	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username)
+	// Create SecretReference in control plane
+	secretReference := s.buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.Username, req.SSHKeyId)
 	if err := s.k8sClient.Create(ctx, secretReference); err != nil {
 		s.logger.Error("Failed to create secret reference", "error", err, "namespace", namespaceName, "secret", req.SecretName)
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
 	}
 
+	s.logger.Info("Successfully created git secret", "namespace", namespaceName, "secret", req.SecretName, "type", req.SecretType)
 	return &models.GitSecretResponse{
 		Name:      req.SecretName,
 		Namespace: namespaceName,
@@ -145,7 +170,7 @@ func (s *GitSecretService) getBuildPlane(ctx context.Context, namespaceName stri
 	return &buildPlanes.Items[0], nil
 }
 
-func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, username, token, sshKey string) *corev1.Secret {
+func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespace, secretType, username, token, sshKey, sshKeyId string) *corev1.Secret {
 	var k8sSecretType corev1.SecretType
 	var secretData map[string]string
 
@@ -163,9 +188,17 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 		secretData = map[string]string{
 			"ssh-privatekey": sshKey,
 		}
+		// Add SSH Key ID if provided (required for AWS CodeCommit)
+		if sshKeyId != "" {
+			secretData["ssh-key-id"] = sshKeyId
+		}
 	}
 
 	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
 			Namespace: ciNamespace,
@@ -178,7 +211,7 @@ func (s *GitSecretService) buildGitSecret(secretName, ownerNamespace, ciNamespac
 	}
 }
 
-func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType, username string) *openchoreov1alpha1.SecretReference {
+func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secretType, username, sshKeyId string) *openchoreov1alpha1.SecretReference {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", namespaceName, secretName)
 
 	var k8sSecretType corev1.SecretType
@@ -219,6 +252,17 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secre
 				},
 			},
 		}
+
+		// Add SSH Key ID if provided (required for AWS CodeCommit)
+		if sshKeyId != "" {
+			dataSources = append(dataSources, openchoreov1alpha1.SecretDataSource{
+				SecretKey: "ssh-key-id",
+				RemoteRef: openchoreov1alpha1.RemoteReference{
+					Key:      remoteKey,
+					Property: "ssh-key-id",
+				},
+			})
+		}
 	}
 
 	return &openchoreov1alpha1.SecretReference{
@@ -244,7 +288,7 @@ func (s *GitSecretService) buildSecretReference(namespaceName, secretName, secre
 }
 
 // createPushSecret creates an unstructured PushSecret resource for build planes.
-func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType, username string) *unstructured.Unstructured {
+func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespace, ciNamespace, secretType, username, sshKeyId string) *unstructured.Unstructured {
 	remoteKey := fmt.Sprintf("secret/%s/git/%s", ownerNamespace, name)
 
 	var dataMatches []map[string]interface{}
@@ -286,6 +330,19 @@ func (s *GitSecretService) createPushSecret(name, secretStoreName, ownerNamespac
 					},
 				},
 			},
+		}
+
+		// Add SSH Key ID if provided (required for AWS CodeCommit)
+		if sshKeyId != "" {
+			dataMatches = append(dataMatches, map[string]interface{}{
+				"match": map[string]interface{}{
+					"secretKey": "ssh-key-id",
+					"remoteRef": map[string]interface{}{
+						"remoteKey": remoteKey,
+						"property":  "ssh-key-id",
+					},
+				},
+			})
 		}
 	}
 

@@ -394,6 +394,8 @@ type CreateGitSecretRequest struct {
 	Token string `json:"token,omitempty"`
 	// SSHKey is the SSH private key (required for ssh-auth type)
 	SSHKey string `json:"sshKey,omitempty"`
+	// SSHKeyId is the SSH Key ID for AWS CodeCommit (optional for ssh-auth type)
+	SSHKeyId string `json:"sshKeyId,omitempty"`
 }
 
 // Validate validates the CreateGitSecretRequest
@@ -420,6 +422,9 @@ func (req *CreateGitSecretRequest) Validate() error {
 		if strings.TrimSpace(req.SSHKey) != "" {
 			return errors.New("sshKey must not be provided for basic-auth type")
 		}
+		if strings.TrimSpace(req.SSHKeyId) != "" {
+			return errors.New("sshKeyId must not be provided for basic-auth type")
+		}
 		// Username is optional for basic-auth
 	} else { // ssh-auth
 		if strings.TrimSpace(req.SSHKey) == "" {
@@ -431,6 +436,7 @@ func (req *CreateGitSecretRequest) Validate() error {
 		if strings.TrimSpace(req.Username) != "" {
 			return errors.New("username must not be provided for ssh-auth type")
 		}
+		// SSHKeyId is optional for ssh-auth (required for AWS CodeCommit)
 	}
 
 	return nil
@@ -443,6 +449,7 @@ func (req *CreateGitSecretRequest) Sanitize() {
 	req.Username = strings.TrimSpace(req.Username)
 	req.Token = strings.TrimSpace(req.Token)
 	req.SSHKey = strings.TrimSpace(req.SSHKey)
+	req.SSHKeyId = strings.TrimSpace(req.SSHKeyId)
 }
 
 // CreateWorkflowRunRequest represents the request to create a new workflow run
