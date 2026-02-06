@@ -302,7 +302,7 @@ data:
           jwtauth_v010:
             keymanagers:
             - name: ThunderKeyManager
-              issuer: thunder
+              issuer: http://thunder.openchoreo.localhost:8080
               jwks:
                 remote:
                   uri: http://thunder-service.openchoreo-control-plane:8090/oauth2/jwks
