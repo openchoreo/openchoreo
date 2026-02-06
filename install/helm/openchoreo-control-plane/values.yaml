@@ -2071,6 +2071,41 @@ backstage:
       enabled: true
 
   # @schema
+  # type: object
+  # description: External CI platform integrations (Jenkins). GitHub Actions and GitLab support coming soon.
+  # @schema
+  externalCI:
+    # @schema
+    # type: object
+    # description: Jenkins CI integration configuration
+    # @schema
+    jenkins:
+      # @schema
+      # type: boolean
+      # description: Enable Jenkins integration by injecting environment variables
+      # default: false
+      # @schema
+      enabled: false
+      # @schema
+      # type: string
+      # description: Jenkins server base URL (e.g., https://jenkins.example.com)
+      # default: ""
+      # @schema
+      baseUrl: ""
+      # @schema
+      # type: string
+      # description: Jenkins username for API authentication
+      # default: ""
+      # @schema
+      username: ""
+      # @schema
+      # type: string
+      # description: Jenkins API key/token for authentication
+      # default: ""
+      # @schema
+      apiKey: ""
+
+  # @schema
   # type: array
   # description: Environment variables for the Backstage container
   # items:

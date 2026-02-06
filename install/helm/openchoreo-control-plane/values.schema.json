@@ -394,6 +394,48 @@
           "title": "existingSecret",
           "type": "string"
         },
+        "externalCI": {
+          "additionalProperties": false,
+          "description": "External CI platform integrations (Jenkins). GitHub Actions and GitLab support coming soon.",
+          "properties": {
+            "jenkins": {
+              "additionalProperties": false,
+              "description": "Jenkins CI integration configuration",
+              "properties": {
+                "apiKey": {
+                  "default": "",
+                  "description": "Jenkins API key/token for authentication",
+                  "title": "apiKey",
+                  "type": "string"
+                },
+                "baseUrl": {
+                  "default": "",
+                  "description": "Jenkins server base URL (e.g., https://jenkins.example.com)",
+                  "title": "baseUrl",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": false,
+                  "description": "Enable Jenkins integration by injecting environment variables",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "username": {
+                  "default": "",
+                  "description": "Jenkins username for API authentication",
+                  "title": "username",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "jenkins",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "externalCI",
+          "type": "object"
+        },
         "features": {
           "additionalProperties": false,
           "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
