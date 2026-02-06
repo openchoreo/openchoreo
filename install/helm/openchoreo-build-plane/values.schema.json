@@ -1169,7 +1169,7 @@
                       "type": "string"
                     },
                     "serviceAccountName": {
-                      "default": "external-secrets",
+                      "default": "external-secrets-openbao",
                       "description": "ServiceAccount name for OpenBao authentication",
                       "title": "serviceAccountName",
                       "type": "string"

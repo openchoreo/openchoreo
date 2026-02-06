@@ -808,9 +808,9 @@ openbao:
         # @schema
         # type: string
         # description: ServiceAccount name for OpenBao authentication
-        # default: external-secrets
+        # default: external-secrets-openbao
         # @schema
-        serviceAccountName: external-secrets
+        serviceAccountName: external-secrets-openbao
 
         # @schema
         # type: string
