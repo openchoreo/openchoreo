@@ -2511,11 +2511,11 @@ func (s *ComponentService) UpdateComponentWorkflowParameters(ctx context.Context
 		return nil, fmt.Errorf("component does not have workflow configuration")
 	}
 
-	// Update system parameters if provided
 	if req.SystemParameters != nil {
 		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
 			Repository: openchoreov1alpha1.RepositoryValues{
-				URL: req.SystemParameters.Repository.URL,
+				URL:       req.SystemParameters.Repository.URL,
+				SecretRef: req.SystemParameters.Repository.SecretRef,
 				Revision: openchoreov1alpha1.RepositoryRevisionValues{
 					Branch: req.SystemParameters.Repository.Revision.Branch,
 					Commit: req.SystemParameters.Repository.Revision.Commit,
@@ -2600,7 +2600,8 @@ func (s *ComponentService) UpdateComponentWorkflowSchema(ctx context.Context, na
 	if req.SystemParameters != nil {
 		component.Spec.Workflow.SystemParameters = openchoreov1alpha1.SystemParametersValues{
 			Repository: openchoreov1alpha1.RepositoryValues{
-				URL: req.SystemParameters.Repository.URL,
+				URL:       req.SystemParameters.Repository.URL,
+				SecretRef: req.SystemParameters.Repository.SecretRef,
 				Revision: openchoreov1alpha1.RepositoryRevisionValues{
 					Branch: req.SystemParameters.Repository.Revision.Branch,
 					Commit: req.SystemParameters.Repository.Revision.Commit,
