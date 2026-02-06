@@ -3662,15 +3662,6 @@ thunder:
     # default: 3
     # @schema
     backoffLimit: 3
-    # type: integer
-    # description: Job retention time in seconds after completion (24 hours)
-    # default: 86400
-    # @schema
-    # type: integer
-    # description: Job retention time in seconds after completion (24 hours)
-    # default: 86400
-    # @schema
-    ttlSecondsAfterFinished: 86400
     # type: boolean
     # description: Preserve job after completion
     # default: true
@@ -4294,18 +4285,6 @@ clusterGateway:
     # default: 360h
     # @schema
     renewBefore: 360h
-
-  # @schema
-  # type: object
-  # description: CA extractor job configuration
-  # @schema
-  caExtractorJob:
-    # @schema
-    # type: integer
-    # description: Time in seconds after job completion before automatic cleanup (0 disables cleanup)
-    # default: 600
-    # @schema
-    ttlSecondsAfterFinished: 600
 
   # type: object
   # description: Pod security context

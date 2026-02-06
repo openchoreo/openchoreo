@@ -918,21 +918,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "caExtractorJob": {
-          "additionalProperties": false,
-          "description": "CA extractor job configuration",
-          "properties": {
-            "ttlSecondsAfterFinished": {
-              "default": 600,
-              "description": "Time in seconds after job completion before automatic cleanup (0 disables cleanup)",
-              "title": "ttlSecondsAfterFinished",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "caExtractorJob",
-          "type": "object"
-        },
         "enabled": {
           "default": true,
           "description": "Enable the cluster gateway",
@@ -5085,12 +5070,6 @@
               "required": [],
               "title": "resources",
               "type": "object"
-            },
-            "ttlSecondsAfterFinished": {
-              "default": 86400,
-              "description": "Job retention time in seconds after completion (24 hours)",
-              "title": "ttlSecondsAfterFinished",
-              "type": "integer"
             }
           },
           "required": [],
