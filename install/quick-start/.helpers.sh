@@ -544,6 +544,12 @@ install_eso() {
         "--set" "installCRDs=true"
 }
 
+install_gateway_crds() {
+    log_info "Installing Gateway CRDs...."
+    
+    kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+}
+
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."

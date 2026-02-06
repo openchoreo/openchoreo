@@ -106,6 +106,9 @@ install_cert_manager
 # Step 3.5: Install External Secrets Operator (prerequisite for secret management)
 install_eso
 
+# Step 3.6: Install Gateway CRDs
+install_gateway_crds
+
 # Step 4: Install OpenChoreo Control Plane
 install_control_plane
 
