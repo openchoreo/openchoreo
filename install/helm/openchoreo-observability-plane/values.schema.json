@@ -3630,6 +3630,29 @@
           "title": "image",
           "type": "object"
         },
+        "ingress": {
+          "additionalProperties": false,
+          "description": "Ingress configuration for the RCA agent",
+          "properties": {
+            "hosts": {
+              "description": "Ingress hosts",
+              "items": {
+                "properties": {
+                  "host": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "hosts",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
         "llm": {
           "additionalProperties": false,
           "description": "LLM configuration for AI-powered analysis",

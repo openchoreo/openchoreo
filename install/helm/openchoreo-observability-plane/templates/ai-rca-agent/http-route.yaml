@@ -8,6 +8,14 @@ spec:
   parentRefs:
   - name: gateway-default
     sectionName: http
+  hostnames:
+    {{- if .Values.rca.ingress.hosts }}
+    {{- range .Values.rca.ingress.hosts }}
+    - {{ .host | quote }}
+    {{- end }}
+    {{- else }}
+    - {{ printf "rca-agent.%s" .Values.global.baseDomain | quote }}
+    {{- end }}
   rules:
   - matches:
     - path:

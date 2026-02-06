@@ -128,6 +128,10 @@ tls:
 
 rca:
   controlPlaneUrl: "https://api.openchoreo.localhost:8443"
+  ingress:
+    hosts:
+    - host: host.k3d.internal
+    - host: rca-agent.observability.openchoreo.localhost
 
 global:
   baseDomain: observability.openchoreo.localhost

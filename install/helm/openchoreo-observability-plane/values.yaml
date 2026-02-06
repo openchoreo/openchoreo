@@ -3135,3 +3135,19 @@ rca:
     # default: 30
     # @schema
     timeoutSeconds: 30
+
+  # @schema
+  # type: object
+  # description: Ingress configuration for the RCA agent
+  # @schema
+  ingress:
+    # @schema
+    # type: array
+    # description: Ingress hosts
+    # items:
+    #   type: object
+    #   properties:
+    #     host:
+    #       type: string
+    # @schema
+    hosts: []
