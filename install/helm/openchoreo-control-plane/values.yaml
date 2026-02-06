@@ -2719,23 +2719,50 @@ thunder:
       # @schema
       enableRunAsUser: true
       # type: integer
-      # description: Filesystem group
-      # default: 802
-      # @schema
-      # type: integer
-      # description: Filesystem group
-      # default: 802
-      # @schema
-      fsGroup: 802
-      # type: integer
       # description: User ID
-      # default: 802
+      # default: 10001
       # @schema
       # type: integer
       # description: User ID
-      # default: 802
+      # default: 10001
       # @schema
-      runAsUser: 802
+      runAsUser: 10001
+      # type: boolean
+      # description: Enable run as group
+      # default: true
+      # @schema
+      # type: boolean
+      # description: Enable run as group
+      # default: true
+      # @schema
+      enableRunAsGroup: true
+      # type: integer
+      # description: Group ID
+      # default: 10001
+      # @schema
+      # type: integer
+      # description: Group ID
+      # default: 10001
+      # @schema
+      runAsGroup: 10001
+      # type: boolean
+      # description: Enable filesystem group
+      # default: true
+      # @schema
+      # type: boolean
+      # description: Enable filesystem group
+      # default: true
+      # @schema
+      enableFsGroup: true
+      # type: integer
+      # description: Filesystem group
+      # default: 10001
+      # @schema
+      # type: integer
+      # description: Filesystem group
+      # default: 10001
+      # @schema
+      fsGroup: 10001
       # type: object
       # additionalProperties: true
       # description: Seccomp profile configuration
@@ -2803,13 +2830,13 @@ thunder:
       repository: thunder
       # type: string
       # description: Image tag
-      # default: "0.15.0"
+      # default: "0.20.0"
       # @schema
       # type: string
       # description: Image tag
-      # default: "0.15.0"
+      # default: "0.20.0"
       # @schema
-      tag: "0.15.0"
+      tag: "0.20.0"
       # description: Image pull policy
       # enum: [Always, IfNotPresent, Never]
       # default: IfNotPresent
@@ -3284,13 +3311,22 @@ thunder:
 
     # type: object
     # additionalProperties: true
-    # description: Security file paths
+    # description: TLS configuration
     # @schema
     # type: object
     # additionalProperties: true
-    # description: Security file paths
+    # description: TLS configuration
     # @schema
-    security:
+    tls:
+      # type: string
+      # description: Minimum TLS version
+      # default: "1.3"
+      # @schema
+      # type: string
+      # description: Minimum TLS version
+      # default: "1.3"
+      # @schema
+      minVersion: "1.3"
       # type: string
       # description: Server certificate file path
       # default: repository/resources/security/server.cert
@@ -3309,15 +3345,34 @@ thunder:
       # default: repository/resources/security/server.key
       # @schema
       keyFile: "repository/resources/security/server.key"
-      # type: string
-      # description: Crypto key file path
-      # default: repository/resources/security/crypto.key
+
+    # type: object
+    # additionalProperties: true
+    # description: Crypto configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Crypto configuration
+    # @schema
+    crypto:
+      # type: object
+      # additionalProperties: true
+      # description: Encryption configuration
       # @schema
-      # type: string
-      # description: Crypto key file path
-      # default: repository/resources/security/crypto.key
+      # type: object
+      # additionalProperties: true
+      # description: Encryption configuration
       # @schema
-      cryptoFile: "repository/resources/security/crypto.key"
+      encryption:
+        # type: string
+        # description: Encryption key (32-byte hex string or file:// path)
+        # default: file://repository/resources/security/crypto.key
+        # @schema
+        # type: string
+        # description: Encryption key (32-byte hex string or file:// path)
+        # default: file://repository/resources/security/crypto.key
+        # @schema
+        key: "file://repository/resources/security/crypto.key"
 
     # type: object
     # additionalProperties: true
@@ -3574,6 +3629,24 @@ thunder:
         # default: 86400
         # @schema
         validityPeriod: 86400
+      # type: object
+      # additionalProperties: true
+      # description: Authorization code configuration
+      # @schema
+      # type: object
+      # additionalProperties: true
+      # description: Authorization code configuration
+      # @schema
+      authorizationCode:
+        # type: integer
+        # description: Authorization code validity period in seconds
+        # default: 600
+        # @schema
+        # type: integer
+        # description: Authorization code validity period in seconds
+        # default: 600
+        # @schema
+        validityPeriod: 600
 
     # type: object
     # additionalProperties: true
@@ -3585,32 +3658,32 @@ thunder:
     # @schema
     flow:
       # type: string
-      # description: Directory containing flow graph definitions
-      # default: repository/resources/graphs/
+      # description: Default authentication flow handle
+      # default: default-basic-flow
       # @schema
       # type: string
-      # description: Directory containing flow graph definitions
-      # default: repository/resources/graphs/
+      # description: Default authentication flow handle
+      # default: default-basic-flow
       # @schema
-      graphDirectory: "repository/resources/graphs/"
-      # type: object
-      # additionalProperties: true
-      # description: Authentication flow settings
+      defaultAuthFlowHandle: "default-basic-flow"
+      # type: integer
+      # description: Maximum number of flow versions to keep
+      # default: 3
       # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Authentication flow settings
+      # type: integer
+      # description: Maximum number of flow versions to keep
+      # default: 3
       # @schema
-      authn:
-        # type: string
-        # description: Default authentication flow
-        # default: auth_flow_config_basic
-        # @schema
-        # type: string
-        # description: Default authentication flow
-        # default: auth_flow_config_basic
-        # @schema
-        defaultFlow: "auth_flow_config_basic"
+      maxVersionHistory: 3
+      # type: boolean
+      # description: Auto-infer registration flow from authentication flow
+      # default: true
+      # @schema
+      # type: boolean
+      # description: Auto-infer registration flow from authentication flow
+      # default: true
+      # @schema
+      autoInferRegistration: true
 
     # type: object
     # additionalProperties: true
@@ -3634,6 +3707,65 @@ thunder:
       allowedOrigins:
         - "http://openchoreo.localhost:8080"
         - "http://localhost:7007"
+
+    # type: object
+    # additionalProperties: true
+    # description: Passkey configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Passkey configuration
+    # @schema
+    passkey:
+      # type: array
+      # description: Allowed origins for passkey authentication
+      # items:
+      #   type: string
+      # @schema
+      # type: array
+      # description: Allowed origins for passkey authentication
+      # items:
+      #   type: string
+      # @schema
+      allowedOrigins:
+        - "http://openchoreo.localhost:8080"
+
+    # type: object
+    # additionalProperties: true
+    # description: Developer client configuration
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Developer client configuration
+    # @schema
+    developerClient:
+      # type: string
+      # description: Developer client path
+      # default: /develop
+      # @schema
+      # type: string
+      # description: Developer client path
+      # default: /develop
+      # @schema
+      path: "/develop"
+      # type: string
+      # description: Developer client ID
+      # default: DEVELOP
+      # @schema
+      # type: string
+      # description: Developer client ID
+      # default: DEVELOP
+      # @schema
+      clientId: "DEVELOP"
+      # type: string
+      # description: Developer client scopes
+      # default: "['openid', 'profile', 'email', 'system']"
+      # @schema
+      # type: string
+      # description: Developer client scopes
+      # default: "['openid', 'profile', 'email', 'system']"
+      # @schema
+      scopes: "['openid', 'profile', 'email', 'system']"
 
   # type: object
   # additionalProperties: true
@@ -3791,8 +3923,8 @@ thunder:
       #   type: string
       # @schema
       files:
-        - 50-backstage-app.sh
-        - 51-user-schema-and-users.sh
+        - 50-user-schema-and-users.sh
+        - 51-backstage-app.sh
         - 52-default-apps.sh
         - 53-rca-agent-client.sh
         - 54-cli-app.sh

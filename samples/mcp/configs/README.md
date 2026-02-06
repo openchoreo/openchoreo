@@ -64,7 +64,6 @@ curl -L 'http://thunder.openchoreo.localhost:8080/applications' \
   -d '{
     "name": "MCP client",
     "description": "MCP client application to use openchoreo MCP server",
-    "auth_flow_graph_id": "auth_flow_config_basic",
     "inbound_auth_config": [
         {
             "type": "oauth2",

@@ -4261,6 +4261,30 @@
               "title": "cors",
               "type": "object"
             },
+            "crypto": {
+              "additionalProperties": true,
+              "description": "Crypto configuration",
+              "properties": {
+                "encryption": {
+                  "additionalProperties": true,
+                  "description": "Encryption configuration",
+                  "properties": {
+                    "key": {
+                      "default": "file://repository/resources/security/crypto.key",
+                      "description": "Encryption key (32-byte hex string or file:// path)",
+                      "title": "key",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "encryption",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "crypto",
+              "type": "object"
+            },
             "database": {
               "additionalProperties": true,
               "description": "Database configuration using SQLite",
@@ -4366,30 +4390,54 @@
               "title": "database",
               "type": "object"
             },
+            "developerClient": {
+              "additionalProperties": true,
+              "description": "Developer client configuration",
+              "properties": {
+                "clientId": {
+                  "default": "DEVELOP",
+                  "description": "Developer client ID",
+                  "title": "clientId",
+                  "type": "string"
+                },
+                "path": {
+                  "default": "/develop",
+                  "description": "Developer client path",
+                  "title": "path",
+                  "type": "string"
+                },
+                "scopes": {
+                  "default": "['openid', 'profile', 'email', 'system']",
+                  "description": "Developer client scopes",
+                  "title": "scopes",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "developerClient",
+              "type": "object"
+            },
             "flow": {
               "additionalProperties": true,
               "description": "Authentication flow configuration",
               "properties": {
-                "authn": {
-                  "additionalProperties": true,
-                  "description": "Authentication flow settings",
-                  "properties": {
-                    "defaultFlow": {
-                      "default": "auth_flow_config_basic",
-                      "description": "Default authentication flow",
-                      "title": "defaultFlow",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "authn",
-                  "type": "object"
+                "autoInferRegistration": {
+                  "default": true,
+                  "description": "Auto-infer registration flow from authentication flow",
+                  "title": "autoInferRegistration",
+                  "type": "boolean"
                 },
-                "graphDirectory": {
-                  "default": "repository/resources/graphs/",
-                  "description": "Directory containing flow graph definitions",
-                  "title": "graphDirectory",
+                "defaultAuthFlowHandle": {
+                  "default": "default-basic-flow",
+                  "description": "Default authentication flow handle",
+                  "title": "defaultAuthFlowHandle",
                   "type": "string"
+                },
+                "maxVersionHistory": {
+                  "default": 3,
+                  "description": "Maximum number of flow versions to keep",
+                  "title": "maxVersionHistory",
+                  "type": "integer"
                 }
               },
               "required": [],
@@ -4470,6 +4518,21 @@
               "additionalProperties": true,
               "description": "OAuth configuration",
               "properties": {
+                "authorizationCode": {
+                  "additionalProperties": true,
+                  "description": "Authorization code configuration",
+                  "properties": {
+                    "validityPeriod": {
+                      "default": 600,
+                      "description": "Authorization code validity period in seconds",
+                      "title": "validityPeriod",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [],
+                  "title": "authorizationCode",
+                  "type": "object"
+                },
                 "refreshToken": {
                   "additionalProperties": true,
                   "description": "Refresh token configuration",
@@ -4496,31 +4559,21 @@
               "title": "oauth",
               "type": "object"
             },
-            "security": {
+            "passkey": {
               "additionalProperties": true,
-              "description": "Security file paths",
+              "description": "Passkey configuration",
               "properties": {
-                "certFile": {
-                  "default": "repository/resources/security/server.cert",
-                  "description": "Server certificate file path",
-                  "title": "certFile",
-                  "type": "string"
-                },
-                "cryptoFile": {
-                  "default": "repository/resources/security/crypto.key",
-                  "description": "Crypto key file path",
-                  "title": "cryptoFile",
-                  "type": "string"
-                },
-                "keyFile": {
-                  "default": "repository/resources/security/server.key",
-                  "description": "Server private key file path",
-                  "title": "keyFile",
-                  "type": "string"
+                "allowedOrigins": {
+                  "description": "Allowed origins for passkey authentication",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "allowedOrigins",
+                  "type": "array"
                 }
               },
               "required": [],
-              "title": "security",
+              "title": "passkey",
               "type": "object"
             },
             "server": {
@@ -4548,6 +4601,33 @@
               },
               "required": [],
               "title": "server",
+              "type": "object"
+            },
+            "tls": {
+              "additionalProperties": true,
+              "description": "TLS configuration",
+              "properties": {
+                "certFile": {
+                  "default": "repository/resources/security/server.cert",
+                  "description": "Server certificate file path",
+                  "title": "certFile",
+                  "type": "string"
+                },
+                "keyFile": {
+                  "default": "repository/resources/security/server.key",
+                  "description": "Server private key file path",
+                  "title": "keyFile",
+                  "type": "string"
+                },
+                "minVersion": {
+                  "default": "1.3",
+                  "description": "Minimum TLS version",
+                  "title": "minVersion",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "tls",
               "type": "object"
             }
           },
@@ -4602,7 +4682,7 @@
                   "type": "string"
                 },
                 "tag": {
-                  "default": "0.15.0",
+                  "default": "0.20.0",
                   "description": "Image tag",
                   "title": "tag",
                   "type": "string"
@@ -4674,6 +4754,18 @@
               "additionalProperties": true,
               "description": "Security context for the pod",
               "properties": {
+                "enableFsGroup": {
+                  "default": true,
+                  "description": "Enable filesystem group",
+                  "title": "enableFsGroup",
+                  "type": "boolean"
+                },
+                "enableRunAsGroup": {
+                  "default": true,
+                  "description": "Enable run as group",
+                  "title": "enableRunAsGroup",
+                  "type": "boolean"
+                },
                 "enableRunAsUser": {
                   "default": true,
                   "description": "Enable run as user",
@@ -4681,7 +4773,7 @@
                   "type": "boolean"
                 },
                 "fsGroup": {
-                  "default": 802,
+                  "default": 10001,
                   "description": "Filesystem group",
                   "title": "fsGroup",
                   "type": "integer"
@@ -4692,8 +4784,14 @@
                   "title": "readOnlyRootFilesystem",
                   "type": "boolean"
                 },
+                "runAsGroup": {
+                  "default": 10001,
+                  "description": "Group ID",
+                  "title": "runAsGroup",
+                  "type": "integer"
+                },
                 "runAsUser": {
-                  "default": 802,
+                  "default": 10001,
                   "description": "User ID",
                   "title": "runAsUser",
                   "type": "integer"
