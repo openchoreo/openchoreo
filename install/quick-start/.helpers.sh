@@ -521,35 +521,9 @@ install_helm_chart() {
 install_cert_manager() {
     log_info "Installing cert-manager..."
 
-    # Install cert-manager with CRDs
-    local helm_args=(
-        "upgrade" "--install" "cert-manager" "$CERT_MANAGER_REPO/cert-manager"
-        "--namespace" "cert-manager"
-        "--create-namespace"
-        "--version" "$CERT_MANAGER_VERSION"
+    install_helm_chart "cert-manager" "$CERT_MANAGER_REPO/cert-manager" "cert-manager" "true" "true" "true" "300" \
+        "--version" "$CERT_MANAGER_VERSION" \
         "--set" "crds.enabled=true"
-        "--set" "resources.requests.cpu=10m"
-        "--set" "resources.requests.memory=32Mi"
-        "--set" "resources.limits.cpu=50m"
-        "--set" "resources.limits.memory=64Mi"
-        "--set" "cainjector.resources.requests.cpu=10m"
-        "--set" "cainjector.resources.requests.memory=32Mi"
-        "--set" "cainjector.resources.limits.cpu=50m"
-        "--set" "cainjector.resources.limits.memory=64Mi"
-        "--set" "webhook.resources.requests.cpu=10m"
-        "--set" "webhook.resources.requests.memory=32Mi"
-        "--set" "webhook.resources.limits.cpu=50m"
-        "--set" "webhook.resources.limits.memory=64Mi"
-        "--wait"
-        "--timeout" "300s"
-    )
-
-    if helm "${helm_args[@]}"; then
-        log_success "cert-manager installed successfully"
-    else
-        log_error "Failed to install cert-manager"
-        return 1
-    fi
 
     # Wait for cert-manager webhook to be ready
     log_info "Waiting for cert-manager webhook to be ready..."
@@ -565,34 +539,9 @@ install_cert_manager() {
 install_eso() {
     log_info "Installing External Secrets Operator..."
 
-    local helm_args=(
-        "upgrade" "--install" "external-secrets" "$ESO_REPO/external-secrets"
-        "--namespace" "external-secrets"
-        "--create-namespace"
-        "--version" "${ESO_VERSION#v}"
+    install_helm_chart "external-secrets" "$ESO_REPO/external-secrets" "external-secrets" "true" "true" "true" "300" \
+        "--version" "${ESO_VERSION#v}" \
         "--set" "installCRDs=true"
-        "--set" "resources.requests.cpu=10m"
-        "--set" "resources.requests.memory=32Mi"
-        "--set" "resources.limits.cpu=50m"
-        "--set" "resources.limits.memory=64Mi"
-        "--set" "webhook.resources.requests.cpu=10m"
-        "--set" "webhook.resources.requests.memory=32Mi"
-        "--set" "webhook.resources.limits.cpu=50m"
-        "--set" "webhook.resources.limits.memory=64Mi"
-        "--set" "certController.resources.requests.cpu=10m"
-        "--set" "certController.resources.requests.memory=32Mi"
-        "--set" "certController.resources.limits.cpu=50m"
-        "--set" "certController.resources.limits.memory=64Mi"
-        "--wait"
-        "--timeout" "300s"
-    )
-
-    if helm "${helm_args[@]}"; then
-        log_success "External Secrets Operator installed successfully"
-    else
-        log_error "Failed to install External Secrets Operator"
-        return 1
-    fi
 }
 
 # Install OpenChoreo Control Plane
