@@ -241,7 +241,7 @@ spec:
             - name: gateway-default
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.environmentName}.${dataplane.publicVirtualHost}
+            - ${metadata.componentNamespace}.${metadata.environmentName}.${dataplane.publicVirtualHost}
           rules:
           - matches:
             - path:
@@ -342,5 +342,5 @@ spec:
   traitOverrides:
     # Override persistent volume size for dev
     data-storage:
-      size: "1Gi"
+      size: "10Mi"
       storageClass: "local-path"

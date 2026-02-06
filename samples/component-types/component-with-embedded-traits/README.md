@@ -104,7 +104,7 @@ kubectl get releasebinding demo-app-with-embedded-traits-development -o yaml | g
 Once deployed, test the greeter service:
 
 ```bash
-curl http://development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-<hash>/greeter/greet
+curl http://default.development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet
 ```
 
 Output:
@@ -114,18 +114,13 @@ Hello, Stranger!
 
 With a name parameter:
 ```bash
-curl "http://development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-<hash>/greeter/greet?name=Alice"
+curl "curl http://default.development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet?name=Alice"
 ```
 
 Output:
 ```text
 Hello, Alice!
 ```
-
-> **Note**: Replace `<hash>` with the actual hash from your deployment. You can find it by running:
-> ```bash
-> kubectl get releasebinding demo-app-with-embedded-traits-development -o jsonpath='{.status.release.name}'
-> ```
 
 ## Key Features Demonstrated
 
