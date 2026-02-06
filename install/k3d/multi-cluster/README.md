@@ -34,6 +34,10 @@ Create cluster and install components:
 # Create Control Plane cluster
 k3d cluster create --config install/k3d/multi-cluster/config-cp.yaml
 
+# Install Gateway API CRDs
+kubectl apply --context k3d-openchoreo-cp --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
     --version v1.19.2 \
@@ -93,6 +97,10 @@ k3d cluster create --config install/k3d/multi-cluster/config-dp.yaml
 # Generate a machine-id (Required for Fluent Bit when running k3d)
 docker exec k3d-openchoreo-dp-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
+# Install Gateway API CRDs
+kubectl apply --context k3d-openchoreo-dp --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
     --version v1.19.2 \
@@ -104,6 +112,19 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 # Wait for Cert Manager to be available
 kubectl --context k3d-openchoreo-dp wait --for=condition=available deployment/cert-manager \
   -n cert-manager --timeout=120s
+
+# Install External Secret Operator (required for secret management)
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo-dp \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+# Wait for External Secret Operator to be available
+kubectl wait --context k3d-openchoreo-dp \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
 
 # Install Data Plane Helm chart
 helm install openchoreo-data-plane install/helm/openchoreo-data-plane \
@@ -161,6 +182,19 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 kubectl --context k3d-openchoreo-bp wait --for=condition=available deployment/cert-manager \
   -n cert-manager --timeout=120s
 
+# Install External Secret Operator (required for secret management)
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo-bp \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+# Wait for External Secret Operator to be available
+kubectl wait --context k3d-openchoreo-bp \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
+
 # Install Container Registry (required for Build Plane)
 helm repo add twuni https://twuni.github.io/docker-registry.helm
 helm repo update
@@ -198,6 +232,10 @@ k3d cluster create --config install/k3d/multi-cluster/config-op.yaml
 # Generate a machine-id (Required for Fluent Bit when running k3d)
 docker exec k3d-openchoreo-op-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
+# Install Gateway API CRDs
+kubectl apply --context k3d-openchoreo-op --server-side \
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+
 # Install Cert Manager (required for TLS certificates)
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
     --version v1.19.2 \
@@ -209,6 +247,19 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 # Wait for Cert Manager to be available
 kubectl --context k3d-openchoreo-op wait --for=condition=available deployment/cert-manager \
   -n cert-manager --timeout=120s
+
+# Install External Secret Operator (required for secret management)
+helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+  --kube-context k3d-openchoreo-op \
+  --namespace external-secrets \
+  --create-namespace \
+  --version 1.3.2 \
+  --set installCRDs=true
+
+# Wait for External Secret Operator to be available
+kubectl wait --context k3d-openchoreo-op \
+  --for=condition=Available deployment/external-secrets \
+  -n external-secrets --timeout=180s
 
 # Install OpenSearch Kubernetes Operator (Prerequisite)
 helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/

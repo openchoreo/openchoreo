@@ -78,9 +78,5 @@ kube-prometheus-stack:
       - url: "http://host.k3d.internal:11084/api/v1/write"
       ## TODO: Enable mTLS
 
-# External Secrets Operator configuration
-external-secrets:
-  enabled: true
-
 observability:
   observabilityPlaneUrl: "http://host.k3d.internal:11086"

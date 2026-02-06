@@ -73,10 +73,6 @@ fluent-bit:
           tls.verify Off
           tls.vhost opensearch.observability.openchoreo.localhost
 
-# External Secrets Operator configuration
-external-secrets:
-  enabled: true
-
 openbao:
   server:
     dev:
