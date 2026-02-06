@@ -77,7 +77,7 @@ async def create_rca_agent(
             OutputTransformerMiddleware(),
             TodoListMiddleware(),
             LoggingMiddleware(),
-            SummarizationMiddleware(trigger=("fraction", 0.8)),
+            SummarizationMiddleware(model=model, trigger=("fraction", 0.8)),
         ],
         response_format=ProviderStrategy(RCAReport),
     ).with_config(_build_config(200, usage_callback))
@@ -97,7 +97,7 @@ async def create_chat_agent(
         middleware=[
             OutputTransformerMiddleware(),
             LoggingMiddleware(),
-            SummarizationMiddleware(trigger=("fraction", 0.8)),
+            SummarizationMiddleware(model=model, trigger=("fraction", 0.8)),
         ],
         response_format=ProviderStrategy(ChatResponse),
     ).with_config(_build_config(50, usage_callback))

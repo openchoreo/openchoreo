@@ -1411,7 +1411,7 @@ func (s *LoggingService) TriggerRCAAnalysis(rcaServiceURL string, alertID string
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Post(rcaServiceURL+"/analyze", "application/json", bytes.NewReader(payloadBytes))
+	resp, err := client.Post(rcaServiceURL+"/api/v1/agent/rca", "application/json", bytes.NewReader(payloadBytes))
 	if err != nil {
 		s.logger.Error("Failed to send RCA analysis request", "error", err)
 		return

@@ -17,6 +17,7 @@ This sample uses a simple, role-based workflow:
 
 - **Platform Engineers (one-time setup)**:
   - Deploy the `observability-alert-rule` trait once per OpenChoreo installation
+  - Allow the `observability-alert-rule` trait in the desired `ComponentType`. This is already done for you in the default component types `deployment/service` and `deployment/web-application`
   - Configure notification channels once per environment (email, webhook, etc.)
 
 - **Developers (once per component)**:
@@ -70,7 +71,12 @@ Platform Engineers configure notification channels once per environment (email/w
 
 ## Developer Workflow
 
-### Step 3: Define Alert Rules for Components (One-Time per Component)
+### Step 3: Deploy the gcp-microservices-demo Sample
+
+Deploy the `gcp-microservices-demo` sample to setup the project and components:
+- See `samples/gcp-microservices-demo/README.md` for exact commands.
+
+### Step 4: Define Alert Rules for Components (One-Time per Component)
 
 Developers attach alert rules as traits to components once. These rules automatically propagate to all environments as the component is promoted. Platform Engineers can still customize behavior per environment via `ReleaseBinding` `traitOverrides` (enable/disable, AI analysis, notification channel selection).
 
@@ -90,11 +96,6 @@ kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
 ---
 
 ## Testing and Verification
-
-### Step 4: Deploy the gcp-microservices-demo Sample
-
-Deploy the `gcp-microservices-demo` sample to setup the project and components:
-- See `samples/gcp-microservices-demo/README.md` for exact commands.
 
 ### Step 5: Configure Failure Scenarios (Optional - for Testing)
 

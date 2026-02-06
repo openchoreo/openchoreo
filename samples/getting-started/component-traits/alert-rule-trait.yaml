@@ -1,0 +1,59 @@
+---
+# Trait for Alert Rules - reusable across any component type
+apiVersion: openchoreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: observability-alert-rule
+  namespace: default
+spec:
+  schema:
+    parameters:
+      # Developer-facing parameters - static across environments
+      description: "string"
+      severity: "string | default=warning"
+      source:
+        type: "string"
+        query: "string | default="    # Required for log-based alerts
+        metric: "string | default="   # Required for metric-based alerts
+      condition:
+        window: "string | default=5m"
+        interval: "string | default=1m"
+        operator: "string | default=gt"
+        threshold: "integer | default=10"
+
+    envOverrides:
+      # Platform engineers can override per environment
+      enabled: "boolean | default=true | description=\"Enable/Disable the alert rule\""
+      enableAiRootCauseAnalysis: "boolean | default=false | description=\"Enable/Disable AI powered root cause analysis for alerts triggered by this rule\""
+      notificationChannel: "string | description=\"The notification channel to send alerts to\""
+
+  creates:
+    - targetPlane: observabilityplane
+      includeWhen: ${has(dataplane.observabilityPlaneRef)}
+      template:
+        apiVersion: openchoreo.dev/v1alpha1
+        kind: ObservabilityAlertRule
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels:
+            # Required for observability backends. Automatically populated by the controller.
+            openchoreo.dev/component-uid: ${metadata.componentUID}
+            openchoreo.dev/project-uid: ${metadata.projectUID}
+            openchoreo.dev/environment-uid: ${metadata.environmentUID}
+        spec:
+          name: ${trait.instanceName}
+          description: ${parameters.description}
+          severity: ${parameters.severity}
+          enabled: ${envOverrides.enabled}
+          enableAiRootCauseAnalysis: ${envOverrides.enableAiRootCauseAnalysis}
+          notificationChannel: ${envOverrides.notificationChannel}
+          source:
+            type: ${parameters.source.type}
+            query: ${parameters.source.query}
+            metric: ${parameters.source.metric}
+          condition:
+            window: ${parameters.condition.window}
+            interval: ${parameters.condition.interval}
+            operator: ${parameters.condition.operator}
+            threshold: ${parameters.condition.threshold}

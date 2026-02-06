@@ -12,6 +12,7 @@ spec:
 
   allowedTraits:
     - api-configuration
+    - observability-alert-rule
 
   schema:
     types:
