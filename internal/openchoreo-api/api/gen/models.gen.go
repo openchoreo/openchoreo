@@ -283,9 +283,6 @@ type ClientConfigList struct {
 	// Issuer OIDC issuer URL
 	Issuer *string `json:"issuer,omitempty"`
 
-	// JwksUri JWKS endpoint URL for token validation
-	JwksUri *string `json:"jwks_uri,omitempty"`
-
 	// SecurityEnabled Whether authentication is enabled on the server
 	SecurityEnabled bool `json:"security_enabled"`
 

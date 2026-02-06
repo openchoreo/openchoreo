@@ -3162,10 +3162,6 @@ components:
           type: string
           description: OIDC issuer URL
           example: https://auth.openchoreo.dev
-        jwks_uri:
-          type: string
-          description: JWKS endpoint URL for token validation
-          example: https://auth.openchoreo.dev/oauth2/jwks
         token_endpoint:
           type: string
           description: OAuth2 token endpoint URL
