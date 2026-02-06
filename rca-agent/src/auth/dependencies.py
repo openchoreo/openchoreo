@@ -148,8 +148,7 @@ class AuthorizationChecker:
 
         token = extract_bearer_token(request)
 
-        body = await extract_request_body(request)
-        hierarchy = self._extract_hierarchy(body)
+        hierarchy = await self._extract_hierarchy(request)
         logger.debug(
             "Resource hierarchy: project=%s, component=%s",
             hierarchy.project,
@@ -184,11 +183,23 @@ class AuthorizationChecker:
         logger.info("Authorization successful")
         return subject
 
-    def _extract_hierarchy(self, body: dict[str, Any]) -> ResourceHierarchy:
+    async def _extract_hierarchy(self, request: Request) -> ResourceHierarchy:
+        body = await extract_request_body(request)
         return ResourceHierarchy(
             project=body.get("projectUid"),
             component=body.get("componentUid"),
         )
 
 
+class ReportAuthorizationChecker(AuthorizationChecker):
+    async def _extract_hierarchy(self, request: Request) -> ResourceHierarchy:
+        project = request.path_params.get("project_id")
+        return ResourceHierarchy(
+            project=str(project) if project else None,
+        )
+
+
 require_chat_authz = AuthorizationChecker(action="rcareport:view", resource_type="rcareport")
+require_reports_authz = ReportAuthorizationChecker(
+    action="rcareport:view", resource_type="rcareport"
+)
