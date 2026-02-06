@@ -489,48 +489,79 @@ spec:
 
 ## Working with Private Repositories
 
-All default ComponentWorkflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, and Bitbucket.
+All default ComponentWorkflows support cloning from private Git repositories that require authentication. Private repository support is built-in and works seamlessly with GitHub, GitLab, Bitbucket, and AWS CodeCommit.
 
 ### How It Works
 
-When you configure a private repository, the workflow automatically:
-1. Reads the git token from the ExternalSecret created by the ComponentWorkflow
-2. Constructs an authenticated clone URL using provider-specific authentication prefixes
-3. Clones the repository securely without exposing credentials in logs
+When you configure a private repository with authentication, the workflow automatically:
+1. Reads credentials from the SecretReference resource (created via OpenChoreo API)
+2. Detects the authentication type (basic auth or SSH key)
+3. Configures git authentication appropriately
+4. Clones the repository securely without exposing credentials in logs
 
-**Supported Git Providers by Default:**
-- **GitHub**: Uses `x-access-token` authentication prefix
-- **GitLab**: Uses `oauth2` authentication prefix
-- **Bitbucket**: Uses `x-token-auth` authentication prefix
+**Supported Authentication Methods:**
+- **Basic Authentication (Token/Password)**: Works with GitHub, GitLab, Bitbucket, and AWS CodeCommit
+  - Supports optional username (required for AWS CodeCommit, optional for others)
+  - Uses HTTPS URLs with embedded credentials
+- **SSH Key Authentication**: Works with all major Git providers
+  - Uses SSH URLs (git@github.com:...)
+  - Automatically configures SSH keys and host verification
 
-### Setting Up Private Repository Access
+**Supported Git Providers:**
+- **GitHub**: Token-based or SSH key authentication
+- **GitLab**: Token-based or SSH key authentication
+- **Bitbucket**: Token-based or SSH key authentication
+- **AWS CodeCommit**: Username + password or SSH key authentication (see AWS CodeCommit section below)
 
-To enable private repository access, you need to store your Git Personal Access Token (PAT) in a secret backend that the External Secrets Operator (ESO) can access.
+### Creating Git Secrets
 
-#### Option 1: Using ESO Fake Provider (Development/Testing)
+Use the OpenChoreo API to create git secrets that will be automatically synced to your secret store:
 
-For local development and testing, OpenChoreo uses ESO's fake provider. Add your Git token using:
+#### Basic Authentication (Token/Password)
+
+For most git providers (GitHub, GitLab, Bitbucket):
 
 ```bash
-kubectl patch clustersecretstore default --type='json' -p='[
-  {
-    "op": "add",
-    "path": "/spec/provider/fake/data/-",
-    "value": {
-      "key": "git-token",
-      "value": "YourGitAccessToken"
-    }
-  }
-]'
+# Create secret with token only 
+curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secretName": "github-token",
+    "secretType": "basic-auth",
+    "token": "ghp_xxxxxxxxxxxxxxxxxxxx"
+  }'
 ```
 
-#### Option 2: Using a Real Secret Backend (Production)
+For AWS CodeCommit (requires username):
 
-For production environments, use a real secret manager instead of the fake provider.
+```bash
+# Create secret with username and password
+curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secretName": "aws-codecommit-creds",
+    "secretType": "basic-auth",
+    "username": "my-iam-username-at-123456789012",
+    "token": "my-codecommit-password"
+  }'
+```
+
+#### SSH Key Authentication
+
+```bash
+# Create secret with SSH private key
+curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
+  -H "Content-Type: application/json" \
+  -d '{
+    "secretName": "github-ssh-key",
+    "secretType": "ssh-auth",
+    "sshKey": "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"
+  }'
+```
 
 ### Using Private Repositories in Components
 
-Once the `git-token` is stored in your secret backend, simply reference your private repository in the Component:
+Once the git secret is created, reference it in your Component's workflow configuration:
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
@@ -543,12 +574,81 @@ spec:
     systemParameters:
       repository:
         url: "https://github.com/myorg/private-repo"  # Private repo URL
+        secretRef: "github-token"  # Reference to the git secret
         revision:
           branch: "main"
         appPath: "/"
 ```
 
-The ComponentWorkflow automatically creates an ExternalSecret for each build that fetches the `git-token` and makes it available to the workflow.
+For SSH authentication, use SSH URLs:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: my-private-app-ssh
+spec:
+  workflow:
+    name: google-cloud-buildpacks
+    systemParameters:
+      repository:
+        url: "git@github.com:myorg/private-repo.git"  # SSH URL
+        secretRef: "github-ssh-key"  # Reference to SSH key secret
+        revision:
+          branch: "main"
+        appPath: "/"
+```
+
+### AWS CodeCommit Support
+
+AWS CodeCommit requires special configuration:
+
+#### Authentication Methods
+
+1. **HTTPS with Git Credentials**:
+   - Generate Git credentials in IAM Console
+   - Username format: `{username}-at-{AWS-account-ID}`
+   - Create secret with both username and password
+
+   ```bash
+   curl -X POST http://openchoreo-api/api/v1/namespaces/default/git-secrets \
+     -H "Content-Type: application/json" \
+     -d '{
+       "secretName": "codecommit-creds",
+       "secretType": "basic-auth",
+       "username": "myuser-at-123456789012",
+       "token": "my-generated-password"
+     }'
+   ```
+
+2. **SSH Keys**:
+   - Upload SSH public key to IAM Console
+   - Get SSH Key ID from IAM
+   - Use SSH Key ID as username in SSH URL
+
+Component configuration for AWS CodeCommit:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: aws-codecommit-app
+spec:
+  workflow:
+    name: google-cloud-buildpacks
+    systemParameters:
+      repository:
+        # HTTPS URL format
+        url: "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo"
+        # OR SSH URL format:
+        # url: "ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/my-repo"
+        secretRef: "codecommit-creds"
+        revision:
+          branch: "main"
+        appPath: "/"
+```
+
+The ComponentWorkflow automatically creates an ExternalSecret for each build that fetches credentials from the secret store and makes them available to the workflow.
 
 ## Using Secrets in Workflows
 
@@ -567,7 +667,50 @@ Use the `resources` section in ComponentWorkflow to define ExternalSecret resour
 - Passes the secret name as a parameter to the workflow, allowing the workflow to reference it during execution
 - Ideal for GitOps workflows where all configuration is version-controlled
 
+**Example with Git Secret (supports multiple data fields):**
+
+```yaml
+resources:
+  - id: git-secret
+    includeWhen: ${has(systemParameters.repository.secretRef)}
+    template:
+      apiVersion: external-secrets.io/v1
+      kind: ExternalSecret
+      metadata:
+        name: ${metadata.workflowRunName}-git-secret
+        namespace: ${metadata.namespace}
+      spec:
+        refreshInterval: 15s
+        secretStoreRef:
+          kind: ClusterSecretStore
+          name: openbao
+        target:
+          name: ${metadata.workflowRunName}-git-secret
+          creationPolicy: Owner
+          template:
+            type: ${secretRef.type}
+        # Use secretRef.data array to support multiple fields (e.g., username + password)
+        data: |
+          ${secretRef.data.map(secret, {
+            "secretKey": secret.secretKey,
+            "remoteRef": {
+              "key": secret.remoteRef.key,
+              "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+            }
+          })}
+```
+
+**How secretRef.data Works:**
+
+The `secretRef.data` variable provides access to all credential fields from the SecretReference:
+- For **basic-auth**: Contains `password` (always) and `username` (if provided)
+- For **ssh-auth**: Contains `ssh-privatekey`
+
+The CEL `map` expression iterates over all data fields and generates ExternalSecret data entries dynamically.
+
 **Benefits:**
+- Supports multiple credential fields (username + password)
+- Works with both basic-auth and SSH key authentication
 - Secrets are automatically created and cleaned up per workflow run
 - No manual secret management required
 - Secret rotation is handled automatically by ESO

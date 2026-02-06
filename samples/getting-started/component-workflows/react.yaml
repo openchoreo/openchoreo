@@ -73,11 +73,14 @@ spec:
             creationPolicy: Owner
             template:
               type: ${secretRef.type}
-          data:
-            - secretKey: ${secretRef.key}
-              remoteRef:
-                key: ${secretRef.remoteKey}
-                property: ${secretRef.property}
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

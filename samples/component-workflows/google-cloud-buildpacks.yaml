@@ -176,11 +176,16 @@ spec:
             creationPolicy: Owner
             template:
               type: ${secretRef.type}
-          data:
-            - secretKey: ${secretRef.key}
-              remoteRef:
-                key: ${secretRef.remoteKey}
-                property: ${secretRef.property}
+          # CEL expression that dynamically maps secretRef.data array in Secret Reference CR
+          # Uses oc_omit() to exclude empty property fields from the final manifest
+          data: |
+            ${secretRef.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
 
     # Container registry push credentials - Always created
     # Used to authenticate and push the built container image to the registry
