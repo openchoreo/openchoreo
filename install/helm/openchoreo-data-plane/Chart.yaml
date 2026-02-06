@@ -27,7 +27,7 @@ maintainers:
     url: https://github.com/openchoreo/openchoreo
 dependencies:
   - name: external-secrets
-    version: 0.19.2
+    version: 1.3.2
     repository: "https://charts.external-secrets.io"
     condition: external-secrets.enabled
   - name: fluent-bit
