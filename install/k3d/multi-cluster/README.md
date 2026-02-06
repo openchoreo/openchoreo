@@ -340,7 +340,7 @@ Similar to the DataPlane and BuildPlane, use `add-observability-plane.sh` to aut
   --control-plane-context k3d-openchoreo-cp \
   --observabilityplane-context k3d-openchoreo-op \
   --name default \
-  --observer-url http://host.k3d.internal:11080
+  --observer-url http://host.k3d.internal:11087
 
 # Verify the ObservabilityPlane resource was created
 kubectl --context k3d-openchoreo-cp get observabilityplane default -n default
