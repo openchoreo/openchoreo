@@ -787,6 +787,12 @@ fakeSecretStore:
   #       description: Secret value (for development only)
   # @schema
   secrets:
+    - key: npm-token
+      value: "fake-npm-token-for-development"
+    - key: docker-username
+      value: "dev-user"
+    - key: docker-password
+      value: "dev-password"
     - key: github-pat
       value: "fake-github-token-for-development"
     - key: username

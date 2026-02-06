@@ -300,7 +300,14 @@ fakeSecretStore:
       value: "dev-user"
     - key: docker-password
       value: "dev-password"
-
+    - key: github-pat
+      value: "fake-github-token-for-development"
+    - key: username
+      value: "dev-user"
+    - key: password
+      value: "dev-password"
+    - key: RCA_LLM_API_KEY
+      value: "fake-llm-api-key-for-development"
 
 # @schema
 # type: object
