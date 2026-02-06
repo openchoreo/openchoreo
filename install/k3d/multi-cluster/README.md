@@ -54,7 +54,7 @@ helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --values install/k3d/multi-cluster/values-cp.yaml
 
 # Create TLS Certificate for Control Plane Gateway
-kubectl apply -f - <<EOF                                            
+kubectl apply -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -368,7 +368,7 @@ kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-def
   --control-plane-context k3d-openchoreo-cp \
   --agent-ca-secret observabilityplane-default-ca \
   --name default \
-  --observer-url http://host.k3d.internal:11080
+  --observer-url http://host.k3d.internal:11087
 ```
 </details>
 
@@ -415,7 +415,7 @@ kubectl --context k3d-openchoreo-cp patch buildplane default -n default --type m
 
 ### Observability Plane (if installed)
 
-- Observer API: http://localhost:11080
+- Observer API: http://localhost:11087
 - OpenSearch API: http://localhost:11082 (for Fluent Bit and direct API access)
 - Prometheus: http://localhost:11083 (for metrics)
 

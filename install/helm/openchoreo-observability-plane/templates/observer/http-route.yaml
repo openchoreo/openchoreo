@@ -9,7 +9,13 @@ spec:
   - name: gateway-default
     namespace: {{ .Release.Namespace }}
   hostnames:
-  - observer.{{ .Values.global.baseDomain }}
+    {{- if .Values.observer.ingress.hosts }}
+    {{- range .Values.observer.ingress.hosts }}
+    - {{ .host | quote }}
+    {{- end }}
+    {{- else }}
+    - observer.{{ .Values.global.baseDomain | quote }}
+    {{- end }}
   rules:
   - matches:
     - path:

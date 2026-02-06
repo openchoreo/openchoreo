@@ -1694,6 +1694,29 @@
           "title": "image",
           "type": "object"
         },
+        "ingress": {
+          "additionalProperties": false,
+          "description": "Ingress configuration for the Observer service",
+          "properties": {
+            "hosts": {
+              "description": "Ingress hosts",
+              "items": {
+                "properties": {
+                  "host": {
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "hosts",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "ingress",
+          "type": "object"
+        },
         "logLevel": {
           "default": "info",
           "description": "Log level for the Observer service",
