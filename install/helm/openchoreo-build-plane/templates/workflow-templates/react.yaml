@@ -108,7 +108,6 @@ spec:
                     SSH_KEY_ID=""
                     if [ -f "$GIT_SECRET_PATH/ssh-key-id" ]; then
                         SSH_KEY_ID=$(cat "$GIT_SECRET_PATH/ssh-key-id")
-                        echo "SSH Key ID found: $SSH_KEY_ID"
                     fi
 
                     # Disable strict host key checking for common git providers
