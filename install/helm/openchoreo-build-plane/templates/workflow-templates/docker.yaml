@@ -58,95 +58,138 @@ spec:
             # 1. Initialize variables
             #####################################################################
             BRANCH={{ "{{" }}workflow.parameters.branch{{ "}}" }}
-            REPO_URL={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
+            REPO={{ "{{" }}workflow.parameters.git-repo{{ "}}" }}
             COMMIT={{ "{{" }}workflow.parameters.commit{{ "}}" }}
+            GIT_SECRET_PATH="/etc/secrets/git-secret"
 
             #####################################################################
-            # 2. Check for authentication credentials
+            # 2. Configure Git Authentication
             #####################################################################
-            TOKEN_FILE="/etc/secrets/git-secret/password"
-            SSH_KEY_FILE="/etc/secrets/git-secret/ssh-privatekey"
-            GIT_TOKEN=""
-            SSH_KEY=""
 
-            if [ -f "$TOKEN_FILE" ]; then
-              GIT_TOKEN="$(cat "$TOKEN_FILE")"
-            fi
+            # Check if git secret exists (for private repositories)
+            if [ -d "$GIT_SECRET_PATH" ] && [ "$(ls -A $GIT_SECRET_PATH)" ]; then
+                echo "Git secret found, configuring authentication..."
 
-            if [ -f "$SSH_KEY_FILE" ]; then
-              SSH_KEY="$(cat "$SSH_KEY_FILE")"
-            fi
+                # Check for SSH key (kubernetes.io/ssh-auth)
+                # Supports all SSH key types: RSA, Ed25519, ECDSA, DSA
+                if [ -f "$GIT_SECRET_PATH/ssh-privatekey" ]; then
+                    echo "Using SSH key authentication"
+                    mkdir -p ~/.ssh
+                    chmod 700 ~/.ssh
 
-            #####################################################################
-            # 3. Configure authentication
-            #####################################################################
-            CLONE_URL="$REPO_URL"
+                    # Copy SSH key ensuring proper format and Unix line endings
+                    # Note: filename is id_rsa by convention, but SSH supports all key types
+                    # (RSA, Ed25519, ECDSA) regardless of filename
+                    # Remove Windows line endings if present and ensure Unix format
+                    tr -d '\r' < "$GIT_SECRET_PATH/ssh-privatekey" > ~/.ssh/id_rsa
+                    # Ensure key ends with a newline if it doesn't already
+                    [ -n "$(tail -c 1 ~/.ssh/id_rsa)" ] && echo >> ~/.ssh/id_rsa
+                    chmod 600 ~/.ssh/id_rsa
 
-            # SSH key authentication takes precedence
-            if [ -n "$SSH_KEY" ]; then
-              echo "Configuring SSH authentication..."
+                    # Validate key format
+                    if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa; then
+                        echo "Error: SSH key does not appear to be valid (missing BEGIN PRIVATE KEY header)"
+                        head -n 1 ~/.ssh/id_rsa
+                        exit 1
+                    fi
 
-              # Set up SSH directory and key
-              mkdir -p ~/.ssh
-              chmod 700 ~/.ssh
-              echo "$SSH_KEY" > ~/.ssh/id_rsa
-              chmod 600 ~/.ssh/id_rsa
+                    # Debug: Show key type and verify it's readable
+                    echo "SSH key format detected:"
+                    head -n 1 ~/.ssh/id_rsa
 
-              # Add known hosts for common Git providers
-              cat > ~/.ssh/known_hosts <<EOF
-            github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA1V2xGt7FQmxQTrNp2+MaRiRO2fPGAU5CWBgAQFAi9XJ8qx9m2UjUyF3KvLmLqjKJbCMx+7hEijOT4D8GGUZ7G3dJe8k3lW1Kp6vN0GXjXqIZEzEkkLLTbP7DzHLTzQlW6Pv5sJDNzNONBqZNbJT2yg1vZ0TJCrAC7+XQfBTQcxJQf3g5lKJXy7UpZqGJ3aWLWq7fNdJ8kQYQXQ4lTQMbKX5BzQH+8C8K8f0UqGxBw6wRkxE=
-            github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
-            github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
-            gitlab.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX2UKSeOvuP4D6TPqKF1onrSzH9bx9XUf2lEdWT/ia1NEKjunUqu1xOB/StKDHMoX4/OKyIzuS0q/T1zOATthvasJFoPrAjkohTyaDUz2LN5JoH839hViyEG82yB+MjcFV5MU3N1l1QL3cVUCh93xSaua1N85qivl+siMkPGbO5xR/En4iEY6K2XPASUEMaieWVNTRCtJ4S8H+9
-            gitlab.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=
-            gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf
-            bitbucket.org ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDQeJzhupRu0u0cdegZIa8e86EG2qOCsIsD1Xw0xSeiPDlCr7kq97NLmMbpKTX6Esc30NuoqEEHCuc7yWtwp8dI76EEEB1VqY9QJq6vk+aySyboD5QF61I/1WeTwu+deCbgKMGbUijeXhtfbxSxm6JwGrXqVtt2ErYwXL5Cey7D5NF8qTQCQ6t9xfXjEKPFV5ShyyAA7Cq9rRjAGF+tHCQbkiGTqVHQJYN1eVMfxVfJxnY4qDkJcHSQJZXJrNHZ2F8lY8i5iZzYz6thVH2RYHsF3oZYQG5uh7kPNDhKwq7HxsXLi8rZqCXt7zVqXNa0v+hwTwqj2e4bK5c6gqGQVqQsxXE2kBlvZ7qMpvxjQ8z7lUUuPVqLdI6EwQhyFnq3kF+t7i8WxqHVh2pQpGFVqk5h2FfPp3s2JCxEF6aGmg+2yvQfJQ3CkJa8vR0J7lU5E9OxFh9GmINvYbWE3TGV0SJrBqAj/2aRwDwWCUGJHc9gXzLqfqNYNYMqGMlJUQFJdQ==
-            bitbucket.org ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPIQmuzMBuKdWeF4+a2sjSSpBK0iqitSQ+5BM9KhpexuGt20JpTVM7u5BDZngncgrqDMbWdxMWWOGtZ9UgbqgZE=
-            bitbucket.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIazEu89wgQZ4bqs3d63QSMzYVa0MuJ2e2gKTKqu+UUO
+                    # Test if ssh can load the key
+                    if ! ssh-keygen -l -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+                        echo "Warning: SSH key validation failed with ssh-keygen"
+                        echo "This might indicate key format issues, but attempting to proceed..."
+                    else
+                        echo "SSH key validated successfully"
+                    fi
+
+                    # Read SSH Key ID if available (required for AWS CodeCommit)
+                    SSH_KEY_ID=""
+                    if [ -f "$GIT_SECRET_PATH/ssh-key-id" ]; then
+                        SSH_KEY_ID=$(cat "$GIT_SECRET_PATH/ssh-key-id")
+                        echo "SSH Key ID found: $SSH_KEY_ID"
+                    fi
+
+                    # Disable strict host key checking for common git providers
+                    cat > ~/.ssh/config <<EOF
+            Host github.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host gitlab.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host bitbucket.org
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host git-codecommit.*.amazonaws.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
             EOF
-              chmod 600 ~/.ssh/known_hosts
+                    chmod 600 ~/.ssh/config
 
-              # Use the SSH URL as-is (it should already be in SSH format)
-              CLONE_URL="$REPO_URL"
+                    # Handle SSH URL conversion and AWS CodeCommit SSH Key ID
+                    if echo "$REPO" | grep -q "^ssh://.*git-codecommit"; then
+                        # SSH URL for AWS CodeCommit - inject SSH Key ID if available and not already present
+                        if [ -n "$SSH_KEY_ID" ] && ! echo "$REPO" | grep -q "@"; then
+                            REPO=$(echo "$REPO" | sed "s|ssh://|ssh://${SSH_KEY_ID}@|")
+                            echo "Added SSH Key ID to AWS CodeCommit SSH URL"
+                        fi
+                    elif echo "$REPO" | grep -q "^https://" && ! echo "$REPO" | grep -q "git-codecommit"; then
+                        # HTTPS URL for GitHub/GitLab/Bitbucket - convert to git@ SSH format
+                        REPO=$(echo "$REPO" | sed -E 's|https://([^/]+)/(.+)\.git|git@\1:\2.git|')
+                        echo "Converted HTTPS to SSH format: $REPO"
+                    fi
+                    # Note: HTTPS URLs for AWS CodeCommit are left as-is to use basic-auth (username:password)
 
-              echo "SSH authentication configured"
+                # Check for basic auth (kubernetes.io/basic-auth)
+                elif [ -f "$GIT_SECRET_PATH/password" ]; then
+                    echo "Using basic authentication (username/password)"
+                    PASSWORD=$(cat "$GIT_SECRET_PATH/password")
 
-            # Token-based authentication (HTTPS)
-            elif [ -n "$GIT_TOKEN" ]; then
-              echo "Configuring token-based authentication..."
+                    # Check if username exists (required for some providers like AWS CodeCommit)
+                    if [ -f "$GIT_SECRET_PATH/username" ]; then
+                        USERNAME=$(cat "$GIT_SECRET_PATH/username")
+                        echo "Username found: $USERNAME"
+                    else
+                        # Default username for token-based auth (GitHub, GitLab, Bitbucket)
+                        USERNAME="git"
+                    fi
 
-              case "$REPO_URL" in
-                https://*)
-                  HOST=$(echo "$REPO_URL" | sed -E 's|https://([^/]+)/.*|\1|')
-                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|https://[^/]+/(.*)|\1|')
-                  ;;
-                git@*)
-                  HOST=$(echo "$REPO_URL" | sed -E 's|git@([^:]+):.*|\1|')
-                  REPO_PATH=$(echo "$REPO_URL" | sed -E 's|git@[^:]+:(.*)|\1|')
-                  ;;
-              esac
+                    # Inject credentials into HTTPS URL
+                    if echo "$REPO" | grep -q "^https://"; then
+                        # Extract protocol, domain, and path
+                        PROTOCOL=$(echo "$REPO" | cut -d: -f1)
+                        DOMAIN_PATH=$(echo "$REPO" | cut -d/ -f3-)
 
-              # Map host to authentication prefix
-              case "$HOST" in
-                github.com)    AUTH_PREFIX="x-access-token" ;;
-                gitlab.com)    AUTH_PREFIX="oauth2" ;;
-                bitbucket.org) AUTH_PREFIX="x-token-auth" ;;
-                *)             AUTH_PREFIX="" ;;
-              esac
+                        # URL encode username and password (encode all special characters)
+                        # This handles characters like: @ : / + = and others that break URLs
+                        USERNAME_ENCODED=$(echo -n "$USERNAME" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/\//%2F/g; s/:/%3A/g; s/;/%3B/g; s/=/%3D/g; s/?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\]/%5D/g')
+                        PASSWORD_ENCODED=$(echo -n "$PASSWORD" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/\//%2F/g; s/:/%3A/g; s/;/%3B/g; s/=/%3D/g; s/?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\]/%5D/g')
 
-              if [ -n "$AUTH_PREFIX" ]; then
-                CLONE_URL="https://${AUTH_PREFIX}:${GIT_TOKEN}@${HOST}/${REPO_PATH}"
-              fi
+                        # Construct authenticated URL
+                        REPO="$PROTOCOL://${USERNAME_ENCODED}:${PASSWORD_ENCODED}@${DOMAIN_PATH}"
+                    else
+                        echo "Warning: REPO is not an HTTPS URL, basic auth may not work"
+                    fi
+
+                    # Configure git credential helper to avoid credential prompts
+                    git config --global credential.helper store
+                else
+                    echo "Warning: Git secret exists but no recognized credentials found"
+                fi
+            else
+                echo "No git secret found, assuming public repository"
             fi
 
-            echo "Cloning repository..."
+            #####################################################################
+            # 3. Clone Repository
+            #####################################################################
 
-            #####################################################################
-            # 4. Clone repository
-            #####################################################################
             if [ -n "$COMMIT" ]; then
                 echo "Cloning specific commit: $COMMIT"
-                git clone --no-checkout --depth 1 "$CLONE_URL" /mnt/vol/source
+                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
@@ -154,7 +197,7 @@ spec:
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
             else
                 echo "Cloning branch: $BRANCH with latest commit"
-                git clone --single-branch --branch $BRANCH --depth 1 "$CLONE_URL" /mnt/vol/source
+                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
