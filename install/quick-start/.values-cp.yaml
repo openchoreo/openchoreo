@@ -36,7 +36,6 @@ gateway:
     mountTmpVolume: true
 
 # Security configuration for quickstart
-security:
 openchoreoApi:
   config:
     security:
