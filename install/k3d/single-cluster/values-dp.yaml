@@ -15,7 +15,3 @@ gateway:
 # Reuse the existing control plane's cluster gateway controller
 gatewayController:
   enabled: false
-
-# External Secrets Operator configuration
-external-secrets:
-  enabled: true

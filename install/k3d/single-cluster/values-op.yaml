@@ -25,10 +25,6 @@ openSearchDashboards:
   service:
     type: LoadBalancer
 
-# Disable External Secrets since it's already in the Data Plane (single cluster)
-external-secrets:
-  enabled: false
-
 fakeSecretStore:
   enabled: false
 
