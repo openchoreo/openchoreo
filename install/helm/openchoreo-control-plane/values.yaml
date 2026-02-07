@@ -2893,13 +2893,13 @@ thunder:
       repository: thunder
       # type: string
       # description: Image tag
-      # default: "0.20.0"
+      # default: "0.21.0"
       # @schema
       # type: string
       # description: Image tag
-      # default: "0.20.0"
+      # default: "0.21.0"
       # @schema
-      tag: "0.20.0"
+      tag: "0.21.0"
       # description: Image pull policy
       # enum: [Always, IfNotPresent, Never]
       # default: IfNotPresent

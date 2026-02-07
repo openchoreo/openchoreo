@@ -36,4 +36,4 @@ dependencies:
   - name: thunder
     condition: thunder.enabled
     repository: oci://ghcr.io/asgardeo/helm-charts
-    version: "0.20.0"
+    version: "0.21.0"

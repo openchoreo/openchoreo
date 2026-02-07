@@ -181,14 +181,8 @@ data:
       "name": "Backstage",
       "description": "OpenChoreo Backstage Portal",
       "allowed_user_types": ["engineer"],
-      "token": {
-        "validity_period": 3600,
-        "user_attributes": [
-            "given_name",
-            "family_name",
-            "username",
-            "groups"
-        ]
+      "assertion": {
+        "validity_period": 3600
       },
       "inbound_auth_config": [
         {
@@ -422,14 +416,8 @@ data:
       "name": "OpenChoreo CLI",
       "description": "OpenChoreo CLI Default Application",
       "allowed_user_types": ["engineer"],
-      "token": {
-        "validity_period": 3600,
-        "user_attributes": [
-            "given_name",
-            "family_name",
-            "username",
-            "groups"
-        ]
+      "assertion": {
+        "validity_period": 3600
       },
       "inbound_auth_config": [
         {
