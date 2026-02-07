@@ -91,7 +91,7 @@ spec:
         spec:
           refreshInterval: 15s
           secretStoreRef:
-            name: openbao
+            name: default
             kind: ClusterSecretStore
           target:
             name: ${metadata.workflowRunName}-registry-push-secret
