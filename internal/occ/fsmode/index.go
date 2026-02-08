@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	typed2 "github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
 
@@ -216,39 +216,39 @@ func (idx *Index) ListReleases() []*index.ResourceEntry {
 }
 
 // GetTypedComponent retrieves a component by namespace and name and returns a typed wrapper
-func (idx *Index) GetTypedComponent(namespace, name string) (*typed2.Component, error) {
+func (idx *Index) GetTypedComponent(namespace, name string) (*typed.Component, error) {
 	entry, ok := idx.GetComponent(namespace, name)
 	if !ok {
 		return nil, fmt.Errorf("component %q not found in namespace %q", name, namespace)
 	}
-	return typed2.NewComponent(entry)
+	return typed.NewComponent(entry)
 }
 
 // GetTypedComponentType retrieves a component type by name and returns a typed wrapper
-func (idx *Index) GetTypedComponentType(name string) (*typed2.ComponentType, error) {
+func (idx *Index) GetTypedComponentType(name string) (*typed.ComponentType, error) {
 	entry, ok := idx.GetComponentType(name)
 	if !ok {
 		return nil, fmt.Errorf("component type %q not found", name)
 	}
-	return typed2.NewComponentType(entry)
+	return typed.NewComponentType(entry)
 }
 
 // GetTypedTrait retrieves a trait by name and returns a typed wrapper
-func (idx *Index) GetTypedTrait(name string) (*typed2.Trait, error) {
+func (idx *Index) GetTypedTrait(name string) (*typed.Trait, error) {
 	entry, ok := idx.GetTrait(name)
 	if !ok {
 		return nil, fmt.Errorf("trait %q not found", name)
 	}
-	return typed2.NewTrait(entry)
+	return typed.NewTrait(entry)
 }
 
 // GetTypedWorkloadForComponent retrieves the workload for a specific component and returns a typed wrapper
-func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string) (*typed2.Workload, error) {
+func (idx *Index) GetTypedWorkloadForComponent(projectName, componentName string) (*typed.Workload, error) {
 	entry, ok := idx.GetWorkloadForComponent(projectName, componentName)
 	if !ok {
 		return nil, fmt.Errorf("workload for component %q (project: %q) not found", componentName, projectName)
 	}
-	return typed2.NewWorkload(entry)
+	return typed.NewWorkload(entry)
 }
 
 // ListReleasesForComponent returns all component releases for a specific component

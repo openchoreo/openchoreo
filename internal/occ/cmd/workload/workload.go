@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
@@ -76,7 +78,9 @@ func (i *WorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadPara
 }
 
 // createWorkloadFileSystemMode handles file-system mode for GitOps repos
-func (i *WorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Context, params api.CreateWorkloadParams) error {
+func (i *WorkloadImpl) createWorkloadFileSystemMode(
+	ctx *configContext.Context, params api.CreateWorkloadParams,
+) error {
 	// Determine repo path
 	repoPath := ctx.RootDirectoryPath
 	if repoPath == "" {
@@ -97,15 +101,39 @@ func (i *WorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Context, 
 	// Wrap generic index with OpenChoreo-specific functionality
 	idx := fsmode.WrapIndex(persistentIndex.Index)
 
-	// Generate workload CR using existing logic
-	workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
-	if err != nil {
-		return fmt.Errorf("failed to create Workload resource: %w", err)
+	var workloadCR *openchoreov1alpha1.Workload
+
+	// If no descriptor provided, check if a workload already exists for this component.
+	// If it does, update only the container image instead of replacing the entire workload.
+	if params.FilePath == "" {
+		if entry, ok := idx.GetWorkloadForComponent(params.ProjectName, params.ComponentName); ok {
+			typedWorkload, err := typed.NewWorkload(entry)
+			if err != nil {
+				return fmt.Errorf("failed to read existing workload: %w", err)
+			}
+			existing := typedWorkload.Workload
+			mainContainer, exists := existing.Spec.Containers["main"]
+			if !exists {
+				return fmt.Errorf("workload has no containers defined: existing.Spec.Containers is nil or empty")
+			}
+			mainContainer.Image = params.ImageURL
+			existing.Spec.Containers["main"] = mainContainer
+			workloadCR = existing
+		}
 	}
 
-	workloadCR, err := workloadRes.GenerateWorkloadCR(params)
-	if err != nil {
-		return fmt.Errorf("failed to generate workload: %w", err)
+	// If we don't have a workload CR yet (no existing workload or descriptor provided),
+	// generate one from scratch.
+	if workloadCR == nil {
+		workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
+		if err != nil {
+			return fmt.Errorf("failed to create Workload resource: %w", err)
+		}
+
+		workloadCR, err = workloadRes.GenerateWorkloadCR(params)
+		if err != nil {
+			return fmt.Errorf("failed to generate workload: %w", err)
+		}
 	}
 
 	// Create writer and write workload
