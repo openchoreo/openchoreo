@@ -97,11 +97,6 @@ func (da *DisabledAuthorizer) RemoveRole(ctx context.Context, roleRef *authz.Rol
 	return authz.ErrAuthzDisabled
 }
 
-// ForceRemoveRole fails with error
-func (da *DisabledAuthorizer) ForceRemoveRole(ctx context.Context, roleRef *authz.RoleRef) error {
-	return authz.ErrAuthzDisabled
-}
-
 // GetRole fails with error
 func (da *DisabledAuthorizer) GetRole(ctx context.Context, roleRef *authz.RoleRef) (*authz.Role, error) {
 	return nil, authz.ErrAuthzDisabled

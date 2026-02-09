@@ -40,40 +40,6 @@ func (ce *CasbinEnforcer) RemoveRole(ctx context.Context, roleRef *authzcore.Rol
 	}
 	ce.logger.Debug("remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
 
-	namespace := normalizeNamespace(roleRef.Namespace)
-
-	// Check if role is in use by any policies
-	policiesUsingRole, err := ce.enforcer.GetFilteredPolicy(2, roleRef.Name, namespace)
-	if err != nil {
-		return fmt.Errorf("failed to check policies using role: %w", err)
-	}
-	if len(policiesUsingRole) > 0 {
-		ce.logger.Debug("cannot delete role: role is in use",
-			"role_name", roleRef.Name,
-			"namespace", namespace,
-			"policy_count", len(policiesUsingRole))
-		return authzcore.ErrRoleInUse
-	}
-
-	if isClusterScoped(roleRef.Namespace) {
-		return ce.deleteClusterRole(ctx, roleRef)
-	}
-	return ce.deleteNamespacedRole(ctx, roleRef)
-}
-
-// ForceRemoveRole deletes a role and all its associated role-entitlement mappings
-func (ce *CasbinEnforcer) ForceRemoveRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
-	if err := validateRoleRef(roleRef); err != nil {
-		return err
-	}
-	ce.logger.Debug("force remove role called", "role_name", roleRef.Name, "namespace", roleRef.Namespace)
-
-	// First delete all bindings that reference this role
-	if err := ce.deleteRoleBindingsForRole(ctx, roleRef); err != nil {
-		return fmt.Errorf("failed to delete role bindings: %w", err)
-	}
-
-	// Then delete the role itself
 	if isClusterScoped(roleRef.Namespace) {
 		return ce.deleteClusterRole(ctx, roleRef)
 	}
@@ -580,84 +546,6 @@ func (ce *CasbinEnforcer) deleteNamespacedRole(ctx context.Context, roleRef *aut
 	}
 
 	ce.logger.Debug("deleted AuthzRole", "name", roleRef.Name, "namespace", roleRef.Namespace)
-	return nil
-}
-
-// deleteRoleBindingsForRole deletes all CRD bindings referencing a specific role
-func (ce *CasbinEnforcer) deleteRoleBindingsForRole(ctx context.Context, roleRef *authzcore.RoleRef) error {
-	namespace := normalizeNamespace(roleRef.Namespace)
-
-	// Get all policies that reference this role using the Casbin enforcer
-	mappingPolicies, err := ce.enforcer.GetFilteredPolicy(2, roleRef.Name, namespace)
-	if err != nil {
-		return fmt.Errorf("failed to get mappings using role: %w", err)
-	}
-
-	if len(mappingPolicies) == 0 {
-		return nil
-	}
-
-	ce.logger.Debug("deleting role-entitlement binding CRDs",
-		"role_name", roleRef.Name,
-		"namespace", namespace,
-		"mapping_count", len(mappingPolicies))
-
-	// For each policy, we need to delete the corresponding CRD
-	if isClusterScoped(roleRef.Namespace) {
-		return ce.deleteBindingsForClusterRole(ctx, roleRef.Name)
-	}
-	return ce.deleteNamespacedBindingsForRole(ctx, roleRef.Name, roleRef.Namespace)
-}
-
-// deleteBindingsForClusterRole deletes all AuthzClusterRoleBindings referencing a cluster role
-func (ce *CasbinEnforcer) deleteBindingsForClusterRole(ctx context.Context, roleName string) error {
-	clusterBindingList := &openchoreov1alpha1.AuthzClusterRoleBindingList{}
-	if err := ce.k8sClient.List(ctx, clusterBindingList); err != nil {
-		return fmt.Errorf("failed to list AuthzClusterRoleBindings: %w", err)
-	}
-
-	for _, binding := range clusterBindingList.Items {
-		if binding.Spec.RoleRef.Name == roleName && binding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-			if err := ce.k8sClient.Delete(ctx, &binding); err != nil {
-				ce.logger.Error("failed to delete AuthzClusterRoleBinding", "name", binding.Name, "error", err)
-			}
-		}
-	}
-
-	// Also delete namespaced bindings that reference this cluster role
-	roleBindingList := &openchoreov1alpha1.AuthzRoleBindingList{}
-	if err := ce.k8sClient.List(ctx, roleBindingList); err != nil {
-		return fmt.Errorf("failed to list AuthzRoleBindings: %w", err)
-	}
-
-	for _, binding := range roleBindingList.Items {
-		if binding.Spec.RoleRef.Name == roleName && binding.Spec.RoleRef.Kind == CRDTypeAuthzClusterRole {
-			if err := ce.k8sClient.Delete(ctx, &binding); err != nil {
-				ce.logger.Error("failed to delete AuthzRoleBinding", "name", binding.Name, "namespace", binding.Namespace, "error", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// deleteNamespacedBindingsForRole deletes all AuthzRoleBindings in a namespace referencing a role
-func (ce *CasbinEnforcer) deleteNamespacedBindingsForRole(ctx context.Context, roleName, namespace string) error {
-	roleBindingList := &openchoreov1alpha1.AuthzRoleBindingList{}
-	if err := ce.k8sClient.List(ctx, roleBindingList, client.InNamespace(namespace)); err != nil {
-		return fmt.Errorf("failed to list AuthzRoleBindings in namespace %s: %w", namespace, err)
-	}
-
-	for _, binding := range roleBindingList.Items {
-		if binding.Spec.RoleRef.Name == roleName && binding.Spec.RoleRef.Kind == openchoreov1alpha1.RoleRefKindAuthzRole {
-			if err := ce.k8sClient.Delete(ctx, &binding); err != nil {
-				ce.logger.Warn("failed to delete AuthzRoleBinding", "name", binding.Name, "namespace", binding.Namespace, "error", err)
-			} else {
-				ce.logger.Debug("deleted AuthzRoleBinding", "name", binding.Name, "namespace", binding.Namespace)
-			}
-		}
-	}
-
 	return nil
 }
 

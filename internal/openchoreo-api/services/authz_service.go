@@ -127,9 +127,8 @@ func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 }
 
 // RemoveRoleByRef deletes an authorization role by RoleRef
-// If force is true, it will also remove all associated role-entitlement mappings
-func (s *AuthzService) RemoveRoleByRef(ctx context.Context, roleRef *authz.RoleRef, force bool) error {
-	s.logger.Debug("Removing authorization role", "role", roleRef.Name, "namespace", roleRef.Namespace, "force", force)
+func (s *AuthzService) RemoveRoleByRef(ctx context.Context, roleRef *authz.RoleRef) error {
+	s.logger.Debug("Removing authorization role", "role", roleRef.Name, "namespace", roleRef.Namespace)
 
 	hierarchy := authz.ResourceHierarchy{}
 	if roleRef.Namespace != "" {
@@ -141,18 +140,11 @@ func (s *AuthzService) RemoveRoleByRef(ctx context.Context, roleRef *authz.RoleR
 		return err
 	}
 
-	if force {
-		if err := s.pap.ForceRemoveRole(ctx, roleRef); err != nil {
-			return fmt.Errorf("failed to force remove role: %w", err)
-		}
-		s.logger.Debug("Authorization role and mappings removed", "role", roleRef.Name, "namespace", roleRef.Namespace)
-	} else {
-		if err := s.pap.RemoveRole(ctx, roleRef); err != nil {
-			return fmt.Errorf("failed to remove role: %w", err)
-		}
-		s.logger.Debug("Authorization role removed", "role", roleRef.Name, "namespace", roleRef.Namespace)
+	if err := s.pap.RemoveRole(ctx, roleRef); err != nil {
+		return fmt.Errorf("failed to remove role: %w", err)
 	}
 
+	s.logger.Debug("Authorization role removed", "role", roleRef.Name, "namespace", roleRef.Namespace)
 	return nil
 }
 

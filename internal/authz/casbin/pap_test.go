@@ -323,7 +323,7 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	t.Run("success - remove role with no mappings", func(t *testing.T) {
+	t.Run("remove existing role", func(t *testing.T) {
 		// Setup: Create role
 		role := &authzcore.Role{
 			Name:    "removable-role",
@@ -354,53 +354,6 @@ func TestCasbinEnforcer_RemoveRole_ClusterRole(t *testing.T) {
 			t.Errorf("RemoveRole() error = %v, want ErrRoleNotFound", err)
 		}
 	})
-
-	t.Run("role in use - cannot delete", func(t *testing.T) {
-		// setup: Create role and binding
-		role := &authzcore.Role{
-			Name:    "in-use-role",
-			Actions: []string{"component:view", "component:create"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-		mapping := &authzcore.RoleEntitlementMapping{
-			Name: "in-use-binding",
-			Entitlement: authzcore.Entitlement{
-				Claim: testClaimGroups,
-				Value: "test-group",
-			},
-			RoleRef:   authzcore.RoleRef{Name: "in-use-role"},
-			Hierarchy: authzcore.ResourceHierarchy{},
-			Effect:    authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "*", "in-use-role", "*", "allow", "{}", "in-use-binding")
-		if err != nil {
-			t.Fatalf("AddPolicy() error = %v", err)
-		}
-
-		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-role"})
-		if !errors.Is(err, authzcore.ErrRoleInUse) {
-			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
-		}
-
-		// Verify: AuthzClusterRole CRD still exists in K8s
-		var crd openchoreov1alpha1.AuthzClusterRole
-		if err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "in-use-role"}, &crd); err != nil {
-			t.Errorf("RemoveRole() AuthzClusterRole CRD should still exist: %v", err)
-		}
-
-		// Verify: AuthzClusterRoleBinding CRD still exists in K8s
-		var bindingCrd openchoreov1alpha1.AuthzClusterRoleBinding
-		if err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "in-use-binding"}, &bindingCrd); err != nil {
-			t.Errorf("RemoveRole() AuthzClusterRoleBinding CRD should still exist: %v", err)
-		}
-	})
 }
 
 // TestCasbinEnforcer_RemoveRole_NamespacedRole tests removing namespace-scoped roles
@@ -409,7 +362,7 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 	ctx := context.Background()
 	const testNs = "acme"
 
-	t.Run("remove namespace role not in use", func(t *testing.T) {
+	t.Run("remove existing namespace role", func(t *testing.T) {
 		role := &authzcore.Role{
 			Name:      "unused-role",
 			Namespace: testNs,
@@ -433,218 +386,6 @@ func TestCasbinEnforcer_RemoveRole_NamespacedRole(t *testing.T) {
 		if !k8serrors.IsNotFound(err) {
 			t.Errorf("RemoveRole() AuthzRole CRD still exists, expected NotFound error, got: %v", err)
 		}
-	})
-
-	t.Run("remove namespace role in use fails", func(t *testing.T) {
-		// Setup: Create role and binding
-		role := &authzcore.Role{
-			Name:      "in-use-ns-role",
-			Namespace: testNs,
-			Actions:   []string{"component:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-		mapping := &authzcore.RoleEntitlementMapping{
-			Name: "in-use-ns-binding",
-			Entitlement: authzcore.Entitlement{
-				Claim: testClaimGroups,
-				Value: "test-group",
-			},
-			RoleRef: authzcore.RoleRef{Name: "in-use-ns-role", Namespace: testNs},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: testNs,
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddPolicy("groups:test-group", "ns/acme", "in-use-ns-role", testNs, "allow", "{}", "in-use-ns-binding")
-		if err != nil {
-			t.Fatalf("AddPolicy() error = %v", err)
-		}
-
-		err = enforcer.RemoveRole(ctx, &authzcore.RoleRef{Name: "in-use-ns-role", Namespace: testNs})
-		if !errors.Is(err, authzcore.ErrRoleInUse) {
-			t.Errorf("RemoveRole() error = %v, want ErrRoleInUse", err)
-		}
-
-		// Verify: AuthzRole CRD still exists in K8s
-		var crd openchoreov1alpha1.AuthzRole
-		if err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "in-use-ns-role", Namespace: testNs}, &crd); err != nil {
-			t.Errorf("RemoveRole() AuthzRole CRD should still exist: %v", err)
-		}
-
-		// Verify: AuthzRoleBinding CRD still exists in K8s
-		var bindingCrd openchoreov1alpha1.AuthzRoleBinding
-		if err := enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "in-use-ns-binding", Namespace: testNs}, &bindingCrd); err != nil {
-			t.Errorf("RemoveRole() AuthzRoleBinding CRD should still exist: %v", err)
-		}
-	})
-}
-
-// TestCasbinEnforcer_ForceRemoveRole_ClusterRole tests force removing cluster-scoped roles
-func TestCasbinEnforcer_ForceRemoveRole_ClusterRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-
-	t.Run("force remove role with associated mappings", func(t *testing.T) {
-		// Setup: Create role and binding
-		role := &authzcore.Role{
-			Name:    "force-removable",
-			Actions: []string{"component:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-		mapping := &authzcore.RoleEntitlementMapping{
-			Name: "force-removable-binding",
-			Entitlement: authzcore.Entitlement{
-				Claim: testClaimGroups,
-				Value: "test-group",
-			},
-			RoleRef:   authzcore.RoleRef{Name: "force-removable"},
-			Hierarchy: authzcore.ResourceHierarchy{},
-			Effect:    authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddGroupingPolicy("force-removable", "component:view", "*")
-		if err != nil {
-			t.Fatalf("AddGroupingPolicy() error = %v", err)
-		}
-		_, err = enforcer.enforcer.AddPolicy("groups:test-group", "*", "force-removable", "*", "allow", "{}", "force-removable-binding")
-		if err != nil {
-			t.Fatalf("AddPolicy() error = %v", err)
-		}
-
-		err = enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "force-removable"})
-		if err != nil {
-			t.Fatalf("ForceRemoveRole() error = %v", err)
-		}
-
-		// Verify: AuthzClusterRole CRD was deleted from K8s
-		var roleCrd openchoreov1alpha1.AuthzClusterRole
-		err = enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "force-removable"}, &roleCrd)
-		if !k8serrors.IsNotFound(err) {
-			t.Errorf("ForceRemoveRole() AuthzClusterRole CRD still exists, expected NotFound error, got: %v", err)
-		}
-
-		// Verify: AuthzClusterRoleBinding CRD was deleted from K8s
-		var bindingCrd openchoreov1alpha1.AuthzClusterRoleBinding
-		err = enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "force-removable-binding"}, &bindingCrd)
-		if !k8serrors.IsNotFound(err) {
-			t.Errorf("ForceRemoveRole() AuthzClusterRoleBinding CRD still exists, expected NotFound error, got: %v", err)
-		}
-	})
-
-	t.Run("force remove non-existent role", func(t *testing.T) {
-		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "non-existent"})
-		if !errors.Is(err, authzcore.ErrRoleNotFound) {
-			t.Errorf("ForceRemoveRole() error = %v, want ErrRoleNotFound", err)
-		}
-	})
-
-	t.Run("force remove role without mappings", func(t *testing.T) {
-		// Setup: Create role
-		role := &authzcore.Role{
-			Name:    "no-mappings-role",
-			Actions: []string{"component:view"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Call PAP method to force remove the role
-		err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "no-mappings-role"})
-		if err != nil {
-			t.Fatalf("ForceRemoveRole() error = %v", err)
-		}
-
-		// Verify: AuthzClusterRole CRD was deleted from K8s
-		var crd openchoreov1alpha1.AuthzClusterRole
-		err = enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "no-mappings-role"}, &crd)
-		if !k8serrors.IsNotFound(err) {
-			t.Errorf("ForceRemoveRole() AuthzClusterRole CRD still exists, expected NotFound error, got: %v", err)
-		}
-
-		// Note: Casbin policies remain because PAP only deletes K8s CRDs.
-		// In production, watchers would remove Casbin policies when they see CRDs deleted.
-	})
-}
-
-// TestCasbinEnforcer_ForceRemoveRole_NamespacedRole tests force removing namespace-scoped roles
-func TestCasbinEnforcer_ForceRemoveRole_NamespacedRole(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
-	ctx := context.Background()
-	const testNs = "acme"
-
-	t.Run("force remove namespace role and mappings", func(t *testing.T) {
-		// Setup: Create namespace role
-		role := &authzcore.Role{
-			Name:      "ns-admin",
-			Namespace: testNs,
-			Actions:   []string{"*"},
-		}
-		if err := enforcer.AddRole(ctx, role); err != nil {
-			t.Fatalf("AddRole() error = %v", err)
-		}
-
-		// Setup: Create binding
-		mapping := &authzcore.RoleEntitlementMapping{
-			Name: "ns-admin-binding",
-			Entitlement: authzcore.Entitlement{
-				Claim: testClaimGroups,
-				Value: "admins",
-			},
-			RoleRef: authzcore.RoleRef{Name: "ns-admin", Namespace: testNs},
-			Hierarchy: authzcore.ResourceHierarchy{
-				Namespace: testNs,
-			},
-			Effect: authzcore.PolicyEffectAllow,
-		}
-		if err := enforcer.AddRoleEntitlementMapping(ctx, mapping); err != nil {
-			t.Fatalf("AddRoleEntitlementMapping() error = %v", err)
-		}
-
-		// Setup: Populate Casbin to simulate watchers having synced
-		_, err := enforcer.enforcer.AddGroupingPolicy("ns-admin", "*", testNs)
-		if err != nil {
-			t.Fatalf("AddGroupingPolicy() error = %v", err)
-		}
-		_, err = enforcer.enforcer.AddPolicy("groups:admins", "ns/acme", "ns-admin", testNs, "allow", "{}", "ns-admin-binding")
-		if err != nil {
-			t.Fatalf("AddPolicy() error = %v", err)
-		}
-
-		// Call PAP method to force remove the role
-		if err := enforcer.ForceRemoveRole(ctx, &authzcore.RoleRef{Name: "ns-admin", Namespace: testNs}); err != nil {
-			t.Fatalf("ForceRemoveRole() error = %v", err)
-		}
-
-		// Verify: AuthzRole CRD was deleted from K8s
-		var roleCrd openchoreov1alpha1.AuthzRole
-		err = enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "ns-admin", Namespace: testNs}, &roleCrd)
-		if !k8serrors.IsNotFound(err) {
-			t.Errorf("ForceRemoveRole() AuthzRole CRD still exists, expected NotFound error, got: %v", err)
-		}
-
-		// Verify: AuthzRoleBinding CRD was deleted from K8s
-		var bindingCrd openchoreov1alpha1.AuthzRoleBinding
-		err = enforcer.k8sClient.Get(ctx, client.ObjectKey{Name: "ns-admin-binding", Namespace: testNs}, &bindingCrd)
-		if !k8serrors.IsNotFound(err) {
-			t.Errorf("ForceRemoveRole() AuthzRoleBinding CRD still exists, expected NotFound error, got: %v", err)
-		}
-
-		// Note: Casbin policies remain because PAP only deletes K8s CRDs.
-		// In production, watchers would remove Casbin policies when they see CRDs deleted.
-		// We verify Casbin policies still exist to confirm PAP doesn't directly touch Casbin.
 	})
 }
 

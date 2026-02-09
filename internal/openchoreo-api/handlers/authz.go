@@ -274,10 +274,9 @@ func (h *Handler) DeleteClusterRole(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	setAuditResource(ctx, "cluster_role", name, name)
 
-	force := r.URL.Query().Get("force") == "true"
 	roleRef := &authz.RoleRef{Name: name, Namespace: ""}
 
-	if err := h.services.AuthzService.RemoveRoleByRef(ctx, roleRef, force); err != nil {
+	if err := h.services.AuthzService.RemoveRoleByRef(ctx, roleRef); err != nil {
 		h.logger.Debug("Failed to delete cluster role", "error", err, "role", name)
 		if errors.Is(err, services.ErrForbidden) {
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
@@ -667,7 +666,6 @@ func (h *Handler) UpdateNamespaceRole(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteNamespaceRole(w http.ResponseWriter, r *http.Request) {
 	namespaceName := r.PathValue("namespaceName")
 	name := r.PathValue("name")
-	force := r.URL.Query().Get("force") == "true"
 
 	if namespaceName == "" {
 		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
@@ -683,7 +681,7 @@ func (h *Handler) DeleteNamespaceRole(w http.ResponseWriter, r *http.Request) {
 
 	roleRef := &authz.RoleRef{Name: name, Namespace: namespaceName}
 
-	if err := h.services.AuthzService.RemoveRoleByRef(ctx, roleRef, force); err != nil {
+	if err := h.services.AuthzService.RemoveRoleByRef(ctx, roleRef); err != nil {
 		h.logger.Debug("Failed to delete namespace role", "error", err, "namespace", namespaceName, "role", name)
 		if errors.Is(err, services.ErrForbidden) {
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)

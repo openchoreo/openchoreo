@@ -25,9 +25,6 @@ type PAP interface {
 	// RemoveRole deletes a role identified by RoleRef
 	RemoveRole(ctx context.Context, roleRef *RoleRef) error
 
-	// ForceRemoveRole deletes a role and all its associated role-entitlement mappings
-	ForceRemoveRole(ctx context.Context, roleRef *RoleRef) error
-
 	// GetRole retrieves a role identified by RoleRef
 	GetRole(ctx context.Context, roleRef *RoleRef) (*Role, error)
 

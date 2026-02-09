@@ -458,8 +458,7 @@ func (h *Handler) DeleteClusterRole(
 ) (gen.DeleteClusterRoleResponseObject, error) {
 	h.logger.Debug("DeleteClusterRole handler called", "name", request.Name)
 
-	force := request.Params.Force != nil && *request.Params.Force
-	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name}, force)
+	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name})
 	if err != nil {
 		h.logger.Error("Failed to delete cluster role", "error", err)
 		if errors.Is(err, services.ErrForbidden) {
@@ -890,8 +889,7 @@ func (h *Handler) DeleteNamespaceRole(
 ) (gen.DeleteNamespaceRoleResponseObject, error) {
 	h.logger.Debug("DeleteNamespaceRole handler called", "name", request.Name, "namespace", request.NamespaceName)
 
-	force := request.Params.Force != nil && *request.Params.Force
-	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name, Namespace: request.NamespaceName}, force)
+	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name, Namespace: request.NamespaceName})
 	if err != nil {
 		h.logger.Error("Failed to delete namespace role", "error", err)
 		if errors.Is(err, services.ErrForbidden) {

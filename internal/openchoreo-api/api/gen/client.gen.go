@@ -144,7 +144,7 @@ type ClientInterface interface {
 	CreateClusterRole(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteClusterRole request
-	DeleteClusterRole(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteClusterRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetClusterRole request
 	GetClusterRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -356,7 +356,7 @@ type ClientInterface interface {
 	CreateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteNamespaceRole request
-	DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNamespaceRole request
 	GetNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -663,8 +663,8 @@ func (c *Client) CreateClusterRole(ctx context.Context, body CreateClusterRoleJS
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteClusterRole(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteClusterRoleRequest(c.Server, name, params)
+func (c *Client) DeleteClusterRole(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterRoleRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1587,8 +1587,8 @@ func (c *Client) CreateNamespaceRole(ctx context.Context, namespaceName Namespac
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteNamespaceRoleRequest(c.Server, namespaceName, name, params)
+func (c *Client) DeleteNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteNamespaceRoleRequest(c.Server, namespaceName, name)
 	if err != nil {
 		return nil, err
 	}
@@ -2477,7 +2477,7 @@ func NewCreateClusterRoleRequestWithBody(server string, contentType string, body
 }
 
 // NewDeleteClusterRoleRequest generates requests for DeleteClusterRole
-func NewDeleteClusterRoleRequest(server string, name string, params *DeleteClusterRoleParams) (*http.Request, error) {
+func NewDeleteClusterRoleRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2500,28 +2500,6 @@ func NewDeleteClusterRoleRequest(server string, name string, params *DeleteClust
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Force != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "force", runtime.ParamLocationQuery, *params.Force); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
@@ -5689,7 +5667,7 @@ func NewCreateNamespaceRoleRequestWithBody(server string, namespaceName Namespac
 }
 
 // NewDeleteNamespaceRoleRequest generates requests for DeleteNamespaceRole
-func NewDeleteNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams) (*http.Request, error) {
+func NewDeleteNamespaceRoleRequest(server string, namespaceName NamespaceNameParam, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5719,28 +5697,6 @@ func NewDeleteNamespaceRoleRequest(server string, namespaceName NamespaceNamePar
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Force != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "force", runtime.ParamLocationQuery, *params.Force); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
@@ -6619,7 +6575,7 @@ type ClientWithResponsesInterface interface {
 	CreateClusterRoleWithResponse(ctx context.Context, body CreateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterRoleResp, error)
 
 	// DeleteClusterRoleWithResponse request
-	DeleteClusterRoleWithResponse(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error)
+	DeleteClusterRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error)
 
 	// GetClusterRoleWithResponse request
 	GetClusterRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetClusterRoleResp, error)
@@ -6831,7 +6787,7 @@ type ClientWithResponsesInterface interface {
 	CreateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleResp, error)
 
 	// DeleteNamespaceRoleWithResponse request
-	DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error)
+	DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error)
 
 	// GetNamespaceRoleWithResponse request
 	GetNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*GetNamespaceRoleResp, error)
@@ -9422,8 +9378,8 @@ func (c *ClientWithResponses) CreateClusterRoleWithResponse(ctx context.Context,
 }
 
 // DeleteClusterRoleWithResponse request returning *DeleteClusterRoleResp
-func (c *ClientWithResponses) DeleteClusterRoleWithResponse(ctx context.Context, name string, params *DeleteClusterRoleParams, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error) {
-	rsp, err := c.DeleteClusterRole(ctx, name, params, reqEditors...)
+func (c *ClientWithResponses) DeleteClusterRoleWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteClusterRoleResp, error) {
+	rsp, err := c.DeleteClusterRole(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -10096,8 +10052,8 @@ func (c *ClientWithResponses) CreateNamespaceRoleWithResponse(ctx context.Contex
 }
 
 // DeleteNamespaceRoleWithResponse request returning *DeleteNamespaceRoleResp
-func (c *ClientWithResponses) DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, params *DeleteNamespaceRoleParams, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error) {
-	rsp, err := c.DeleteNamespaceRole(ctx, namespaceName, name, params, reqEditors...)
+func (c *ClientWithResponses) DeleteNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, reqEditors ...RequestEditorFn) (*DeleteNamespaceRoleResp, error) {
+	rsp, err := c.DeleteNamespaceRole(ctx, namespaceName, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

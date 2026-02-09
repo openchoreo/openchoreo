@@ -1891,7 +1891,7 @@ paths:
     delete:
       operationId: deleteClusterRole
       summary: Delete cluster role
-      description: Deletes a cluster role. Use force=true to also remove associated bindings.
+      description: Deletes a cluster role.
       tags: [Authorization]
       parameters:
         - name: name
@@ -1901,13 +1901,6 @@ paths:
           schema:
             type: string
             example: cluster-admin
-        - name: force
-          in: query
-          required: false
-          description: Force deletion and remove all associated role bindings
-          schema:
-            type: boolean
-            default: false
       responses:
         '204':
           description: Cluster role deleted successfully
@@ -2227,7 +2220,7 @@ paths:
     delete:
       operationId: deleteNamespaceRole
       summary: Delete namespace role
-      description: Deletes a namespace role. Use force=true to also remove associated bindings.
+      description: Deletes a namespace role.
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -2238,13 +2231,6 @@ paths:
           schema:
             type: string
             example: developer
-        - name: force
-          in: query
-          required: false
-          description: Force deletion and remove all associated role bindings
-          schema:
-            type: boolean
-            default: false
       responses:
         '204':
           description: Namespace role deleted successfully

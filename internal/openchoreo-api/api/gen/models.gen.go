@@ -2021,12 +2021,6 @@ type ListClusterRoleBindingsParams struct {
 // ListClusterRoleBindingsParamsEffect defines parameters for ListClusterRoleBindings.
 type ListClusterRoleBindingsParamsEffect string
 
-// DeleteClusterRoleParams defines parameters for DeleteClusterRole.
-type DeleteClusterRoleParams struct {
-	// Force Force deletion and remove all associated role bindings
-	Force *bool `form:"force,omitempty" json:"force,omitempty"`
-}
-
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
 	// Limit Maximum number of items to return per page
@@ -2161,12 +2155,6 @@ type ListNamespaceRoleBindingsParams struct {
 
 // ListNamespaceRoleBindingsParamsEffect defines parameters for ListNamespaceRoleBindings.
 type ListNamespaceRoleBindingsParamsEffect string
-
-// DeleteNamespaceRoleParams defines parameters for DeleteNamespaceRole.
-type DeleteNamespaceRoleParams struct {
-	// Force Force deletion and remove all associated role bindings
-	Force *bool `form:"force,omitempty" json:"force,omitempty"`
-}
 
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
