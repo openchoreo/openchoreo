@@ -206,12 +206,11 @@ func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams)
 // BuildComponentWorkflowRunLogsQuery builds a query for component workflow run logs
 func (qb *QueryBuilder) BuildComponentWorkflowRunLogsQuery(params ComponentWorkflowRunQueryParams) map[string]interface{} {
 	// Construct pod name pattern for Argo Workflow: runName-stepName-* or runName-* if stepName is empty
-	var podNamePattern string
+	suffix := ""
 	if params.StepName != "" {
-		podNamePattern = fmt.Sprintf("%s-%s-*", params.RunName, params.StepName)
-	} else {
-		podNamePattern = params.RunName + "-*"
+		suffix = "-" + params.StepName
 	}
+	podNamePattern := fmt.Sprintf("%s%s-*", params.RunName, suffix)
 
 	// Build query with wildcard search on pod name
 	mustConditions := []map[string]interface{}{
@@ -222,7 +221,7 @@ func (qb *QueryBuilder) BuildComponentWorkflowRunLogsQuery(params ComponentWorkf
 		},
 	}
 
-	// Logs from init and wait containers are not relevant. Hence, excluded.
+	// Logs from init and wait containers are not relevant for Argo Workflows. Hence, excluded.
 	mustNotConditions := []map[string]interface{}{
 		{
 			"term": map[string]interface{}{

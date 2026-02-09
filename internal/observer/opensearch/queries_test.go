@@ -9,6 +9,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/labels"
 )
 
+const sortOrderAsc = "asc"
+
 func TestQueryBuilder_BuildComponentLogsQuery(t *testing.T) {
 	qb := NewQueryBuilder("container-logs-")
 
@@ -130,7 +132,7 @@ func TestQueryBuilder_BuildBuildLogsQuery(t *testing.T) {
 		t.Fatal("Expected timestamp sort configuration")
 	}
 
-	if timestampSort["order"] != "asc" {
+	if timestampSort["order"] != sortOrderAsc {
 		t.Errorf("Expected ascending sort order, got %v", timestampSort["order"])
 	}
 }
@@ -492,6 +494,169 @@ func TestQueryBuilder_BuildTracesQuery(t *testing.T) {
 		}
 		if !envFound {
 			t.Error("EnvironmentUID filter not found")
+		}
+	})
+}
+
+// verifyPodWildcardPattern checks if the query contains the expected pod name wildcard pattern
+func verifyPodWildcardPattern(t *testing.T, mustConditions []map[string]interface{}, expectedPattern string) {
+	t.Helper()
+	foundWildcard := false
+	for _, condition := range mustConditions {
+		if wildcard, ok := condition["wildcard"].(map[string]interface{}); ok {
+			field := labels.KubernetesPodName + ".keyword"
+			if value, exists := wildcard[field]; exists && value == expectedPattern {
+				foundWildcard = true
+				break
+			}
+		}
+	}
+	if !foundWildcard {
+		t.Errorf("Expected pod wildcard pattern %s not found", expectedPattern)
+	}
+}
+
+// verifyContainerExclusions checks if init and wait containers are excluded
+func verifyContainerExclusions(t *testing.T, mustNotConditions []map[string]interface{}) {
+	t.Helper()
+	if len(mustNotConditions) != 2 {
+		t.Errorf("Expected 2 must_not conditions (init and wait), got %d", len(mustNotConditions))
+		return
+	}
+
+	foundInit := false
+	foundWait := false
+	for _, condition := range mustNotConditions {
+		if term, ok := condition["term"].(map[string]interface{}); ok {
+			field := labels.KubernetesContainerName + ".keyword"
+			if value, exists := term[field]; exists {
+				if value == "init" {
+					foundInit = true
+				}
+				if value == "wait" {
+					foundWait = true
+				}
+			}
+		}
+	}
+	if !foundInit {
+		t.Error("Expected init container exclusion not found")
+	}
+	if !foundWait {
+		t.Error("Expected wait container exclusion not found")
+	}
+}
+
+// verifySortOrder checks if the sort order is ascending
+func verifySortOrder(t *testing.T, query map[string]interface{}) {
+	t.Helper()
+	sortFields, ok := query["sort"].([]map[string]interface{})
+	if !ok || len(sortFields) == 0 {
+		t.Fatal("Expected sort configuration")
+	}
+
+	timestampSort, ok := sortFields[0]["@timestamp"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected timestamp sort configuration")
+	}
+
+	if timestampSort["order"] != sortOrderAsc {
+		t.Errorf("Expected ascending sort order, got %v", timestampSort["order"])
+	}
+}
+
+func TestQueryBuilder_BuildComponentWorkflowRunLogsQuery(t *testing.T) {
+	qb := NewQueryBuilder("container-logs-")
+
+	t.Run("Query with runName only (no stepName)", func(t *testing.T) {
+		params := ComponentWorkflowRunQueryParams{
+			RunName:  "workflow-run-123",
+			StepName: "",
+			Limit:    100,
+		}
+
+		query := qb.BuildComponentWorkflowRunLogsQuery(params)
+
+		if query["size"] != 100 {
+			t.Errorf("Expected size 100, got %v", query["size"])
+		}
+
+		boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected bool query not found")
+		}
+
+		mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+		if !ok {
+			t.Fatal("Expected must conditions not found")
+		}
+
+		if len(mustConditions) != 1 {
+			t.Errorf("Expected 1 must condition (pod wildcard), got %d", len(mustConditions))
+		}
+
+		verifyPodWildcardPattern(t, mustConditions, "workflow-run-123-*")
+
+		mustNotConditions, ok := boolQuery["must_not"].([]map[string]interface{})
+		if !ok {
+			t.Fatal("Expected must_not conditions not found")
+		}
+
+		verifyContainerExclusions(t, mustNotConditions)
+		verifySortOrder(t, query)
+	})
+
+	t.Run("Query with both runName and stepName", func(t *testing.T) {
+		params := ComponentWorkflowRunQueryParams{
+			RunName:  "workflow-run-456",
+			StepName: "build-step",
+			Limit:    200,
+		}
+
+		query := qb.BuildComponentWorkflowRunLogsQuery(params)
+
+		if query["size"] != 200 {
+			t.Errorf("Expected size 200, got %v", query["size"])
+		}
+
+		boolQuery, ok := query["query"].(map[string]interface{})["bool"].(map[string]interface{})
+		if !ok {
+			t.Fatal("Expected bool query not found")
+		}
+
+		mustConditions, ok := boolQuery["must"].([]map[string]interface{})
+		if !ok {
+			t.Fatal("Expected must conditions not found")
+		}
+
+		verifyPodWildcardPattern(t, mustConditions, "workflow-run-456-build-step-*")
+		verifySortOrder(t, query)
+	})
+
+	t.Run("Query with different limit values", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			limit int
+		}{
+			{"limit 50", 50},
+			{"limit 500", 500},
+			{"limit 0", 0},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				params := ComponentWorkflowRunQueryParams{
+					RunName:  "test-run",
+					StepName: "",
+					Limit:    tt.limit,
+				}
+
+				query := qb.BuildComponentWorkflowRunLogsQuery(params)
+
+				if query["size"] != tt.limit {
+					t.Errorf("Expected size %d, got %v", tt.limit, query["size"])
+				}
+			})
 		}
 	})
 }

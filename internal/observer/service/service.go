@@ -489,14 +489,13 @@ func (s *LoggingService) GetNamespaceLogs(ctx context.Context, params opensearch
 
 // GetComponentWorkflowRunLogs retrieves log entries for a component workflow run
 func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runName, stepName string, limit int) ([]opensearch.ComponentWorkflowRunLogEntry, error) {
-	s.logger.Info("Getting component workflow run logs",
-		"run_name", runName,
-		"step_name", stepName)
+	logger := s.logger.With("run_name", runName, "step_name", stepName)
+	logger.Debug("Getting component workflow run logs")
 
 	// Generate indices (empty times means search all indices)
 	indices, err := s.queryBuilder.GenerateIndices("", "")
 	if err != nil {
-		s.logger.Error("Failed to generate indices", "error", err)
+		logger.Error("Failed to generate indices", "error", err)
 		return nil, fmt.Errorf("failed to generate indices: %w", err)
 	}
 
@@ -510,15 +509,15 @@ func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runNam
 	// Print query for debugging
 	queryJSON, err := json.Marshal(query)
 	if err != nil {
-		s.logger.Error("Failed to marshal query", "error", err)
+		logger.Error("Failed to marshal query", "error", err)
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
-	s.logger.Debug("Component workflow run logs query", "query", string(queryJSON))
+	logger.Debug("Component workflow run logs query", "query", string(queryJSON))
 
 	// Execute search
 	response, err := s.osClient.Search(ctx, indices, query)
 	if err != nil {
-		s.logger.Error("Failed to execute component workflow run logs search", "error", err)
+		logger.Error("Failed to execute component workflow run logs search", "error", err)
 		return nil, fmt.Errorf("failed to execute search: %w", err)
 	}
 
@@ -533,7 +532,7 @@ func (s *LoggingService) GetComponentWorkflowRunLogs(ctx context.Context, runNam
 		})
 	}
 
-	s.logger.Info("Component workflow run logs retrieved",
+	logger.Info("Component workflow run logs retrieved",
 		"count", len(logs),
 		"total", response.Hits.Total.Value)
 

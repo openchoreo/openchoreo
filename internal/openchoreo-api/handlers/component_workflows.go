@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -267,20 +266,21 @@ func (h *Handler) GetComponentWorkflowRunStatus(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	log = log.With("namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
 	// Call service to get component workflow run status
 	status, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunStatus(ctx, namespaceName, projectName, componentName, runName)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
-			log.Error("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Component workflow run not found")
 			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrForbidden) {
-			log.Error("Unauthorized to view component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Unauthorized to view component workflow run status")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
-		log.Error("Failed to get component workflow run status", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "error", err)
+		log.Error("Failed to get component workflow run status", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run status", "INTERNAL_ERROR")
 		return
 	}
@@ -340,23 +340,22 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Get gateway URL from config or environment
-	gatewayURL := h.getGatewayURL()
+	log = log.With("namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "step", stepName, "sinceSeconds", sinceSeconds)
 
 	// Call service to get component workflow run logs
-	logs, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunLogs(ctx, namespaceName, projectName, componentName, runName, stepName, gatewayURL, sinceSeconds)
+	logs, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunLogs(ctx, namespaceName, projectName, componentName, runName, stepName, h.config.ClusterGateway.URL, sinceSeconds)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
-			log.Error("Component workflow run not found", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Component workflow run not found")
 			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrForbidden) {
-			log.Error("Unauthorized to view component workflow run logs", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+			log.Error("Unauthorized to view component workflow run logs")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
-		log.Error("Failed to get component workflow run logs", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "error", err)
+		log.Error("Failed to get component workflow run logs", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run logs", "INTERNAL_ERROR")
 		return
 	}
@@ -367,15 +366,4 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 	if err := json.NewEncoder(w).Encode(logs); err != nil {
 		log.Error("Failed to encode logs response", "error", err)
 	}
-}
-
-// getGatewayURL gets the cluster gateway URL from config or environment
-func (h *Handler) getGatewayURL() string {
-	// Try to get from environment variable first
-	if gatewayURL := os.Getenv("CLUSTER_GATEWAY_URL"); gatewayURL != "" {
-		return gatewayURL
-	}
-
-	// Default to internal service DNS if in cluster
-	return "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443"
 }

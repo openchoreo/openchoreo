@@ -356,15 +356,17 @@ type PodReference struct {
 
 // PodLogsOptions contains options for fetching pod logs through the gateway
 type PodLogsOptions struct {
-	Container    string // Specific container name to get logs from
-	Timestamps   bool   // Include timestamps in log lines
-	SinceSeconds *int64 // Return logs newer than this many seconds
+	ContainerName     string // Specific container name to get logs from
+	IncludeTimestamps bool   // Include timestamps in log lines
+	SinceSeconds      *int64 // Return logs newer than this many seconds
 }
 
 // GetPodLogsFromPlane retrieves pod logs through the gateway proxy with optional parameters
 // This method makes direct Kubernetes API calls through the gateway proxy to support
 // advanced log retrieval options like container selection, timestamps, and time filtering
-func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, namespace, name string, podReference *PodReference, options *PodLogsOptions) (string, error) {
+func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, planeNamespace, planeName string, podReference *PodReference, options *PodLogsOptions) (string, error) {
+	const maxPodLogsBytes = 10 * 1024 * 1024 // 10MB. TODO: Make this configurable.
+
 	if podReference == nil || podReference.Namespace == "" || podReference.Name == "" {
 		return "", fmt.Errorf("pod reference is required and must have namespace and name")
 	}
@@ -373,10 +375,10 @@ func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, na
 	queryParams := ""
 	if options != nil {
 		params := []string{}
-		if options.Container != "" {
-			params = append(params, fmt.Sprintf("container=%s", options.Container))
+		if options.ContainerName != "" {
+			params = append(params, fmt.Sprintf("container=%s", options.ContainerName))
 		}
-		if options.Timestamps {
+		if options.IncludeTimestamps {
 			params = append(params, "timestamps=true")
 		}
 		if options.SinceSeconds != nil && *options.SinceSeconds > 0 {
@@ -388,10 +390,10 @@ func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, na
 	}
 
 	// Build the URL for the Kubernetes API request
-	url := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log%s", podReference.Namespace, podReference.Name, queryParams)
-	url = fmt.Sprintf("%s/api/proxy/%s/%s/%s/%s/k8s%s", c.baseURL, planeType, planeID, namespace, name, url)
+	k8sAPIPathForPodLogs := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log%s", podReference.Namespace, podReference.Name, queryParams)
+	k8sProxyURLForPodLogs := fmt.Sprintf("%s/api/proxy/%s/%s/%s/%s/k8s%s", c.baseURL, planeType, planeID, planeNamespace, planeName, k8sAPIPathForPodLogs)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", k8sProxyURLForPodLogs, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -410,9 +412,12 @@ func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, na
 		return "", classifyHTTPError(resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPodLogsBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+	if len(body) > maxPodLogsBytes {
+		return "", fmt.Errorf("response body is too large, max is %d bytes", maxPodLogsBytes)
 	}
 
 	return string(body), nil

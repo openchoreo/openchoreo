@@ -125,10 +125,14 @@ func main() {
 
 	// Create gateway client to fetch buildplane pod logs/events
 	var gwClient *gatewayClient.Client
-	if gatewayURL != "" {
+	if cfg.ClusterGateway.Enabled {
+		if gatewayURL == "" {
+			logger.Error("No cluster gateway URL provided", "clusterGateway", cfg.ClusterGateway)
+			os.Exit(1)
+		}
 		gwClient = gatewayClient.NewClient(gatewayURL)
-		logger.Info("gateway client initialized", "url", gatewayURL)
 	}
+	logger.Info("gateway client initialized", "url", gatewayURL)
 
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {
