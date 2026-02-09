@@ -148,6 +148,31 @@ type DataPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// BuildPlaneRefKind defines the kind of build plane referenced by a BuildPlaneRef
+// +kubebuilder:validation:Enum=BuildPlane;ClusterBuildPlane
+type BuildPlaneRefKind string
+
+const (
+	// BuildPlaneRefKindBuildPlane references a namespace-scoped BuildPlane
+	BuildPlaneRefKindBuildPlane BuildPlaneRefKind = "BuildPlane"
+
+	// BuildPlaneRefKindClusterBuildPlane references a cluster-scoped ClusterBuildPlane
+	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
+)
+
+// BuildPlaneRef represents a reference to a BuildPlane or ClusterBuildPlane
+type BuildPlaneRef struct {
+	// Kind is the kind of build plane (BuildPlane or ClusterBuildPlane)
+	// +required
+	Kind BuildPlaneRefKind `json:"kind"`
+
+	// Name is the name of the build plane resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny

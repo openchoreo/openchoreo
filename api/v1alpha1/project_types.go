@@ -7,24 +7,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ProjectSpec defines the desired state of Project.
 type ProjectSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of Project. Edit project_types.go to remove/update
+	// DeploymentPipelineRef references the DeploymentPipeline that defines the environments
+	// and deployment progression for components in this project.
 	DeploymentPipelineRef string `json:"deploymentPipelineRef"`
+
+	// BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this project's build operations.
+	// If not specified, the controller resolves the build plane in the following order:
+	// 1. BuildPlane named "default" in the same namespace
+	// 2. ClusterBuildPlane named "default" (cluster-scoped fallback)
+	// 3. First available BuildPlane in the namespace
+	// +optional
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
 }
 
 // ProjectStatus defines the observed state of Project.
 type ProjectStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	ObservedGeneration int64              `json:"observedGeneration,omitempty"`
-	Conditions         []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration reflects the generation of the most recently observed Project.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions represent the current state of the Project resource.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

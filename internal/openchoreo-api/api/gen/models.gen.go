@@ -48,6 +48,12 @@ const (
 	CreateNamespaceRoleBindingRequestEffectDeny  CreateNamespaceRoleBindingRequestEffect = "deny"
 )
 
+// Defines values for CreateProjectRequestBuildPlaneRefKind.
+const (
+	CreateProjectRequestBuildPlaneRefKindBuildPlane        CreateProjectRequestBuildPlaneRefKind = "BuildPlane"
+	CreateProjectRequestBuildPlaneRefKindClusterBuildPlane CreateProjectRequestBuildPlaneRefKind = "ClusterBuildPlane"
+)
+
 // Defines values for DeleteResourceResponseOperation.
 const (
 	DeleteResourceResponseOperationDeleted  DeleteResourceResponseOperation = "deleted"
@@ -68,6 +74,12 @@ const (
 	INTERNALERROR ErrorResponseCode = "INTERNAL_ERROR"
 	NOTFOUND      ErrorResponseCode = "NOT_FOUND"
 	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
+)
+
+// Defines values for ProjectBuildPlaneRefKind.
+const (
+	ProjectBuildPlaneRefKindBuildPlane        ProjectBuildPlaneRefKind = "BuildPlane"
+	ProjectBuildPlaneRefKindClusterBuildPlane ProjectBuildPlaneRefKind = "ClusterBuildPlane"
 )
 
 // Defines values for RoleEntitlementMappingEffect.
@@ -751,6 +763,16 @@ type CreateNamespaceRoleRequest struct {
 
 // CreateProjectRequest Request to create a new project
 type CreateProjectRequest struct {
+	// BuildPlaneRef Reference to the BuildPlane or ClusterBuildPlane for this project's build operations.
+	// If not specified, defaults to "default" BuildPlane in the same namespace.
+	BuildPlaneRef *struct {
+		// Kind Kind of build plane (BuildPlane or ClusterBuildPlane)
+		Kind CreateProjectRequestBuildPlaneRefKind `json:"kind"`
+
+		// Name Name of the build plane resource
+		Name string `json:"name"`
+	} `json:"buildPlaneRef,omitempty"`
+
 	// DeploymentPipeline Deployment pipeline to use (defaults to namespace default)
 	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
 
@@ -763,6 +785,9 @@ type CreateProjectRequest struct {
 	// Name Project name (must be unique within namespace)
 	Name string `json:"name"`
 }
+
+// CreateProjectRequestBuildPlaneRefKind Kind of build plane (BuildPlane or ClusterBuildPlane)
+type CreateProjectRequestBuildPlaneRefKind string
 
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
@@ -1246,6 +1271,15 @@ type PatchReleaseBindingRequest struct {
 
 // Project Project resource
 type Project struct {
+	// BuildPlaneRef Reference to the BuildPlane or ClusterBuildPlane for this project's build operations
+	BuildPlaneRef *struct {
+		// Kind Kind of build plane (BuildPlane or ClusterBuildPlane)
+		Kind ProjectBuildPlaneRefKind `json:"kind"`
+
+		// Name Name of the build plane resource
+		Name string `json:"name"`
+	} `json:"buildPlaneRef,omitempty"`
+
 	// CreatedAt Creation timestamp
 	CreatedAt time.Time `json:"createdAt"`
 
@@ -1270,6 +1304,9 @@ type Project struct {
 	// Uid Unique identifier (Kubernetes UID)
 	Uid openapi_types.UUID `json:"uid"`
 }
+
+// ProjectBuildPlaneRefKind Kind of build plane (BuildPlane or ClusterBuildPlane)
+type ProjectBuildPlaneRefKind string
 
 // ProjectList Paginated list of projects
 type ProjectList struct {

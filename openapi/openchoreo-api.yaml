@@ -3394,6 +3394,22 @@ components:
           type: string
           description: Referenced deployment pipeline name
           example: default-pipeline
+        buildPlaneRef:
+          type: object
+          description: Reference to the BuildPlane or ClusterBuildPlane for this project's build operations
+          properties:
+            kind:
+              type: string
+              description: Kind of build plane (BuildPlane or ClusterBuildPlane)
+              enum: [BuildPlane, ClusterBuildPlane]
+              example: BuildPlane
+            name:
+              type: string
+              description: Name of the build plane resource
+              example: default
+          required:
+            - kind
+            - name
         createdAt:
           type: string
           format: date-time
@@ -3431,6 +3447,27 @@ components:
           type: string
           description: Deployment pipeline to use (defaults to namespace default)
           example: default-pipeline
+        buildPlaneRef:
+          type: object
+          description: |
+            Reference to the BuildPlane or ClusterBuildPlane for this project's build operations.
+            If not specified, defaults to "default" BuildPlane in the same namespace.
+          properties:
+            kind:
+              type: string
+              description: Kind of build plane (BuildPlane or ClusterBuildPlane)
+              enum: [BuildPlane, ClusterBuildPlane]
+              example: BuildPlane
+            name:
+              type: string
+              description: Name of the build plane resource
+              minLength: 1
+              maxLength: 63
+              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+              example: default
+          required:
+            - kind
+            - name
 
     # -------------------------------------------------------------------------
     # Components

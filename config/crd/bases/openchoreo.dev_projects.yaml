@@ -42,9 +42,33 @@ spec:
           spec:
             description: ProjectSpec defines the desired state of Project.
             properties:
+              buildPlaneRef:
+                description: |-
+                  BuildPlaneRef references the BuildPlane or ClusterBuildPlane for this project's build operations.
+                  If not specified, the controller resolves the build plane in the following order:
+                  1. BuildPlane named "default" in the same namespace
+                  2. ClusterBuildPlane named "default" (cluster-scoped fallback)
+                  3. First available BuildPlane in the namespace
+                properties:
+                  kind:
+                    description: Kind is the kind of build plane (BuildPlane or ClusterBuildPlane)
+                    enum:
+                    - BuildPlane
+                    - ClusterBuildPlane
+                    type: string
+                  name:
+                    description: Name is the name of the build plane resource
+                    maxLength: 63
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
               deploymentPipelineRef:
-                description: Foo is an example field of Project. Edit project_types.go
-                  to remove/update
+                description: |-
+                  DeploymentPipelineRef references the DeploymentPipeline that defines the environments
+                  and deployment progression for components in this project.
                 type: string
             required:
             - deploymentPipelineRef
@@ -53,6 +77,8 @@ spec:
             description: ProjectStatus defines the observed state of Project.
             properties:
               conditions:
+                description: Conditions represent the current state of the Project
+                  resource.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -109,9 +135,8 @@ spec:
                   type: object
                 type: array
               observedGeneration:
-                description: |-
-                  INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
+                description: ObservedGeneration reflects the generation of the most
+                  recently observed Project.
                 format: int64
                 type: integer
             type: object

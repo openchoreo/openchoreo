@@ -35,6 +35,13 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	// Validate request
+	if err := req.Validate(); err != nil {
+		logger.Error("Validation failed", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), "INVALID_REQUEST")
+		return
+	}
+
 	// Call service to create project
 	project, err := h.services.ProjectService.CreateProject(ctx, namespaceName, &req)
 	if err != nil {

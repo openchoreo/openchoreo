@@ -397,3 +397,325 @@ func TestGetObservabilityPlaneOfDataPlane_WithExplicitRef_NotFound(t *testing.T)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "observabilityPlane 'nonexistent-observability' not found in namespace 'test-namespace'")
 }
+
+// ============================================================================
+// Tests for GetBuildPlaneOrClusterBuildPlaneOfProject
+// ============================================================================
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithExplicitBuildPlaneRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test BuildPlane
+	buildPlane := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-buildplane",
+			Namespace: "test-namespace",
+		},
+	}
+
+	// Create test Project with explicit buildPlaneRef
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindBuildPlane,
+				Name: "my-buildplane",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(buildPlane, project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.BuildPlane)
+	assert.Nil(t, result.ClusterBuildPlane)
+	assert.Equal(t, "my-buildplane", result.GetName())
+	assert.Equal(t, "test-namespace", result.GetNamespace())
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithExplicitClusterBuildPlaneRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test ClusterBuildPlane
+	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-buildplane",
+		},
+	}
+
+	// Create test Project with explicit ClusterBuildPlane ref
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane,
+				Name: "shared-buildplane",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterBuildPlane, project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Nil(t, result.BuildPlane)
+	assert.NotNil(t, result.ClusterBuildPlane)
+	assert.Equal(t, "shared-buildplane", result.GetName())
+	assert.Equal(t, "", result.GetNamespace()) // ClusterBuildPlane is cluster-scoped
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithNoRef_DefaultExists(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create default BuildPlane
+	buildPlane := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "test-namespace",
+		},
+	}
+
+	// Create Project without buildPlaneRef
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef:         nil,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(buildPlane, project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.BuildPlane)
+	assert.Equal(t, "default", result.GetName())
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithNoRef_DefaultClusterBuildPlane(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create Project without buildPlaneRef
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef:         nil,
+		},
+	}
+
+	// Create "default" ClusterBuildPlane (no namespace BuildPlane)
+	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+			PlaneID: "test-plane",
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project, clusterBuildPlane).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Nil(t, result.BuildPlane)
+	assert.NotNil(t, result.ClusterBuildPlane)
+	assert.Equal(t, "default", result.ClusterBuildPlane.Name)
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithNoRef_FallbackToFirst(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create a non-default BuildPlane
+	buildPlane := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "other-buildplane",
+			Namespace: "test-namespace",
+		},
+	}
+
+	// Create Project without buildPlaneRef
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef:         nil,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(buildPlane, project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.NotNil(t, result.BuildPlane)
+	assert.Equal(t, "other-buildplane", result.GetName())
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithNoRef_NoBuildPlane(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create Project without buildPlaneRef, and no BuildPlane exists
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef:         nil,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	// Should return nil without error (BuildPlane is optional for Projects)
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithExplicitRef_NotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create Project with explicit ref that doesn't exist
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindBuildPlane,
+				Name: "nonexistent-buildplane",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "buildPlane 'nonexistent-buildplane' not found in namespace 'test-namespace'")
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithExplicitClusterRef_NotFound(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create Project with explicit ClusterBuildPlane ref that doesn't exist
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane,
+				Name: "nonexistent-clusterbuildplane",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "clusterBuildPlane 'nonexistent-clusterbuildplane' not found")
+}
+
+func TestGetBuildPlaneOrClusterBuildPlaneOfProject_WithUnsupportedKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create Project with unsupported Kind
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-project",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: "default",
+			BuildPlaneRef: &openchoreov1alpha1.BuildPlaneRef{
+				Kind: openchoreov1alpha1.BuildPlaneRefKind("UnsupportedKind"),
+				Name: "some-buildplane",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(project).
+		Build()
+
+	result, err := GetBuildPlaneOrClusterBuildPlaneOfProject(context.Background(), fakeClient, project)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "unsupported")
+}

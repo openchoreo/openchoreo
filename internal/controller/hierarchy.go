@@ -295,21 +295,66 @@ func GetDataPlane(ctx context.Context, c client.Client, obj client.Object) (*ope
 }
 
 func GetBuildPlane(ctx context.Context, c client.Client, obj client.Object) (*openchoreov1alpha1.BuildPlane, error) {
+	// 1. Try to get the project to check for buildPlaneRef
+	project, projectErr := GetProject(ctx, c, obj)
+	if projectErr != nil {
+		// Only fall through if project is not found (HierarchyNotFoundError)
+		// For other errors (e.g., network errors), propagate the error
+		var hierarchyNotFoundErr *HierarchyNotFoundError
+		if !errors.As(projectErr, &hierarchyNotFoundErr) {
+			return nil, fmt.Errorf("failed to get project for build plane lookup: %w", projectErr)
+		}
+		// Project not found - fall through to default BuildPlane lookup
+	} else if project.Spec.BuildPlaneRef != nil {
+		ref := project.Spec.BuildPlaneRef
+
+		// Handle ClusterBuildPlane case - this function only returns BuildPlane
+		if ref.Kind == openchoreov1alpha1.BuildPlaneRefKindClusterBuildPlane {
+			return nil, NewHierarchyNotFoundError(obj,
+				objWithName(&openchoreov1alpha1.BuildPlane{}, ref.Name),
+				objWithName(&corev1.Namespace{}, obj.GetNamespace()),
+			)
+		}
+
+		// Use explicit buildPlaneRef
+		buildPlane := &openchoreov1alpha1.BuildPlane{}
+		key := client.ObjectKey{Namespace: obj.GetNamespace(), Name: ref.Name}
+		if err := c.Get(ctx, key, buildPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, NewHierarchyNotFoundError(obj,
+					objWithName(&openchoreov1alpha1.BuildPlane{}, ref.Name),
+					objWithName(&corev1.Namespace{}, obj.GetNamespace()),
+					project,
+				)
+			}
+			return nil, fmt.Errorf("failed to get build plane: %w", err)
+		}
+		return buildPlane, nil
+	}
+
+	// 2. Try "default" BuildPlane
+	buildPlane := &openchoreov1alpha1.BuildPlane{}
+	key := client.ObjectKey{Namespace: obj.GetNamespace(), Name: DefaultPlaneName}
+	if err := c.Get(ctx, key, buildPlane); err == nil {
+		return buildPlane, nil
+	}
+
+	// 3. Fallback: first BuildPlane in namespace with matching namespace label
 	buildPlaneList := &openchoreov1alpha1.BuildPlaneList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(obj.GetNamespace()),
+		client.MatchingLabels{labels.LabelKeyNamespaceName: obj.GetNamespace()},
 	}
 
 	if err := c.List(ctx, buildPlaneList, listOpts...); err != nil {
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
 
-	// TODO: Check owner reference
 	if len(buildPlaneList.Items) > 0 {
 		return &buildPlaneList.Items[0], nil
 	}
 
-	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.BuildPlane{}, GetName(obj)),
+	return nil, NewHierarchyNotFoundError(obj, objWithName(&openchoreov1alpha1.BuildPlane{}, DefaultPlaneName),
 		objWithName(&corev1.Namespace{}, obj.GetNamespace()),
 	)
 }

@@ -10,3 +10,8 @@ metadata:
     openchoreo.dev/name: internal-apps
 spec:
   deploymentPipelineRef: default-deployment-pipeline
+  # Optional: Specify a BuildPlane or ClusterBuildPlane for build operations
+  # If not specified, defaults to "default" BuildPlane in the same namespace
+  # buildPlaneRef:
+  #   kind: BuildPlane  # or ClusterBuildPlane
+  #   name: default

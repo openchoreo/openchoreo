@@ -162,6 +162,18 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 		deploymentPipeline = defaultPipeline
 	}
 
+	projectSpec := openchoreov1alpha1.ProjectSpec{
+		DeploymentPipelineRef: deploymentPipeline,
+	}
+
+	// Convert BuildPlaneRef if provided
+	if req.BuildPlaneRef != nil {
+		projectSpec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
+			Kind: openchoreov1alpha1.BuildPlaneRefKind(req.BuildPlaneRef.Kind),
+			Name: req.BuildPlaneRef.Name,
+		}
+	}
+
 	return &openchoreov1alpha1.Project{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Project",
@@ -179,9 +191,7 @@ func (s *ProjectService) buildProjectCR(namespaceName string, req *models.Create
 				labels.LabelKeyName:          req.Name,
 			},
 		},
-		Spec: openchoreov1alpha1.ProjectSpec{
-			DeploymentPipelineRef: deploymentPipeline,
-		},
+		Spec: projectSpec,
 	}
 }
 
@@ -248,6 +258,14 @@ func (s *ProjectService) toProjectResponse(project *openchoreov1alpha1.Project) 
 		DeploymentPipeline: project.Spec.DeploymentPipelineRef,
 		CreatedAt:          project.CreationTimestamp.Time,
 		Status:             status,
+	}
+
+	// Convert BuildPlaneRef if present
+	if project.Spec.BuildPlaneRef != nil {
+		response.BuildPlaneRef = &models.BuildPlaneRef{
+			Kind: string(project.Spec.BuildPlaneRef.Kind),
+			Name: project.Spec.BuildPlaneRef.Name,
+		}
 	}
 
 	// Include deletion timestamp if the project is marked for deletion
