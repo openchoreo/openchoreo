@@ -122,6 +122,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/buildplanes", h.ListBuildPlanes)
 
 	// ComponentType endpoints
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-types", h.CreateComponentType)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types", h.ListComponentTypes)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.GetComponentTypeDefinition)

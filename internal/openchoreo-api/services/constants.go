@@ -36,7 +36,8 @@ const (
 	SystemActionDeleteRoleMapping systemAction = "rolemapping:delete"
 	SystemActionUpdateRoleMapping systemAction = "rolemapping:update"
 
-	SystemActionViewComponentType systemAction = "componenttype:view"
+	SystemActionViewComponentType   systemAction = "componenttype:view"
+	SystemActionCreateComponentType systemAction = "componenttype:create"
 	SystemActionViewTrait         systemAction = "trait:view"
 
 	SystemActionCreateDataPlane systemAction = "dataplane:create"

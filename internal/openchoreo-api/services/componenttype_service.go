@@ -38,6 +38,12 @@ func NewComponentTypeService(k8sClient client.Client, logger *slog.Logger, authz
 	}
 }
 
+// AuthorizeCreate checks if the current user is authorized to create a ComponentType
+func (s *ComponentTypeService) AuthorizeCreate(ctx context.Context, namespaceName, ctName string) error {
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentType,
+		ResourceTypeComponentType, ctName, authz.ResourceHierarchy{Namespace: namespaceName})
+}
+
 // ListComponentTypes lists all ComponentTypes in the given namespace
 func (s *ComponentTypeService) ListComponentTypes(ctx context.Context, namespaceName string) ([]*models.ComponentTypeResponse, error) {
 	s.logger.Debug("Listing ComponentTypes", "namespace", namespaceName)

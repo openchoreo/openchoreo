@@ -63,6 +63,91 @@ func (h *Handler) getResourceByGVK(ctx context.Context, gvk schema.GroupVersionK
 
 // ========== ComponentType Definition Handlers ==========
 
+// CreateComponentType handles POST /api/v1/namespaces/{namespaceName}/component-types
+func (h *Handler) CreateComponentType(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
+		return
+	}
+
+	var resourceObj map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
+		log.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	// Validate the resource
+	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Validate kind matches
+	if kind != "ComponentType" {
+		writeErrorResponse(w, http.StatusBadRequest, "Kind must be ComponentType", services.CodeInvalidInput)
+		return
+	}
+
+	// Authorize the create operation
+	if err := h.services.ComponentTypeService.AuthorizeCreate(ctx, namespaceName, name); err != nil {
+		log.Warn("Authorization failed for ComponentType creation", "namespace", namespaceName, "name", name, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create ComponentType", services.CodeForbidden)
+		return
+	}
+
+	// Check if the resource already exists
+	gvk := openChoreoGVK("ComponentType")
+	_, getErr := h.getResourceByGVK(ctx, gvk, namespaceName, name)
+	if getErr == nil {
+		log.Warn("ComponentType already exists", "namespace", namespaceName, "name", name)
+		writeErrorResponse(w, http.StatusConflict, "ComponentType already exists", services.CodeConflict)
+		return
+	}
+	if client.IgnoreNotFound(getErr) != nil {
+		log.Error("Failed to check existing ComponentType", "error", getErr)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to check existing ComponentType", services.CodeInternalError)
+		return
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
+
+	// Set namespace from URL
+	unstructuredObj.SetNamespace(namespaceName)
+
+	// Handle namespace logic
+	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
+		log.Error("Failed to handle resource namespace", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Apply the resource
+	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
+	if err != nil {
+		log.Error("Failed to create ComponentType", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create ComponentType: "+err.Error(), services.CodeInternalError)
+		return
+	}
+
+	response := ResourceCRUDResponse{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespaceName,
+		Operation:  operation,
+	}
+
+	log.Info("ComponentType created successfully", "namespace", namespaceName, "name", name, "operation", operation)
+	writeSuccessResponse(w, http.StatusCreated, response)
+}
+
 // GetComponentTypeDefinition handles GET /api/v1/namespaces/{namespaceName}/component-types/{ctName}/definition
 func (h *Handler) GetComponentTypeDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
