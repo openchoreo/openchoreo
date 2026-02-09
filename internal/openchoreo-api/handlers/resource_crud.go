@@ -615,8 +615,11 @@ func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	resourceName := r.PathValue("resourceName")
 
+	// Add common fields to logger context
+	log = log.With("namespace", namespaceName, "kind", kind, "name", resourceName)
+
 	if namespaceName == "" || kind == "" || resourceName == "" {
-		log.Error("Missing required path parameters", "namespaceName", namespaceName, "kind", kind, "resourceName", resourceName)
+		log.Error("Missing required path parameters")
 		writeErrorResponse(w, http.StatusBadRequest, "namespaceName, kind and resourceName are required", services.CodeInvalidInput)
 		return
 	}
@@ -625,21 +628,21 @@ func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
 	obj, err := h.getResourceByGVK(ctx, gvk, namespaceName, resourceName)
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			log.Error("Resource not found", "namespace", namespaceName, "kind", kind, "name", resourceName)
+			log.Error("Resource not found")
 			writeErrorResponse(w, http.StatusNotFound, "Resource not found", services.CodeNotFound)
 			return
 		}
 		// Check if this is a RESTMapper error (unsupported/unknown kind)
 		if meta.IsNoMatchError(err) {
-			log.Error("Unsupported or unknown resource kind", "kind", kind, "namespace", namespaceName, "name", resourceName, "error", err)
+			log.Error("Unsupported or unknown resource kind", "error", err)
 			writeErrorResponse(w, http.StatusBadRequest, "Unsupported or unknown resource kind: "+kind, services.CodeInvalidInput)
 			return
 		}
-		log.Error("Failed to get resource", "kind", kind, "namespace", namespaceName, "name", resourceName, "error", err)
+		log.Error("Failed to get resource", "error", err)
 		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get resource", services.CodeInternalError)
 		return
 	}
 
-	log.Debug("Retrieved resource", "namespace", namespaceName, "kind", kind, "name", resourceName)
+	log.Debug("Retrieved resource")
 	writeSuccessResponse(w, http.StatusOK, obj.Object)
 }
