@@ -70,18 +70,6 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Update control plane URL if specified in params
-	if params.URL != "" {
-		fmt.Printf("Updating control plane URL to: %s\n", params.URL)
-		for idx := range cfg.ControlPlanes {
-			if cfg.ControlPlanes[idx].Name == controlPlane.Name {
-				cfg.ControlPlanes[idx].URL = params.URL
-				controlPlane = &cfg.ControlPlanes[idx]
-				break
-			}
-		}
-	}
-
 	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch OIDC config from API: %w", err)
@@ -163,18 +151,6 @@ func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Update control plane URL if specified in params
-	if params.URL != "" {
-		fmt.Printf("Updating control plane URL to: %s\n", params.URL)
-		for idx := range cfg.ControlPlanes {
-			if cfg.ControlPlanes[idx].Name == controlPlane.Name {
-				cfg.ControlPlanes[idx].URL = params.URL
-				controlPlane = &cfg.ControlPlanes[idx]
-				break
-			}
-		}
 	}
 
 	fmt.Println("Fetching OIDC configuration...")
