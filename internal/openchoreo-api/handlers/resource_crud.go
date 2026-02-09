@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -601,4 +602,44 @@ func (h *Handler) DeleteComponentWorkflowDefinition(w http.ResponseWriter, r *ht
 
 	log.Info("ComponentWorkflow deleted", "namespace", namespaceName, "name", cwName, "operation", operation)
 	writeSuccessResponse(w, http.StatusOK, response)
+}
+
+// ========== Generic Resource Handlers ==========
+
+// GetResource handles GET /api/v1/namespaces/{namespaceName}/resources/{kind}/{resourceName}
+func (h *Handler) GetResource(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+
+	namespaceName := r.PathValue("namespaceName")
+	kind := r.PathValue("kind")
+	resourceName := r.PathValue("resourceName")
+
+	if namespaceName == "" || kind == "" || resourceName == "" {
+		log.Error("Missing required path parameters", "namespaceName", namespaceName, "kind", kind, "resourceName", resourceName)
+		writeErrorResponse(w, http.StatusBadRequest, "namespaceName, kind and resourceName are required", services.CodeInvalidInput)
+		return
+	}
+
+	gvk := openChoreoGVK(kind)
+	obj, err := h.getResourceByGVK(ctx, gvk, namespaceName, resourceName)
+	if err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			log.Error("Resource not found", "namespace", namespaceName, "kind", kind, "name", resourceName)
+			writeErrorResponse(w, http.StatusNotFound, "Resource not found", services.CodeNotFound)
+			return
+		}
+		// Check if this is a RESTMapper error (unsupported/unknown kind)
+		if meta.IsNoMatchError(err) {
+			log.Error("Unsupported or unknown resource kind", "kind", kind, "namespace", namespaceName, "name", resourceName, "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "Unsupported or unknown resource kind: "+kind, services.CodeInvalidInput)
+			return
+		}
+		log.Error("Failed to get resource", "kind", kind, "namespace", namespaceName, "name", resourceName, "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get resource", services.CodeInternalError)
+		return
+	}
+
+	log.Debug("Retrieved resource", "namespace", namespaceName, "kind", kind, "name", resourceName)
+	writeSuccessResponse(w, http.StatusOK, obj.Object)
 }

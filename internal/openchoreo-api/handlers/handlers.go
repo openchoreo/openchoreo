@@ -102,6 +102,10 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("POST "+v1+"/apply", h.ApplyResource)
 	api.HandleFunc("DELETE "+v1+"/delete", h.DeleteResource)
 
+	// TODO: Remove this generic resource GET endpoint after the API spec redesign
+	// Generic resource GET endpoint
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/resources/{kind}/{resourceName}", h.GetResource)
+
 	// DataPlane management
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/dataplanes", h.ListDataPlanes)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/dataplanes", h.CreateDataPlane)
