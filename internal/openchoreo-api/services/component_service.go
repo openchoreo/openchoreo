@@ -2183,24 +2183,32 @@ func (s *ComponentService) GetComponentObserverURL(ctx context.Context, namespac
 	}
 
 	// 3. Check if environment has a dataplane reference
-	if env.Spec.DataPlaneRef == "" {
+	if env.Spec.DataPlaneRef == nil || env.Spec.DataPlaneRef.Name == "" {
 		s.logger.Error("Environment has no dataplane reference", "environment", environmentName)
 		return nil, fmt.Errorf("environment %s has no dataplane reference", environmentName)
+	}
+
+	// Currently only supporting DataPlane (not ClusterDataPlane) for observer URL
+	if env.Spec.DataPlaneRef.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
+		s.logger.Debug("ClusterDataPlane observer URL not yet supported", "environment", environmentName)
+		return &ComponentObserverResponse{
+			Message: "observability-logs for ClusterDataPlane not yet supported",
+		}, nil
 	}
 
 	// 4. Get the DataPlane configuration for the environment
 	dp := &openchoreov1alpha1.DataPlane{}
 	dpKey := client.ObjectKey{
-		Name:      env.Spec.DataPlaneRef,
+		Name:      env.Spec.DataPlaneRef.Name,
 		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.Spec.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.Spec.DataPlaneRef.Name)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.Spec.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.Spec.DataPlaneRef.Name)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 

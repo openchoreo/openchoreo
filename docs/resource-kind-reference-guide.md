@@ -184,12 +184,17 @@ metadata:
     openchoreo.dev/description: Production environment for the US region
 spec:
   # Reference to the data plane that the environment is associated with.
-  # For the Shared Data Plane, the reference will use a special value with
-  # format of `<region>-cdp-<number>`.
+  # Supports both namespace-scoped DataPlane and cluster-scoped ClusterDataPlane.
   #
-  # +required
+  # +optional (defaults to DataPlane named "default" in same namespace)
   # +immutable
-  dataPlaneRef: us-cdp-1
+  dataPlaneRef:
+    # Kind of data plane (DataPlane or ClusterDataPlane)
+    # +required
+    kind: DataPlane
+    # Name of the data plane resource
+    # +required
+    name: us-cdp-1
   # Indicates if the environment is a production environment (aka Critical).
   #
   # +optional (default: false)

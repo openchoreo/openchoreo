@@ -42,13 +42,29 @@ func (h *Handler) ListEnvironments(
 // toGenEnvironment converts models.EnvironmentResponse to gen.Environment
 func toGenEnvironment(env *models.EnvironmentResponse) gen.Environment {
 	uid, _ := uuid.Parse(env.UID)
+
+	// Convert DataPlaneRef to gen type
+	var dataPlaneRef *struct {
+		Kind gen.EnvironmentDataPlaneRefKind `json:"kind"`
+		Name string                          `json:"name"`
+	}
+	if env.DataPlaneRef != nil {
+		dataPlaneRef = &struct {
+			Kind gen.EnvironmentDataPlaneRefKind `json:"kind"`
+			Name string                          `json:"name"`
+		}{
+			Kind: gen.EnvironmentDataPlaneRefKind(env.DataPlaneRef.Kind),
+			Name: env.DataPlaneRef.Name,
+		}
+	}
+
 	return gen.Environment{
 		Uid:          uid,
 		Name:         env.Name,
 		Namespace:    env.Namespace,
 		DisplayName:  ptr.To(env.DisplayName),
 		Description:  ptr.To(env.Description),
-		DataPlaneRef: ptr.To(env.DataPlaneRef),
+		DataPlaneRef: dataPlaneRef,
 		IsProduction: env.IsProduction,
 		DnsPrefix:    ptr.To(env.DNSPrefix),
 		CreatedAt:    env.CreatedAt,

@@ -19,7 +19,7 @@ import (
 // dataplaneRefIndexKey is the index key for the dataplane reference
 const dataplaneRefIndexKey = ".spec.dataPlaneRef"
 
-// setupDataPlaneRefIndex creates a field index for the dataplane reference in the environmentsß.
+// setupDataPlaneRefIndex creates a field index for the dataplane reference in the environments.
 func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(
 		ctx,
@@ -31,8 +31,21 @@ func (r *Reconciler) setupDataPlaneRefIndex(ctx context.Context, mgr ctrl.Manage
 			if !ok {
 				return nil
 			}
-			// Return the value of the dataPlaneRef field
-			return []string{environment.Spec.DataPlaneRef}
+
+			// Handle nil DataPlaneRef (defaults to "default" DataPlane)
+			ref := environment.Spec.DataPlaneRef
+			if ref == nil {
+				return []string{controller.DefaultPlaneName}
+			}
+
+			// Only index namespace-scoped DataPlane references
+			// ClusterDataPlane references are handled separately
+			if ref.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane {
+				return nil
+			}
+
+			// Return the name of the DataPlane
+			return []string{ref.Name}
 		},
 	)
 }

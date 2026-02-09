@@ -125,6 +125,29 @@ type RoleRef struct {
 	Name string `json:"name"`
 }
 
+// DataPlaneRefKind defines the kind of data plane referenced by a DataPlaneRef
+// +kubebuilder:validation:Enum=DataPlane;ClusterDataPlane
+type DataPlaneRefKind string
+
+const (
+	// DataPlaneRefKindDataPlane references a namespace-scoped DataPlane
+	DataPlaneRefKindDataPlane DataPlaneRefKind = "DataPlane"
+
+	// DataPlaneRefKindClusterDataPlane references a cluster-scoped ClusterDataPlane
+	DataPlaneRefKindClusterDataPlane DataPlaneRefKind = "ClusterDataPlane"
+)
+
+// DataPlaneRef represents a reference to a DataPlane or ClusterDataPlane
+type DataPlaneRef struct {
+	// Kind is the kind of data plane (DataPlane or ClusterDataPlane)
+	// +required
+	Kind DataPlaneRefKind `json:"kind"`
+
+	// Name is the name of the data plane resource
+	// +required
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny

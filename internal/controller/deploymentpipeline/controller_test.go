@@ -87,7 +87,10 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				},
 			},
 			Spec: openchoreov1alpha1.EnvironmentSpec{
-				DataPlaneRef: dpName,
+				DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+					Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+					Name: dpName,
+				},
 				IsProduction: false,
 				Gateway: openchoreov1alpha1.GatewayConfig{
 					DNSPrefix: envName,

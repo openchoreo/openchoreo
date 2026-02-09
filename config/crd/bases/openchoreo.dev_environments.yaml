@@ -44,10 +44,23 @@ spec:
             properties:
               dataPlaneRef:
                 description: |-
-                  DataPlaneRef references the DataPlane for this environment.
+                  DataPlaneRef references the DataPlane or ClusterDataPlane for this environment.
                   If not specified, defaults to a DataPlane named "default" in the same namespace.
                   Immutable once set.
-                type: string
+                properties:
+                  kind:
+                    description: Kind is the kind of data plane (DataPlane or ClusterDataPlane)
+                    enum:
+                    - DataPlane
+                    - ClusterDataPlane
+                    type: string
+                  name:
+                    description: Name is the name of the data plane resource
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
               gateway:
                 properties:
                   dnsPrefix:
@@ -68,8 +81,7 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: dataPlaneRef is immutable once set
-              rule: '!has(oldSelf.dataPlaneRef) || size(oldSelf.dataPlaneRef) == 0
-                || oldSelf.dataPlaneRef == self.dataPlaneRef'
+              rule: '!has(oldSelf.dataPlaneRef) || oldSelf.dataPlaneRef == self.dataPlaneRef'
           status:
             description: EnvironmentStatus defines the observed state of Environment.
             properties:

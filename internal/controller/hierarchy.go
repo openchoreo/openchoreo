@@ -232,13 +232,37 @@ func GetEnvironmentByName(ctx context.Context, c client.Client, obj client.Objec
 
 // GetDataPlaneByEnvironment retrieves the DataPlane object for the given Environment.
 // It uses the DataPlaneRef field in the Environment to find the DataPlane object.
+// Note: This function only returns DataPlane, not ClusterDataPlane. For environments
+// referencing ClusterDataPlane, use GetDataPlaneOrClusterDataPlaneOfEnv from reference.go.
 func GetDataPlaneByEnvironment(ctx context.Context, c client.Client, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.DataPlane, error) {
+	ref := env.Spec.DataPlaneRef
+
+	// Determine the plane name and kind
+	var planeName string
+	var isClusterScope bool
+
+	if ref == nil {
+		// Default to DataPlane named "default" in the same namespace
+		planeName = DefaultPlaneName
+		isClusterScope = false
+	} else {
+		planeName = ref.Name
+		isClusterScope = ref.Kind == openchoreov1alpha1.DataPlaneRefKindClusterDataPlane
+	}
+
+	if isClusterScope {
+		// For ClusterDataPlane references, this function cannot return the correct type
+		return nil, NewHierarchyNotFoundError(env, objWithName(&openchoreov1alpha1.DataPlane{}, planeName),
+			objWithName(&corev1.Namespace{}, env.GetNamespace()),
+		)
+	}
+
 	dataPlane := &openchoreov1alpha1.DataPlane{}
-	key := client.ObjectKey{Namespace: env.Namespace, Name: env.Spec.DataPlaneRef}
+	key := client.ObjectKey{Namespace: env.Namespace, Name: planeName}
 
 	if err := c.Get(ctx, key, dataPlane); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, NewHierarchyNotFoundError(env, objWithName(&openchoreov1alpha1.DataPlane{}, env.Spec.DataPlaneRef),
+			return nil, NewHierarchyNotFoundError(env, objWithName(&openchoreov1alpha1.DataPlane{}, planeName),
 				objWithName(&corev1.Namespace{}, env.GetNamespace()),
 			)
 		}

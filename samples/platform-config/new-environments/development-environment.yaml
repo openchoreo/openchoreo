@@ -9,7 +9,9 @@ metadata:
   name: development
   namespace: default
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   gateway:
     dnsPrefix: dev
   isProduction: false

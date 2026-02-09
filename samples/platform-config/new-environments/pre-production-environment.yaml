@@ -9,7 +9,9 @@ metadata:
   name: preproduction
   namespace: default
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   gateway:
     dnsPrefix: preprod
   isProduction: false

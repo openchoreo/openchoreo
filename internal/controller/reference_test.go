@@ -36,7 +36,10 @@ func TestGetDataplaneOfEnv_WithExplicitRef(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
-			DataPlaneRef: "my-dataplane",
+			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+				Name: "my-dataplane",
+			},
 		},
 	}
 
@@ -74,7 +77,7 @@ func TestGetDataplaneOfEnv_WithEmptyRef_DefaultExists(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
-			DataPlaneRef: "", // Empty ref - should fallback to "default"
+			DataPlaneRef: nil, // nil ref - should fallback to "default"
 		},
 	}
 
@@ -101,7 +104,7 @@ func TestGetDataplaneOfEnv_WithEmptyRef_DefaultNotFound(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
-			DataPlaneRef: "",
+			DataPlaneRef: nil,
 		},
 	}
 
@@ -128,7 +131,10 @@ func TestGetDataplaneOfEnv_WithExplicitRef_NotFound(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
-			DataPlaneRef: "nonexistent-dataplane",
+			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+				Name: "nonexistent-dataplane",
+			},
 		},
 	}
 

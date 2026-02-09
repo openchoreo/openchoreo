@@ -3717,9 +3717,21 @@ components:
           description: Environment description
           example: Development environment for testing
         dataPlaneRef:
-          type: string
-          description: Reference to the DataPlane where workloads are deployed
-          example: default-dataplane
+          type: object
+          description: Reference to the DataPlane or ClusterDataPlane for this environment
+          properties:
+            kind:
+              type: string
+              description: Kind of data plane (DataPlane or ClusterDataPlane)
+              enum: [DataPlane, ClusterDataPlane]
+              example: DataPlane
+            name:
+              type: string
+              description: Name of the data plane resource
+              example: default
+          required:
+            - kind
+            - name
         isProduction:
           type: boolean
           description: Whether this is a production environment
@@ -3762,9 +3774,21 @@ components:
           example: Pre-production staging environment
           maxLength: 1024
         dataPlaneRef:
-          type: string
-          description: Reference to the DataPlane for workload deployment
-          example: default-dataplane
+          type: object
+          description: Reference to the DataPlane or ClusterDataPlane for workload deployment
+          properties:
+            kind:
+              type: string
+              description: Kind of data plane (DataPlane or ClusterDataPlane)
+              enum: [DataPlane, ClusterDataPlane]
+              example: DataPlane
+            name:
+              type: string
+              description: Name of the data plane resource
+              example: default
+          required:
+            - kind
+            - name
         isProduction:
           type: boolean
           description: Whether this is a production environment

@@ -9,7 +9,9 @@ metadata:
   labels:
     openchoreo.dev/name: development
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   isProduction: false
   gateway:
     dnsPrefix: dev
@@ -25,7 +27,9 @@ metadata:
   labels:
     openchoreo.dev/name: staging
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   isProduction: false
   gateway:
     dnsPrefix: staging
@@ -41,7 +45,9 @@ metadata:
   labels:
     openchoreo.dev/name: production
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   isProduction: true
   gateway:
     dnsPrefix: prod

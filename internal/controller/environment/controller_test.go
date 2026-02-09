@@ -103,7 +103,10 @@ var _ = Describe("Environment Controller", Ordered, func() {
 						},
 					},
 					Spec: openchoreov1alpha1.EnvironmentSpec{
-						DataPlaneRef: dpName,
+						DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+							Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+							Name: dpName,
+						},
 						IsProduction: false,
 						Gateway: openchoreov1alpha1.GatewayConfig{
 							DNSPrefix: envName,
@@ -220,13 +223,19 @@ var _ = Describe("Environment Controller", Ordered, func() {
 
 		By("Setting dataPlaneRef from empty to a value", func() {
 			Expect(k8sClient.Get(ctx, envNamespacedName, environment)).To(Succeed())
-			environment.Spec.DataPlaneRef = dpName
+			environment.Spec.DataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+				Name: dpName,
+			}
 			Expect(k8sClient.Update(ctx, environment)).To(Succeed())
 		})
 
 		By("Attempting to change dataPlaneRef (should fail)", func() {
 			Expect(k8sClient.Get(ctx, envNamespacedName, environment)).To(Succeed())
-			environment.Spec.DataPlaneRef = "different-dataplane"
+			environment.Spec.DataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
+				Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+				Name: "different-dataplane",
+			}
 			err := k8sClient.Update(ctx, environment)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("dataPlaneRef is immutable once set"))

@@ -121,14 +121,20 @@ func (req *DeployReleaseRequest) Validate() error {
 	return nil
 }
 
+// DataPlaneRef represents a reference to a DataPlane or ClusterDataPlane
+type DataPlaneRef struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
 // CreateEnvironmentRequest represents the request to create a new environment
 type CreateEnvironmentRequest struct {
-	Name         string `json:"name"`
-	DisplayName  string `json:"displayName,omitempty"`
-	Description  string `json:"description,omitempty"`
-	DataPlaneRef string `json:"dataPlaneRef,omitempty"`
-	IsProduction bool   `json:"isProduction"`
-	DNSPrefix    string `json:"dnsPrefix,omitempty"`
+	Name         string        `json:"name"`
+	DisplayName  string        `json:"displayName,omitempty"`
+	Description  string        `json:"description,omitempty"`
+	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
+	IsProduction bool          `json:"isProduction"`
+	DNSPrefix    string        `json:"dnsPrefix,omitempty"`
 }
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
@@ -203,7 +209,10 @@ func (req *CreateEnvironmentRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
-	req.DataPlaneRef = strings.TrimSpace(req.DataPlaneRef)
+	if req.DataPlaneRef != nil {
+		req.DataPlaneRef.Kind = strings.TrimSpace(req.DataPlaneRef.Kind)
+		req.DataPlaneRef.Name = strings.TrimSpace(req.DataPlaneRef.Name)
+	}
 	req.DNSPrefix = strings.TrimSpace(req.DNSPrefix)
 }
 

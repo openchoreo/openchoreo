@@ -278,7 +278,9 @@ metadata:
   name: dev
   namespace: default
 spec:
-  dataPlaneRef: dev-dataplane
+  dataPlaneRef:
+    kind: DataPlane
+    name: dev-dataplane
   isProduction: false
   gateway:
     dnsPrefix: dev

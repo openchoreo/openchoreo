@@ -71,11 +71,20 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 		IsProduction  bool   `json:"is_production"`
 		DNSPrefix     string `json:"dns_prefix"`
 	}) (*mcp.CallToolResult, any, error) {
+		// Convert DataPlaneRef string to object (default to DataPlane kind)
+		var dataPlaneRef *models.DataPlaneRef
+		if args.DataPlaneRef != "" {
+			dataPlaneRef = &models.DataPlaneRef{
+				Kind: "DataPlane",
+				Name: args.DataPlaneRef,
+			}
+		}
+
 		envReq := &models.CreateEnvironmentRequest{
 			Name:         args.Name,
 			DisplayName:  args.DisplayName,
 			Description:  args.Description,
-			DataPlaneRef: args.DataPlaneRef,
+			DataPlaneRef: dataPlaneRef,
 			IsProduction: args.IsProduction,
 			DNSPrefix:    args.DNSPrefix,
 		}

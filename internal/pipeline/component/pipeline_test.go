@@ -46,7 +46,9 @@ func TestPipeline_Render(t *testing.T) {
       name: dev
       namespace: test-namespace
     spec:
-      dataPlaneRef: dev-dataplane
+      dataPlaneRef:
+        kind: DataPlane
+        name: dev-dataplane
       isProduction: false
       gateway:
         dnsPrefix: dev

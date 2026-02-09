@@ -85,9 +85,14 @@ func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceW
 
 	for _, wrapper := range environments {
 		env := wrapper.Resource
+		// Format DataPlaneRef for display
+		dataPlaneRefStr := ""
+		if env.Spec.DataPlaneRef != nil {
+			dataPlaneRefStr = fmt.Sprintf("%s/%s", env.Spec.DataPlaneRef.Kind, env.Spec.DataPlaneRef.Name)
+		}
 		rows = append(rows, []string{
 			wrapper.LogicalName,
-			resources.FormatValueOrPlaceholder(env.Spec.DataPlaneRef),
+			resources.FormatValueOrPlaceholder(dataPlaneRefStr),
 			resources.FormatBoolAsYesNo(env.Spec.IsProduction),
 			resources.FormatValueOrPlaceholder(env.Spec.Gateway.DNSPrefix),
 			resources.FormatAge(env.GetCreationTimestamp().Time),
@@ -130,6 +135,16 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 	// Generate a K8s-compliant name for the environment
 	k8sName := resources.GenerateResourceName(params.Namespace, params.Name)
 
+	// Convert DataPlaneRef string to object
+	// If specified, default to DataPlane kind unless explicitly set
+	var dataPlaneRef *openchoreov1alpha1.DataPlaneRef
+	if params.DataPlaneRef != "" {
+		dataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
+			Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+			Name: params.DataPlaneRef,
+		}
+	}
+
 	// Create the Environment resource
 	environment := &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -145,7 +160,7 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 			},
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
-			DataPlaneRef: params.DataPlaneRef,
+			DataPlaneRef: dataPlaneRef,
 			IsProduction: params.IsProduction,
 			Gateway: openchoreov1alpha1.GatewayConfig{
 				DNSPrefix: params.DNSPrefix,

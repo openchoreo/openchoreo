@@ -36,6 +36,12 @@ const (
 	CreateClusterRoleBindingRequestEffectDeny  CreateClusterRoleBindingRequestEffect = "deny"
 )
 
+// Defines values for CreateEnvironmentRequestDataPlaneRefKind.
+const (
+	CreateEnvironmentRequestDataPlaneRefKindClusterDataPlane CreateEnvironmentRequestDataPlaneRefKind = "ClusterDataPlane"
+	CreateEnvironmentRequestDataPlaneRefKindDataPlane        CreateEnvironmentRequestDataPlaneRefKind = "DataPlane"
+)
+
 // Defines values for CreateNamespaceRoleBindingRequestEffect.
 const (
 	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
@@ -46,6 +52,12 @@ const (
 const (
 	DeleteResourceResponseOperationDeleted  DeleteResourceResponseOperation = "deleted"
 	DeleteResourceResponseOperationNotFound DeleteResourceResponseOperation = "not_found"
+)
+
+// Defines values for EnvironmentDataPlaneRefKind.
+const (
+	EnvironmentDataPlaneRefKindClusterDataPlane EnvironmentDataPlaneRefKind = "ClusterDataPlane"
+	EnvironmentDataPlaneRefKindDataPlane        EnvironmentDataPlaneRefKind = "DataPlane"
 )
 
 // Defines values for ErrorResponseCode.
@@ -664,8 +676,14 @@ type CreateDataPlaneRequest struct {
 
 // CreateEnvironmentRequest Request to create a new environment
 type CreateEnvironmentRequest struct {
-	// DataPlaneRef Reference to the DataPlane for workload deployment
-	DataPlaneRef *string `json:"dataPlaneRef,omitempty"`
+	// DataPlaneRef Reference to the DataPlane or ClusterDataPlane for workload deployment
+	DataPlaneRef *struct {
+		// Kind Kind of data plane (DataPlane or ClusterDataPlane)
+		Kind CreateEnvironmentRequestDataPlaneRefKind `json:"kind"`
+
+		// Name Name of the data plane resource
+		Name string `json:"name"`
+	} `json:"dataPlaneRef,omitempty"`
 
 	// Description Environment description
 	Description *string `json:"description,omitempty"`
@@ -682,6 +700,9 @@ type CreateEnvironmentRequest struct {
 	// Name Environment name (must be unique within namespace)
 	Name string `json:"name"`
 }
+
+// CreateEnvironmentRequestDataPlaneRefKind Kind of data plane (DataPlane or ClusterDataPlane)
+type CreateEnvironmentRequestDataPlaneRefKind string
 
 // CreateNamespaceRequest Request body for creating a new control plane namespace
 type CreateNamespaceRequest struct {
@@ -937,8 +958,14 @@ type Environment struct {
 	// CreatedAt Creation timestamp
 	CreatedAt time.Time `json:"createdAt"`
 
-	// DataPlaneRef Reference to the DataPlane where workloads are deployed
-	DataPlaneRef *string `json:"dataPlaneRef,omitempty"`
+	// DataPlaneRef Reference to the DataPlane or ClusterDataPlane for this environment
+	DataPlaneRef *struct {
+		// Kind Kind of data plane (DataPlane or ClusterDataPlane)
+		Kind EnvironmentDataPlaneRefKind `json:"kind"`
+
+		// Name Name of the data plane resource
+		Name string `json:"name"`
+	} `json:"dataPlaneRef,omitempty"`
 
 	// Description Environment description
 	Description *string `json:"description,omitempty"`
@@ -964,6 +991,9 @@ type Environment struct {
 	// Uid Unique identifier (Kubernetes UID)
 	Uid openapi_types.UUID `json:"uid"`
 }
+
+// EnvironmentDataPlaneRefKind Kind of data plane (DataPlane or ClusterDataPlane)
+type EnvironmentDataPlaneRefKind string
 
 // EnvironmentList Paginated list of environments
 type EnvironmentList struct {

@@ -124,6 +124,29 @@ func (s *EnvironmentService) CreateEnvironment(ctx context.Context, namespaceNam
 		return nil, ErrEnvironmentAlreadyExists
 	}
 
+	// Resolve DataPlaneRef (default to "default" if not provided and it exists)
+	if req.DataPlaneRef == nil || req.DataPlaneRef.Name == "" {
+		defaultDataPlane := &openchoreov1alpha1.DataPlane{}
+		key := client.ObjectKey{
+			Name:      controller.DefaultPlaneName,
+			Namespace: namespaceName,
+		}
+		if err := s.k8sClient.Get(ctx, key, defaultDataPlane); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return nil, ErrDataPlaneNotFound
+			}
+			return nil, fmt.Errorf("failed to get default dataplane: %w", err)
+		}
+
+		req.DataPlaneRef = &models.DataPlaneRef{
+			Kind: string(openchoreov1alpha1.DataPlaneRefKindDataPlane),
+			Name: controller.DefaultPlaneName,
+		}
+	} else if req.DataPlaneRef.Kind == "" {
+		// Default kind for backward compatibility if omitted
+		req.DataPlaneRef.Kind = string(openchoreov1alpha1.DataPlaneRefKindDataPlane)
+	}
+
 	// Create the environment CR
 	environmentCR := s.buildEnvironmentCR(namespaceName, req)
 	if err := s.k8sClient.Create(ctx, environmentCR); err != nil {
@@ -154,11 +177,15 @@ func (s *EnvironmentService) environmentExists(ctx context.Context, namespaceNam
 
 // buildEnvironmentCR builds an Environment CR from the request
 func (s *EnvironmentService) buildEnvironmentCR(namespaceName string, req *models.CreateEnvironmentRequest) *openchoreov1alpha1.Environment {
-	// Set default data plane if not provided
-	dataPlaneRef := req.DataPlaneRef
-	if dataPlaneRef == "" {
-		dataPlaneRef = defaultPipeline
+	// Convert DataPlaneRef from request to CRD type
+	var dataPlaneRef *openchoreov1alpha1.DataPlaneRef
+	if req.DataPlaneRef != nil && req.DataPlaneRef.Name != "" {
+		dataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
+			Kind: openchoreov1alpha1.DataPlaneRefKind(req.DataPlaneRef.Kind),
+			Name: req.DataPlaneRef.Name,
+		}
 	}
+	// If not provided, leave nil to use default resolution
 
 	// Set default display name if not provided
 	displayName := req.DisplayName
@@ -217,13 +244,22 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 		}
 	}
 
+	// Convert DataPlaneRef from CRD to response type
+	var dataPlaneRef *models.DataPlaneRef
+	if env.Spec.DataPlaneRef != nil {
+		dataPlaneRef = &models.DataPlaneRef{
+			Kind: string(env.Spec.DataPlaneRef.Kind),
+			Name: env.Spec.DataPlaneRef.Name,
+		}
+	}
+
 	return &models.EnvironmentResponse{
 		UID:          string(env.UID),
 		Name:         env.Name,
 		Namespace:    env.Namespace,
 		DisplayName:  displayName,
 		Description:  description,
-		DataPlaneRef: env.Spec.DataPlaneRef,
+		DataPlaneRef: dataPlaneRef,
 		IsProduction: env.Spec.IsProduction,
 		DNSPrefix:    env.Spec.Gateway.DNSPrefix,
 		CreatedAt:    env.CreationTimestamp.Time,
@@ -248,24 +284,32 @@ func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, name
 	}
 
 	// Check if environment has a dataplane reference
-	if env.DataPlaneRef == "" {
+	if env.DataPlaneRef == nil || env.DataPlaneRef.Name == "" {
 		s.logger.Error("Environment has no dataplane reference", "environment", envName)
 		return nil, ErrDataPlaneNotFound
+	}
+
+	// Currently only supporting DataPlane (not ClusterDataPlane) for observer URL
+	if env.DataPlaneRef.Kind == string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane) {
+		s.logger.Debug("ClusterDataPlane observer URL not yet supported", "environment", envName)
+		return &EnvironmentObserverResponse{
+			Message: "observability-logs for ClusterDataPlane not yet supported",
+		}, nil
 	}
 
 	// Get the DataPlane configuration for the environment
 	dp := &openchoreov1alpha1.DataPlane{}
 	dpKey := client.ObjectKey{
-		Name:      env.DataPlaneRef,
+		Name:      env.DataPlaneRef.Name,
 		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
@@ -323,24 +367,32 @@ func (s *EnvironmentService) GetRCAAgentURL(ctx context.Context, namespaceName, 
 	}
 
 	// Check if environment has a dataplane reference
-	if env.DataPlaneRef == "" {
+	if env.DataPlaneRef == nil || env.DataPlaneRef.Name == "" {
 		s.logger.Error("Environment has no dataplane reference", "environment", envName)
 		return nil, ErrDataPlaneNotFound
+	}
+
+	// Currently only supporting DataPlane (not ClusterDataPlane) for RCA agent URL
+	if env.DataPlaneRef.Kind == string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane) {
+		s.logger.Debug("ClusterDataPlane RCA agent URL not yet supported", "environment", envName)
+		return &RCAAgentURLResponse{
+			Message: "RCA agent for ClusterDataPlane not yet supported",
+		}, nil
 	}
 
 	// Get the DataPlane configuration for the environment
 	dp := &openchoreov1alpha1.DataPlane{}
 	dpKey := client.ObjectKey{
-		Name:      env.DataPlaneRef,
+		Name:      env.DataPlaneRef.Name,
 		Namespace: namespaceName,
 	}
 
 	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef)
+			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
 			return nil, ErrDataPlaneNotFound
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef)
+		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 

@@ -84,7 +84,7 @@ func PrintEnvironments(list *gen.EnvironmentList) error {
 	for _, env := range list.Items {
 		dataPlane := ""
 		if env.DataPlaneRef != nil {
-			dataPlane = *env.DataPlaneRef
+			dataPlane = fmt.Sprintf("%s/%s", env.DataPlaneRef.Kind, env.DataPlaneRef.Name)
 		}
 		production := "false"
 		if env.IsProduction {

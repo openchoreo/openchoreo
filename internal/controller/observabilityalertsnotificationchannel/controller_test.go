@@ -160,7 +160,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.EnvironmentSpec{
-					DataPlaneRef: dataPlane.Name,
+					DataPlaneRef: &openchoreodevv1alpha1.DataPlaneRef{
+						Kind: openchoreodevv1alpha1.DataPlaneRefKindDataPlane,
+						Name: dataPlane.Name,
+					},
 				},
 			}
 			Expect(k8sClient.Create(testCtx, environment)).To(Succeed())
@@ -411,7 +414,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.EnvironmentSpec{
-					DataPlaneRef: dataPlane.Name,
+					DataPlaneRef: &openchoreodevv1alpha1.DataPlaneRef{
+						Kind: openchoreodevv1alpha1.DataPlaneRefKindDataPlane,
+						Name: dataPlane.Name,
+					},
 				},
 			}
 			Expect(k8sClient.Create(testCtx, environment)).To(Succeed())
@@ -664,7 +670,10 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: openchoreodevv1alpha1.EnvironmentSpec{
-					DataPlaneRef: dataPlane.Name,
+					DataPlaneRef: &openchoreodevv1alpha1.DataPlaneRef{
+						Kind: openchoreodevv1alpha1.DataPlaneRefKindDataPlane,
+						Name: dataPlane.Name,
+					},
 				},
 			}
 			Expect(k8sClient.Create(testCtx, environment)).To(Succeed())

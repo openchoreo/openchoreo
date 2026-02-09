@@ -6,4 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: environment-sample
 spec:
-  # TODO(user): Add fields here
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
+  isProduction: false

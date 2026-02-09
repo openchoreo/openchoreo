@@ -161,16 +161,16 @@ type CreateNamespaceRequest struct {
 
 // EnvironmentResponse represents an environment in API responses
 type EnvironmentResponse struct {
-	UID          string    `json:"uid"`
-	Name         string    `json:"name"`
-	Namespace    string    `json:"namespace"`
-	DisplayName  string    `json:"displayName,omitempty"`
-	Description  string    `json:"description,omitempty"`
-	DataPlaneRef string    `json:"dataPlaneRef,omitempty"`
-	IsProduction bool      `json:"isProduction"`
-	DNSPrefix    string    `json:"dnsPrefix,omitempty"`
-	CreatedAt    time.Time `json:"createdAt"`
-	Status       string    `json:"status,omitempty"`
+	UID          string        `json:"uid"`
+	Name         string        `json:"name"`
+	Namespace    string        `json:"namespace"`
+	DisplayName  string        `json:"displayName,omitempty"`
+	Description  string        `json:"description,omitempty"`
+	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
+	IsProduction bool          `json:"isProduction"`
+	DNSPrefix    string        `json:"dnsPrefix,omitempty"`
+	CreatedAt    time.Time     `json:"createdAt"`
+	Status       string        `json:"status,omitempty"`
 }
 
 // AgentConnectionStatusResponse represents the agent connection status in API responses

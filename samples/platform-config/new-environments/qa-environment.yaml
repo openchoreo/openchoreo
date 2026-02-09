@@ -9,7 +9,9 @@ metadata:
   name: qa
   namespace: default
 spec:
-  dataPlaneRef: default
+  dataPlaneRef:
+    kind: DataPlane
+    name: default
   gateway:
     dnsPrefix: qa
   isProduction: false
