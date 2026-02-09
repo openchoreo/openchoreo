@@ -270,6 +270,16 @@ var (
 
 	// Control plane configuration flags
 
+	ControlPlane = Flag{
+		Name:  "controlplane",
+		Usage: "Control plane name for this context",
+	}
+
+	Credentials = Flag{
+		Name:  "credentials",
+		Usage: "Credentials name for this context",
+	}
+
 	Endpoint = Flag{
 		Name:  "endpoint",
 		Usage: "OpenChoreo API server endpoint URL",

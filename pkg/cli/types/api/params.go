@@ -82,7 +82,6 @@ type LoginParams struct {
 	ClientID          string
 	ClientSecret      string
 	CredentialName    string // Name to save credential as
-	URL               string // Control plane URL to update
 }
 
 type LogParams struct {
@@ -255,18 +254,30 @@ type GetEndpointParams struct {
 	Name         string
 }
 
-type SetContextParams struct {
-	Name              string
-	Namespace         string
-	Project           string
-	Component         string
-	Environment       string
-	DataPlane         string
-	Mode              string // "api-server" or "file-system"
-	RootDirectoryPath string // Path for file-system mode
+type AddContextParams struct {
+	Name         string
+	ControlPlane string
+	Credentials  string
+	Namespace    string
+	Project      string
+	Component    string
+}
+
+type DeleteContextParams struct {
+	Name string
+}
+
+type UpdateContextParams struct {
+	Name      string
+	Namespace string
+	Project   string
 }
 
 type UseContextParams struct {
+	Name string
+}
+
+type DescribeContextParams struct {
 	Name string
 }
 
@@ -302,10 +313,21 @@ type GetConfigurationGroupParams struct {
 	OutputFormat string
 }
 
-// SetControlPlaneParams defines parameters for setting control plane configuration
-type SetControlPlaneParams struct {
+// AddControlPlaneParams defines parameters for adding a control plane configuration
+type AddControlPlaneParams struct {
 	Name string
 	URL  string
+}
+
+// UpdateControlPlaneParams defines parameters for updating a control plane configuration
+type UpdateControlPlaneParams struct {
+	Name string
+	URL  string
+}
+
+// DeleteControlPlaneParams defines parameters for deleting a control plane configuration
+type DeleteControlPlaneParams struct {
+	Name string
 }
 
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor

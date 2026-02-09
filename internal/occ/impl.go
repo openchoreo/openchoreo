@@ -69,19 +69,24 @@ func (c *CommandImplementation) Apply(params api.ApplyParams) error {
 
 // Config Context Operations
 
-func (c *CommandImplementation) GetContexts() error {
+func (c *CommandImplementation) AddContext(params api.AddContextParams) error {
 	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.GetContexts()
+	return configContextImpl.AddContext(params)
 }
 
-func (c *CommandImplementation) GetCurrentContext() error {
+func (c *CommandImplementation) ListContexts() error {
 	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.GetCurrentContext()
+	return configContextImpl.ListContexts()
 }
 
-func (c *CommandImplementation) SetContext(params api.SetContextParams) error {
+func (c *CommandImplementation) DeleteContext(params api.DeleteContextParams) error {
 	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.SetContext(params)
+	return configContextImpl.DeleteContext(params)
+}
+
+func (c *CommandImplementation) UpdateContext(params api.UpdateContextParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.UpdateContext(params)
 }
 
 func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
@@ -89,9 +94,29 @@ func (c *CommandImplementation) UseContext(params api.UseContextParams) error {
 	return configContextImpl.UseContext(params)
 }
 
-func (c *CommandImplementation) SetControlPlane(params api.SetControlPlaneParams) error {
+func (c *CommandImplementation) DescribeContext(params api.DescribeContextParams) error {
 	configContextImpl := config.NewConfigContextImpl()
-	return configContextImpl.SetControlPlane(params)
+	return configContextImpl.DescribeContext(params)
+}
+
+func (c *CommandImplementation) AddControlPlane(params api.AddControlPlaneParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.AddControlPlane(params)
+}
+
+func (c *CommandImplementation) ListControlPlanes() error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.ListControlPlanes()
+}
+
+func (c *CommandImplementation) UpdateControlPlane(params api.UpdateControlPlaneParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.UpdateControlPlane(params)
+}
+
+func (c *CommandImplementation) DeleteControlPlane(params api.DeleteControlPlaneParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.DeleteControlPlane(params)
 }
 
 // Component Operations

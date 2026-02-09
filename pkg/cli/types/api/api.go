@@ -85,11 +85,16 @@ type ObservabilityPlaneAPI interface {
 }
 
 type ConfigContextAPI interface {
-	GetContexts() error
-	GetCurrentContext() error
+	AddContext(params AddContextParams) error
+	ListContexts() error
+	DeleteContext(params DeleteContextParams) error
+	UpdateContext(params UpdateContextParams) error
 	UseContext(params UseContextParams) error
-	SetContext(params SetContextParams) error
-	SetControlPlane(params SetControlPlaneParams) error
+	DescribeContext(params DescribeContextParams) error
+	AddControlPlane(params AddControlPlaneParams) error
+	ListControlPlanes() error
+	UpdateControlPlane(params UpdateControlPlaneParams) error
+	DeleteControlPlane(params DeleteControlPlaneParams) error
 }
 
 // WorkloadAPI defines methods for creating workloads from descriptors

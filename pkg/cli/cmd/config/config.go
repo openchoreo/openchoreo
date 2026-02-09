@@ -14,116 +14,140 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
-// StoredConfig is the structure to store configuration contexts.
-type StoredConfig struct {
-	CurrentContext string         `yaml:"currentContext"`
-	ControlPlanes  []ControlPlane `yaml:"controlplanes"`
-	Credentials    []Credential   `yaml:"credentials,omitempty"`
-	Contexts       []Context      `yaml:"contexts"`
-}
-
-// ControlPlane defines OpenChoreo API server configuration
-type ControlPlane struct {
-	Name string `yaml:"name"`
-	URL  string `yaml:"url"`
-}
-
-// Credential represents authentication credentials
-type Credential struct {
-	Name         string `yaml:"name"`
-	ClientID     string `yaml:"clientId,omitempty"`
-	ClientSecret string `yaml:"clientSecret,omitempty"`
-	Token        string `yaml:"token,omitempty"`
-	RefreshToken string `yaml:"refreshToken,omitempty"`
-	AuthMethod   string `yaml:"authMethod,omitempty"` // "pkce" or "client_credentials"
-}
-
-// Context represents a single named configuration context.
-type Context struct {
-	Name              string `yaml:"name"`
-	ControlPlane      string `yaml:"controlplane"`          // Reference to controlplanes[].name
-	Credentials       string `yaml:"credentials,omitempty"` // Reference to credentials[].name
-	Namespace         string `yaml:"namespace,omitempty"`
-	Project           string `yaml:"project,omitempty"`
-	Component         string `yaml:"component,omitempty"`
-	Environment       string `yaml:"environment,omitempty"`
-	DataPlane         string `yaml:"dataPlane,omitempty"`
-	Mode              string `yaml:"mode,omitempty"`              // "api-server" or "file-system"
-	RootDirectoryPath string `yaml:"rootDirectoryPath,omitempty"` // Path for file-system mode
-}
-
-const (
-	ModeAPIServer  = "api-server"
-	ModeFileSystem = "file-system"
-)
-
 func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   constants.ConfigRoot.Use,
-		Short: constants.ConfigRoot.Short,
-		Long:  constants.ConfigRoot.Long,
+		Use:     constants.ConfigRoot.Use,
+		Short:   constants.ConfigRoot.Short,
+		Long:    constants.ConfigRoot.Long,
+		Example: constants.ConfigRoot.Example,
 	}
 
-	// Add all subcommands using CommandBuilder
 	cmd.AddCommand(
-		newGetContextsCmd(impl),
-		newSetContextCmd(impl),
-		newUseContextCmd(impl),
-		newCurrentContextCmd(impl),
-		newSetControlPlaneCmd(impl),
+		newContextCmd(impl),
+		newControlPlaneCmd(impl),
 	)
 	return cmd
 }
 
-func newGetContextsCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	return (&builder.CommandBuilder{
-		Command: constants.ConfigGetContexts,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.GetContexts()
+func newContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   constants.ConfigContext.Use,
+		Short: constants.ConfigContext.Short,
+		Long:  constants.ConfigContext.Long,
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				return impl.DescribeContext(api.DescribeContextParams{
+					Name: args[0],
+				})
+			}
+			return cmd.Help()
 		},
-	}).Build()
+	}
+
+	cmd.AddCommand(
+		newContextAddCmd(impl),
+		newContextListCmd(impl),
+		newContextDeleteCmd(impl),
+		newContextUpdateCmd(impl),
+		newContextUseCmd(impl),
+	)
+	return cmd
 }
 
-func newSetContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
+func newContextAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd := (&builder.CommandBuilder{
-		Command: constants.ConfigSetContext,
+		Command: constants.ConfigContextAdd,
 		Flags: []flags.Flag{
+			flags.ControlPlane,
+			flags.Credentials,
 			flags.Namespace,
 			flags.Project,
 			flags.Component,
-			flags.DataPlane,
-			flags.Environment,
-			flags.Mode,
-			flags.RootDirectoryPath,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			args := fg.GetArgs()
 			if len(args) == 0 {
 				return fmt.Errorf("context name is required")
 			}
-			return impl.SetContext(api.SetContextParams{
-				Name:              args[0],
-				Namespace:         fg.GetString(flags.Namespace),
-				Project:           fg.GetString(flags.Project),
-				Component:         fg.GetString(flags.Component),
-				DataPlane:         fg.GetString(flags.DataPlane),
-				Environment:       fg.GetString(flags.Environment),
-				Mode:              fg.GetString(flags.Mode),
-				RootDirectoryPath: fg.GetString(flags.RootDirectoryPath),
+			return impl.AddContext(api.AddContextParams{
+				Name:         args[0],
+				ControlPlane: fg.GetString(flags.ControlPlane),
+				Credentials:  fg.GetString(flags.Credentials),
+				Namespace:    fg.GetString(flags.Namespace),
+				Project:      fg.GetString(flags.Project),
+				Component:    fg.GetString(flags.Component),
 			})
 		},
 	}).Build()
 
-	// Require exactly one argument for the context name
+	cmd.Args = cobra.ExactArgs(1)
+	_ = cmd.MarkFlagRequired(flags.ControlPlane.Name)
+	_ = cmd.MarkFlagRequired(flags.Credentials.Name)
+
+	return cmd
+}
+
+func newContextListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigContextList,
+		RunE: func(fg *builder.FlagGetter) error {
+			return impl.ListContexts()
+		},
+	}).Build()
+
+	cmd.Args = cobra.NoArgs
+
+	return cmd
+}
+
+func newContextDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigContextDelete,
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("context name is required")
+			}
+			return impl.DeleteContext(api.DeleteContextParams{
+				Name: args[0],
+			})
+		},
+	}).Build()
+
 	cmd.Args = cobra.ExactArgs(1)
 
 	return cmd
 }
 
-func newUseContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	return (&builder.CommandBuilder{
-		Command: constants.ConfigUseContext,
-		Flags:   []flags.Flag{flags.Name},
+func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigContextUpdate,
+		Flags: []flags.Flag{
+			flags.Namespace,
+			flags.Project,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("context name is required")
+			}
+			return impl.UpdateContext(api.UpdateContextParams{
+				Name:      args[0],
+				Namespace: fg.GetString(flags.Namespace),
+				Project:   fg.GetString(flags.Project),
+			})
+		},
+	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
+}
+
+func newContextUseCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigContextUse,
 		RunE: func(fg *builder.FlagGetter) error {
 			args := fg.GetArgs()
 			if len(args) == 0 {
@@ -134,40 +158,103 @@ func newUseContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			})
 		},
 	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
 }
 
-func newCurrentContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	return (&builder.CommandBuilder{
-		Command: constants.ConfigCurrentContext,
-		RunE: func(fg *builder.FlagGetter) error {
-			return impl.GetCurrentContext()
-		},
-	}).Build()
+func newControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   constants.ConfigControlPlane.Use,
+		Short: constants.ConfigControlPlane.Short,
+		Long:  constants.ConfigControlPlane.Long,
+	}
+
+	cmd.AddCommand(
+		newControlPlaneAddCmd(impl),
+		newControlPlaneListCmd(impl),
+		newControlPlaneUpdateCmd(impl),
+		newControlPlaneDeleteCmd(impl),
+	)
+	return cmd
 }
 
-func newSetControlPlaneCmd(impl api.CommandImplementationInterface) *cobra.Command {
-	return (&builder.CommandBuilder{
-		Command: constants.ConfigSetControlPlane,
+func newControlPlaneAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigControlPlaneAdd,
 		Flags: []flags.Flag{
-			flags.Name,
 			flags.URL,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			name := fg.GetString(flags.Name)
-			url := fg.GetString(flags.URL)
-
-			if name == "" {
-				return fmt.Errorf("control plane name is required (use --name flag)")
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("control plane name is required")
 			}
-
-			if url == "" {
-				return fmt.Errorf("control plane URL is required (use --url flag)")
-			}
-
-			return impl.SetControlPlane(api.SetControlPlaneParams{
-				Name: name,
-				URL:  url,
+			return impl.AddControlPlane(api.AddControlPlaneParams{
+				Name: args[0],
+				URL:  fg.GetString(flags.URL),
 			})
 		},
 	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+	_ = cmd.MarkFlagRequired(flags.URL.Name)
+
+	return cmd
+}
+
+func newControlPlaneListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigControlPlaneList,
+		RunE: func(fg *builder.FlagGetter) error {
+			return impl.ListControlPlanes()
+		},
+	}).Build()
+
+	cmd.Args = cobra.NoArgs
+
+	return cmd
+}
+
+func newControlPlaneUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigControlPlaneUpdate,
+		Flags: []flags.Flag{
+			flags.URL,
+		},
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("control plane name is required")
+			}
+			return impl.UpdateControlPlane(api.UpdateControlPlaneParams{
+				Name: args[0],
+				URL:  fg.GetString(flags.URL),
+			})
+		},
+	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
+}
+
+func newControlPlaneDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigControlPlaneDelete,
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("control plane name is required")
+			}
+			return impl.DeleteControlPlane(api.DeleteControlPlaneParams{
+				Name: args[0],
+			})
+		},
+	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
 }

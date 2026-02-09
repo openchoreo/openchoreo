@@ -6,7 +6,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -23,8 +22,67 @@ func NewConfigContextImpl() *ConfigContextImpl {
 	return &ConfigContextImpl{}
 }
 
-// GetContexts prints all available contexts with their details.
-func (c *ConfigContextImpl) GetContexts() error {
+// AddContext creates a new configuration context.
+func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Validate that the name is not already used by a context, control plane, or credential
+	if err := validateNameUniqueness(cfg, params.Name); err != nil {
+		return err
+	}
+
+	// Create control plane entry if it doesn't exist
+	cpExists := false
+	for _, cp := range cfg.ControlPlanes {
+		if cp.Name == params.ControlPlane {
+			cpExists = true
+			break
+		}
+	}
+	if !cpExists {
+		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+			Name: params.ControlPlane,
+		})
+	}
+
+	// Create credential entry if it doesn't exist
+	credExists := false
+	for _, cred := range cfg.Credentials {
+		if cred.Name == params.Credentials {
+			credExists = true
+			break
+		}
+	}
+	if !credExists {
+		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+			Name: params.Credentials,
+		})
+	}
+
+	// Create the new context
+	newCtx := configContext.Context{
+		Name:         params.Name,
+		ControlPlane: params.ControlPlane,
+		Credentials:  params.Credentials,
+		Namespace:    params.Namespace,
+		Project:      params.Project,
+		Component:    params.Component,
+	}
+	cfg.Contexts = append(cfg.Contexts, newCtx)
+
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Created context: %s\n", params.Name)
+	return nil
+}
+
+// ListContexts prints all available contexts with their details.
+func (c *ConfigContextImpl) ListContexts() error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -35,198 +93,112 @@ func (c *ConfigContextImpl) GetContexts() error {
 		return nil
 	}
 
-	// Create headers and rows for table
-	headers := []string{"", "NAME", "NAMESPACE", "PROJECT", "COMPONENT", "ENVIRONMENT", "DATAPLANE"}
+	headers := []string{"", "NAME", "CONTROLPLANE", "CREDENTIALS", "NAMESPACE", "PROJECT", "COMPONENT"}
 	rows := make([][]string, 0, len(cfg.Contexts))
 
 	for _, ctx := range cfg.Contexts {
-		// Current context marker
 		marker := " "
 		if cfg.CurrentContext == ctx.Name {
 			marker = "*"
 		}
 
-		// Format row with proper placeholders
 		rows = append(rows, []string{
 			marker,
 			formatValueOrPlaceholder(ctx.Name),
+			formatValueOrPlaceholder(ctx.ControlPlane),
+			formatValueOrPlaceholder(ctx.Credentials),
 			formatValueOrPlaceholder(ctx.Namespace),
 			formatValueOrPlaceholder(ctx.Project),
 			formatValueOrPlaceholder(ctx.Component),
-			formatValueOrPlaceholder(ctx.Environment),
-			formatValueOrPlaceholder(ctx.DataPlane),
 		})
 	}
 
 	return printTable(headers, rows)
 }
 
-// GetCurrentContext prints the current context details.
-func (c *ConfigContextImpl) GetCurrentContext() error {
+// DeleteContext removes a configuration context by name.
+func (c *ConfigContextImpl) DeleteContext(params api.DeleteContextParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	if cfg.CurrentContext == "" {
-		fmt.Println("No current context is set.")
-		return nil
-	}
-
-	var currentCtx *configContext.Context
-	for _, ctx := range cfg.Contexts {
-		if ctx.Name == cfg.CurrentContext {
-			ctxCopy := ctx
-			currentCtx = &ctxCopy
-			break
-		}
-	}
-
-	if currentCtx == nil {
-		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
-	}
-
-	// Context details
-	headers := []string{"PROPERTY", "VALUE"}
-	rows := [][]string{
-		{"Current Context", formatValueOrPlaceholder(currentCtx.Name)},
-		{"Namespace", formatValueOrPlaceholder(currentCtx.Namespace)},
-		{"Project", formatValueOrPlaceholder(currentCtx.Project)},
-		{"Component", formatValueOrPlaceholder(currentCtx.Component)},
-		{"Environment", formatValueOrPlaceholder(currentCtx.Environment)},
-		{"Data Plane", formatValueOrPlaceholder(currentCtx.DataPlane)},
-		{"Mode", formatValueOrPlaceholder(currentCtx.Mode)},
-		{"Root Directory Path", formatValueOrPlaceholder(currentCtx.RootDirectoryPath)},
-	}
-
-	if err := printTable(headers, rows); err != nil {
-		return err
-	}
-
-	// Print control plane info if available and in API server mode
-	if currentCtx.ControlPlane != "" && currentCtx.Mode != configContext.ModeFileSystem {
-		// Find the control plane by name
-		for _, cp := range cfg.ControlPlanes {
-			if cp.Name == currentCtx.ControlPlane {
-				fmt.Println("\nControl Plane:")
-				cpHeaders := []string{"PROPERTY", "VALUE"}
-				tokenDisplay := "-"
-				// Find credential to check if token exists
-				for _, cred := range cfg.Credentials {
-					if cred.Name == currentCtx.Credentials && cred.Token != "" {
-						tokenDisplay = maskToken(cred.Token)
-						break
-					}
-				}
-				cpRows := [][]string{
-					{"Name", cp.Name},
-					{"URL", cp.URL},
-					{"Token", tokenDisplay},
-				}
-				return printTable(cpHeaders, cpRows)
-			}
-		}
-	}
-
-	return nil
-}
-
-// SetContext creates or updates a configuration context with the given parameters.
-func (c *ConfigContextImpl) SetContext(params api.SetContextParams) error {
-	cfg, err := LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	// Validate mode
-	mode := params.Mode
-	if mode == "" {
-		mode = configContext.ModeAPIServer // default
-	}
-	if mode != configContext.ModeAPIServer && mode != configContext.ModeFileSystem {
-		return fmt.Errorf("invalid mode %q: must be 'api-server' or 'file-system'", mode)
-	}
-
-	// Validate root-directory-path for file-system mode
-	rootPath := params.RootDirectoryPath
-	if mode == configContext.ModeFileSystem {
-		if rootPath == "" {
-			// Default to current directory
-			var err error
-			rootPath, err = os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-		}
-		// Validate path exists and is a directory
-		info, err := os.Stat(rootPath)
-		if err != nil {
-			return fmt.Errorf("invalid root-directory-path %q: %w", rootPath, err)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("root-directory-path %q is not a directory", rootPath)
-		}
-		// Convert to an absolute path
-		rootPath, _ = filepath.Abs(rootPath)
-	}
-
-	// Create new context
-	newCtx := configContext.Context{
-		Name:              params.Name,
-		Namespace:         params.Namespace,
-		Project:           params.Project,
-		Component:         params.Component,
-		Environment:       params.Environment,
-		DataPlane:         params.DataPlane,
-		Mode:              mode,
-		RootDirectoryPath: rootPath,
-	}
-
-	// Update or create the context
 	found := false
-	for i := range cfg.Contexts {
-		if cfg.Contexts[i].Name == params.Name {
-			// Preserve existing fields if not provided
-			if params.Namespace == "" {
-				newCtx.Namespace = cfg.Contexts[i].Namespace
-			}
-			if params.Project == "" {
-				newCtx.Project = cfg.Contexts[i].Project
-			}
-			if params.Component == "" {
-				newCtx.Component = cfg.Contexts[i].Component
-			}
-			if params.Environment == "" {
-				newCtx.Environment = cfg.Contexts[i].Environment
-			}
-			if params.DataPlane == "" {
-				newCtx.DataPlane = cfg.Contexts[i].DataPlane
-			}
-			if params.Mode == "" {
-				newCtx.Mode = cfg.Contexts[i].Mode
-			}
-			if params.RootDirectoryPath == "" && mode == configContext.ModeFileSystem {
-				newCtx.RootDirectoryPath = cfg.Contexts[i].RootDirectoryPath
-			}
-			cfg.Contexts[i] = newCtx
+	for i, ctx := range cfg.Contexts {
+		if ctx.Name == params.Name {
+			cfg.Contexts = append(cfg.Contexts[:i], cfg.Contexts[i+1:]...)
 			found = true
 			break
 		}
 	}
+
 	if !found {
-		cfg.Contexts = append(cfg.Contexts, newCtx)
+		return fmt.Errorf("context %q not found", params.Name)
+	}
+
+	// Clear current context if it was the deleted one
+	if cfg.CurrentContext == params.Name {
+		cfg.CurrentContext = ""
 	}
 
 	if err := SaveStoredConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save updated config: %w", err)
+		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	action := "Updated"
+	fmt.Printf("Deleted context: %s\n", params.Name)
+	return nil
+}
+
+// UpdateContext updates an existing configuration context.
+func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	found := false
+	for i := range cfg.Contexts {
+		if cfg.Contexts[i].Name == params.Name {
+			if params.Namespace != "" {
+				cfg.Contexts[i].Namespace = params.Namespace
+			}
+			if params.Project != "" {
+				cfg.Contexts[i].Project = params.Project
+			}
+			found = true
+			break
+		}
+	}
+
 	if !found {
-		action = "Created"
+		return fmt.Errorf("context %q not found", params.Name)
 	}
-	fmt.Printf("%s context: %s\n", action, params.Name)
 
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Updated context: %s\n", params.Name)
+	return nil
+}
+
+// validateNameUniqueness checks that the given name is not already used by a context, control plane, or credential.
+func validateNameUniqueness(cfg *configContext.StoredConfig, name string) error {
+	for _, ctx := range cfg.Contexts {
+		if ctx.Name == name {
+			return fmt.Errorf("name %q is already used by a context", name)
+		}
+	}
+	for _, cp := range cfg.ControlPlanes {
+		if cp.Name == name {
+			return fmt.Errorf("name %q is already used by a control plane", name)
+		}
+	}
+	for _, cred := range cfg.Credentials {
+		if cred.Name == name {
+			return fmt.Errorf("name %q is already used by a credential", name)
+		}
+	}
 	return nil
 }
 
@@ -254,11 +226,71 @@ func (c *ConfigContextImpl) UseContext(params api.UseContextParams) error {
 	return nil
 }
 
+// DescribeContext prints the details of a named context.
+func (c *ConfigContextImpl) DescribeContext(params api.DescribeContextParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	for _, ctx := range cfg.Contexts {
+		if ctx.Name == params.Name {
+			return printContextDetails(cfg, &ctx)
+		}
+	}
+
+	return fmt.Errorf("context %q not found", params.Name)
+}
+
+// printContextDetails prints the details of a context in a property/value table.
+func printContextDetails(cfg *configContext.StoredConfig, ctx *configContext.Context) error {
+	headers := []string{"PROPERTY", "VALUE"}
+	rows := [][]string{
+		{"Name", formatValueOrPlaceholder(ctx.Name)},
+		{"Control Plane", formatValueOrPlaceholder(ctx.ControlPlane)},
+		{"Credentials", formatValueOrPlaceholder(ctx.Credentials)},
+		{"Namespace", formatValueOrPlaceholder(ctx.Namespace)},
+		{"Project", formatValueOrPlaceholder(ctx.Project)},
+		{"Component", formatValueOrPlaceholder(ctx.Component)},
+		{"Mode", formatValueOrPlaceholder(ctx.Mode)},
+		{"Root Directory Path", formatValueOrPlaceholder(ctx.RootDirectoryPath)},
+	}
+
+	if err := printTable(headers, rows); err != nil {
+		return err
+	}
+
+	// Print control plane info if available and not in file-system mode
+	if ctx.ControlPlane != "" && ctx.Mode != configContext.ModeFileSystem {
+		for _, cp := range cfg.ControlPlanes {
+			if cp.Name == ctx.ControlPlane {
+				fmt.Println("\nControl Plane:")
+				cpHeaders := []string{"PROPERTY", "VALUE"}
+				tokenDisplay := "-"
+				for _, cred := range cfg.Credentials {
+					if cred.Name == ctx.Credentials && cred.Token != "" {
+						tokenDisplay = maskToken(cred.Token)
+						break
+					}
+				}
+				cpRows := [][]string{
+					{"Name", cp.Name},
+					{"URL", cp.URL},
+					{"Token", tokenDisplay},
+				}
+				return printTable(cpHeaders, cpRows)
+			}
+		}
+	}
+
+	return nil
+}
+
 // ApplyContextDefaults loads the stored config and sets default flag values
 // from the current context, if not already provided.
 func ApplyContextDefaults(cmd *cobra.Command) error {
-	// Skip for certain commands to avoid circular dependencies
-	if cmd.Parent() != nil && cmd.Parent().Name() == "config" {
+	// Skip for config commands to avoid circular dependencies
+	if cmd.Parent() != nil && (cmd.Parent().Name() == "config" || cmd.Parent().Name() == "context" || cmd.Parent().Name() == "controlplane") {
 		return nil
 	}
 
@@ -290,9 +322,7 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	// Apply context-based defaults only if flags not explicitly set
 	applyIfNotSet(cmd, flags.Namespace.Name, curCtx.Namespace)
 	applyIfNotSet(cmd, flags.Project.Name, curCtx.Project)
-	applyIfNotSet(cmd, flags.Environment.Name, curCtx.Environment)
 	applyIfNotSet(cmd, flags.Component.Name, curCtx.Component)
-	applyIfNotSet(cmd, flags.DataPlane.Name, curCtx.DataPlane)
 
 	return nil
 }
@@ -311,8 +341,6 @@ type DefaultContextValues struct {
 	ContextName  string
 	Namespace    string
 	Project      string
-	DataPlane    string
-	Environment  string
 	Credentials  string
 	ControlPlane string
 }
@@ -324,8 +352,6 @@ func getDefaultContextValues() DefaultContextValues {
 		ContextName:  getEnvOrDefault("CHOREO_DEFAULT_CONTEXT", "default"),
 		Namespace:    getEnvOrDefault("CHOREO_DEFAULT_ORG", "default"),
 		Project:      getEnvOrDefault("CHOREO_DEFAULT_PROJECT", "default"),
-		DataPlane:    getEnvOrDefault("CHOREO_DEFAULT_DATAPLANE", "default"),
-		Environment:  getEnvOrDefault("CHOREO_DEFAULT_ENV", "development"),
 		Credentials:  getEnvOrDefault("CHOREO_DEFAULT_CREDENTIAL", "default"),
 		ControlPlane: getEnvOrDefault("CHOREO_DEFAULT_CONTROLPLANE", "default"),
 	}
@@ -365,8 +391,6 @@ func EnsureContext() error {
 				Name:         defaults.ContextName,
 				Namespace:    defaults.Namespace,
 				Project:      defaults.Project,
-				DataPlane:    defaults.DataPlane,
-				Environment:  defaults.Environment,
 				Credentials:  defaults.Credentials,
 				ControlPlane: defaults.ControlPlane,
 			}
@@ -404,53 +428,111 @@ func EnsureContext() error {
 	return nil
 }
 
-// SetControlPlane sets the control plane configuration
-func (c *ConfigContextImpl) SetControlPlane(params api.SetControlPlaneParams) error {
-	// Get current context
-	currentContext, err := GetCurrentContext()
-	if err != nil {
-		return fmt.Errorf("failed to get current context: %w", err)
-	}
-
-	// Load config for updates
+// AddControlPlane adds a new control plane configuration.
+func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) error {
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Find and update existing control plane or create new one
+	// Validate that the name is not already used
+	if err := validateNameUniqueness(cfg, params.Name); err != nil {
+		return err
+	}
+
+	cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
+		Name: params.Name,
+		URL:  params.URL,
+	})
+
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Created control plane: %s\n", params.Name)
+	return nil
+}
+
+// ListControlPlanes prints all control plane configurations.
+func (c *ConfigContextImpl) ListControlPlanes() error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if len(cfg.ControlPlanes) == 0 {
+		fmt.Println("No control planes stored.")
+		return nil
+	}
+
+	headers := []string{"NAME", "URL"}
+	rows := make([][]string, 0, len(cfg.ControlPlanes))
+
+	for _, cp := range cfg.ControlPlanes {
+		rows = append(rows, []string{
+			formatValueOrPlaceholder(cp.Name),
+			formatValueOrPlaceholder(cp.URL),
+		})
+	}
+
+	return printTable(headers, rows)
+}
+
+// UpdateControlPlane updates an existing control plane configuration.
+func (c *ConfigContextImpl) UpdateControlPlane(params api.UpdateControlPlaneParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	found := false
 	for idx := range cfg.ControlPlanes {
 		if cfg.ControlPlanes[idx].Name == params.Name {
-			cfg.ControlPlanes[idx].URL = params.URL
+			if params.URL != "" {
+				cfg.ControlPlanes[idx].URL = params.URL
+			}
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
-			Name: params.Name,
-			URL:  params.URL,
-		})
+		return fmt.Errorf("control plane %q not found", params.Name)
 	}
 
-	// Update current context to reference this control plane
-	for idx := range cfg.Contexts {
-		if cfg.Contexts[idx].Name == currentContext.Name {
-			cfg.Contexts[idx].ControlPlane = params.Name
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Updated control plane: %s\n", params.Name)
+	return nil
+}
+
+// DeleteControlPlane removes a control plane configuration by name.
+func (c *ConfigContextImpl) DeleteControlPlane(params api.DeleteControlPlaneParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	found := false
+	for i, cp := range cfg.ControlPlanes {
+		if cp.Name == params.Name {
+			cfg.ControlPlanes = append(cfg.ControlPlanes[:i], cfg.ControlPlanes[i+1:]...)
+			found = true
 			break
 		}
 	}
 
-	if err := SaveStoredConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save control plane config: %w", err)
+	if !found {
+		return fmt.Errorf("control plane %q not found", params.Name)
 	}
 
-	fmt.Printf("Control plane configured successfully:\n")
-	fmt.Printf("  Name: %s\n", params.Name)
-	fmt.Printf("  URL: %s\n", params.URL)
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
 
+	fmt.Printf("Deleted control plane: %s\n", params.Name)
 	return nil
 }
 

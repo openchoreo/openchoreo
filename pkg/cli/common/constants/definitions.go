@@ -663,67 +663,114 @@ This command allows you to:
 		Short: "Manage Choreo configuration contexts",
 		Long: "Manage configuration contexts that store default values (e.g., namespace, project, component) " +
 			"for occ commands.",
-		Example: fmt.Sprintf(`  # List all stored configuration contexts
-  %[1]s config get-contexts
+		Example: fmt.Sprintf(`  # Add a new configuration context
+  %[1]s config context add my-context --controlplane cp1 --credentials cred1
 
-  # Set or update a configuration context
-  %[1]s config set-context --name acme-corp-context --namespace acme-corp
+  # List all configuration contexts
+  %[1]s config context list
 
-  # Use a configuration context
-  %[1]s config use-context --name acme-corp-context
+  # Switch to a configuration context
+  %[1]s config context use my-context
 
-  # Show the current configuration context's details
-  %[1]s config current-context`, messages.DefaultCLIName),
+  # Update a configuration context
+  %[1]s config context update my-context --namespace acme-corp --project online-store`, messages.DefaultCLIName),
 	}
 
-	// ConfigGetContexts holds usage and help texts for "config get-contexts" command.
-	ConfigGetContexts = Command{
-		Use:   "get-contexts",
-		Short: "List all available configuration contexts",
-		Long:  "List all stored configuration contexts, with an asterisk (*) marking the currently active context",
-		Example: fmt.Sprintf(`  # Show all configuration contexts
-  %[1]s config get-contexts`, messages.DefaultCLIName),
+	// ConfigContext holds usage and help texts for the "config context" parent command.
+	ConfigContext = Command{
+		Use:   "context",
+		Short: "Manage configuration contexts",
+		Long:  "Manage configuration contexts that store default values for occ commands.",
 	}
 
-	// ConfigSetContext holds usage and help texts for "config set-context" command.
-	ConfigSetContext = Command{
-		Use:   "set-context",
-		Short: "Create or update a configuration context",
-		Long:  "Configure a context by specifying values for namespace, project, component, build, environment, etc.",
-		Example: fmt.Sprintf(`  # Set a configuration context named acme-corp-context
-  %[1]s config set-context acme-corp-context --namespace acme-corp \
-    --project online-store --environment dev`,
+	// ConfigContextAdd holds usage and help texts for "config context add" command.
+	ConfigContextAdd = Command{
+		Use:   "add",
+		Short: "Add a new configuration context",
+		Long:  "Add a new configuration context with control plane and credentials references.",
+		Example: fmt.Sprintf(`  # Add a new context with control plane and credentials
+  %[1]s config context add my-context --controlplane cp1 --credentials cred1 --namespace acme-corp`,
 			messages.DefaultCLIName),
 	}
 
-	// ConfigUseContext holds usage and help texts for "config use-context" command.
-	ConfigUseContext = Command{
-		Use:   "use-context",
-		Short: "Switch to a specified configuration context",
+	// ConfigContextList holds usage and help texts for "config context list" command.
+	ConfigContextList = Command{
+		Use:   "list",
+		Short: "List all configuration contexts",
+		Long:  "List all stored configuration contexts, with an asterisk (*) marking the currently active context.",
+		Example: fmt.Sprintf(`  # Show all configuration contexts
+  %[1]s config context list`, messages.DefaultCLIName),
+	}
+
+	// ConfigContextDelete holds usage and help texts for "config context delete" command.
+	ConfigContextDelete = Command{
+		Use:   "delete",
+		Short: "Delete a configuration context",
+		Long:  "Delete a configuration context by name.",
+		Example: fmt.Sprintf(`  # Delete a configuration context
+  %[1]s config context delete my-context`, messages.DefaultCLIName),
+	}
+
+	// ConfigContextUpdate holds usage and help texts for "config context update" command.
+	ConfigContextUpdate = Command{
+		Use:   "update",
+		Short: "Update an existing configuration context",
+		Long:  "Update fields of an existing configuration context.",
+		Example: fmt.Sprintf(`  # Update the namespace and project for a context
+  %[1]s config context update my-context --namespace acme-corp --project online-store`,
+			messages.DefaultCLIName),
+	}
+
+	// ConfigContextUse holds usage and help texts for "config context use" command.
+	ConfigContextUse = Command{
+		Use:   "use",
+		Short: "Switch to a configuration context",
 		Long:  "Set the active context, so subsequent commands automatically use its stored values when flags are omitted.",
-		Example: fmt.Sprintf(`  # Switch to the configuration context named acme-corp-context
-  %[1]s config use-context --name acme-corp-context`, messages.DefaultCLIName),
+		Example: fmt.Sprintf(`  # Switch to the configuration context named my-context
+  %[1]s config context use my-context`, messages.DefaultCLIName),
 	}
 
-	// ConfigCurrentContext holds usage and help texts for "config current-context" command.
-	ConfigCurrentContext = Command{
-		Use:   "current-context",
-		Short: "Display the currently active configuration context",
-		Long:  "Display the currently active configuration context, including any stored configuration values.",
-		Example: fmt.Sprintf(`  # Display the currently active configuration context
-  %[1]s config current-context`, messages.DefaultCLIName),
+	// ConfigControlPlane holds usage and help texts for the "config controlplane" parent command.
+	ConfigControlPlane = Command{
+		Use:   "controlplane",
+		Short: "Manage control plane configurations",
+		Long:  "Manage control plane configurations for OpenChoreo API server connections.",
 	}
 
-	// ConfigSetControlPlane holds usage and help texts for "config set-control-plane" command.
-	ConfigSetControlPlane = Command{
-		Use:   "set-control-plane",
-		Short: "Configure OpenChoreo API server connection",
-		Long:  "Set the OpenChoreo API server endpoint and authentication details for remote connections.",
-		Example: fmt.Sprintf(`  # Set remote control plane url
-  %[1]s config set-control-plane --url https://api.choreo.example.com --token <your-token>
+	// ConfigControlPlaneAdd holds usage and help texts for "config controlplane add" command.
+	ConfigControlPlaneAdd = Command{
+		Use:   "add",
+		Short: "Add a new control plane configuration",
+		Long:  "Add a new control plane configuration with a URL.",
+		Example: fmt.Sprintf(`  # Add a control plane
+  %[1]s config controlplane add my-cp --url https://cp.openchoreo.acme.com`, messages.DefaultCLIName),
+	}
 
-  # Set local control plane (for development)
-  %[1]s config set-control-plane --url http://localhost:8080`, messages.DefaultCLIName),
+	// ConfigControlPlaneList holds usage and help texts for "config controlplane list" command.
+	ConfigControlPlaneList = Command{
+		Use:   "list",
+		Short: "List all control plane configurations",
+		Long:  "List all stored control plane configurations.",
+		Example: fmt.Sprintf(`  # List all control planes
+  %[1]s config controlplane list`, messages.DefaultCLIName),
+	}
+
+	// ConfigControlPlaneUpdate holds usage and help texts for "config controlplane update" command.
+	ConfigControlPlaneUpdate = Command{
+		Use:   "update",
+		Short: "Update a control plane configuration",
+		Long:  "Update the URL of an existing control plane configuration.",
+		Example: fmt.Sprintf(`  # Update a control plane URL
+  %[1]s config controlplane update my-cp --url https://new-cp.openchoreo.acme.com`, messages.DefaultCLIName),
+	}
+
+	// ConfigControlPlaneDelete holds usage and help texts for "config controlplane delete" command.
+	ConfigControlPlaneDelete = Command{
+		Use:   "delete",
+		Short: "Delete a control plane configuration",
+		Long:  "Delete a control plane configuration by name.",
+		Example: fmt.Sprintf(`  # Delete a control plane
+  %[1]s config controlplane delete my-cp`, messages.DefaultCLIName),
 	}
 
 	// ------------------------------------------------------------------------
