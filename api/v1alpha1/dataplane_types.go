@@ -100,10 +100,10 @@ type DataPlaneSpec struct {
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 
-	// ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this DataPlane.
+	// ObservabilityPlaneRef specifies the ObservabilityPlane or ClusterObservabilityPlane for this DataPlane.
 	// If not specified, defaults to an ObservabilityPlane named "default" in the same namespace.
 	// +optional
-	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 }
 
 // AgentConnectionStatus tracks the status of cluster agent connections

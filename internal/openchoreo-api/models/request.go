@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 // BuildPlaneRef represents a reference to a BuildPlane or ClusterBuildPlane
@@ -146,17 +147,17 @@ type CreateEnvironmentRequest struct {
 
 // CreateDataPlaneRequest represents the request to create a new dataplane
 type CreateDataPlaneRequest struct {
-	Name                    string `json:"name"`
-	DisplayName             string `json:"displayName,omitempty"`
-	Description             string `json:"description,omitempty"`
-	ClusterAgentClientCA    string `json:"clusterAgentClientCA"`
-	PublicVirtualHost       string `json:"publicVirtualHost"`
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-	PublicHTTPPort          *int32 `json:"publicHTTPPort,omitempty"`
-	PublicHTTPSPort         *int32 `json:"publicHTTPSPort,omitempty"`
-	OrganizationHTTPPort    *int32 `json:"organizationHTTPPort,omitempty"`
-	OrganizationHTTPSPort   *int32 `json:"organizationHTTPSPort,omitempty"`
-	ObservabilityPlaneRef   string `json:"observabilityPlaneRef,omitempty"`
+	Name                    string                 `json:"name"`
+	DisplayName             string                 `json:"displayName,omitempty"`
+	Description             string                 `json:"description,omitempty"`
+	ClusterAgentClientCA    string                 `json:"clusterAgentClientCA"`
+	PublicVirtualHost       string                 `json:"publicVirtualHost"`
+	OrganizationVirtualHost string                 `json:"organizationVirtualHost"`
+	PublicHTTPPort          *int32                 `json:"publicHTTPPort,omitempty"`
+	PublicHTTPSPort         *int32                 `json:"publicHTTPSPort,omitempty"`
+	OrganizationHTTPPort    *int32                 `json:"organizationHTTPPort,omitempty"`
+	OrganizationHTTPSPort   *int32                 `json:"organizationHTTPSPort,omitempty"`
+	ObservabilityPlaneRef   *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 }
 
 // Validate validates the CreateProjectRequest
@@ -188,7 +189,23 @@ func (req *CreateEnvironmentRequest) Validate() error {
 
 // Validate validates the CreateDataPlaneRequest
 func (req *CreateDataPlaneRequest) Validate() error {
-	// TODO: Implement custom validation using Go stdlib
+	// Validate ObservabilityPlaneRef if provided
+	if req.ObservabilityPlaneRef != nil {
+		kind := req.ObservabilityPlaneRef.Kind
+		if kind == "" {
+			return errors.New("observabilityPlaneRef.kind is required when observabilityPlaneRef is provided")
+		}
+		if kind != "ObservabilityPlane" && kind != "ClusterObservabilityPlane" {
+			return fmt.Errorf("observabilityPlaneRef.kind must be 'ObservabilityPlane' or 'ClusterObservabilityPlane', got '%s'", kind)
+		}
+		name := strings.TrimSpace(req.ObservabilityPlaneRef.Name)
+		if name == "" {
+			return errors.New("observabilityPlaneRef.name is required when observabilityPlaneRef is provided")
+		}
+		if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+			return fmt.Errorf("observabilityPlaneRef.name must be a valid DNS-1123 label: %s", strings.Join(errs, ", "))
+		}
+	}
 	return nil
 }
 
@@ -244,7 +261,10 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	req.ClusterAgentClientCA = strings.TrimSpace(req.ClusterAgentClientCA)
 	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
 	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
-	req.ObservabilityPlaneRef = strings.TrimSpace(req.ObservabilityPlaneRef)
+	if req.ObservabilityPlaneRef != nil {
+		req.ObservabilityPlaneRef.Kind = strings.TrimSpace(req.ObservabilityPlaneRef.Kind)
+		req.ObservabilityPlaneRef.Name = strings.TrimSpace(req.ObservabilityPlaneRef.Name)
+	}
 }
 
 // Sanitize sanitizes the PromoteComponentRequest by trimming whitespace

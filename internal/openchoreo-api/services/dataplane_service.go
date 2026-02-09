@@ -187,8 +187,11 @@ func (s *DataPlaneService) buildDataPlaneCR(namespaceName string, req *models.Cr
 	}
 
 	// Set observability plane reference if provided
-	if req.ObservabilityPlaneRef != "" {
-		spec.ObservabilityPlaneRef = req.ObservabilityPlaneRef
+	if req.ObservabilityPlaneRef != nil && req.ObservabilityPlaneRef.Name != "" {
+		spec.ObservabilityPlaneRef = &openchoreov1alpha1.ObservabilityPlaneRef{
+			Kind: openchoreov1alpha1.ObservabilityPlaneRefKind(req.ObservabilityPlaneRef.Kind),
+			Name: req.ObservabilityPlaneRef.Name,
+		}
 	}
 
 	return &openchoreov1alpha1.DataPlane{
@@ -254,8 +257,11 @@ func (s *DataPlaneService) toDataPlaneResponse(dp *openchoreov1alpha1.DataPlane)
 	}
 
 	// Add observability plane reference if present
-	if dp.Spec.ObservabilityPlaneRef != "" {
-		response.ObservabilityPlaneRef = dp.Spec.ObservabilityPlaneRef
+	if dp.Spec.ObservabilityPlaneRef != nil {
+		response.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
+			Kind: string(dp.Spec.ObservabilityPlaneRef.Kind),
+			Name: dp.Spec.ObservabilityPlaneRef.Name,
+		}
 	}
 
 	// Map agent connection status

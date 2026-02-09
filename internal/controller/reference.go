@@ -43,6 +43,53 @@ func (r *DataPlaneResult) GetNamespace() string {
 	return ""
 }
 
+// ObservabilityPlaneResult contains either an ObservabilityPlane or ClusterObservabilityPlane
+type ObservabilityPlaneResult struct {
+	ObservabilityPlane        *openchoreov1alpha1.ObservabilityPlane
+	ClusterObservabilityPlane *openchoreov1alpha1.ClusterObservabilityPlane
+}
+
+// GetName returns the name of the observability plane
+func (r *ObservabilityPlaneResult) GetName() string {
+	if r.ObservabilityPlane != nil {
+		return r.ObservabilityPlane.Name
+	}
+	if r.ClusterObservabilityPlane != nil {
+		return r.ClusterObservabilityPlane.Name
+	}
+	return ""
+}
+
+// GetNamespace returns the namespace (empty for ClusterObservabilityPlane)
+func (r *ObservabilityPlaneResult) GetNamespace() string {
+	if r.ObservabilityPlane != nil {
+		return r.ObservabilityPlane.Namespace
+	}
+	return ""
+}
+
+// GetObserverURL returns the observer URL from either ObservabilityPlane or ClusterObservabilityPlane
+func (r *ObservabilityPlaneResult) GetObserverURL() string {
+	if r.ObservabilityPlane != nil {
+		return r.ObservabilityPlane.Spec.ObserverURL
+	}
+	if r.ClusterObservabilityPlane != nil {
+		return r.ClusterObservabilityPlane.Spec.ObserverURL
+	}
+	return ""
+}
+
+// GetPlaneID returns the plane ID from either ObservabilityPlane or ClusterObservabilityPlane
+func (r *ObservabilityPlaneResult) GetPlaneID() string {
+	if r.ObservabilityPlane != nil {
+		return r.ObservabilityPlane.Spec.PlaneID
+	}
+	if r.ClusterObservabilityPlane != nil {
+		return r.ClusterObservabilityPlane.Spec.PlaneID
+	}
+	return ""
+}
+
 // GetDataplaneOfEnv retrieves the DataPlane for the given Environment.
 // If DataPlaneRef is not specified, it defaults to a DataPlane named "default" in the same namespace.
 // If DataPlaneRef specifies ClusterDataPlane kind, it looks up a cluster-scoped ClusterDataPlane.
@@ -170,7 +217,6 @@ func GetBuildPlaneOrClusterBuildPlaneOfProject(ctx context.Context, c client.Cli
 		return getFirstBuildPlaneInNamespace(ctx, c, project.Namespace)
 	}
 
-	// Handle based on Kind
 	switch ref.Kind {
 	case openchoreov1alpha1.BuildPlaneRefKindBuildPlane:
 		buildPlane := &openchoreov1alpha1.BuildPlane{}
@@ -216,50 +262,200 @@ func getFirstBuildPlaneInNamespace(ctx context.Context, c client.Client, namespa
 	return &BuildPlaneResult{BuildPlane: &buildPlaneList.Items[0]}, nil
 }
 
-func GetObservabilityPlaneOfBuildPlane(ctx context.Context, c client.Client, buildPlane *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.ObservabilityPlane, error) {
-	// Determine the plane name to look for
-	planeName := buildPlane.Spec.ObservabilityPlaneRef
-	if planeName == "" {
-		planeName = DefaultPlaneName
-	}
+// GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane retrieves either an ObservabilityPlane or
+// ClusterObservabilityPlane for the given BuildPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to an ObservabilityPlane named "default" in the same namespace.
+func GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx context.Context, c client.Client, buildPlane *openchoreov1alpha1.BuildPlane) (*ObservabilityPlaneResult, error) {
+	ref := buildPlane.Spec.ObservabilityPlaneRef
 
-	// Try to find the ObservabilityPlane in the same namespace
-	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
-	key := client.ObjectKey{Namespace: buildPlane.Namespace, Name: planeName}
+	// If no ObservabilityPlaneRef is specified, default to ObservabilityPlane named "default" in the same namespace
+	if ref == nil {
+		observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+		key := client.ObjectKey{Namespace: buildPlane.Namespace, Name: DefaultPlaneName}
 
-	if err := c.Get(ctx, key, observabilityPlane); err != nil {
-		if apierrors.IsNotFound(err) {
-			if buildPlane.Spec.ObservabilityPlaneRef == "" {
-				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ObservabilityPlane '%s' not found in namespace '%s'. Error is: %w", DefaultPlaneName, buildPlane.Namespace, err)
+		if err := c.Get(ctx, key, observabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ObservabilityPlane '%s' not found in namespace '%s': %w", DefaultPlaneName, buildPlane.Namespace, err)
 			}
-			return nil, fmt.Errorf("observabilityPlane '%s' not found in namespace '%s'. Error is: %w", planeName, buildPlane.Namespace, err)
+			return nil, fmt.Errorf("failed to get default observabilityPlane: %w", err)
 		}
-		return nil, fmt.Errorf("failed to get observabilityPlane. Error is: %w", err)
+		return &ObservabilityPlaneResult{ObservabilityPlane: observabilityPlane}, nil
 	}
 
-	return observabilityPlane, nil
+	// Handle based on Kind
+	switch ref.Kind {
+	case openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane:
+		observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+		key := client.ObjectKey{Namespace: buildPlane.Namespace, Name: ref.Name}
+
+		if err := c.Get(ctx, key, observabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("observabilityPlane '%s' not found in namespace '%s': %w", ref.Name, buildPlane.Namespace, err)
+			}
+			return nil, fmt.Errorf("failed to get observabilityPlane '%s': %w", ref.Name, err)
+		}
+		return &ObservabilityPlaneResult{ObservabilityPlane: observabilityPlane}, nil
+
+	case openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane:
+		clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{}
+		key := client.ObjectKey{Name: ref.Name}
+
+		if err := c.Get(ctx, key, clusterObservabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("clusterObservabilityPlane '%s' not found: %w", ref.Name, err)
+			}
+			return nil, fmt.Errorf("failed to get clusterObservabilityPlane '%s': %w", ref.Name, err)
+		}
+		return &ObservabilityPlaneResult{ClusterObservabilityPlane: clusterObservabilityPlane}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported observabilityPlaneRef kind '%s'", ref.Kind)
+	}
 }
 
-func GetObservabilityPlaneOfDataPlane(ctx context.Context, c client.Client, dataPlane *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.ObservabilityPlane, error) {
-	// Determine the plane name to look for
-	planeName := dataPlane.Spec.ObservabilityPlaneRef
-	if planeName == "" {
-		planeName = DefaultPlaneName
-	}
+// GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane retrieves either an ObservabilityPlane or
+// ClusterObservabilityPlane for the given DataPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to an ObservabilityPlane named "default" in the same namespace.
+func GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx context.Context, c client.Client, dataPlane *openchoreov1alpha1.DataPlane) (*ObservabilityPlaneResult, error) {
+	ref := dataPlane.Spec.ObservabilityPlaneRef
 
-	// Try to find the ObservabilityPlane in the same namespace
-	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
-	key := client.ObjectKey{Namespace: dataPlane.Namespace, Name: planeName}
+	// If no ObservabilityPlaneRef is specified, default to ObservabilityPlane named "default" in the same namespace
+	if ref == nil {
+		observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+		key := client.ObjectKey{Namespace: dataPlane.Namespace, Name: DefaultPlaneName}
 
-	if err := c.Get(ctx, key, observabilityPlane); err != nil {
-		if apierrors.IsNotFound(err) {
-			if dataPlane.Spec.ObservabilityPlaneRef == "" {
-				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ObservabilityPlane '%s' not found in namespace '%s'", DefaultPlaneName, dataPlane.Namespace)
+		if err := c.Get(ctx, key, observabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ObservabilityPlane '%s' not found in namespace '%s': %w", DefaultPlaneName, dataPlane.Namespace, err)
 			}
-			return nil, fmt.Errorf("observabilityPlane '%s' not found in namespace '%s'", planeName, dataPlane.Namespace)
+			return nil, fmt.Errorf("failed to get default observabilityPlane: %w", err)
 		}
-		return nil, fmt.Errorf("failed to get observabilityPlane: %w", err)
+		return &ObservabilityPlaneResult{ObservabilityPlane: observabilityPlane}, nil
 	}
 
-	return observabilityPlane, nil
+	// Handle based on Kind
+	switch ref.Kind {
+	case openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane:
+		observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
+		key := client.ObjectKey{Namespace: dataPlane.Namespace, Name: ref.Name}
+
+		if err := c.Get(ctx, key, observabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("observabilityPlane '%s' not found in namespace '%s': %w", ref.Name, dataPlane.Namespace, err)
+			}
+			return nil, fmt.Errorf("failed to get observabilityPlane '%s': %w", ref.Name, err)
+		}
+		return &ObservabilityPlaneResult{ObservabilityPlane: observabilityPlane}, nil
+
+	case openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane:
+		clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{}
+		key := client.ObjectKey{Name: ref.Name}
+
+		if err := c.Get(ctx, key, clusterObservabilityPlane); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("clusterObservabilityPlane '%s' not found: %w", ref.Name, err)
+			}
+			return nil, fmt.Errorf("failed to get clusterObservabilityPlane '%s': %w", ref.Name, err)
+		}
+		return &ObservabilityPlaneResult{ClusterObservabilityPlane: clusterObservabilityPlane}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported observabilityPlaneRef kind '%s'", ref.Kind)
+	}
+}
+
+// GetClusterObservabilityPlaneOfClusterDataPlane retrieves the ClusterObservabilityPlane for a ClusterDataPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to a ClusterObservabilityPlane named "default".
+func GetClusterObservabilityPlaneOfClusterDataPlane(ctx context.Context, c client.Client, clusterDataPlane *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
+	ref := clusterDataPlane.Spec.ObservabilityPlaneRef
+
+	// Validate that the ref kind is ClusterObservabilityPlane (the only allowed kind for cluster-scoped resources)
+	if ref != nil && openchoreov1alpha1.ObservabilityPlaneRefKind(ref.Kind) != openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane {
+		return nil, fmt.Errorf("clusterDataPlane '%s' only supports ClusterObservabilityPlane ref, got '%s'", clusterDataPlane.Name, ref.Kind)
+	}
+
+	// Determine the plane name to look for
+	planeName := DefaultPlaneName
+	if ref != nil {
+		planeName = ref.Name
+	}
+
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{}
+	key := client.ObjectKey{Name: planeName}
+
+	if err := c.Get(ctx, key, clusterObservabilityPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			if ref == nil {
+				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ClusterObservabilityPlane '%s' not found: %w", DefaultPlaneName, err)
+			}
+			return nil, fmt.Errorf("clusterObservabilityPlane '%s' not found: %w", planeName, err)
+		}
+		return nil, fmt.Errorf("failed to get clusterObservabilityPlane '%s': %w", planeName, err)
+	}
+
+	return clusterObservabilityPlane, nil
+}
+
+// GetClusterObservabilityPlaneOfClusterBuildPlane retrieves the ClusterObservabilityPlane for a ClusterBuildPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to a ClusterObservabilityPlane named "default".
+func GetClusterObservabilityPlaneOfClusterBuildPlane(ctx context.Context, c client.Client, clusterBuildPlane *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
+	ref := clusterBuildPlane.Spec.ObservabilityPlaneRef
+
+	// Validate that the ref kind is ClusterObservabilityPlane (the only allowed kind for cluster-scoped resources)
+	if ref != nil && openchoreov1alpha1.ObservabilityPlaneRefKind(ref.Kind) != openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane {
+		return nil, fmt.Errorf("clusterBuildPlane '%s' only supports ClusterObservabilityPlane ref, got '%s'", clusterBuildPlane.Name, ref.Kind)
+	}
+
+	// Determine the plane name to look for
+	planeName := DefaultPlaneName
+	if ref != nil {
+		planeName = ref.Name
+	}
+
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{}
+	key := client.ObjectKey{Name: planeName}
+
+	if err := c.Get(ctx, key, clusterObservabilityPlane); err != nil {
+		if apierrors.IsNotFound(err) {
+			if ref == nil {
+				return nil, fmt.Errorf("no observabilityPlaneRef specified and default ClusterObservabilityPlane '%s' not found: %w", DefaultPlaneName, err)
+			}
+			return nil, fmt.Errorf("clusterObservabilityPlane '%s' not found: %w", planeName, err)
+		}
+		return nil, fmt.Errorf("failed to get clusterObservabilityPlane '%s': %w", planeName, err)
+	}
+
+	return clusterObservabilityPlane, nil
+}
+
+// GetObservabilityPlaneOfBuildPlane retrieves the ObservabilityPlane for the given BuildPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to an ObservabilityPlane named "default" in the same namespace.
+// This function returns only the ObservabilityPlane; use GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane
+// if the ref may point to a ClusterObservabilityPlane.
+func GetObservabilityPlaneOfBuildPlane(ctx context.Context, c client.Client, buildPlane *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.ObservabilityPlane, error) {
+	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx, c, buildPlane)
+	if err != nil {
+		return nil, err
+	}
+	if result.ObservabilityPlane != nil {
+		return result.ObservabilityPlane, nil
+	}
+	// ClusterObservabilityPlane was found but caller expects ObservabilityPlane
+	return nil, fmt.Errorf("buildPlane '%s' references ClusterObservabilityPlane '%s', use GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane instead", buildPlane.Name, result.ClusterObservabilityPlane.Name)
+}
+
+// GetObservabilityPlaneOfDataPlane retrieves the ObservabilityPlane for the given DataPlane.
+// If ObservabilityPlaneRef is not specified, it defaults to an ObservabilityPlane named "default" in the same namespace.
+// This function returns only the ObservabilityPlane; use GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane
+// if the ref may point to a ClusterObservabilityPlane.
+func GetObservabilityPlaneOfDataPlane(ctx context.Context, c client.Client, dataPlane *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.ObservabilityPlane, error) {
+	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, c, dataPlane)
+	if err != nil {
+		return nil, err
+	}
+	if result.ObservabilityPlane != nil {
+		return result.ObservabilityPlane, nil
+	}
+	// ClusterObservabilityPlane was found but caller expects ObservabilityPlane
+	return nil, fmt.Errorf("dataPlane '%s' references ClusterObservabilityPlane '%s', use GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane instead", dataPlane.Name, result.ClusterObservabilityPlane.Name)
 }

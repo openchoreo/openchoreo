@@ -161,8 +161,11 @@ func toBuildPlaneResponse(bp *openchoreov1alpha1.BuildPlane) models.BuildPlaneRe
 		Status:      status,
 	}
 
-	if bp.Spec.ObservabilityPlaneRef != "" {
-		response.ObservabilityPlaneRef = bp.Spec.ObservabilityPlaneRef
+	if bp.Spec.ObservabilityPlaneRef != nil {
+		response.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
+			Kind: string(bp.Spec.ObservabilityPlaneRef.Kind),
+			Name: bp.Spec.ObservabilityPlaneRef.Name,
+		}
 	}
 
 	if bp.Status.AgentConnection != nil {

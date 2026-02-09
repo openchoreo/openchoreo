@@ -48,8 +48,11 @@ func toGenBuildPlane(bp *models.BuildPlaneResponse) gen.BuildPlane {
 		CreatedAt:   bp.CreatedAt,
 		Status:      ptr.To(bp.Status),
 	}
-	if bp.ObservabilityPlaneRef != "" {
-		result.ObservabilityPlaneRef = ptr.To(bp.ObservabilityPlaneRef)
+	if bp.ObservabilityPlaneRef != nil {
+		result.ObservabilityPlaneRef = &gen.ObservabilityPlaneRef{
+			Kind: gen.ObservabilityPlaneRefKind(bp.ObservabilityPlaneRef.Kind),
+			Name: bp.ObservabilityPlaneRef.Name,
+		}
 	}
 	return result
 }

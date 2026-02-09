@@ -3948,9 +3948,7 @@ components:
           description: Organization HTTPS port
           example: 8443
         observabilityPlaneRef:
-          type: string
-          description: Reference to the observability plane
-          example: default-observability
+          $ref: '#/components/schemas/ObservabilityPlaneRef'
         createdAt:
           type: string
           format: date-time
@@ -4020,9 +4018,7 @@ components:
           description: Organization HTTPS port (defaults to 8443)
           example: 8443
         observabilityPlaneRef:
-          type: string
-          description: Reference to the observability plane
-          example: default-observability
+          $ref: '#/components/schemas/ObservabilityPlaneRef'
 
     # -------------------------------------------------------------------------
     # BuildPlanes
@@ -4066,9 +4062,7 @@ components:
           description: BuildPlane description
           example: Primary build plane for CI/CD workflows
         observabilityPlaneRef:
-          type: string
-          description: Reference to the observability plane for build logs
-          example: default-observability
+          $ref: '#/components/schemas/ObservabilityPlaneRef'
         createdAt:
           type: string
           format: date-time
@@ -4078,6 +4072,29 @@ components:
           type: string
           description: BuildPlane status
           example: Ready
+
+    # -------------------------------------------------------------------------
+    # ObservabilityPlaneRef
+    # -------------------------------------------------------------------------
+    ObservabilityPlaneRef:
+      type: object
+      description: Reference to an ObservabilityPlane or ClusterObservabilityPlane
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of observability plane (ObservabilityPlane or ClusterObservabilityPlane)
+          enum: [ObservabilityPlane, ClusterObservabilityPlane]
+          example: ObservabilityPlane
+        name:
+          type: string
+          description: Name of the observability plane resource. Must be a valid DNS-1123 label.
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: default
 
     # -------------------------------------------------------------------------
     # ObservabilityPlanes

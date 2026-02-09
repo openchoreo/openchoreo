@@ -194,7 +194,9 @@ DataPlane configuration for the target environment.
 dataplane:
   secretStore: "my-secret-store"              # ${dataplane.secretStore}
   publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
-  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
+  observabilityPlaneRef:                      # ${dataplane.observabilityPlaneRef}
+    kind: "ObservabilityPlane"                # ${dataplane.observabilityPlaneRef.kind} - "ObservabilityPlane" or "ClusterObservabilityPlane"
+    name: "my-obs-plane"                      # ${dataplane.observabilityPlaneRef.name}
 ```
 
 **Optional fields:** `secretStore`, `publicVirtualHost`, and `observabilityPlaneRef` are optional. If not configured on the DataPlane, the field will be absent from the context. Use `has()` to guard conditional logic:
@@ -467,7 +469,9 @@ DataPlane configuration for the target environment. Same structure as ComponentC
 dataplane:
   secretStore: "my-secret-store"              # ${dataplane.secretStore}
   publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
-  observabilityPlaneRef: "my-obs-plane"       # ${dataplane.observabilityPlaneRef}
+  observabilityPlaneRef:                      # ${dataplane.observabilityPlaneRef}
+    kind: "ObservabilityPlane"                # ${dataplane.observabilityPlaneRef.kind} - "ObservabilityPlane" or "ClusterObservabilityPlane"
+    name: "my-obs-plane"                      # ${dataplane.observabilityPlaneRef.name}
 ```
 
 ### parameters

@@ -39,11 +39,11 @@ type ClusterDataPlaneSpec struct {
 	// +optional
 	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
 
-	// ObservabilityPlaneRef specifies the name of the ClusterObservabilityPlane for this ClusterDataPlane.
-	// Since this is a cluster-scoped resource, it can only reference other cluster-scoped resources.
-	// This field must reference a ClusterObservabilityPlane resource, not a namespace-scoped ObservabilityPlane.
+	// ObservabilityPlaneRef specifies the ClusterObservabilityPlane for this ClusterDataPlane.
+	// Since this is a cluster-scoped resource, it can only reference cluster-scoped ClusterObservabilityPlane.
 	// +optional
-	ObservabilityPlaneRef string `json:"observabilityPlaneRef,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="!has(self.kind) || self.kind == 'ClusterObservabilityPlane'",message="ClusterDataPlane can only reference ClusterObservabilityPlane"
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 }
 
 // ClusterDataPlaneStatus defines the observed state of ClusterDataPlane.

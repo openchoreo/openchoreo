@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -313,40 +314,29 @@ func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, name
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
-	// Check if observer is configured via ObservabilityPlaneRef
-	if dp.Spec.ObservabilityPlaneRef == "" {
-		s.logger.Debug("ObservabilityPlaneRef not configured in dataplane", "dataplane", dp.Name)
-		return &EnvironmentObserverResponse{
-			Message: "observability-logs have not been configured",
-		}, nil
-	}
-
-	// Fetch the ObservabilityPlane to get the ObserverURL
-	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
-	opKey := client.ObjectKey{
-		Name:      dp.Spec.ObservabilityPlaneRef,
-		Namespace: dp.Namespace,
-	}
-	if err := s.k8sClient.Get(ctx, opKey, observabilityPlane); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Debug("ObservabilityPlane not found", "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+	// Get ObservabilityPlane via the reference helper
+	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			s.logger.Debug("Observability plane not found", "error", err, "dataplane", dp.Name)
 			return &EnvironmentObserverResponse{
 				Message: "observability-logs have not been configured",
 			}, nil
 		}
-		s.logger.Error("Failed to get observability plane", "error", err, "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+		s.logger.Error("Failed to get observability plane", "error", err, "dataplane", dp.Name)
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
-	if observabilityPlane.Spec.ObserverURL == "" {
-		s.logger.Debug("ObserverURL not configured in observability plane", "observabilityPlane", observabilityPlane.Name)
+	observerURL := observabilityResult.GetObserverURL()
+	if observerURL == "" {
+		s.logger.Debug("ObserverURL not configured in observability plane", "observabilityPlane", observabilityResult.GetName())
 		return &EnvironmentObserverResponse{
 			Message: "observability-logs have not been configured",
 		}, nil
 	}
 
 	return &EnvironmentObserverResponse{
-		ObserverURL: observabilityPlane.Spec.ObserverURL,
+		ObserverURL: observerURL,
 	}, nil
 }
 
@@ -396,39 +386,35 @@ func (s *EnvironmentService) GetRCAAgentURL(ctx context.Context, namespaceName, 
 		return nil, fmt.Errorf("failed to get dataplane: %w", err)
 	}
 
-	// Check if observer is configured via ObservabilityPlaneRef
-	if dp.Spec.ObservabilityPlaneRef == "" {
-		s.logger.Debug("ObservabilityPlaneRef not configured in dataplane", "dataplane", dp.Name)
-		return &RCAAgentURLResponse{
-			Message: "ObservabilityPlaneRef has not been configured",
-		}, nil
-	}
-
-	// Fetch the ObservabilityPlane to get the RCAAgentURL
-	observabilityPlane := &openchoreov1alpha1.ObservabilityPlane{}
-	opKey := client.ObjectKey{
-		Name:      dp.Spec.ObservabilityPlaneRef,
-		Namespace: dp.Namespace,
-	}
-	if err := s.k8sClient.Get(ctx, opKey, observabilityPlane); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Debug("ObservabilityPlane not found", "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+	// Get ObservabilityPlane via the reference helper
+	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			s.logger.Debug("Observability plane not found", "error", err, "dataplane", dp.Name)
 			return &RCAAgentURLResponse{
-				Message: "ObservabilityPlane has not been configured",
+				Message: "ObservabilityPlaneRef has not been configured",
 			}, nil
 		}
-		s.logger.Error("Failed to get observability plane", "error", err, "observabilityPlane", dp.Spec.ObservabilityPlaneRef)
+		s.logger.Error("Failed to get observability plane", "error", err, "dataplane", dp.Name)
 		return nil, fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
-	if observabilityPlane.Spec.RCAAgentURL == "" {
-		s.logger.Debug("RCAAgentURL not configured in observability plane", "observabilityPlane", observabilityPlane.Name)
+	// Get RCAAgentURL from ObservabilityPlane or ClusterObservabilityPlane
+	var rcaAgentURL string
+	if observabilityResult.ObservabilityPlane != nil {
+		rcaAgentURL = observabilityResult.ObservabilityPlane.Spec.RCAAgentURL
+	} else if observabilityResult.ClusterObservabilityPlane != nil {
+		rcaAgentURL = observabilityResult.ClusterObservabilityPlane.Spec.RCAAgentURL
+	}
+
+	if rcaAgentURL == "" {
+		s.logger.Debug("RCAAgentURL not configured in observability plane", "observabilityPlane", observabilityResult.GetName())
 		return &RCAAgentURLResponse{
 			Message: "RCAAgentURL has not been configured",
 		}, nil
 	}
 
 	return &RCAAgentURLResponse{
-		RCAAgentURL: observabilityPlane.Spec.RCAAgentURL,
+		RCAAgentURL: rcaAgentURL,
 	}, nil
 }

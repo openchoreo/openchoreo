@@ -198,10 +198,16 @@ type DataPlaneResponse struct {
 	PublicHTTPSPort         int32                          `json:"publicHTTPSPort"`
 	OrganizationHTTPPort    int32                          `json:"organizationHTTPPort"`
 	OrganizationHTTPSPort   int32                          `json:"organizationHTTPSPort"`
-	ObservabilityPlaneRef   string                         `json:"observabilityPlaneRef,omitempty"`
+	ObservabilityPlaneRef   *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
 	AgentConnection         *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt               time.Time                      `json:"createdAt"`
 	Status                  string                         `json:"status,omitempty"`
+}
+
+// ObservabilityPlaneRef represents a reference to an ObservabilityPlane or ClusterObservabilityPlane in responses
+type ObservabilityPlaneRef struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
 }
 
 // BuildPlaneResponse represents a buildplane in API responses
@@ -210,7 +216,7 @@ type BuildPlaneResponse struct {
 	Namespace             string                         `json:"namespace"`
 	DisplayName           string                         `json:"displayName,omitempty"`
 	Description           string                         `json:"description,omitempty"`
-	ObservabilityPlaneRef string                         `json:"observabilityPlaneRef,omitempty"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
 	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt             time.Time                      `json:"createdAt"`
 	Status                string                         `json:"status,omitempty"`

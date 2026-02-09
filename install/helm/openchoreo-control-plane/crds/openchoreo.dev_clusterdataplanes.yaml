@@ -126,10 +126,29 @@ spec:
                 type: array
               observabilityPlaneRef:
                 description: |-
-                  ObservabilityPlaneRef specifies the name of the ClusterObservabilityPlane for this ClusterDataPlane.
-                  Since this is a cluster-scoped resource, it can only reference other cluster-scoped resources.
-                  This field must reference a ClusterObservabilityPlane resource, not a namespace-scoped ObservabilityPlane.
-                type: string
+                  ObservabilityPlaneRef specifies the ClusterObservabilityPlane for this ClusterDataPlane.
+                  Since this is a cluster-scoped resource, it can only reference cluster-scoped ClusterObservabilityPlane.
+                properties:
+                  kind:
+                    description: Kind is the kind of observability plane. Must be
+                      ClusterObservabilityPlane.
+                    enum:
+                    - ClusterObservabilityPlane
+                    type: string
+                  name:
+                    description: Name is the name of the ClusterObservabilityPlane
+                      resource
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: ClusterDataPlane can only reference ClusterObservabilityPlane
+                  rule: '!has(self.kind) || self.kind == ''ClusterObservabilityPlane'''
               planeID:
                 description: |-
                   PlaneID identifies the logical plane this CR connects to.

@@ -76,8 +76,11 @@ func toGenDataPlane(dp *models.DataPlaneResponse) gen.DataPlane {
 	if dp.SecretStoreRef != "" {
 		result.SecretStoreRef = ptr.To(dp.SecretStoreRef)
 	}
-	if dp.ObservabilityPlaneRef != "" {
-		result.ObservabilityPlaneRef = ptr.To(dp.ObservabilityPlaneRef)
+	if dp.ObservabilityPlaneRef != nil {
+		result.ObservabilityPlaneRef = &gen.ObservabilityPlaneRef{
+			Kind: gen.ObservabilityPlaneRefKind(dp.ObservabilityPlaneRef.Kind),
+			Name: dp.ObservabilityPlaneRef.Name,
+		}
 	}
 	return result
 }

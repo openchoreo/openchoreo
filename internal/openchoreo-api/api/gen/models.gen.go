@@ -76,6 +76,12 @@ const (
 	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
 )
 
+// Defines values for ObservabilityPlaneRefKind.
+const (
+	ObservabilityPlaneRefKindClusterObservabilityPlane ObservabilityPlaneRefKind = "ClusterObservabilityPlane"
+	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
+)
+
 // Defines values for ProjectBuildPlaneRefKind.
 const (
 	ProjectBuildPlaneRefKindBuildPlane        ProjectBuildPlaneRefKind = "BuildPlane"
@@ -271,8 +277,8 @@ type BuildPlane struct {
 	// Namespace Kubernetes namespace for the build plane
 	Namespace string `json:"namespace"`
 
-	// ObservabilityPlaneRef Reference to the observability plane for build logs
-	ObservabilityPlaneRef *string `json:"observabilityPlaneRef,omitempty"`
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 
 	// Status BuildPlane status
 	Status *string `json:"status,omitempty"`
@@ -664,8 +670,8 @@ type CreateDataPlaneRequest struct {
 	// Name DataPlane name (must be unique within namespace)
 	Name string `json:"name"`
 
-	// ObservabilityPlaneRef Reference to the observability plane
-	ObservabilityPlaneRef *string `json:"observabilityPlaneRef,omitempty"`
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 
 	// OrganizationHTTPPort Organization HTTP port (defaults to 8080)
 	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
@@ -818,8 +824,8 @@ type DataPlane struct {
 	// Namespace Kubernetes namespace for the data plane
 	Namespace string `json:"namespace"`
 
-	// ObservabilityPlaneRef Reference to the observability plane
-	ObservabilityPlaneRef *string `json:"observabilityPlaneRef,omitempty"`
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
 
 	// OrganizationHTTPPort Organization HTTP port
 	OrganizationHTTPPort int32 `json:"organizationHTTPPort"`
@@ -1220,6 +1226,18 @@ type ObservabilityPlaneList struct {
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
 }
+
+// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+type ObservabilityPlaneRef struct {
+	// Kind Kind of observability plane (ObservabilityPlane or ClusterObservabilityPlane)
+	Kind ObservabilityPlaneRefKind `json:"kind"`
+
+	// Name Name of the observability plane resource. Must be a valid DNS-1123 label.
+	Name string `json:"name"`
+}
+
+// ObservabilityPlaneRefKind Kind of observability plane (ObservabilityPlane or ClusterObservabilityPlane)
+type ObservabilityPlaneRefKind string
 
 // ObserverURLResponse Observer URL response for accessing logs and metrics
 type ObserverURLResponse struct {

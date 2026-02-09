@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -140,7 +141,23 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			"cluster_agent_client_ca": stringProperty("CA certificate to verify cluster agent's client certificate"),
 			"public_virtual_host":     stringProperty("Public virtual host for the data plane"),
 			"namespace_virtual_host":  stringProperty("Namespace-specific virtual host"),
-			"observability_plane_ref": stringProperty("Optional: Reference to an ObservabilityPlane resource"),
+			"observability_plane_ref": map[string]any{
+				"type":        "object",
+				"description": "Optional: Reference to an ObservabilityPlane or ClusterObservabilityPlane resource",
+				"required":    []string{"name"},
+				"properties": map[string]any{
+					"kind": map[string]any{
+						"type": "string",
+						"description": "ObservabilityPlane or ClusterObservabilityPlane. " +
+							"Defaults to ObservabilityPlane when omitted.",
+						"enum": []string{"ObservabilityPlane", "ClusterObservabilityPlane"},
+					},
+					"name": map[string]any{
+						"type":        "string",
+						"description": "Name of the observability plane resource",
+					},
+				},
+			},
 		}, []string{
 			"namespace_name", "name", "cluster_agent_client_ca", "public_virtual_host", "namespace_virtual_host",
 		}),
@@ -152,7 +169,10 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 		ClusterAgentClientCA  string `json:"cluster_agent_client_ca"`
 		PublicVirtualHost     string `json:"public_virtual_host"`
 		NamespaceVirtualHost  string `json:"namespace_virtual_host"`
-		ObservabilityPlaneRef string `json:"observability_plane_ref"`
+		ObservabilityPlaneRef *struct {
+			Kind string `json:"kind"`
+			Name string `json:"name"`
+		} `json:"observability_plane_ref"`
 	}) (*mcp.CallToolResult, any, error) {
 		dataPlaneReq := &models.CreateDataPlaneRequest{
 			Name:                    args.Name,
@@ -161,7 +181,23 @@ func (t *Toolsets) RegisterCreateDataPlane(s *mcp.Server) {
 			ClusterAgentClientCA:    args.ClusterAgentClientCA,
 			PublicVirtualHost:       args.PublicVirtualHost,
 			OrganizationVirtualHost: args.NamespaceVirtualHost,
-			ObservabilityPlaneRef:   args.ObservabilityPlaneRef,
+		}
+		if args.ObservabilityPlaneRef != nil {
+			if args.ObservabilityPlaneRef.Name == "" {
+				return nil, nil, fmt.Errorf("observability_plane_ref.name is required when observability_plane_ref is provided")
+			}
+			kind := args.ObservabilityPlaneRef.Kind
+			if kind == "" {
+				kind = "ObservabilityPlane"
+			} else if kind != "ObservabilityPlane" && kind != "ClusterObservabilityPlane" {
+				return nil, nil, fmt.Errorf(
+					"observability_plane_ref.kind must be 'ObservabilityPlane' or "+
+						"'ClusterObservabilityPlane', got '%s'", kind)
+			}
+			dataPlaneReq.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
+				Kind: kind,
+				Name: args.ObservabilityPlaneRef.Name,
+			}
 		}
 		result, err := t.InfrastructureToolset.CreateDataPlane(ctx, args.NamespaceName, dataPlaneReq)
 		return handleToolResult(result, err)

@@ -168,11 +168,16 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 // extractDataPlaneData extracts DataPlaneData from a DataPlane resource.
 func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 	data := DataPlaneData{
-		PublicVirtualHost:     dp.Spec.Gateway.PublicVirtualHost,
-		ObservabilityPlaneRef: dp.Spec.ObservabilityPlaneRef,
+		PublicVirtualHost: dp.Spec.Gateway.PublicVirtualHost,
 	}
 	if dp.Spec.SecretStoreRef != nil {
 		data.SecretStore = dp.Spec.SecretStoreRef.Name
+	}
+	if dp.Spec.ObservabilityPlaneRef != nil {
+		data.ObservabilityPlaneRef = &ObservabilityPlaneRefData{
+			Kind: string(dp.Spec.ObservabilityPlaneRef.Kind),
+			Name: dp.Spec.ObservabilityPlaneRef.Name,
+		}
 	}
 	return data
 }

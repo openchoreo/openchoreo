@@ -120,9 +120,26 @@ spec:
                 type: array
               observabilityPlaneRef:
                 description: |-
-                  ObservabilityPlaneRef specifies the name of the ObservabilityPlane for this DataPlane.
+                  ObservabilityPlaneRef specifies the ObservabilityPlane or ClusterObservabilityPlane for this DataPlane.
                   If not specified, defaults to an ObservabilityPlane named "default" in the same namespace.
-                type: string
+                properties:
+                  kind:
+                    description: Kind is the kind of observability plane (ObservabilityPlane
+                      or ClusterObservabilityPlane)
+                    enum:
+                    - ObservabilityPlane
+                    - ClusterObservabilityPlane
+                    type: string
+                  name:
+                    description: Name is the name of the observability plane resource
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
               planeID:
                 description: |-
                   PlaneID identifies the logical plane this CR connects to.

@@ -572,15 +572,7 @@ func (s *ComponentWorkflowService) getWorkflowRunObservabilityURL(ctx context.Co
 
 // getBuildPlaneObservabilityURL gets the observer URL from build plane's observability plane
 func (s *ComponentWorkflowService) getBuildPlaneObservabilityURL(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (string, error) {
-	if buildPlane.Spec.ObservabilityPlaneRef == "" {
-		return "", nil
-	}
-
-	var observabilityPlane openchoreov1alpha1.ObservabilityPlane
-	err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      buildPlane.Spec.ObservabilityPlaneRef,
-		Namespace: buildPlane.Namespace,
-	}, &observabilityPlane)
+	result, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx, s.k8sClient, buildPlane)
 	if err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			return "", nil
@@ -588,7 +580,7 @@ func (s *ComponentWorkflowService) getBuildPlaneObservabilityURL(ctx context.Con
 		return "", fmt.Errorf("failed to get observability plane: %w", err)
 	}
 
-	return observabilityPlane.Spec.ObserverURL, nil
+	return result.GetObserverURL(), nil
 }
 
 // GetComponentWorkflowRunLogs retrieves logs from a component workflow run

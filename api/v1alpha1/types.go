@@ -173,6 +173,59 @@ type BuildPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// ObservabilityPlaneRefKind defines the kind of observability plane referenced
+// +kubebuilder:validation:Enum=ObservabilityPlane;ClusterObservabilityPlane
+type ObservabilityPlaneRefKind string
+
+const (
+	// ObservabilityPlaneRefKindObservabilityPlane references a namespace-scoped ObservabilityPlane
+	ObservabilityPlaneRefKindObservabilityPlane ObservabilityPlaneRefKind = "ObservabilityPlane"
+
+	// ObservabilityPlaneRefKindClusterObservabilityPlane references a cluster-scoped ClusterObservabilityPlane
+	ObservabilityPlaneRefKindClusterObservabilityPlane ObservabilityPlaneRefKind = "ClusterObservabilityPlane"
+)
+
+// ObservabilityPlaneRef represents a reference to an ObservabilityPlane or ClusterObservabilityPlane
+type ObservabilityPlaneRef struct {
+	// Kind is the kind of observability plane (ObservabilityPlane or ClusterObservabilityPlane)
+	// +required
+	Kind ObservabilityPlaneRefKind `json:"kind"`
+
+	// Name is the name of the observability plane resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	Name string `json:"name"`
+}
+
+// ClusterObservabilityPlaneRefKind defines the kind for cluster-scoped observability plane references.
+// Only ClusterObservabilityPlane is allowed since cluster-scoped resources can only reference
+// other cluster-scoped resources.
+// +kubebuilder:validation:Enum=ClusterObservabilityPlane
+type ClusterObservabilityPlaneRefKind string
+
+const (
+	// ClusterObservabilityPlaneRefKindClusterObservabilityPlane references a cluster-scoped ClusterObservabilityPlane
+	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
+)
+
+// ClusterObservabilityPlaneRef represents a reference to a ClusterObservabilityPlane.
+// Used by cluster-scoped resources (ClusterDataPlane, ClusterBuildPlane) that can only
+// reference cluster-scoped observability planes.
+type ClusterObservabilityPlaneRef struct {
+	// Kind is the kind of observability plane. Must be ClusterObservabilityPlane.
+	// +required
+	Kind ClusterObservabilityPlaneRefKind `json:"kind"`
+
+	// Name is the name of the ClusterObservabilityPlane resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny

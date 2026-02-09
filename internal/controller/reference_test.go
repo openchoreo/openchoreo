@@ -169,7 +169,10 @@ func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.BuildPlaneSpec{
-			ObservabilityPlaneRef: "my-observability",
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+				Name: "my-observability",
+			},
 		},
 	}
 
@@ -204,7 +207,7 @@ func TestGetObservabilityPlaneOfBuildPlane_WithEmptyRef_DefaultExists(t *testing
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.BuildPlaneSpec{
-			ObservabilityPlaneRef: "",
+			ObservabilityPlaneRef: nil,
 		},
 	}
 
@@ -231,7 +234,7 @@ func TestGetObservabilityPlaneOfBuildPlane_WithEmptyRef_DefaultNotFound(t *testi
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.BuildPlaneSpec{
-			ObservabilityPlaneRef: "",
+			ObservabilityPlaneRef: nil,
 		},
 	}
 
@@ -258,7 +261,10 @@ func TestGetObservabilityPlaneOfBuildPlane_WithExplicitRef_NotFound(t *testing.T
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.BuildPlaneSpec{
-			ObservabilityPlaneRef: "nonexistent-observability",
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+				Name: "nonexistent-observability",
+			},
 		},
 	}
 
@@ -293,7 +299,10 @@ func TestGetObservabilityPlaneOfDataPlane_WithExplicitRef(t *testing.T) {
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			ObservabilityPlaneRef: "my-observability",
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+				Name: "my-observability",
+			},
 		},
 	}
 
@@ -328,7 +337,7 @@ func TestGetObservabilityPlaneOfDataPlane_WithEmptyRef_DefaultExists(t *testing.
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			ObservabilityPlaneRef: "",
+			ObservabilityPlaneRef: nil,
 		},
 	}
 
@@ -355,7 +364,7 @@ func TestGetObservabilityPlaneOfDataPlane_WithEmptyRef_DefaultNotFound(t *testin
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			ObservabilityPlaneRef: "",
+			ObservabilityPlaneRef: nil,
 		},
 	}
 
@@ -382,7 +391,10 @@ func TestGetObservabilityPlaneOfDataPlane_WithExplicitRef_NotFound(t *testing.T)
 			Namespace: "test-namespace",
 		},
 		Spec: openchoreov1alpha1.DataPlaneSpec{
-			ObservabilityPlaneRef: "nonexistent-observability",
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+				Name: "nonexistent-observability",
+			},
 		},
 	}
 
@@ -396,6 +408,233 @@ func TestGetObservabilityPlaneOfDataPlane_WithExplicitRef_NotFound(t *testing.T)
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "observabilityPlane 'nonexistent-observability' not found in namespace 'test-namespace'")
+}
+
+func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane_WithClusterRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test ClusterObservabilityPlane
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-observability",
+		},
+	}
+
+	// Create test BuildPlane with ClusterObservabilityPlane ref
+	buildPlane := &openchoreov1alpha1.BuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-buildplane",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.BuildPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: "shared-observability",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObservabilityPlane, buildPlane).
+		Build()
+
+	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(context.Background(), fakeClient, buildPlane)
+
+	require.NoError(t, err)
+	assert.Nil(t, result.ObservabilityPlane)
+	assert.NotNil(t, result.ClusterObservabilityPlane)
+	assert.Equal(t, "shared-observability", result.ClusterObservabilityPlane.Name)
+}
+
+func TestGetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane_WithClusterRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test ClusterObservabilityPlane
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-observability",
+		},
+	}
+
+	// Create test DataPlane with ClusterObservabilityPlane ref
+	dataPlane := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dataplane",
+			Namespace: "test-namespace",
+		},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: "shared-observability",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObservabilityPlane, dataPlane).
+		Build()
+
+	result, err := GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(context.Background(), fakeClient, dataPlane)
+
+	require.NoError(t, err)
+	assert.Nil(t, result.ObservabilityPlane)
+	assert.NotNil(t, result.ClusterObservabilityPlane)
+	assert.Equal(t, "shared-observability", result.ClusterObservabilityPlane.Name)
+}
+
+func TestGetClusterObservabilityPlaneOfClusterDataPlane_WithExplicitRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test ClusterObservabilityPlane
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-observability",
+		},
+	}
+
+	// Create test ClusterDataPlane with explicit ref
+	clusterDataPlane := &openchoreov1alpha1.ClusterDataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-clusterdataplane",
+		},
+		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: "shared-observability",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObservabilityPlane, clusterDataPlane).
+		Build()
+
+	result, err := GetClusterObservabilityPlaneOfClusterDataPlane(context.Background(), fakeClient, clusterDataPlane)
+
+	require.NoError(t, err)
+	assert.Equal(t, "shared-observability", result.Name)
+}
+
+func TestGetClusterObservabilityPlaneOfClusterDataPlane_WithNilRef_DefaultExists(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create default ClusterObservabilityPlane
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+
+	// Create test ClusterDataPlane without ref
+	clusterDataPlane := &openchoreov1alpha1.ClusterDataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-clusterdataplane",
+		},
+		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
+			ObservabilityPlaneRef: nil,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObservabilityPlane, clusterDataPlane).
+		Build()
+
+	result, err := GetClusterObservabilityPlaneOfClusterDataPlane(context.Background(), fakeClient, clusterDataPlane)
+
+	require.NoError(t, err)
+	assert.Equal(t, "default", result.Name)
+}
+
+func TestGetClusterObservabilityPlaneOfClusterBuildPlane_WithExplicitRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Create test ClusterObservabilityPlane
+	clusterObservabilityPlane := &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "shared-observability",
+		},
+	}
+
+	// Create test ClusterBuildPlane with explicit ref
+	clusterBuildPlane := &openchoreov1alpha1.ClusterBuildPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-clusterbuildplane",
+		},
+		Spec: openchoreov1alpha1.ClusterBuildPlaneSpec{
+			ObservabilityPlaneRef: &openchoreov1alpha1.ClusterObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: "shared-observability",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(clusterObservabilityPlane, clusterBuildPlane).
+		Build()
+
+	result, err := GetClusterObservabilityPlaneOfClusterBuildPlane(context.Background(), fakeClient, clusterBuildPlane)
+
+	require.NoError(t, err)
+	assert.Equal(t, "shared-observability", result.Name)
+}
+
+func TestObservabilityPlaneResult_Methods(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+
+	// Test with ObservabilityPlane
+	opResult := &ObservabilityPlaneResult{
+		ObservabilityPlane: &openchoreov1alpha1.ObservabilityPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-op",
+				Namespace: "test-namespace",
+			},
+			Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
+				ObserverURL: "http://observer.example.com",
+				PlaneID:     "plane-123",
+			},
+		},
+	}
+
+	assert.Equal(t, "test-op", opResult.GetName())
+	assert.Equal(t, "test-namespace", opResult.GetNamespace())
+	assert.Equal(t, "http://observer.example.com", opResult.GetObserverURL())
+	assert.Equal(t, "plane-123", opResult.GetPlaneID())
+
+	// Test with ClusterObservabilityPlane
+	copResult := &ObservabilityPlaneResult{
+		ClusterObservabilityPlane: &openchoreov1alpha1.ClusterObservabilityPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-cop",
+			},
+			Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+				ObserverURL: "http://cluster-observer.example.com",
+				PlaneID:     "cluster-plane-456",
+			},
+		},
+	}
+
+	assert.Equal(t, "test-cop", copResult.GetName())
+	assert.Equal(t, "", copResult.GetNamespace())
+	assert.Equal(t, "http://cluster-observer.example.com", copResult.GetObserverURL())
+	assert.Equal(t, "cluster-plane-456", copResult.GetPlaneID())
+
+	// Test with empty result
+	emptyResult := &ObservabilityPlaneResult{}
+	assert.Equal(t, "", emptyResult.GetName())
+	assert.Equal(t, "", emptyResult.GetNamespace())
+	assert.Equal(t, "", emptyResult.GetObserverURL())
+	assert.Equal(t, "", emptyResult.GetPlaneID())
 }
 
 // ============================================================================
