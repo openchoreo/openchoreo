@@ -17,7 +17,6 @@ type CommandImplementationInterface interface {
 	BuildPlaneAPI
 	ObservabilityPlaneAPI
 	ConfigContextAPI
-	DeploymentPipelineAPI
 	WorkloadAPI
 	ComponentTypeAPI
 	TraitAPI
@@ -32,13 +31,11 @@ type CommandImplementationInterface interface {
 
 // NamespaceAPI defines namespace-related operations
 type NamespaceAPI interface {
-	CreateNamespace(params CreateNamespaceParams) error
 	ListNamespaces(params ListNamespacesParams) error
 }
 
 // ProjectAPI defines project-related operations
 type ProjectAPI interface {
-	CreateProject(params CreateProjectParams) error
 	ListProjects(params ListProjectsParams) error
 }
 
@@ -72,12 +69,10 @@ type LogoutAPI interface {
 }
 
 type EnvironmentAPI interface {
-	CreateEnvironment(params CreateEnvironmentParams) error
 	ListEnvironments(params ListEnvironmentsParams) error
 }
 
 type DataPlaneAPI interface {
-	CreateDataPlane(params CreateDataPlaneParams) error
 	ListDataPlanes(params ListDataPlanesParams) error
 }
 
@@ -95,10 +90,6 @@ type ConfigContextAPI interface {
 	UseContext(params UseContextParams) error
 	SetContext(params SetContextParams) error
 	SetControlPlane(params SetControlPlaneParams) error
-}
-
-type DeploymentPipelineAPI interface {
-	CreateDeploymentPipeline(params CreateDeploymentPipelineParams) error
 }
 
 // WorkloadAPI defines methods for creating workloads from descriptors

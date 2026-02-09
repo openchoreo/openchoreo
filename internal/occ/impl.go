@@ -4,25 +4,18 @@
 package occ
 
 import (
-	"fmt"
-
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/apply"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/component"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/dataplane"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/deploymentpipeline"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/environment"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/namespace"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/project"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/create/workload"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/delete"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/list"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
@@ -35,43 +28,8 @@ func NewCommandImplementation() *CommandImplementation {
 	return &CommandImplementation{}
 }
 
-// Create Operations
-
-func (c *CommandImplementation) CreateNamespace(params api.CreateNamespaceParams) error {
-	orgImpl := namespace.NewCreateNamespaceImpl(constants.NamespaceV1Config)
-	return orgImpl.CreateNamespace(params)
-}
-
-func (c *CommandImplementation) CreateProject(params api.CreateProjectParams) error {
-	projImpl := project.NewCreateProjImpl(constants.ProjectV1Config)
-	return projImpl.CreateProject(params)
-}
-
-func (c *CommandImplementation) CreateDeployment(params api.CreateDeploymentParams) error {
-	return fmt.Errorf("Deployment CRD has been removed")
-}
-
-func (c *CommandImplementation) CreateEnvironment(params api.CreateEnvironmentParams) error {
-	envImpl := environment.NewCreateEnvironmentImpl(constants.EnvironmentV1Config)
-	return envImpl.CreateEnvironment(params)
-}
-
-func (c *CommandImplementation) CreateDataPlane(params api.CreateDataPlaneParams) error {
-	dpImpl := dataplane.NewCreateDataPlaneImpl(constants.DataPlaneV1Config)
-	return dpImpl.CreateDataPlane(params)
-}
-
-func (c *CommandImplementation) CreateDeployableArtifact(params api.CreateDeployableArtifactParams) error {
-	return fmt.Errorf("DeployableArtifact CRD has been removed")
-}
-
-func (c *CommandImplementation) CreateDeploymentPipeline(params api.CreateDeploymentPipelineParams) error {
-	dpImpl := deploymentpipeline.NewCreateDeploymentPipelineImpl(constants.DeploymentPipelineV1Config)
-	return dpImpl.CreateDeploymentPipeline(params)
-}
-
 func (c *CommandImplementation) CreateWorkload(params api.CreateWorkloadParams) error {
-	workloadImpl := workload.NewCreateWorkloadImpl(constants.WorkloadV1Config)
+	workloadImpl := workload.NewWorkloadImpl(constants.WorkloadV1Config)
 	return workloadImpl.CreateWorkload(params)
 }
 

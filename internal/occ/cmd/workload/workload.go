@@ -18,17 +18,17 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
-type CreateWorkloadImpl struct {
+type WorkloadImpl struct {
 	config constants.CRDConfig
 }
 
-func NewCreateWorkloadImpl(config constants.CRDConfig) *CreateWorkloadImpl {
-	return &CreateWorkloadImpl{
+func NewWorkloadImpl(config constants.CRDConfig) *WorkloadImpl {
+	return &WorkloadImpl{
 		config: config,
 	}
 }
 
-func (i *CreateWorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
+func (i *WorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
 	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceWorkload, params); err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (i *CreateWorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) err
 }
 
 // createWorkloadAPIServerMode handles the existing API server mode logic
-func (i *CreateWorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadParams) error {
+func (i *WorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadParams) error {
 	workloadRes, err := kinds.NewWorkloadResource(i.config, params.NamespaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create Workload resource: %w", err)
@@ -76,7 +76,7 @@ func (i *CreateWorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorklo
 }
 
 // createWorkloadFileSystemMode handles file-system mode for GitOps repos
-func (i *CreateWorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Context, params api.CreateWorkloadParams) error {
+func (i *WorkloadImpl) createWorkloadFileSystemMode(ctx *configContext.Context, params api.CreateWorkloadParams) error {
 	// Determine repo path
 	repoPath := ctx.RootDirectoryPath
 	if repoPath == "" {
