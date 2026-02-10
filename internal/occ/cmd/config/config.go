@@ -36,8 +36,8 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Validate that the name is not already used by a context, control plane, or credential
-	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
+	// Validate that the context name is not already used
+	if err := validation.ValidateContextNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
@@ -51,7 +51,7 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 	}
 	if !cpExists {
 		// Validate uniqueness before creating
-		if err := validation.ValidateConfigNameUniqueness(cfg, params.ControlPlane); err != nil {
+		if err := validation.ValidateControlPlaneNameUniqueness(cfg, params.ControlPlane); err != nil {
 			return fmt.Errorf("cannot create control plane: %w", err)
 		}
 		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
@@ -69,8 +69,8 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 	}
 	if !credExists {
 		// Validate uniqueness before creating
-		if err := validation.ValidateConfigNameUniqueness(cfg, params.Credentials); err != nil {
-			return fmt.Errorf("cannot create credential: %w", err)
+		if err := validation.ValidateCredentialsNameUniqueness(cfg, params.Credentials); err != nil {
+			return fmt.Errorf("cannot create credentials: %w", err)
 		}
 		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
 			Name: params.Credentials,
@@ -323,7 +323,7 @@ func printContextDetails(cfg *configContext.StoredConfig, ctx *configContext.Con
 // from the current context, if not already provided.
 func ApplyContextDefaults(cmd *cobra.Command) error {
 	// Skip for config commands to avoid circular dependencies
-	if cmd.Parent() != nil && (cmd.Parent().Name() == "config" || cmd.Parent().Name() == "context" || cmd.Parent().Name() == "controlplane") {
+	if cmd.Parent() != nil && (cmd.Parent().Name() == "config" || cmd.Parent().Name() == "context" || cmd.Parent().Name() == "controlplane" || cmd.Parent().Name() == "credentials") {
 		return nil
 	}
 
@@ -468,8 +468,8 @@ func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) er
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Validate that the name is not already used
-	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
+	// Validate that the control plane name is not already used
+	if err := validation.ValidateControlPlaneNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
@@ -675,8 +675,8 @@ func (c *ConfigContextImpl) AddCredentials(params api.AddCredentialsParams) erro
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Validate that the name is not already used
-	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
+	// Validate that the credentials name is not already used
+	if err := validation.ValidateCredentialsNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 

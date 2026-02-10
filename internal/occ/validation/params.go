@@ -689,21 +689,31 @@ func ValidateAddContextParams(params api.AddContextParams) error {
 	return nil
 }
 
-// ValidateConfigNameUniqueness checks that the given name is not already used by a context, control plane, or credential.
-func ValidateConfigNameUniqueness(cfg *configContext.StoredConfig, name string) error {
+// ValidateContextNameUniqueness checks that the given name is not already used by another context.
+func ValidateContextNameUniqueness(cfg *configContext.StoredConfig, name string) error {
 	for _, ctx := range cfg.Contexts {
 		if ctx.Name == name {
-			return fmt.Errorf("name %q is already used by a context", name)
+			return fmt.Errorf("context %q already exists", name)
 		}
 	}
+	return nil
+}
+
+// ValidateControlPlaneNameUniqueness checks that the given name is not already used by another control plane.
+func ValidateControlPlaneNameUniqueness(cfg *configContext.StoredConfig, name string) error {
 	for _, cp := range cfg.ControlPlanes {
 		if cp.Name == name {
-			return fmt.Errorf("name %q is already used by a control plane", name)
+			return fmt.Errorf("control plane %q already exists", name)
 		}
 	}
+	return nil
+}
+
+// ValidateCredentialsNameUniqueness checks that the given name is not already used by another credential.
+func ValidateCredentialsNameUniqueness(cfg *configContext.StoredConfig, name string) error {
 	for _, cred := range cfg.Credentials {
 		if cred.Name == name {
-			return fmt.Errorf("name %q is already used by a credential", name)
+			return fmt.Errorf("credentials %q already exist", name)
 		}
 	}
 	return nil
