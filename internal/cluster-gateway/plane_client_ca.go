@@ -88,6 +88,54 @@ func obsPlaneInfo(obj client.Object) (planeInfo, bool) {
 	}, true
 }
 
+// clusterDataPlaneInfo extracts plane information from a ClusterDataPlane CR
+// Returns the extracted info and true if the CR should be processed
+func clusterDataPlaneInfo(obj client.Object) (planeInfo, bool) {
+	cdp, ok := obj.(*openchoreov1alpha1.ClusterDataPlane)
+	if !ok {
+		return planeInfo{}, false
+	}
+
+	return planeInfo{
+		name:      cdp.Name,
+		namespace: "", // Cluster-scoped - no namespace
+		planeID:   cdp.Spec.PlaneID,
+		agent:     &cdp.Spec.ClusterAgent,
+	}, true
+}
+
+// clusterBuildPlaneInfo extracts plane information from a ClusterBuildPlane CR
+// Returns the extracted info and true if the CR should be processed
+func clusterBuildPlaneInfo(obj client.Object) (planeInfo, bool) {
+	cbp, ok := obj.(*openchoreov1alpha1.ClusterBuildPlane)
+	if !ok {
+		return planeInfo{}, false
+	}
+
+	return planeInfo{
+		name:      cbp.Name,
+		namespace: "", // Cluster-scoped - no namespace
+		planeID:   cbp.Spec.PlaneID,
+		agent:     &cbp.Spec.ClusterAgent,
+	}, true
+}
+
+// clusterObsPlaneInfo extracts plane information from a ClusterObservabilityPlane CR
+// Returns the extracted info and true if the CR should be processed
+func clusterObsPlaneInfo(obj client.Object) (planeInfo, bool) {
+	cop, ok := obj.(*openchoreov1alpha1.ClusterObservabilityPlane)
+	if !ok {
+		return planeInfo{}, false
+	}
+
+	return planeInfo{
+		name:      cop.Name,
+		namespace: "", // Cluster-scoped - no namespace
+		planeID:   cop.Spec.PlaneID,
+		agent:     &cop.Spec.ClusterAgent,
+	}, true
+}
+
 // extractPlaneClientCAs is a generic helper that extracts client CAs from a list of plane CRs
 // It eliminates code duplication across DataPlane, BuildPlane, and ObservabilityPlane processing
 func (s *Server) extractPlaneClientCAs(
@@ -160,6 +208,24 @@ func extractListItems(list client.ObjectList) ([]client.Object, error) {
 			items[i] = &v.Items[i]
 		}
 		return items, nil
+	case *openchoreov1alpha1.ClusterDataPlaneList:
+		items := make([]client.Object, len(v.Items))
+		for i := range v.Items {
+			items[i] = &v.Items[i]
+		}
+		return items, nil
+	case *openchoreov1alpha1.ClusterBuildPlaneList:
+		items := make([]client.Object, len(v.Items))
+		for i := range v.Items {
+			items[i] = &v.Items[i]
+		}
+		return items, nil
+	case *openchoreov1alpha1.ClusterObservabilityPlaneList:
+		items := make([]client.Object, len(v.Items))
+		for i := range v.Items {
+			items[i] = &v.Items[i]
+		}
+		return items, nil
 	default:
 		return nil, fmt.Errorf("unsupported list type: %T", list)
 	}
@@ -167,27 +233,78 @@ func extractListItems(list client.ObjectList) ([]client.Object, error) {
 
 // getAllPlaneClientCAs retrieves client CA configurations from ALL CRs with matching planeType and planeID
 // Returns map of "namespace/name" -> CA data ([]byte)
+// For namespace-scoped CRs, key format is "namespace/name"
+// For cluster-scoped CRs, key format is "/name" (empty namespace)
 func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var result map[string][]byte
-	var err error
+	result := make(map[string][]byte)
 
-	// Use the generic helper with appropriate list type and extractor function
+	// Query both namespace-scoped and cluster-scoped CRs for each plane type
 	switch planeType {
 	case planeTypeDataPlane:
-		result, err = s.extractPlaneClientCAs(ctx, planeType, planeID, &openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
+		// Namespace-scoped DataPlane
+		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range nsResult {
+			result[k] = v
+		}
+		// Cluster-scoped ClusterDataPlane
+		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.ClusterDataPlaneList{}, clusterDataPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range clusterResult {
+			result[k] = v
+		}
+
 	case planeTypeBuildPlane:
-		result, err = s.extractPlaneClientCAs(ctx, planeType, planeID, &openchoreov1alpha1.BuildPlaneList{}, buildPlaneInfo)
+		// Namespace-scoped BuildPlane
+		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.BuildPlaneList{}, buildPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range nsResult {
+			result[k] = v
+		}
+		// Cluster-scoped ClusterBuildPlane
+		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.ClusterBuildPlaneList{}, clusterBuildPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range clusterResult {
+			result[k] = v
+		}
+
 	case planeTypeObservabilityPlane:
-		result, err = s.extractPlaneClientCAs(ctx, planeType, planeID, &openchoreov1alpha1.ObservabilityPlaneList{}, obsPlaneInfo)
+		// Namespace-scoped ObservabilityPlane
+		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.ObservabilityPlaneList{}, obsPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range nsResult {
+			result[k] = v
+		}
+		// Cluster-scoped ClusterObservabilityPlane
+		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+			&openchoreov1alpha1.ClusterObservabilityPlaneList{}, clusterObsPlaneInfo)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range clusterResult {
+			result[k] = v
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	s.logger.Info("retrieved client CAs from CRs",

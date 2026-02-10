@@ -199,9 +199,10 @@ func (api *PlaneAPI) handleReconnect(w http.ResponseWriter, r *http.Request) {
 
 // handleGetPlaneStatus returns connection status for a specific plane
 // This endpoint is called by the controller to update DataPlane CR status
-// If namespace and name query parameters are provided, it returns CR-specific authorization status
+// If name query parameter is provided, it returns CR-specific authorization status
 // GET /api/v1/planes/{type}/{id}/status -> plane-level status (all agents connected to plane)
-// GET /api/v1/planes/{type}/{id}/status?namespace=X&name=Y -> CR-specific authorization status
+// GET /api/v1/planes/{type}/{id}/status?namespace=X&name=Y -> CR-specific authorization status (namespace-scoped CR)
+// GET /api/v1/planes/{type}/{id}/status?name=Y -> CR-specific authorization status (cluster-scoped CR, empty namespace)
 func (api *PlaneAPI) handleGetPlaneStatus(w http.ResponseWriter, r *http.Request) {
 	planeType := r.PathValue("type")
 	planeID := r.PathValue("id")
@@ -212,13 +213,18 @@ func (api *PlaneAPI) handleGetPlaneStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	// Check for CR-specific query parameters
+	// For cluster-scoped CRs, namespace will be empty but name will be provided
+	// For namespace-scoped CRs, both namespace and name will be provided
 	namespace := r.URL.Query().Get("namespace")
 	name := r.URL.Query().Get("name")
 
 	var status *PlaneConnectionStatus
-	if namespace != "" && name != "" {
+	if name != "" {
+		// CR-specific status (works for both namespace-scoped and cluster-scoped CRs)
+		// For cluster-scoped CRs, namespace is empty and CR key becomes "/name"
 		status = api.connMgr.GetCRAuthorizationStatus(planeType, planeID, namespace, name)
 	} else {
+		// Plane-level status (all agents connected to the plane)
 		status = api.connMgr.GetPlaneStatus(planeType, planeID)
 	}
 
