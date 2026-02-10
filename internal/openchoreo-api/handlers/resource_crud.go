@@ -63,14 +63,14 @@ func (h *Handler) getResourceByGVK(ctx context.Context, gvk schema.GroupVersionK
 
 // ========== ComponentType Definition Handlers ==========
 
-// CreateComponentType handles POST /api/v1/namespaces/{namespaceName}/component-types
-func (h *Handler) CreateComponentType(w http.ResponseWriter, r *http.Request) {
+// CreateComponentTypeDefinition handles POST /api/v1/namespaces/{namespaceName}/component-types/definition
+func (h *Handler) CreateComponentTypeDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
-		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		log.Error("Missing required path parameter", "namespaceName", namespaceName)
 		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
 		return
 	}
@@ -289,14 +289,14 @@ func (h *Handler) DeleteComponentTypeDefinition(w http.ResponseWriter, r *http.R
 
 // ========== Trait Definition Handlers ==========
 
-// CreateTrait handles POST /api/v1/namespaces/{namespaceName}/traits
-func (h *Handler) CreateTrait(w http.ResponseWriter, r *http.Request) {
+// CreateTraitDefinition handles POST /api/v1/namespaces/{namespaceName}/traits/definition
+func (h *Handler) CreateTraitDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
-		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		log.Error("Missing required path parameter", "namespaceName", namespaceName)
 		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
 		return
 	}
@@ -642,14 +642,14 @@ func (h *Handler) DeleteWorkflowDefinition(w http.ResponseWriter, r *http.Reques
 
 // ========== ComponentWorkflow Definition Handlers ==========
 
-// CreateComponentWorkflow handles POST /api/v1/namespaces/{namespaceName}/component-workflows
-func (h *Handler) CreateComponentWorkflow(w http.ResponseWriter, r *http.Request) {
+// CreateComponentWorkflowDefinition handles POST /api/v1/namespaces/{namespaceName}/component-workflows/definition
+func (h *Handler) CreateComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 
 	namespaceName := r.PathValue("namespaceName")
 	if namespaceName == "" {
-		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		log.Error("Missing required path parameter", "namespaceName", namespaceName)
 		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
 		return
 	}

@@ -122,7 +122,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/buildplanes", h.ListBuildPlanes)
 
 	// ComponentType endpoints
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-types", h.CreateComponentType)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-types/definition", h.CreateComponentTypeDefinition)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types", h.ListComponentTypes)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/schema", h.GetComponentTypeSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-types/{ctName}/definition", h.GetComponentTypeDefinition)
@@ -142,7 +142,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}", h.GetWorkflowRun)
 
 	// ComponentWorkflow endpoints (component-specific workflows)
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-workflows", h.CreateComponentWorkflow)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-workflows/definition", h.CreateComponentWorkflowDefinition)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.GetComponentWorkflowDefinition)
@@ -156,7 +156,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs", h.GetComponentWorkflowRunLogs)
 
 	// Trait endpoints
-	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/traits", h.CreateTrait)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/traits/definition", h.CreateTraitDefinition)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits", h.ListTraits)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/schema", h.GetTraitSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/definition", h.GetTraitDefinition)
