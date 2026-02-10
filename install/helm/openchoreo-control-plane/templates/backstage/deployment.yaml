@@ -54,6 +54,10 @@ spec:
         - "app-config.yaml"
         - "--config"
         - "app-config.ci.yaml"
+        {{- if not .Values.global.tls.enabled }}
+        - "--config"
+        - "app-config.csp.yaml"
+        {{- end }}
         ports:
         - containerPort: 7007
           name: http
@@ -172,6 +176,12 @@ spec:
           mountPath: /app/app-config.ci.yaml
           subPath: app-config.ci.yaml
           readOnly: true
+        {{- if not .Values.global.tls.enabled }}
+        - name: csp-config
+          mountPath: /app/app-config.csp.yaml
+          subPath: app-config.csp.yaml
+          readOnly: true
+        {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
       - name: backstage-db
@@ -185,4 +195,9 @@ spec:
       - name: ci-config
         configMap:
           name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-ci-config
+      {{- if not .Values.global.tls.enabled }}
+      - name: csp-config
+        configMap:
+          name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-csp-config
+      {{- end }}
 {{- end }}
