@@ -615,6 +615,61 @@ decoded: ${string(base64.decode(parameters.encoded))}
 decoded: hello world
 `,
 		},
+		{
+			name: "in operator for map key existence",
+			template: `
+endpointNameFound: ${parameters.endpointName in workload.endpoints}
+missingNameFound: ${parameters.missingName in workload.endpoints}
+`,
+			inputs: `{
+  "parameters": {
+    "endpointName": "web",
+    "missingName": "nonexistent"
+  },
+  "workload": {
+    "endpoints": {
+      "web": {"type": "HTTP", "port": 8080},
+      "grpc": {"type": "gRPC", "port": 9090}
+    }
+  }
+}`,
+			want: `endpointNameFound: true
+missingNameFound: false
+`,
+		},
+		{
+			name: "in operator for list membership",
+			template: `
+found: ${"a" in parameters.items}
+missingItemFound: ${"z" in parameters.items}
+`,
+			inputs: `{
+  "parameters": {
+    "items": ["a", "b", "c"]
+  }
+}`,
+			want: `found: true
+missingItemFound: false
+`,
+		},
+		{
+			name: "exists macro on map iterates over keys",
+			template: `
+hasHTTP: ${workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')}
+hasUDP: ${workload.endpoints.exists(name, workload.endpoints[name].type == 'UDP')}
+`,
+			inputs: `{
+  "workload": {
+    "endpoints": {
+      "web": {"type": "HTTP", "port": 8080},
+      "grpc": {"type": "gRPC", "port": 9090}
+    }
+  }
+}`,
+			want: `hasHTTP: true
+hasUDP: false
+`,
+		},
 	}
 
 	engine := NewEngine()

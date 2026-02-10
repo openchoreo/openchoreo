@@ -106,6 +106,28 @@ Bracket notation is **required** for:
 - **Keys with special characters**: `${resource.metadata.labels["app.kubernetes.io/name"]}`
 - **Optional dynamic keys**: `${configurations[?containerName].?configs.orValue({})}`
 
+### Membership and Existence Checks
+
+The `in` operator checks membership in maps and lists:
+
+```
+# Check if a key exists in a map
+parameters.endpointName in workload.endpoints
+
+# Check if a value exists in a list (primitives only — strings, ints, bools)
+"HTTP" in parameters.allowedTypes
+```
+
+For maps, `exists()` and `all()` iterate over **keys** — use bracket notation to access values:
+
+```
+# Check if any endpoint is of type HTTP
+workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')
+
+# Check all endpoints have a port > 0
+workload.endpoints.all(name, workload.endpoints[name].port > 0)
+```
+
 ### Conditional Logic
 
 ```yaml
