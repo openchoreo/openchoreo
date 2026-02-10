@@ -95,6 +95,9 @@ type ConfigContextAPI interface {
 	ListControlPlanes() error
 	UpdateControlPlane(params UpdateControlPlaneParams) error
 	DeleteControlPlane(params DeleteControlPlaneParams) error
+	AddCredentials(params AddCredentialsParams) error
+	ListCredentials() error
+	DeleteCredentials(params DeleteCredentialsParams) error
 }
 
 // WorkloadAPI defines methods for creating workloads from descriptors

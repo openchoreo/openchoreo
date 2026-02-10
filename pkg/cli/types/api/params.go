@@ -333,6 +333,16 @@ type DeleteControlPlaneParams struct {
 	Name string
 }
 
+// AddCredentialsParams defines parameters for adding credentials configuration
+type AddCredentialsParams struct {
+	Name string
+}
+
+// DeleteCredentialsParams defines parameters for deleting a credentials configuration
+type DeleteCredentialsParams struct {
+	Name string
+}
+
 // CreateWorkloadParams defines parameters for creating a workload from a descriptor
 type CreateWorkloadParams struct {
 	FilePath      string

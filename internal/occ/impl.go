@@ -119,6 +119,21 @@ func (c *CommandImplementation) DeleteControlPlane(params api.DeleteControlPlane
 	return configContextImpl.DeleteControlPlane(params)
 }
 
+func (c *CommandImplementation) AddCredentials(params api.AddCredentialsParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.AddCredentials(params)
+}
+
+func (c *CommandImplementation) ListCredentials() error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.ListCredentials()
+}
+
+func (c *CommandImplementation) DeleteCredentials(params api.DeleteCredentialsParams) error {
+	configContextImpl := config.NewConfigContextImpl()
+	return configContextImpl.DeleteCredentials(params)
+}
+
 // Component Operations
 
 func (c *CommandImplementation) DeployComponent(params api.DeployComponentParams) error {

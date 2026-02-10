@@ -667,3 +667,92 @@ func GetCurrentControlPlane() (*configContext.ControlPlane, error) {
 
 	return nil, fmt.Errorf("control plane '%s' not found", currentContext.ControlPlane)
 }
+
+// AddCredentials adds a new credentials configuration.
+func (c *ConfigContextImpl) AddCredentials(params api.AddCredentialsParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Validate that the name is not already used
+	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
+		return err
+	}
+
+	cfg.Credentials = append(cfg.Credentials, configContext.Credential{
+		Name: params.Name,
+	})
+
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Created credentials: %s\n", params.Name)
+	return nil
+}
+
+// ListCredentials prints all credentials configurations.
+func (c *ConfigContextImpl) ListCredentials() error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	if len(cfg.Credentials) == 0 {
+		fmt.Println("No credentials stored.")
+		return nil
+	}
+
+	headers := []string{"NAME", "AUTH METHOD", "HAS TOKEN"}
+	rows := make([][]string, 0, len(cfg.Credentials))
+
+	for _, cred := range cfg.Credentials {
+		hasToken := "-"
+		if cred.Token != "" {
+			hasToken = "yes"
+		}
+		rows = append(rows, []string{
+			formatValueOrPlaceholder(cred.Name),
+			formatValueOrPlaceholder(cred.AuthMethod),
+			hasToken,
+		})
+	}
+
+	return printTable(headers, rows)
+}
+
+// DeleteCredentials removes a credentials configuration by name.
+func (c *ConfigContextImpl) DeleteCredentials(params api.DeleteCredentialsParams) error {
+	cfg, err := LoadStoredConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Check if any context references these credentials
+	for _, ctx := range cfg.Contexts {
+		if ctx.Credentials == params.Name {
+			return fmt.Errorf("cannot delete credentials %q: it is referenced by context %q", params.Name, ctx.Name)
+		}
+	}
+
+	found := false
+	for i, cred := range cfg.Credentials {
+		if cred.Name == params.Name {
+			cfg.Credentials = append(cfg.Credentials[:i], cfg.Credentials[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("credentials %q not found", params.Name)
+	}
+
+	if err := SaveStoredConfig(cfg); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	fmt.Printf("Deleted credentials: %s\n", params.Name)
+	return nil
+}

@@ -25,6 +25,7 @@ func NewConfigCmd(impl api.CommandImplementationInterface) *cobra.Command {
 	cmd.AddCommand(
 		newContextCmd(impl),
 		newControlPlaneCmd(impl),
+		newCredentialsCmd(impl),
 	)
 	return cmd
 }
@@ -246,6 +247,72 @@ func newControlPlaneDeleteCmd(impl api.CommandImplementationInterface) *cobra.Co
 				return fmt.Errorf("control plane name is required")
 			}
 			return impl.DeleteControlPlane(api.DeleteControlPlaneParams{
+				Name: args[0],
+			})
+		},
+	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
+}
+
+func newCredentialsCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   constants.ConfigCredentials.Use,
+		Short: constants.ConfigCredentials.Short,
+		Long:  constants.ConfigCredentials.Long,
+	}
+
+	cmd.AddCommand(
+		newCredentialsAddCmd(impl),
+		newCredentialsListCmd(impl),
+		newCredentialsDeleteCmd(impl),
+	)
+	return cmd
+}
+
+func newCredentialsAddCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigCredentialsAdd,
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("credentials name is required")
+			}
+			return impl.AddCredentials(api.AddCredentialsParams{
+				Name: args[0],
+			})
+		},
+	}).Build()
+
+	cmd.Args = cobra.ExactArgs(1)
+
+	return cmd
+}
+
+func newCredentialsListCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigCredentialsList,
+		RunE: func(fg *builder.FlagGetter) error {
+			return impl.ListCredentials()
+		},
+	}).Build()
+
+	cmd.Args = cobra.NoArgs
+
+	return cmd
+}
+
+func newCredentialsDeleteCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := (&builder.CommandBuilder{
+		Command: constants.ConfigCredentialsDelete,
+		RunE: func(fg *builder.FlagGetter) error {
+			args := fg.GetArgs()
+			if len(args) == 0 {
+				return fmt.Errorf("credentials name is required")
+			}
+			return impl.DeleteCredentials(api.DeleteCredentialsParams{
 				Name: args[0],
 			})
 		},

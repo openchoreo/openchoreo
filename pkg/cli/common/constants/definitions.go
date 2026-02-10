@@ -773,6 +773,40 @@ This command allows you to:
   %[1]s config controlplane delete my-cp`, messages.DefaultCLIName),
 	}
 
+	// ConfigCredentials holds usage and help texts for the "config credentials" parent command.
+	ConfigCredentials = Command{
+		Use:   "credentials",
+		Short: "Manage credentials configurations",
+		Long:  "Manage credentials configurations for authentication.",
+	}
+
+	// ConfigCredentialsAdd holds usage and help texts for "config credentials add" command.
+	ConfigCredentialsAdd = Command{
+		Use:   "add",
+		Short: "Add a new credentials configuration",
+		Long:  "Add a new credentials configuration entry.",
+		Example: fmt.Sprintf(`  # Add credentials
+  %[1]s config credentials add my-creds`, messages.DefaultCLIName),
+	}
+
+	// ConfigCredentialsList holds usage and help texts for "config credentials list" command.
+	ConfigCredentialsList = Command{
+		Use:   "list",
+		Short: "List all credentials configurations",
+		Long:  "List all stored credentials configurations.",
+		Example: fmt.Sprintf(`  # List all credentials
+  %[1]s config credentials list`, messages.DefaultCLIName),
+	}
+
+	// ConfigCredentialsDelete holds usage and help texts for "config credentials delete" command.
+	ConfigCredentialsDelete = Command{
+		Use:   "delete",
+		Short: "Delete a credentials configuration",
+		Long:  "Delete a credentials configuration by name.",
+		Example: fmt.Sprintf(`  # Delete credentials
+  %[1]s config credentials delete my-creds`, messages.DefaultCLIName),
+	}
+
 	// ------------------------------------------------------------------------
 	// Component Release Commands (File-System Mode)
 	// ------------------------------------------------------------------------
