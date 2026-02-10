@@ -198,6 +198,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/events:
+    get:
+      tags:
+        - Logs
+      summary: Get workflow run events
+      description: Retrieve events for a specific workflow run
+      operationId: getComponentWorkflowRunEvents
+      parameters:
+        - name: namespaceName
+          in: path
+          required: true
+          description: The namespace name
+          schema:
+            type: string
+            example: "reading-list-service-workflow-290506e5"
+        - name: projectName
+          in: path
+          required: true
+          description: The project name
+          schema:
+            type: string
+            example: "default"
+        - name: componentName
+          in: path
+          required: true
+          description: The component name
+          schema:
+            type: string
+            example: "reading-list-service"
+        - name: runName
+          in: path
+          required: true
+          description: The workflow run name
+          schema:
+            type: string
+            example: "reading-list-service-workflow-290506e5"
+        - name: step
+          in: query
+          required: false
+          description: Filter events by a specific workflow step name
+          schema:
+            type: string
+            example: build-step
+      responses:
+        '200':
+          description: Successfully retrieved workflow run events
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Array of event entries with timestamps
+                items:
+                  $ref: '#/components/schemas/ComponentWorkflowRunEventEntry'
+              example:
+                - timestamp: "2025-01-06T10:00:00.123Z"
+                  type: "build-started"
+                  reason: "Build started"
+                  message: "Build started..."
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workflow run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/logs/component/{componentId}:
     post:
       tags:
@@ -1211,6 +1301,33 @@ components:
           type: string
           description: The log message content
           example: "Building application..."
+
+    ComponentWorkflowRunEventEntry:
+      type: object
+      description: A single event entry from a component workflow run
+      required:
+        - timestamp
+        - type
+        - reason
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the event entry was generated (RFC3339 format)
+          example: "2025-01-06T10:00:00.123Z"
+        type:
+          type: string
+          description: Event type
+          example: "build-started"
+        reason:
+          type: string
+          description: Reason for the event
+          example: "Build started"
+        message:
+          type: string
+          description: Event message
+          example: "Build started..."
 
     AlertingRuleRequest:
       type: object

@@ -477,6 +477,67 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 	h.writeJSON(w, http.StatusOK, logs)
 }
 
+// GetComponentWorkflowRunEvents handles GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/events
+func (h *Handler) GetComponentWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	runName := r.PathValue("runName")
+	if runName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter, ErrorCodeMissingParameter, ErrorMsgWorkflowRunIDRequired)
+		return
+	}
+
+	// AUTHORIZATION CHECK
+	if namespaceName == "" || projectName == "" || componentName == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, ErrorTypeMissingParameter,
+			ErrorCodeMissingParameter, ErrorMsgMissingAuthHierarchy)
+		return
+	}
+
+	if err := observerAuthz.CheckAuthorization(
+		r.Context(),
+		h.logger,
+		h.authzPDP,
+		observerAuthz.ActionViewLogs,
+		observerAuthz.ResourceTypeComponentWorkflowRun,
+		runName,
+		authzcore.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   projectName,
+			Component: componentName,
+		},
+	); err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden,
+				ErrorTypeForbidden, ErrorCodeAuthForbidden, ErrorMsgAccessDenied)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized,
+				ErrorTypeUnauthorized, ErrorCodeAuthUnauthorized, ErrorMsgUnauthorized)
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzServiceUnavailable) {
+			h.logger.Error(LogMsgAuthServiceUnavailableError, "error", err)
+			h.writeErrorResponse(w, http.StatusInternalServerError,
+				ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+			return
+		}
+		h.writeErrorResponse(w, http.StatusInternalServerError,
+			ErrorTypeInternalError, ErrorCodeInternalError, ErrorMsgFailedToAuthorize)
+		return
+	}
+
+	// Get optional step query parameter
+	step := r.URL.Query().Get("step")
+
+	// TODO: Implement this endpoint once event collection is implemented in the observability plane
+	h.logger.Debug("Not implemented: Getting component workflow run events", "namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "step", step)
+
+	h.writeErrorResponse(w, http.StatusNotImplemented, ErrorTypeInternalError, ErrorCodeInternalError, "Not implemented")
+}
+
 // GetComponentLogs handles POST /api/logs/component/{componentId}
 func (h *Handler) GetComponentLogs(w http.ResponseWriter, r *http.Request) {
 	componentID := httputil.GetPathParam(r, "componentId")

@@ -153,6 +153,8 @@ func main() {
 	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
 		"workflow-runs/{runName}/logs", handler.GetComponentWorkflowRunLogs)
 	api.HandleFunc("POST /api/logs/build/{buildId}", handler.GetBuildLogs) // TODO: Deprecate this endpoint
+	api.HandleFunc("GET /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/"+
+		"workflow-runs/{runName}/events", handler.GetComponentWorkflowRunEvents)
 
 	// API routes - Workflow Run Logs
 	api.HandleFunc("POST /api/v1/workflow-runs/{runId}/logs", handler.GetWorkflowRunLogs)
