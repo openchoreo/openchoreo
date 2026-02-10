@@ -92,9 +92,6 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 					Name: dpName,
 				},
 				IsProduction: false,
-				Gateway: openchoreov1alpha1.GatewayConfig{
-					DNSPrefix: envName,
-				},
 			},
 		}
 

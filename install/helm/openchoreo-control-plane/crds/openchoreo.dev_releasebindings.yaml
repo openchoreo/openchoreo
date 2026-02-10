@@ -23,6 +23,9 @@ spec:
     - jsonPath: .spec.environment
       name: Environment
       type: string
+    - jsonPath: .status.invokeURL
+      name: InvokeURL
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -290,6 +293,11 @@ spec:
                   - type
                   type: object
                 type: array
+              invokeURL:
+                description: |-
+                  InvokeURL is the resolved public URL derived from the HTTPRoute rendered for this binding.
+                  It is populated once the component is deployed and an HTTPRoute with a public hostname is available.
+                type: string
             type: object
         type: object
     served: true

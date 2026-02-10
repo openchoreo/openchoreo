@@ -59,6 +59,22 @@ type GatewaySpec struct {
 	// +optional
 	// +kubebuilder:default=19444
 	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort,omitempty"`
+	// PublicGatewayName is the name of the public Gateway resource.
+	// +optional
+	// +kubebuilder:default=gateway-default
+	PublicGatewayName string `json:"publicGatewayName,omitempty"`
+	// PublicGatewayNamespace is the namespace of the public Gateway resource.
+	// +optional
+	// +kubebuilder:default=openchoreo-data-plane
+	PublicGatewayNamespace string `json:"publicGatewayNamespace,omitempty"`
+	// OrganizationGatewayName is the name of the organization Gateway resource.
+	// +optional
+	// +kubebuilder:default=gateway-default
+	OrganizationGatewayName string `json:"organizationGatewayName,omitempty"`
+	// OrganizationGatewayNamespace is the namespace of the organization Gateway resource.
+	// +optional
+	// +kubebuilder:default=openchoreo-data-plane
+	OrganizationGatewayNamespace string `json:"organizationGatewayNamespace,omitempty"`
 }
 
 // SecretStoreRef defines a reference to an External Secrets Operator ClusterSecretStore

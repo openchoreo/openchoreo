@@ -101,7 +101,7 @@ var (
 	HeadersDeploymentTrack = []string{HeaderName, HeaderAPIVersion, HeaderAutoDeploy, HeaderAge, HeaderComponent, HeaderProject, HeaderNamespace}
 
 	// Environment table headers
-	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderDNSPrefix, HeaderAge, HeaderNamespace}
+	HeadersEnvironment = []string{HeaderName, HeaderDataPlane, HeaderProduction, HeaderAge, HeaderNamespace}
 
 	// DataPlane table headers
 	HeadersDataPlane = []string{HeaderName, HeaderCluster, HeaderStatus, HeaderAge, HeaderNamespace}

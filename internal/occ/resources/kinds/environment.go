@@ -94,7 +94,6 @@ func (e *EnvironmentResource) PrintTableItems(environments []resources.ResourceW
 			wrapper.LogicalName,
 			resources.FormatValueOrPlaceholder(dataPlaneRefStr),
 			resources.FormatBoolAsYesNo(env.Spec.IsProduction),
-			resources.FormatValueOrPlaceholder(env.Spec.Gateway.DNSPrefix),
 			resources.FormatAge(env.GetCreationTimestamp().Time),
 			env.GetLabels()[constants.LabelNamespace],
 		})
@@ -162,9 +161,6 @@ func (e *EnvironmentResource) CreateEnvironment(params api.CreateEnvironmentPara
 		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: dataPlaneRef,
 			IsProduction: params.IsProduction,
-			Gateway: openchoreov1alpha1.GatewayConfig{
-				DNSPrefix: params.DNSPrefix,
-			},
 		},
 	}
 

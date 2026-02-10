@@ -220,9 +220,6 @@ func (s *EnvironmentService) buildEnvironmentCR(namespaceName string, req *model
 		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: dataPlaneRef,
 			IsProduction: req.IsProduction,
-			Gateway: openchoreov1alpha1.GatewayConfig{
-				DNSPrefix: req.DNSPrefix,
-			},
 		},
 	}
 }
@@ -262,7 +259,6 @@ func (s *EnvironmentService) toEnvironmentResponse(env *openchoreov1alpha1.Envir
 		Description:  description,
 		DataPlaneRef: dataPlaneRef,
 		IsProduction: env.Spec.IsProduction,
-		DNSPrefix:    env.Spec.Gateway.DNSPrefix,
 		CreatedAt:    env.CreationTimestamp.Time,
 		Status:       status,
 	}

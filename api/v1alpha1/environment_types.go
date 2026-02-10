@@ -18,7 +18,7 @@ type EnvironmentSpec struct {
 	// Immutable once set.
 	DataPlaneRef *DataPlaneRef `json:"dataPlaneRef,omitempty"`
 	IsProduction bool          `json:"isProduction,omitempty"`
-	Gateway      GatewayConfig `json:"gateway,omitempty"`
+	Gateway      GatewaySpec   `json:"gateway,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment.
@@ -57,19 +57,6 @@ type EnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []Environment `json:"items"`
-}
-
-type GatewayConfig struct {
-	Security  SecurityConfig `json:"security,omitempty"`
-	DNSPrefix string         `json:"dnsPrefix,omitempty"`
-}
-type SecurityConfig struct {
-	// +optional
-	RemoteJWKS `json:"remoteJwks"`
-}
-
-type RemoteJWKS struct {
-	URI string `json:"uri"`
 }
 
 func init() {

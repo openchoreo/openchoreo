@@ -88,6 +88,16 @@ spec:
                 description: Gateway specifies the configuration for the API gateway
                   in this DataPlane.
                 properties:
+                  organizationGatewayName:
+                    default: gateway-default
+                    description: OrganizationGatewayName is the name of the organization
+                      Gateway resource.
+                    type: string
+                  organizationGatewayNamespace:
+                    default: openchoreo-data-plane
+                    description: OrganizationGatewayNamespace is the namespace of
+                      the organization Gateway resource.
+                    type: string
                   organizationHTTPPort:
                     default: 19081
                     description: Organization HTTP port for the gateway
@@ -100,6 +110,16 @@ spec:
                     type: integer
                   organizationVirtualHost:
                     description: Organization-specific virtual host for the gateway
+                    type: string
+                  publicGatewayName:
+                    default: gateway-default
+                    description: PublicGatewayName is the name of the public Gateway
+                      resource.
+                    type: string
+                  publicGatewayNamespace:
+                    default: openchoreo-data-plane
+                    description: PublicGatewayNamespace is the namespace of the public
+                      Gateway resource.
                     type: string
                   publicHTTPPort:
                     default: 19080

@@ -89,6 +89,11 @@ type ReleaseBindingStatus struct {
 	// Conditions represent the latest available observations of the ReleaseBinding's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// InvokeURL is the resolved public URL derived from the HTTPRoute rendered for this binding.
+	// It is populated once the component is deployed and an HTTPRoute with a public hostname is available.
+	// +optional
+	InvokeURL string `json:"invokeURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -96,6 +101,7 @@ type ReleaseBindingStatus struct {
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
+// +kubebuilder:printcolumn:name="InvokeURL",type=string,JSONPath=`.status.invokeURL`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ReleaseBinding is the Schema for the releasebindings API.

@@ -12,6 +12,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -355,6 +356,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Handle undeploy state - delete Release resources if they exist
 	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
+		releaseBinding.Status.InvokeURL = ""
 		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
 	}
 
@@ -518,6 +520,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	if obsResult.ownershipConflict {
 		return ctrl.Result{}, nil
 	}
+
+	// Resolve and persist the public invoke URL from the rendered HTTPRoute (if any).
+	releaseBinding.Status.InvokeURL = extractInvokeURL(dataPlaneReleaseResources)
 
 	// Set ReleaseSynced condition based on operation results.
 	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
@@ -914,6 +919,88 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 
 	// Fallback: use index
 	return fmt.Sprintf("resource-%d", index)
+}
+
+const (
+	httpRouteKind   = "HTTPRoute"
+	gatewayAPIGroup = "gateway.networking.k8s.io"
+	httpRouteScheme = "https"
+)
+
+// extractInvokeURL iterates over the rendered dataplane resources, finds the first HTTPRoute
+// belonging to the Gateway API group, and derives a public invoke URL from its first hostname
+// and optional path prefix.
+//
+// Returns an empty string if no suitable HTTPRoute is found.
+func extractInvokeURL(resources []openchoreov1alpha1.Resource) string {
+	for i := range resources {
+		res := &resources[i]
+		if res.Object == nil || len(res.Object.Raw) == 0 {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{}
+		if err := obj.UnmarshalJSON(res.Object.Raw); err != nil {
+			continue
+		}
+
+		if obj.GetKind() != httpRouteKind {
+			continue
+		}
+
+		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
+			continue
+		}
+
+		hostname := extractFirstHostname(obj)
+		if hostname == "" {
+			continue
+		}
+
+		path := extractFirstPathValue(obj)
+		if path != "" {
+			return fmt.Sprintf("%s://%s%s", httpRouteScheme, hostname, path)
+		}
+		return fmt.Sprintf("%s://%s", httpRouteScheme, hostname)
+	}
+
+	return ""
+}
+
+// extractFirstHostname returns the first entry of spec.hostnames[], or "" if absent.
+func extractFirstHostname(obj *unstructured.Unstructured) string {
+	hostnames, found, err := unstructured.NestedStringSlice(obj.Object, "spec", "hostnames")
+	if err != nil || !found || len(hostnames) == 0 {
+		return ""
+	}
+	return hostnames[0]
+}
+
+// extractFirstPathValue walks spec.rules[0].matches[0].path.value and returns the path string.
+// Returns "" when the HTTPRoute has no path match rule (e.g. root-path webapps).
+func extractFirstPathValue(obj *unstructured.Unstructured) string {
+	rules, found, err := unstructured.NestedSlice(obj.Object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return ""
+	}
+
+	firstRule, ok := rules[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	matches, found, err := unstructured.NestedSlice(firstRule, "matches")
+	if err != nil || !found || len(matches) == 0 {
+		return ""
+	}
+
+	firstMatch, ok := matches[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	value, _, _ := unstructured.NestedString(firstMatch, "path", "value")
+	return value
 }
 
 // applyDefaultNotificationChannel injects a default notificationChannel override for

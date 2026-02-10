@@ -64,8 +64,6 @@ spec:
     kind: DataPlane
     name: default
   isProduction: false
-  gateway:
-    dnsPrefix: dev
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
@@ -82,8 +80,6 @@ spec:
     kind: DataPlane
     name: default
   isProduction: false
-  gateway:
-    dnsPrefix: staging
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Environment
@@ -100,8 +96,6 @@ spec:
     kind: DataPlane
     name: default
   isProduction: true
-  gateway:
-    dnsPrefix: prod
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

@@ -108,9 +108,6 @@ var _ = Describe("Environment Controller", Ordered, func() {
 							Name: dpName,
 						},
 						IsProduction: false,
-						Gateway: openchoreov1alpha1.GatewayConfig{
-							DNSPrefix: envName,
-						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, dp)).To(Succeed())
