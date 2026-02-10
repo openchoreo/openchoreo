@@ -41,6 +41,13 @@ type ClusterDataPlaneSpec struct {
 
 	// ObservabilityPlaneRef specifies the ClusterObservabilityPlane for this ClusterDataPlane.
 	// Since this is a cluster-scoped resource, it can only reference cluster-scoped ClusterObservabilityPlane.
+	// Namespace-scoped ObservabilityPlane references are NOT supported for cluster-scoped resources.
+	//
+	// Default behavior:
+	// - If not specified, the system looks for a ClusterObservabilityPlane named "default"
+	// - If "default" ClusterObservabilityPlane doesn't exist, observability features are disabled
+	//
+	// The kind field must be "ClusterObservabilityPlane".
 	// +optional
 	// +kubebuilder:validation:XValidation:rule="!has(self.kind) || self.kind == 'ClusterObservabilityPlane'",message="ClusterDataPlane can only reference ClusterObservabilityPlane"
 	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
