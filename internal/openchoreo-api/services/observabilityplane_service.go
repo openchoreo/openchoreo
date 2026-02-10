@@ -5,6 +5,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
@@ -20,13 +22,15 @@ import (
 type ObservabilityPlaneService struct {
 	k8sClient client.Client
 	logger    *slog.Logger
+	authzPDP  authz.PDP
 }
 
 // NewObservabilityPlaneService creates a new observability plane service
-func NewObservabilityPlaneService(k8sClient client.Client, logger *slog.Logger) *ObservabilityPlaneService {
+func NewObservabilityPlaneService(k8sClient client.Client, logger *slog.Logger, authzPDP authz.PDP) *ObservabilityPlaneService {
 	return &ObservabilityPlaneService{
 		k8sClient: k8sClient,
 		logger:    logger,
+		authzPDP:  authzPDP,
 	}
 }
 
@@ -47,6 +51,22 @@ func (s *ObservabilityPlaneService) ListObservabilityPlanes(ctx context.Context,
 	// Convert to response format
 	observabilityPlaneResponses := make([]models.ObservabilityPlaneResponse, 0, len(observabilityPlanes.Items))
 	for i := range observabilityPlanes.Items {
+		if err := checkAuthorization(
+			ctx,
+			s.logger,
+			s.authzPDP,
+			SystemActionViewObservabilityPlane,
+			ResourceTypeObservabilityPlane,
+			observabilityPlanes.Items[i].Name,
+			authz.ResourceHierarchy{Namespace: namespaceName},
+		); err != nil {
+			if errors.Is(err, ErrForbidden) {
+				s.logger.Debug("Skipping unauthorized observability plane", "namespace", namespaceName, "observabilityPlane", observabilityPlanes.Items[i].Name)
+				continue
+			}
+			return nil, err
+		}
+
 		observabilityPlaneResponses = append(observabilityPlaneResponses, toObservabilityPlaneResponse(&observabilityPlanes.Items[i]))
 	}
 

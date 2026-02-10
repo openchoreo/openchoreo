@@ -69,6 +69,9 @@ var systemActions = []Action{
 	// BuildPlane
 	{Name: "buildplane:view", IsInternal: false},
 
+	// ObservabilityPlane
+	{Name: "observabilityplane:view", IsInternal: false},
+
 	// DeploymentPipeline
 	{Name: "deploymentpipeline:view", IsInternal: false},
 

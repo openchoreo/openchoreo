@@ -46,6 +46,8 @@ const (
 
 	SystemActionViewBuildPlane systemAction = "buildplane:view"
 
+	SystemActionViewObservabilityPlane systemAction = "observabilityplane:view"
+
 	SystemActionCreateEnvironment systemAction = "environment:create"
 	SystemActionViewEnvironment   systemAction = "environment:view"
 
@@ -80,6 +82,7 @@ const (
 	ResourceTypeTrait                ResourceType = "trait"
 	ResourceTypeDataPlane            ResourceType = "dataPlane"
 	ResourceTypeBuildPlane           ResourceType = "buildPlane"
+	ResourceTypeObservabilityPlane   ResourceType = "observabilityPlane"
 	ResourceTypeEnvironment          ResourceType = "environment"
 	ResourceTypeDeploymentPipeline   ResourceType = "deploymentPipeline"
 	ResourceTypeWorkflow             ResourceType = "workflow"

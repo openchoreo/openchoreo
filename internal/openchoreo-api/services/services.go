@@ -89,7 +89,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	authzService := NewAuthzService(authzPAP, authzPDP, logger.With("service", "authz"))
 
 	// Create ObservabilityPlane service
-	observabilityPlaneService := NewObservabilityPlaneService(k8sClient, logger.With("service", "observabilityplane"))
+	observabilityPlaneService := NewObservabilityPlaneService(k8sClient, logger.With("service", "observabilityplane"), authzPDP)
 
 	return &Services{
 		ProjectService:            projectService,
