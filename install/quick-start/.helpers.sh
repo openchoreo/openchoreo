@@ -648,10 +648,10 @@ EOF
 # Configure the dataplane and buildplane with observabilityplane reference
 configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
-    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
     if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
         log_info "Configuring OpenChoreo Build Plane with observabilityplane reference..."
-        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
     fi
 }
 

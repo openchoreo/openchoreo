@@ -308,4 +308,6 @@ spec:
   gateway:
     publicVirtualHost: api.example.com
     organizationVirtualHost: internal.example.com
-  observabilityPlaneRef: dev-observability
+  observabilityPlaneRef:
+    kind: ObservabilityPlane
+    name: dev-observability

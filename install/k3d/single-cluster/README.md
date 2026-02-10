@@ -242,13 +242,13 @@ Create a ObservabilityPlane resource to enable observability in data plane and b
 The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
 Configure DataPlane to use default ObservabilityPlane
-```
-kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```bash
+kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 ```
 
 Configure BuildPlane (if installed) to use default ObservabilityPlane
-```
-kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":"default"}}'
+```bash
+kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 ```
 
 Enable logs collection by upgrading the observability plane with Fluent Bit enabled:
