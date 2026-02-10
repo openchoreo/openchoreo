@@ -6,9 +6,11 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
@@ -24,13 +26,18 @@ func NewConfigContextImpl() *ConfigContextImpl {
 
 // AddContext creates a new configuration context.
 func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
+	// Validate parameters
+	if err := validation.ValidateAddContextParams(params); err != nil {
+		return err
+	}
+
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// Validate that the name is not already used by a context, control plane, or credential
-	if err := validateNameUniqueness(cfg, params.Name); err != nil {
+	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
 		return err
 	}
 
@@ -43,6 +50,10 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 		}
 	}
 	if !cpExists {
+		// Validate uniqueness before creating
+		if err := validation.ValidateConfigNameUniqueness(cfg, params.ControlPlane); err != nil {
+			return fmt.Errorf("cannot create control plane: %w", err)
+		}
 		cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
 			Name: params.ControlPlane,
 		})
@@ -57,6 +68,10 @@ func (c *ConfigContextImpl) AddContext(params api.AddContextParams) error {
 		}
 	}
 	if !credExists {
+		// Validate uniqueness before creating
+		if err := validation.ValidateConfigNameUniqueness(cfg, params.Credentials); err != nil {
+			return fmt.Errorf("cannot create credential: %w", err)
+		}
 		cfg.Credentials = append(cfg.Credentials, configContext.Credential{
 			Name: params.Credentials,
 		})
@@ -93,6 +108,7 @@ func (c *ConfigContextImpl) ListContexts() error {
 		return nil
 	}
 
+	// First empty column for current context marker
 	headers := []string{"", "NAME", "CONTROLPLANE", "CREDENTIALS", "NAMESPACE", "PROJECT", "COMPONENT"}
 	rows := make([][]string, 0, len(cfg.Contexts))
 
@@ -123,6 +139,11 @@ func (c *ConfigContextImpl) DeleteContext(params api.DeleteContextParams) error 
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Prevent deletion of the current context
+	if cfg.CurrentContext == params.Name {
+		return fmt.Errorf("cannot delete the current context %q. Switch to another context first using 'occ config context use <context-name>'", params.Name)
+	}
+
 	found := false
 	for i, ctx := range cfg.Contexts {
 		if ctx.Name == params.Name {
@@ -134,11 +155,6 @@ func (c *ConfigContextImpl) DeleteContext(params api.DeleteContextParams) error 
 
 	if !found {
 		return fmt.Errorf("context %q not found", params.Name)
-	}
-
-	// Clear current context if it was the deleted one
-	if cfg.CurrentContext == params.Name {
-		cfg.CurrentContext = ""
 	}
 
 	if err := SaveStoredConfig(cfg); err != nil {
@@ -156,6 +172,34 @@ func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error 
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Validate that control plane exists if provided
+	if params.ControlPlane != "" {
+		cpExists := false
+		for _, cp := range cfg.ControlPlanes {
+			if cp.Name == params.ControlPlane {
+				cpExists = true
+				break
+			}
+		}
+		if !cpExists {
+			return fmt.Errorf("control plane %q does not exist. Create it first using 'occ config controlplane add'", params.ControlPlane)
+		}
+	}
+
+	// Validate that credentials exist if provided
+	if params.Credentials != "" {
+		credExists := false
+		for _, cred := range cfg.Credentials {
+			if cred.Name == params.Credentials {
+				credExists = true
+				break
+			}
+		}
+		if !credExists {
+			return fmt.Errorf("credentials %q do not exist.", params.Credentials)
+		}
+	}
+
 	found := false
 	for i := range cfg.Contexts {
 		if cfg.Contexts[i].Name == params.Name {
@@ -164,6 +208,15 @@ func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error 
 			}
 			if params.Project != "" {
 				cfg.Contexts[i].Project = params.Project
+			}
+			if params.Component != "" {
+				cfg.Contexts[i].Component = params.Component
+			}
+			if params.ControlPlane != "" {
+				cfg.Contexts[i].ControlPlane = params.ControlPlane
+			}
+			if params.Credentials != "" {
+				cfg.Contexts[i].Credentials = params.Credentials
 			}
 			found = true
 			break
@@ -179,26 +232,6 @@ func (c *ConfigContextImpl) UpdateContext(params api.UpdateContextParams) error 
 	}
 
 	fmt.Printf("Updated context: %s\n", params.Name)
-	return nil
-}
-
-// validateNameUniqueness checks that the given name is not already used by a context, control plane, or credential.
-func validateNameUniqueness(cfg *configContext.StoredConfig, name string) error {
-	for _, ctx := range cfg.Contexts {
-		if ctx.Name == name {
-			return fmt.Errorf("name %q is already used by a context", name)
-		}
-	}
-	for _, cp := range cfg.ControlPlanes {
-		if cp.Name == name {
-			return fmt.Errorf("name %q is already used by a control plane", name)
-		}
-	}
-	for _, cred := range cfg.Credentials {
-		if cred.Name == name {
-			return fmt.Errorf("name %q is already used by a credential", name)
-		}
-	}
 	return nil
 }
 
@@ -436,13 +469,19 @@ func (c *ConfigContextImpl) AddControlPlane(params api.AddControlPlaneParams) er
 	}
 
 	// Validate that the name is not already used
-	if err := validateNameUniqueness(cfg, params.Name); err != nil {
+	if err := validation.ValidateConfigNameUniqueness(cfg, params.Name); err != nil {
 		return err
+	}
+
+	// Validate that the URL is not empty
+	trimmedURL := strings.TrimSpace(params.URL)
+	if trimmedURL == "" {
+		return fmt.Errorf("control plane URL must not be empty")
 	}
 
 	cfg.ControlPlanes = append(cfg.ControlPlanes, configContext.ControlPlane{
 		Name: params.Name,
-		URL:  params.URL,
+		URL:  trimmedURL,
 	})
 
 	if err := SaveStoredConfig(cfg); err != nil {
@@ -485,6 +524,15 @@ func (c *ConfigContextImpl) UpdateControlPlane(params api.UpdateControlPlanePara
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Validate that the URL is not empty if provided
+	if params.URL != "" {
+		trimmedURL := strings.TrimSpace(params.URL)
+		if trimmedURL == "" {
+			return fmt.Errorf("control plane URL must not be empty")
+		}
+		params.URL = trimmedURL
+	}
+
 	found := false
 	for idx := range cfg.ControlPlanes {
 		if cfg.ControlPlanes[idx].Name == params.Name {
@@ -513,6 +561,13 @@ func (c *ConfigContextImpl) DeleteControlPlane(params api.DeleteControlPlanePara
 	cfg, err := LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Check if any context references this control plane
+	for _, ctx := range cfg.Contexts {
+		if ctx.ControlPlane == params.Name {
+			return fmt.Errorf("cannot delete control plane %q: it is referenced by context %q", params.Name, ctx.Name)
+		}
 	}
 
 	found := false

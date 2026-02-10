@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -672,6 +673,37 @@ func validateComponentWorkflowRunParams(cmdType CommandType, params interface{})
 			if !checkRequiredFields(fields) {
 				return generateHelpError(CmdList, ResourceComponentWorkflowRun, fields)
 			}
+		}
+	}
+	return nil
+}
+
+// ValidateAddContextParams validates parameters for adding a configuration context
+func ValidateAddContextParams(params api.AddContextParams) error {
+	if params.ControlPlane == "" {
+		return fmt.Errorf("control plane name is required")
+	}
+	if params.Credentials == "" {
+		return fmt.Errorf("credentials name is required")
+	}
+	return nil
+}
+
+// ValidateConfigNameUniqueness checks that the given name is not already used by a context, control plane, or credential.
+func ValidateConfigNameUniqueness(cfg *configContext.StoredConfig, name string) error {
+	for _, ctx := range cfg.Contexts {
+		if ctx.Name == name {
+			return fmt.Errorf("name %q is already used by a context", name)
+		}
+	}
+	for _, cp := range cfg.ControlPlanes {
+		if cp.Name == name {
+			return fmt.Errorf("name %q is already used by a control plane", name)
+		}
+	}
+	for _, cred := range cfg.Credentials {
+		if cred.Name == name {
+			return fmt.Errorf("name %q is already used by a credential", name)
 		}
 	}
 	return nil

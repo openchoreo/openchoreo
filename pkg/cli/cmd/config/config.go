@@ -34,15 +34,6 @@ func newContextCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		Use:   constants.ConfigContext.Use,
 		Short: constants.ConfigContext.Short,
 		Long:  constants.ConfigContext.Long,
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 1 {
-				return impl.DescribeContext(api.DescribeContextParams{
-					Name: args[0],
-				})
-			}
-			return cmd.Help()
-		},
 	}
 
 	cmd.AddCommand(
@@ -126,6 +117,9 @@ func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command
 		Flags: []flags.Flag{
 			flags.Namespace,
 			flags.Project,
+			flags.Component,
+			flags.ControlPlane,
+			flags.Credentials,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			args := fg.GetArgs()
@@ -133,9 +127,12 @@ func newContextUpdateCmd(impl api.CommandImplementationInterface) *cobra.Command
 				return fmt.Errorf("context name is required")
 			}
 			return impl.UpdateContext(api.UpdateContextParams{
-				Name:      args[0],
-				Namespace: fg.GetString(flags.Namespace),
-				Project:   fg.GetString(flags.Project),
+				Name:         args[0],
+				Namespace:    fg.GetString(flags.Namespace),
+				Project:      fg.GetString(flags.Project),
+				Component:    fg.GetString(flags.Component),
+				ControlPlane: fg.GetString(flags.ControlPlane),
+				Credentials:  fg.GetString(flags.Credentials),
 			})
 		},
 	}).Build()

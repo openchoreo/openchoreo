@@ -268,9 +268,12 @@ type DeleteContextParams struct {
 }
 
 type UpdateContextParams struct {
-	Name      string
-	Namespace string
-	Project   string
+	Name         string
+	Namespace    string
+	Project      string
+	Component    string
+	ControlPlane string
+	Credentials  string
 }
 
 type UseContextParams struct {
