@@ -38,6 +38,12 @@ func NewTraitService(k8sClient client.Client, logger *slog.Logger, authzPDP auth
 	}
 }
 
+// AuthorizeCreate checks if the current user is authorized to create a Trait
+func (s *TraitService) AuthorizeCreate(ctx context.Context, namespaceName, traitName string) error {
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateTrait,
+		ResourceTypeTrait, traitName, authz.ResourceHierarchy{Namespace: namespaceName})
+}
+
 // ListTraits lists all Traits in the given namespace
 func (s *TraitService) ListTraits(ctx context.Context, namespaceName string) ([]*models.TraitResponse, error) {
 	s.logger.Debug("Listing Traits", "namespace", namespaceName)

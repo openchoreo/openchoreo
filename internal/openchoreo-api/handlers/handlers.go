@@ -142,6 +142,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}", h.GetWorkflowRun)
 
 	// ComponentWorkflow endpoints (component-specific workflows)
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-workflows", h.CreateComponentWorkflow)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows", h.ListComponentWorkflows)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/schema", h.GetComponentWorkflowSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/component-workflows/{cwName}/definition", h.GetComponentWorkflowDefinition)
@@ -155,6 +156,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs/{runName}/logs", h.GetComponentWorkflowRunLogs)
 
 	// Trait endpoints
+	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/traits", h.CreateTrait)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits", h.ListTraits)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/schema", h.GetTraitSchema)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/traits/{traitName}/definition", h.GetTraitDefinition)

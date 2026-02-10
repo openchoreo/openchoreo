@@ -289,6 +289,91 @@ func (h *Handler) DeleteComponentTypeDefinition(w http.ResponseWriter, r *http.R
 
 // ========== Trait Definition Handlers ==========
 
+// CreateTrait handles POST /api/v1/namespaces/{namespaceName}/traits
+func (h *Handler) CreateTrait(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
+		return
+	}
+
+	var resourceObj map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
+		log.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	// Validate the resource
+	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Validate kind matches
+	if kind != "Trait" {
+		writeErrorResponse(w, http.StatusBadRequest, "Kind must be Trait", services.CodeInvalidInput)
+		return
+	}
+
+	// Authorize the create operation
+	if err := h.services.TraitService.AuthorizeCreate(ctx, namespaceName, name); err != nil {
+		log.Warn("Authorization failed for Trait creation", "namespace", namespaceName, "name", name, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create Trait", services.CodeForbidden)
+		return
+	}
+
+	// Check if the resource already exists
+	gvk := openChoreoGVK("Trait")
+	_, getErr := h.getResourceByGVK(ctx, gvk, namespaceName, name)
+	if getErr == nil {
+		log.Warn("Trait already exists", "namespace", namespaceName, "name", name)
+		writeErrorResponse(w, http.StatusConflict, "Trait already exists", services.CodeConflict)
+		return
+	}
+	if client.IgnoreNotFound(getErr) != nil {
+		log.Error("Failed to check existing Trait", "error", getErr)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to check existing Trait", services.CodeInternalError)
+		return
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
+
+	// Set namespace from URL
+	unstructuredObj.SetNamespace(namespaceName)
+
+	// Handle namespace logic
+	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
+		log.Error("Failed to handle resource namespace", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Apply the resource
+	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
+	if err != nil {
+		log.Error("Failed to create Trait", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create Trait: "+err.Error(), services.CodeInternalError)
+		return
+	}
+
+	response := ResourceCRUDResponse{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespaceName,
+		Operation:  operation,
+	}
+
+	log.Info("Trait created successfully", "namespace", namespaceName, "name", name, "operation", operation)
+	writeSuccessResponse(w, http.StatusCreated, response)
+}
+
 // GetTraitDefinition handles GET /api/v1/namespaces/{namespaceName}/traits/{traitName}/definition
 func (h *Handler) GetTraitDefinition(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -556,6 +641,91 @@ func (h *Handler) DeleteWorkflowDefinition(w http.ResponseWriter, r *http.Reques
 }
 
 // ========== ComponentWorkflow Definition Handlers ==========
+
+// CreateComponentWorkflow handles POST /api/v1/namespaces/{namespaceName}/component-workflows
+func (h *Handler) CreateComponentWorkflow(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+
+	namespaceName := r.PathValue("namespaceName")
+	if namespaceName == "" {
+		log.Warn("Missing required path parameter", "namespaceName", namespaceName)
+		writeErrorResponse(w, http.StatusBadRequest, "namespaceName is required", services.CodeInvalidInput)
+		return
+	}
+
+	var resourceObj map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&resourceObj); err != nil {
+		log.Error("Failed to decode request body", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Invalid request body", services.CodeInvalidInput)
+		return
+	}
+
+	// Validate the resource
+	kind, apiVersion, name, err := validateResourceRequest(resourceObj)
+	if err != nil {
+		writeErrorResponse(w, http.StatusBadRequest, err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Validate kind matches
+	if kind != "ComponentWorkflow" {
+		writeErrorResponse(w, http.StatusBadRequest, "Kind must be ComponentWorkflow", services.CodeInvalidInput)
+		return
+	}
+
+	// Authorize the create operation
+	if err := h.services.ComponentWorkflowService.AuthorizeCreate(ctx, namespaceName, name); err != nil {
+		log.Warn("Authorization failed for ComponentWorkflow creation", "namespace", namespaceName, "name", name, "error", err)
+		writeErrorResponse(w, http.StatusForbidden, "Not authorized to create ComponentWorkflow", services.CodeForbidden)
+		return
+	}
+
+	// Check if the resource already exists
+	gvk := openChoreoGVK("ComponentWorkflow")
+	_, getErr := h.getResourceByGVK(ctx, gvk, namespaceName, name)
+	if getErr == nil {
+		log.Warn("ComponentWorkflow already exists", "namespace", namespaceName, "name", name)
+		writeErrorResponse(w, http.StatusConflict, "ComponentWorkflow already exists", services.CodeConflict)
+		return
+	}
+	if client.IgnoreNotFound(getErr) != nil {
+		log.Error("Failed to check existing ComponentWorkflow", "error", getErr)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to check existing ComponentWorkflow", services.CodeInternalError)
+		return
+	}
+
+	unstructuredObj := &unstructured.Unstructured{Object: resourceObj}
+
+	// Set namespace from URL
+	unstructuredObj.SetNamespace(namespaceName)
+
+	// Handle namespace logic
+	if err := h.handleResourceNamespace(unstructuredObj, apiVersion, kind); err != nil {
+		log.Error("Failed to handle resource namespace", "error", err)
+		writeErrorResponse(w, http.StatusBadRequest, "Failed to handle resource namespace: "+err.Error(), services.CodeInvalidInput)
+		return
+	}
+
+	// Apply the resource
+	operation, err := h.applyToKubernetes(ctx, unstructuredObj)
+	if err != nil {
+		log.Error("Failed to create ComponentWorkflow", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to create ComponentWorkflow: "+err.Error(), services.CodeInternalError)
+		return
+	}
+
+	response := ResourceCRUDResponse{
+		APIVersion: apiVersion,
+		Kind:       kind,
+		Name:       name,
+		Namespace:  namespaceName,
+		Operation:  operation,
+	}
+
+	log.Info("ComponentWorkflow created successfully", "namespace", namespaceName, "name", name, "operation", operation)
+	writeSuccessResponse(w, http.StatusCreated, response)
+}
 
 // GetComponentWorkflowDefinition handles GET /api/v1/namespaces/{namespaceName}/component-workflows/{cwName}/definition
 func (h *Handler) GetComponentWorkflowDefinition(w http.ResponseWriter, r *http.Request) {

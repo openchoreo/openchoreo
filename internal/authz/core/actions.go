@@ -42,6 +42,7 @@ var systemActions = []Action{
 
 	// ComponentType
 	{Name: "componenttype:view", IsInternal: false},
+	{Name: "componenttype:create", IsInternal: false},
 
 	// ComponentWorkflow
 	{Name: "componentworkflow:view", IsInternal: false},
@@ -55,6 +56,7 @@ var systemActions = []Action{
 
 	// Trait
 	{Name: "trait:view", IsInternal: false},
+	{Name: "trait:create", IsInternal: false},
 
 	// Environment
 	{Name: "environment:view", IsInternal: false},

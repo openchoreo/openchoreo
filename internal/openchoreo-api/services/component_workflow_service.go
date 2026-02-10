@@ -53,6 +53,12 @@ func NewComponentWorkflowService(k8sClient client.Client, logger *slog.Logger, a
 	}
 }
 
+// AuthorizeCreate checks if the current user is authorized to create a ComponentWorkflow
+func (s *ComponentWorkflowService) AuthorizeCreate(ctx context.Context, namespaceName, cwName string) error {
+	return checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionCreateComponentWorkflow,
+		ResourceTypeComponentWorkflow, cwName, authz.ResourceHierarchy{Namespace: namespaceName})
+}
+
 // TriggerWorkflow creates a new ComponentWorkflowRun from a component's workflow configuration
 func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
 	s.logger.Debug("Triggering component workflow", "namespace", namespaceName, "project", projectName, "component", componentName, "commit", commit)

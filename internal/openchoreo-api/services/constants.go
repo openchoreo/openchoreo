@@ -38,7 +38,8 @@ const (
 
 	SystemActionViewComponentType   systemAction = "componenttype:view"
 	SystemActionCreateComponentType systemAction = "componenttype:create"
-	SystemActionViewTrait         systemAction = "trait:view"
+	SystemActionViewTrait           systemAction = "trait:view"
+	SystemActionCreateTrait         systemAction = "trait:create"
 
 	SystemActionCreateDataPlane systemAction = "dataplane:create"
 	SystemActionViewDataPlane   systemAction = "dataplane:view"
