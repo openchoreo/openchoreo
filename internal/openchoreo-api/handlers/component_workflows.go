@@ -367,3 +367,70 @@ func (h *Handler) GetComponentWorkflowRunLogs(w http.ResponseWriter, r *http.Req
 		log.Error("Failed to encode logs response", "error", err)
 	}
 }
+
+// GetComponentWorkflowRunEvents retrieves events for a component workflow run
+func (h *Handler) GetComponentWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+	log.Info("GetComponentWorkflowRunEvents handler called")
+
+	// Extract parameters from URL path
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	runName := r.PathValue("runName")
+
+	// Extract query parameters
+	stepName := r.URL.Query().Get("step")
+
+	if namespaceName == "" {
+		log.Error("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", "INVALID_NAMESPACE_NAME")
+		return
+	}
+
+	if projectName == "" {
+		log.Error("Project name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Project name is required", "INVALID_PROJECT_NAME")
+		return
+	}
+
+	if componentName == "" {
+		log.Error("Component name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Component name is required", "INVALID_COMPONENT_NAME")
+		return
+	}
+
+	if runName == "" {
+		log.Error("Workflow run name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Workflow run name is required", "INVALID_RUN_NAME")
+		return
+	}
+
+	log = log.With("namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "step", stepName)
+
+	// Call service to get component workflow run events
+	events, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunEvents(ctx, namespaceName, projectName, componentName, runName, stepName, h.config.ClusterGateway.URL)
+	if err != nil {
+		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
+			log.Error("Component workflow run not found")
+			writeErrorResponse(w, http.StatusNotFound, "Component workflow run not found", services.CodeComponentWorkflowRunNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			log.Error("Unauthorized to view component workflow run events")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		log.Error("Failed to get component workflow run events", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get component workflow run events", "INTERNAL_ERROR")
+		return
+	}
+
+	// Return events as JSON array of objects
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(events); err != nil {
+		log.Error("Failed to encode events response", "error", err)
+	}
+}

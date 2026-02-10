@@ -38,6 +38,7 @@ rules:
   resources:
   - pods/log
   - pods/status
+  - events
   verbs: ["get", "list"]
 # Batch jobs
 - apiGroups: ["batch"]

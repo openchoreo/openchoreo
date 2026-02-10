@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -768,4 +769,153 @@ func (s *ComponentWorkflowService) getArgoWorkflowPodLogs(ctx context.Context, b
 	}
 
 	return allLogs.String(), nil
+}
+
+// GetComponentWorkflowRunEvents retrieves events from a component workflow run
+func (s *ComponentWorkflowService) GetComponentWorkflowRunEvents(ctx context.Context, namespaceName, projectName, componentName, runName, stepName, gatewayURL string) ([]models.ComponentWorkflowRunEventEntry, error) {
+	logger := s.logger.With("namespace", namespaceName, "project", projectName, "component", componentName, "run", runName, "step", stepName)
+	logger.Debug("Getting component workflow run events")
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponentWorkflowRun, ResourceTypeComponentWorkflowRun, runName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	// Get ComponentWorkflowRun
+	var workflowRun openchoreov1alpha1.ComponentWorkflowRun
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: namespaceName,
+	}, &workflowRun); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("Component workflow run not found", "namespace", namespaceName, "run", runName)
+			return nil, ErrComponentWorkflowRunNotFound
+		}
+		logger.Error("Failed to get component workflow run", "error", err)
+		return nil, fmt.Errorf("failed to get component workflow run: %w", err)
+	}
+
+	// Verify the workflow run belongs to the specified component
+	if workflowRun.Spec.Owner.ProjectName != projectName || workflowRun.Spec.Owner.ComponentName != componentName {
+		logger.Warn("Component workflow run does not belong to the specified component",
+			"namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
+		return nil, ErrComponentWorkflowRunNotFound
+	}
+
+	// Check if RunReference exists
+	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
+		logger.Warn("Workflow run reference not found", "run", runName)
+		return nil, fmt.Errorf("workflow run reference not found")
+	}
+
+	// Get events through the build plane client (Argo specific)
+	// TODO: Extend to support other build engines (eg. Jenkins)
+	return s.getArgoWorkflowRunEvents(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, stepName)
+}
+
+// getArgoWorkflowRunEvents retrieves events from an Argo Workflow run
+// This function handles Argo-specific logic for finding workflow pods and retrieving events
+func (s *ComponentWorkflowService) getArgoWorkflowRunEvents(
+	ctx context.Context,
+	namespaceName string,
+	gatewayURL string,
+	runReference *openchoreov1alpha1.ResourceReference,
+	stepName string,
+) ([]models.ComponentWorkflowRunEventEntry, error) {
+	logger := s.logger.With("namespace", namespaceName, "runReference", runReference, "step", stepName)
+	logger.Debug("Getting Argo workflow run events")
+
+	// Get build plane client
+	bpClient, err := s.buildPlaneService.GetBuildPlaneClient(ctx, namespaceName, gatewayURL)
+	if err != nil {
+		logger.Error("Failed to get build plane client", "error", err)
+		return nil, fmt.Errorf("failed to get build plane client: %w", err)
+	}
+
+	// Get Argo Workflow from build plane
+	var argoWorkflow argoproj.Workflow
+	if err := bpClient.Get(ctx, types.NamespacedName{
+		Name:      runReference.Name,
+		Namespace: runReference.Namespace,
+	}, &argoWorkflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("Argo workflow not found in build plane", "workflow", runReference.Name, "namespace", runReference.Namespace)
+			return nil, fmt.Errorf("argo workflow not found")
+		}
+		logger.Error("Failed to get argo workflow", "error", err)
+		return nil, fmt.Errorf("failed to get argo workflow: %w", err)
+	}
+
+	// Get pods for the workflow/step
+	pods, err := s.getArgoWorkflowPods(ctx, bpClient, &argoWorkflow, stepName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workflow pods: %w", err)
+	}
+
+	// Get build plane resource
+	buildPlane, err := s.buildPlaneService.GetBuildPlane(ctx, namespaceName)
+	if err != nil {
+		logger.Error("Failed to get build plane", "error", err)
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
+	}
+
+	// Get events from pods and convert to structured format
+	allEventEntries := make([]models.ComponentWorkflowRunEventEntry, 0)
+	for _, pod := range pods {
+		podEvents, err := s.getArgoWorkflowPodEvents(ctx, buildPlane, &pod)
+		if err != nil {
+			logger.Warn("Failed to get events from pod", "pod", pod.Name, "error", err)
+			// Continue with other pods instead of failing completely
+			continue
+		}
+
+		// Convert Kubernetes events to ComponentWorkflowRunEventEntry objects
+		for _, event := range podEvents.Items {
+			// Use EventTime if available, otherwise use FirstTimestamp
+			var timestamp time.Time
+			if !event.EventTime.IsZero() {
+				timestamp = event.EventTime.Time
+			} else if !event.FirstTimestamp.IsZero() {
+				timestamp = event.FirstTimestamp.Time
+			} else {
+				// Use current time if neither is available
+				timestamp = time.Now()
+			}
+
+			eventEntry := models.ComponentWorkflowRunEventEntry{
+				Timestamp: timestamp.Format(time.RFC3339),
+				Type:      event.Type,
+				Reason:    event.Reason,
+				Message:   event.Message,
+			}
+			allEventEntries = append(allEventEntries, eventEntry)
+		}
+	}
+
+	return allEventEntries, nil
+}
+
+// getPodEvents retrieves events for a pod using the gateway client
+func (s *ComponentWorkflowService) getArgoWorkflowPodEvents(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane, pod *corev1.Pod) (*corev1.EventList, error) {
+	if s.gwClient == nil {
+		return nil, fmt.Errorf("gateway client is not configured")
+	}
+
+	// Use gateway client to get pod events
+	body, err := s.gwClient.GetPodEventsFromPlane(ctx, "buildplane", buildPlane.Spec.PlaneID, buildPlane.Namespace, buildPlane.Name,
+		&gatewayClient.PodReference{
+			Namespace: pod.Namespace,
+			Name:      pod.Name,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod events: %w", err)
+	}
+
+	var eventList corev1.EventList
+	if err := json.Unmarshal(body, &eventList); err != nil {
+		return nil, fmt.Errorf("failed to decode events response: %w", err)
+	}
+
+	return &eventList, nil
 }

@@ -456,3 +456,11 @@ type ComponentWorkflowRunLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Log       string `json:"log"`
 }
+
+// ComponentWorkflowRunEventEntry represents an event entry for component workflow run events
+type ComponentWorkflowRunEventEntry struct {
+	Timestamp string `json:"timestamp"`
+	Type      string `json:"type"`
+	Reason    string `json:"reason"`
+	Message   string `json:"message"`
+}
