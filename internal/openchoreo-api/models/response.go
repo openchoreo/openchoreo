@@ -438,9 +438,9 @@ type GitSecretResponse struct {
 
 // ComponentWorkflowRunStatusResponse represents the status of a component workflow run
 type ComponentWorkflowRunStatusResponse struct {
-	Status string               `json:"status"` // Overall workflow status (Pending/Running/Completed/Failed)
-	Steps  []WorkflowStepStatus `json:"steps"`  // Array of step-level statuses
-	LogURL string               `json:"logURL"` // Log URL for the workflow run (obs plane url, OC API url, or empty)
+	Status               string               `json:"status"`               // Overall workflow status (Pending/Running/Completed/Failed)
+	Steps                []WorkflowStepStatus `json:"steps"`                // Array of step-level statuses
+	HasLiveObservability bool                 `json:"hasLiveObservability"` // Whether the workflow run has live observability (logs/events from build plane)
 }
 
 // WorkflowStepStatus represents the status of an individual workflow step

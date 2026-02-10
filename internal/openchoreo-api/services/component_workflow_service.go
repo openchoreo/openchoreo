@@ -524,63 +524,18 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRunStatus(ctx context.Con
 		steps = append(steps, step)
 	}
 
-	// Determine observability URL
-	obsURL := s.getWorkflowRunObservabilityURL(ctx, &workflowRun, namespaceName)
-
-	return &models.ComponentWorkflowRunStatusResponse{
-		Status: overallStatus,
-		Steps:  steps,
-		LogURL: obsURL,
-	}, nil
-}
-
-// getWorkflowRunObservabilityURL determines the observability URL
-// based on age and TTL of the workflow run, and observability configuration of the build plane
-// This URL is used to fetch logs of the workflow run
-// TODO: Extend to fetch events of the workflow run
-// TODO: Extend to integrate external CI systems (eg. Jenkins)
-func (s *ComponentWorkflowService) getWorkflowRunObservabilityURL(ctx context.Context, workflowRun *openchoreov1alpha1.ComponentWorkflowRun, namespaceName string) string {
-	// Get TTL from config (default 1 hour)
+	// Determine if the workflow run has live observability based on age and TTL of the workflow run
+	// This field is used to determine if logs/events of the workflow run should be fetched
+	// from the build plane or the observability plane
 	// TODO: Extract the TTL from the cluster workflow template
 	ttl := 1 * time.Hour
-
-	// Calculate age
 	age := time.Since(workflowRun.CreationTimestamp.Time)
 
-	// If age < TTL, use openchoreo-api endpoint
-	if age < ttl {
-		return fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/workflow-runs/%s/logs",
-			namespaceName, workflowRun.Spec.Owner.ProjectName, workflowRun.Spec.Owner.ComponentName, workflowRun.Name)
-	}
-
-	// If age >= TTL, check whether the build plane has observability configured
-	buildPlane, err := s.buildPlaneService.GetBuildPlane(ctx, namespaceName)
-	if err != nil {
-		s.logger.Debug("Failed to get build plane for observability URL", "error", err)
-		return ""
-	}
-
-	observerURL, err := s.getBuildPlaneObservabilityURL(ctx, buildPlane)
-	if err != nil || observerURL == "" {
-		s.logger.Debug("Observability not configured for build plane", "buildPlane", buildPlane.Name)
-		return ""
-	}
-
-	return fmt.Sprintf("%s/api/v1/namespaces/%s/projects/%s/components/%s/workflow-runs/%s/logs", // TODO: Modify when observer API endpoints are updated
-		observerURL, namespaceName, workflowRun.Spec.Owner.ProjectName, workflowRun.Spec.Owner.ComponentName, workflowRun.Name)
-}
-
-// getBuildPlaneObservabilityURL gets the observer URL from build plane's observability plane
-func (s *ComponentWorkflowService) getBuildPlaneObservabilityURL(ctx context.Context, buildPlane *openchoreov1alpha1.BuildPlane) (string, error) {
-	result, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfBuildPlane(ctx, s.k8sClient, buildPlane)
-	if err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return "", nil
-		}
-		return "", fmt.Errorf("failed to get observability plane: %w", err)
-	}
-
-	return result.GetObserverURL(), nil
+	return &models.ComponentWorkflowRunStatusResponse{
+		Status:               overallStatus,
+		Steps:                steps,
+		HasLiveObservability: age < ttl,
+	}, nil
 }
 
 // GetComponentWorkflowRunLogs retrieves logs from a component workflow run
