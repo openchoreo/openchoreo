@@ -11,13 +11,25 @@ rules:
 - apiGroups: ["openchoreo.dev"]
   resources: ["dataplanes"]
   verbs: ["get", "list", "watch"]
+# Allow reading ClusterDataPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["clusterdataplanes"]
+  verbs: ["get", "list", "watch"]
 # Allow reading BuildPlane CRs to get client CA configuration
 - apiGroups: ["openchoreo.dev"]
   resources: ["buildplanes"]
   verbs: ["get", "list", "watch"]
+# Allow reading ClusterBuildPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["clusterbuildplanes"]
+  verbs: ["get", "list", "watch"]
 # Allow reading ObservabilityPlane CRs to get client CA configuration
 - apiGroups: ["openchoreo.dev"]
   resources: ["observabilityplanes"]
+  verbs: ["get", "list", "watch"]
+# Allow reading ClusterObservabilityPlane CRs to get client CA configuration
+- apiGroups: ["openchoreo.dev"]
+  resources: ["clusterobservabilityplanes"]
   verbs: ["get", "list", "watch"]
 # Allow reading Secrets for client CA certificates
 - apiGroups: [""]
