@@ -6,10 +6,29 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+const (
+	testAPIVersion        = "openchoreo.dev/v1alpha1"
+	testKindComponentType = "ComponentType"
+	testKindTrait         = "Trait"
+	testKindCW            = "ComponentWorkflow"
+)
+
+// testResourceJSON builds a JSON string for a valid OpenChoreo resource with the given kind and name.
+func testResourceJSON(kind, name string) string {
+	return fmt.Sprintf(`{"apiVersion": %q, "kind": %q, "metadata": {"name": %q}}`, testAPIVersion, kind, name)
+}
+
+// testPartialJSON builds JSON missing specific fields for validation tests.
+func testPartialJSON(fields map[string]interface{}) string {
+	data, _ := json.Marshal(fields)
+	return string(data)
+}
 
 // ========== CreateComponentTypeDefinition Tests ==========
 
@@ -84,19 +103,15 @@ func TestCreateComponentTypeDefinition_RequestParsing(t *testing.T) {
 		checkFunc   func(*testing.T, map[string]interface{})
 	}{
 		{
-			name: "Valid ComponentType resource",
-			requestBody: `{
-				"apiVersion": "openchoreo.dev/v1alpha1",
-				"kind": "ComponentType",
-				"metadata": {"name": "my-component-type"}
-			}`,
-			wantErr: false,
+			name:        "Valid ComponentType resource",
+			requestBody: testResourceJSON(testKindComponentType, "my-component-type"),
+			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
-				if obj["kind"] != "ComponentType" {
-					t.Errorf("Expected kind 'ComponentType', got %v", obj["kind"])
+				if obj["kind"] != testKindComponentType {
+					t.Errorf("Expected kind %q, got %v", testKindComponentType, obj["kind"])
 				}
-				if obj["apiVersion"] != "openchoreo.dev/v1alpha1" {
-					t.Errorf("Expected apiVersion 'openchoreo.dev/v1alpha1', got %v", obj["apiVersion"])
+				if obj["apiVersion"] != testAPIVersion {
+					t.Errorf("Expected apiVersion %q, got %v", testAPIVersion, obj["apiVersion"])
 				}
 				metadata, ok := obj["metadata"].(map[string]interface{})
 				if !ok {
@@ -155,17 +170,17 @@ func TestCreateComponentTypeDefinition_KindValidation(t *testing.T) {
 	}{
 		{
 			name:      "Valid kind - ComponentType",
-			kind:      "ComponentType",
+			kind:      testKindComponentType,
 			wantValid: true,
 		},
 		{
 			name:      "Invalid kind - Trait",
-			kind:      "Trait",
+			kind:      testKindTrait,
 			wantValid: false,
 		},
 		{
 			name:      "Invalid kind - ComponentWorkflow",
-			kind:      "ComponentWorkflow",
+			kind:      testKindCW,
 			wantValid: false,
 		},
 		{
@@ -183,7 +198,7 @@ func TestCreateComponentTypeDefinition_KindValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the kind validation logic from CreateComponentTypeDefinition handler
-			isValid := tt.kind == "ComponentType"
+			isValid := tt.kind == testKindComponentType
 
 			if isValid != tt.wantValid {
 				t.Errorf("Kind validation result = %v, want %v", isValid, tt.wantValid)
@@ -467,19 +482,15 @@ func TestCreateTraitDefinition_RequestParsing(t *testing.T) {
 		checkFunc   func(*testing.T, map[string]interface{})
 	}{
 		{
-			name: "Valid Trait resource",
-			requestBody: `{
-				"apiVersion": "openchoreo.dev/v1alpha1",
-				"kind": "Trait",
-				"metadata": {"name": "my-trait"}
-			}`,
-			wantErr: false,
+			name:        "Valid Trait resource",
+			requestBody: testResourceJSON(testKindTrait, "my-trait"),
+			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
-				if obj["kind"] != "Trait" {
-					t.Errorf("Expected kind 'Trait', got %v", obj["kind"])
+				if obj["kind"] != testKindTrait {
+					t.Errorf("Expected kind %q, got %v", testKindTrait, obj["kind"])
 				}
-				if obj["apiVersion"] != "openchoreo.dev/v1alpha1" {
-					t.Errorf("Expected apiVersion 'openchoreo.dev/v1alpha1', got %v", obj["apiVersion"])
+				if obj["apiVersion"] != testAPIVersion {
+					t.Errorf("Expected apiVersion %q, got %v", testAPIVersion, obj["apiVersion"])
 				}
 				metadata, ok := obj["metadata"].(map[string]interface{})
 				if !ok {
@@ -538,17 +549,17 @@ func TestCreateTraitDefinition_KindValidation(t *testing.T) {
 	}{
 		{
 			name:      "Valid kind - Trait",
-			kind:      "Trait",
+			kind:      testKindTrait,
 			wantValid: true,
 		},
 		{
 			name:      "Invalid kind - ComponentType",
-			kind:      "ComponentType",
+			kind:      testKindComponentType,
 			wantValid: false,
 		},
 		{
 			name:      "Invalid kind - ComponentWorkflow",
-			kind:      "ComponentWorkflow",
+			kind:      testKindCW,
 			wantValid: false,
 		},
 		{
@@ -566,7 +577,7 @@ func TestCreateTraitDefinition_KindValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the kind validation logic from CreateTraitDefinition handler
-			isValid := tt.kind == "Trait"
+			isValid := tt.kind == testKindTrait
 
 			if isValid != tt.wantValid {
 				t.Errorf("Kind validation result = %v, want %v", isValid, tt.wantValid)
@@ -818,19 +829,15 @@ func TestCreateComponentWorkflowDefinition_RequestParsing(t *testing.T) {
 		checkFunc   func(*testing.T, map[string]interface{})
 	}{
 		{
-			name: "Valid ComponentWorkflow resource",
-			requestBody: `{
-				"apiVersion": "openchoreo.dev/v1alpha1",
-				"kind": "ComponentWorkflow",
-				"metadata": {"name": "my-component-workflow"}
-			}`,
-			wantErr: false,
+			name:        "Valid ComponentWorkflow resource",
+			requestBody: testResourceJSON(testKindCW, "my-component-workflow"),
+			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
-				if obj["kind"] != "ComponentWorkflow" {
-					t.Errorf("Expected kind 'ComponentWorkflow', got %v", obj["kind"])
+				if obj["kind"] != testKindCW {
+					t.Errorf("Expected kind %q, got %v", testKindCW, obj["kind"])
 				}
-				if obj["apiVersion"] != "openchoreo.dev/v1alpha1" {
-					t.Errorf("Expected apiVersion 'openchoreo.dev/v1alpha1', got %v", obj["apiVersion"])
+				if obj["apiVersion"] != testAPIVersion {
+					t.Errorf("Expected apiVersion %q, got %v", testAPIVersion, obj["apiVersion"])
 				}
 				metadata, ok := obj["metadata"].(map[string]interface{})
 				if !ok {
@@ -889,17 +896,17 @@ func TestCreateComponentWorkflowDefinition_KindValidation(t *testing.T) {
 	}{
 		{
 			name:      "Valid kind - ComponentWorkflow",
-			kind:      "ComponentWorkflow",
+			kind:      testKindCW,
 			wantValid: true,
 		},
 		{
 			name:      "Invalid kind - ComponentType",
-			kind:      "ComponentType",
+			kind:      testKindComponentType,
 			wantValid: false,
 		},
 		{
 			name:      "Invalid kind - Trait",
-			kind:      "Trait",
+			kind:      testKindTrait,
 			wantValid: false,
 		},
 		{
@@ -917,7 +924,7 @@ func TestCreateComponentWorkflowDefinition_KindValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate the kind validation logic from CreateComponentWorkflowDefinition handler
-			isValid := tt.kind == "ComponentWorkflow"
+			isValid := tt.kind == testKindCW
 
 			if isValid != tt.wantValid {
 				t.Errorf("Kind validation result = %v, want %v", isValid, tt.wantValid)
@@ -1107,24 +1114,20 @@ func TestValidateResourceRequest_Fields(t *testing.T) {
 		checkFunc   func(*testing.T, map[string]interface{})
 	}{
 		{
-			name: "Valid resource with all required fields",
-			requestBody: `{
-				"apiVersion": "openchoreo.dev/v1alpha1",
-				"kind": "ComponentType",
-				"metadata": {"name": "my-resource"}
-			}`,
-			wantErr: false,
+			name:        "Valid resource with all required fields",
+			requestBody: testResourceJSON(testKindComponentType, "my-resource"),
+			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
 				kind, apiVersion, name, err := validateResourceRequest(obj)
 				if err != nil {
 					t.Errorf("Expected no error, got: %v", err)
 					return
 				}
-				if kind != "ComponentType" {
-					t.Errorf("Expected kind 'ComponentType', got %v", kind)
+				if kind != testKindComponentType {
+					t.Errorf("Expected kind %q, got %v", testKindComponentType, kind)
 				}
-				if apiVersion != "openchoreo.dev/v1alpha1" {
-					t.Errorf("Expected apiVersion 'openchoreo.dev/v1alpha1', got %v", apiVersion)
+				if apiVersion != testAPIVersion {
+					t.Errorf("Expected apiVersion %q, got %v", testAPIVersion, apiVersion)
 				}
 				if name != "my-resource" {
 					t.Errorf("Expected name 'my-resource', got %v", name)
@@ -1133,7 +1136,7 @@ func TestValidateResourceRequest_Fields(t *testing.T) {
 		},
 		{
 			name:        "Missing kind field",
-			requestBody: `{"apiVersion": "openchoreo.dev/v1alpha1", "metadata": {"name": "test"}}`,
+			requestBody: testPartialJSON(map[string]interface{}{"apiVersion": testAPIVersion, "metadata": map[string]string{"name": "test"}}),
 			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
 				_, _, _, err := validateResourceRequest(obj)
@@ -1144,7 +1147,7 @@ func TestValidateResourceRequest_Fields(t *testing.T) {
 		},
 		{
 			name:        "Missing apiVersion field",
-			requestBody: `{"kind": "ComponentType", "metadata": {"name": "test"}}`,
+			requestBody: testPartialJSON(map[string]interface{}{"kind": testKindComponentType, "metadata": map[string]string{"name": "test"}}),
 			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
 				_, _, _, err := validateResourceRequest(obj)
@@ -1155,7 +1158,7 @@ func TestValidateResourceRequest_Fields(t *testing.T) {
 		},
 		{
 			name:        "Missing metadata field",
-			requestBody: `{"apiVersion": "openchoreo.dev/v1alpha1", "kind": "ComponentType"}`,
+			requestBody: testPartialJSON(map[string]interface{}{"apiVersion": testAPIVersion, "kind": testKindComponentType}),
 			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
 				_, _, _, err := validateResourceRequest(obj)
@@ -1166,7 +1169,7 @@ func TestValidateResourceRequest_Fields(t *testing.T) {
 		},
 		{
 			name:        "Missing metadata.name field",
-			requestBody: `{"apiVersion": "openchoreo.dev/v1alpha1", "kind": "ComponentType", "metadata": {}}`,
+			requestBody: testPartialJSON(map[string]interface{}{"apiVersion": testAPIVersion, "kind": testKindComponentType, "metadata": map[string]string{}}),
 			wantErr:     false,
 			checkFunc: func(t *testing.T, obj map[string]interface{}) {
 				_, _, _, err := validateResourceRequest(obj)
@@ -1218,18 +1221,18 @@ func TestOpenChoreoGVK(t *testing.T) {
 	}{
 		{
 			name:     "ComponentType GVK",
-			kind:     "ComponentType",
-			wantKind: "ComponentType",
+			kind:     testKindComponentType,
+			wantKind: testKindComponentType,
 		},
 		{
 			name:     "Trait GVK",
-			kind:     "Trait",
-			wantKind: "Trait",
+			kind:     testKindTrait,
+			wantKind: testKindTrait,
 		},
 		{
 			name:     "ComponentWorkflow GVK",
-			kind:     "ComponentWorkflow",
-			wantKind: "ComponentWorkflow",
+			kind:     testKindCW,
+			wantKind: testKindCW,
 		},
 	}
 
@@ -1260,19 +1263,19 @@ func TestBuildUnstructuredRef(t *testing.T) {
 	}{
 		{
 			name:          "ComponentType reference",
-			kind:          "ComponentType",
+			kind:          testKindComponentType,
 			namespaceName: "default",
 			resourceName:  "my-ct",
 		},
 		{
 			name:          "Trait reference",
-			kind:          "Trait",
+			kind:          testKindTrait,
 			namespaceName: "my-namespace",
 			resourceName:  "my-trait",
 		},
 		{
 			name:          "ComponentWorkflow reference",
-			kind:          "ComponentWorkflow",
+			kind:          testKindCW,
 			namespaceName: "production",
 			resourceName:  "my-cw",
 		},
@@ -1292,8 +1295,8 @@ func TestBuildUnstructuredRef(t *testing.T) {
 			if obj.GetName() != tt.resourceName {
 				t.Errorf("Expected name %v, got %v", tt.resourceName, obj.GetName())
 			}
-			if obj.GetAPIVersion() != "openchoreo.dev/v1alpha1" {
-				t.Errorf("Expected apiVersion 'openchoreo.dev/v1alpha1', got %v", obj.GetAPIVersion())
+			if obj.GetAPIVersion() != testAPIVersion {
+				t.Errorf("Expected apiVersion %q, got %v", testAPIVersion, obj.GetAPIVersion())
 			}
 		})
 	}
@@ -1309,8 +1312,8 @@ func TestResourceCRUDResponse_JSONSerialization(t *testing.T) {
 		{
 			name: "Full response with all fields",
 			response: ResourceCRUDResponse{
-				APIVersion: "openchoreo.dev/v1alpha1",
-				Kind:       "ComponentType",
+				APIVersion: testAPIVersion,
+				Kind:       testKindComponentType,
 				Name:       "my-ct",
 				Namespace:  "default",
 				Operation:  "created",
@@ -1320,8 +1323,8 @@ func TestResourceCRUDResponse_JSONSerialization(t *testing.T) {
 		{
 			name: "Response without namespace (omitempty)",
 			response: ResourceCRUDResponse{
-				APIVersion: "openchoreo.dev/v1alpha1",
-				Kind:       "Trait",
+				APIVersion: testAPIVersion,
+				Kind:       testKindTrait,
 				Name:       "my-trait",
 				Operation:  "deleted",
 			},
