@@ -19,7 +19,7 @@ func TestAllActions(t *testing.T) {
 	})
 
 	t.Run("returns expected action count", func(t *testing.T) {
-		expectedCount := 46 // Update this when intentionally adding/removing actions
+		expectedCount := 48 // Update this when intentionally adding/removing actions
 		if len(actions) != expectedCount {
 			t.Errorf("Expected %d actions, got %d. Update expected count if intentional.", expectedCount, len(actions))
 		}
