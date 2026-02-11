@@ -41,8 +41,8 @@ data:
       log_info "Default organization unit already exists"
     fi
 
-    # Get the organization unit ID
-    ORG_UNIT_ID=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    # Get the organization unit ID for the "default" org unit
+    ORG_UNIT_ID=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -o '"handle":"default"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"handle":"default"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
     log_info "Using organization unit ID: $ORG_UNIT_ID"
 
     log_info "Checking if user schema 'engineer' already exists..."
