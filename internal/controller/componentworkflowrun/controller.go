@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -142,14 +143,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, nil
 	}
 
-	componentWorkflow := &openchoreodevv1alpha1.ComponentWorkflow{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      componentWorkflowRun.Spec.Workflow.Name,
-		Namespace: componentWorkflowRun.Namespace,
-	}, componentWorkflow); err != nil {
-		logger.Error(err, "failed to get ComponentWorkflow",
-			"workflow", componentWorkflowRun.Spec.Workflow.Name)
-		return ctrl.Result{Requeue: true}, nil
+	// Validate ComponentWorkflow against ComponentType allowedWorkflows
+	componentWorkflow, err := r.validateComponentWorkflow(ctx, componentWorkflowRun)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if componentWorkflow == nil {
+		// Validation failed, condition already set
+		return ctrl.Result{}, nil
 	}
 
 	// Resolve git secret if secretRef is provided
@@ -196,6 +197,97 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient), nil
+}
+
+// validateComponentWorkflow validates that the referenced ComponentWorkflow exists
+// and is in the allowedWorkflows list of the ComponentType.
+// Returns the ComponentWorkflow on success, or nil with no error if validation failed
+func (r *Reconciler) validateComponentWorkflow(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+) (*openchoreodevv1alpha1.ComponentWorkflow, error) {
+	logger := log.FromContext(ctx)
+
+	workflowName := componentWorkflowRun.Spec.Workflow.Name
+
+	// Fetch the Component
+	component := &openchoreodevv1alpha1.Component{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      componentWorkflowRun.Spec.Owner.ComponentName,
+		Namespace: componentWorkflowRun.Namespace,
+	}, component); err != nil {
+		logger.Error(err, "failed to get Component", "component", componentWorkflowRun.Spec.Owner.ComponentName)
+		return nil, err
+	}
+
+	// Parse componentType: {workloadType}/{componentTypeName}
+	_, ctName, err := parseComponentType(component.Spec.ComponentType)
+	if err != nil {
+		msg := fmt.Sprintf("Invalid componentType format: %v", err)
+		setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+		logger.Error(err, "Failed to parse componentType")
+		return nil, nil
+	}
+
+	// Fetch the ComponentType
+	componentType := &openchoreodevv1alpha1.ComponentType{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      ctName,
+		Namespace: componentWorkflowRun.Namespace,
+	}, componentType); err != nil {
+		if errors.IsNotFound(err) {
+			msg := fmt.Sprintf("ComponentType %q not found", ctName)
+			setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+			logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+			return nil, nil
+		}
+		// Transient error - requeue
+		logger.Error(err, "failed to get ComponentType", "componentType", ctName)
+		return nil, err
+	}
+
+	// Performance optimization: Check allowedWorkflows list first
+	// This avoids fetching the ComponentWorkflow if it's not allowed
+	if len(componentType.Spec.AllowedWorkflows) > 0 {
+		allowedSet := make(map[string]bool, len(componentType.Spec.AllowedWorkflows))
+		for _, name := range componentType.Spec.AllowedWorkflows {
+			allowedSet[name] = true
+		}
+
+		if !allowedSet[workflowName] {
+			msg := fmt.Sprintf("ComponentWorkflow %q is not allowed by ComponentType %q; allowed workflows: %v",
+				workflowName, componentType.Name, componentType.Spec.AllowedWorkflows)
+			setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+			logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+			return nil, nil
+		}
+	} else {
+		// If allowedWorkflows is empty, no workflows are allowed
+		msg := fmt.Sprintf("No ComponentWorkflows are allowed by ComponentType %q, but workflow run specifies workflow %q",
+			componentType.Name, workflowName)
+		setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+		logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+		return nil, nil
+	}
+
+	// Now check if the ComponentWorkflow actually exists
+	componentWorkflow := &openchoreodevv1alpha1.ComponentWorkflow{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      workflowName,
+		Namespace: componentWorkflowRun.Namespace,
+	}, componentWorkflow); err != nil {
+		if errors.IsNotFound(err) {
+			msg := fmt.Sprintf("ComponentWorkflow %q not found", workflowName)
+			setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+			logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+			return nil, nil
+		}
+		// Transient error - requeue
+		logger.Error(err, "failed to get ComponentWorkflow", "workflow", workflowName)
+		return nil, err
+	}
+
+	return componentWorkflow, nil
 }
 
 func (r *Reconciler) handleWorkloadCreation(
@@ -785,6 +877,15 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 	}
 
 	return tasks
+}
+
+// parseComponentType parses the componentType string in format {workloadType}/{componentTypeName}
+func parseComponentType(componentType string) (workloadType string, ctName string, err error) {
+	parts := strings.SplitN(componentType, "/", 2)
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("invalid componentType format: expected {workloadType}/{name}, got %s", componentType)
+	}
+	return parts[0], parts[1], nil
 }
 
 // extractArgoStepOrderFromNodeName extracts the step order from a node name.

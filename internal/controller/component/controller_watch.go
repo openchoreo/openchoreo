@@ -21,6 +21,8 @@ const (
 	componentTypeIndex = "spec.componentType"
 	// traitsIndex is the field index name for traits used
 	traitsIndex = "spec.traits"
+	// workflowIndex is the field index name for workflow reference
+	workflowIndex = "spec.workflow.name"
 	// workloadOwnerIndex is the field index name for workload owner references
 	workloadOwnerIndex = "spec.owner"
 	// releaseBindingIndex is the field index name for ReleaseBinding owner fields and environment
@@ -56,6 +58,18 @@ func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) 
 				traitNames = append(traitNames, trait.Name)
 			}
 			return traitNames
+		})
+}
+
+// setupWorkflowRefIndex sets up the field index for workflow references
+func (r *Reconciler) setupWorkflowRefIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
+		workflowIndex, func(obj client.Object) []string {
+			comp := obj.(*openchoreov1alpha1.Component)
+			if comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
+				return []string{}
+			}
+			return []string{comp.Spec.Workflow.Name}
 		})
 }
 
@@ -149,6 +163,31 @@ func (r *Reconciler) listComponentsUsingTrait(ctx context.Context, obj client.Ob
 		client.MatchingFields{traitsIndex: trait.Name}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
 		logger.Error(err, "Failed to list components for Trait", "trait", trait.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(components.Items))
+	for i, comp := range components.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      comp.Name,
+				Namespace: comp.Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// listComponentsForComponentWorkflow returns reconcile requests for all Components using this ComponentWorkflow
+func (r *Reconciler) listComponentsForComponentWorkflow(ctx context.Context, obj client.Object) []reconcile.Request {
+	workflow := obj.(*openchoreov1alpha1.ComponentWorkflow)
+
+	var components openchoreov1alpha1.ComponentList
+	if err := r.List(ctx, &components,
+		client.InNamespace(workflow.Namespace),
+		client.MatchingFields{workflowIndex: workflow.Name}); err != nil {
+		logger := ctrl.LoggerFrom(ctx)
+		logger.Error(err, "Failed to list components for ComponentWorkflow", "workflow", workflow.Name)
 		return nil
 	}
 

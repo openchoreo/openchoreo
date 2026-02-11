@@ -123,6 +123,16 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 		return ctrl.Result{}, nil
 	}
 
+	// Validate ComponentWorkflow (if specified)
+	componentWorkflow, err := r.validateComponentWorkflow(ctx, comp, ct)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if componentWorkflow == nil && comp.Spec.Workflow != nil {
+		// Validation failed, condition already set
+		return ctrl.Result{}, nil
+	}
+
 	// Validate and fetch Workload
 	workload, err := r.validateAndFetchWorkload(ctx, comp)
 	if err != nil {
@@ -329,6 +339,67 @@ func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha
 	}
 
 	return true
+}
+
+// validateComponentWorkflow validates that the referenced ComponentWorkflow exists
+// and is in the allowedWorkflows list of the ComponentType.
+// Returns the ComponentWorkflow on success, or nil with no error if validation failed
+// (condition already set).
+func (r *Reconciler) validateComponentWorkflow(
+	ctx context.Context,
+	comp *openchoreov1alpha1.Component,
+	ct *openchoreov1alpha1.ComponentType,
+) (*openchoreov1alpha1.ComponentWorkflow, error) {
+	logger := log.FromContext(ctx)
+
+	// If no workflow is specified, validation passes (workflows are optional)
+	if comp.Spec.Workflow == nil {
+		return nil, nil
+	}
+
+	workflowName := comp.Spec.Workflow.Name
+
+	// Performance optimization: Check allowedWorkflows list first
+	// This avoids fetching the ComponentWorkflow if it's not allowed
+	if len(ct.Spec.AllowedWorkflows) > 0 {
+		allowedSet := make(map[string]bool, len(ct.Spec.AllowedWorkflows))
+		for _, name := range ct.Spec.AllowedWorkflows {
+			allowedSet[name] = true
+		}
+
+		if !allowedSet[workflowName] {
+			msg := fmt.Sprintf("ComponentWorkflow %q is not allowed by ComponentType %q; allowed workflows: %v",
+				workflowName, ct.Name, ct.Spec.AllowedWorkflows)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotAllowed, msg)
+			logger.Info(msg, "component", comp.Name)
+			return nil, nil
+		}
+	} else {
+		// If allowedWorkflows is empty, no workflows are allowed
+		msg := fmt.Sprintf("No ComponentWorkflows are allowed by ComponentType %q, but component specifies workflow %q",
+			ct.Name, workflowName)
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotAllowed, msg)
+		logger.Info(msg, "component", comp.Name)
+		return nil, nil
+	}
+
+	// Now check if the ComponentWorkflow actually exists
+	workflow := &openchoreov1alpha1.ComponentWorkflow{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      workflowName,
+		Namespace: comp.Namespace,
+	}, workflow); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("ComponentWorkflow %q not found", workflowName)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentWorkflowNotFound, msg)
+			logger.Info(msg, "component", comp.Name)
+			return nil, nil
+		}
+		logger.Error(err, "Failed to fetch ComponentWorkflow", "name", workflowName)
+		return nil, err
+	}
+
+	return workflow, nil
 }
 
 // validateAndFetchDeploymentPipeline fetches and validates the Project, DeploymentPipeline, and finds the root environment.
@@ -773,6 +844,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup traits reference index: %w", err)
 	}
 
+	if err := r.setupWorkflowRefIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup workflow reference index: %w", err)
+	}
+
 	if err := r.setupWorkloadOwnerIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup workload owner index: %w", err)
 	}
@@ -806,6 +881,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
+		Watches(&openchoreov1alpha1.ComponentWorkflow{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentWorkflow)).
 		Watches(&openchoreov1alpha1.Workload{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForWorkload)).
 		Watches(&openchoreov1alpha1.Project{},

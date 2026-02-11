@@ -48,6 +48,10 @@ const (
 	ReasonDeploymentPipelineNotFound controller.ConditionReason = "DeploymentPipelineNotFound"
 	// ReasonInvalidConfiguration indicates the Component configuration is invalid
 	ReasonInvalidConfiguration controller.ConditionReason = "InvalidConfiguration"
+	// ReasonComponentWorkflowNotAllowed indicates the referenced ComponentWorkflow is not in allowedWorkflows
+	ReasonComponentWorkflowNotAllowed controller.ConditionReason = "ComponentWorkflowNotAllowed"
+	// ReasonComponentWorkflowNotFound indicates the referenced ComponentWorkflow doesn't exist
+	ReasonComponentWorkflowNotFound controller.ConditionReason = "ComponentWorkflowNotFound"
 
 	// AutoDeploy issues (Status=False)
 
