@@ -32,7 +32,7 @@ type ValidationRule struct {
 }
 
 // ComponentTypeSpec defines the desired state of ComponentType.
-// +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
+// +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
 type ComponentTypeSpec struct {
 	// WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
 	// This determines the primary workload resource type for this component type
@@ -68,8 +68,10 @@ type ComponentTypeSpec struct {
 	// +optional
 	Validations []ValidationRule `json:"validations,omitempty"`
 
-	// Resources are templates that generate Kubernetes resources dynamically
-	// At least one resource must be defined with an id matching the workloadType
+	// Resources are templates that generate Kubernetes resources dynamically.
+	// At least one resource template is required. For non-proxy workload types,
+	// one resource must have an id matching the workloadType. When workloadType
+	// is "proxy", a matching resource id is not required.
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
 }

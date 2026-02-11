@@ -1,0 +1,482 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package clustercomponenttype
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+)
+
+const workloadTypeDeployment = "deployment"
+
+var _ = Describe("ClusterComponentType Webhook", func() {
+	var (
+		ctx       context.Context
+		obj       *openchoreodevv1alpha1.ClusterComponentType
+		oldObj    *openchoreodevv1alpha1.ClusterComponentType
+		validator Validator
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		obj = &openchoreodevv1alpha1.ClusterComponentType{}
+		oldObj = &openchoreodevv1alpha1.ClusterComponentType{}
+		validator = Validator{}
+	})
+
+	// Helper to create a valid deployment template
+	validDeploymentTemplate := func() *runtime.RawExtension {
+		return &runtime.RawExtension{
+			Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+		}
+	}
+
+	// Helper to create a deployment template with CEL expressions
+	deploymentTemplateWithCEL := func(celExpr string) *runtime.RawExtension {
+		return &runtime.RawExtension{
+			Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}, "spec": {"replicas": "` + celExpr + `"}}`),
+		}
+	}
+
+	Context("Happy Path Tests", func() {
+		It("should admit valid ClusterComponentType with parameters and matching workload resource", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit valid ClusterComponentType with parameters and envOverrides", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				},
+				EnvOverrides: &runtime.RawExtension{
+					Raw: []byte(`{"image": "string"}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit valid update with same validation as create", func() {
+			// Set up valid oldObj
+			oldObj.Spec.WorkloadType = workloadTypeDeployment
+			oldObj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			// Set up valid newObj
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=2"}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Schema Parsing Failures", func() {
+		BeforeEach(func() {
+			// Set up valid base ClusterComponentType
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+		})
+
+		It("should reject invalid JSON in spec.schema.types", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Types: &runtime.RawExtension{
+					Raw: []byte(`{malformed json`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse types"))
+		})
+
+		It("should reject invalid JSON in spec.schema.parameters", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{malformed`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+		})
+
+		It("should reject invalid JSON in spec.schema.envOverrides", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				EnvOverrides: &runtime.RawExtension{
+					Raw: []byte(`not valid yaml`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse envOverrides schema"))
+		})
+	})
+
+	Context("Structural Schema Build Failures", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+		})
+
+		It("should reject unknown shorthand type in parameters", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"field": "unknown-type"}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
+		})
+
+		It("should reject invalid type reference in parameters", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Types: &runtime.RawExtension{
+					Raw: []byte(`{"Database": {"host": "string", "port": "integer"}}`),
+				},
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"db": "NonExistent"}`),
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to build structural schema"))
+		})
+	})
+
+	Context("Resource CEL/JSON Validation Errors", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+		})
+
+		It("should reject malformed CEL expression in template", func() {
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}, "spec": {"replicas": "${parameters.replicas +}"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid CEL expression"))
+		})
+
+		It("should reject invalid JSON in resource template", func() {
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{invalid json`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid JSON"))
+		})
+
+		It("should reject forEach not wrapped in ${...}", func() {
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:      "deployment",
+					ForEach: "parameters.items",
+					Var:     "item",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("forEach must be wrapped in ${...}"))
+		})
+
+		It("should reject includeWhen not wrapped in ${...}", func() {
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:          "deployment",
+					IncludeWhen: "parameters.enabled",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("includeWhen must be wrapped in ${...}"))
+		})
+
+		It("should reject forEach with non-iterable expression", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer"}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:      "deployment",
+					ForEach: "${parameters.replicas}",
+					Var:     "item",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("forEach expression must return list or map"))
+		})
+	})
+
+	Context("Workload Resource Shape Validation", func() {
+		It("should reject when no resource matches workloadType", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "service",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "v1", "kind": "Service", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must have exactly one resource with kind matching workloadType"))
+			Expect(err.Error()).To(ContainSubstring("deployment"))
+		})
+
+		It("should reject when multiple resources match workloadType", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment1",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test1"}}`),
+					},
+				},
+				{
+					ID: "deployment2",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test2"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must have exactly one resource with kind matching workloadType"))
+			Expect(err.Error()).To(ContainSubstring("found 2"))
+		})
+
+		It("should reject nil template in resource", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: nil,
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("template is required"))
+		})
+
+		It("should reject empty template in resource", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(``),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("template is required"))
+		})
+
+		It("should reject missing apiVersion in template", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"kind": "Deployment", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("apiVersion is required"))
+		})
+
+		It("should reject missing kind in template", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("kind is required"))
+		})
+
+		It("should reject missing metadata.name in template", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("metadata.name is required"))
+		})
+
+		It("should allow workloadType=proxy without matching resource kind", func() {
+			obj.Spec.WorkloadType = "proxy"
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "gateway",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "gateway.networking.k8s.io/v1", "kind": "Gateway", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should match workloadType case-insensitively", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: "deployment",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion": "apps/v1", "kind": "DEPLOYMENT", "metadata": {"name": "test"}}`),
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("ValidateDelete", func() {
+		It("should admit deletion of a valid ClusterComponentType", func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Type Assertion Failures", func() {
+		It("should reject non-ClusterComponentType object on create", func() {
+			wrongObj := &openchoreodevv1alpha1.ComponentType{}
+			_, err := validator.ValidateCreate(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterComponentType object"))
+		})
+
+		It("should reject non-ClusterComponentType oldObj on update", func() {
+			wrongOldObj := &openchoreodevv1alpha1.ComponentType{}
+			_, err := validator.ValidateUpdate(ctx, wrongOldObj, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterComponentType object for the oldObj"))
+		})
+
+		It("should reject non-ClusterComponentType newObj on update", func() {
+			wrongNewObj := &openchoreodevv1alpha1.ComponentType{}
+			_, err := validator.ValidateUpdate(ctx, oldObj, wrongNewObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterComponentType object for the newObj"))
+		})
+
+		It("should reject non-ClusterComponentType object on delete", func() {
+			wrongObj := &openchoreodevv1alpha1.ComponentType{}
+			_, err := validator.ValidateDelete(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterComponentType object"))
+		})
+	})
+})

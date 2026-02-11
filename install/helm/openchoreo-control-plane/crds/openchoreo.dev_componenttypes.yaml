@@ -65,8 +65,10 @@ spec:
                 type: array
               resources:
                 description: |-
-                  Resources are templates that generate Kubernetes resources dynamically
-                  At least one resource must be defined with an id matching the workloadType
+                  Resources are templates that generate Kubernetes resources dynamically.
+                  At least one resource template is required. For non-proxy workload types,
+                  one resource must have an id matching the workloadType. When workloadType
+                  is "proxy", a matching resource id is not required.
                 items:
                   description: ResourceTemplate defines a template for generating
                     Kubernetes resources
@@ -231,8 +233,9 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: resources must contain a primary resource with id matching
-                workloadType
-              rule: self.resources.exists(r, r.id == self.workloadType)
+                workloadType (unless workloadType is 'proxy')
+              rule: self.workloadType == 'proxy' || self.resources.exists(r, r.id
+                == self.workloadType)
           status:
             description: ComponentTypeStatus defines the observed state of ComponentType.
             type: object

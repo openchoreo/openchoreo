@@ -18,49 +18,12 @@ import (
 )
 
 // ValidateComponentTypeResourcesWithSchema validates all resources in a ComponentType with schema-aware type checking.
-// It checks CEL expressions, forEach loops, and ensures proper variable usage.
-//
-// Parameters:
-//   - ct: The ComponentType to validate
-//   - parametersSchema: Structural schema for parameters (from ComponentType.Schema.Parameters)
-//   - envOverridesSchema: Structural schema for envOverrides (from ComponentType.Schema.EnvOverrides)
-//
-// If schemas are nil, DynType will be used for those variables (no static type checking).
-// This provides better error messages by catching type errors at validation time.
 func ValidateComponentTypeResourcesWithSchema(
 	ct *v1alpha1.ComponentType,
 	parametersSchema *apiextschema.Structural,
 	envOverridesSchema *apiextschema.Structural,
 ) field.ErrorList {
-	allErrs := field.ErrorList{}
-
-	// Create schema-aware validator for component context
-	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
-		ParametersSchema:   parametersSchema,
-		EnvOverridesSchema: envOverridesSchema,
-	})
-	if err != nil {
-		allErrs = append(allErrs, field.InternalError(
-			field.NewPath("spec"),
-			fmt.Errorf("failed to create CEL validator: %w", err)))
-		return allErrs
-	}
-
-	// Validate each resource template
-	for i, resource := range ct.Spec.Resources {
-		resourcePath := field.NewPath("spec", "resources").Index(i)
-		errs := ValidateResourceTemplate(resource, validator, resourcePath)
-		allErrs = append(allErrs, errs...)
-	}
-
-	// Validate validation rules
-	for i, rule := range ct.Spec.Validations {
-		rulePath := field.NewPath("spec", "validations").Index(i)
-		errs := ValidateValidationRule(rule, validator, rulePath)
-		allErrs = append(allErrs, errs...)
-	}
-
-	return allErrs
+	return validateResourcesWithSchema(ct.Spec.Resources, ct.Spec.Validations, parametersSchema, envOverridesSchema)
 }
 
 // ValidateResourceTemplate validates a single resource template including forEach handling
@@ -300,4 +263,57 @@ func ValidateValidationRule(
 // containsCELExpression checks if a string contains any CEL expressions
 func containsCELExpression(str string) bool {
 	return strings.Contains(str, "${")
+}
+
+// ValidateClusterComponentTypeResourcesWithSchema validates all resources in a ClusterComponentType with schema-aware type checking.
+func ValidateClusterComponentTypeResourcesWithSchema(
+	cct *v1alpha1.ClusterComponentType,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
+	return validateResourcesWithSchema(cct.Spec.Resources, nil, parametersSchema, envOverridesSchema)
+}
+
+// validateResourcesWithSchema validates resource templates and validation rules with schema-aware CEL type checking.
+//
+// Parameters:
+//   - resources: Resource templates to validate
+//   - validations: CEL validation rules to validate (may be nil)
+//   - parametersSchema: Structural schema for parameters (nil uses DynType)
+//   - envOverridesSchema: Structural schema for envOverrides (nil uses DynType)
+func validateResourcesWithSchema(
+	resources []v1alpha1.ResourceTemplate,
+	validations []v1alpha1.ValidationRule,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Create schema-aware validator for component context
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
+		ParametersSchema:   parametersSchema,
+		EnvOverridesSchema: envOverridesSchema,
+	})
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(
+			field.NewPath("spec"),
+			fmt.Errorf("failed to create CEL validator: %w", err)))
+		return allErrs
+	}
+
+	// Validate each resource template
+	for i, resource := range resources {
+		resourcePath := field.NewPath("spec", "resources").Index(i)
+		errs := ValidateResourceTemplate(resource, validator, resourcePath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	// Validate validation rules
+	for i, rule := range validations {
+		rulePath := field.NewPath("spec", "validations").Index(i)
+		errs := ValidateValidationRule(rule, validator, rulePath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	return allErrs
 }

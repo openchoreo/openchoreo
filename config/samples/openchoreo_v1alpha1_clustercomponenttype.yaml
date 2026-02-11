@@ -1,0 +1,53 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterComponentType
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: clustercomponenttype-sample
+spec:
+  # Restrict which component-workflows developers can use for this component type
+  allowedWorkflows:
+    - workflow-sample
+
+  workloadType: deployment
+
+  schema:
+    types:
+      Resources:
+        cpu: "string | default=100m"
+        memory: "string | default=256Mi"
+
+    parameters:
+      replicas: "integer | default=1"
+      imagePullPolicy: "string | default=IfNotPresent"
+      port: "integer | default=8080"
+
+    envOverrides:
+      resources:
+        requests: Resources
+        limits: Resources
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${parameters.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: app
+                  image: ${workload.containers["app"].image}
+                  imagePullPolicy: ${parameters.imagePullPolicy}
+                  ports:
+                    - containerPort: ${parameters.port}
