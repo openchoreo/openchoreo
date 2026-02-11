@@ -131,8 +131,12 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     replicas: 2
 `,
@@ -181,16 +185,24 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: Service
   metadata:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 `,
 			wantErr: false,
 		},
@@ -234,16 +246,24 @@ spec:
     name: secret1
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: Secret
   metadata:
     name: secret2
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 `,
 			wantErr: false,
 		},
@@ -300,16 +320,24 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: Secret
   metadata:
     name: db-1-secret
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     database: mydb
 `,
@@ -372,8 +400,12 @@ spec:
     labels:
       monitoring: enabled
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     template:
       spec:
@@ -445,16 +477,24 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: PersistentVolumeClaim
   metadata:
     name: app-data
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     accessModes:
       - ReadWriteOnce
@@ -520,8 +560,12 @@ spec:
     labels:
       monitoring: enabled
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     template:
       spec:
@@ -601,8 +645,12 @@ spec:
     name: monitoring-config
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     enabled: "true"
 - apiVersion: apps/v1
@@ -611,16 +659,24 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: Secret
   metadata:
     name: db-1-secret
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     database: mydb
 `,
@@ -686,16 +742,24 @@ spec:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
 - apiVersion: v1
   kind: Service
   metadata:
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     ports:
       - port: 8080
@@ -796,12 +860,19 @@ spec:
 					EnvironmentName:    "dev",
 					EnvironmentUID:     "d4e5f6a7-8901-23de-f012-4567890abcde",
 					Labels: map[string]string{
-						"openchoreo.dev/component":   "test-component",
-						"openchoreo.dev/environment": "dev",
+						"openchoreo.dev/namespace":       "test-namespace",
+						"openchoreo.dev/project":         "test-project",
+						"openchoreo.dev/component":       "test-app",
+						"openchoreo.dev/environment":     "dev",
+						"openchoreo.dev/component-uid":   "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+						"openchoreo.dev/environment-uid": "d4e5f6a7-8901-23de-f012-4567890abcde",
+						"openchoreo.dev/project-uid":     "b2c3d4e5-6789-01bc-def0-234567890abc",
 					},
 					Annotations: map[string]string{},
 					PodSelectors: map[string]string{
-						"openchoreo.dev/component-uid": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+						"openchoreo.dev/component-uid":   "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+						"openchoreo.dev/environment-uid": "d4e5f6a7-8901-23de-f012-4567890abcde",
+						"openchoreo.dev/project-uid":     "b2c3d4e5-6789-01bc-def0-234567890abc",
 					},
 				},
 			}

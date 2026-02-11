@@ -251,6 +251,9 @@ func (r *Reconciler) buildMetadataContext(
 		labels.LabelKeyProjectName:     projectName,
 		labels.LabelKeyComponentName:   componentName,
 		labels.LabelKeyEnvironmentName: environmentName,
+		labels.LabelKeyComponentUID:    componentUID,
+		labels.LabelKeyEnvironmentUID:  environmentUID,
+		labels.LabelKeyProjectUID:      projectUID,
 	}
 
 	// Build pod selectors

@@ -253,13 +253,8 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 
 // postProcessResources adds labels, annotations, and performs cleanup.
 func (p *Pipeline) postProcessResources(resources []renderer.RenderedResource, input *RenderInput) error {
-	commonLabels := map[string]string{
-		labels.LabelKeyComponentName:   input.Metadata.ComponentName,
-		labels.LabelKeyEnvironmentName: input.Metadata.EnvironmentName,
-		labels.LabelKeyProjectName:     input.Metadata.ProjectName,
-	}
 	for _, rr := range resources {
-		if err := addLabels(rr.Resource, commonLabels); err != nil {
+		if err := addLabels(rr.Resource, input.Metadata.Labels); err != nil {
 			return fmt.Errorf("failed to add labels: %w", err)
 		}
 	}

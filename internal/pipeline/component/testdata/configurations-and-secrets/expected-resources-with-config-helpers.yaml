@@ -4,8 +4,12 @@
     name: test-app-dev-main-env-configs-95889856
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     LOG_LEVEL: error
     DEBUG_MODE: "true"
@@ -17,8 +21,12 @@
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     app.properties: |
       app.name=myapp
@@ -30,8 +38,12 @@
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   data:
     config.json: |
       {
@@ -46,8 +58,12 @@
     name: test-component-dev-12345678
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     replicas: 3
     template:
@@ -93,8 +109,12 @@
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     refreshInterval: 15s
     secretStoreRef:
@@ -119,8 +139,12 @@
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     refreshInterval: 15s
     secretStoreRef:
@@ -141,8 +165,12 @@
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
+      openchoreo.dev/component-uid: a1b2c3d4-5678-90ab-cdef-1234567890ab
       openchoreo.dev/environment: dev
+      openchoreo.dev/environment-uid: d4e5f6a7-8901-23de-f012-4567890abcde
+      openchoreo.dev/namespace: test-namespace
       openchoreo.dev/project: test-project
+      openchoreo.dev/project-uid: b2c3d4e5-6789-01bc-def0-234567890abc
   spec:
     refreshInterval: 15s
     secretStoreRef:
