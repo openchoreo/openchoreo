@@ -18,7 +18,7 @@ const (
 )
 
 // ComponentTypeSpec defines the desired state of ComponentType.
-// +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
+// +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
 type ComponentTypeSpec struct {
 	// WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
 	// This determines the primary workload resource type for this component type
