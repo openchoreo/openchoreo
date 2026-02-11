@@ -195,6 +195,12 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 	baseDataPlane := &v1alpha1.DataPlane{}
 	baseDataPlane.Spec.Gateway.PublicVirtualHost = "api.example.com"
 
+	baseEnvironment := &v1alpha1.Environment{}
+	baseEnvironment.Spec.DataPlaneRef = &v1alpha1.DataPlaneRef{
+		Kind: v1alpha1.DataPlaneRefKindDataPlane,
+		Name: "test-dataplane",
+	}
+
 	baseMetadata := MetadataContext{
 		Name: "test", Namespace: "ns", ComponentName: "app", ComponentUID: "uid1",
 		ComponentNamespace: "test-namespace",
@@ -227,9 +233,10 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 						}),
 					},
 				},
-				Component: &v1alpha1.Component{},
-				DataPlane: baseDataPlane,
-				Metadata:  baseMetadata,
+				Component:   &v1alpha1.Component{},
+				DataPlane:   baseDataPlane,
+				Environment: baseEnvironment,
+				Metadata:    baseMetadata,
 			},
 			wantParams: map[string]any{
 				"mountPath": "/var/data",
@@ -277,9 +284,10 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 						},
 					},
 				},
-				Component: &v1alpha1.Component{},
-				DataPlane: baseDataPlane,
-				Metadata:  baseMetadata,
+				Component:   &v1alpha1.Component{},
+				DataPlane:   baseDataPlane,
+				Environment: baseEnvironment,
+				Metadata:    baseMetadata,
 			},
 			wantParams: map[string]any{
 				"format": "json",
@@ -312,9 +320,10 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 						"logLevel": "debug",
 					}),
 				},
-				Component: &v1alpha1.Component{},
-				DataPlane: baseDataPlane,
-				Metadata:  baseMetadata,
+				Component:   &v1alpha1.Component{},
+				DataPlane:   baseDataPlane,
+				Environment: baseEnvironment,
+				Metadata:    baseMetadata,
 			},
 			wantParams: map[string]any{},
 			wantEnvOverrides: map[string]any{
@@ -330,9 +339,10 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				Instance: v1alpha1.ComponentTrait{
 					Name: "storage",
 				},
-				Component: &v1alpha1.Component{},
-				DataPlane: baseDataPlane,
-				Metadata:  baseMetadata,
+				Component:   &v1alpha1.Component{},
+				DataPlane:   baseDataPlane,
+				Environment: baseEnvironment,
+				Metadata:    baseMetadata,
 			},
 			wantErr: true,
 		},

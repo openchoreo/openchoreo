@@ -65,6 +65,13 @@ metadata:
 				"dataplane": map[string]any{
 					"publicVirtualHost": "api.example.com",
 				},
+				"environment": map[string]any{
+					"publicVirtualHost":            "api.example.com",
+					"publicGatewayName":            "gateway-default",
+					"publicGatewayNamespace":       "openchoreo-data-plane",
+					"organizationGatewayName":      "gateway-default",
+					"organizationGatewayNamespace": "openchoreo-data-plane",
+				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -135,6 +142,13 @@ spec:
 				},
 				"dataplane": map[string]any{
 					"publicVirtualHost": "api.example.com",
+				},
+				"environment": map[string]any{
+					"publicVirtualHost":            "api.example.com",
+					"publicGatewayName":            "gateway-default",
+					"publicGatewayNamespace":       "openchoreo-data-plane",
+					"organizationGatewayName":      "gateway-default",
+					"organizationGatewayNamespace": "openchoreo-data-plane",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
@@ -225,6 +239,13 @@ metadata:
 				"dataplane": map[string]any{
 					"publicVirtualHost": "api.example.com",
 				},
+				"environment": map[string]any{
+					"publicVirtualHost":            "api.example.com",
+					"publicGatewayName":            "gateway-default",
+					"publicGatewayNamespace":       "openchoreo-data-plane",
+					"organizationGatewayName":      "gateway-default",
+					"organizationGatewayNamespace": "openchoreo-data-plane",
+				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -256,6 +277,14 @@ metadata:
 					Spec: v1alpha1.DataPlaneSpec{
 						Gateway: v1alpha1.GatewaySpec{
 							PublicVirtualHost: "api.example.com",
+						},
+					},
+				},
+				Environment: &v1alpha1.Environment{
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindDataPlane,
+							Name: "test-dataplane",
 						},
 					},
 				},
@@ -402,6 +431,13 @@ metadata:
 					"publicVirtualHost": "app.example.com",
 					"secretStore":       "test-secret-store",
 				},
+				"environment": map[string]any{
+					"publicVirtualHost":            "app.example.com",
+					"publicGatewayName":            "gateway-default",
+					"publicGatewayNamespace":       "openchoreo-data-plane",
+					"organizationGatewayName":      "gateway-default",
+					"organizationGatewayNamespace": "openchoreo-data-plane",
+				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -483,6 +519,13 @@ spec:
 					"publicVirtualHost": "app.example.com",
 					"secretStore":       "test-secret-store",
 				},
+				"environment": map[string]any{
+					"publicVirtualHost":            "app.example.com",
+					"publicGatewayName":            "gateway-default",
+					"publicGatewayNamespace":       "openchoreo-data-plane",
+					"organizationGatewayName":      "gateway-default",
+					"organizationGatewayNamespace": "openchoreo-data-plane",
+				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
 					"namespace":          "test-namespace",
@@ -545,6 +588,14 @@ spec:
 						},
 						SecretStoreRef: &v1alpha1.SecretStoreRef{
 							Name: "test-secret-store",
+						},
+					},
+				},
+				Environment: &v1alpha1.Environment{
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindDataPlane,
+							Name: "test-dataplane",
 						},
 					},
 				},
