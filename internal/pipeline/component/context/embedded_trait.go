@@ -48,6 +48,9 @@ type EmbeddedTraitContextInput struct {
 
 	// DataPlane contains the data plane configuration.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`
+
+	// Environment contains the environment configuration.
+	Environment *v1alpha1.Environment `validate:"required"`
 }
 
 // ResolveEmbeddedTraitBindings resolves CEL expressions in an embedded trait's parameter
@@ -149,6 +152,7 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
+	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane)
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
 

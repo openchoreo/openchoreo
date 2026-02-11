@@ -94,6 +94,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		ComponentType:  input.ComponentType,
 		ReleaseBinding: input.ReleaseBinding,
 		DataPlane:      input.DataPlane,
+		Environment:    input.Environment,
 		WorkloadData:   workloadData,
 		Configurations: configurations,
 		Metadata:       input.Metadata,
@@ -165,6 +166,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Metadata:             input.Metadata,
 			SchemaCache:          schemaCache,
 			DataPlane:            input.DataPlane,
+			Environment:          input.Environment,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
@@ -201,6 +203,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			Metadata:       input.Metadata,
 			SchemaCache:    schemaCache,
 			DataPlane:      input.DataPlane,
+			Environment:    input.Environment,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",

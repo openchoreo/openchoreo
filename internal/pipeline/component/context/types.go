@@ -88,6 +88,10 @@ type ComponentContextInput struct {
 	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`
 
+	// Environment contains the environment configuration.
+	// Required - controller must provide this.
+	Environment *v1alpha1.Environment `validate:"required"`
+
 	// WorkloadData is the pre-computed workload data (containers, endpoints).
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
@@ -139,6 +143,10 @@ type TraitContextInput struct {
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`
+
+	// Environment contains the environment configuration.
+	// Required - controller must provide this.
+	Environment *v1alpha1.Environment `validate:"required"`
 }
 
 // SchemaInput contains schema information for building structural and JSON schemas.
@@ -164,6 +172,11 @@ type ComponentContext struct {
 	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
 	DataPlane DataPlaneData `json:"dataplane"`
 
+	// Environment provides environment-specific gateway configuration.
+	// Accessed via ${environment.publicVirtualHost}, ${environment.publicHTTPPort}, etc.
+	// Falls back to DataPlane gateway values if Environment.Gateway is not configured.
+	Environment EnvironmentData `json:"environment"`
+
 	// Parameters from Component.Spec.Parameters, pruned to ComponentType.Schema.Parameters.
 	// Accessed via ${parameters.*}
 	Parameters map[string]any `json:"parameters"`
@@ -184,9 +197,10 @@ type ComponentContext struct {
 
 // DataPlaneData provides data plane configuration in templates.
 type DataPlaneData struct {
-	SecretStore           string                     `json:"secretStore,omitempty"`
-	PublicVirtualHost     string                     `json:"publicVirtualHost,omitempty"`
-	ObservabilityPlaneRef *ObservabilityPlaneRefData `json:"observabilityPlaneRef,omitempty"`
+	SecretStore             string                     `json:"secretStore,omitempty"`
+	PublicVirtualHost       string                     `json:"publicVirtualHost,omitempty"`
+	OrganizationVirtualHost string                     `json:"organizationVirtualHost,omitempty"`
+	ObservabilityPlaneRef   *ObservabilityPlaneRefData `json:"observabilityPlaneRef,omitempty"`
 }
 
 // ObservabilityPlaneRefData provides observability plane reference in templates.
@@ -295,6 +309,11 @@ type TraitContext struct {
 	// DataPlane provides data plane configuration.
 	// Accessed via ${dataplane.secretStore}, ${dataplane.publicVirtualHost}
 	DataPlane DataPlaneData `json:"dataplane"`
+
+	// Environment provides environment-specific gateway configuration.
+	// Accessed via ${environment.publicVirtualHost}, ${environment.publicHTTPPort}, etc.
+	// Falls back to DataPlane gateway values if Environment.Gateway is not configured.
+	Environment EnvironmentData `json:"environment"`
 
 	// Workload contains workload specification (containers, endpoints).
 	// Accessed via ${workload.containers}, ${workload.endpoints}

@@ -64,6 +64,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
+	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane)
 
 	return ctx, nil
 }
@@ -172,6 +173,9 @@ func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 	}
 	if dp.Spec.SecretStoreRef != nil {
 		data.SecretStore = dp.Spec.SecretStoreRef.Name
+	}
+	if dp.Spec.Gateway.OrganizationVirtualHost != "" {
+		data.OrganizationVirtualHost = dp.Spec.Gateway.OrganizationVirtualHost
 	}
 	if dp.Spec.ObservabilityPlaneRef != nil {
 		data.ObservabilityPlaneRef = &ObservabilityPlaneRefData{

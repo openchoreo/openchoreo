@@ -968,7 +968,7 @@ func resolveEndpointURLStatuses(
 		logger.Info("Registered workload endpoint", "name", name, "port", ep.Port, "type", ep.Type)
 	}
 
-	var result []openchoreov1alpha1.EndpointURLStatus
+	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(resources))
 
 	for i := range resources {
 		res := &resources[i]
