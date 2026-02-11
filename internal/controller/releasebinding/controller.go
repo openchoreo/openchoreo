@@ -356,7 +356,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Handle undeploy state - delete Release resources if they exist
 	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
-		releaseBinding.Status.InvokeURL = ""
+		releaseBinding.Status.Endpoints = nil
 		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
 	}
 
@@ -521,8 +521,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		return ctrl.Result{}, nil
 	}
 
-	// Resolve and persist the public invoke URL from the rendered HTTPRoute (if any).
-	releaseBinding.Status.InvokeURL = extractInvokeURL(dataPlaneReleaseResources)
+	// Resolve per-endpoint invoke URLs by matching HTTPRoute backendRef ports to workload endpoints.
+	releaseBinding.Status.Endpoints = resolveEndpointURLStatuses(
+		ctx,
+		dataPlaneReleaseResources,
+		componentRelease.Spec.Workload.Endpoints,
+	)
 
 	// Set ReleaseSynced condition based on operation results.
 	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
@@ -927,12 +931,35 @@ const (
 	httpRouteScheme = "https"
 )
 
-// extractInvokeURL iterates over the rendered dataplane resources, finds the first HTTPRoute
-// belonging to the Gateway API group, and derives a public invoke URL from its first hostname
-// and optional path prefix.
-//
-// Returns an empty string if no suitable HTTPRoute is found.
-func extractInvokeURL(resources []openchoreov1alpha1.Resource) string {
+// resolveEndpointStatuses matches each rendered HTTPRoute to a named workload endpoint
+// by comparing the HTTPRoute's backendRef[0].port with the endpoint's port, then derives
+// the invoke URL from the HTTPRoute hostname and optional path prefix.
+func resolveEndpointURLStatuses(
+	ctx context.Context,
+	resources []openchoreov1alpha1.Resource,
+	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
+) []openchoreov1alpha1.EndpointURLStatus {
+	logger := log.FromContext(ctx).WithName("endpoint-resolver")
+
+	logger.Info("Resolving endpoint URLs",
+		"resourceCount", len(resources),
+		"endpointCount", len(endpoints),
+	)
+
+	if len(endpoints) == 0 {
+		logger.Info("No workload endpoints defined, skipping endpoint URL resolution")
+		return nil
+	}
+
+	// Build port → endpoint name lookup (port is unique per workload)
+	portToName := make(map[int64]string, len(endpoints))
+	for name, ep := range endpoints {
+		portToName[int64(ep.Port)] = name
+		logger.Info("Registered workload endpoint", "name", name, "port", ep.Port, "type", ep.Type)
+	}
+
+	var result []openchoreov1alpha1.EndpointURLStatus
+
 	for i := range resources {
 		res := &resources[i]
 		if res.Object == nil || len(res.Object.Raw) == 0 {
@@ -941,30 +968,110 @@ func extractInvokeURL(resources []openchoreov1alpha1.Resource) string {
 
 		obj := &unstructured.Unstructured{}
 		if err := obj.UnmarshalJSON(res.Object.Raw); err != nil {
+			logger.Error(err, "Failed to unmarshal resource", "resourceID", res.ID)
 			continue
 		}
+
+		logger.Info("Inspecting rendered resource",
+			"resourceID", res.ID,
+			"kind", obj.GetKind(),
+			"group", obj.GetObjectKind().GroupVersionKind().Group,
+			"name", obj.GetName(),
+		)
 
 		if obj.GetKind() != httpRouteKind {
 			continue
 		}
-
 		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
+			logger.Info("Skipping HTTPRoute-kind resource with unexpected API group",
+				"name", obj.GetName(),
+				"group", obj.GetObjectKind().GroupVersionKind().Group,
+				"expectedGroup", gatewayAPIGroup,
+			)
+			continue
+		}
+
+		// Match backendRef[0].port → endpoint name
+		port := extractBackendRefPort(obj)
+		logger.Info("Found HTTPRoute, checking backendRef port",
+			"httpRouteName", obj.GetName(),
+			"backendRefPort", port,
+			"portToNameMap", portToName,
+		)
+
+		endpointName, ok := portToName[port]
+		if !ok {
+			logger.Info("No workload endpoint matched HTTPRoute backendRef port",
+				"httpRouteName", obj.GetName(),
+				"backendRefPort", port,
+				"availablePorts", portToName,
+			)
 			continue
 		}
 
 		hostname := extractFirstHostname(obj)
 		if hostname == "" {
+			logger.Info("HTTPRoute has no hostname, skipping", "httpRouteName", obj.GetName())
 			continue
 		}
 
 		path := extractFirstPathValue(obj)
+		var invokeURL string
 		if path != "" {
-			return fmt.Sprintf("%s://%s%s", httpRouteScheme, hostname, path)
+			invokeURL = fmt.Sprintf("%s://%s%s", httpRouteScheme, hostname, path)
+		} else {
+			invokeURL = fmt.Sprintf("%s://%s", httpRouteScheme, hostname)
 		}
-		return fmt.Sprintf("%s://%s", httpRouteScheme, hostname)
+
+		logger.Info("Resolved endpoint URL",
+			"endpointName", endpointName,
+			"invokeURL", invokeURL,
+			"hostname", hostname,
+			"path", path,
+		)
+
+		result = append(result, openchoreov1alpha1.EndpointURLStatus{
+			Name:      endpointName,
+			InvokeURL: invokeURL,
+		})
 	}
 
-	return ""
+	logger.Info("Endpoint URL resolution complete", "resolvedCount", len(result))
+	return result
+}
+
+// extractBackendRefPort returns the port from spec.rules[0].backendRefs[0].port, or 0 if absent.
+func extractBackendRefPort(obj *unstructured.Unstructured) int64 {
+	rules, found, err := unstructured.NestedSlice(obj.Object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return 0
+	}
+
+	firstRule, ok := rules[0].(map[string]interface{})
+	if !ok {
+		return 0
+	}
+
+	backendRefs, found, err := unstructured.NestedSlice(firstRule, "backendRefs")
+	if err != nil || !found || len(backendRefs) == 0 {
+		return 0
+	}
+
+	firstRef, ok := backendRefs[0].(map[string]interface{})
+	if !ok {
+		return 0
+	}
+
+	port, _, _ := unstructured.NestedFieldNoCopy(firstRef, "port")
+	switch v := port.(type) {
+	case int64:
+		return v
+	case float64:
+		return int64(v)
+	case int32:
+		return int64(v)
+	}
+	return 0
 }
 
 // extractFirstHostname returns the first entry of spec.hostnames[], or "" if absent.

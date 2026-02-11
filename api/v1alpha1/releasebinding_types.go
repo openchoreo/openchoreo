@@ -84,16 +84,26 @@ type ReleaseBindingOwner struct {
 	ComponentName string `json:"componentName"`
 }
 
+// EndpointURLStatus holds the resolved invoke URL for a single named workload endpoint.
+type EndpointURLStatus struct {
+	// Name is the endpoint name as defined in the Workload spec.
+	Name string `json:"name"`
+
+	// InvokeURL is the resolved public URL for this endpoint, derived from the
+	// rendered HTTPRoute whose backendRef port matches the endpoint port.
+	InvokeURL string `json:"invokeURL"`
+}
+
 // ReleaseBindingStatus defines the observed state of ReleaseBinding.
 type ReleaseBindingStatus struct {
 	// Conditions represent the latest available observations of the ReleaseBinding's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// InvokeURL is the resolved public URL derived from the HTTPRoute rendered for this binding.
-	// It is populated once the component is deployed and an HTTPRoute with a public hostname is available.
+	// Endpoints contains the resolved invoke URLs for each named workload endpoint.
+	// Populated once the component is deployed and the corresponding HTTPRoutes are available.
 	// +optional
-	InvokeURL string `json:"invokeURL,omitempty"`
+	Endpoints []EndpointURLStatus `json:"endpoints,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -101,7 +111,6 @@ type ReleaseBindingStatus struct {
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
-// +kubebuilder:printcolumn:name="InvokeURL",type=string,JSONPath=`.status.invokeURL`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ReleaseBinding is the Schema for the releasebindings API.
