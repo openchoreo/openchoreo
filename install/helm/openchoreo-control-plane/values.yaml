@@ -158,9 +158,9 @@ security:
     # @schema
     # type: boolean
     # description: Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.
-    # default: false
+    # default: true
     # @schema
-    enabled: false
+    enabled: true
   # @schema
   # type: string
   # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port

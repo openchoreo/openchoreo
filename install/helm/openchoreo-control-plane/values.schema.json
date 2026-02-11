@@ -3994,7 +3994,7 @@
           "description": "Authorization (authz) configuration using Casbin",
           "properties": {
             "enabled": {
-              "default": false,
+              "default": true,
               "description": "Enable authorization using Casbin. Policies are loaded from AuthzClusterRole, AuthzRole, AuthzClusterRoleBinding, and AuthzRoleBinding CRDs.",
               "title": "enabled",
               "type": "boolean"
