@@ -209,6 +209,50 @@ var _ = Describe("Trait Webhook", func() {
 		})
 	})
 
+	Context("Validation Rules CEL Validation", func() {
+		It("should reject malformed CEL expression in validation rule", func() {
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.x +}", Message: "bad rule"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should reject non-boolean CEL expression in validation rule", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"name": "string | default=app"}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.name}", Message: "returns string not bool"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should admit valid boolean validation rules", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.TraitSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"mountPath": "string"}`),
+				},
+				EnvOverrides: &runtime.RawExtension{
+					Raw: []byte(`{"size": "string | default=10Gi"}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.mountPath != ''}", Message: "mountPath must not be empty"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Context("Patches Validation", func() {
 		It("should admit valid patches with proper structure", func() {
 			obj.Spec.Patches = []openchoreodevv1alpha1.TraitPatch{

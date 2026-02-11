@@ -565,6 +565,63 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 	})
 
+	Context("Validation Rules CEL Validation", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: validDeploymentTemplate(),
+				},
+			}
+		})
+
+		It("should reject malformed CEL expression in validation rule", func() {
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.x +}", Message: "bad rule"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should reject non-boolean CEL expression in validation rule", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"name": "string | default=app"}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.name}", Message: "returns string not bool"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should admit valid boolean validation rules", func() {
+			obj.Spec.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				},
+			}
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Context("AllowedTraits Validation", func() {
 		BeforeEach(func() {
 			obj.Spec.WorkloadType = workloadTypeDeployment

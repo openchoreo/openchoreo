@@ -45,6 +45,13 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 
 	basePath := field.NewPath("spec")
 
+	// Validate validation rules
+	for i, rule := range trait.Spec.Validations {
+		rulePath := basePath.Child("validations").Index(i)
+		errs := ValidateValidationRule(rule, validator, rulePath)
+		allErrs = append(allErrs, errs...)
+	}
+
 	// Validate creates
 	for i, create := range trait.Spec.Creates {
 		createPath := basePath.Child("creates").Index(i)

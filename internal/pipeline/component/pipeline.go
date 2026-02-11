@@ -103,6 +103,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
 	}
 
+	// Evaluate ComponentType validation rules
+	if err := renderer.EvaluateValidationRules(
+		p.templateEngine,
+		input.ComponentType.Spec.Validations,
+		componentContext.ToMap(),
+	); err != nil {
+		return nil, fmt.Errorf("component type validation failed: %w", err)
+	}
+
 	input.ApplyTargetPlaneDefaults()
 
 	// Render base resources from ComponentType
@@ -173,6 +182,16 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
+		// Evaluate trait validation rules
+		if err := renderer.EvaluateValidationRules(
+			p.templateEngine,
+			t.Spec.Validations,
+			traitContext.ToMap(),
+		); err != nil {
+			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
+				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
 		// Process trait (creates + patches)
 		beforeCount := len(renderedResources)
 		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
@@ -207,6 +226,16 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
+		// Evaluate trait validation rules
+		if err := renderer.EvaluateValidationRules(
+			p.templateEngine,
+			t.Spec.Validations,
+			traitContext.ToMap(),
+		); err != nil {
+			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 

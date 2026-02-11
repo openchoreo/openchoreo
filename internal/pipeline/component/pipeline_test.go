@@ -993,11 +993,20 @@ func TestValidateResources(t *testing.T) {
 
 func TestPipeline_SchemaValidation(t *testing.T) {
 	baseMetadata := context.MetadataContext{
-		Name: "test", Namespace: "ns", ComponentName: "app", ComponentUID: "uid1",
-		ComponentNamespace: "ns", ProjectName: "proj", ProjectUID: "uid2",
-		DataPlaneName: "dp", DataPlaneUID: "uid3", EnvironmentName: "dev", EnvironmentUID: "uid4",
-		Labels: map[string]string{}, Annotations: map[string]string{},
-		PodSelectors: map[string]string{"k": "v"},
+		Name:               "test",
+		Namespace:          "ns",
+		ComponentName:      "app",
+		ComponentUID:       "uid1",
+		ComponentNamespace: "ns",
+		ProjectName:        "proj",
+		ProjectUID:         "uid2",
+		DataPlaneName:      "dp",
+		DataPlaneUID:       "uid3",
+		EnvironmentName:    "dev",
+		EnvironmentUID:     "uid4",
+		Labels:             map[string]string{},
+		Annotations:        map[string]string{},
+		PodSelectors:       map[string]string{"k": "v"},
 	}
 
 	tests := []struct {
@@ -1133,6 +1142,214 @@ spec:
 				t.Errorf("error %q should contain %q", err.Error(), tt.wantErrMsg)
 			} else {
 				t.Log(err.Error())
+			}
+		})
+	}
+}
+
+func TestPipeline_ValidationRules(t *testing.T) {
+	baseMetadata := context.MetadataContext{
+		Name:               "test",
+		Namespace:          "ns",
+		ComponentName:      "app",
+		ComponentUID:       "uid1",
+		ComponentNamespace: "ns",
+		ProjectName:        "proj",
+		ProjectUID:         "uid2",
+		DataPlaneName:      "dp",
+		DataPlaneUID:       "uid3",
+		EnvironmentName:    "dev",
+		EnvironmentUID:     "uid4",
+		Labels:             map[string]string{},
+		Annotations:        map[string]string{},
+		PodSelectors:       map[string]string{"k": "v"},
+	}
+
+	tests := []struct {
+		name              string
+		componentTypeYAML string
+		componentYAML     string
+		traitsYAML        string
+		wantErr           bool
+		wantErrMsgs       []string
+	}{
+		{
+			name: "component type validation rule passes",
+			componentTypeYAML: `
+spec:
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+  validations:
+    - rule: "${parameters.replicas > 0}"
+      message: "replicas must be positive"
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: x}}
+`,
+			componentYAML: `spec: {parameters: {replicas: 3}}`,
+			wantErr:       false,
+		},
+		{
+			name: "component type validation rule fails with context",
+			componentTypeYAML: `
+spec:
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+  validations:
+    - rule: "${parameters.replicas > 5}"
+      message: "replicas must be greater than 5"
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: x}}
+`,
+			componentYAML: `spec: {parameters: {replicas: 3}}`,
+			wantErr:       true,
+			wantErrMsgs: []string{
+				"component type validation failed",
+				"rule[0]",
+				"evaluated to false",
+				"replicas must be greater than 5",
+			},
+		},
+		{
+			name: "trait validation rule passes",
+			componentTypeYAML: `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: x}}
+`,
+			componentYAML: `
+spec:
+  traits:
+    - name: storage
+      instanceName: vol1
+      parameters:
+        size: 10
+`,
+			traitsYAML: `
+- metadata: {name: storage}
+  spec:
+    schema:
+      parameters:
+        size: "integer | default=1"
+    validations:
+      - rule: "${parameters.size > 0}"
+        message: "size must be positive"
+    creates:
+      - template: {apiVersion: v1, kind: ConfigMap, metadata: {name: cfg}}
+`,
+			wantErr: false,
+		},
+		{
+			name: "trait validation rule fails with context",
+			componentTypeYAML: `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: x}}
+`,
+			componentYAML: `
+spec:
+  traits:
+    - name: storage
+      instanceName: vol1
+      parameters:
+        size: 0
+`,
+			traitsYAML: `
+- metadata: {name: storage}
+  spec:
+    schema:
+      parameters:
+        size: "integer | default=1"
+    validations:
+      - rule: "${parameters.size > 0}"
+        message: "size must be positive"
+    creates:
+      - template: {apiVersion: v1, kind: ConfigMap, metadata: {name: cfg}}
+`,
+			wantErr: true,
+			wantErrMsgs: []string{
+				"trait storage/vol1 validation failed",
+				"rule[0]",
+				"evaluated to false",
+				"size must be positive",
+			},
+		},
+		{
+			name: "multiple validation rules all evaluated",
+			componentTypeYAML: `
+spec:
+  schema:
+    parameters:
+      replicas: "integer | default=1"
+      name: "string | default=app"
+  validations:
+    - rule: "${parameters.replicas > 10}"
+      message: "replicas too low"
+    - rule: "${parameters.name != 'app'}"
+      message: "name must not be app"
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: x}}
+`,
+			componentYAML: `spec: {parameters: {replicas: 1, name: app}}`,
+			wantErr:       true,
+			wantErrMsgs: []string{
+				"rule[0]",
+				"replicas too low",
+				"rule[1]",
+				"name must not be app",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var componentType v1alpha1.ComponentType
+			if err := yaml.Unmarshal([]byte(tt.componentTypeYAML), &componentType); err != nil {
+				t.Fatalf("Failed to parse componentType: %v", err)
+			}
+
+			var component v1alpha1.Component
+			if err := yaml.Unmarshal([]byte(tt.componentYAML), &component); err != nil {
+				t.Fatalf("Failed to parse component: %v", err)
+			}
+
+			var traits []v1alpha1.Trait
+			if tt.traitsYAML != "" {
+				if err := yaml.Unmarshal([]byte(tt.traitsYAML), &traits); err != nil {
+					t.Fatalf("Failed to parse traits: %v", err)
+				}
+			}
+
+			input := &RenderInput{
+				ComponentType: &componentType,
+				Component:     &component,
+				Traits:        traits,
+				Workload:      &v1alpha1.Workload{},
+				Environment:   &v1alpha1.Environment{},
+				DataPlane:     &v1alpha1.DataPlane{},
+				Metadata:      baseMetadata,
+			}
+
+			_, err := NewPipeline().Render(input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				for _, msg := range tt.wantErrMsgs {
+					if !strings.Contains(err.Error(), msg) {
+						t.Errorf("error %q should contain %q", err.Error(), msg)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
 			}
 		})
 	}

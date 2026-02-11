@@ -474,6 +474,68 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		})
 	})
 
+	Context("CEL Validation in Validation Rules", func() {
+		It("should reject malformed CEL expression in ComponentType validation rule", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.x +}", Message: "bad rule"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should reject non-boolean CEL expression in ComponentType validation rule", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"name": "string | default=app"}`),
+				},
+			}
+			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.name}", Message: "returns string not bool"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should admit valid validation rules in ComponentType and Traits", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Schema = openchoreodevv1alpha1.ComponentTypeSchema{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas": "integer | default=1"}`),
+				},
+			}
+			obj.Spec.ComponentType.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID:       "deployment",
+					Template: deploymentTemplateWithCEL("${parameters.replicas}"),
+				},
+			}
+			obj.Spec.ComponentType.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+			}
+			obj.Spec.Traits = map[string]openchoreodevv1alpha1.TraitSpec{
+				"storage": {
+					Schema: openchoreodevv1alpha1.TraitSchema{
+						Parameters: &runtime.RawExtension{
+							Raw: []byte(`{"size": "integer | default=10"}`),
+						},
+					},
+					Validations: []openchoreodevv1alpha1.ValidationRule{
+						{Rule: "${parameters.size > 0}", Message: "size must be positive"},
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Context("Resource Structure Validation", func() {
 		It("should reject missing apiVersion in ComponentType resource template", func() {
 			obj = validComponentRelease()

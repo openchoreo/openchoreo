@@ -8,8 +8,8 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 
 | Context Type | Used In | Key Variables |
 |--------------|---------|---------------|
-| **ComponentContext** | ComponentType `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
-| **TraitContext** | Trait `creates` and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait`, `workload`, `configurations` |
+| **ComponentContext** | ComponentType `validations` and `resources` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `workload`, `configurations` |
+| **TraitContext** | Trait `validations`, `creates`, and `patches` | `metadata`, `parameters`, `envOverrides`, `dataplane`, `trait`, `workload`, `configurations` |
 
 ## ComponentContext
 
@@ -19,6 +19,7 @@ ComponentContext is used when rendering ComponentType resources. It provides acc
 
 | Location | Context | Notes |
 |----------|---------|-------|
+| `validations[].rule` | ComponentContext | Evaluated before resource rendering |
 | `resources[].template` | ComponentContext | Full context |
 | `resources[].includeWhen` | ComponentContext | Evaluated before forEach |
 | `resources[].forEach` | ComponentContext | Expression to iterate over |
@@ -423,6 +424,7 @@ TraitContext is used when rendering Trait creates and patches. It provides acces
 
 | Location | Context | Notes |
 |----------|---------|-------|
+| `validations[].rule` | TraitContext | Evaluated before creates/patches |
 | `creates[].template` | TraitContext | Full trait context |
 | `patches[].operations[].path` | TraitContext | Path can contain expressions |
 | `patches[].operations[].value` | TraitContext | Value can contain expressions |

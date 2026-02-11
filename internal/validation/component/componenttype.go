@@ -53,6 +53,13 @@ func ValidateComponentTypeResourcesWithSchema(
 		allErrs = append(allErrs, errs...)
 	}
 
+	// Validate validation rules
+	for i, rule := range ct.Spec.Validations {
+		rulePath := field.NewPath("spec", "validations").Index(i)
+		errs := ValidateValidationRule(rule, validator, rulePath)
+		allErrs = append(allErrs, errs...)
+	}
+
 	return allErrs
 }
 
@@ -263,6 +270,31 @@ func (w *ExpressionWalker) validateString(str string, path *field.Path) {
 				fmt.Sprintf("invalid CEL expression '%s': %v", expr.InnerExpr, err)))
 		}
 	}
+}
+
+// ValidateValidationRule validates a single validation rule's CEL expression.
+// The rule must be wrapped in ${...} and must compile to a boolean expression.
+func ValidateValidationRule(
+	rule v1alpha1.ValidationRule,
+	validator *CELValidator,
+	basePath *field.Path,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	ruleCEL, ok := extractCELFromTemplate(rule.Rule)
+	if !ok {
+		allErrs = append(allErrs, field.Invalid(
+			basePath.Child("rule"), rule.Rule,
+			"rule must be wrapped in ${...}"))
+		return allErrs
+	}
+	if err := validator.ValidateBooleanExpression(ruleCEL, validator.GetBaseEnv()); err != nil {
+		allErrs = append(allErrs, field.Invalid(
+			basePath.Child("rule"), rule.Rule,
+			fmt.Sprintf("rule must return boolean: %v", err)))
+	}
+
+	return allErrs
 }
 
 // containsCELExpression checks if a string contains any CEL expressions

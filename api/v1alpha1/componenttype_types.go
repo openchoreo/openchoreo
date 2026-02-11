@@ -17,6 +17,20 @@ const (
 	TargetPlaneObservabilityPlane = "observabilityplane"
 )
 
+// ValidationRule defines a CEL-based validation rule evaluated during rendering.
+type ValidationRule struct {
+	// Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+	// Uses the same syntax as includeWhen and where fields.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	Rule string `json:"rule"`
+
+	// Message is the error message shown when the rule evaluates to false.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Message string `json:"message"`
+}
+
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType"
 type ComponentTypeSpec struct {
@@ -48,6 +62,11 @@ type ComponentTypeSpec struct {
 	// Trait names listed here must not overlap with traits already embedded in spec.traits.
 	// +optional
 	AllowedTraits []string `json:"allowedTraits,omitempty"`
+
+	// Validations are CEL-based rules evaluated during rendering.
+	// All rules must evaluate to true for rendering to proceed.
+	// +optional
+	Validations []ValidationRule `json:"validations,omitempty"`
 
 	// Resources are templates that generate Kubernetes resources dynamically
 	// At least one resource must be defined with an id matching the workloadType

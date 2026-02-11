@@ -187,6 +187,30 @@ spec:
                   - name
                   type: object
                 type: array
+              validations:
+                description: |-
+                  Validations are CEL-based rules evaluated during rendering.
+                  All rules must evaluate to true for rendering to proceed.
+                items:
+                  description: ValidationRule defines a CEL-based validation rule
+                    evaluated during rendering.
+                  properties:
+                    message:
+                      description: Message is the error message shown when the rule
+                        evaluates to false.
+                      minLength: 1
+                      type: string
+                    rule:
+                      description: |-
+                        Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                        Uses the same syntax as includeWhen and where fields.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                  required:
+                  - message
+                  - rule
+                  type: object
+                type: array
               workloadType:
                 description: |-
                   WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
