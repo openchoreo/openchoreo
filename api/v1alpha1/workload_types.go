@@ -203,6 +203,7 @@ type WorkloadOwner struct {
 }
 
 type WorkloadSpec struct {
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner WorkloadOwner `json:"owner"`
 
 	// Inline *all* the template fields so they appear at top level.

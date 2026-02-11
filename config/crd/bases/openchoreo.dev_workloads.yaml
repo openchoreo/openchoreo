@@ -272,6 +272,9 @@ spec:
                 - componentName
                 - projectName
                 type: object
+                x-kubernetes-validations:
+                - message: spec.owner is immutable
+                  rule: self == oldSelf
             required:
             - owner
             type: object
