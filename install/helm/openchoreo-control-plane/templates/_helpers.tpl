@@ -269,9 +269,14 @@ Get Thunder internal URL for pod-to-pod communication
 
 {{/*
 Get the Thunder external URL for external communication (e.g., OIDC issuer)
+Precedence: thunder.configuration.server.publicUrl > constructed from baseDomain
 */}}
 {{- define "openchoreo.thunderExternalUrl" -}}
+{{- if .Values.thunder.configuration.server.publicUrl -}}
+{{- .Values.thunder.configuration.server.publicUrl -}}
+{{- else -}}
 {{- printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .) -}}
+{{- end -}}
 {{- end -}}
 
 {{/*

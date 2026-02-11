@@ -3348,7 +3348,7 @@ thunder:
       # description: Gate client port
       # default: 8080
       # @schema
-      port: 8080
+      port: 8090
       # description: Protocol scheme
       # enum: [http, https]
       # default: http

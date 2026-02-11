@@ -78,7 +78,7 @@ spec:
         {{- if .Values.thunder.enabled }}
         # Thunder-specific configuration
         - name: THUNDER_BASE_URL
-          value: {{ .Values.backstage.thunder.baseUrl | default (printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
+          value: {{ .Values.backstage.thunder.baseUrl | default (include "openchoreo.thunderExternalUrl" .) }}
         {{- if .Values.backstage.thunder.token }}
         - name: THUNDER_TOKEN
           value: {{ .Values.backstage.thunder.token | quote }}
@@ -92,7 +92,7 @@ spec:
         {{- end }}
         # Explicit OAuth2 endpoints (fallback if OIDC discovery not configured)
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
-          value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s://%s%s/oauth2/authorize" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .)) }}
+          value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" (include "openchoreo.thunderExternalUrl" .)) }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
           value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
