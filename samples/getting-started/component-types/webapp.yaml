@@ -102,7 +102,7 @@ spec:
             - name: gateway-default
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.componentNamespace}.${metadata.componentName}-${metadata.environmentName}.${dataplane.publicVirtualHost}
+            - ${metadata.componentName}-${metadata.environmentName}-${metadata.componentNamespace}.${dataplane.publicVirtualHost}
           rules:
           - backendRefs:
             - name: ${metadata.componentName}

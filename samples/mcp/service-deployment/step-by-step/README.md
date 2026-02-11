@@ -131,7 +131,7 @@ What is the endpoint URL for my greeter service in development? The gateway is r
 
 **Sample Curl**
 ```
-curl http://default.development.openchoreoapis.localhost:19080/greeter/greet?name=World
+curl http://development-default.openchoreoapis.localhost:19080/greeter/greet?name=World
 ```
 
 **Expected response:**

@@ -96,7 +96,7 @@ curl "http://${HOSTNAME}:19080${PATH_PREFIX}/mediflow/health"
 ```
 
 ```bash
-curl http://default.development.openchoreoapis.localhost:19080/patient-management-service/mediflow/health
+curl http://development-default.openchoreoapis.localhost:19080/patient-management-service/mediflow/health
 ```
 
 ### Add a new patient

@@ -104,7 +104,7 @@ kubectl get releasebinding demo-app-with-embedded-traits-development -o yaml | g
 Once deployed, test the greeter service:
 
 ```bash
-curl http://default.development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet
+curl http://development-default.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet
 ```
 
 Output:
@@ -114,7 +114,7 @@ Hello, Stranger!
 
 With a name parameter:
 ```bash
-curl "curl http://default.development.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet?name=Alice"
+curl "curl http://development-default.openchoreoapis.localhost:19080/demo-app-with-embedded-traits-development-d47a92df/greeter/greet?name=Alice"
 ```
 
 Output:

@@ -55,7 +55,7 @@ kubectl get deployment -A -l openchoreo.dev/component=react-starter-from-source
 Once the application is deployed, you can access the React application at:
 
 
-http://default.react-starter-from-source-development.openchoreoapis.localhost:19080
+http://react-starter-from-source-development-default.openchoreoapis.localhost:19080
 
 
 You can also dynamically get the URL using:

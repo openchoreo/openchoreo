@@ -225,7 +225,7 @@ k3d.install.data-plane: ## Install Data Plane
 	@echo "  kubectl apply -f $(PROJECT_DIR)/samples/from-image/react-starter-web-app/react-starter.yaml --context k3d-$(K3D_CLUSTER_NAME)"
 	@echo ""
 	@$(call log_info, Once deployed, access it at:)
-	@echo "  http://default.react-starter-development.openchoreoapis.localhost:19080"
+	@echo "  http://react-starter-development-default.openchoreoapis.localhost:19080"
 	@echo ""
 
 .PHONY: k3d.install.build-plane

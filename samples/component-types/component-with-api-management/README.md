@@ -291,7 +291,7 @@ Response:
 export TOKEN="<access_token_from_previous_response>"
 
 # Call the API
-curl https://default.development.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
+curl https://development-default.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 

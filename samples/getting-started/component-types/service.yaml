@@ -104,7 +104,7 @@ spec:
             - name: gateway-default
               namespace: openchoreo-data-plane
           hostnames:
-            - ${metadata.componentNamespace}.${metadata.environmentName}.${dataplane.publicVirtualHost}
+            - ${metadata.environmentName}-${metadata.componentNamespace}.${dataplane.publicVirtualHost}
           rules:
           - matches:
             - path:

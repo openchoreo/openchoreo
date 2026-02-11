@@ -53,7 +53,7 @@ You can test the WebSocket service using `wscat` (install via `npm install -g ws
 ### Connect to the WebSocket
 
 ```bash
-wscat -c "ws://localhost:19080/echo-websocket-service/.ws" --header "Host: default.development.openchoreoapis.localhost"
+wscat -c "ws://localhost:19080/echo-websocket-service/.ws" --header "Host: development-default.openchoreoapis.localhost"
 ```
 
 Once connected, type any message and press Enter. The server will echo back the same message.
