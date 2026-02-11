@@ -30,6 +30,16 @@ import (
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
+const (
+	httpRouteKind      = "HTTPRoute"
+	gatewayAPIGroup    = "gateway.networking.k8s.io"
+	httpRouteScheme    = "https"
+	standardHTTPSPort  = 19443
+	standardHTTPPort   = 19080
+	defaultGatewayName = "gateway-default"
+	defaultGatewayNS   = "openchoreo-data-plane"
+)
+
 // Reconciler reconciles a ReleaseBinding object
 type Reconciler struct {
 	client.Client
@@ -526,6 +536,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ctx,
 		dataPlaneReleaseResources,
 		componentRelease.Spec.Workload.Endpoints,
+		environment,
+		dataPlane,
 	)
 
 	// Set ReleaseSynced condition based on operation results.
@@ -925,19 +937,17 @@ func (r *Reconciler) generateResourceID(resource map[string]any, index int) stri
 	return fmt.Sprintf("resource-%d", index)
 }
 
-const (
-	httpRouteKind   = "HTTPRoute"
-	gatewayAPIGroup = "gateway.networking.k8s.io"
-	httpRouteScheme = "https"
-)
-
 // resolveEndpointStatuses matches each rendered HTTPRoute to a named workload endpoint
 // by comparing the HTTPRoute's backendRef[0].port with the endpoint's port, then derives
 // the invoke URL from the HTTPRoute hostname and optional path prefix.
+// When the HTTPRoute's parentRef matches a known gateway in the environment or dataplane
+// configuration, the corresponding non-standard port is included in the URL.
 func resolveEndpointURLStatuses(
 	ctx context.Context,
 	resources []openchoreov1alpha1.Resource,
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
+	environment *openchoreov1alpha1.Environment,
+	dataPlane *openchoreov1alpha1.DataPlane,
 ) []openchoreov1alpha1.EndpointURLStatus {
 	logger := log.FromContext(ctx).WithName("endpoint-resolver")
 
@@ -1015,18 +1025,30 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
+		// Resolve port from the parentRef gateway configuration
+		parentRefName, parentRefNamespace := extractFirstParentRef(obj)
+		gatewayPort := resolveGatewayPort(parentRefName, parentRefNamespace, environment, dataPlane)
+
 		path := extractFirstPathValue(obj)
+		host := hostname
+		if gatewayPort != 0 && !isStandardPort(httpRouteScheme, gatewayPort) {
+			host = fmt.Sprintf("%s:%d", hostname, gatewayPort)
+		}
+
 		var invokeURL string
 		if path != "" {
-			invokeURL = fmt.Sprintf("%s://%s%s", httpRouteScheme, hostname, path)
+			invokeURL = fmt.Sprintf("%s://%s%s", httpRouteScheme, host, path)
 		} else {
-			invokeURL = fmt.Sprintf("%s://%s", httpRouteScheme, hostname)
+			invokeURL = fmt.Sprintf("%s://%s", httpRouteScheme, host)
 		}
 
 		logger.Info("Resolved endpoint URL",
 			"endpointName", endpointName,
 			"invokeURL", invokeURL,
 			"hostname", hostname,
+			"gatewayPort", gatewayPort,
+			"parentRefName", parentRefName,
+			"parentRefNamespace", parentRefNamespace,
 			"path", path,
 		)
 
@@ -1108,6 +1130,86 @@ func extractFirstPathValue(obj *unstructured.Unstructured) string {
 
 	value, _, _ := unstructured.NestedString(firstMatch, "path", "value")
 	return value
+}
+
+// extractFirstParentRef returns the name and namespace of the first parentRef in spec.parentRefs[].
+// Returns empty strings if no parentRef is present.
+func extractFirstParentRef(obj *unstructured.Unstructured) (name, namespace string) {
+	parentRefs, found, err := unstructured.NestedSlice(obj.Object, "spec", "parentRefs")
+	if err != nil || !found || len(parentRefs) == 0 {
+		return "", ""
+	}
+	firstRef, ok := parentRefs[0].(map[string]interface{})
+	if !ok {
+		return "", ""
+	}
+	name, _, _ = unstructured.NestedString(firstRef, "name")
+	namespace, _, _ = unstructured.NestedString(firstRef, "namespace")
+	return name, namespace
+}
+
+// resolveGatewayPort returns the HTTPS port for the gateway identified by name/namespace.
+// It checks the environment gateway config first (if present), falling back to the dataplane config.
+// Returns 0 if the name/namespace do not match any known gateway.
+func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environment, dp *openchoreov1alpha1.DataPlane) int32 {
+	if name == "" || dp == nil {
+		return 0
+	}
+
+	// Use the same precedence as the rendering pipeline: environment overrides dataplane.
+	spec := dp.Spec.Gateway
+	if env != nil && env.Spec.Gateway.PublicVirtualHost != "" {
+		spec = env.Spec.Gateway
+	}
+
+	// Apply defaults so empty fields still match.
+	pubName := spec.PublicGatewayName
+	if pubName == "" {
+		pubName = defaultGatewayName
+	}
+	pubNS := spec.PublicGatewayNamespace
+	if pubNS == "" {
+		pubNS = defaultGatewayNS
+	}
+	orgName := spec.OrganizationGatewayName
+	if orgName == "" {
+		orgName = defaultGatewayName
+	}
+	orgNS := spec.OrganizationGatewayNamespace
+	if orgNS == "" {
+		orgNS = defaultGatewayNS
+	}
+
+	// Effective namespace for matching: parentRef namespace may be omitted when the
+	// HTTPRoute and Gateway are in the same namespace, so treat empty as a wildcard.
+	nsMatches := func(gwNS string) bool {
+		return namespace == "" || namespace == gwNS
+	}
+
+	switch {
+	case name == pubName && nsMatches(pubNS):
+		if spec.PublicHTTPSPort != 0 {
+			return spec.PublicHTTPSPort
+		}
+		return standardHTTPSPort
+	case name == orgName && nsMatches(orgNS):
+		if spec.OrganizationHTTPSPort != 0 {
+			return spec.OrganizationHTTPSPort
+		}
+		return standardHTTPSPort
+	}
+	return 0
+}
+
+// isStandardPort reports whether port is the default port for the given scheme.
+func isStandardPort(scheme string, port int32) bool {
+	switch scheme {
+	case "https":
+		return port == standardHTTPSPort
+	case "http":
+		return port == standardHTTPPort
+	}
+	return false
 }
 
 // applyDefaultNotificationChannel injects a default notificationChannel override for
