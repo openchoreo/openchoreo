@@ -46,4 +46,5 @@ resources:
   - openchoreo_v1alpha1_clusterdataplane.yaml
   - openchoreo_v1alpha1_clusterbuildplane.yaml
   - openchoreo_v1alpha1_clusterobservabilityplane.yaml
+  - openchoreo_v1alpha1_clustertrait.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

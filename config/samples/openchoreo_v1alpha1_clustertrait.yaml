@@ -1,0 +1,8 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: clustertrait-sample
+spec:
+  schema:
+    parameters:
+      enabled: "boolean | default=true"

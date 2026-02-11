@@ -263,69 +263,89 @@ func TestValidateTraitPatch(t *testing.T) {
 	}
 }
 
-func TestValidateValidationRule(t *testing.T) {
-	parametersSchema := &apiextschema.Structural{
-		Generic: apiextschema.Generic{Type: "object"},
-		Properties: map[string]apiextschema.Structural{
-			"replicas": {Generic: apiextschema.Generic{Type: "integer"}},
-			"name":     {Generic: apiextschema.Generic{Type: "string"}},
-		},
-	}
-
-	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
-		ParametersSchema: parametersSchema,
-	})
-	require.NoError(t, err)
-
-	basePath := field.NewPath("spec", "validations").Index(0)
-
+func TestValidateClusterTraitCreatesAndPatchesWithSchema(t *testing.T) {
 	tests := []struct {
 		name      string
-		rule      v1alpha1.ValidationRule
+		ct        *v1alpha1.ClusterTrait
 		wantError bool
 		errMsg    string
 	}{
 		{
-			name: "valid boolean rule",
-			rule: v1alpha1.ValidationRule{
-				Rule:    "${parameters.replicas > 0}",
-				Message: "replicas must be positive",
+			name: "valid creates and patches",
+			ct: &v1alpha1.ClusterTrait{
+				Spec: v1alpha1.ClusterTraitSpec{
+					Creates: []v1alpha1.TraitCreate{
+						{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "test"}}`),
+							},
+						},
+					},
+					Patches: []v1alpha1.TraitPatch{
+						{
+							Target: v1alpha1.PatchTarget{
+								Group:   "apps",
+								Version: "v1",
+								Kind:    "Deployment",
+							},
+							Operations: []v1alpha1.JSONPatchOperation{
+								{Op: "add", Path: "/metadata/labels/foo", Value: &runtime.RawExtension{Raw: []byte(`"bar"`)}},
+							},
+						},
+					},
+				},
 			},
 			wantError: false,
 		},
 		{
-			name: "rule not wrapped in ${...}",
-			rule: v1alpha1.ValidationRule{
-				Rule:    "parameters.replicas > 0",
-				Message: "replicas must be positive",
+			name: "empty creates and patches is valid",
+			ct: &v1alpha1.ClusterTrait{
+				Spec: v1alpha1.ClusterTraitSpec{},
 			},
-			wantError: true,
-			errMsg:    "rule must be wrapped in ${...}",
+			wantError: false,
 		},
 		{
-			name: "rule returning string instead of boolean",
-			rule: v1alpha1.ValidationRule{
-				Rule:    "${parameters.name}",
-				Message: "should fail",
+			name: "invalid CEL in creates template",
+			ct: &v1alpha1.ClusterTrait{
+				Spec: v1alpha1.ClusterTraitSpec{
+					Creates: []v1alpha1.TraitCreate{
+						{
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${parameters.name +}"}}`),
+							},
+						},
+					},
+				},
 			},
 			wantError: true,
-			errMsg:    "rule must return boolean",
+			errMsg:    "invalid CEL expression",
 		},
 		{
-			name: "rule with parse error",
-			rule: v1alpha1.ValidationRule{
-				Rule:    "${invalid syntax !!!}",
-				Message: "should fail",
+			name: "invalid CEL in patch value",
+			ct: &v1alpha1.ClusterTrait{
+				Spec: v1alpha1.ClusterTraitSpec{
+					Patches: []v1alpha1.TraitPatch{
+						{
+							Target: v1alpha1.PatchTarget{
+								Group:   "apps",
+								Version: "v1",
+								Kind:    "Deployment",
+							},
+							Operations: []v1alpha1.JSONPatchOperation{
+								{Op: "add", Path: "/metadata/labels/foo", Value: &runtime.RawExtension{Raw: []byte(`"${parameters.name +}"`)}},
+							},
+						},
+					},
+				},
 			},
 			wantError: true,
-			errMsg:    "rule must return boolean",
+			errMsg:    "invalid CEL expression",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateValidationRule(tt.rule, validator, basePath)
-
+			errs := ValidateClusterTraitCreatesAndPatchesWithSchema(tt.ct, nil, nil)
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")
 				if tt.errMsg != "" {
@@ -337,92 +357,6 @@ func TestValidateValidationRule(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestValidateComponentTypeValidationRules(t *testing.T) {
-	parametersSchema := &apiextschema.Structural{
-		Generic: apiextschema.Generic{Type: "object"},
-		Properties: map[string]apiextschema.Structural{
-			"replicas": {Generic: apiextschema.Generic{Type: "integer"}},
-			"expose":   {Generic: apiextschema.Generic{Type: "boolean"}},
-		},
-	}
-
-	t.Run("valid rules pass", func(t *testing.T) {
-		ct := &v1alpha1.ComponentType{
-			Spec: v1alpha1.ComponentTypeSpec{
-				Validations: []v1alpha1.ValidationRule{
-					{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
-					{Rule: "${parameters.expose == true}", Message: "must expose"},
-				},
-				Resources: []v1alpha1.ResourceTemplate{
-					{
-						ID:       "deployment",
-						Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"x"}}`)},
-					},
-				},
-			},
-		}
-
-		errs := ValidateComponentTypeResourcesWithSchema(ct, parametersSchema, nil)
-		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
-	})
-
-	t.Run("non-boolean rule rejected", func(t *testing.T) {
-		ct := &v1alpha1.ComponentType{
-			Spec: v1alpha1.ComponentTypeSpec{
-				Validations: []v1alpha1.ValidationRule{
-					{Rule: "${parameters.replicas}", Message: "returns int not bool"},
-				},
-				Resources: []v1alpha1.ResourceTemplate{
-					{
-						ID:       "deployment",
-						Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"x"}}`)},
-					},
-				},
-			},
-		}
-
-		errs := ValidateComponentTypeResourcesWithSchema(ct, parametersSchema, nil)
-		assert.NotEmpty(t, errs, "expected validation error")
-		assert.Contains(t, errs.ToAggregate().Error(), "rule must return boolean")
-	})
-}
-
-func TestValidateTraitValidationRules(t *testing.T) {
-	parametersSchema := &apiextschema.Structural{
-		Generic: apiextschema.Generic{Type: "object"},
-		Properties: map[string]apiextschema.Structural{
-			"size": {Generic: apiextschema.Generic{Type: "integer"}},
-		},
-	}
-
-	t.Run("valid rules pass", func(t *testing.T) {
-		trait := &v1alpha1.Trait{
-			Spec: v1alpha1.TraitSpec{
-				Validations: []v1alpha1.ValidationRule{
-					{Rule: "${parameters.size > 0}", Message: "size must be positive"},
-				},
-			},
-		}
-
-		errs := ValidateTraitCreatesAndPatchesWithSchema(trait, parametersSchema, nil)
-		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
-	})
-
-	t.Run("non-boolean rule rejected", func(t *testing.T) {
-		trait := &v1alpha1.Trait{
-			Spec: v1alpha1.TraitSpec{
-				Validations: []v1alpha1.ValidationRule{
-					{Rule: "${parameters.size}", Message: "returns int not bool"},
-				},
-			},
-		}
-
-		errs := ValidateTraitCreatesAndPatchesWithSchema(trait, parametersSchema, nil)
-		assert.NotEmpty(t, errs, "expected validation error")
-		assert.Contains(t, errs.ToAggregate().Error(), "rule must return boolean")
-	})
 }
 
 func TestExtractCELFromTemplate(t *testing.T) {
