@@ -12,18 +12,10 @@ argo-workflows:
 
 global:
   defaultResources:
-    enabled: true
     registry:
       host: "host.k3d.internal:10082"
-      tlsVerify: false
     buildpackCache:
       enabled: true
-
-# Disable Fluent Bit for Build Plane in single-cluster mode
-# Reason: Data Plane FluentBit (DaemonSet on all nodes) already collects logs from ALL namespaces,
-# including openchoreo-build-plane and openchoreo-ci-* (Argo Workflows build jobs).
-fluent-bit:
-  enabled: false
 
 openbao:
   server:

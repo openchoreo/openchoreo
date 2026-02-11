@@ -5,10 +5,7 @@
 # IMPORTANT: Before installing, run ./install/extract-agent-cas.sh server-ca
 # and paste the server CA certificate below
 clusterAgent:
-  enabled: true
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
-  planeID: "default-buildplane"
-  planeType: "buildplane"
 
   # DNS rewrite configuration for multi-cluster k3d setup
   # Rewrites *.openchoreo.localhost to host.k3d.internal for cross-cluster communication
@@ -16,7 +13,6 @@ clusterAgent:
     enabled: true
 
   tls:
-    enabled: true
     generateCerts: true
     # For multi-cluster, don't set caSecretName - use self-signed certs
     # The cluster gateway will verify the client cert via mTLS
@@ -30,10 +26,6 @@ clusterAgent:
       <PASTE_SERVER_CA_CERTIFICATE_HERE>
       -----END CERTIFICATE-----
 
-  # RBAC for cluster agent
-  rbac:
-    create: true
-
 argo-workflows:
   server:
     # Argo Workflows UI is enabled only for testing/development purposes.
@@ -46,7 +38,6 @@ argo-workflows:
 
 global:
   defaultResources:
-    enabled: true
     registry:
       host: "host.k3d.internal:10082"
     buildpackCache:

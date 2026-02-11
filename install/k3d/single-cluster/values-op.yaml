@@ -1,8 +1,6 @@
 # Helm values for OpenChoreo Observability Plane in k3d single-cluster setup
 
 global:
-  # Single-cluster non-HA mode uses standalone OpenSearch instead of operator
-  installationMode: singleCluster
   baseDomain: openchoreo.localhost
 
 # Use standalone OpenSearch (not operator-managed cluster)
@@ -24,9 +22,6 @@ observer:
 openSearchDashboards:
   service:
     type: LoadBalancer
-
-fakeSecretStore:
-  enabled: false
 
 security:
   oidc:

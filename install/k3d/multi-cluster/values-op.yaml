@@ -5,23 +5,6 @@
 fluent-bit:
   enabled: true
 
-  config:
-    outputs: |
-      [OUTPUT]
-          Name opensearch
-          Host opensearch
-          Generate_ID On
-          HTTP_Passwd ThisIsTheOpenSearchPassword1
-          HTTP_User admin
-          Logstash_Format On
-          Logstash_DateFormat %Y-%m-%d
-          Logstash_Prefix container-logs
-          Match kube.*
-          Port 9200
-          Suppress_Type_Name On
-          tls On
-          tls.verify Off
-
 kgateway:
   enabled: true
 
@@ -55,20 +38,15 @@ openSearchDashboards:
     type: LoadBalancer
 
 openSearch:
-  enabled: false
   # Expose OpenSearch API via LoadBalancer for Fluent Bit data pushing
   service:
     type: LoadBalancer
-
-openSearchCluster:
-  enabled: true
 
 opentelemetry-collector:
   service:
     type: LoadBalancer
 
 prometheus:
-  enabled: true
   prometheus:
     prometheusSpec:
       enableRemoteWriteReceiver: true
@@ -80,8 +58,6 @@ prometheus:
 
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
-  planeID: "default-observabilityplane"
-  planeType: "observabilityplane"
 
   # DNS rewrite configuration for multi-cluster k3d setup
   # Rewrites *.openchoreo.localhost to host.k3d.internal for cross-cluster communication
@@ -89,7 +65,6 @@ clusterAgent:
     enabled: true
 
   tls:
-    enabled: true
     generateCerts: true
     # For multi-cluster, don't set caSecretName - use self-signed certs
     # The cluster gateway will verify the client cert via mTLS
@@ -102,10 +77,6 @@ clusterAgent:
       -----BEGIN CERTIFICATE-----
       <PASTE_SERVER_CA_CERTIFICATE_HERE>
       -----END CERTIFICATE-----
-
-  # RBAC for cluster agent
-  rbac:
-    create: true
 
 gateway:
   enabled: true

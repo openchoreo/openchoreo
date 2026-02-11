@@ -11,10 +11,6 @@ global:
 # Note: For k3d, we use Kgateway TLSRoute for TLS passthrough on shared port 8443
 # Alternative: Add dedicated port mapping in k3d config (requires cluster recreation)
 clusterGateway:
-  enabled: true
-  service:
-    type: ClusterIP
-    port: 8443
   tlsRoute:
     enabled: true
     hosts:
@@ -23,23 +19,13 @@ clusterGateway:
           - path: /
             pathType: Prefix
   tls:
-    enabled: true  # mTLS for secure agent communication
+    # mTLS for secure agent communication
     issuerRef:
-      kind: Issuer
       name: cluster-gateway-server-issuer  # CA issuer for server certificates
     dnsNames:
       - cluster-gateway.openchoreo-control-plane.svc
       - cluster-gateway.openchoreo-control-plane.svc.cluster.local
       - cluster-gateway.openchoreo.localhost  # External hostname for multi-cluster access
-
-# Controller Manager cluster gateway configuration
-# Enables controllers to communicate with data/build planes via cluster gateway
-# Uses internal service DNS (controller runs inside the cluster)
-controllerManager:
-  clusterGateway:
-    enabled: true
-    # Use internal service DNS - controller manager runs inside the control plane cluster
-    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
 
 thunder:
   configuration:
@@ -47,16 +33,10 @@ thunder:
       publicUrl: "http://thunder.openchoreo.localhost:8080"
     gateClient:
       hostname: "thunder.openchoreo.localhost"
-      port: 8080
-      scheme: "http"
 
 gateway:
-  # Enable gateway
-  enabled: true
-
-  # Envoy - enabled by default for traffic routing
+  # Envoy configuration for traffic routing
   envoy:
-    enabled: true
     # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
     # Enable this if gateway pods crash with "Failed to create temporary file" errors
     # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
