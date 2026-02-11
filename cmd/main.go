@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/clusterbuildplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
@@ -59,6 +60,7 @@ import (
 	componentworkflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/componentworkflow"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
+	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
 	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
@@ -188,6 +190,13 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&trait.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&clustertrait.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -522,6 +531,13 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := traitwebhook.SetupTraitWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Trait")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := clustertraitwebhook.SetupClusterTraitWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterTrait")
 			os.Exit(1)
 		}
 	}
