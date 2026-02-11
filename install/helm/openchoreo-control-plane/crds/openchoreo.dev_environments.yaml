@@ -111,7 +111,6 @@ spec:
                     description: Public virtual host for the gateway
                     type: string
                 required:
-                - organizationVirtualHost
                 - publicVirtualHost
                 type: object
               isProduction:

@@ -951,11 +951,6 @@ func resolveEndpointURLStatuses(
 ) []openchoreov1alpha1.EndpointURLStatus {
 	logger := log.FromContext(ctx).WithName("endpoint-resolver")
 
-	logger.Info("Resolving endpoint URLs",
-		"resourceCount", len(resources),
-		"endpointCount", len(endpoints),
-	)
-
 	if len(endpoints) == 0 {
 		logger.Info("No workload endpoints defined, skipping endpoint URL resolution")
 		return nil
@@ -982,33 +977,15 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		logger.Info("Inspecting rendered resource",
-			"resourceID", res.ID,
-			"kind", obj.GetKind(),
-			"group", obj.GetObjectKind().GroupVersionKind().Group,
-			"name", obj.GetName(),
-		)
-
 		if obj.GetKind() != httpRouteKind {
 			continue
 		}
 		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
-			logger.Info("Skipping HTTPRoute-kind resource with unexpected API group",
-				"name", obj.GetName(),
-				"group", obj.GetObjectKind().GroupVersionKind().Group,
-				"expectedGroup", gatewayAPIGroup,
-			)
 			continue
 		}
 
 		// Match backendRef[0].port → endpoint name
 		port := extractBackendRefPort(obj)
-		logger.Info("Found HTTPRoute, checking backendRef port",
-			"httpRouteName", obj.GetName(),
-			"backendRefPort", port,
-			"portToNameMap", portToName,
-		)
-
 		endpointName, ok := portToName[port]
 		if !ok {
 			logger.Info("No workload endpoint matched HTTPRoute backendRef port",
@@ -1021,7 +998,6 @@ func resolveEndpointURLStatuses(
 
 		hostname := extractFirstHostname(obj)
 		if hostname == "" {
-			logger.Info("HTTPRoute has no hostname, skipping", "httpRouteName", obj.GetName())
 			continue
 		}
 
@@ -1058,7 +1034,6 @@ func resolveEndpointURLStatuses(
 		})
 	}
 
-	logger.Info("Endpoint URL resolution complete", "resolvedCount", len(result))
 	return result
 }
 

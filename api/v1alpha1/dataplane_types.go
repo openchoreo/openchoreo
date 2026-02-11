@@ -42,7 +42,8 @@ type GatewaySpec struct {
 	// Public virtual host for the gateway
 	PublicVirtualHost string `json:"publicVirtualHost"`
 	// Organization-specific virtual host for the gateway
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+	// +optional
+	OrganizationVirtualHost string `json:"organizationVirtualHost,omitempty"`
 	// Public HTTP port for the gateway
 	// +optional
 	// +kubebuilder:default=19080
