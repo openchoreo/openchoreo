@@ -58,7 +58,7 @@ data:
       "{{ $url }}"
       {{- end }}
       {{- else }}
-      "{{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}/api/auth/openchoreo-auth/handler/frame"
+      "{{ include "openchoreo.consoleExternalUrl" . }}/api/auth/openchoreo-auth/handler/frame"
       {{- end }}
     ]'
 

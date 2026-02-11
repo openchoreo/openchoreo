@@ -1,4 +1,11 @@
 {{- if .Values.tls.enabled }}
+{{- $dnsNames := .Values.tls.dnsNames -}}
+{{- if and (not $dnsNames) .Values.global.baseDomain -}}
+{{- $dnsNames = list .Values.global.baseDomain (printf "*.%s" .Values.global.baseDomain) -}}
+{{- end -}}
+{{- if not $dnsNames -}}
+{{- fail "Set tls.dnsNames or global.baseDomain when tls.enabled=true" -}}
+{{- end -}}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -33,6 +40,7 @@ spec:
     name: openchoreo-observability-plane-ca-issuer
     kind: Issuer
   dnsNames:
-  - "{{ .Values.global.baseDomain }}"
-  - "*.{{ .Values.global.baseDomain }}"
+  {{- range $dnsName := $dnsNames }}
+  - {{ $dnsName | quote }}
+  {{- end }}
 {{- end }}

@@ -1,4 +1,11 @@
 {{- if .Values.gateway.enabled }}
+{{- $tlsHostname := .Values.gateway.tlsHostname -}}
+{{- if and (not $tlsHostname) .Values.global.baseDomain -}}
+{{- $tlsHostname = printf "opensearch.%s" .Values.global.baseDomain -}}
+{{- end -}}
+{{- if not $tlsHostname -}}
+{{- fail "Set gateway.tlsHostname or global.baseDomain when gateway.enabled=true" -}}
+{{- end -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -9,7 +16,7 @@ spec:
   listeners:
     - name: tls
       protocol: TLS
-      hostname: opensearch.{{ .Values.global.baseDomain }}
+      hostname: {{ $tlsHostname | quote }}
       tls:
         mode: Passthrough
       port: 11443

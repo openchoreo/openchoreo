@@ -1,10 +1,12 @@
 # Helm values for OpenChoreo Control Plane in k3d multi-cluster setup
-# Note: devMode adds :8080 to URLs (k3d port mapping), disables HTTPS
 
-global:
-  baseDomain: openchoreo.localhost
-  # Port suffix for URLs (k3d maps host:8080 -> container:80)
-  port: ":8080"
+openchoreoApi:
+  config:
+    server:
+      publicUrl: "http://api.openchoreo.localhost:8080"
+
+backstage:
+  baseUrl: "http://openchoreo.localhost:8080"
 
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
@@ -35,6 +37,8 @@ thunder:
       hostname: "thunder.openchoreo.localhost"
 
 gateway:
+  tls:
+    hostname: "*.openchoreo.localhost"
   # Envoy configuration for traffic routing
   envoy:
     # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues

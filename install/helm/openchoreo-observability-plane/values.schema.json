@@ -1389,6 +1389,12 @@
           "title": "enabled",
           "type": "boolean"
         },
+        "tlsHostname": {
+          "default": "",
+          "description": "TLS listener hostname for OpenSearch passthrough route. If empty, derives from global.baseDomain",
+          "title": "tlsHostname",
+          "type": "string"
+        },
         "envoy": {
           "additionalProperties": true,
           "description": "Envoy proxy configuration for actual traffic routing",
@@ -3859,6 +3865,15 @@
       "additionalProperties": false,
       "description": "Global TLS certificate configuration using cert-manager",
       "properties": {
+        "dnsNames": {
+          "default": [],
+          "description": "DNS names for generated wildcard certificate. If empty, derives from global.baseDomain",
+          "items": {
+            "type": "string"
+          },
+          "title": "dnsNames",
+          "type": "array"
+        },
         "enabled": {
           "default": false,
           "description": "Enable TLS certificate generation for the observability plane",

@@ -3,9 +3,9 @@ OpenChoreo Control Plane installed successfully!
 {{- if .Values.backstage.ingress.enabled }}
 
 Access URLs:
-  Console:  {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.consoleHost" . }}{{ include "openchoreo.port" . }}
-  API:      {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.apiHost" . }}{{ include "openchoreo.port" . }}
-  Thunder:  {{ include "openchoreo.protocol" . }}://{{ include "openchoreo.thunderHost" . }}{{ include "openchoreo.port" . }}
+  Console:  {{ include "openchoreo.consoleExternalUrl" . }}
+  API:      {{ include "openchoreo.apiExternalUrl" . }}
+  Thunder:  {{ include "openchoreo.thunderExternalUrl" . }}
 
 Default Credentials: admin@openchoreo.dev / Admin@123
 

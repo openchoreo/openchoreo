@@ -3249,6 +3249,12 @@
                   "title": "port",
                   "type": "integer"
                 },
+                "publicUrl": {
+                  "default": "",
+                  "description": "Public URL for the API server. If empty, auto-derived from ingress/baseDomain settings",
+                  "title": "publicUrl",
+                  "type": "string"
+                },
                 "timeouts": {
                   "additionalProperties": false,
                   "description": "HTTP server timeout settings",

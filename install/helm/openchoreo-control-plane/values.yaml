@@ -936,7 +936,12 @@ openchoreoApi:
       # default: 8080
       # @schema
       port: 8080
-      # public_url is computed from global.baseDomain
+      # @schema
+      # type: string
+      # description: Public URL for the API server. If empty, auto-derived from ingress/baseDomain settings
+      # default: ""
+      # @schema
+      publicUrl: ""
       # @schema
       # type: object
       # description: HTTP server timeout settings

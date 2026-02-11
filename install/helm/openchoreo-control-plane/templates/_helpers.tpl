@@ -175,15 +175,19 @@ Cluster Gateway service account name
 
 {{/*
 Get the API server hostname
-Precedence: ingress.hosts > baseDomain derivation
+Precedence: ingress.hosts > openchoreoApi.config.server.publicUrl > baseDomain derivation
 */}}
 {{- define "openchoreo.apiHost" -}}
 {{- if .Values.openchoreoApi.ingress.hosts -}}
   {{- (index .Values.openchoreoApi.ingress.hosts 0).host -}}
+{{- else if .Values.openchoreoApi.config.server.publicUrl -}}
+  {{- $url := .Values.openchoreoApi.config.server.publicUrl | trimPrefix "http://" | trimPrefix "https://" -}}
+  {{- $url = $url | splitList "/" | first -}}
+  {{- $url | splitList ":" | first -}}
 {{- else if .Values.global.baseDomain -}}
   {{- printf "api.%s" .Values.global.baseDomain -}}
 {{- else -}}
-  {{- fail "Either global.baseDomain or openchoreoApi.ingress.hosts must be set" -}}
+  {{- fail "Set one of openchoreoApi.ingress.hosts, openchoreoApi.config.server.publicUrl, or global.baseDomain" -}}
 {{- end -}}
 {{- end -}}
 
@@ -193,10 +197,14 @@ Get the Console (Backstage) hostname
 {{- define "openchoreo.consoleHost" -}}
 {{- if .Values.backstage.ingress.hosts -}}
   {{- (index .Values.backstage.ingress.hosts 0).host -}}
+{{- else if .Values.backstage.baseUrl -}}
+  {{- $url := .Values.backstage.baseUrl | trimPrefix "http://" | trimPrefix "https://" -}}
+  {{- $url = $url | splitList "/" | first -}}
+  {{- $url | splitList ":" | first -}}
 {{- else if .Values.global.baseDomain -}}
   {{- .Values.global.baseDomain -}}
 {{- else -}}
-  {{- fail "Either global.baseDomain or backstage.ingress.hosts must be set" -}}
+  {{- fail "Set one of backstage.ingress.hosts, backstage.baseUrl, or global.baseDomain" -}}
 {{- end -}}
 {{- end -}}
 
@@ -212,6 +220,17 @@ Get the Thunder IDP hostname
   {{- printf "thunder.%s" .Values.global.baseDomain -}}
 {{- else -}}
   {{- fail "Either global.baseDomain or thunder.configuration.server.publicUrl must be set" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the Console (Backstage) external base URL
+*/}}
+{{- define "openchoreo.consoleExternalUrl" -}}
+{{- if .Values.backstage.baseUrl -}}
+{{- .Values.backstage.baseUrl | trimSuffix "/" -}}
+{{- else -}}
+{{- printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.consoleHost" .) (include "openchoreo.port" .) -}}
 {{- end -}}
 {{- end -}}
 
@@ -268,10 +287,25 @@ Get Thunder internal URL for pod-to-pod communication
 {{- end -}}
 
 {{/*
+Get the API server external URL for external communication
+*/}}
+{{- define "openchoreo.apiExternalUrl" -}}
+{{- if .Values.openchoreoApi.config.server.publicUrl -}}
+{{- .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" -}}
+{{- else -}}
+{{- printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.apiHost" .) (include "openchoreo.port" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get the Thunder external URL for external communication (e.g., OIDC issuer)
 */}}
 {{- define "openchoreo.thunderExternalUrl" -}}
+{{- if .Values.thunder.configuration.server.publicUrl -}}
+{{- .Values.thunder.configuration.server.publicUrl | trimSuffix "/" -}}
+{{- else -}}
 {{- printf "%s://%s%s" (include "openchoreo.protocol" .) (include "openchoreo.thunderHost" .) (include "openchoreo.port" .) -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -291,4 +325,3 @@ false
 true
 {{- end -}}
 {{- end -}}
-

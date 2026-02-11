@@ -80,6 +80,7 @@ clusterAgent:
 
 gateway:
   enabled: true
+  tlsHostname: "opensearch.observability.openchoreo.localhost"
 
   envoy:
     # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
@@ -96,6 +97,9 @@ security:
 
 tls:
   enabled: true
+  dnsNames:
+  - "observability.openchoreo.localhost"
+  - "*.observability.openchoreo.localhost"
 
 rca:
   controlPlaneUrl: "https://api.openchoreo.localhost:8443"
@@ -103,6 +107,3 @@ rca:
     hosts:
     - host: host.k3d.internal
     - host: rca-agent.observability.openchoreo.localhost
-
-global:
-  baseDomain: observability.openchoreo.localhost
