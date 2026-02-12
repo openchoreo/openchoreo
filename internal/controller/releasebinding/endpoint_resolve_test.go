@@ -251,7 +251,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://app.example.com"))
+			Expect(result[0].InvokeURL).To(Equal("https://app.example.com:19443"))
 		})
 	})
 
@@ -310,7 +310,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://app.example.com/api/v1"))
+			Expect(result[0].InvokeURL).To(Equal("https://app.example.com:19443/api/v1"))
 		})
 	})
 
@@ -375,7 +375,6 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Name).To(Equal("greeter"))
-			// 443 is not standard for "https" (standard is 19443), so port is included
 			Expect(result[0].InvokeURL).To(Equal("https://app.env.example.com:443"))
 		})
 	})
@@ -446,9 +445,9 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			)
 			Expect(result).To(HaveLen(2))
 			Expect(result[0].Name).To(Equal("greeter"))
-			Expect(result[0].InvokeURL).To(Equal("https://greeter.example.com/greet"))
+			Expect(result[0].InvokeURL).To(Equal("https://greeter.example.com:19443/greet"))
 			Expect(result[1].Name).To(Equal("health"))
-			Expect(result[1].InvokeURL).To(Equal("https://health.example.com"))
+			Expect(result[1].InvokeURL).To(Equal("https://health.example.com:19443"))
 		})
 	})
 
@@ -696,27 +695,5 @@ var _ = Describe("resolveGatewayPort", func() {
 			PublicHTTPSPort:        30443,
 		})
 		Expect(resolveGatewayPort("pub-gw", "", nil, dp)).To(Equal(int32(30443)))
-	})
-})
-
-var _ = Describe("isStandardPort", func() {
-	It("should return true for HTTPS standard port", func() {
-		Expect(isStandardPort("https", standardHTTPSPort)).To(BeTrue())
-	})
-
-	It("should return false for HTTPS non-standard port", func() {
-		Expect(isStandardPort("https", 443)).To(BeFalse())
-	})
-
-	It("should return true for HTTP standard port", func() {
-		Expect(isStandardPort("http", standardHTTPPort)).To(BeTrue())
-	})
-
-	It("should return false for HTTP non-standard port", func() {
-		Expect(isStandardPort("http", 80)).To(BeFalse())
-	})
-
-	It("should return false for unknown scheme", func() {
-		Expect(isStandardPort("ftp", 21)).To(BeFalse())
 	})
 })

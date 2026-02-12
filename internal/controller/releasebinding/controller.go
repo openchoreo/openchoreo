@@ -35,7 +35,6 @@ const (
 	gatewayAPIGroup    = "gateway.networking.k8s.io"
 	httpRouteScheme    = "https"
 	standardHTTPSPort  = 19443
-	standardHTTPPort   = 19080
 	defaultGatewayName = "gateway-default"
 	defaultGatewayNS   = "openchoreo-data-plane"
 )
@@ -1007,7 +1006,7 @@ func resolveEndpointURLStatuses(
 
 		path := extractFirstPathValue(obj)
 		host := hostname
-		if gatewayPort != 0 && !isStandardPort(httpRouteScheme, gatewayPort) {
+		if gatewayPort != 0 {
 			host = fmt.Sprintf("%s:%d", hostname, gatewayPort)
 		}
 
@@ -1174,17 +1173,6 @@ func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environm
 		return standardHTTPSPort
 	}
 	return 0
-}
-
-// isStandardPort reports whether port is the default port for the given scheme.
-func isStandardPort(scheme string, port int32) bool {
-	switch scheme {
-	case "https":
-		return port == standardHTTPSPort
-	case "http":
-		return port == standardHTTPPort
-	}
-	return false
 }
 
 // applyDefaultNotificationChannel injects a default notificationChannel override for
