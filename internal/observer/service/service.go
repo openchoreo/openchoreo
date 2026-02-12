@@ -594,6 +594,15 @@ func (s *LoggingService) HealthCheck(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
+	// Skip OpenSearch health check if using experimental logs backend
+	if s.config.Experimental.UseLogsBackend {
+		if s.logsBackend == nil {
+			return fmt.Errorf("logs backend enabled but not configured")
+		}
+		s.logger.Debug("Health check passed (OpenSearch check skipped - using logs backend)")
+		return nil
+	}
+
 	if err := s.osClient.HealthCheck(ctx); err != nil {
 		s.logger.Error("Health check failed", "error", err)
 		return fmt.Errorf("opensearch health check failed: %w", err)
