@@ -499,3 +499,13 @@ type StartComponentWorkflowRunParams struct {
 	Commit     string   // Git commit SHA
 	Parameters []string // --set key=value format
 }
+
+// ComponentLogsParams defines parameters for fetching component logs
+type ComponentLogsParams struct {
+	Namespace   string
+	Project     string
+	Component   string
+	Environment string
+	Follow      bool
+	Since       string // duration like "1h", "30m", "5m"
+}

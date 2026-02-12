@@ -151,6 +151,11 @@ func (c *CommandImplementation) ScaffoldComponent(params api.ScaffoldComponentPa
 	return compImpl.ScaffoldComponent(params)
 }
 
+func (c *CommandImplementation) ComponentLogs(params api.ComponentLogsParams) error {
+	compImpl := component.NewCompImpl(constants.ComponentV1Config)
+	return compImpl.ComponentLogs(params)
+}
+
 // Component Release Operations (File-System Mode)
 
 func (c *CommandImplementation) GenerateComponentRelease(params api.GenerateComponentReleaseParams) error {

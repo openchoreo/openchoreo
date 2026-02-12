@@ -27,6 +27,7 @@ func NewComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
 		newListComponentCmd(impl),
 		newScaffoldComponentCmd(impl),
 		newDeployComponentCmd(impl),
+		newLogsComponentCmd(impl),
 	)
 
 	return componentCmd
@@ -135,6 +136,61 @@ func newDeployComponentCmd(impl api.CommandImplementationInterface) *cobra.Comma
 		flags.Set,
 		flags.Output,
 	)
+
+	return cmd
+}
+
+func newLogsComponentCmd(impl api.CommandImplementationInterface) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "logs COMPONENT_NAME",
+		Short: "Get logs for a component",
+		Long:  "Retrieve logs for a component from a specific environment",
+		Example: `  # Get logs for a component
+  occ component logs my-component --env dev
+
+  # Get logs with custom since duration
+  occ component logs my-component --env dev --since 30m
+
+  # Follow logs in real-time
+  occ component logs my-component --env dev --follow`,
+		Args: cobra.ExactArgs(1), // Requires COMPONENT_NAME
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Get component name from positional arg
+			componentName := args[0]
+
+			// Get flag values
+			namespace, _ := cmd.Flags().GetString(flags.Namespace.Name)
+			project, _ := cmd.Flags().GetString(flags.Project.Name)
+			environment, _ := cmd.Flags().GetString(flags.Environment.Name)
+			follow, _ := cmd.Flags().GetBool(flags.Follow.Name)
+			since, _ := cmd.Flags().GetString(flags.Since.Name)
+
+			// Create params
+			params := api.ComponentLogsParams{
+				Namespace:   namespace,
+				Project:     project,
+				Component:   componentName,
+				Environment: environment,
+				Follow:      follow,
+				Since:       since,
+			}
+
+			// Execute logs
+			return impl.ComponentLogs(params)
+		},
+	}
+
+	// Add flags
+	flags.AddFlags(cmd,
+		flags.Namespace,
+		flags.Project,
+		flags.Environment,
+		flags.Follow,
+		flags.Since,
+	)
+
+	// Mark environment as required
+	_ = cmd.MarkFlagRequired(flags.Environment.Name)
 
 	return cmd
 }

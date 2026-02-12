@@ -420,3 +420,45 @@ func (c *Client) CreateComponentWorkflowRun(
 
 	return resp.JSON201, nil
 }
+
+// GetEnvironment retrieves an environment by name
+func (c *Client) GetEnvironment(ctx context.Context, namespaceName, envName string) (*gen.Environment, error) {
+	resp, err := c.client.GetEnvironmentWithResponse(ctx, namespaceName, envName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// GetEnvironmentObserverURL retrieves the observer URL for an environment
+func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, envName string) (string, error) {
+	resp, err := c.client.GetEnvironmentObserverURLWithResponse(ctx, namespaceName, envName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get environment observer URL: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	if resp.JSON200.ObserverUrl == nil {
+		return "", fmt.Errorf("observer URL not configured for environment")
+	}
+	return *resp.JSON200.ObserverUrl, nil
+}
+
+// GetComponentObserverURL retrieves the observer URL for a component in an environment
+func (c *Client) GetComponentObserverURL(ctx context.Context, namespaceName, projectName, componentName, envName string) (string, error) {
+	resp, err := c.client.GetComponentObserverURLWithResponse(ctx, namespaceName, projectName, componentName, envName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get component observer URL: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	if resp.JSON200.ObserverUrl == nil {
+		return "", fmt.Errorf("observer URL not configured for component")
+	}
+	return *resp.JSON200.ObserverUrl, nil
+}

@@ -1,0 +1,210 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package component
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
+)
+
+// ComponentLogs fetches and displays logs for a component
+func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
+	ctx := context.Background()
+
+	// Create API client
+	apiClient, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	// Get observer URL for the environment
+	observerURL, err := apiClient.GetEnvironmentObserverURL(ctx, params.Namespace, params.Environment)
+	if err != nil {
+		return fmt.Errorf("failed to get observer URL: %w", err)
+	}
+
+	// Get component to resolve UID
+	component, err := apiClient.GetComponent(ctx, params.Namespace, params.Project, params.Component)
+	if err != nil {
+		return fmt.Errorf("failed to get component: %w", err)
+	}
+
+	// Get environment to resolve UID
+	environment, err := apiClient.GetEnvironment(ctx, params.Namespace, params.Environment)
+	if err != nil {
+		return fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	// Set defaults
+	if params.Since == "" {
+		params.Since = "1h"
+	}
+
+	// Calculate time range from --since flag
+	duration, err := parseDuration(params.Since)
+	if err != nil {
+		return fmt.Errorf("invalid duration format: %w", err)
+	}
+
+	startTime := time.Now().Add(-duration)
+	endTime := time.Now()
+
+	credential, err := config.GetCurrentCredential()
+	if err != nil {
+		return fmt.Errorf("failed to get credentials: %w", err)
+	}
+
+	if params.Follow {
+		return c.followLogs(ctx, observerURL, credential.Token, component.Uid.String(), environment.Uid.String(), params, startTime, endTime)
+	}
+
+	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, component.Uid.String(), environment.Uid.String(), params, startTime, endTime)
+}
+
+// fetchAndPrintLogs fetches logs for a given time range and prints them
+func (c *CompImpl) fetchAndPrintLogs(
+	ctx context.Context,
+	observerURL string,
+	token string,
+	componentID string,
+	environmentID string,
+	params api.ComponentLogsParams,
+	startTime time.Time,
+	endTime time.Time,
+) error {
+	logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	if err != nil {
+		return err
+	}
+
+	for _, log := range logs {
+		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+	}
+
+	return nil
+}
+
+// followLogs continuously fetches and prints new logs
+func (c *CompImpl) followLogs(
+	ctx context.Context,
+	observerURL string,
+	token string,
+	componentID string,
+	environmentID string,
+	params api.ComponentLogsParams,
+	startTime time.Time,
+	endTime time.Time,
+) error {
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Initial fetch
+	logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+	if err != nil {
+		return err
+	}
+
+	// Print initial logs
+	for _, log := range logs {
+		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+	}
+
+	// Update startTime to the last log timestamp or endTime
+	if len(logs) > 0 {
+		lastTimestamp, err := time.Parse(time.RFC3339, logs[len(logs)-1].Timestamp)
+		if err == nil {
+			startTime = lastTimestamp.Add(1 * time.Millisecond) // Add 1ms to avoid duplicate
+		} else {
+			startTime = endTime
+		}
+	} else {
+		startTime = endTime
+	}
+
+	// Poll for new logs
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println("\nStopping log streaming...")
+			return nil
+		case <-ticker.C:
+			endTime = time.Now()
+
+			logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
+			if err != nil {
+				// Log error but continue
+				fmt.Fprintf(os.Stderr, "Error fetching logs: %v\n", err)
+				continue
+			}
+
+			// Print new logs
+			for _, log := range logs {
+				fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+			}
+
+			// Update startTime
+			if len(logs) > 0 {
+				lastTimestamp, err := time.Parse(time.RFC3339, logs[len(logs)-1].Timestamp)
+				if err == nil {
+					startTime = lastTimestamp.Add(1 * time.Millisecond)
+				} else {
+					startTime = endTime
+				}
+			} else {
+				startTime = endTime
+			}
+		}
+	}
+}
+
+// fetchLogs makes an HTTP request to the observer to fetch logs
+func (c *CompImpl) fetchLogs(
+	ctx context.Context,
+	observerURL string,
+	token string,
+	componentID string,
+	environmentID string,
+	params api.ComponentLogsParams,
+	startTime time.Time,
+	endTime time.Time,
+) ([]client.LogEntry, error) {
+	reqBody := client.ComponentLogsRequest{
+		StartTime:       startTime.Format(time.RFC3339),
+		EndTime:         endTime.Format(time.RFC3339),
+		EnvironmentID:   environmentID,
+		ComponentName:   params.Component,
+		ProjectName:     params.Project,
+		NamespaceName:   params.Namespace,
+		EnvironmentName: params.Environment,
+		Limit:           100,
+		SortOrder:       "asc",
+		LogType:         "runtime",
+	}
+
+	// Create observer client and fetch logs
+	obsClient := client.NewObserverClient(observerURL, token)
+	logResponse, err := obsClient.FetchComponentLogs(ctx, componentID, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	return logResponse.Logs, nil
+}
+
+// parseDuration parses duration strings like "5m", "1h", "24h"
+func parseDuration(s string) (time.Duration, error) {
+	return time.ParseDuration(s)
+}

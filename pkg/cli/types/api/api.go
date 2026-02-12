@@ -44,6 +44,7 @@ type ComponentAPI interface {
 	ListComponents(params ListComponentsParams) error
 	ScaffoldComponent(params ScaffoldComponentParams) error
 	DeployComponent(params DeployComponentParams) error
+	ComponentLogs(params ComponentLogsParams) error
 }
 
 // ApplyAPI defines methods for applying configurations

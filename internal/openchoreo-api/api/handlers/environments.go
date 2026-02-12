@@ -85,7 +85,15 @@ func (h *Handler) GetEnvironment(
 	ctx context.Context,
 	request gen.GetEnvironmentRequestObject,
 ) (gen.GetEnvironmentResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Debug("GetEnvironment called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
+
+	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, request.NamespaceName, request.EnvName)
+	if err != nil {
+		h.logger.Error("Failed to get environment", "error", err, "namespace", request.NamespaceName, "env", request.EnvName)
+		return gen.GetEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetEnvironment200JSONResponse(toGenEnvironment(environment)), nil
 }
 
 // GetEnvironmentObserverURL returns the observer URL for an environment
@@ -93,7 +101,23 @@ func (h *Handler) GetEnvironmentObserverURL(
 	ctx context.Context,
 	request gen.GetEnvironmentObserverURLRequestObject,
 ) (gen.GetEnvironmentObserverURLResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Debug("GetEnvironmentObserverURL called", "namespaceName", request.NamespaceName, "envName", request.EnvName)
+
+	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, request.NamespaceName, request.EnvName)
+	if err != nil {
+		h.logger.Error("Failed to get environment observer URL", "error", err, "namespace", request.NamespaceName, "env", request.EnvName)
+		return gen.GetEnvironmentObserverURL500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	// Convert to generated type
+	response := gen.ObserverURLResponse{
+		ObserverUrl: &observerResponse.ObserverURL,
+	}
+	if observerResponse.Message != "" {
+		response.Message = &observerResponse.Message
+	}
+
+	return gen.GetEnvironmentObserverURL200JSONResponse(response), nil
 }
 
 // GetRCAAgentURL returns the RCA agent URL for an environment

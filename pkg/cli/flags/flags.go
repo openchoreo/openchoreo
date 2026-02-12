@@ -31,7 +31,6 @@ var (
 	Namespace = Flag{
 		Name:  "namespace",
 		Usage: messages.FlagNamespaceDesc,
-		Alias: "ns",
 	}
 
 	Project = Flag{
@@ -48,7 +47,7 @@ var (
 		Usage: messages.FlagBuildDesc,
 	}
 	Environment = Flag{
-		Name:  "environment",
+		Name:  "env",
 		Usage: messages.FlagEnvironmentDesc,
 	}
 	Deployment = Flag{
@@ -121,9 +120,14 @@ var (
 		Usage: messages.FlagTailDesc,
 	}
 	Follow = Flag{
-		Name:  "follow",
-		Usage: messages.FlagFollowDesc,
-		Type:  "bool",
+		Name:      "follow",
+		Shorthand: "f",
+		Usage:     messages.FlagFollowDesc,
+		Type:      "bool",
+	}
+	Since = Flag{
+		Name:  "since",
+		Usage: "Only return logs newer than a relative duration like 5m, 1h, or 24h",
 	}
 	BuildTypeName = Flag{
 		Name:  "type",
