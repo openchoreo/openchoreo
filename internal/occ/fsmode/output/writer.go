@@ -188,10 +188,15 @@ func (w *Writer) WriteResource(resource *unstructured.Unstructured, outputPath s
 	return nil
 }
 
+// OutputDirResolverFunc resolves the output directory for a given project and component.
+// Returns the directory path, or empty string to fall through to the default.
+type OutputDirResolverFunc func(projectName, componentName string) string
+
 // BulkWriteOptions configures bulk write operations
 type BulkWriteOptions struct {
 	Config          *config.ReleaseConfig // Config for output directory resolution
 	OutputDir       string                // Default output directory
+	Resolver        OutputDirResolverFunc // Optional resolver for output directory
 	DryRun          bool                  // If true, write to stdout
 	SkipIfUnchanged bool                  // If true, skip writing if release is identical to latest
 	Stdout          io.Writer             // Writer for dry-run output
@@ -321,7 +326,17 @@ func (w *Writer) resolveOutputPath(
 		return filepath.Join(outputDir, releaseName+".yaml")
 	}
 
-	// Priority 3: Use default path structure
+	// Priority 3: Use resolver function if provided
+	if opts.Resolver != nil {
+		if resolvedDir := opts.Resolver(projectName, componentName); resolvedDir != "" {
+			if !filepath.IsAbs(resolvedDir) {
+				resolvedDir = filepath.Join(w.baseDir, resolvedDir)
+			}
+			return filepath.Join(resolvedDir, releaseName+".yaml")
+		}
+	}
+
+	// Priority 4: Use default path structure
 	return filepath.Join(
 		w.baseDir,
 		"projects", projectName,
@@ -335,6 +350,7 @@ func (w *Writer) resolveOutputPath(
 type BulkBindingWriteOptions struct {
 	Config    *config.ReleaseConfig // Config for output directory resolution
 	OutputDir string                // Default output directory
+	Resolver  OutputDirResolverFunc // Optional resolver for output directory
 	DryRun    bool                  // If true, write to stdout
 	Stdout    io.Writer             // Writer for dry-run output
 }
@@ -500,7 +516,17 @@ func (w *Writer) resolveBindingOutputPath(
 		return filepath.Join(outputDir, bindingName+".yaml")
 	}
 
-	// Priority 3: Use default path structure
+	// Priority 3: Use resolver function if provided
+	if opts.Resolver != nil {
+		if resolvedDir := opts.Resolver(projectName, componentName); resolvedDir != "" {
+			if !filepath.IsAbs(resolvedDir) {
+				resolvedDir = filepath.Join(w.baseDir, resolvedDir)
+			}
+			return filepath.Join(resolvedDir, bindingName+".yaml")
+		}
+	}
+
+	// Priority 4: Use default path structure
 	// projects/<project>/components/<component>/bindings/<binding>.yaml
 	return filepath.Join(
 		w.baseDir,

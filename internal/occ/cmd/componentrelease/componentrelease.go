@@ -102,9 +102,8 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 	// Wrap generic index with OpenChoreo-specific functionality
 	ocIndex := fsmode.WrapIndex(persistentIndex.Index)
 
-	// 3. Load release config (required for bulk operations, not for single component)
-	requireReleaseConfig := params.All || (params.ProjectName != "" && params.ComponentName == "")
-	releaseConfig, err := c.loadReleaseConfig(repoPath, requireReleaseConfig)
+	// 3. Load release config (optional - when absent, output dirs are inferred from index)
+	releaseConfig, err := c.loadReleaseConfig(repoPath, false)
 	if err != nil {
 		return err
 	}
@@ -124,9 +123,12 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 		return fmt.Errorf("namespace is required in context")
 	}
 
-	// 7. Generate releases based on scope
+	// 7. Build output directory resolver for when no release-config.yaml exists
+	resolver := buildOutputDirResolver(ocIndex, namespace)
+
+	// 8. Generate releases based on scope
 	if params.All {
-		return c.generateAll(gen, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig)
+		return c.generateAll(gen, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	// Check for specific component first (requires project to be specified)
@@ -139,7 +141,7 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 
 	// Project-only scope (all components in project)
 	if params.ProjectName != "" {
-		return c.generateForProject(gen, params.ProjectName, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig)
+		return c.generateForProject(gen, params.ProjectName, namespace, baseDir, customOutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	return nil
@@ -168,7 +170,7 @@ func (c *ComponentReleaseImpl) loadReleaseConfig(repoPath string, requireForBulk
 	return releaseConfig, nil
 }
 
-func (c *ComponentReleaseImpl) generateAll(gen *generator.ReleaseGenerator, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (c *ComponentReleaseImpl) generateAll(gen *generator.ReleaseGenerator, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkReleases(generator.BulkReleaseOptions{
 		All:       true,
 		Namespace: namespace,
@@ -177,10 +179,10 @@ func (c *ComponentReleaseImpl) generateAll(gen *generator.ReleaseGenerator, name
 		return err
 	}
 
-	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerator, project, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerator, project, namespace, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkReleases(generator.BulkReleaseOptions{
 		ProjectName: project,
 		Namespace:   namespace,
@@ -189,7 +191,7 @@ func (c *ComponentReleaseImpl) generateForProject(gen *generator.ReleaseGenerato
 		return err
 	}
 
-	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+	return c.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
 func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenerator, component, project, namespace, baseDir, customOutputPath, customReleaseName string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
@@ -240,7 +242,7 @@ func (c *ComponentReleaseImpl) generateForComponent(gen *generator.ReleaseGenera
 	return nil
 }
 
-func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
 		fmt.Fprintf(os.Stderr, "Error generating release for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
@@ -267,6 +269,7 @@ func (c *ComponentReleaseImpl) writeResults(result *generator.BulkReleaseResult,
 		writeResult, err := writer.WriteBulkReleases(releases, output.BulkWriteOptions{
 			Config:          releaseConfig,
 			OutputDir:       customOutputPath,
+			Resolver:        resolver,
 			DryRun:          false,
 			SkipIfUnchanged: true,
 		})

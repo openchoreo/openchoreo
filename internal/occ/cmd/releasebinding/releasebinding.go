@@ -101,9 +101,8 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 
 	ocIndex := fsmode.WrapIndex(persistentIndex.Index)
 
-	// 3. Load release config (required for bulk operations)
-	requireConfig := params.All || (params.ProjectName != "" && params.ComponentName == "")
-	releaseConfig, err := r.loadReleaseConfig(repoPath, requireConfig)
+	// 3. Load release config (optional - when absent, output dirs are inferred from index)
+	releaseConfig, err := r.loadReleaseConfig(repoPath, false)
 	if err != nil {
 		return err
 	}
@@ -134,9 +133,12 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 	gen := generator.NewBindingGenerator(ocIndex)
 	baseDir := repoPath
 
-	// 8. Generate bindings based on scope
+	// 8. Build output directory resolver for when no release-config.yaml exists
+	resolver := buildBindingOutputDirResolver(ocIndex, namespace)
+
+	// 9. Generate bindings based on scope
 	if params.All {
-		return r.generateAll(gen, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig)
+		return r.generateAll(gen, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	if params.ComponentName != "" {
@@ -146,7 +148,7 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 
 	// Project-only scope
 	if params.ProjectName != "" {
-		return r.generateForProject(gen, params.ProjectName, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig)
+		return r.generateForProject(gen, params.ProjectName, namespace, params.TargetEnv, pipelineInfo, baseDir, params.OutputPath, params.DryRun, releaseConfig, resolver)
 	}
 
 	return nil
@@ -173,7 +175,7 @@ func (r *ReleaseBindingImpl) loadReleaseConfig(repoPath string, requireForBulk b
 	return releaseConfig, nil
 }
 
-func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
 		All:          true,
 		TargetEnv:    targetEnv,
@@ -184,10 +186,10 @@ func (r *ReleaseBindingImpl) generateAll(gen *generator.BindingGenerator, namesp
 		return err
 	}
 
-	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator, project, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator, project, namespace, targetEnv string, pipelineInfo *pipeline.PipelineInfo, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	result, err := gen.GenerateBulkBindings(generator.BulkBindingOptions{
 		ProjectName:  project,
 		TargetEnv:    targetEnv,
@@ -198,7 +200,7 @@ func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator,
 		return err
 	}
 
-	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig)
+	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
 func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerator, params api.GenerateReleaseBindingParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig) error {
@@ -245,7 +247,7 @@ func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerato
 	return nil
 }
 
-func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig) error {
+func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, baseDir, customOutputPath string, dryRun bool, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
 	// Print errors first
 	for _, e := range result.Errors {
 		fmt.Fprintf(os.Stderr, "Error generating binding for %s/%s: %v\n", e.ProjectName, e.ComponentName, e.Error)
@@ -277,6 +279,7 @@ func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, b
 		writeResult, err := writer.WriteBulkBindings(bindings, output.BulkBindingWriteOptions{
 			Config:    releaseConfig,
 			OutputDir: customOutputPath,
+			Resolver:  resolver,
 			DryRun:    false,
 		})
 		if err != nil {
