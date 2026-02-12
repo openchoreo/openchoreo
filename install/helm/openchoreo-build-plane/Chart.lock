@@ -4,9 +4,9 @@ dependencies:
   version: 0.45.2
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
-  version: 0.54.0
+  version: 0.55.0
 - name: openbao
   repository: https://openbao.github.io/openbao-helm
   version: 0.4.0
-digest: sha256:4ad9b54f672a243bb26af58d3f64026acce60c010d09924035167d567fd1a936
-generated: "2026-02-06T13:34:54.604379+05:30"
+digest: sha256:1a2671e28e52e1a599b5de3f342efff8fb348e9647ec85809b24d1534e57ac5a
+generated: "2026-02-12T08:32:08.596503546Z"
