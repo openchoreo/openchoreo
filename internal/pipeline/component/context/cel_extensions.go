@@ -38,12 +38,14 @@ const (
 //   - Function: configurationsToConfigEnvsByContainer
 //   - Macro: configurations.toSecretEnvsByContainer() -> configurationsToSecretEnvsByContainer(configurations, prefix)
 //   - Function: configurationsToSecretEnvsByContainer
+//   - Macro: workload.endpoints.toServicePorts() -> workloadEndpointsToServicePorts(workload.endpoints)
+//   - Function: workloadEndpointsToServicePorts
 //
 // Where prefix = metadata.componentName + "-" + metadata.environmentName (automatically injected by macros)
 func CELExtensions() []cel.EnvOption {
 	return []cel.EnvOption{
 		// Register the macros
-		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro),
+		cel.Macros(toConfigFileListMacro, toSecretFileListMacro, toContainerEnvFromMacro, toContainerVolumeMountsMacro, toVolumesMacro, toConfigEnvsByContainerMacro, toSecretEnvsByContainerMacro, toServicePortsMacro),
 		// Register the functions
 		cel.Function("configurationsToConfigFileList",
 			cel.Overload("configurationsToConfigFileList_dyn_string",
@@ -87,6 +89,12 @@ func CELExtensions() []cel.EnvOption {
 			cel.Overload("configurationsToSecretEnvsByContainer_dyn_string",
 				[]*cel.Type{cel.DynType, cel.StringType}, cel.ListType(cel.DynType),
 				cel.BinaryBinding(configurationsToSecretEnvsByContainerFunction),
+			),
+		),
+		cel.Function("workloadEndpointsToServicePorts",
+			cel.Overload("workloadEndpointsToServicePorts_map",
+				[]*cel.Type{cel.MapType(cel.StringType, cel.DynType)}, cel.ListType(cel.DynType),
+				cel.UnaryBinding(workloadEndpointsToServicePortsFunction),
 			),
 		),
 	}
@@ -173,6 +181,22 @@ var toSecretEnvsByContainerMacro = cel.ReceiverMacro("toSecretEnvsByContainer", 
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
 			prefixExpr := buildPrefixExpr(eh)
 			return eh.NewCall("configurationsToSecretEnvsByContainer", target, prefixExpr), nil
+		}
+		return nil, nil
+	})
+
+// toServicePortsMacro transforms workload.endpoints.toServicePorts() into
+// workloadEndpointsToServicePorts(workload.endpoints) at compile time.
+var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		// Check if target is workload.endpoints
+		if target.Kind() == ast.SelectKind {
+			sel := target.AsSelect()
+			if sel.FieldName() == "endpoints" &&
+				sel.Operand().Kind() == ast.IdentKind &&
+				sel.Operand().AsIdent() == "workload" {
+				return eh.NewCall("workloadEndpointsToServicePorts", target), nil
+			}
 		}
 		return nil, nil
 	})
@@ -685,4 +709,74 @@ func generateEnvResourceName(prefix, container, suffix string) string {
 		container,
 		suffix,
 	)
+}
+
+// workloadEndpointsToServicePortsFunction is the CEL binding for workload.endpoints.toServicePorts().
+// Returns a list of Service port definitions, each containing: name, port, targetPort, protocol.
+func workloadEndpointsToServicePortsFunction(endpoints ref.Val) ref.Val {
+	endpointsMap, ok := endpoints.Value().(map[string]any)
+	if !ok {
+		return types.NewErr("toServicePorts: expected map[string]any, got %T", endpoints.Value())
+	}
+
+	if len(endpointsMap) == 0 {
+		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
+	}
+
+	result := make([]map[string]any, 0, len(endpointsMap))
+
+	for endpointName, endpointVal := range endpointsMap {
+		endpoint, ok := endpointVal.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		port, ok := endpoint["port"].(int64) // CEL converts int32 to int64
+		if !ok {
+			continue
+		}
+
+		endpointType, _ := endpoint["type"].(string)
+		protocol := mapEndpointTypeToProtocol(endpointType)
+
+		// Sanitize endpoint name for Kubernetes port naming
+		sanitizedName := sanitizePortName(endpointName)
+
+		result = append(result, map[string]any{
+			"name":       sanitizedName,
+			"port":       port,       // External port uses endpoint port
+			"targetPort": port,       // Target port uses endpoint port
+			"protocol":   protocol,
+		})
+	}
+
+	return types.DefaultTypeAdapter.NativeToValue(result)
+}
+
+// mapEndpointTypeToProtocol maps WorkloadEndpoint.Type to Kubernetes Service protocol.
+func mapEndpointTypeToProtocol(endpointType string) string {
+	switch endpointType {
+	case "TCP":
+		return "TCP"
+	case "UDP":
+		return "UDP"
+	default:
+		// HTTP, REST, gRPC, GraphQL, Websocket all use TCP
+		return "TCP"
+	}
+}
+
+// sanitizePortName sanitizes endpoint names for use as Kubernetes port names.
+// Kubernetes port names must be lowercase alphanumeric + hyphens.
+func sanitizePortName(name string) string {
+	name = strings.ToLower(name)
+	name = strings.ReplaceAll(name, "_", "-")
+	// Remove any remaining invalid characters (keep only alphanumeric and hyphens)
+	var result strings.Builder
+	for _, ch := range name {
+		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
+			result.WriteRune(ch)
+		}
+	}
+	return result.String()
 }

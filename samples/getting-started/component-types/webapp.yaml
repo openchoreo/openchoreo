@@ -26,7 +26,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
       containerName: "string | default=main"
 
     envOverrides:
@@ -73,6 +72,7 @@ spec:
               volumes: ${configurations.toVolumes()}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -83,11 +83,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.endpoints.toServicePorts()}
 
     - id: httproute
       template:
@@ -106,7 +102,7 @@ spec:
           rules:
           - backendRefs:
             - name: ${metadata.componentName}
-              port: 80
+              port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig
