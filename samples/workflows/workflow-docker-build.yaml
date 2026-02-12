@@ -15,14 +15,14 @@ spec:
   schema:
     parameters:
       repository:
-        url: string | description="Git repository URL"
+        url: string | default="https://github.com/openchoreo/sample-workloads" description="Git repository URL"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | default="" description="Git commit SHA or reference (optional, defaults to latest)"
-        appPath: string | default=. description="Path to the application directory within the repository"
+        appPath: string | default="/service-go-greeter" description="Path to the application directory within the repository"
       docker:
-        context: string | default=. description="Docker build context path relative to the repository root"
-        filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
+        context: string | default="/service-go-greeter" description="Docker build context path relative to the repository root"
+        filePath: string | default="/service-go-greeter/Dockerfile" description="Path to the Dockerfile relative to the repository root"
 
   # Rendered workflow resource for WorkflowRun executions
   runTemplate:
