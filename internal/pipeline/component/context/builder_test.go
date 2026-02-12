@@ -66,11 +66,7 @@ metadata:
 					"publicVirtualHost": "api.example.com",
 				},
 				"environment": map[string]any{
-					"publicVirtualHost":            "api.example.com",
-					"publicGatewayName":            "gateway-default",
-					"publicGatewayNamespace":       "openchoreo-data-plane",
-					"organizationGatewayName":      "gateway-default",
-					"organizationGatewayNamespace": "openchoreo-data-plane",
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
@@ -144,11 +140,7 @@ spec:
 					"publicVirtualHost": "api.example.com",
 				},
 				"environment": map[string]any{
-					"publicVirtualHost":            "api.example.com",
-					"publicGatewayName":            "gateway-default",
-					"publicGatewayNamespace":       "openchoreo-data-plane",
-					"organizationGatewayName":      "gateway-default",
-					"organizationGatewayNamespace": "openchoreo-data-plane",
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
@@ -240,11 +232,7 @@ metadata:
 					"publicVirtualHost": "api.example.com",
 				},
 				"environment": map[string]any{
-					"publicVirtualHost":            "api.example.com",
-					"publicGatewayName":            "gateway-default",
-					"publicGatewayNamespace":       "openchoreo-data-plane",
-					"organizationGatewayName":      "gateway-default",
-					"organizationGatewayNamespace": "openchoreo-data-plane",
+					"publicVirtualHost": "api.example.com",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
@@ -432,11 +420,7 @@ metadata:
 					"secretStore":       "test-secret-store",
 				},
 				"environment": map[string]any{
-					"publicVirtualHost":            "app.example.com",
-					"publicGatewayName":            "gateway-default",
-					"publicGatewayNamespace":       "openchoreo-data-plane",
-					"organizationGatewayName":      "gateway-default",
-					"organizationGatewayNamespace": "openchoreo-data-plane",
+					"publicVirtualHost": "app.example.com",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",
@@ -520,11 +504,7 @@ spec:
 					"secretStore":       "test-secret-store",
 				},
 				"environment": map[string]any{
-					"publicVirtualHost":            "app.example.com",
-					"publicGatewayName":            "gateway-default",
-					"publicGatewayNamespace":       "openchoreo-data-plane",
-					"organizationGatewayName":      "gateway-default",
-					"organizationGatewayNamespace": "openchoreo-data-plane",
+					"publicVirtualHost": "app.example.com",
 				},
 				"metadata": map[string]any{
 					"name":               "test-component-dev-12345678",

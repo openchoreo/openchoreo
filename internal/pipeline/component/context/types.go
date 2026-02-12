@@ -212,16 +212,8 @@ type ObservabilityPlaneRefData struct {
 // EnvironmentData provides environment-specific gateway configuration in templates.
 // If the environment does not have gateway configuration, values fallback to DataPlane gateway.
 type EnvironmentData struct {
-	PublicVirtualHost            string `json:"publicVirtualHost,omitempty"`
-	OrganizationVirtualHost      string `json:"organizationVirtualHost,omitempty"`
-	PublicHTTPPort               int32  `json:"publicHTTPPort,omitempty"`
-	PublicHTTPSPort              int32  `json:"publicHTTPSPort,omitempty"`
-	OrganizationHTTPPort         int32  `json:"organizationHTTPPort,omitempty"`
-	OrganizationHTTPSPort        int32  `json:"organizationHTTPSPort,omitempty"`
-	PublicGatewayName            string `json:"publicGatewayName,omitempty"`
-	PublicGatewayNamespace       string `json:"publicGatewayNamespace,omitempty"`
-	OrganizationGatewayName      string `json:"organizationGatewayName,omitempty"`
-	OrganizationGatewayNamespace string `json:"organizationGatewayNamespace,omitempty"`
+	PublicVirtualHost       string `json:"publicVirtualHost,omitempty"`
+	OrganizationVirtualHost string `json:"organizationVirtualHost,omitempty"`
 }
 
 // WorkloadData contains workload information for templates.

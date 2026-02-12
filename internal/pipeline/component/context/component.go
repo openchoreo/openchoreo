@@ -186,11 +186,6 @@ func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 	return data
 }
 
-const (
-	defaultGatewayName      = "gateway-default"
-	defaultGatewayNamespace = "openchoreo-data-plane"
-)
-
 // extractEnvironmentData extracts EnvironmentData from Environment and DataPlane resources.
 // If the Environment has gateway configuration, it uses those values.
 // Otherwise, it falls back to the DataPlane gateway configuration.
@@ -199,46 +194,16 @@ func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane) E
 	// If environment has gateway configuration, use it
 	if env.Spec.Gateway.PublicVirtualHost != "" {
 		return EnvironmentData{
-			PublicVirtualHost:            env.Spec.Gateway.PublicVirtualHost,
-			OrganizationVirtualHost:      env.Spec.Gateway.OrganizationVirtualHost,
-			PublicHTTPPort:               env.Spec.Gateway.PublicHTTPPort,
-			PublicHTTPSPort:              env.Spec.Gateway.PublicHTTPSPort,
-			OrganizationHTTPPort:         env.Spec.Gateway.OrganizationHTTPPort,
-			OrganizationHTTPSPort:        env.Spec.Gateway.OrganizationHTTPSPort,
-			PublicGatewayName:            gatewayNameOrDefault(env.Spec.Gateway.PublicGatewayName),
-			PublicGatewayNamespace:       gatewayNamespaceOrDefault(env.Spec.Gateway.PublicGatewayNamespace),
-			OrganizationGatewayName:      gatewayNameOrDefault(env.Spec.Gateway.OrganizationGatewayName),
-			OrganizationGatewayNamespace: gatewayNamespaceOrDefault(env.Spec.Gateway.OrganizationGatewayNamespace),
+			PublicVirtualHost:       env.Spec.Gateway.PublicVirtualHost,
+			OrganizationVirtualHost: env.Spec.Gateway.OrganizationVirtualHost,
 		}
 	}
 
 	// Fallback to DataPlane gateway configuration
 	return EnvironmentData{
-		PublicVirtualHost:            dp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost:      dp.Spec.Gateway.OrganizationVirtualHost,
-		PublicHTTPPort:               dp.Spec.Gateway.PublicHTTPPort,
-		PublicHTTPSPort:              dp.Spec.Gateway.PublicHTTPSPort,
-		OrganizationHTTPPort:         dp.Spec.Gateway.OrganizationHTTPPort,
-		OrganizationHTTPSPort:        dp.Spec.Gateway.OrganizationHTTPSPort,
-		PublicGatewayName:            gatewayNameOrDefault(dp.Spec.Gateway.PublicGatewayName),
-		PublicGatewayNamespace:       gatewayNamespaceOrDefault(dp.Spec.Gateway.PublicGatewayNamespace),
-		OrganizationGatewayName:      gatewayNameOrDefault(dp.Spec.Gateway.OrganizationGatewayName),
-		OrganizationGatewayNamespace: gatewayNamespaceOrDefault(dp.Spec.Gateway.OrganizationGatewayNamespace),
+		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
+		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
 	}
-}
-
-func gatewayNameOrDefault(name string) string {
-	if name == "" {
-		return defaultGatewayName
-	}
-	return name
-}
-
-func gatewayNamespaceOrDefault(namespace string) string {
-	if namespace == "" {
-		return defaultGatewayNamespace
-	}
-	return namespace
 }
 
 // ExtractWorkloadData extracts relevant workload information for the rendering context.
