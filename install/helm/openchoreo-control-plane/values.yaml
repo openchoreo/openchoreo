@@ -1132,6 +1132,7 @@ openchoreoApi:
                 - "trait:view"
                 - "buildplane:view"
                 - "componentworkflow:view"
+                - "workflow:view"
                 - "deploymentpipeline:view"
                 - "observabilityplane:view"
 
