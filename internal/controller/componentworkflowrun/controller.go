@@ -118,7 +118,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if isWorkflowCompleted(componentWorkflowRun) {
-		if isWorkflowSucceeded(componentWorkflowRun) {
+		if isWorkflowSucceeded(componentWorkflowRun) && hasGenerateWorkloadTask(componentWorkflowRun) {
 			return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient), nil
 		}
 		return ctrl.Result{}, nil
@@ -917,4 +917,15 @@ func extractArgoStepOrderFromNodeName(nodeName string) int {
 	}
 
 	return order
+}
+
+// hasGenerateWorkloadTask checks if the generate-workload-cr task exists in the workflow tasks.
+// This is used to determine if workload creation should be attempted.
+func hasGenerateWorkloadTask(componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun) bool {
+	for _, task := range componentWorkflowRun.Status.Tasks {
+		if task.Name == "generate-workload-cr" {
+			return true
+		}
+	}
+	return false
 }

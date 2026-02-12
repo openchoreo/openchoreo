@@ -733,6 +733,96 @@ func TestConditionFunctions(t *testing.T) {
 	})
 }
 
+func TestHasGenerateWorkloadTask(t *testing.T) {
+	tests := []struct {
+		name string
+		cwfr *openchoreodevv1alpha1.ComponentWorkflowRun
+		want bool
+	}{
+		{
+			name: "should return true when generate-workload-cr task exists",
+			cwfr: &openchoreodevv1alpha1.ComponentWorkflowRun{
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Tasks: []openchoreodevv1alpha1.WorkflowTask{
+						{
+							Name:  "build",
+							Phase: "Succeeded",
+						},
+						{
+							Name:  "generate-workload-cr",
+							Phase: "Succeeded",
+						},
+						{
+							Name:  "push",
+							Phase: "Succeeded",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "should return false when generate-workload-cr task does not exist",
+			cwfr: &openchoreodevv1alpha1.ComponentWorkflowRun{
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Tasks: []openchoreodevv1alpha1.WorkflowTask{
+						{
+							Name:  "build",
+							Phase: "Succeeded",
+						},
+						{
+							Name:  "push",
+							Phase: "Succeeded",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "should return false when tasks list is empty",
+			cwfr: &openchoreodevv1alpha1.ComponentWorkflowRun{
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Tasks: []openchoreodevv1alpha1.WorkflowTask{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "should return false when tasks list is nil",
+			cwfr: &openchoreodevv1alpha1.ComponentWorkflowRun{
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Tasks: nil,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "should return true even when task phase is not succeeded",
+			cwfr: &openchoreodevv1alpha1.ComponentWorkflowRun{
+				Status: openchoreodevv1alpha1.ComponentWorkflowRunStatus{
+					Tasks: []openchoreodevv1alpha1.WorkflowTask{
+						{
+							Name:  "generate-workload-cr",
+							Phase: "Failed",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := hasGenerateWorkloadTask(tt.cwfr)
+			if result != tt.want {
+				t.Errorf("hasGenerateWorkloadTask() = %v, want %v", result, tt.want)
+			}
+		})
+	}
+}
+
 // Helper function
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && len(substr) > 0 && findSubstring(s, substr))
