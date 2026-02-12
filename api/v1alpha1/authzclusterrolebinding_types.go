@@ -8,6 +8,7 @@ import (
 )
 
 // AuthzClusterRoleBindingSpec defines the desired state of AuthzClusterRoleBinding
+// +kubebuilder:validation:XValidation:rule="self.roleRef.kind == 'AuthzClusterRole'",message="AuthzClusterRoleBinding can only reference AuthzClusterRole"
 type AuthzClusterRoleBindingSpec struct {
 	// Entitlement defines the subject (from JWT claims) to grant the role to
 	// +required

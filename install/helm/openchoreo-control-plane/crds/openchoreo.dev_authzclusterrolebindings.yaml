@@ -91,6 +91,9 @@ spec:
             - entitlement
             - roleRef
             type: object
+            x-kubernetes-validations:
+            - message: AuthzClusterRoleBinding can only reference AuthzClusterRole
+              rule: self.roleRef.kind == 'AuthzClusterRole'
         type: object
     served: true
     storage: true
