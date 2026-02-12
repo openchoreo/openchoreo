@@ -1,5 +1,4 @@
-{{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.ingress.enabled .Values.gateway.enabled -}}
-{{- $host := include "openchoreo.apiHost" . -}}
+{{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.http.enabled .Values.gateway.enabled .Values.openchoreoApi.http.hostnames -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -8,7 +7,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: api-server
-  {{- with .Values.openchoreoApi.ingress.annotations }}
+  {{- with .Values.openchoreoApi.http.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -16,34 +15,18 @@ spec:
   parentRefs:
     - name: gateway-default
       namespace: {{ .Release.Namespace }}
+  {{- with .Values.openchoreoApi.http.hostnames }}
   hostnames:
-    {{- if .Values.openchoreoApi.ingress.hosts }}
-    {{- range .Values.openchoreoApi.ingress.hosts }}
-    - {{ .host | quote }}
+    {{- range . }}
+    - {{ . | quote }}
     {{- end }}
-    {{- else }}
-    - {{ $host | quote }}
-    {{- end }}
+  {{- end }}
   rules:
-    {{- if .Values.openchoreoApi.ingress.hosts }}
-    {{- range .Values.openchoreoApi.ingress.hosts }}
-    {{- range .paths }}
-    - matches:
-        - path:
-            type: {{ .pathType }}
-            value: {{ .path }}
-      backendRefs:
-        - name: {{ include "openchoreo-control-plane.openchoreoApi.name" $ }}
-          port: 8080
-    {{- end }}
-    {{- end }}
-    {{- else }}
     - matches:
         - path:
             type: PathPrefix
             value: /
       backendRefs:
         - name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}
-          port: 8080
-    {{- end }}
+          port: {{ .Values.openchoreoApi.service.port }}
 {{- end }}

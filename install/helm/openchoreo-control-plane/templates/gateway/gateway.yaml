@@ -22,7 +22,9 @@ spec:
     - name: https
       protocol: HTTPS
       port: {{ .Values.gateway.httpsPort | default 443 }}
-      hostname: {{ .Values.gateway.tls.hostname | default (printf "*.%s" .Values.global.baseDomain) | quote }}
+      {{- if .Values.gateway.tls.hostname }}
+      hostname: {{ .Values.gateway.tls.hostname | quote }}
+      {{- end }}
       allowedRoutes:
         namespaces:
           from: Same

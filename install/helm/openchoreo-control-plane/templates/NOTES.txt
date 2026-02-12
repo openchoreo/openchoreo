@@ -1,11 +1,10 @@
 OpenChoreo Control Plane installed successfully!
 
-{{- if .Values.backstage.ingress.enabled }}
-
+{{- if .Values.backstage.http.enabled }}
 Access URLs:
-  Console:  {{ include "openchoreo.consoleExternalUrl" . }}
-  API:      {{ include "openchoreo.apiExternalUrl" . }}
-  Thunder:  {{ include "openchoreo.thunderExternalUrl" . }}
+  Console:  {{ .Values.backstage.baseUrl | trimSuffix "/" }}
+  API:      {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
+  Thunder:  {{ .Values.thunder.configuration.server.publicUrl | trimSuffix "/" }}
 
 Default Credentials: admin@openchoreo.dev / Admin@123
 

@@ -28,10 +28,10 @@ observer:
     value: "http://api.openchoreo.localhost:8080"
   - name: AUTHZ_TIMEOUT
     value: "30s"
-  ingress:
-    hosts:
-    - host: host.k3d.internal
-    - host: observer.observability.openchoreo.localhost
+  http:
+    hostnames:
+    - host.k3d.internal
+    - observer.observability.openchoreo.localhost
 
 openSearchDashboards:
   service:
@@ -103,7 +103,7 @@ tls:
 
 rca:
   controlPlaneUrl: "https://api.openchoreo.localhost:8443"
-  ingress:
-    hosts:
-    - host: host.k3d.internal
-    - host: rca-agent.observability.openchoreo.localhost
+  http:
+    hostnames:
+    - host.k3d.internal
+    - rca-agent.observability.openchoreo.localhost

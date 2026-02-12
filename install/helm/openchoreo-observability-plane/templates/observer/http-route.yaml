@@ -1,4 +1,4 @@
-{{- if .Values.gateway.enabled }}
+{{- if and .Values.gateway.enabled .Values.observer.http.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -8,14 +8,12 @@ spec:
   parentRefs:
   - name: gateway-default
     namespace: {{ .Release.Namespace }}
+  {{- with .Values.observer.http.hostnames }}
   hostnames:
-    {{- if .Values.observer.ingress.hosts }}
-    {{- range .Values.observer.ingress.hosts }}
-    - {{ .host | quote }}
+    {{- range . }}
+    - {{ . | quote }}
     {{- end }}
-    {{- else }}
-    - {{ printf "observer.%s" .Values.global.baseDomain | quote }}
-    {{- end }}
+  {{- end }}
   rules:
   - matches:
     - path:
@@ -23,5 +21,5 @@ spec:
         value: /
     backendRefs:
     - name: observer
-      port: 8080
+      port: {{ .Values.observer.service.port }}
 {{- end }}

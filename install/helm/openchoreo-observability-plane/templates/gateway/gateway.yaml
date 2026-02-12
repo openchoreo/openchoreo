@@ -1,10 +1,7 @@
 {{- if .Values.gateway.enabled }}
 {{- $tlsHostname := .Values.gateway.tlsHostname -}}
-{{- if and (not $tlsHostname) .Values.global.baseDomain -}}
-{{- $tlsHostname = printf "opensearch.%s" .Values.global.baseDomain -}}
-{{- end -}}
 {{- if not $tlsHostname -}}
-{{- fail "Set gateway.tlsHostname or global.baseDomain when gateway.enabled=true" -}}
+{{- fail "Set gateway.tlsHostname when gateway.enabled=true" -}}
 {{- end -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

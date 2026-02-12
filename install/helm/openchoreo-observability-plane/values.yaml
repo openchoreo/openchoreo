@@ -18,13 +18,6 @@
 # @schema
 global:
   # @schema
-  # type: string
-  # description: Base domain for the observability plane used in gateway routing and ingress configuration
-  # default: ""
-  # @schema
-  baseDomain: ""
-
-  # @schema
   # type: object
   # description: Common labels applied to all resources created by this chart
   # additionalProperties:
@@ -1160,19 +1153,22 @@ observer:
 
   # @schema
   # type: object
-  # description: Ingress configuration for the Observer service
+  # description: HTTPRoute configuration for the Observer service
   # @schema
-  ingress:
+  http:
+    # @schema
+    # type: boolean
+    # description: Enable HTTPRoute
+    # default: true
+    # @schema
+    enabled: true
     # @schema
     # type: array
-    # description: Ingress hosts
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    #   properties:
-    #     host:
-    #       type: string
+    #   type: string
     # @schema
-    hosts: []
+    hostnames: []
 
 # @schema
 # type: object
@@ -2431,7 +2427,7 @@ gateway:
 
   # @schema
   # type: string
-  # description: TLS listener hostname for OpenSearch passthrough route. If empty, derives from global.baseDomain
+  # description: TLS listener hostname for OpenSearch passthrough route. Required when gateway.enabled=true
   # default: ""
   # @schema
   tlsHostname: ""
@@ -2915,7 +2911,7 @@ tls:
 
   # @schema
   # type: array
-  # description: DNS names for generated wildcard certificate. If empty, derives from global.baseDomain
+  # description: DNS names for generated wildcard certificate. Required when tls.enabled=true
   # items:
   #   type: string
   # default: []
@@ -3135,16 +3131,19 @@ rca:
 
   # @schema
   # type: object
-  # description: Ingress configuration for the RCA agent
+  # description: HTTPRoute configuration for the RCA agent
   # @schema
-  ingress:
+  http:
+    # @schema
+    # type: boolean
+    # description: Enable HTTPRoute
+    # default: true
+    # @schema
+    enabled: true
     # @schema
     # type: array
-    # description: Ingress hosts
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    #   properties:
-    #     host:
-    #       type: string
+    #   type: string
     # @schema
-    hosts: []
+    hostnames: []

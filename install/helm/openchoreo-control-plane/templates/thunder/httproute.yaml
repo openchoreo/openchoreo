@@ -1,6 +1,5 @@
 {{- if .Values.thunder.enabled }}
-{{- if and .Values.thunder.ocIngress.enabled .Values.gateway.enabled -}}
-{{- $host := include "openchoreo.thunderHost" . -}}
+{{- if and .Values.thunder.http.enabled .Values.gateway.enabled .Values.thunder.http.hostnames -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -9,7 +8,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: thunder
-  {{- with .Values.thunder.ocIngress.annotations }}
+  {{- with .Values.thunder.http.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -17,28 +16,13 @@ spec:
   parentRefs:
     - name: gateway-default
       namespace: {{ .Release.Namespace }}
+  {{- with .Values.thunder.http.hostnames }}
   hostnames:
-    {{- if .Values.thunder.ocIngress.hosts }}
-    {{- range .Values.thunder.ocIngress.hosts }}
-    - {{ .host | quote }}
+    {{- range . }}
+    - {{ . | quote }}
     {{- end }}
-    {{- else }}
-    - {{ $host | quote }}
-    {{- end }}
+  {{- end }}
   rules:
-    {{- if .Values.thunder.ocIngress.hosts }}
-    {{- range .Values.thunder.ocIngress.hosts }}
-    {{- range .paths }}
-    - matches:
-        - path:
-            type: {{ .pathType }}
-            value: {{ .path }}
-      backendRefs:
-        - name: {{ $.Values.thunder.fullnameOverride }}-service
-          port: {{ .port }}
-    {{- end }}
-    {{- end }}
-    {{- else }}
     - matches:
         - path:
             type: PathPrefix
@@ -46,6 +30,5 @@ spec:
       backendRefs:
         - name: {{ .Values.thunder.fullnameOverride }}-service
           port: {{ .Values.thunder.service.port }}
-    {{- end }}
 {{- end }}
 {{- end }}

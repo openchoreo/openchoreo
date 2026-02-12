@@ -197,7 +197,7 @@ data:
               "{{ $url }}"
               {{- end }}
               {{- else }}
-              "{{ include "openchoreo.consoleExternalUrl" . }}/api/auth/openchoreo-auth/handler/frame"
+              "{{ .Values.backstage.baseUrl | trimSuffix "/" }}/api/auth/openchoreo-auth/handler/frame"
               {{- end }}
             ],
             "grant_types": [

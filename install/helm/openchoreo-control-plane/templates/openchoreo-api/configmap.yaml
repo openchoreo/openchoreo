@@ -1,10 +1,4 @@
 {{- if .Values.openchoreoApi.enabled }}
-{{- /* Computed defaults from helpers */ -}}
-{{- $publicUrl := include "openchoreo.apiExternalUrl" . }}
-{{- $oidcIssuer := .Values.security.oidc.issuer | default (include "openchoreo.thunderExternalUrl" .) }}
-{{- $jwksUrl := .Values.security.oidc.jwksUrl | default (printf "%s/oauth2/jwks" (include "openchoreo.thunderInternalUrl" .)) }}
-{{- $authzUrl := .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" (include "openchoreo.thunderExternalUrl" .)) }}
-{{- $tokenUrl := .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderExternalUrl" .)) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,7 +12,7 @@ data:
     server:
       bind_address: {{ .Values.openchoreoApi.config.server.bind_address | quote }}
       port: {{ .Values.openchoreoApi.config.server.port }}
-      public_url: {{ $publicUrl | quote }}
+      public_url: {{ .Values.openchoreoApi.config.server.publicUrl | quote }}
       timeouts:
         {{- toYaml .Values.openchoreoApi.config.server.timeouts | nindent 8 }}
       tls:
@@ -49,10 +43,10 @@ data:
 
     identity:
       oidc:
-        issuer: {{ $oidcIssuer | quote }}
-        jwks_url: {{ $jwksUrl | quote }}
-        authorization_endpoint: {{ $authzUrl | quote }}
-        token_endpoint: {{ $tokenUrl | quote }}
+        issuer: {{ .Values.security.oidc.issuer | quote }}
+        jwks_url: {{ .Values.security.oidc.jwksUrl | quote }}
+        authorization_endpoint: {{ .Values.security.oidc.authorizationUrl | quote }}
+        token_endpoint: {{ .Values.security.oidc.tokenUrl | quote }}
       clients:
         {{- range .Values.security.oidc.externalClients }}
         {{ .name }}:

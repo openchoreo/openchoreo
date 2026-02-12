@@ -164,8 +164,8 @@
           "type": "string"
         },
         "baseUrl": {
-          "default": "",
-          "description": "Backstage public base URL. If empty, auto-derived from global.baseDomain",
+          "default": "http://openchoreo.local",
+          "description": "Backstage public base URL",
           "title": "baseUrl",
           "type": "string"
         },
@@ -494,6 +494,42 @@
           "title": "features",
           "type": "object"
         },
+        "http": {
+          "additionalProperties": false,
+          "description": "HTTPRoute configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "HTTPRoute annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPRoute",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "default": [
+                "openchoreo.local"
+              ],
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "http",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image configuration",
@@ -524,57 +560,6 @@
           },
           "required": [],
           "title": "image",
-          "type": "object"
-        },
-        "ingress": {
-          "additionalProperties": false,
-          "description": "Ingress configuration",
-          "properties": {
-            "annotations": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "default": {},
-              "description": "Ingress annotations",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "enabled": {
-              "default": true,
-              "description": "Enable ingress",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "hosts": {
-              "default": [],
-              "description": "Ingress hosts",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            },
-            "ingressClassName": {
-              "default": "",
-              "description": "Ingress class name",
-              "title": "ingressClassName",
-              "type": "string"
-            },
-            "tls": {
-              "default": [],
-              "description": "Ingress TLS configuration",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "tls",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ingress",
           "type": "object"
         },
         "metrics": {
@@ -932,27 +917,6 @@
           },
           "required": [],
           "title": "serviceAccount",
-          "type": "object"
-        },
-        "thunder": {
-          "additionalProperties": false,
-          "description": "Thunder identity provider connection configuration",
-          "properties": {
-            "baseUrl": {
-              "default": "",
-              "description": "Thunder public base URL. If empty, auto-derived from global.baseDomain",
-              "title": "baseUrl",
-              "type": "string"
-            },
-            "token": {
-              "default": "",
-              "description": "Thunder API token for authentication",
-              "title": "token",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "thunder",
           "type": "object"
         },
         "tolerations": {
@@ -2496,7 +2460,7 @@
               "type": "string"
             },
             "hostname": {
-              "default": "*.{{ .Values.global.baseDomain }}",
+              "default": "*.openchoreo.local",
               "description": "Hostname pattern for TLS certificate",
               "title": "hostname",
               "type": "string"
@@ -2530,12 +2494,6 @@
       "additionalProperties": false,
       "description": "Global values shared across all components",
       "properties": {
-        "baseDomain": {
-          "default": "openchoreo.local",
-          "description": "Base domain for all services. Console will be at baseDomain, API at api.baseDomain",
-          "title": "baseDomain",
-          "type": "string"
-        },
         "clusterName": {
           "default": "openchoreo",
           "description": "Kubernetes cluster name identifier",
@@ -2568,15 +2526,9 @@
           "title": "imagePullSecrets",
           "type": "array"
         },
-        "port": {
-          "default": "",
-          "description": "Port suffix for URLs (e.g., \":8080\" for non-standard ports). Include the colon. Leave empty for standard ports (80/443)",
-          "title": "port",
-          "type": "string"
-        },
         "tls": {
           "additionalProperties": false,
-          "description": "TLS configuration - enables HTTPS for all ingresses. When enabled, TLS hosts are auto-derived from baseDomain",
+          "description": "TLS configuration - enables HTTPS for all ingresses",
           "properties": {
             "enabled": {
               "default": false,
@@ -2586,7 +2538,7 @@
             },
             "secretName": {
               "default": "control-plane-tls",
-              "description": "Secret containing TLS certificate (must have all hosts - baseDomain, api.baseDomain, thunder.baseDomain)",
+              "description": "Secret containing TLS certificate for ingress hosts",
               "title": "secretName",
               "type": "string"
             }
@@ -3250,8 +3202,8 @@
                   "type": "integer"
                 },
                 "publicUrl": {
-                  "default": "",
-                  "description": "Public URL for the API server. If empty, auto-derived from ingress/baseDomain settings",
+                  "default": "http://api.openchoreo.local",
+                  "description": "Public URL for the API server",
                   "title": "publicUrl",
                   "type": "string"
                 },
@@ -3451,6 +3403,42 @@
           "title": "enabled",
           "type": "boolean"
         },
+        "http": {
+          "additionalProperties": false,
+          "description": "HTTPRoute configuration",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "HTTPRoute annotations",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPRoute",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "default": [
+                "api.openchoreo.local"
+              ],
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "http",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image configuration",
@@ -3481,80 +3469,6 @@
           },
           "required": [],
           "title": "image",
-          "type": "object"
-        },
-        "ingress": {
-          "additionalProperties": false,
-          "description": "Ingress configuration",
-          "properties": {
-            "annotations": {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "default": {},
-              "description": "Ingress annotations",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "enabled": {
-              "default": true,
-              "description": "Enable ingress",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "hosts": {
-              "default": [],
-              "description": "Ingress hosts. If empty, derives from global.baseDomain",
-              "items": {
-                "properties": {
-                  "host": {
-                    "type": "string"
-                  },
-                  "paths": {
-                    "items": {
-                      "required": [],
-                      "type": "object"
-                    },
-                    "type": "array"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            },
-            "ingressClassName": {
-              "default": "",
-              "description": "Ingress class name. If empty, uses global.ingressClassName",
-              "title": "ingressClassName",
-              "type": "string"
-            },
-            "tls": {
-              "default": [],
-              "description": "Ingress TLS configuration",
-              "items": {
-                "properties": {
-                  "hosts": {
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
-                  },
-                  "secretName": {
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "tls",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ingress",
           "type": "object"
         },
         "metrics": {
@@ -3991,7 +3905,7 @@
       "properties": {
         "authServerBaseUrl": {
           "default": "",
-          "description": "Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port",
+          "description": "Base URL for the authorization server (used for OAuth metadata)",
           "title": "authServerBaseUrl",
           "type": "string"
         },
@@ -4036,7 +3950,7 @@
           "description": "OpenID Connect (OIDC) configuration for authentication",
           "properties": {
             "authorizationUrl": {
-              "default": "",
+              "default": "http://thunder.openchoreo.local/oauth2/authorize",
               "description": "OIDC authorization endpoint URL",
               "title": "authorizationUrl",
               "type": "string"
@@ -4091,19 +4005,19 @@
               "type": "array"
             },
             "issuer": {
-              "default": "",
+              "default": "http://thunder.openchoreo.local",
               "description": "OIDC provider issuer URL",
               "title": "issuer",
               "type": "string"
             },
             "jwksUrl": {
-              "default": "",
+              "default": "http://thunder.openchoreo.local/oauth2/jwks",
               "description": "OIDC JWKS URL for token validation",
               "title": "jwksUrl",
               "type": "string"
             },
             "tokenUrl": {
-              "default": "",
+              "default": "http://thunder.openchoreo.local/oauth2/token",
               "description": "OIDC token endpoint URL",
               "title": "tokenUrl",
               "type": "string"
@@ -4672,8 +4586,8 @@
                   "type": "integer"
                 },
                 "publicUrl": {
-                  "default": "",
-                  "description": "Public URL for Thunder. If empty, auto-derived from global.baseDomain",
+                  "default": "http://thunder.openchoreo.local",
+                  "description": "Public URL for Thunder",
                   "title": "publicUrl",
                   "type": "string"
                 }
@@ -4714,459 +4628,50 @@
           "title": "configuration",
           "type": "object"
         },
-        "deployment": {
-          "additionalProperties": true,
-          "description": "Deployment configuration",
-          "properties": {
-            "container": {
-              "additionalProperties": true,
-              "description": "Container configuration",
-              "properties": {
-                "port": {
-                  "default": 8090,
-                  "description": "Container port",
-                  "title": "port",
-                  "type": "integer"
-                }
-              },
-              "required": [],
-              "title": "container",
-              "type": "object"
-            },
-            "image": {
-              "additionalProperties": true,
-              "description": "Container image configuration",
-              "properties": {
-                "pullPolicy": {
-                  "default": "IfNotPresent",
-                  "description": "Image pull policy",
-                  "enum": [
-                    "Always",
-                    "IfNotPresent",
-                    "Never"
-                  ],
-                  "required": [],
-                  "title": "pullPolicy"
-                },
-                "registry": {
-                  "default": "ghcr.io/asgardeo",
-                  "description": "Image registry",
-                  "title": "registry",
-                  "type": "string"
-                },
-                "repository": {
-                  "default": "thunder",
-                  "description": "Image repository",
-                  "title": "repository",
-                  "type": "string"
-                },
-                "tag": {
-                  "default": "0.21.0",
-                  "description": "Image tag",
-                  "title": "tag",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "image",
-              "type": "object"
-            },
-            "replicaCount": {
-              "default": 1,
-              "description": "Number of Thunder replicas",
-              "minimum": 1,
-              "title": "replicaCount",
-              "type": "integer"
-            },
-            "resources": {
-              "additionalProperties": true,
-              "description": "Resource requests and limits",
-              "properties": {
-                "limits": {
-                  "additionalProperties": true,
-                  "description": "Resource limits",
-                  "properties": {
-                    "cpu": {
-                      "default": "500m",
-                      "description": "CPU limit",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "512Mi",
-                      "description": "Memory limit",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "limits",
-                  "type": "object"
-                },
-                "requests": {
-                  "additionalProperties": true,
-                  "description": "Resource requests",
-                  "properties": {
-                    "cpu": {
-                      "default": "100m",
-                      "description": "CPU request",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "128Mi",
-                      "description": "Memory request",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "requests",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "resources",
-              "type": "object"
-            },
-            "securityContext": {
-              "additionalProperties": true,
-              "description": "Security context for the pod",
-              "properties": {
-                "enableFsGroup": {
-                  "default": true,
-                  "description": "Enable filesystem group",
-                  "title": "enableFsGroup",
-                  "type": "boolean"
-                },
-                "enableRunAsGroup": {
-                  "default": true,
-                  "description": "Enable run as group",
-                  "title": "enableRunAsGroup",
-                  "type": "boolean"
-                },
-                "enableRunAsUser": {
-                  "default": true,
-                  "description": "Enable run as user",
-                  "title": "enableRunAsUser",
-                  "type": "boolean"
-                },
-                "fsGroup": {
-                  "default": 10001,
-                  "description": "Filesystem group",
-                  "title": "fsGroup",
-                  "type": "integer"
-                },
-                "readOnlyRootFilesystem": {
-                  "default": false,
-                  "description": "Read-only root filesystem. Must be false for SQLite",
-                  "title": "readOnlyRootFilesystem",
-                  "type": "boolean"
-                },
-                "runAsGroup": {
-                  "default": 10001,
-                  "description": "Group ID",
-                  "title": "runAsGroup",
-                  "type": "integer"
-                },
-                "runAsUser": {
-                  "default": 10001,
-                  "description": "User ID",
-                  "title": "runAsUser",
-                  "type": "integer"
-                },
-                "seccompProfile": {
-                  "additionalProperties": true,
-                  "description": "Seccomp profile configuration",
-                  "properties": {
-                    "enabled": {
-                      "default": true,
-                      "description": "Enable seccomp profile",
-                      "title": "enabled",
-                      "type": "boolean"
-                    },
-                    "type": {
-                      "default": "RuntimeDefault",
-                      "description": "Seccomp profile type",
-                      "enum": [
-                        "RuntimeDefault",
-                        "Localhost",
-                        "Unconfined"
-                      ],
-                      "required": [],
-                      "title": "type"
-                    }
-                  },
-                  "required": [],
-                  "title": "seccompProfile",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "securityContext",
-              "type": "object"
-            },
-            "strategy": {
-              "additionalProperties": true,
-              "description": "Rolling update strategy",
-              "properties": {
-                "rollingUpdate": {
-                  "additionalProperties": true,
-                  "description": "Rolling update parameters",
-                  "properties": {
-                    "maxSurge": {
-                      "default": 1,
-                      "description": "Maximum surge pods during update",
-                      "title": "maxSurge",
-                      "type": "integer"
-                    },
-                    "maxUnavailable": {
-                      "default": 0,
-                      "description": "Maximum unavailable pods during update",
-                      "title": "maxUnavailable",
-                      "type": "integer"
-                    }
-                  },
-                  "required": [],
-                  "title": "rollingUpdate",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "strategy",
-              "type": "object"
-            },
-            "terminationGracePeriodSeconds": {
-              "default": 10,
-              "description": "Termination grace period in seconds",
-              "title": "terminationGracePeriodSeconds",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "deployment",
-          "type": "object"
-        },
         "enabled": {
           "default": true,
           "description": "Enable Thunder identity provider deployment",
           "title": "enabled",
           "type": "boolean"
         },
-        "fullnameOverride": {
-          "default": "thunder",
-          "description": "Override the Thunder release name",
-          "title": "fullnameOverride",
-          "type": "string"
-        },
-        "hpa": {
+        "http": {
           "additionalProperties": true,
-          "description": "Horizontal Pod Autoscaler configuration",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable HPA",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "hpa",
-          "type": "object"
-        },
-        "ingress": {
-          "additionalProperties": true,
-          "description": "Standard ingress configuration (typically disabled in favor of ocIngress)",
+          "description": "HTTPRoute configuration for Thunder exposure",
           "properties": {
             "annotations": {
               "additionalProperties": true,
               "default": {},
-              "description": "Ingress annotations",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "enabled": {
-              "default": false,
-              "description": "Enable standard ingress",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "hosts": {
-              "default": [],
-              "description": "Ingress hosts",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            },
-            "ingressClassName": {
-              "default": "",
-              "description": "Ingress class name",
-              "title": "ingressClassName",
-              "type": "string"
-            },
-            "tls": {
-              "default": [],
-              "description": "Ingress TLS configuration",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "tls",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ingress",
-          "type": "object"
-        },
-        "ocIngress": {
-          "additionalProperties": true,
-          "description": "OpenChoreo-specific ingress configuration",
-          "properties": {
-            "annotations": {
-              "additionalProperties": true,
-              "default": {},
-              "description": "Ingress annotations",
+              "description": "HTTPRoute annotations",
               "required": [],
               "title": "annotations",
               "type": "object"
             },
             "enabled": {
               "default": true,
-              "description": "Enable OpenChoreo ingress",
+              "description": "Enable HTTPRoute",
               "title": "enabled",
               "type": "boolean"
             },
-            "hosts": {
-              "default": [],
-              "description": "Ingress hosts. If empty, derives from global.baseDomain",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            },
-            "ingressClassName": {
-              "default": "",
-              "description": "Ingress class name. If empty, uses global.ingressClassName",
-              "title": "ingressClassName",
-              "type": "string"
-            },
-            "tls": {
-              "default": [],
-              "description": "Ingress TLS configuration",
-              "items": {
-                "required": [],
-                "type": "object"
-              },
-              "title": "tls",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ocIngress",
-          "type": "object"
-        },
-        "pdb": {
-          "additionalProperties": true,
-          "description": "Pod Disruption Budget configuration",
-          "properties": {
-            "minAvailable": {
-              "default": "50%",
-              "description": "Minimum available pods (percentage or number)",
-              "title": "minAvailable",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "pdb",
-          "type": "object"
-        },
-        "persistence": {
-          "additionalProperties": true,
-          "description": "Persistent storage configuration",
-          "properties": {
-            "accessMode": {
-              "default": "ReadWriteOnce",
-              "description": "Access mode for the persistent volume",
-              "enum": [
-                "ReadWriteOnce",
-                "ReadWriteMany",
-                "ReadOnlyMany"
+            "hostnames": {
+              "default": [
+                "thunder.openchoreo.local"
               ],
-              "required": [],
-              "title": "accessMode"
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
             },
-            "annotations": {
-              "additionalProperties": true,
-              "default": {},
-              "description": "Annotations for the PVC",
-              "required": [],
-              "title": "annotations",
-              "type": "object"
-            },
-            "enabled": {
-              "default": true,
-              "description": "Enable persistent storage",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "size": {
-              "default": "1Gi",
-              "description": "Size of the persistent volume",
-              "title": "size",
-              "type": "string"
-            },
-            "storageClass": {
+            "ingressClassName": {
               "default": "",
-              "description": "Storage class name. If empty, uses default storage class",
-              "title": "storageClass",
+              "description": "HTTPRoute class name (reserved for future use)",
+              "title": "ingressClassName",
               "type": "string"
             }
           },
           "required": [],
-          "title": "persistence",
-          "type": "object"
-        },
-        "service": {
-          "additionalProperties": true,
-          "description": "Service configuration",
-          "properties": {
-            "port": {
-              "default": 8090,
-              "description": "Service port",
-              "title": "port",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "service",
-          "type": "object"
-        },
-        "serviceAccount": {
-          "additionalProperties": true,
-          "description": "Service account configuration",
-          "properties": {
-            "create": {
-              "default": true,
-              "description": "Create service account",
-              "title": "create",
-              "type": "boolean"
-            },
-            "name": {
-              "default": "thunder-service-account",
-              "description": "Service account name",
-              "title": "name",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "serviceAccount",
+          "title": "http",
           "type": "object"
         },
         "setup": {

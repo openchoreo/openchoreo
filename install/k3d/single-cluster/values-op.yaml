@@ -14,9 +14,9 @@ openSearchCluster:
 observer:
   service:
     type: LoadBalancer
-  ingress:
-    hosts:
-    - host: observer.openchoreo.localhost
+  http:
+    hostnames:
+    - observer.openchoreo.localhost
 
 # OpenSearch Dashboards - UI for visualizing logs and data
 openSearchDashboards:

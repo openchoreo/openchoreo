@@ -1,4 +1,4 @@
-{{- if and .Values.gateway.enabled .Values.rca.enabled }}
+{{- if and .Values.gateway.enabled .Values.rca.enabled .Values.rca.http.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -8,25 +8,23 @@ spec:
   parentRefs:
   - name: gateway-default
     sectionName: http
+  {{- with .Values.rca.http.hostnames }}
   hostnames:
-    {{- if .Values.rca.ingress.hosts }}
-    {{- range .Values.rca.ingress.hosts }}
-    - {{ .host | quote }}
+    {{- range . }}
+    - {{ . | quote }}
     {{- end }}
-    {{- else }}
-    - {{ printf "rca-agent.%s" .Values.global.baseDomain | quote }}
-    {{- end }}
+  {{- end }}
   rules:
   - matches:
     - path:
         type: PathPrefix
         value: /api/v1/agent/chat
-    backendRefs:
-    - name: {{ .Values.rca.name }}
-      port: {{ .Values.rca.service.port }}
     timeouts:
       request: "450s"
       backendRequest: "450s"
+    backendRefs:
+    - name: {{ .Values.rca.name }}
+      port: {{ .Values.rca.service.port }}
   - matches:
     - path:
         type: PathPrefix

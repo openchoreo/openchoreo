@@ -69,32 +69,23 @@ spec:
         - name: OPENCHOREO_API_URL
           value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-control-plane.fullname" .) .Release.Namespace) }}
         - name: BACKSTAGE_BASE_URL
-          value: {{ include "openchoreo.consoleExternalUrl" . }}
+          value: {{ .Values.backstage.baseUrl | trimSuffix "/" | quote }}
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
               name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
               key: backend-secret
-        {{- if .Values.thunder.enabled }}
-        # Thunder-specific configuration
-        - name: THUNDER_BASE_URL
-          value: {{ .Values.backstage.thunder.baseUrl | default (include "openchoreo.thunderExternalUrl" .) }}
-        {{- if .Values.backstage.thunder.token }}
-        - name: THUNDER_TOKEN
-          value: {{ .Values.backstage.thunder.token | quote }}
-        {{- end }}
-        {{- end }}
         # Common security and OAuth configuration
         # OIDC Discovery URL (optional) - enables auto-discovery of OAuth endpoints
         {{- if .Values.security.oidc.wellKnownEndpoint }}
         - name: OPENCHOREO_AUTH_METADATA_URL
           value: {{ .Values.security.oidc.wellKnownEndpoint | quote }}
         {{- end }}
-        # Explicit OAuth2 endpoints (fallback if OIDC discovery not configured)
+        # Explicit OAuth2 endpoints
         - name: OPENCHOREO_AUTH_AUTHORIZATION_URL
-          value: {{ .Values.security.oidc.authorizationUrl | default (printf "%s/oauth2/authorize" (include "openchoreo.thunderExternalUrl" .)) }}
+          value: {{ .Values.security.oidc.authorizationUrl | quote }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
-          value: {{ .Values.security.oidc.tokenUrl | default (printf "%s/oauth2/token" (include "openchoreo.thunderInternalUrl" .)) }}
+          value: {{ .Values.security.oidc.tokenUrl | quote }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
           value: {{ .Values.backstage.auth.clientId | quote }}
         - name: OPENCHOREO_AUTH_CLIENT_SECRET

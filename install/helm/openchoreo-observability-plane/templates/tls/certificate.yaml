@@ -1,10 +1,7 @@
 {{- if .Values.tls.enabled }}
 {{- $dnsNames := .Values.tls.dnsNames -}}
-{{- if and (not $dnsNames) .Values.global.baseDomain -}}
-{{- $dnsNames = list .Values.global.baseDomain (printf "*.%s" .Values.global.baseDomain) -}}
-{{- end -}}
 {{- if not $dnsNames -}}
-{{- fail "Set tls.dnsNames or global.baseDomain when tls.enabled=true" -}}
+{{- fail "Set tls.dnsNames when tls.enabled=true" -}}
 {{- end -}}
 apiVersion: cert-manager.io/v1
 kind: Certificate

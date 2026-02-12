@@ -1389,12 +1389,6 @@
           "title": "enabled",
           "type": "boolean"
         },
-        "tlsHostname": {
-          "default": "",
-          "description": "TLS listener hostname for OpenSearch passthrough route. If empty, derives from global.baseDomain",
-          "title": "tlsHostname",
-          "type": "string"
-        },
         "envoy": {
           "additionalProperties": true,
           "description": "Envoy proxy configuration for actual traffic routing",
@@ -1409,6 +1403,12 @@
           "required": [],
           "title": "envoy",
           "type": "object"
+        },
+        "tlsHostname": {
+          "default": "",
+          "description": "TLS listener hostname for OpenSearch passthrough route. Required when gateway.enabled=true",
+          "title": "tlsHostname",
+          "type": "string"
         }
       },
       "required": [],
@@ -1419,12 +1419,6 @@
       "additionalProperties": true,
       "description": "Global values shared across all components in the observability plane",
       "properties": {
-        "baseDomain": {
-          "default": "",
-          "description": "Base domain for the observability plane used in gateway routing and ingress configuration",
-          "title": "baseDomain",
-          "type": "string"
-        },
         "commonLabels": {
           "additionalProperties": {
             "type": "string"
@@ -1626,6 +1620,29 @@
           "title": "extraEnvs",
           "type": "array"
         },
+        "http": {
+          "additionalProperties": false,
+          "description": "HTTPRoute configuration for the Observer service",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPRoute",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "http",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image configuration for the Observer",
@@ -1656,29 +1673,6 @@
           },
           "required": [],
           "title": "image",
-          "type": "object"
-        },
-        "ingress": {
-          "additionalProperties": false,
-          "description": "Ingress configuration for the Observer service",
-          "properties": {
-            "hosts": {
-              "description": "Ingress hosts",
-              "items": {
-                "properties": {
-                  "host": {
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ingress",
           "type": "object"
         },
         "logLevel": {
@@ -3577,6 +3571,29 @@
           "title": "enabled",
           "type": "boolean"
         },
+        "http": {
+          "additionalProperties": false,
+          "description": "HTTPRoute configuration for the RCA agent",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPRoute",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "http",
+          "type": "object"
+        },
         "image": {
           "additionalProperties": false,
           "description": "Container image configuration",
@@ -3607,29 +3624,6 @@
           },
           "required": [],
           "title": "image",
-          "type": "object"
-        },
-        "ingress": {
-          "additionalProperties": false,
-          "description": "Ingress configuration for the RCA agent",
-          "properties": {
-            "hosts": {
-              "description": "Ingress hosts",
-              "items": {
-                "properties": {
-                  "host": {
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "hosts",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "ingress",
           "type": "object"
         },
         "llm": {
@@ -3867,7 +3861,7 @@
       "properties": {
         "dnsNames": {
           "default": [],
-          "description": "DNS names for generated wildcard certificate. If empty, derives from global.baseDomain",
+          "description": "DNS names for generated wildcard certificate. Required when tls.enabled=true",
           "items": {
             "type": "string"
           },

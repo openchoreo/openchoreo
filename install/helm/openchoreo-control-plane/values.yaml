@@ -11,22 +11,8 @@
 # @schema
 global:
   # @schema
-  # type: string
-  # description: Base domain for all services. Console will be at baseDomain, API at api.baseDomain
-  # default: openchoreo.local
-  # @schema
-  baseDomain: openchoreo.local
-
-  # @schema
-  # type: string
-  # description: Port suffix for URLs (e.g., ":8080" for non-standard ports). Include the colon. Leave empty for standard ports (80/443)
-  # default: ""
-  # @schema
-  port: ""
-
-  # @schema
   # type: object
-  # description: TLS configuration - enables HTTPS for all ingresses. When enabled, TLS hosts are auto-derived from baseDomain
+  # description: TLS configuration - enables HTTPS for all ingresses
   # @schema
   tls:
     # @schema
@@ -37,7 +23,7 @@ global:
     enabled: false
     # @schema
     # type: string
-    # description: Secret containing TLS certificate (must have all hosts - baseDomain, api.baseDomain, thunder.baseDomain)
+    # description: Secret containing TLS certificate for ingress hosts
     # default: control-plane-tls
     # @schema
     secretName: "control-plane-tls"
@@ -98,9 +84,9 @@ security:
     # @schema
     # type: string
     # description: OIDC provider issuer URL
-    # default: ""
+    # default: "http://thunder.openchoreo.local"
     # @schema
-    issuer: ""
+    issuer: "http://thunder.openchoreo.local"
     # @schema
     # type: string
     # description: OIDC well-known configuration endpoint URL
@@ -110,21 +96,21 @@ security:
     # @schema
     # type: string
     # description: OIDC JWKS URL for token validation
-    # default: ""
+    # default: "http://thunder.openchoreo.local/oauth2/jwks"
     # @schema
-    jwksUrl: ""
+    jwksUrl: "http://thunder.openchoreo.local/oauth2/jwks"
     # @schema
     # type: string
     # description: OIDC authorization endpoint URL
-    # default: ""
+    # default: "http://thunder.openchoreo.local/oauth2/authorize"
     # @schema
-    authorizationUrl: ""
+    authorizationUrl: "http://thunder.openchoreo.local/oauth2/authorize"
     # @schema
     # type: string
     # description: OIDC token endpoint URL
-    # default: ""
+    # default: "http://thunder.openchoreo.local/oauth2/token"
     # @schema
-    tokenUrl: ""
+    tokenUrl: "http://thunder.openchoreo.local/oauth2/token"
 
     # @schema
     # type: array
@@ -163,7 +149,7 @@ security:
     enabled: true
   # @schema
   # type: string
-  # description: Base URL for the authorization server (used for OAuth metadata). If not set, defaults to protocol://thunder.baseDomain:port
+  # description: Base URL for the authorization server (used for OAuth metadata)
   # default: ""
   # @schema
   authServerBaseUrl: ""
@@ -938,10 +924,10 @@ openchoreoApi:
       port: 8080
       # @schema
       # type: string
-      # description: Public URL for the API server. If empty, auto-derived from ingress/baseDomain settings
-      # default: ""
+      # description: Public URL for the API server
+      # default: "http://api.openchoreo.local"
       # @schema
-      publicUrl: ""
+      publicUrl: "http://api.openchoreo.local"
       # @schema
       # type: object
       # description: HTTP server timeout settings
@@ -1628,24 +1614,18 @@ openchoreoApi:
 
   # @schema
   # type: object
-  # description: Ingress configuration
+  # description: HTTPRoute configuration
   # @schema
-  ingress:
+  http:
     # @schema
     # type: boolean
-    # description: Enable ingress
+    # description: Enable HTTPRoute
     # default: true
     # @schema
     enabled: true
     # @schema
-    # type: string
-    # description: Ingress class name. If empty, uses global.ingressClassName
-    # default: ""
-    # @schema
-    ingressClassName: ""
-    # @schema
     # type: object
-    # description: Ingress annotations
+    # description: HTTPRoute annotations
     # additionalProperties:
     #   type: string
     # default: {}
@@ -1653,35 +1633,14 @@ openchoreoApi:
     annotations: {}
     # @schema
     # type: array
-    # description: Ingress hosts. If empty, derives from global.baseDomain
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    #   properties:
-    #     host:
-    #       type: string
-    #     paths:
-    #       type: array
-    #       items:
-    #         type: object
-    # default: []
+    #   type: string
+    # default:
+    #   - api.openchoreo.local
     # @schema
-    hosts: []
-    # @schema
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    #   properties:
-    #     secretName:
-    #       type: string
-    #     hosts:
-    #       type: array
-    #       items:
-    #         type: string
-    # default: []
-    # @schema
-    tls: []
-
+    hostnames:
+      - api.openchoreo.local
   # @schema
   # type: array
   # description: Topology spread constraints
@@ -2154,28 +2113,10 @@ backstage:
 
   # @schema
   # type: string
-  # description: Backstage public base URL. If empty, auto-derived from global.baseDomain
-  # default: ""
+  # description: Backstage public base URL
+  # default: "http://openchoreo.local"
   # @schema
-  baseUrl: ""
-
-  # @schema
-  # type: object
-  # description: Thunder identity provider connection configuration
-  # @schema
-  thunder:
-    # @schema
-    # type: string
-    # description: Thunder public base URL. If empty, auto-derived from global.baseDomain
-    # default: ""
-    # @schema
-    baseUrl: ""
-    # @schema
-    # type: string
-    # description: Thunder API token for authentication
-    # default: ""
-    # @schema
-    token: ""
+  baseUrl: "http://openchoreo.local"
 
   # @schema
   # type: object
@@ -2407,24 +2348,18 @@ backstage:
 
   # @schema
   # type: object
-  # description: Ingress configuration
+  # description: HTTPRoute configuration
   # @schema
-  ingress:
+  http:
     # @schema
     # type: boolean
-    # description: Enable ingress
+    # description: Enable HTTPRoute
     # default: true
     # @schema
     enabled: true
     # @schema
-    # type: string
-    # description: Ingress class name
-    # default: ""
-    # @schema
-    ingressClassName: ""
-    # @schema
     # type: object
-    # description: Ingress annotations
+    # description: HTTPRoute annotations
     # additionalProperties:
     #   type: string
     # default: {}
@@ -2432,21 +2367,14 @@ backstage:
     annotations: {}
     # @schema
     # type: array
-    # description: Ingress hosts
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    # default: []
+    #   type: string
+    # default:
+    #   - openchoreo.local
     # @schema
-    hosts: []
-    # @schema
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    tls: []
-
+    hostnames:
+      - openchoreo.local
   # @schema
   # type: array
   # description: Topology spread constraints
@@ -2697,590 +2625,62 @@ thunder:
   # @schema
   enabled: true
 
-  # type: string
-  # description: Override the Thunder release name
-  # default: thunder
-  # @schema
-  # type: string
-  # description: Override the Thunder release name
-  # default: thunder
-  # @schema
-  fullnameOverride: thunder
-
   # type: object
   # additionalProperties: true
-  # description: Deployment configuration
+  # description: HTTPRoute configuration for Thunder exposure
   # @schema
   # type: object
   # additionalProperties: true
-  # description: Deployment configuration
+  # description: HTTPRoute configuration for Thunder exposure
   # @schema
-  deployment:
-    # type: integer
-    # description: Number of Thunder replicas
-    # minimum: 1
-    # default: 1
-    # @schema
-    # type: integer
-    # description: Number of Thunder replicas
-    # minimum: 1
-    # default: 1
-    # @schema
-    replicaCount: 1
-
-    # type: object
-    # additionalProperties: true
-    # description: Rolling update strategy
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Rolling update strategy
-    # @schema
-    strategy:
-      # type: object
-      # additionalProperties: true
-      # description: Rolling update parameters
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Rolling update parameters
-      # @schema
-      rollingUpdate:
-        # type: integer
-        # description: Maximum surge pods during update
-        # default: 1
-        # @schema
-        # type: integer
-        # description: Maximum surge pods during update
-        # default: 1
-        # @schema
-        maxSurge: 1
-        # type: integer
-        # description: Maximum unavailable pods during update
-        # default: 0
-        # @schema
-        # type: integer
-        # description: Maximum unavailable pods during update
-        # default: 0
-        # @schema
-        maxUnavailable: 0
-
-    # type: object
-    # additionalProperties: true
-    # description: Security context for the pod
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Security context for the pod
-    # @schema
-    securityContext:
-      # type: boolean
-      # description: Read-only root filesystem. Must be false for SQLite
-      # default: false
-      # @schema
-      # type: boolean
-      # description: Read-only root filesystem. Must be false for SQLite
-      # default: false
-      # @schema
-      readOnlyRootFilesystem: false
-      # type: boolean
-      # description: Enable run as user
-      # default: true
-      # @schema
-      # type: boolean
-      # description: Enable run as user
-      # default: true
-      # @schema
-      enableRunAsUser: true
-      # type: integer
-      # description: User ID
-      # default: 10001
-      # @schema
-      # type: integer
-      # description: User ID
-      # default: 10001
-      # @schema
-      runAsUser: 10001
-      # type: boolean
-      # description: Enable run as group
-      # default: true
-      # @schema
-      # type: boolean
-      # description: Enable run as group
-      # default: true
-      # @schema
-      enableRunAsGroup: true
-      # type: integer
-      # description: Group ID
-      # default: 10001
-      # @schema
-      # type: integer
-      # description: Group ID
-      # default: 10001
-      # @schema
-      runAsGroup: 10001
-      # type: boolean
-      # description: Enable filesystem group
-      # default: true
-      # @schema
-      # type: boolean
-      # description: Enable filesystem group
-      # default: true
-      # @schema
-      enableFsGroup: true
-      # type: integer
-      # description: Filesystem group
-      # default: 10001
-      # @schema
-      # type: integer
-      # description: Filesystem group
-      # default: 10001
-      # @schema
-      fsGroup: 10001
-      # type: object
-      # additionalProperties: true
-      # description: Seccomp profile configuration
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Seccomp profile configuration
-      # @schema
-      seccompProfile:
-        # type: boolean
-        # description: Enable seccomp profile
-        # default: true
-        # @schema
-        # type: boolean
-        # description: Enable seccomp profile
-        # default: true
-        # @schema
-        enabled: true
-        # description: Seccomp profile type
-        # enum: [RuntimeDefault, Localhost, Unconfined]
-        # default: RuntimeDefault
-        # @schema
-        # description: Seccomp profile type
-        # enum: [RuntimeDefault, Localhost, Unconfined]
-        # default: RuntimeDefault
-        # @schema
-        type: RuntimeDefault
-
-    # type: integer
-    # description: Termination grace period in seconds
-    # default: 10
-    # @schema
-    # type: integer
-    # description: Termination grace period in seconds
-    # default: 10
-    # @schema
-    terminationGracePeriodSeconds: 10
-
-    # type: object
-    # additionalProperties: true
-    # description: Container image configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Container image configuration
-    # @schema
-    image:
-      # type: string
-      # description: Image registry
-      # default: ghcr.io/asgardeo
-      # @schema
-      # type: string
-      # description: Image registry
-      # default: ghcr.io/asgardeo
-      # @schema
-      registry: ghcr.io/asgardeo
-      # type: string
-      # description: Image repository
-      # default: thunder
-      # @schema
-      # type: string
-      # description: Image repository
-      # default: thunder
-      # @schema
-      repository: thunder
-      # type: string
-      # description: Image tag
-      # default: "0.21.0"
-      # @schema
-      # type: string
-      # description: Image tag
-      # default: "0.21.0"
-      # @schema
-      tag: "0.21.0"
-      # description: Image pull policy
-      # enum: [Always, IfNotPresent, Never]
-      # default: IfNotPresent
-      # @schema
-      # description: Image pull policy
-      # enum: [Always, IfNotPresent, Never]
-      # default: IfNotPresent
-      # @schema
-      pullPolicy: IfNotPresent
-
-    # type: object
-    # additionalProperties: true
-    # description: Container configuration
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Container configuration
-    # @schema
-    container:
-      # type: integer
-      # description: Container port
-      # default: 8090
-      # @schema
-      # type: integer
-      # description: Container port
-      # default: 8090
-      # @schema
-      port: 8090
-
-    # type: object
-    # additionalProperties: true
-    # description: Resource requests and limits
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Resource requests and limits
-    # @schema
-    resources:
-      # type: object
-      # additionalProperties: true
-      # description: Resource limits
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Resource limits
-      # @schema
-      limits:
-        # type: string
-        # description: CPU limit
-        # default: 500m
-        # @schema
-        # type: string
-        # description: CPU limit
-        # default: 500m
-        # @schema
-        cpu: 500m
-        # type: string
-        # description: Memory limit
-        # default: 512Mi
-        # @schema
-        # type: string
-        # description: Memory limit
-        # default: 512Mi
-        # @schema
-        memory: 512Mi
-      # type: object
-      # additionalProperties: true
-      # description: Resource requests
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Resource requests
-      # @schema
-      requests:
-        # type: string
-        # description: CPU request
-        # default: 100m
-        # @schema
-        # type: string
-        # description: CPU request
-        # default: 100m
-        # @schema
-        cpu: 100m
-        # type: string
-        # description: Memory request
-        # default: 128Mi
-        # @schema
-        # type: string
-        # description: Memory request
-        # default: 128Mi
-        # @schema
-        memory: 128Mi
-
-  # type: object
-  # additionalProperties: true
-  # description: Persistent storage configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Persistent storage configuration
-  # @schema
-  persistence:
+  http:
     # type: boolean
-    # description: Enable persistent storage
+    # description: Enable HTTPRoute
     # default: true
     # @schema
     # type: boolean
-    # description: Enable persistent storage
+    # description: Enable HTTPRoute
     # default: true
     # @schema
     enabled: true
     # type: string
-    # description: Storage class name. If empty, uses default storage class
+    # description: HTTPRoute class name (reserved for future use)
     # default: ""
     # @schema
     # type: string
-    # description: Storage class name. If empty, uses default storage class
-    # default: ""
-    # @schema
-    storageClass: ""
-    # description: Access mode for the persistent volume
-    # enum: [ReadWriteOnce, ReadWriteMany, ReadOnlyMany]
-    # default: ReadWriteOnce
-    # @schema
-    # description: Access mode for the persistent volume
-    # enum: [ReadWriteOnce, ReadWriteMany, ReadOnlyMany]
-    # default: ReadWriteOnce
-    # @schema
-    accessMode: ReadWriteOnce
-    # type: string
-    # description: Size of the persistent volume
-    # default: 1Gi
-    # @schema
-    # type: string
-    # description: Size of the persistent volume
-    # default: 1Gi
-    # @schema
-    size: 1Gi
-    # type: object
-    # additionalProperties: true
-    # description: Annotations for the PVC
-    # additionalProperties:
-    #   type: string
-    # default: {}
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Annotations for the PVC
-    # default: {}
-    # @schema
-    annotations: {}
-
-  # type: object
-  # additionalProperties: true
-  # description: Service configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Service configuration
-  # @schema
-  service:
-    # type: integer
-    # description: Service port
-    # default: 8090
-    # @schema
-    # type: integer
-    # description: Service port
-    # default: 8090
-    # @schema
-    port: 8090
-
-  # type: object
-  # additionalProperties: true
-  # description: Service account configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Service account configuration
-  # @schema
-  serviceAccount:
-    # type: string
-    # description: Service account name
-    # default: thunder-service-account
-    # @schema
-    # type: string
-    # description: Service account name
-    # default: thunder-service-account
-    # @schema
-    name: thunder-service-account
-    # type: boolean
-    # description: Create service account
-    # default: true
-    # @schema
-    # type: boolean
-    # description: Create service account
-    # default: true
-    # @schema
-    create: true
-
-  # type: object
-  # additionalProperties: true
-  # description: Horizontal Pod Autoscaler configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Horizontal Pod Autoscaler configuration
-  # @schema
-  hpa:
-    # type: boolean
-    # description: Enable HPA
-    # default: false
-    # @schema
-    # type: boolean
-    # description: Enable HPA
-    # default: false
-    # @schema
-    enabled: false
-
-  # type: object
-  # additionalProperties: true
-  # description: Pod Disruption Budget configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Pod Disruption Budget configuration
-  # @schema
-  pdb:
-    # type: string
-    # description: Minimum available pods (percentage or number)
-    # default: "50%"
-    # @schema
-    # type: string
-    # description: Minimum available pods (percentage or number)
-    # default: "50%"
-    # @schema
-    minAvailable: "50%"
-
-  # type: object
-  # additionalProperties: true
-  # description: Standard ingress configuration (typically disabled in favor of ocIngress)
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Standard ingress configuration (typically disabled in favor of ocIngress)
-  # @schema
-  ingress:
-    # type: boolean
-    # description: Enable standard ingress
-    # default: false
-    # @schema
-    # type: boolean
-    # description: Enable standard ingress
-    # default: false
-    # @schema
-    enabled: false
-    # type: string
-    # description: Ingress class name
-    # default: ""
-    # @schema
-    # type: string
-    # description: Ingress class name
+    # description: HTTPRoute class name (reserved for future use)
     # default: ""
     # @schema
     ingressClassName: ""
     # type: object
     # additionalProperties: true
-    # description: Ingress annotations
+    # description: HTTPRoute annotations
     # additionalProperties:
     #   type: string
     # default: {}
     # @schema
     # type: object
     # additionalProperties: true
-    # description: Ingress annotations
+    # description: HTTPRoute annotations
     # default: {}
     # @schema
     annotations: {}
     # type: array
-    # description: Ingress hosts
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    # default: []
-    # @schema
-    # type: array
-    # description: Ingress hosts
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    hosts: []
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    tls: []
-
-  # type: object
-  # additionalProperties: true
-  # description: OpenChoreo-specific ingress configuration
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: OpenChoreo-specific ingress configuration
-  # @schema
-  ocIngress:
-    # type: boolean
-    # description: Enable OpenChoreo ingress
-    # default: true
-    # @schema
-    # type: boolean
-    # description: Enable OpenChoreo ingress
-    # default: true
-    # @schema
-    enabled: true
-    # type: string
-    # description: Ingress class name. If empty, uses global.ingressClassName
-    # default: ""
-    # @schema
-    # type: string
-    # description: Ingress class name. If empty, uses global.ingressClassName
-    # default: ""
-    # @schema
-    ingressClassName: ""
-    # type: object
-    # additionalProperties: true
-    # description: Ingress annotations
-    # additionalProperties:
     #   type: string
-    # default: {}
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Ingress annotations
-    # default: {}
-    # @schema
-    annotations: {}
-    # type: array
-    # description: Ingress hosts. If empty, derives from global.baseDomain
-    # items:
-    #   type: object
-    # default: []
+    # default:
+    #   - thunder.openchoreo.local
     # @schema
     # type: array
-    # description: Ingress hosts. If empty, derives from global.baseDomain
+    # description: HTTPRoute hostnames
     # items:
-    #   type: object
-    # default: []
+    #   type: string
+    # default:
+    #   - thunder.openchoreo.local
     # @schema
-    hosts: []
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    # type: array
-    # description: Ingress TLS configuration
-    # items:
-    #   type: object
-    # default: []
-    # @schema
-    tls: []
+    hostnames:
+      - thunder.openchoreo.local
 
   # type: object
   # additionalProperties: true
@@ -3319,14 +2719,14 @@ thunder:
       # @schema
       httpOnly: true
       # type: string
-      # description: Public URL for Thunder. If empty, auto-derived from global.baseDomain
-      # default: ""
+      # description: Public URL for Thunder
+      # default: "http://thunder.openchoreo.local"
       # @schema
       # type: string
-      # description: Public URL for Thunder. If empty, auto-derived from global.baseDomain
-      # default: ""
+      # description: Public URL for Thunder
+      # default: "http://thunder.openchoreo.local"
       # @schema
-      publicUrl: ""
+      publicUrl: "http://thunder.openchoreo.local"
 
     # type: object
     # additionalProperties: true
@@ -4697,9 +4097,9 @@ gateway:
     # @schema
     # type: string
     # description: Hostname pattern for TLS certificate
-    # default: "*.{{ .Values.global.baseDomain }}"
+    # default: "*.openchoreo.local"
     # @schema
-    hostname: ""
+    hostname: "*.openchoreo.local"
 
     # @schema
     # type: string
@@ -4904,7 +4304,7 @@ gateway:
     # enum: [Always, IfNotPresent, Never]
     # default: IfNotPresent
     # @schema
-    pullPolicy: IfNotPresent  
+    pullPolicy: IfNotPresent
 # @schema
 # type: object
 # additionalProperties: true

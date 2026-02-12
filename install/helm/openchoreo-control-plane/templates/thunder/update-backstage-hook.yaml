@@ -1,7 +1,7 @@
 {{- if .Values.thunder.enabled }}
 {{- if .Values.thunder.bootstrap.enabled }}
 {{- $curlInsecure := ternary "" "-k" .Values.thunder.configuration.server.httpOnly }}
-{{- $thunderUrl := include "openchoreo.thunderInternalUrl" . }}
+{{- $thunderUrl := printf "http://%s-service.%s.svc.cluster.local:%d" .Values.thunder.fullnameOverride .Release.Namespace (int .Values.thunder.configuration.server.port) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -58,7 +58,7 @@ data:
       "{{ $url }}"
       {{- end }}
       {{- else }}
-      "{{ include "openchoreo.consoleExternalUrl" . }}/api/auth/openchoreo-auth/handler/frame"
+      "{{ .Values.backstage.baseUrl | trimSuffix "/" }}/api/auth/openchoreo-auth/handler/frame"
       {{- end }}
     ]'
 

@@ -1,12 +1,27 @@
 # Helm values for OpenChoreo Control Plane in k3d multi-cluster setup
 
 openchoreoApi:
+  http:
+    hostnames:
+    - api.openchoreo.localhost
   config:
     server:
       publicUrl: "http://api.openchoreo.localhost:8080"
 
 backstage:
   baseUrl: "http://openchoreo.localhost:8080"
+  http:
+    hostnames:
+    - openchoreo.localhost
+  thunder:
+    baseUrl: "http://thunder.openchoreo.localhost:8080"
+
+security:
+  oidc:
+    issuer: "http://thunder.openchoreo.localhost:8080"
+    jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    authorizationUrl: "http://thunder.openchoreo.localhost:8080/oauth2/authorize"
+    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
 
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
@@ -30,6 +45,9 @@ clusterGateway:
       - cluster-gateway.openchoreo.localhost  # External hostname for multi-cluster access
 
 thunder:
+  http:
+    hostnames:
+    - thunder.openchoreo.localhost
   configuration:
     server:
       publicUrl: "http://thunder.openchoreo.localhost:8080"

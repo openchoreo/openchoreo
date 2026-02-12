@@ -2,8 +2,6 @@ fullnameOverride: registry
 
 persistence:
   enabled: true
-  size: 10Gi
 
 service:
   type: LoadBalancer
-  port: 5000
