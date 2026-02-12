@@ -156,20 +156,13 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
-		// Build a synthetic ComponentTrait with resolved parameters
-		syntheticInstance := v1alpha1.ComponentTrait{
-			Name:         embeddedTrait.Name,
-			InstanceName: embeddedTrait.InstanceName,
-			Parameters:   resolvedParams,
-		}
-
 		// Build embedded trait context
 		traitContext, err := context.BuildEmbeddedTraitContext(&context.EmbeddedTraitContextInput{
 			Trait:                t,
-			Instance:             syntheticInstance,
+			InstanceName:         embeddedTrait.InstanceName,
+			ResolvedParameters:   resolvedParams,
 			ResolvedEnvOverrides: resolvedEnvOverrides,
 			Component:            input.Component,
-			ReleaseBinding:       input.ReleaseBinding,
 			WorkloadData:         workloadData,
 			Configurations:       configurations,
 			Metadata:             input.Metadata,

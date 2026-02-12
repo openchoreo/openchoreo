@@ -161,8 +161,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 					t.Errorf("expected nil params, got %v", resolvedParams)
 				}
 			} else {
-				gotParams := unmarshalRawExtension(t, resolvedParams)
-				if diff := cmp.Diff(tt.wantParams, gotParams); diff != "" {
+				if diff := cmp.Diff(tt.wantParams, resolvedParams); diff != "" {
 					t.Errorf("params mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -173,8 +172,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 					t.Errorf("expected nil envOverrides, got %v", resolvedEnvOverrides)
 				}
 			} else {
-				gotEnvOverrides := unmarshalRawExtension(t, resolvedEnvOverrides)
-				if diff := cmp.Diff(tt.wantEnvOverrides, gotEnvOverrides); diff != "" {
+				if diff := cmp.Diff(tt.wantEnvOverrides, resolvedEnvOverrides); diff != "" {
 					t.Errorf("envOverrides mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -222,16 +220,11 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 		{
 			name: "basic embedded trait context with resolved parameters",
 			input: &EmbeddedTraitContextInput{
-				Trait: baseTrait,
-				Instance: v1alpha1.ComponentTrait{
-					Name:         "storage",
-					InstanceName: "app-storage",
-					Parameters: &runtime.RawExtension{
-						Raw: mustMarshalJSON(t, map[string]any{
-							"mountPath": "/var/data",
-							"size":      "10Gi",
-						}),
-					},
+				Trait:        baseTrait,
+				InstanceName: "app-storage",
+				ResolvedParameters: map[string]any{
+					"mountPath": "/var/data",
+					"size":      "10Gi",
 				},
 				Component:   &v1alpha1.Component{},
 				DataPlane:   baseDataPlane,
@@ -247,7 +240,7 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 			wantInstanceName: "app-storage",
 		},
 		{
-			name: "embedded trait with envOverrides merged from ReleaseBinding",
+			name: "embedded trait with resolved envOverrides",
 			input: &EmbeddedTraitContextInput{
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
@@ -264,25 +257,9 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					}
 					return t
 				}(),
-				Instance: v1alpha1.ComponentTrait{
-					Name:         "logging",
-					InstanceName: "app-logging",
-				},
-				ResolvedEnvOverrides: &runtime.RawExtension{
-					Raw: mustMarshalJSON(t, map[string]any{
-						"logLevel": "debug",
-					}),
-				},
-				ReleaseBinding: &v1alpha1.ReleaseBinding{
-					Spec: v1alpha1.ReleaseBindingSpec{
-						TraitOverrides: map[string]runtime.RawExtension{
-							"app-logging": {
-								Raw: mustMarshalJSON(t, map[string]any{
-									"logLevel": "warn",
-								}),
-							},
-						},
-					},
+				InstanceName: "app-logging",
+				ResolvedEnvOverrides: map[string]any{
+					"logLevel": "debug",
 				},
 				Component:   &v1alpha1.Component{},
 				DataPlane:   baseDataPlane,
@@ -293,13 +270,13 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 				"format": "json",
 			},
 			wantEnvOverrides: map[string]any{
-				"logLevel": "warn", // ReleaseBinding wins over resolved defaults
+				"logLevel": "debug",
 			},
 			wantTraitName:    "logging",
 			wantInstanceName: "app-logging",
 		},
 		{
-			name: "embedded trait with resolved envOverrides defaults (no ReleaseBinding override)",
+			name: "embedded trait with nil envOverrides uses schema defaults",
 			input: &EmbeddedTraitContextInput{
 				Trait: func() *v1alpha1.Trait {
 					t := &v1alpha1.Trait{}
@@ -311,34 +288,52 @@ func TestBuildEmbeddedTraitContext(t *testing.T) {
 					}
 					return t
 				}(),
-				Instance: v1alpha1.ComponentTrait{
-					Name:         "logging",
-					InstanceName: "app-logging",
-				},
-				ResolvedEnvOverrides: &runtime.RawExtension{
-					Raw: mustMarshalJSON(t, map[string]any{
-						"logLevel": "debug",
-					}),
-				},
-				Component:   &v1alpha1.Component{},
-				DataPlane:   baseDataPlane,
-				Environment: baseEnvironment,
-				Metadata:    baseMetadata,
+				InstanceName: "app-logging",
+				Component:    &v1alpha1.Component{},
+				DataPlane:    baseDataPlane,
+				Environment:  baseEnvironment,
+				Metadata:     baseMetadata,
 			},
 			wantParams: map[string]any{},
 			wantEnvOverrides: map[string]any{
-				"logLevel": "debug", // Resolved defaults used when no ReleaseBinding override
+				"logLevel": "info", // Schema default applied
 			},
 			wantTraitName:    "logging",
 			wantInstanceName: "app-logging",
 		},
 		{
+			name: "embedded trait with empty map parameters applies schema defaults",
+			input: &EmbeddedTraitContextInput{
+				Trait: func() *v1alpha1.Trait {
+					t := &v1alpha1.Trait{}
+					t.Name = "optional-config"
+					t.Spec.Schema.Parameters = &runtime.RawExtension{
+						Raw: mustMarshalJSON(nil, map[string]any{
+							"timeout": "string | default=\"30s\"",
+							"retries": "number | default=3",
+						}),
+					}
+					return t
+				}(),
+				InstanceName:       "app-config",
+				ResolvedParameters: map[string]any{}, // Empty map instead of nil
+				Component:          &v1alpha1.Component{},
+				DataPlane:          baseDataPlane,
+				Environment:        baseEnvironment,
+				Metadata:           baseMetadata,
+			},
+			wantParams: map[string]any{
+				"timeout": "30s", // Schema defaults applied
+				"retries": float64(3),
+			},
+			wantEnvOverrides: map[string]any{},
+			wantTraitName:    "optional-config",
+			wantInstanceName: "app-config",
+		},
+		{
 			name: "missing instance name",
 			input: &EmbeddedTraitContextInput{
-				Trait: baseTrait,
-				Instance: v1alpha1.ComponentTrait{
-					Name: "storage",
-				},
+				Trait:       baseTrait,
 				Component:   &v1alpha1.Component{},
 				DataPlane:   baseDataPlane,
 				Environment: baseEnvironment,
@@ -396,17 +391,4 @@ func mustMarshalJSON(t *testing.T, v any) []byte {
 		panic(err)
 	}
 	return data
-}
-
-// unmarshalRawExtension unmarshals a RawExtension into a map.
-func unmarshalRawExtension(t *testing.T, raw *runtime.RawExtension) map[string]any {
-	t.Helper()
-	if raw == nil || raw.Raw == nil {
-		return nil
-	}
-	var result map[string]any
-	if err := json.Unmarshal(raw.Raw, &result); err != nil {
-		t.Fatalf("Failed to unmarshal RawExtension: %v", err)
-	}
-	return result
 }
