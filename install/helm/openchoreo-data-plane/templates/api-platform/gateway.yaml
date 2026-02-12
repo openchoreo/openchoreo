@@ -23,5 +23,5 @@ spec:
     type: sqlite
 
   configRef:
-    name: api-platform-default-gateway-values
+    name: {{ index .Values "api-platform" "gateway" "configRefName" }}
 {{- end }}

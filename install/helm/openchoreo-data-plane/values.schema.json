@@ -16,6 +16,12 @@
           "additionalProperties": true,
           "description": "Gateway configuration for API Platform",
           "properties": {
+            "configRefName": {
+              "default": "api-platform-default-gateway-values",
+              "description": "Name of the ConfigMap referenced by the Gateway configRef",
+              "title": "configRefName",
+              "type": "string"
+            },
             "helm": {
               "additionalProperties": true,
               "description": "Helm chart reference for gateway sub-chart",
@@ -1049,6 +1055,12 @@
           "required": [],
           "title": "envoy",
           "type": "object"
+        },
+        "gatewayClassName": {
+          "default": "kgateway",
+          "description": "GatewayClass name to reference in the Gateway CR",
+          "title": "gatewayClassName",
+          "type": "string"
         },
         "httpPort": {
           "default": 9080,

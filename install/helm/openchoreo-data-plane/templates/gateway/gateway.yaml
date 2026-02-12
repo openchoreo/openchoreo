@@ -11,7 +11,7 @@ metadata:
     cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer }}
   {{- end }}
 spec:
-  gatewayClassName: kgateway
+  gatewayClassName: {{ .Values.gateway.gatewayClassName | default "kgateway" }}
   {{- with .Values.gateway.infrastructure }}
   infrastructure:
     {{- toYaml . | nindent 4 }}

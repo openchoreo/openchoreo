@@ -476,6 +476,13 @@ gateway:
   enabled: true
 
   # @schema
+  # type: string
+  # description: GatewayClass name to reference in the Gateway CR
+  # default: "kgateway"
+  # @schema
+  gatewayClassName: "kgateway"
+
+  # @schema
   # type: object
   # additionalProperties: true
   # description: |
@@ -1797,3 +1804,10 @@ api-platform:
       # default: "0.3.0"
       # @schema
       chartVersion: "0.3.0"
+
+    # @schema
+    # type: string
+    # description: Name of the ConfigMap referenced by the Gateway configRef
+    # default: "api-platform-default-gateway-values"
+    # @schema
+    configRefName: "api-platform-default-gateway-values"
