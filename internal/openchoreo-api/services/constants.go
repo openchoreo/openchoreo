@@ -48,6 +48,11 @@ const (
 
 	SystemActionViewObservabilityPlane systemAction = "observabilityplane:view"
 
+	SystemActionCreateClusterDataPlane        systemAction = "clusterdataplane:create"
+	SystemActionViewClusterDataPlane          systemAction = "clusterdataplane:view"
+	SystemActionViewClusterBuildPlane         systemAction = "clusterbuildplane:view"
+	SystemActionViewClusterObservabilityPlane systemAction = "clusterobservabilityplane:view"
+
 	SystemActionCreateEnvironment systemAction = "environment:create"
 	SystemActionViewEnvironment   systemAction = "environment:view"
 
@@ -70,26 +75,29 @@ const (
 type ResourceType string
 
 const (
-	ResourceTypeProject              ResourceType = "project"
-	ResourceTypeComponent            ResourceType = "component"
-	ResourceTypeComponentRelease     ResourceType = "componentRelease"
-	ResourceTypeReleaseBinding       ResourceType = "releaseBinding"
-	ResourceTypeWorkload             ResourceType = "workload"
-	ResourceTypeNamespace            ResourceType = "namespace"
-	ResourceTypeRole                 ResourceType = "role"
-	ResourceTypeRoleMapping          ResourceType = "roleMapping"
-	ResourceTypeComponentType        ResourceType = "componentType"
-	ResourceTypeTrait                ResourceType = "trait"
-	ResourceTypeDataPlane            ResourceType = "dataPlane"
-	ResourceTypeBuildPlane           ResourceType = "buildPlane"
-	ResourceTypeObservabilityPlane   ResourceType = "observabilityPlane"
-	ResourceTypeEnvironment          ResourceType = "environment"
-	ResourceTypeDeploymentPipeline   ResourceType = "deploymentPipeline"
-	ResourceTypeWorkflow             ResourceType = "workflow"
-	ResourceTypeWorkflowRun          ResourceType = "workflowRun"
-	ResourceTypeComponentWorkflow    ResourceType = "componentWorkflow"
-	ResourceTypeComponentWorkflowRun ResourceType = "componentWorkflowRun"
-	ResourceTypeSecretReference      ResourceType = "secretReference"
+	ResourceTypeProject                   ResourceType = "project"
+	ResourceTypeComponent                 ResourceType = "component"
+	ResourceTypeComponentRelease          ResourceType = "componentRelease"
+	ResourceTypeReleaseBinding            ResourceType = "releaseBinding"
+	ResourceTypeWorkload                  ResourceType = "workload"
+	ResourceTypeNamespace                 ResourceType = "namespace"
+	ResourceTypeRole                      ResourceType = "role"
+	ResourceTypeRoleMapping               ResourceType = "roleMapping"
+	ResourceTypeComponentType             ResourceType = "componentType"
+	ResourceTypeTrait                     ResourceType = "trait"
+	ResourceTypeDataPlane                 ResourceType = "dataPlane"
+	ResourceTypeBuildPlane                ResourceType = "buildPlane"
+	ResourceTypeObservabilityPlane        ResourceType = "observabilityPlane"
+	ResourceTypeClusterDataPlane          ResourceType = "clusterDataPlane"
+	ResourceTypeClusterBuildPlane         ResourceType = "clusterBuildPlane"
+	ResourceTypeClusterObservabilityPlane ResourceType = "clusterObservabilityPlane"
+	ResourceTypeEnvironment               ResourceType = "environment"
+	ResourceTypeDeploymentPipeline        ResourceType = "deploymentPipeline"
+	ResourceTypeWorkflow                  ResourceType = "workflow"
+	ResourceTypeWorkflowRun               ResourceType = "workflowRun"
+	ResourceTypeComponentWorkflow         ResourceType = "componentWorkflow"
+	ResourceTypeComponentWorkflowRun      ResourceType = "componentWorkflowRun"
+	ResourceTypeSecretReference           ResourceType = "secretReference"
 )
 
 // Workflow run status constants

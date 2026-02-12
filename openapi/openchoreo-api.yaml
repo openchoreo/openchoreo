@@ -43,6 +43,12 @@ tags:
     description: BuildPlane management for CI/CD build infrastructure
   - name: ObservabilityPlanes
     description: ObservabilityPlane management for monitoring and logging
+  - name: ClusterDataPlanes
+    description: Cluster-scoped DataPlane management
+  - name: ClusterBuildPlanes
+    description: Cluster-scoped BuildPlane management
+  - name: ClusterObservabilityPlanes
+    description: Cluster-scoped ObservabilityPlane management
   - name: ComponentTypes
     description: ComponentType templates defined by platform engineers
   - name: Traits
@@ -670,6 +676,136 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ObservabilityPlaneList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # ClusterDataPlane Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clusterdataplanes:
+    get:
+      operationId: listClusterDataPlanes
+      summary: List cluster data planes
+      description: Returns a paginated list of cluster-scoped data planes.
+      tags: [ClusterDataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster data planes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDataPlaneList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterDataPlane
+      summary: Create cluster data plane
+      description: Creates a new cluster-scoped data plane.
+      tags: [ClusterDataPlanes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClusterDataPlaneRequest'
+      responses:
+        '201':
+          description: ClusterDataPlane created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDataPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterdataplanes/{cdpName}:
+    get:
+      operationId: getClusterDataPlane
+      summary: Get cluster data plane
+      description: Returns details of a specific cluster-scoped data plane.
+      tags: [ClusterDataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterDataPlaneNameParam'
+      responses:
+        '200':
+          description: ClusterDataPlane details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDataPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # ClusterBuildPlane Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clusterbuildplanes:
+    get:
+      operationId: listClusterBuildPlanes
+      summary: List cluster build planes
+      description: Returns a list of cluster-scoped build planes.
+      tags: [ClusterBuildPlanes]
+      responses:
+        '200':
+          description: List of cluster build planes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterBuildPlaneList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # ClusterObservabilityPlane Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clusterobservabilityplanes:
+    get:
+      operationId: listClusterObservabilityPlanes
+      summary: List cluster observability planes
+      description: Returns a list of cluster-scoped observability planes.
+      tags: [ClusterObservabilityPlanes]
+      responses:
+        '200':
+          description: List of cluster observability planes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterObservabilityPlaneList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2801,6 +2937,15 @@ components:
         type: string
         example: default-dataplane
 
+    ClusterDataPlaneNameParam:
+      name: cdpName
+      in: path
+      required: true
+      description: ClusterDataPlane name
+      schema:
+        type: string
+        example: shared-dataplane
+
     ComponentTypeNameParam:
       name: ctName
       in: path
@@ -4131,6 +4276,307 @@ components:
         status:
           type: string
           description: ObservabilityPlane status
+          example: Ready
+
+    # -------------------------------------------------------------------------
+    # ClusterDataPlanes (Cluster-Scoped)
+    # -------------------------------------------------------------------------
+    ClusterDataPlaneList:
+      type: object
+      description: Paginated list of cluster-scoped data planes
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterDataPlane'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterDataPlane:
+      type: object
+      description: Cluster-scoped DataPlane resource for workload deployment
+      required:
+        - name
+        - planeID
+        - publicVirtualHost
+        - organizationVirtualHost
+        - publicHTTPPort
+        - publicHTTPSPort
+        - organizationHTTPPort
+        - organizationHTTPSPort
+        - createdAt
+      properties:
+        name:
+          type: string
+          description: ClusterDataPlane name (unique cluster-wide)
+          example: shared-dataplane
+        planeID:
+          type: string
+          description: Logical plane identifier for the physical cluster
+          example: us-west-prod-cluster
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Shared Data Plane
+        description:
+          type: string
+          description: ClusterDataPlane description
+          example: Shared data plane for production workloads
+        imagePullSecretRefs:
+          type: array
+          description: References to image pull secrets
+          items:
+            type: string
+          example: ["docker-registry-secret"]
+        secretStoreRef:
+          type: string
+          description: Reference to the secret store for external secrets
+          example: vault-secret-store
+        publicVirtualHost:
+          type: string
+          description: Public virtual host for external traffic
+          example: apps.example.com
+        organizationVirtualHost:
+          type: string
+          description: Organization virtual host for internal traffic
+          example: internal.example.com
+        publicHTTPPort:
+          type: integer
+          format: int32
+          description: Public HTTP port
+          example: 80
+        publicHTTPSPort:
+          type: integer
+          format: int32
+          description: Public HTTPS port
+          example: 443
+        organizationHTTPPort:
+          type: integer
+          format: int32
+          description: Organization HTTP port
+          example: 8080
+        organizationHTTPSPort:
+          type: integer
+          format: int32
+          description: Organization HTTPS port
+          example: 8443
+        observabilityPlaneRef:
+          $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+        status:
+          type: string
+          description: ClusterDataPlane status
+          example: Ready
+
+    CreateClusterDataPlaneRequest:
+      type: object
+      description: Request to create a new cluster-scoped data plane
+      required:
+        - name
+        - planeID
+        - clusterAgentClientCA
+        - publicVirtualHost
+        - organizationVirtualHost
+      properties:
+        name:
+          type: string
+          description: ClusterDataPlane name (must be unique cluster-wide)
+          example: shared-dataplane
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        planeID:
+          type: string
+          description: Logical plane identifier for the physical cluster
+          example: us-west-prod-cluster
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Shared Data Plane
+          maxLength: 256
+        description:
+          type: string
+          description: ClusterDataPlane description
+          example: Shared data plane for production workloads
+          maxLength: 1024
+        clusterAgentClientCA:
+          type: string
+          description: CA certificate for cluster agent client authentication (PEM format)
+          example: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+        publicVirtualHost:
+          type: string
+          description: Public virtual host for external traffic
+          example: apps.example.com
+        organizationVirtualHost:
+          type: string
+          description: Organization virtual host for internal traffic
+          example: internal.example.com
+        publicHTTPPort:
+          type: integer
+          format: int32
+          description: Public HTTP port (defaults to 80)
+          example: 80
+        publicHTTPSPort:
+          type: integer
+          format: int32
+          description: Public HTTPS port (defaults to 443)
+          example: 443
+        organizationHTTPPort:
+          type: integer
+          format: int32
+          description: Organization HTTP port (defaults to 8080)
+          example: 8080
+        organizationHTTPSPort:
+          type: integer
+          format: int32
+          description: Organization HTTPS port (defaults to 8443)
+          example: 8443
+        observabilityPlaneRef:
+          $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
+
+    # -------------------------------------------------------------------------
+    # ClusterBuildPlanes (Cluster-Scoped)
+    # -------------------------------------------------------------------------
+    ClusterBuildPlaneList:
+      type: object
+      description: List of cluster-scoped build planes
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterBuildPlane'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterBuildPlane:
+      type: object
+      description: Cluster-scoped BuildPlane resource for CI/CD build infrastructure
+      required:
+        - name
+        - planeID
+        - createdAt
+      properties:
+        name:
+          type: string
+          description: ClusterBuildPlane name (unique cluster-wide)
+          example: shared-buildplane
+        planeID:
+          type: string
+          description: Logical plane identifier for the physical cluster
+          example: ci-cluster
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Shared Build Plane
+        description:
+          type: string
+          description: ClusterBuildPlane description
+          example: Shared build plane for CI/CD workflows
+        observabilityPlaneRef:
+          $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+        status:
+          type: string
+          description: ClusterBuildPlane status
+          example: Ready
+
+    # -------------------------------------------------------------------------
+    # ClusterObservabilityPlaneRef (Cluster-Scoped Only)
+    # -------------------------------------------------------------------------
+    ClusterObservabilityPlaneRef:
+      type: object
+      description: Reference to a ClusterObservabilityPlane (cluster-scoped only)
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of observability plane (only ClusterObservabilityPlane allowed)
+          enum: [ClusterObservabilityPlane]
+          example: ClusterObservabilityPlane
+        name:
+          type: string
+          description: Name of the ClusterObservabilityPlane resource
+          minLength: 1
+          maxLength: 63
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: default
+
+    # -------------------------------------------------------------------------
+    # ClusterObservabilityPlanes (Cluster-Scoped)
+    # -------------------------------------------------------------------------
+    ClusterObservabilityPlaneList:
+      type: object
+      description: List of cluster-scoped observability planes
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterObservabilityPlane'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterObservabilityPlane:
+      type: object
+      description: Cluster-scoped ObservabilityPlane resource for monitoring and logging
+      required:
+        - name
+        - planeID
+        - createdAt
+      properties:
+        name:
+          type: string
+          description: ClusterObservabilityPlane name (unique cluster-wide)
+          example: shared-observability
+        planeID:
+          type: string
+          description: Logical plane identifier for the physical cluster
+          example: monitoring-cluster
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Shared Observability Plane
+        description:
+          type: string
+          description: ClusterObservabilityPlane description
+          example: Central observability plane for logs and metrics
+        observerURL:
+          type: string
+          description: Base URL of the Observer API
+          example: http://observer.observability-plane.svc:8080
+        rcaAgentURL:
+          type: string
+          description: Base URL of the RCA Agent API
+          example: http://rca-agent.observability-plane.svc:8080
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+        status:
+          type: string
+          description: ClusterObservabilityPlane status
           example: Ready
 
     # -------------------------------------------------------------------------

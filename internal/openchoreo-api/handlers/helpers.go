@@ -39,6 +39,15 @@ func writeListResponse[T any](w http.ResponseWriter, items []T, total, page, pag
 	_ = json.NewEncoder(w).Encode(response) // Ignore encoding errors for response
 }
 
+// writeCursorListResponse writes a cursor-paginated list response
+func writeCursorListResponse[T any](w http.ResponseWriter, items []T, nextCursor string, remainingCount *int64) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	response := models.CursorListSuccessResponse(items, nextCursor, remainingCount)
+	_ = json.NewEncoder(w).Encode(response) // Ignore encoding errors for response
+}
+
 // setAuditResource sets resource information for audit logging
 func setAuditResource(ctx context.Context, resourceType, resourceID, resourceName string) {
 	audit.SetResource(ctx, &audit.Resource{

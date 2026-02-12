@@ -72,6 +72,12 @@ var systemActions = []Action{
 	// ObservabilityPlane
 	{Name: "observabilityplane:view", IsInternal: false},
 
+	// Cluster-scoped planes
+	{Name: "clusterdataplane:view", IsInternal: false},
+	{Name: "clusterdataplane:create", IsInternal: false},
+	{Name: "clusterbuildplane:view", IsInternal: false},
+	{Name: "clusterobservabilityplane:view", IsInternal: false},
+
 	// DeploymentPipeline
 	{Name: "deploymentpipeline:view", IsInternal: false},
 

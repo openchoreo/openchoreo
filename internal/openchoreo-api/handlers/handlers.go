@@ -252,6 +252,17 @@ func (h *Handler) Routes() http.Handler {
 	// ObservabilityPlane management
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/observabilityplanes", h.ListObservabilityPlanes)
 
+	// ClusterDataPlane management
+	api.HandleFunc("GET "+v1+"/clusterdataplanes", h.ListClusterDataPlanes)
+	api.HandleFunc("POST "+v1+"/clusterdataplanes", h.CreateClusterDataPlane)
+	api.HandleFunc("GET "+v1+"/clusterdataplanes/{cdpName}", h.GetClusterDataPlane)
+
+	// ClusterBuildPlane management
+	api.HandleFunc("GET "+v1+"/clusterbuildplanes", h.ListClusterBuildPlanes)
+
+	// ClusterObservabilityPlane management
+	api.HandleFunc("GET "+v1+"/clusterobservabilityplanes", h.ListClusterObservabilityPlanes)
+
 	return mux
 }
 

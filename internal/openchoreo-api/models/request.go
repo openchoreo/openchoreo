@@ -267,6 +267,80 @@ func (req *CreateDataPlaneRequest) Sanitize() {
 	}
 }
 
+// CreateClusterDataPlaneRequest represents the request to create a new cluster-scoped dataplane
+type CreateClusterDataPlaneRequest struct {
+	Name                    string                 `json:"name"`
+	DisplayName             string                 `json:"displayName,omitempty"`
+	Description             string                 `json:"description,omitempty"`
+	PlaneID                 string                 `json:"planeID"`
+	ClusterAgentClientCA    string                 `json:"clusterAgentClientCA"`
+	PublicVirtualHost       string                 `json:"publicVirtualHost"`
+	OrganizationVirtualHost string                 `json:"organizationVirtualHost"`
+	PublicHTTPPort          *int32                 `json:"publicHTTPPort,omitempty"`
+	PublicHTTPSPort         *int32                 `json:"publicHTTPSPort,omitempty"`
+	OrganizationHTTPPort    *int32                 `json:"organizationHTTPPort,omitempty"`
+	OrganizationHTTPSPort   *int32                 `json:"organizationHTTPSPort,omitempty"`
+	ObservabilityPlaneRef   *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+}
+
+// Validate validates the CreateClusterDataPlaneRequest
+func (req *CreateClusterDataPlaneRequest) Validate() error {
+	if strings.TrimSpace(req.Name) == "" {
+		return errors.New("name is required")
+	}
+	if errs := validation.IsDNS1123Label(strings.TrimSpace(req.Name)); len(errs) > 0 {
+		return fmt.Errorf("name must be a valid DNS-1123 label: %s", strings.Join(errs, ", "))
+	}
+	if strings.TrimSpace(req.PlaneID) == "" {
+		return errors.New("planeID is required")
+	}
+	if errs := validation.IsDNS1123Label(strings.TrimSpace(req.PlaneID)); len(errs) > 0 {
+		return fmt.Errorf("planeID must be a valid DNS-1123 label: %s", strings.Join(errs, ", "))
+	}
+	if strings.TrimSpace(req.ClusterAgentClientCA) == "" {
+		return errors.New("clusterAgentClientCA is required")
+	}
+	if strings.TrimSpace(req.PublicVirtualHost) == "" {
+		return errors.New("publicVirtualHost is required")
+	}
+	if strings.TrimSpace(req.OrganizationVirtualHost) == "" {
+		return errors.New("organizationVirtualHost is required")
+	}
+	// Validate ObservabilityPlaneRef if provided
+	if req.ObservabilityPlaneRef != nil {
+		kind := req.ObservabilityPlaneRef.Kind
+		if kind == "" {
+			return errors.New("observabilityPlaneRef.kind is required when observabilityPlaneRef is provided")
+		}
+		if kind != "ClusterObservabilityPlane" {
+			return fmt.Errorf("observabilityPlaneRef.kind must be 'ClusterObservabilityPlane' for cluster-scoped resources, got '%s'", kind)
+		}
+		name := strings.TrimSpace(req.ObservabilityPlaneRef.Name)
+		if name == "" {
+			return errors.New("observabilityPlaneRef.name is required when observabilityPlaneRef is provided")
+		}
+		if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+			return fmt.Errorf("observabilityPlaneRef.name must be a valid DNS-1123 label: %s", strings.Join(errs, ", "))
+		}
+	}
+	return nil
+}
+
+// Sanitize sanitizes the CreateClusterDataPlaneRequest by trimming whitespace
+func (req *CreateClusterDataPlaneRequest) Sanitize() {
+	req.Name = strings.TrimSpace(req.Name)
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.Description = strings.TrimSpace(req.Description)
+	req.PlaneID = strings.TrimSpace(req.PlaneID)
+	req.ClusterAgentClientCA = strings.TrimSpace(req.ClusterAgentClientCA)
+	req.PublicVirtualHost = strings.TrimSpace(req.PublicVirtualHost)
+	req.OrganizationVirtualHost = strings.TrimSpace(req.OrganizationVirtualHost)
+	if req.ObservabilityPlaneRef != nil {
+		req.ObservabilityPlaneRef.Kind = strings.TrimSpace(req.ObservabilityPlaneRef.Kind)
+		req.ObservabilityPlaneRef.Name = strings.TrimSpace(req.ObservabilityPlaneRef.Name)
+	}
+}
+
 // Sanitize sanitizes the PromoteComponentRequest by trimming whitespace
 func (req *PromoteComponentRequest) Sanitize() {
 	req.SourceEnvironment = strings.TrimSpace(req.SourceEnvironment)

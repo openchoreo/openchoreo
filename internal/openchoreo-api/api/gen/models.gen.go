@@ -30,6 +30,11 @@ const (
 	BindingStatusStatusSuspended  BindingStatusStatus = "Suspended"
 )
 
+// Defines values for ClusterObservabilityPlaneRefKind.
+const (
+	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
+)
+
 // Defines values for CreateClusterRoleBindingRequestEffect.
 const (
 	CreateClusterRoleBindingRequestEffectAllow CreateClusterRoleBindingRequestEffect = "allow"
@@ -320,6 +325,144 @@ type ClientConfigList struct {
 	TokenEndpoint string `json:"token_endpoint"`
 }
 
+// ClusterBuildPlane Cluster-scoped BuildPlane resource for CI/CD build infrastructure
+type ClusterBuildPlane struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description ClusterBuildPlane description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name ClusterBuildPlane name (unique cluster-wide)
+	Name string `json:"name"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster
+	PlaneID string `json:"planeID"`
+
+	// Status ClusterBuildPlane status
+	Status *string `json:"status,omitempty"`
+}
+
+// ClusterBuildPlaneList List of cluster-scoped build planes
+type ClusterBuildPlaneList struct {
+	Items []ClusterBuildPlane `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterDataPlane Cluster-scoped DataPlane resource for workload deployment
+type ClusterDataPlane struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description ClusterDataPlane description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// ImagePullSecretRefs References to image pull secrets
+	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
+
+	// Name ClusterDataPlane name (unique cluster-wide)
+	Name string `json:"name"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// OrganizationHTTPPort Organization HTTP port
+	OrganizationHTTPPort int32 `json:"organizationHTTPPort"`
+
+	// OrganizationHTTPSPort Organization HTTPS port
+	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort"`
+
+	// OrganizationVirtualHost Organization virtual host for internal traffic
+	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+
+	// PlaneID Logical plane identifier for the physical cluster
+	PlaneID string `json:"planeID"`
+
+	// PublicHTTPPort Public HTTP port
+	PublicHTTPPort int32 `json:"publicHTTPPort"`
+
+	// PublicHTTPSPort Public HTTPS port
+	PublicHTTPSPort int32 `json:"publicHTTPSPort"`
+
+	// PublicVirtualHost Public virtual host for external traffic
+	PublicVirtualHost string `json:"publicVirtualHost"`
+
+	// SecretStoreRef Reference to the secret store for external secrets
+	SecretStoreRef *string `json:"secretStoreRef,omitempty"`
+
+	// Status ClusterDataPlane status
+	Status *string `json:"status,omitempty"`
+}
+
+// ClusterDataPlaneList Paginated list of cluster-scoped data planes
+type ClusterDataPlaneList struct {
+	Items []ClusterDataPlane `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterObservabilityPlane Cluster-scoped ObservabilityPlane resource for monitoring and logging
+type ClusterObservabilityPlane struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description ClusterObservabilityPlane description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name ClusterObservabilityPlane name (unique cluster-wide)
+	Name string `json:"name"`
+
+	// ObserverURL Base URL of the Observer API
+	ObserverURL *string `json:"observerURL,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster
+	PlaneID string `json:"planeID"`
+
+	// RcaAgentURL Base URL of the RCA Agent API
+	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+
+	// Status ClusterObservabilityPlane status
+	Status *string `json:"status,omitempty"`
+}
+
+// ClusterObservabilityPlaneList List of cluster-scoped observability planes
+type ClusterObservabilityPlaneList struct {
+	Items []ClusterObservabilityPlane `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ClusterObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+type ClusterObservabilityPlaneRef struct {
+	// Kind Kind of observability plane (only ClusterObservabilityPlane allowed)
+	Kind ClusterObservabilityPlaneRefKind `json:"kind"`
+
+	// Name Name of the ClusterObservabilityPlane resource
+	Name string `json:"name"`
+}
+
+// ClusterObservabilityPlaneRefKind Kind of observability plane (only ClusterObservabilityPlane allowed)
+type ClusterObservabilityPlaneRefKind string
+
 // ClusterRoleRef Reference to a cluster role by name only
 type ClusterRoleRef struct {
 	// Name Cluster role name
@@ -587,6 +730,45 @@ type ComponentWorkflowTemplateList struct {
 type ContainerOverride struct {
 	Env   *[]EnvVar  `json:"env,omitempty"`
 	Files *[]FileVar `json:"files,omitempty"`
+}
+
+// CreateClusterDataPlaneRequest Request to create a new cluster-scoped data plane
+type CreateClusterDataPlaneRequest struct {
+	// ClusterAgentClientCA CA certificate for cluster agent client authentication (PEM format)
+	ClusterAgentClientCA string `json:"clusterAgentClientCA"`
+
+	// Description ClusterDataPlane description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name ClusterDataPlane name (must be unique cluster-wide)
+	Name string `json:"name"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// OrganizationHTTPPort Organization HTTP port (defaults to 8080)
+	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
+
+	// OrganizationHTTPSPort Organization HTTPS port (defaults to 8443)
+	OrganizationHTTPSPort *int32 `json:"organizationHTTPSPort,omitempty"`
+
+	// OrganizationVirtualHost Organization virtual host for internal traffic
+	OrganizationVirtualHost string `json:"organizationVirtualHost"`
+
+	// PlaneID Logical plane identifier for the physical cluster
+	PlaneID string `json:"planeID"`
+
+	// PublicHTTPPort Public HTTP port (defaults to 80)
+	PublicHTTPPort *int32 `json:"publicHTTPPort,omitempty"`
+
+	// PublicHTTPSPort Public HTTPS port (defaults to 443)
+	PublicHTTPSPort *int32 `json:"publicHTTPSPort,omitempty"`
+
+	// PublicVirtualHost Public virtual host for external traffic
+	PublicVirtualHost string `json:"publicVirtualHost"`
 }
 
 // CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding
@@ -1925,6 +2107,9 @@ type WorkloadSpec map[string]interface{}
 // BindingNameParam defines model for BindingNameParam.
 type BindingNameParam = string
 
+// ClusterDataPlaneNameParam defines model for ClusterDataPlaneNameParam.
+type ClusterDataPlaneNameParam = string
+
 // ComponentEnvironmentNameParam defines model for ComponentEnvironmentNameParam.
 type ComponentEnvironmentNameParam = string
 
@@ -2001,6 +2186,16 @@ type GetSubjectProfileParams struct {
 
 	// Component Component scope
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+}
+
+// ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.
+type ListClusterDataPlanesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
@@ -2203,6 +2398,9 @@ type BatchEvaluateJSONRequestBody = BatchEvaluateRequest
 
 // EvaluateJSONRequestBody defines body for Evaluate for application/json ContentType.
 type EvaluateJSONRequestBody = EvaluateRequest
+
+// CreateClusterDataPlaneJSONRequestBody defines body for CreateClusterDataPlane for application/json ContentType.
+type CreateClusterDataPlaneJSONRequestBody = CreateClusterDataPlaneRequest
 
 // CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
 type CreateClusterRoleBindingJSONRequestBody = CreateClusterRoleBindingRequest

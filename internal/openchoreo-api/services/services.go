@@ -14,25 +14,28 @@ import (
 )
 
 type Services struct {
-	ProjectService            *ProjectService
-	ComponentService          *ComponentService
-	ComponentTypeService      *ComponentTypeService
-	WorkflowService           *WorkflowService
-	WorkflowRunService        *WorkflowRunService
-	ComponentWorkflowService  *ComponentWorkflowService
-	TraitService              *TraitService
-	NamespaceService          *NamespaceService
-	EnvironmentService        *EnvironmentService
-	DataPlaneService          *DataPlaneService
-	BuildPlaneService         *BuildPlaneService
-	DeploymentPipelineService *DeploymentPipelineService
-	SchemaService             *SchemaService
-	SecretReferenceService    *SecretReferenceService
-	GitSecretService          *GitSecretService
-	WebhookService            *WebhookService
-	AuthzService              *AuthzService
-	ObservabilityPlaneService *ObservabilityPlaneService
-	k8sClient                 client.Client // Direct access to K8s client for apply operations
+	ProjectService                   *ProjectService
+	ComponentService                 *ComponentService
+	ComponentTypeService             *ComponentTypeService
+	WorkflowService                  *WorkflowService
+	WorkflowRunService               *WorkflowRunService
+	ComponentWorkflowService         *ComponentWorkflowService
+	TraitService                     *TraitService
+	NamespaceService                 *NamespaceService
+	EnvironmentService               *EnvironmentService
+	DataPlaneService                 *DataPlaneService
+	BuildPlaneService                *BuildPlaneService
+	DeploymentPipelineService        *DeploymentPipelineService
+	SchemaService                    *SchemaService
+	SecretReferenceService           *SecretReferenceService
+	GitSecretService                 *GitSecretService
+	WebhookService                   *WebhookService
+	AuthzService                     *AuthzService
+	ObservabilityPlaneService        *ObservabilityPlaneService
+	ClusterDataPlaneService          *ClusterDataPlaneService
+	ClusterBuildPlaneService         *ClusterBuildPlaneService
+	ClusterObservabilityPlaneService *ClusterObservabilityPlaneService
+	k8sClient                        client.Client // Direct access to K8s client for apply operations
 }
 
 // NewServices creates and initializes all services
@@ -91,26 +94,38 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create ObservabilityPlane service
 	observabilityPlaneService := NewObservabilityPlaneService(k8sClient, logger.With("service", "observabilityplane"), authzPDP)
 
+	// Create ClusterDataPlane service
+	clusterDataPlaneService := NewClusterDataPlaneService(k8sClient, logger.With("service", "clusterdataplane"), authzPDP)
+
+	// Create ClusterBuildPlane service
+	clusterBuildPlaneService := NewClusterBuildPlaneService(k8sClient, logger.With("service", "clusterbuildplane"), authzPDP)
+
+	// Create ClusterObservabilityPlane service
+	clusterObservabilityPlaneService := NewClusterObservabilityPlaneService(k8sClient, logger.With("service", "clusterobservabilityplane"), authzPDP)
+
 	return &Services{
-		ProjectService:            projectService,
-		ComponentService:          componentService,
-		ComponentTypeService:      componentTypeService,
-		WorkflowService:           workflowService,
-		WorkflowRunService:        workflowRunService,
-		ComponentWorkflowService:  componentWorkflowService,
-		TraitService:              traitService,
-		NamespaceService:          namespaceService,
-		EnvironmentService:        environmentService,
-		DataPlaneService:          dataplaneService,
-		BuildPlaneService:         buildPlaneService,
-		DeploymentPipelineService: deploymentPipelineService,
-		SchemaService:             schemaService,
-		SecretReferenceService:    secretReferenceService,
-		GitSecretService:          gitSecretService,
-		WebhookService:            webhookService,
-		AuthzService:              authzService,
-		ObservabilityPlaneService: observabilityPlaneService,
-		k8sClient:                 k8sClient,
+		ProjectService:                   projectService,
+		ComponentService:                 componentService,
+		ComponentTypeService:             componentTypeService,
+		WorkflowService:                  workflowService,
+		WorkflowRunService:               workflowRunService,
+		ComponentWorkflowService:         componentWorkflowService,
+		TraitService:                     traitService,
+		NamespaceService:                 namespaceService,
+		EnvironmentService:               environmentService,
+		DataPlaneService:                 dataplaneService,
+		BuildPlaneService:                buildPlaneService,
+		DeploymentPipelineService:        deploymentPipelineService,
+		SchemaService:                    schemaService,
+		SecretReferenceService:           secretReferenceService,
+		GitSecretService:                 gitSecretService,
+		WebhookService:                   webhookService,
+		AuthzService:                     authzService,
+		ObservabilityPlaneService:        observabilityPlaneService,
+		ClusterDataPlaneService:          clusterDataPlaneService,
+		ClusterBuildPlaneService:         clusterBuildPlaneService,
+		ClusterObservabilityPlaneService: clusterObservabilityPlaneService,
+		k8sClient:                        k8sClient,
 	}
 }
 

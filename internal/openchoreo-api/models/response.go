@@ -25,6 +25,18 @@ type ListResponse[T any] struct {
 	PageSize   int `json:"pageSize"`
 }
 
+// PaginationMetadata holds cursor-based pagination metadata.
+type PaginationMetadata struct {
+	NextCursor     string `json:"nextCursor,omitempty"`
+	RemainingCount *int64 `json:"remainingCount,omitempty"`
+}
+
+// CursorListResponse represents a cursor-paginated list response.
+type CursorListResponse[T any] struct {
+	Items      []T                `json:"items"`
+	Pagination PaginationMetadata `json:"pagination"`
+}
+
 // ProjectResponse represents a project in API responses
 type ProjectResponse struct {
 	UID                string         `json:"uid"`
@@ -280,6 +292,19 @@ func ListSuccessResponse[T any](items []T, total, page, pageSize int) APIRespons
 	}
 }
 
+func CursorListSuccessResponse[T any](items []T, nextCursor string, remainingCount *int64) APIResponse[CursorListResponse[T]] {
+	return APIResponse[CursorListResponse[T]]{
+		Success: true,
+		Data: CursorListResponse[T]{
+			Items: items,
+			Pagination: PaginationMetadata{
+				NextCursor:     nextCursor,
+				RemainingCount: remainingCount,
+			},
+		},
+	}
+}
+
 func ErrorResponse(message, code string) APIResponse[any] {
 	return APIResponse[any]{
 		Success: false,
@@ -414,6 +439,58 @@ type ObservabilityPlaneResponse struct {
 	DisplayName     string                         `json:"displayName,omitempty"`
 	Description     string                         `json:"description,omitempty"`
 	ObserverURL     string                         `json:"observerURL,omitempty"`
+	AgentConnection *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt       time.Time                      `json:"createdAt"`
+	Status          string                         `json:"status,omitempty"`
+}
+
+// ClusterDataPlaneResponse represents a cluster-scoped dataplane in API responses
+type ClusterDataPlaneResponse struct {
+	Name                    string                         `json:"name"`
+	PlaneID                 string                         `json:"planeID"`
+	DisplayName             string                         `json:"displayName,omitempty"`
+	Description             string                         `json:"description,omitempty"`
+	ImagePullSecretRefs     []string                       `json:"imagePullSecretRefs,omitempty"`
+	SecretStoreRef          string                         `json:"secretStoreRef,omitempty"`
+	PublicVirtualHost       string                         `json:"publicVirtualHost"`
+	OrganizationVirtualHost string                         `json:"organizationVirtualHost"`
+	PublicHTTPPort          int32                          `json:"publicHTTPPort"`
+	PublicHTTPSPort         int32                          `json:"publicHTTPSPort"`
+	OrganizationHTTPPort    int32                          `json:"organizationHTTPPort"`
+	OrganizationHTTPSPort   int32                          `json:"organizationHTTPSPort"`
+	ObservabilityPlaneRef   *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection         *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt               time.Time                      `json:"createdAt"`
+	Status                  string                         `json:"status,omitempty"`
+}
+
+// ClusterDataPlaneListResult holds a paginated list of cluster data planes.
+type ClusterDataPlaneListResult struct {
+	Items          []*ClusterDataPlaneResponse
+	NextCursor     string
+	RemainingCount *int64
+}
+
+// ClusterBuildPlaneResponse represents a cluster-scoped buildplane in API responses
+type ClusterBuildPlaneResponse struct {
+	Name                  string                         `json:"name"`
+	PlaneID               string                         `json:"planeID"`
+	DisplayName           string                         `json:"displayName,omitempty"`
+	Description           string                         `json:"description,omitempty"`
+	ObservabilityPlaneRef *ObservabilityPlaneRef         `json:"observabilityPlaneRef,omitempty"`
+	AgentConnection       *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
+	CreatedAt             time.Time                      `json:"createdAt"`
+	Status                string                         `json:"status,omitempty"`
+}
+
+// ClusterObservabilityPlaneResponse represents a cluster-scoped observability plane in API responses
+type ClusterObservabilityPlaneResponse struct {
+	Name            string                         `json:"name"`
+	PlaneID         string                         `json:"planeID"`
+	DisplayName     string                         `json:"displayName,omitempty"`
+	Description     string                         `json:"description,omitempty"`
+	ObserverURL     string                         `json:"observerURL,omitempty"`
+	RCAAgentURL     string                         `json:"rcaAgentURL,omitempty"`
 	AgentConnection *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt       time.Time                      `json:"createdAt"`
 	Status          string                         `json:"status,omitempty"`
