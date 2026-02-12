@@ -16,9 +16,9 @@ backstage:
 security:
   oidc:
     issuer: "http://thunder.openchoreo.localhost:8080"
-    jwksUrl: "http://thunder.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
     authorizationUrl: "http://thunder.openchoreo.localhost:8080/oauth2/authorize"
-    tokenUrl: "http://thunder.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
 
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
@@ -42,22 +42,8 @@ clusterGateway:
       - cluster-gateway.openchoreo.localhost  # External hostname for multi-cluster access
 
 thunder:
-  http:
-    hostnames:
-    - thunder.openchoreo.localhost
-  configuration:
-    server:
-      publicUrl: "http://thunder.openchoreo.localhost:8080"
-    gateClient:
-      hostname: "thunder.openchoreo.localhost"
+  host: thunder.openchoreo.localhost
 
 gateway:
   tls:
     hostname: "*.openchoreo.localhost"
-  # Envoy configuration for traffic routing
-  envoy:
-    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
-    # Enable this if gateway pods crash with "Failed to create temporary file" errors
-    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
-    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-    mountTmpVolume: true

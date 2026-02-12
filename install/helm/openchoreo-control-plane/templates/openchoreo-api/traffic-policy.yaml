@@ -4,9 +4,6 @@ kind: TrafficPolicy
 metadata:
   name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-mcp-timeout
   namespace: {{ .Release.Namespace }}
-  annotations:
-    helm.sh/hook: post-install
-    helm.sh/hook-delete-policy: hook-failed
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: api-server

@@ -1,0 +1,541 @@
+# Shared Thunder helm values for k3d dev setups.
+# Only overrides that differ from Thunder chart defaults.
+
+fullnameOverride: thunder
+
+# SQLite requires a single writer pod
+deployment:
+  replicaCount: 1
+
+hpa:
+  enabled: false
+
+configuration:
+  server:
+    httpOnly: true
+    publicUrl: "http://thunder.openchoreo.localhost:8080"
+
+  gateClient:
+    hostname: "thunder.openchoreo.localhost"
+    port: 8080
+    scheme: "http"
+
+  database:
+    identity:
+      type: sqlite
+    runtime:
+      type: sqlite
+    user:
+      type: sqlite
+
+  cors:
+    allowedOrigins:
+      - "http://openchoreo.localhost:8080"
+      - "http://localhost:7007"
+
+  passkey:
+    allowedOrigins:
+      - "http://openchoreo.localhost:8080"
+
+setup:
+  enabled: true
+
+bootstrap:
+  scripts:
+    50-user-schema-and-users.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if default organization unit exists..."
+      if ! curl -s --max-time 10 "${THUNDER_URL}/organization-units" | grep -q '"handle":"default"'; then
+        log_info "Creating default organization unit..."
+        curl --location "${THUNDER_URL}/organization-units" \
+          --header 'Content-Type: application/json' \
+          --header 'Accept: application/json' \
+          --data '{
+            "name": "Default",
+            "handle": "default",
+            "description": "Default organizational unit"
+          }' \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+        log_info "Default organization unit created successfully"
+      else
+        log_info "Default organization unit already exists"
+      fi
+
+      ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      log_info "Using organization unit ID: $ORG_UNIT_ID"
+
+      log_info "Checking if user schema 'engineer' already exists..."
+      existing_schemas=$(curl -s --max-time 10 "${THUNDER_URL}/user-schemas")
+
+      if echo "$existing_schemas" | grep -q '"name":"engineer"'; then
+        log_info "User schema 'engineer' already exists, skipping creation"
+      else
+        log_info "User schema does not exist, creating user schema..."
+        curl --location "${THUNDER_URL}/user-schemas" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"name\": \"engineer\",
+            \"ouId\": \"$ORG_UNIT_ID\",
+            \"allowSelfRegistration\": true,
+            \"schema\": {
+              \"username\": {
+                \"type\": \"string\",
+                \"required\": true
+              },
+              \"password\": {
+                \"type\": \"string\",
+                \"required\": true
+              },
+              \"given_name\": {
+                \"type\": \"string\"
+              },
+              \"family_name\": {
+                \"type\": \"string\"
+              }
+            }
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "User schema created successfully"
+      fi
+
+      log_info "Checking if user 'admin@openchoreo.dev' already exists..."
+      existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
+
+      if echo "$existing_users" | grep -q '"username":"admin@openchoreo.dev"'; then
+        log_info "User 'admin@openchoreo.dev' already exists, getting ID..."
+        USER_ID_0=$(echo "$existing_users" | grep -o '"username":"admin@openchoreo.dev"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"username":"admin@openchoreo.dev"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      else
+        log_info "User does not exist, creating user 'admin@openchoreo.dev'..."
+        USER_RESPONSE=$(curl --location "${THUNDER_URL}/users" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"type\": \"engineer\",
+            \"organizationUnit\": \"$ORG_UNIT_ID\",
+            \"attributes\": {
+              \"username\": \"admin@openchoreo.dev\",
+              \"password\": \"Admin@123\",
+              \"given_name\": \"Admin\",
+              \"family_name\": \"User\"
+            }
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5)
+
+        log_info "User 'admin@openchoreo.dev' created successfully"
+        USER_ID_0=$(echo "$USER_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      fi
+
+      log_info "Checking if group 'platformEngineer' already exists..."
+      existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
+
+      if echo "$existing_groups" | grep -q '"name":"platformEngineer"'; then
+        log_info "Group 'platformEngineer' already exists, skipping creation"
+      else
+        log_info "Group does not exist, creating group 'platformEngineer' with members..."
+        GROUP_MEMBERS=""
+        if [ -n "$USER_ID_0" ]; then
+          GROUP_MEMBERS="{\"type\":\"user\",\"id\":\"$USER_ID_0\"}"
+        fi
+        curl --location "${THUNDER_URL}/groups" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"name\": \"platformEngineer\",
+            \"organizationUnitId\": \"$ORG_UNIT_ID\",
+            \"description\": \"platformEngineer group\",
+            \"members\": [$GROUP_MEMBERS]
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Group 'platformEngineer' created successfully with members"
+      fi
+
+    51-backstage-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'Backstage' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "Backstage",
+        "description": "OpenChoreo Backstage Portal",
+        "allowed_user_types": ["engineer"],
+        "assertion": {
+          "validity_period": 3600
+        },
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-backstage-client",
+              "client_secret": "backstage-portal-secret",
+              "redirect_uris": [
+                "http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame"
+              ],
+              "grant_types": [
+                "authorization_code",
+                "client_credentials"
+              ],
+              "response_types": [
+                "code"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                },
+                "id_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ],
+                  "scope_claims": {
+                    "groups": [
+                      "groups"
+                    ],
+                    "profile": [
+                      "username",
+                      "given_name",
+                      "family_name",
+                      "picture"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if echo "$existing_apps" | grep -q '"name":"Backstage"'; then
+        log_info "Application 'Backstage' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Default application created successfully"
+      fi
+
+    52-default-apps.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application with client ID 'customer-portal-client' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | grep -o '"client_id":"customer-portal-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"customer-portal-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "Default App",
+        "description": "Default Application",
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "customer-portal-client",
+              "client_secret": "supersecret",
+              "grant_types": [
+                "client_credentials"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 3600
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if echo "$existing_apps" | grep -q '"client_id":"customer-portal-client"'; then
+        log_info "Application with client ID 'customer-portal-client' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating application with client ID 'customer-portal-client'..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application created successfully"
+      fi
+
+    53-rca-agent-client.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if RCA Agent application already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | grep -o '"client_id":"openchoreo-rca-agent"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-rca-agent"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "RCA Agent",
+        "description": "OpenChoreo RCA Agent Client",
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-rca-agent",
+              "client_secret": "openchoreo-rca-agent-secret",
+              "grant_types": [
+                "client_credentials"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 3600
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if echo "$existing_apps" | grep -q '"client_id":"openchoreo-rca-agent"'; then
+        log_info "RCA Agent application already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "RCA Agent application updated successfully"
+      else
+        log_info "RCA Agent application does not exist, creating..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "RCA Agent application created successfully"
+      fi
+
+    54-cli-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'OpenChoreo CLI' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "OpenChoreo CLI",
+        "description": "OpenChoreo CLI Default Application",
+        "allowed_user_types": ["engineer"],
+        "assertion": {
+          "validity_period": 3600
+        },
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-cli",
+              "redirect_uris": [
+                "http://127.0.0.1:55152/auth-callback"
+              ],
+              "grant_types": [
+                "authorization_code", "refresh_token"
+              ],
+              "response_types": [
+                "code"
+              ],
+              "token_endpoint_auth_method": "none",
+              "pkce_required": true,
+              "public_client": true,
+              "token": {
+                "access_token": {
+                  "validity_period": 3600,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                },
+                "id_token": {
+                  "validity_period": 3600,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ],
+                  "scope_claims": {
+                    "groups": [
+                      "groups"
+                    ],
+                    "profile": [
+                      "username",
+                      "given_name",
+                      "family_name",
+                      "picture"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if echo "$existing_apps" | grep -q '"name":"OpenChoreo CLI"'; then
+        log_info "Application 'OpenChoreo CLI' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default CLI application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Default CLI application created successfully"
+      fi
+
+    55-system-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if system application already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | grep -o '"client_id":"openchoreo-system-app"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-system-app"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "System Application",
+        "description": "Generic system application for automation and integrations",
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-system-app",
+              "client_secret": "openchoreo-system-app-secret",
+              "grant_types": [
+                "client_credentials"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 3600
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if echo "$existing_apps" | grep -q '"client_id":"openchoreo-system-app"'; then
+        log_info "System application already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "System application updated successfully"
+      else
+        log_info "System application does not exist, creating..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "System application created successfully"
+      fi

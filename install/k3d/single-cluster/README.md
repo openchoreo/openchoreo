@@ -66,6 +66,39 @@ kubectl wait --context k3d-openchoreo \
   -n external-secrets --timeout=180s
 ```
 
+#### kgateway
+
+```bash
+helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+  --kube-context k3d-openchoreo \
+  --version v2.1.1
+
+helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-control-plane \
+  --create-namespace \
+  --version v2.1.1
+```
+
+```bash
+# If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
+kubectl patch deployment gateway-default -n openchoreo-control-plane --type='json' -p='[
+  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
+  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
+]'
+# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+```
+
+#### Thunder (Asgardeo Identity Provider)
+
+```bash
+helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-control-plane \
+  --version 0.21.0 \
+  --values install/k3d/common/values-thunder.yaml
+```
+
 ### 3. Install Components
 
 > [!NOTE]
@@ -76,7 +109,6 @@ Install all planes in the single cluster:
 ```bash
 # Control Plane
 helm install openchoreo-control-plane install/helm/openchoreo-control-plane \
-  --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
   --create-namespace \

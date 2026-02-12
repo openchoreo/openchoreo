@@ -22,18 +22,3 @@ keywords:
 maintainers:
   - name: OpenChoreo Team
     url: https://github.com/openchoreo/openchoreo
-
-dependencies:
-  - name: kgateway-crds
-    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
-    version: v2.1.1
-    condition: gatewayController.enabled
-  - name: kgateway
-    alias: gateway
-    repository: "oci://cr.kgateway.dev/kgateway-dev/charts"
-    version: v2.1.1
-    condition: gatewayController.enabled
-  - name: thunder
-    condition: thunder.enabled
-    repository: oci://ghcr.io/asgardeo/helm-charts
-    version: "0.21.0"

@@ -1,5 +1,4 @@
-{{- if .Values.thunder.enabled }}
-{{- if and .Values.thunder.http.enabled .Values.gateway.enabled .Values.thunder.http.hostnames -}}
+{{- if and .Values.thunder.enabled .Values.gateway.enabled .Values.thunder.host -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -8,20 +7,12 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: thunder
-  {{- with .Values.thunder.http.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
   parentRefs:
     - name: gateway-default
       namespace: {{ .Release.Namespace }}
-  {{- with .Values.thunder.http.hostnames }}
   hostnames:
-    {{- range . }}
-    - {{ . | quote }}
-    {{- end }}
-  {{- end }}
+    - {{ .Values.thunder.host | quote }}
   rules:
     - matches:
         - path:
@@ -30,5 +21,4 @@ spec:
       backendRefs:
         - name: {{ include "openchoreo-control-plane.thunder.name" . }}
           port: {{ .Values.thunder.service.port }}
-{{- end }}
 {{- end }}
