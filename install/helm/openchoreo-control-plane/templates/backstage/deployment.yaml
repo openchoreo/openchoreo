@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-ui
+  name: {{ include "openchoreo-control-plane.backstage.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
@@ -67,7 +67,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
         - name: OPENCHOREO_API_URL
-          value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s-api.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-control-plane.fullname" .) .Release.Namespace) }}
+          value: {{ .Values.backstage.openchoreoApi.url | default (printf "http://%s.%s.svc.cluster.local:8080/api/v1" (include "openchoreo-control-plane.openchoreoApi.name" .) .Release.Namespace) }}
         - name: BACKSTAGE_BASE_URL
           value: {{ .Values.backstage.baseUrl | trimSuffix "/" | quote }}
         - name: BACKEND_SECRET
@@ -111,7 +111,7 @@ spec:
         - name: JENKINS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-secrets
+              name: {{ include "openchoreo-control-plane.backstage.name" . }}-secrets
               key: jenkins-api-key
         # Database configuration
         {{- if eq .Values.backstage.database.type "sqlite" }}
@@ -178,17 +178,17 @@ spec:
       - name: backstage-db
         {{- if .Values.backstage.database.sqlite.persistence.enabled }}
         persistentVolumeClaim:
-          claimName: {{ include "openchoreo-control-plane.fullname" . }}-backstage-db
+          claimName: {{ include "openchoreo-control-plane.backstage.name" . }}-db
         {{- else }}
         emptyDir: {}
         {{- end }}
       {{- end }}
       - name: ci-config
         configMap:
-          name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-ci-config
+          name: {{ include "openchoreo-control-plane.backstage.name" . }}-ci-config
       {{- if not .Values.global.tls.enabled }}
       - name: csp-config
         configMap:
-          name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-csp-config
+          name: {{ include "openchoreo-control-plane.backstage.name" . }}-csp-config
       {{- end }}
 {{- end }}

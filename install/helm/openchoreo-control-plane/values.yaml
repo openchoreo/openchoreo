@@ -1841,6 +1841,13 @@ openchoreoApi:
 # @schema
 backstage:
   # @schema
+  # type: string
+  # description: Static name for all backstage resources (Service, Deployment, etc.)
+  # default: backstage
+  # @schema
+  name: backstage
+
+  # @schema
   # type: boolean
   # description: Enable Backstage UI deployment
   # default: true
@@ -2615,6 +2622,13 @@ backstage:
 # description: Asgardeo Thunder (Platform Identity Provider) configuration
 # @schema
 thunder:
+  # @schema
+  # type: string
+  # description: Static name for all thunder resources (Service, Deployment, etc.)
+  # default: thunder
+  # @schema
+  name: thunder
+
   # type: boolean
   # description: Enable Thunder identity provider deployment
   # default: true

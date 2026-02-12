@@ -3,7 +3,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-ui
+  name: {{ include "openchoreo-control-plane.backstage.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}

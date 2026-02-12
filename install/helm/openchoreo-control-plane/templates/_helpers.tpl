@@ -123,11 +123,18 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
+Backstage resource name
+*/}}
+{{- define "openchoreo-control-plane.backstage.name" -}}
+{{- default "backstage" .Values.backstage.name }}
+{{- end }}
+
+{{/*
 Backstage secrets name.
 Uses existingSecret when provided, otherwise falls back to the chart-generated secret.
 */}}
 {{- define "openchoreo-control-plane.backstage.secretName" -}}
-{{- .Values.backstage.existingSecret | default (printf "%s-backstage-secrets" (include "openchoreo-control-plane.fullname" .)) }}
+{{- .Values.backstage.existingSecret | default (printf "%s-secrets" (include "openchoreo-control-plane.backstage.name" .)) }}
 {{- end }}
 
 {{/*
@@ -153,6 +160,13 @@ This keeps resource names clean and consistent (e.g., "openchoreo-api" instead o
 */}}
 {{- define "openchoreo-control-plane.openchoreoApi.name" -}}
 {{- default "openchoreo-api" .Values.openchoreoApi.name }}
+{{- end }}
+
+{{/*
+Thunder resource name
+*/}}
+{{- define "openchoreo-control-plane.thunder.name" -}}
+{{- default "thunder" .Values.thunder.name }}
 {{- end }}
 
 {{/*

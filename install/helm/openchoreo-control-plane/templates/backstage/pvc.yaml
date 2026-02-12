@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "openchoreo-control-plane.fullname" . }}-backstage-db
+  name: {{ include "openchoreo-control-plane.backstage.name" . }}-db
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}

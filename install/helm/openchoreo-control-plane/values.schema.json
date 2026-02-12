@@ -638,6 +638,12 @@
           "title": "metrics",
           "type": "object"
         },
+        "name": {
+          "default": "backstage",
+          "description": "Static name for all backstage resources (Service, Deployment, etc.)",
+          "title": "name",
+          "type": "string"
+        },
         "networkPolicy": {
           "additionalProperties": false,
           "description": "Network policy configuration",
@@ -4673,6 +4679,12 @@
           "required": [],
           "title": "http",
           "type": "object"
+        },
+        "name": {
+          "default": "thunder",
+          "description": "Static name for all thunder resources (Service, Deployment, etc.)",
+          "title": "name",
+          "type": "string"
         },
         "setup": {
           "additionalProperties": true,

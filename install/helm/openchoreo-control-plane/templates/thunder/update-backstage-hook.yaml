@@ -1,7 +1,8 @@
 {{- if .Values.thunder.enabled }}
 {{- if .Values.thunder.bootstrap.enabled }}
+{{- $scheme := ternary "http" "https" .Values.thunder.configuration.server.httpOnly }}
 {{- $curlInsecure := ternary "" "-k" .Values.thunder.configuration.server.httpOnly }}
-{{- $thunderUrl := printf "http://%s-service.%s.svc.cluster.local:%d" .Values.thunder.fullnameOverride .Release.Namespace (int .Values.thunder.configuration.server.port) }}
+{{- $thunderUrl := printf "%s://%s.%s.svc.cluster.local:%d" $scheme (include "openchoreo-control-plane.thunder.name" .) .Release.Namespace (int .Values.thunder.configuration.server.port) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

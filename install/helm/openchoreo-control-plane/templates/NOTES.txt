@@ -11,7 +11,7 @@ Default Credentials: admin@openchoreo.dev / Admin@123
 {{- else }}
 
 Ingress disabled. Use port-forward:
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.fullname" . }}-ui 7007:7007
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.backstage.name" . }} 7007:7007
 {{- end }}
 
 Next: Install Data Plane, Build Plane, and Observability Plane.
