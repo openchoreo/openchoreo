@@ -29,7 +29,6 @@ spec:
   parameters:
     exposed: true
     replicas: 1
-    port: 8080
     resources:
       requests:
         cpu: "100m"

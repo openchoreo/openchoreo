@@ -12,7 +12,6 @@ spec:
 
   parameters:
     replicas: 1
-    port: 50051
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: payment
     projectName: gcp-microservice-demo
+  endpoints:
+    grpc:
+      type: gRPC
+      port: 50051
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/paymentservice:v0.10.3

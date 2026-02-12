@@ -10,7 +10,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
 
     envOverrides:
       resources:
@@ -58,6 +57,7 @@ spec:
                       memory: ${envOverrides.resources.limits.memory}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -68,11 +68,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.endpoints.toServicePorts()}
 
     - id: httproute
       template:
@@ -91,7 +87,7 @@ spec:
           rules:
           - backendRefs:
             - name: ${metadata.name}
-              port: 80
+              port: 8080
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
@@ -107,7 +103,6 @@ spec:
 
   parameters:
     replicas: 2
-    port: 8080
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
@@ -118,6 +113,11 @@ spec:
   owner:
     projectName: default
     componentName: demo-app-web-service
+
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
 
   containers:
     app:

@@ -12,7 +12,6 @@ spec:
 
   parameters:
     replicas: 1
-    port: 8080
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: recommendation
     projectName: gcp-microservice-demo
+  endpoints:
+    grpc:
+      type: gRPC
+      port: 8080
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3

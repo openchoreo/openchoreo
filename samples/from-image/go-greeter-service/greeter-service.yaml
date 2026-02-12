@@ -13,7 +13,6 @@ spec:
   parameters:
     exposed: true
     replicas: 1
-    port: 9090
     resources:
       requests:
         cpu: "100m"
@@ -35,6 +34,10 @@ spec:
   owner:
     componentName: greeter-service
     projectName: default
+  endpoints:
+    http:
+      type: HTTP
+      port: 9090
   containers:
     main:
       image: "ghcr.io/openchoreo/samples/greeter-service:latest"

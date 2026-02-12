@@ -11,7 +11,6 @@ spec:
 
   parameters:
     replicas: 2
-    port: 8080
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: react-starter
     projectName: default
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
   containers:
     main:
       image: choreoanonymouspullable.azurecr.io/react-spa:v0.9

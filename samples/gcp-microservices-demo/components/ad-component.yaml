@@ -12,7 +12,6 @@ spec:
 
   parameters:
     replicas: 1
-    port: 9555
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: ad
     projectName: gcp-microservice-demo
+  endpoints:
+    grpc:
+      type: gRPC
+      port: 9555
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3

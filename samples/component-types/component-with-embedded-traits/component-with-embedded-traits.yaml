@@ -129,7 +129,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=8080"
       # Autoscaling parameters - wired to embedded HPA trait
       autoscaling:
         $default: {}
@@ -212,6 +211,7 @@ spec:
                       memory: ${envOverrides.resources.limits.memory}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -222,11 +222,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.endpoints.toServicePorts()}
 
     - id: httproute
       template:
@@ -256,7 +252,7 @@ spec:
                     replacePrefixMatch: /
             backendRefs:
             - name: ${metadata.name}
-              port: 80
+              port: 9090
 
 ---
 # Component using the ComponentType with embedded traits
@@ -275,7 +271,6 @@ spec:
   autoDeploy: true
 
   parameters:
-    port: 9090
     # Enable autoscaling - this activates the embedded HPA trait
     autoscaling:
       enabled: true
@@ -303,6 +298,11 @@ spec:
   owner:
     projectName: default
     componentName: demo-app-with-embedded-traits
+
+  endpoints:
+    http:
+      type: HTTP
+      port: 9090
 
   containers:
     app:

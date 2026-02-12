@@ -10,7 +10,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=8080"
       containerName: "string | default=main"
 
     envOverrides:
@@ -62,6 +61,7 @@ spec:
               volumes: ${configurations.toVolumes()}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -72,11 +72,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.endpoints.toServicePorts()}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig
@@ -191,7 +187,6 @@ spec:
 
   parameters:
     replicas: 2
-    port: 8080
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -203,6 +198,11 @@ spec:
   owner:
     projectName: default
     componentName: demo-app
+
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
 
   containers:
     main:

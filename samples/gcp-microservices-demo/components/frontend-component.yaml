@@ -12,7 +12,6 @@ spec:
 
   parameters:
     replicas: 1
-    port: 8080
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: frontend
     projectName: gcp-microservice-demo
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3

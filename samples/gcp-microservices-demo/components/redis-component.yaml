@@ -12,7 +12,6 @@ spec:
 
   parameters:
     replicas: 1
-    port: 6379
     resources:
       requests:
         cpu: "50m"
@@ -32,6 +31,10 @@ spec:
   owner:
     componentName: redis
     projectName: gcp-microservice-demo
+  endpoints:
+    redis:
+      type: TCP
+      port: 6379
   containers:
     main:
       image: redis:7.2-alpine
