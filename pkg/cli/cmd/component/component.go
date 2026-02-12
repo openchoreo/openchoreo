@@ -144,15 +144,18 @@ func newLogsComponentCmd(impl api.CommandImplementationInterface) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "logs COMPONENT_NAME",
 		Short: "Get logs for a component",
-		Long:  "Retrieve logs for a component from a specific environment",
-		Example: `  # Get logs for a component
+		Long:  "Retrieve logs for a component from a specific environment. If --env is not specified, uses the lowest environment from the deployment pipeline.",
+		Example: `  # Get logs for a component (uses lowest environment if --env not specified)
+  occ component logs my-component
+
+  # Get logs from a specific environment
   occ component logs my-component --env dev
 
   # Get logs with custom since duration
   occ component logs my-component --env dev --since 30m
 
   # Follow logs in real-time
-  occ component logs my-component --env dev --follow`,
+  occ component logs my-component --env dev -f`,
 		Args: cobra.ExactArgs(1), // Requires COMPONENT_NAME
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get component name from positional arg
@@ -188,9 +191,6 @@ func newLogsComponentCmd(impl api.CommandImplementationInterface) *cobra.Command
 		flags.Follow,
 		flags.Since,
 	)
-
-	// Mark environment as required
-	_ = cmd.MarkFlagRequired(flags.Environment.Name)
 
 	return cmd
 }

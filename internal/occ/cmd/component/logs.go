@@ -13,6 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	gen "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -26,23 +27,43 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	// Get observer URL for the environment
-	observerURL, err := apiClient.GetEnvironmentObserverURL(ctx, params.Namespace, params.Environment)
-	if err != nil {
-		return fmt.Errorf("failed to get observer URL: %w", err)
-	}
-
 	// Get component to resolve UID
 	component, err := apiClient.GetComponent(ctx, params.Namespace, params.Project, params.Component)
 	if err != nil {
 		return fmt.Errorf("failed to get component: %w", err)
 	}
 
+	// If environment not specified, get the lowest environment from deployment pipeline
+	envName := params.Environment
+	if envName == "" {
+		pipeline, err := apiClient.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
+		if err != nil {
+			return fmt.Errorf("failed to get deployment pipeline: %w", err)
+		}
+
+		// Find root environment (lowest environment)
+		rootEnv, err := findRootEnvironment(pipeline)
+		if err != nil {
+			return fmt.Errorf("failed to find root environment: %w", err)
+		}
+
+		envName = rootEnv
+	}
+
+	// Get observer URL for the environment
+	observerURL, err := apiClient.GetEnvironmentObserverURL(ctx, params.Namespace, envName)
+	if err != nil {
+		return fmt.Errorf("failed to get observer URL: %w", err)
+	}
+
 	// Get environment to resolve UID
-	environment, err := apiClient.GetEnvironment(ctx, params.Namespace, params.Environment)
+	environment, err := apiClient.GetEnvironment(ctx, params.Namespace, envName)
 	if err != nil {
 		return fmt.Errorf("failed to get environment: %w", err)
 	}
+
+	// Update params with resolved environment name
+	params.Environment = envName
 
 	// Set defaults
 	if params.Since == "" {
@@ -207,4 +228,39 @@ func (c *CompImpl) fetchLogs(
 // parseDuration parses duration strings like "5m", "1h", "24h"
 func parseDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
+}
+
+// findRootEnvironment finds the lowest environment in a deployment pipeline.
+// The root environment is the source environment that never appears as a target,
+// representing the initial environment where components are first deployed.
+func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
+	if pipeline.PromotionPaths == nil || len(*pipeline.PromotionPaths) == 0 {
+		return "", fmt.Errorf("deployment pipeline %s has no promotion paths defined", pipeline.Name)
+	}
+
+	// Build a set of all target environments
+	targets := make(map[string]bool)
+	for _, path := range *pipeline.PromotionPaths {
+		for _, target := range path.TargetEnvironmentRefs {
+			targets[target.Name] = true
+		}
+	}
+
+	// Find source environment that's never a target (the root)
+	var rootEnv string
+	for _, path := range *pipeline.PromotionPaths {
+		if path.SourceEnvironmentRef == "" {
+			continue
+		}
+		if !targets[path.SourceEnvironmentRef] {
+			rootEnv = path.SourceEnvironmentRef
+			break
+		}
+	}
+
+	if rootEnv == "" {
+		return "", fmt.Errorf("deployment pipeline %s has no root environment (all sources are also targets)", pipeline.Name)
+	}
+
+	return rootEnv, nil
 }
