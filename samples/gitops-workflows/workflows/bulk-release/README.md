@@ -33,7 +33,7 @@ flowchart TB
 - ClusterSecretStore configured (comes with OpenChoreo installation)
 - GitOps repository with OpenChoreo manifests
 > [!NOTE]
-> The GitOps repository should contain manifests for Projects, Components, Deployment Pipelines, and Target Environments. Each component should have an existing Workload manifest. A sample GitOps repository can be found in the [openchoreo-gitops-demo](https://github.com/VajiraPrabuddhaka/openchoreo-gitops-demo) repository.
+> The GitOps repository should contain manifests for Projects, Components, Deployment Pipelines, and Target Environments. Each component should have an existing Workload manifest. A sample GitOps repository can be found in the [openchoreo/sample-gitops](https://github.com/openchoreo/sample-gitops) repository.
 > At the moment, this workflow only supports with **GitHub** as the GitOps repository.
 - GitHub Personal Access Token (PAT) with `repo` scope to access the GitOps repository
 

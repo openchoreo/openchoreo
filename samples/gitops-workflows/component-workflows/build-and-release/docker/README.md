@@ -43,7 +43,7 @@ flowchart TB
 - ClusterSecretStore configured (comes with OpenChoreo installation)
 - GitOps repository with openchoreo manifests
 > [!NOTE]  
-> In the GitOps repository, it should have the manifests for the specified Project, Component, Deployment Pipeline, and Target Environment. A sample GitOps repository can be find in the [openchoreo-gitops-demo](https://github.com/VajiraPrabuddhaka/openchoreo-gitops-demo) repository.
+> In the GitOps repository, it should have the manifests for the specified Project, Component, Deployment Pipeline, and Target Environment. A sample GitOps repository can be found in the [openchoreo/sample-gitops](https://github.com/openchoreo/sample-gitops) repository.
 - GitHub Personal Access Token (PAT) with `repo` scope to access the GitOps repository
 - Source code repository with a Dockerfile
 - GitHub Personal Access Token (PAT) with `repo` scope to access the source repository
@@ -142,10 +142,10 @@ spec:
         filePath: "/service-go-greeter/Dockerfile"
       gitops:
         # Replace with your GitOps repository URL
-        repositoryUrl: "https://github.com/VajiraPrabuddhaka/openchoreo-gitops-demo"
+        repositoryUrl: "https://github.com/openchoreo/sample-gitops"
         branch: "main"
         targetEnvironment: "development"
-        deploymentPipeline: "simple-pipeline"
+        deploymentPipeline: "standard"
       workloadDescriptorPath: "workload.yaml"
 ```
 
@@ -182,10 +182,10 @@ spec:
         context: "/service-go-greeter"
         filePath: "/service-go-greeter/Dockerfile"
       gitops:
-        repositoryUrl: "${GITOPS_REPO_URL}"
+        repositoryUrl: "https://github.com/openchoreo/sample-gitops"
         branch: "main"
         targetEnvironment: "development"
-        deploymentPipeline: "simple-pipeline"
+        deploymentPipeline: "standard"
       workloadDescriptorPath: "workload.yaml"
 ```
 
