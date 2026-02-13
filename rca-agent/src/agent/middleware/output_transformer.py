@@ -345,6 +345,27 @@ def get_processor(tool_name: str | None) -> Callable[[dict[str, Any]], str]:
     return lambda content: json.dumps(content)
 
 
+def _extract_content(content: Any) -> dict[str, Any] | None:
+    if isinstance(content, dict):
+        return content
+
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                try:
+                    parsed = json.loads(block["text"])
+                    if isinstance(parsed, dict):
+                        return parsed
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    continue
+
+    return None
+
+
+def _to_mcp_content(text: str) -> list[dict[str, str]]:
+    return [{"type": "text", "text": text}]
+
+
 class OutputTransformerMiddleware(AgentMiddleware):
     async def awrap_tool_call(
         self,
@@ -356,7 +377,8 @@ class OutputTransformerMiddleware(AgentMiddleware):
         if not isinstance(result, ToolMessage):
             return result
 
-        if not isinstance(result.content, dict):
+        content = _extract_content(result.content)
+        if content is None:
             return result
 
         tool_name = request.tool_call.get("name")
@@ -364,8 +386,9 @@ class OutputTransformerMiddleware(AgentMiddleware):
 
         try:
             processor = get_processor(tool_name)
-            processed_content = processor(result.content)
-            logger.debug(f"Processed content length: {len(processed_content)}")
+            processed_text = processor(content)
+            processed_content = _to_mcp_content(processed_text)
+            logger.debug(f"Processed content length: {len(processed_text)}")
         except Exception as e:
             logger.error(f"Error processing tool output: {e}", exc_info=True)
             processed_content = result.content

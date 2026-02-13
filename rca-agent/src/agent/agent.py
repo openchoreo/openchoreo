@@ -17,7 +17,11 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
 
-from src.agent.middleware import LoggingMiddleware, OutputTransformerMiddleware
+from src.agent.middleware import (
+    LoggingMiddleware,
+    OutputTransformerMiddleware,
+    ToolErrorHandlerMiddleware,
+)
 from src.agent.prompts import Agent, get_prompt
 from src.agent.stream_parser import ChatResponseParser
 from src.clients import MCPClient, get_model, get_opensearch_client
@@ -74,9 +78,10 @@ async def create_rca_agent(
         tools=tools,
         system_prompt=get_prompt(Agent.RCA, tools),
         middleware=[
+            LoggingMiddleware(),
+            ToolErrorHandlerMiddleware(),
             OutputTransformerMiddleware(),
             TodoListMiddleware(),
-            LoggingMiddleware(),
             SummarizationMiddleware(model=model, trigger=("fraction", 0.8)),
         ],
         response_format=ProviderStrategy(RCAReport),
@@ -95,8 +100,9 @@ async def create_chat_agent(
         tools=tools,
         system_prompt=get_prompt(Agent.CHAT, tools),
         middleware=[
-            OutputTransformerMiddleware(),
             LoggingMiddleware(),
+            ToolErrorHandlerMiddleware(),
+            OutputTransformerMiddleware(),
             SummarizationMiddleware(model=model, trigger=("fraction", 0.8)),
         ],
         response_format=ProviderStrategy(ChatResponse),
