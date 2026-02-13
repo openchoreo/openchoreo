@@ -2282,30 +2282,6 @@
       "title": "global",
       "type": "object"
     },
-    "k3d": {
-      "additionalProperties": false,
-      "description": "k3d-specific configuration for local development",
-      "properties": {
-        "dnsRewrite": {
-          "additionalProperties": false,
-          "description": "DNS rewrite configuration for multi-cluster k3d setups",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable CoreDNS rewrite for observer.openchoreo.localhost to host.k3d.internal",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "dnsRewrite",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "k3d",
-      "type": "object"
-    },
     "kubernetesClusterDomain": {
       "default": "cluster.local",
       "description": "Kubernetes cluster domain suffix",

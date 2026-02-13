@@ -1533,23 +1533,6 @@ clusterAgent:
 
 # @schema
 # type: object
-# description: k3d-specific configuration for local development clusters
-# @schema
-k3d:
-  # @schema
-  # type: object
-  # description: CoreDNS rewrite for multi-cluster k3d setups
-  # @schema
-  dnsRewrite:
-    # @schema
-    # type: boolean
-    # description: Deploy a CoreDNS custom ConfigMap that rewrites *.openchoreo.localhost to host.k3d.internal
-    # default: false
-    # @schema
-    enabled: false
-
-# @schema
-# type: object
 # additionalProperties: true
 # description: WSO2 API Platform configuration for advanced API management capabilities
 # @schema

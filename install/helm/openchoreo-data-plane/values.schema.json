@@ -1064,30 +1064,6 @@
       "title": "global",
       "type": "object"
     },
-    "k3d": {
-      "additionalProperties": false,
-      "description": "k3d-specific configuration for local development clusters",
-      "properties": {
-        "dnsRewrite": {
-          "additionalProperties": false,
-          "description": "CoreDNS rewrite for multi-cluster k3d setups",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Deploy a CoreDNS custom ConfigMap that rewrites *.openchoreo.localhost to host.k3d.internal",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "dnsRewrite",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "k3d",
-      "type": "object"
-    },
     "kube-prometheus-stack": {
       "additionalProperties": true,
       "description": "Prometheus stack configuration (kube-prometheus-stack sub-chart). Provides metrics collection for workload observability.",

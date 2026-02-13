@@ -1,0 +1,17 @@
+# CoreDNS custom config for k3d clusters
+# Rewrites all *.openchoreo.localhost hostnames to host.k3d.internal
+# so pods can reach services exposed via k3d load balancer
+#
+# Apply to each k3d cluster before installing helm charts:
+#   kubectl apply --context <context> -f install/k3d/common/coredns-custom.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  openchoreo.override: |
+    rewrite stop {
+      name regex (.+\.)?openchoreo\.localhost host.k3d.internal
+      answer auto
+    }

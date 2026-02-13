@@ -68,6 +68,9 @@ helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
   --version 0.21.0 \
   --values install/k3d/common/values-thunder.yaml
 
+# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
+kubectl apply --context k3d-openchoreo-cp -f install/k3d/common/coredns-custom.yaml
+
 # Install Control Plane Helm chart
 helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --kube-context k3d-openchoreo-cp \
@@ -77,10 +80,8 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-control-plane --context k3d-openchoreo-cp --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-control-plane --context k3d-openchoreo-cp \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 
 # Create TLS Certificate for Control Plane Gateway
 kubectl apply -f - <<EOF
@@ -153,6 +154,9 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
   --create-namespace \
   --version v2.1.1
 
+# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
+kubectl apply --context k3d-openchoreo-dp -f install/k3d/common/coredns-custom.yaml
+
 # Create namespace (if not already created by kgateway)
 kubectl --context k3d-openchoreo-dp create namespace openchoreo-data-plane --dry-run=client -o yaml | \
   kubectl --context k3d-openchoreo-dp apply -f -
@@ -203,10 +207,8 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-openchoreo-dp --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-openchoreo-dp \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 
 # Create TLS Certificate for Data plane gateway
 kubectl apply --context k3d-openchoreo-dp -f - <<EOF
@@ -268,6 +270,9 @@ helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/ex
 kubectl wait --context k3d-openchoreo-bp \
   --for=condition=Available deployment/external-secrets \
   -n external-secrets --timeout=180s
+
+# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
+kubectl apply --context k3d-openchoreo-bp -f install/k3d/common/coredns-custom.yaml
 
 # Install Container Registry (required for Build Plane)
 helm repo add twuni https://twuni.github.io/docker-registry.helm
@@ -345,6 +350,9 @@ helm install opensearch-operator opensearch-operator/opensearch-operator \
   --namespace openchoreo-observability-plane \
   --version 2.8.0
 
+# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
+kubectl apply --context k3d-openchoreo-op -f install/k3d/common/coredns-custom.yaml
+
 # Install Observability Plane Helm chart
 helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
@@ -355,10 +363,8 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo-op --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo-op \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 ```
 
 > [!NOTE]
@@ -755,6 +761,9 @@ If you see errors like `no such host` or `lookup ... i/o timeout` in agent logs:
 ```bash
 # Check if CoreDNS custom config exists
 kubectl --context k3d-openchoreo-dp get configmap coredns-custom -n kube-system
+
+# If missing, re-apply the CoreDNS config
+kubectl apply --context k3d-openchoreo-dp -f install/k3d/common/coredns-custom.yaml
 
 # Test DNS resolution
 kubectl --context k3d-openchoreo-dp run test-dns --image=busybox --rm -it --restart=Never -- \

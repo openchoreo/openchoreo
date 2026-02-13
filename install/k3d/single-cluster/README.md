@@ -105,6 +105,9 @@ helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
 Install all planes in the single cluster:
 
 ```bash
+# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
+kubectl apply --context k3d-openchoreo -f install/k3d/common/coredns-custom.yaml
+
 # Control Plane
 helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --kube-context k3d-openchoreo \
@@ -118,10 +121,8 @@ kubectl --context k3d-openchoreo wait --for=condition=available deployment/clust
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-control-plane --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-control-plane --context k3d-openchoreo \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 
 # Data Plane
 
@@ -184,10 +185,8 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-data-plane --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-openchoreo \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 
 # Build Plane (optional)
 # The Build Plane requires a container registry. Install the registry first, then the build plane.
@@ -223,10 +222,8 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-observability-plane --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 
 ## HA mode
 
@@ -250,10 +247,8 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-observability-plane --type='json' -p='[
-  {"op": "add", "path": "/spec/template/spec/volumes/-", "value": {"name": "tmp", "emptyDir": {}}},
-  {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts/-", "value": {"name": "tmp", "mountPath": "/tmp"}}
-]'
+kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo \
+  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 ```
 
 ### 4. Create DataPlane Resource

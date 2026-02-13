@@ -33,10 +33,6 @@ fluent-bit:
           tls.verify Off
           tls.vhost opensearch.observability.openchoreo.localhost
 
-k3d:
-  dnsRewrite:
-    enabled: true
-
 gateway:
   httpPort: 19080
   httpsPort: 19443
