@@ -53,20 +53,6 @@ type EndpointAccess struct {
 	// TODO: Add TLS and other details if needed
 }
 
-// EndpointExposeLevel defines the visibility scope for endpoint access
-type EndpointExposeLevel string
-
-const (
-	// EndpointExposeLevelProject restricts endpoint access to components within the same project
-	EndpointExposeLevelProject EndpointExposeLevel = "Project"
-
-	// EndpointExposeLevelOrganization allows endpoint access across all projects within the same organization
-	EndpointExposeLevelOrganization EndpointExposeLevel = "Organization"
-
-	// EndpointExposeLevelPublic exposes the endpoint publicly, accessible from outside the organization
-	EndpointExposeLevelPublic EndpointExposeLevel = "Public"
-)
-
 // ReleaseState defines the desired state of the Release created by a binding
 type ReleaseState string
 

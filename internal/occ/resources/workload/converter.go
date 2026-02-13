@@ -32,6 +32,7 @@ type WorkloadDescriptorMetadata struct {
 
 type WorkloadDescriptorEndpoint struct {
 	Name       string `yaml:"name"`
+	Visibility string `yaml:"visibility,omitempty"`
 	Port       int32  `yaml:"port"`
 	Type       string `yaml:"type"`
 	SchemaFile string `yaml:"schemaFile,omitempty"`
@@ -228,8 +229,9 @@ func addEndpointsFromDescriptor(workload *openchoreov1alpha1.Workload, descripto
 	workload.Spec.Endpoints = make(map[string]openchoreov1alpha1.WorkloadEndpoint)
 	for _, descriptorEndpoint := range descriptor.Endpoints {
 		endpoint := openchoreov1alpha1.WorkloadEndpoint{
-			Type: openchoreov1alpha1.EndpointType(descriptorEndpoint.Type),
-			Port: descriptorEndpoint.Port,
+			Visibility: openchoreov1alpha1.EndpointVisibility(descriptorEndpoint.Visibility),
+			Type:       openchoreov1alpha1.EndpointType(descriptorEndpoint.Type),
+			Port:       descriptorEndpoint.Port,
 		}
 
 		// Set schema if provided

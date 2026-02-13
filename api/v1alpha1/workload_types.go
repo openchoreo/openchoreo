@@ -115,8 +115,32 @@ func (e EndpointType) String() string {
 	return string(e)
 }
 
+// EndpointVisibility defines the visibility scope for an endpoint.
+// It determines which components can access the endpoint and how that access is enforced at runtime.
+// +kubebuilder:validation:Enum=project;namespace;internal;external
+type EndpointVisibility string
+
+const (
+	// EndpointVisibilityProject makes the endpoint accessible only within the same project and environment.
+	EndpointVisibilityProject EndpointVisibility = "project"
+
+	// EndpointVisibilityNamespace makes the endpoint accessible across all projects in the same namespace and environment.
+	EndpointVisibilityNamespace EndpointVisibility = "namespace"
+
+	// EndpointVisibilityInternal makes the endpoint accessible across all namespaces in the deployment (intranet).
+	EndpointVisibilityInternal EndpointVisibility = "internal"
+
+	// EndpointVisibilityExternal makes the endpoint accessible from outside the deployment, including public internet.
+	EndpointVisibilityExternal EndpointVisibility = "external"
+)
+
 // WorkloadEndpoint represents a simple network endpoint for basic exposure.
 type WorkloadEndpoint struct {
+	// Visibility defines the access scope for the endpoint.
+	// +optional
+	// +kubebuilder:default=project
+	Visibility EndpointVisibility `json:"visibility,omitempty"`
+
 	// Type indicates the protocol/technology of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP

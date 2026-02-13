@@ -845,6 +845,16 @@ spec:
                           - TCP
                           - UDP
                           type: string
+                        visibility:
+                          default: project
+                          description: Visibility defines the access scope for the
+                            endpoint.
+                          enum:
+                          - project
+                          - namespace
+                          - internal
+                          - external
+                          type: string
                       required:
                       - port
                       - type
