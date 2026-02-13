@@ -1,0 +1,80 @@
+{{- if .Values.eventsCollector.enabled }}
+{{- if .Values.eventsCollector.rbac.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-observability-plane.eventsCollector.name" . }}-{{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: events-collector
+rules:
+# Watch and list Kubernetes events
+- apiGroups: [""]
+  resources:
+  - events
+  verbs: ["list", "watch"]
+# Get labels from core resources referenced in events
+- apiGroups: [""]
+  resources:
+  - pods
+  - services
+  - configmaps
+  - persistentvolumeclaims
+  - replicationcontrollers
+  - nodes
+  - namespaces
+  - persistentvolumes
+  - endpoints
+  - serviceaccounts
+  verbs: ["get"]
+# Get labels from apps resources referenced in events
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - replicasets
+  - statefulsets
+  - daemonsets
+  verbs: ["get"]
+# Get labels from batch resources referenced in events
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["get"]
+# Get labels from external-secrets resources referenced in events
+- apiGroups: ["external-secrets.io"]
+  resources:
+  - externalsecrets
+  - clustersecretstores
+  verbs: ["get"]
+# Get labels from networking resources referenced in events
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - ingresses
+  - networkpolicies
+  verbs: ["get"]
+# Get labels from autoscaling resources referenced in events
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs: ["get"]
+# Get labels from policy resources referenced in events
+- apiGroups: ["policy"]
+  resources:
+  - poddisruptionbudgets
+  verbs: ["get"]
+# Get labels from storage resources referenced in events
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - storageclasses
+  verbs: ["get"]
+# Get labels from RBAC resources referenced in events
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources:
+  - roles
+  - rolebindings
+  - clusterroles
+  - clusterrolebindings
+  verbs: ["get"]
+{{- end }}
+{{- end }}

@@ -1,0 +1,85 @@
+{{- if .Values.eventsCollector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-observability-plane.eventsCollector.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: events-collector
+    app: events-collector
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: events-collector
+      app.kubernetes.io/component: events-collector
+      {{- include "openchoreo-observability-plane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: events-collector
+        app.kubernetes.io/component: events-collector
+        {{- include "openchoreo-observability-plane.selectorLabels" . | nindent 8 }}
+      {{- with .Values.eventsCollector.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "openchoreo-observability-plane.eventsCollector.serviceAccountName" . }}
+      {{- with .Values.eventsCollector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eventsCollector.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eventsCollector.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eventsCollector.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: collector
+        image: "{{ .Values.eventsCollector.image.repository }}:{{ .Values.eventsCollector.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.eventsCollector.image.pullPolicy }}
+        args:
+        - --log-level={{ .Values.eventsCollector.logLevel }}
+        - --checkpoint-dir={{ .Values.eventsCollector.checkpointDir }}
+        - --checkpoint-cleanup-interval={{ .Values.eventsCollector.checkpointCleanupInterval }}
+        - --checkpoint-ttl={{ .Values.eventsCollector.checkpointTTL }}
+        - --label-cache-ttl={{ .Values.eventsCollector.labelCacheTTL }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          {{- toYaml .Values.eventsCollector.resources | nindent 10 }}
+        {{- with .Values.eventsCollector.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: checkpoint-data
+          mountPath: {{ .Values.eventsCollector.checkpointDir }}
+      volumes:
+      {{- if .Values.eventsCollector.persistence.enabled }}
+      - name: checkpoint-data
+        persistentVolumeClaim:
+          claimName: {{ include "openchoreo-observability-plane.eventsCollector.name" . }}
+      {{- else }}
+      - name: checkpoint-data
+        emptyDir: {}
+      {{- end }}
+{{- end }}

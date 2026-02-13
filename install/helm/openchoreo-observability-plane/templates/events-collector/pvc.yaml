@@ -1,0 +1,21 @@
+{{- if .Values.eventsCollector.enabled }}
+{{- if .Values.eventsCollector.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "openchoreo-observability-plane.eventsCollector.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: events-collector
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.eventsCollector.persistence.size }}
+  {{- if .Values.eventsCollector.persistence.storageClassName }}
+  storageClassName: {{ .Values.eventsCollector.persistence.storageClassName }}
+  {{- end }}
+{{- end }}
+{{- end }}

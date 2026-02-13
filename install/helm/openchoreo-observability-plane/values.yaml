@@ -1195,11 +1195,8 @@ fluent-bit:
     # @schema
     customParsers: |
       [PARSER]
-          Name docker_no_time
-          Format json
-          Time_Keep Off
-          Time_Key time
-          Time_Format %Y-%m-%dT%H:%M:%S.%L
+          Name        json_decode
+          Format      json
 
     # @schema
     # type: string
@@ -1227,6 +1224,12 @@ fluent-bit:
     # @schema
     filters: |
       [FILTER]
+          Name          rewrite_tag
+          Match         kube.*
+          Rule          $log recordType.*kube-event k8sevent.json false
+          Emitter_Name  re_emitted
+
+      [FILTER]
           Name kubernetes
           Buffer_Size 32MB
           K8S-Logging.Parser On
@@ -1236,6 +1239,22 @@ fluent-bit:
           Merge_Log Off
           tls.verify Off
           Use_Kubelet true
+
+      [FILTER]
+          Name          parser
+          Match         k8sevent.json
+          Key_Name      log
+          Parser        json_decode
+          Reserve_Data  True
+
+      [FILTER]
+          Name          record_modifier
+          Match         k8sevent.json
+          Remove_key    log
+          Remove_key    time
+          Remove_key    stream
+          Remove_key    _p
+          Remove_key    recordType
 
     # @schema
     # type: string
@@ -1257,6 +1276,22 @@ fluent-bit:
           Suppress_Type_Name On
           tls On
           tls.verify Off
+
+      [OUTPUT]
+          Name opensearch
+          Host opensearch
+          Generate_ID On
+          HTTP_Passwd ThisIsTheOpenSearchPassword1
+          HTTP_User admin
+          Logstash_Format On
+          Logstash_DateFormat %Y-%m-%d
+          Logstash_Prefix kube-events
+          Match k8sevent.json
+          Port 9200
+          Suppress_Type_Name On
+          tls On
+          tls.verify Off
+          Replace_Dots On
 
   # @schema
   # description: DNS policy for Fluent Bit pods
@@ -1468,6 +1503,289 @@ fluent-bit:
     volumeMounts:
     - name: db
       mountPath: /var/lib/fluent-bit/db
+
+# @schema
+# type: object
+# additionalProperties: true
+# description: Events Collector configuration for collecting and enriching Kubernetes events
+# @schema
+eventsCollector:
+  # @schema
+  # type: boolean
+  # description: Enable the events-collector deployment
+  # default: false
+  # @schema
+  enabled: false
+
+  # @schema
+  # type: string
+  # description: Name of the events-collector deployment
+  # default: events-collector
+  # @schema
+  name: events-collector
+
+  # @schema
+  # type: object
+  # description: Container image configuration for events-collector
+  # @schema
+  image:
+    # @schema
+    # type: string
+    # description: Events collector image repository
+    # default: ghcr.io/openchoreo/events-collector
+    # @schema
+    repository: ghcr.io/openchoreo/events-collector
+
+    # @schema
+    # type: string
+    # description: Image tag. Empty uses Chart.AppVersion.
+    # default: ""
+    # @schema
+    tag: ""
+
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
+    pullPolicy: IfNotPresent
+
+  # @schema
+  # description: Log level for the collector
+  # enum: [debug, info, warn, error]
+  # default: info
+  # @schema
+  logLevel: info
+
+  # @schema
+  # type: string
+  # description: Directory path for the checkpoint SQLite database file
+  # default: /data
+  # @schema
+  checkpointDir: /data
+
+  # @schema
+  # type: string
+  # description: How often to run checkpoint cleanup (Go duration format)
+  # default: 10m
+  # @schema
+  checkpointCleanupInterval: 10m
+
+  # @schema
+  # type: string
+  # description: How long to keep checkpoint records before cleanup (Go duration format)
+  # default: 1h
+  # @schema
+  checkpointTTL: 1h
+
+  # @schema
+  # type: string
+  # description: TTL for cached labels of involved objects (Go duration format)
+  # default: 5m
+  # @schema
+  labelCacheTTL: 5m
+
+  # @schema
+  # type: object
+  # description: Persistent volume configuration for checkpoint database
+  # @schema
+  persistence:
+    # @schema
+    # type: boolean
+    # description: Enable persistent storage for checkpoint database
+    # default: true
+    # @schema
+    enabled: true
+
+    # @schema
+    # type: string
+    # description: Size of the persistent volume for checkpoint data
+    # default: 1Gi
+    # @schema
+    size: 1Gi
+
+    # @schema
+    # type: [string, "null"]
+    # description: Storage class name for the PVC. If empty, the default storage class is used.
+    # default: ""
+    # @schema
+    storageClassName: ""
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits for events-collector
+  # @schema
+  resources:
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Maximum resources the container can use
+    # @schema
+    limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 100m
+      # @schema
+      cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 128Mi
+      # @schema
+      memory: 128Mi
+    # @schema
+    # type: object
+    # additionalProperties: true
+    # description: Minimum resources guaranteed to the container
+    # @schema
+    requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 50m
+      # @schema
+      cpu: 50m
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 64Mi
+      # @schema
+      memory: 64Mi
+
+  # @schema
+  # type: object
+  # description: Service account configuration for events-collector
+  # @schema
+  serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a service account for the events-collector
+    # default: true
+    # @schema
+    create: true
+
+    # @schema
+    # type: string
+    # description: Service account name
+    # default: events-collector
+    # @schema
+    name: events-collector
+
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    annotations: {}
+
+  # @schema
+  # type: object
+  # description: RBAC configuration for events-collector
+  # @schema
+  rbac:
+    # @schema
+    # type: boolean
+    # description: Create RBAC resources (ClusterRole, ClusterRoleBinding)
+    # default: true
+    # @schema
+    create: true
+
+  # @schema
+  # type: object
+  # description: Pod-level security context
+  # @schema
+  podSecurityContext:
+    # @schema
+    # type: boolean
+    # description: Run container as non-root user
+    # default: true
+    # @schema
+    runAsNonRoot: true
+
+    # @schema
+    # type: integer
+    # description: User ID to run container as
+    # default: 65532
+    # @schema
+    runAsUser: 65532
+
+    # @schema
+    # type: integer
+    # description: Group ID for volume mounts
+    # default: 65532
+    # @schema
+    fsGroup: 65532
+
+  # @schema
+  # type: object
+  # description: Container-level security context
+  # @schema
+  securityContext:
+    # @schema
+    # type: boolean
+    # description: Prevent privilege escalation
+    # default: false
+    # @schema
+    allowPrivilegeEscalation: false
+
+    # @schema
+    # type: object
+    # description: Linux capabilities configuration
+    # @schema
+    capabilities:
+      # @schema
+      # type: array
+      # description: Capabilities to drop from container
+      # items:
+      #   type: string
+      # default: [ALL]
+      # @schema
+      drop:
+        - ALL
+
+    # @schema
+    # type: boolean
+    # description: Mount root filesystem as read-only
+    # default: true
+    # @schema
+    readOnlyRootFilesystem: true
+
+  # @schema
+  # type: object
+  # description: Annotations to add to events-collector pods
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  podAnnotations: {}
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  tolerations: []
+
+  # @schema
+  # type: object
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
+  affinity: {}
 
 # @schema
 # type: object

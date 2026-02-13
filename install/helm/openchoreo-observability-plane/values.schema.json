@@ -1083,6 +1083,329 @@
       "title": "data-prepper",
       "type": "object"
     },
+    "eventsCollector": {
+      "additionalProperties": true,
+      "description": "Events Collector configuration for collecting and enriching Kubernetes events",
+      "properties": {
+        "affinity": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
+        "checkpointCleanupInterval": {
+          "default": "10m",
+          "description": "How often to run checkpoint cleanup (Go duration format)",
+          "title": "checkpointCleanupInterval",
+          "type": "string"
+        },
+        "checkpointDir": {
+          "default": "/data",
+          "description": "Directory path for the checkpoint SQLite database file",
+          "title": "checkpointDir",
+          "type": "string"
+        },
+        "checkpointTTL": {
+          "default": "1h",
+          "description": "How long to keep checkpoint records before cleanup (Go duration format)",
+          "title": "checkpointTTL",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable the events-collector deployment",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration for events-collector",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/events-collector",
+              "description": "Events collector image repository",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. Empty uses Chart.AppVersion.",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "labelCacheTTL": {
+          "default": "5m",
+          "description": "TTL for cached labels of involved objects (Go duration format)",
+          "title": "labelCacheTTL",
+          "type": "string"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Log level for the collector",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "required": [],
+          "title": "logLevel"
+        },
+        "name": {
+          "default": "events-collector",
+          "description": "Name of the events-collector deployment",
+          "title": "name",
+          "type": "string"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
+        "persistence": {
+          "additionalProperties": false,
+          "description": "Persistent volume configuration for checkpoint database",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable persistent storage for checkpoint database",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "size": {
+              "default": "1Gi",
+              "description": "Size of the persistent volume for checkpoint data",
+              "title": "size",
+              "type": "string"
+            },
+            "storageClassName": {
+              "default": "",
+              "description": "Storage class name for the PVC. If empty, the default storage class is used.",
+              "required": [],
+              "title": "storageClassName",
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [],
+          "title": "persistence",
+          "type": "object"
+        },
+        "podAnnotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations to add to events-collector pods",
+          "required": [],
+          "title": "podAnnotations",
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod-level security context",
+          "properties": {
+            "fsGroup": {
+              "default": 65532,
+              "description": "Group ID for volume mounts",
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "description": "Run container as non-root user",
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 65532,
+              "description": "User ID to run container as",
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "rbac": {
+          "additionalProperties": false,
+          "description": "RBAC configuration for events-collector",
+          "properties": {
+            "create": {
+              "default": true,
+              "description": "Create RBAC resources (ClusterRole, ClusterRoleBinding)",
+              "title": "create",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "rbac",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for events-collector",
+          "properties": {
+            "limits": {
+              "additionalProperties": true,
+              "description": "Maximum resources the container can use",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU limit",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "description": "Memory limit",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": true,
+              "description": "Minimum resources guaranteed to the container",
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "description": "CPU request",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "description": "Memory request",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "securityContext": {
+          "additionalProperties": false,
+          "description": "Container-level security context",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "description": "Prevent privilege escalation",
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "description": "Linux capabilities configuration",
+              "properties": {
+                "drop": {
+                  "default": [
+                    "ALL"
+                  ],
+                  "description": "Capabilities to drop from container",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "description": "Mount root filesystem as read-only",
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "securityContext",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for events-collector",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "description": "Create a service account for the events-collector",
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "events-collector",
+              "description": "Service account name",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
+          "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
+        }
+      },
+      "required": [],
+      "title": "eventsCollector",
+      "type": "object"
+    },
     "fakeSecretStore": {
       "additionalProperties": true,
       "description": "Fake Secret Store configuration for local development without a real secret backend",
@@ -1132,13 +1455,13 @@
           "description": "Fluent Bit pipeline configuration (parsers, inputs, filters, outputs)",
           "properties": {
             "customParsers": {
-              "default": "[PARSER]\n    Name docker_no_time\n    Format json\n    Time_Keep Off\n    Time_Key time\n    Time_Format %Y-%m-%dT%H:%M:%S.%L\n",
+              "default": "[PARSER]\n    Name        json_decode\n    Format      json\n",
               "description": "Custom parser definitions in Fluent Bit configuration format",
               "title": "customParsers",
               "type": "string"
             },
             "filters": {
-              "default": "[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n",
+              "default": "[FILTER]\n    Name          rewrite_tag\n    Match         kube.*\n    Rule          $log recordType.*kube-event k8sevent.json false\n    Emitter_Name  re_emitted\n\n[FILTER]\n    Name kubernetes\n    Buffer_Size 32MB\n    K8S-Logging.Parser On\n    K8S-Logging.Exclude On\n    Keep_Log On\n    Match kube.*\n    Merge_Log Off\n    tls.verify Off\n    Use_Kubelet true\n\n[FILTER]\n    Name          parser\n    Match         k8sevent.json\n    Key_Name      log\n    Parser        json_decode\n    Reserve_Data  True\n\n[FILTER]\n    Name          record_modifier\n    Match         k8sevent.json\n    Remove_key    log\n    Remove_key    time\n    Remove_key    stream\n    Remove_key    _p\n    Remove_key    recordType\n",
               "description": "Filter plugin configuration for log processing",
               "title": "filters",
               "type": "string"
@@ -1150,7 +1473,7 @@
               "type": "string"
             },
             "outputs": {
-              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n\n[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix kube-events\n    Match k8sevent.json\n    Port 9200\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n    Replace_Dots On\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
               "title": "outputs",
               "type": "string"
