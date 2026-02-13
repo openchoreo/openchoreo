@@ -435,6 +435,97 @@ volumes: |
     [{"name": "extra-volume", "emptyDir": {}}]}
 ```
 
+### Workload Endpoint Helpers
+
+#### workload.endpoints.toServicePorts()
+
+Helper method that converts the `workload.endpoints` map into a list of Service port definitions. This simplifies Service generation by automatically creating ports based on the workload's endpoint configuration.
+
+**Parameters:** None
+
+**Returns:** List of Service port objects, each containing:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Sanitized endpoint name (lowercase, alphanumeric + hyphens) |
+| `port` | int | Port number from endpoint configuration |
+| `targetPort` | int | Target port (same as port) |
+| `protocol` | string | Kubernetes protocol (TCP or UDP) |
+
+**Protocol mapping:**
+- HTTP, REST, gRPC, GraphQL, Websocket → TCP
+- TCP → TCP
+- UDP → UDP
+
+**Example usage:**
+
+```yaml
+# Simple Service port generation from workload endpoints
+- id: service
+  includeWhen: ${size(workload.endpoints) > 0}
+  template:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: ${metadata.name}
+      namespace: ${metadata.namespace}
+    spec:
+      selector: ${metadata.podSelectors}
+      ports: ${workload.endpoints.toServicePorts()}
+
+# Before - verbose manual logic:
+ports: |
+  ${workload.endpoints.transformList(name, ep, {
+    "name": name.toLowerCase().replace("_", "-"),
+    "port": ep.port,
+    "targetPort": ep.port,
+    "protocol": ep.type == "UDP" ? "UDP" : "TCP"
+  })}
+
+# After - clean helper usage:
+ports: ${workload.endpoints.toServicePorts()}
+```
+
+**With multiple endpoints:**
+
+```yaml
+# Given this workload:
+workload:
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+    grpc:
+      type: gRPC
+      port: 9090
+
+# The helper generates:
+ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+```
+
+**Dynamic port references in HTTPRoute:**
+
+```yaml
+# Reference the first endpoint's port dynamically
+backendRefs:
+  - name: ${metadata.componentName}
+    port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
+```
+
+**Notes:**
+- Returns an empty list if `workload.endpoints` is empty
+- Endpoint names are sanitized for Kubernetes port naming (lowercase alphanumeric + hyphens)
+- Both `port` and `targetPort` use the same value from the endpoint configuration
+- Use with `includeWhen: ${size(workload.endpoints) > 0}` to conditionally create Services only when endpoints exist
+
 ## See Also
 
 - [Context Reference](./context.md) - Main context documentation

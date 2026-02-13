@@ -295,6 +295,27 @@ ports: |
   })}
 ```
 
+**Workload Endpoint Helper Method:**
+
+The `workload.endpoints` object provides a helper method to simplify Service port generation:
+
+| Helper Method | Description |
+|---------------|-------------|
+| `workload.endpoints.toServicePorts()` | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization |
+
+For detailed documentation and examples, see [Configuration Helpers - Workload Endpoint Helpers](./configuration_helpers.md#workload-endpoint-helpers).
+
+**Quick Example:**
+
+```yaml
+# Using helper method for cleaner Service generation
+- id: service
+  includeWhen: ${size(workload.endpoints) > 0}
+  template:
+    spec:
+      ports: ${workload.endpoints.toServicePorts()}
+```
+
 ### configurations
 
 Configuration items (environment variables and files) extracted from workload, organized by container.
