@@ -662,7 +662,7 @@ spec:
           - name: dockerfile-path
             value: ${parameters.docker.filePath}
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -770,7 +770,7 @@ spec:
           - name: node-version
             value: ${parameters.nodeVersion}
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}
+            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -875,7 +875,7 @@ spec:
           - name: app-path
             value: ${systemParameters.repository.appPath}
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
@@ -980,7 +980,7 @@ spec:
           - name: app-path
             value: ${systemParameters.repository.appPath}
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
           - name: git-secret

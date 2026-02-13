@@ -40,7 +40,7 @@ spec:
           - name: app-path
             value: ${systemParameters.repository.appPath}
           - name: image-name
-            value: ${metadata.projectName}-${metadata.componentName}-image
+            value: ${metadata.namespaceName}-${metadata.projectName}-${metadata.componentName}
           - name: image-tag
             value: v1
           - name: git-secret
