@@ -167,12 +167,13 @@ func (r *Reconciler) handleCompletedWorkflow(
 		return ctrl.Result{}, false
 	}
 
+	// Set CompletedAt timestamp immediately upon workflow completion.
+	// The deferred status update in Reconcile will persist this change.
+	setCompletedAtIfNeeded(componentWorkflowRun)
+
 	if isWorkflowSucceeded(componentWorkflowRun) && hasGenerateWorkloadTask(componentWorkflowRun) {
 		return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient), true
 	}
-
-	// Set FinishedAt timestamp if not already set
-	setFinishedAtIfNeeded(componentWorkflowRun)
 
 	return ctrl.Result{}, true
 }
@@ -401,9 +402,6 @@ func (r *Reconciler) handleWorkloadCreation(
 	}
 
 	setWorkloadUpdatedCondition(componentWorkflowRun)
-
-	// Set FinishedAt timestamp if not already set
-	setFinishedAtIfNeeded(componentWorkflowRun)
 
 	return ctrl.Result{}
 }
@@ -949,7 +947,7 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 		}
 		if !node.FinishedAt.IsZero() {
 			finishedAt := node.FinishedAt
-			task.FinishedAt = &finishedAt
+			task.CompletedAt = &finishedAt
 		}
 
 		tasksWithOrder = append(tasksWithOrder, taskWithOrder{task: task, order: order})
@@ -1032,7 +1030,7 @@ func (r *Reconciler) checkTTLExpiration(
 	ctx context.Context,
 	cwRun *openchoreodevv1alpha1.ComponentWorkflowRun,
 ) (bool, ctrl.Result, error) {
-	if cwRun.Status.FinishedAt == nil || cwRun.Spec.TTLAfterCompletion == "" {
+	if cwRun.Status.CompletedAt == nil || cwRun.Spec.TTLAfterCompletion == "" {
 		return false, ctrl.Result{}, nil
 	}
 
@@ -1043,10 +1041,10 @@ func (r *Reconciler) checkTTLExpiration(
 		return false, ctrl.Result{}, nil
 	}
 
-	expirationTime := cwRun.Status.FinishedAt.Add(ttlDuration)
+	expirationTime := cwRun.Status.CompletedAt.Add(ttlDuration)
 	if time.Now().After(expirationTime) {
 		logger.Info("TTL expired, deleting ComponentWorkflowRun",
-			"finishedAt", cwRun.Status.FinishedAt.Time,
+			"completedAt", cwRun.Status.CompletedAt.Time,
 			"ttl", cwRun.Spec.TTLAfterCompletion,
 			"expiredAt", expirationTime)
 		if err := r.Delete(ctx, cwRun); err != nil {
@@ -1076,12 +1074,12 @@ func setStartedAtIfNeeded(cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) {
 	cwRun.Status.StartedAt = &now
 }
 
-// setFinishedAtIfNeeded sets the FinishedAt timestamp when the workflow completes.
-func setFinishedAtIfNeeded(cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) {
-	if cwRun.Status.FinishedAt != nil {
+// setCompletedAtIfNeeded sets the CompletedAt timestamp when the workflow completes.
+func setCompletedAtIfNeeded(cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) {
+	if cwRun.Status.CompletedAt != nil {
 		return
 	}
 	now := metav1.Now()
-	cwRun.Status.FinishedAt = &now
-	log.Log.Info("Workflow finished", "finishedAt", now, "componentworkflowrun", cwRun.Name)
+	cwRun.Status.CompletedAt = &now
+	log.Log.Info("Workflow completed", "completedAt", now, "componentworkflowrun", cwRun.Name)
 }

@@ -6,6 +6,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:

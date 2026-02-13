@@ -439,8 +439,6 @@ spec:
             mountPath: /mnt/vol
         securityContext:
           privileged: true
-  ttlStrategy:
-    secondsAfterCompletion: 3600
   volumeClaimTemplates:
     - metadata:
         creationTimestamp: null

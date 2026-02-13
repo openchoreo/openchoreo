@@ -31,17 +31,17 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 			}
 		})
 
-		It("should return false when FinishedAt is not set", func() {
+		It("should return false when CompletedAt is not set", func() {
 			workflowRun := &openchoreodevv1alpha1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-no-finished-at",
+					Name:      "test-no-completed-at",
 					Namespace: "default",
 				},
 				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
 					TTLAfterCompletion: "1h",
 				},
 				Status: openchoreodevv1alpha1.WorkflowRunStatus{
-					FinishedAt: nil,
+					CompletedAt: nil,
 				},
 			}
 
@@ -62,7 +62,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 					TTLAfterCompletion: "",
 				},
 				Status: openchoreodevv1alpha1.WorkflowRunStatus{
-					FinishedAt: &now,
+					CompletedAt: &now,
 				},
 			}
 
@@ -79,7 +79,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 			Expect(ttlDuration).To(Equal(1 * time.Hour))
 
 			// Verify the ParseDuration result is used correctly in TTL logic
-			// by checking an expired TTL (FinishedAt + TTL < now)
+			// by checking an expired TTL (CompletedAt + TTL < now)
 			expiredTime := metav1.NewTime(time.Now().Add(-ttlDuration - 5*time.Minute))
 			expirationTime := expiredTime.Add(ttlDuration)
 			Expect(time.Now().After(expirationTime)).To(BeTrue(), "Expected TTL to be expired")
@@ -95,7 +95,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 			ttlDuration, err := cmdutil.ParseDuration("2h")
 			Expect(err).NotTo(HaveOccurred())
 
-			// Set FinishedAt within TTL window (not expired)
+			// Set CompletedAt within TTL window (not expired)
 			notExpiredTime := metav1.NewTime(time.Now().Add(-ttlDuration / 2))
 			workflowRun := &openchoreodevv1alpha1.WorkflowRun{
 				ObjectMeta: metav1.ObjectMeta{
@@ -106,7 +106,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 					TTLAfterCompletion: "2h",
 				},
 				Status: openchoreodevv1alpha1.WorkflowRunStatus{
-					FinishedAt: &notExpiredTime,
+					CompletedAt: &notExpiredTime,
 				},
 			}
 
@@ -124,7 +124,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 			Expect(ttlDuration).To(Equal(time.Duration(0)))
 
 			// Verify zero TTL means immediate expiration
-			// FinishedAt + 0s = FinishedAt, which is before now
+			// CompletedAt + 0s = CompletedAt, which is before now
 			now := metav1.Now()
 			expirationTime := now.Time.Add(ttlDuration)
 			Expect(time.Now().After(expirationTime)).To(BeTrue(), "Zero TTL should result in immediate expiration")
@@ -143,7 +143,7 @@ var _ = Describe("WorkflowRun TTL Expiration Unit Tests", func() {
 				{"1h", 1 * time.Hour},
 				{"30m", 30 * time.Minute},
 				{"90d", 90 * 24 * time.Hour},
-				{"1d 12h", 36 * time.Hour},
+				{"1d12h", 36 * time.Hour},
 				{"0s", 0},
 				{"0d", 0},
 			}

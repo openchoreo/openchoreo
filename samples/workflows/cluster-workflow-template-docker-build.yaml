@@ -164,8 +164,6 @@ spec:
           - name: image
             valueFrom:
               path: /tmp/image.txt
-  ttlStrategy:
-    secondsAfterCompletion: 3600
   volumeClaimTemplates:
     - metadata:
         name: workspace

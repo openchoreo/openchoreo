@@ -22,10 +22,10 @@ type ComponentWorkflowRunSpec struct {
 
 	// TTLAfterCompletion defines the time-to-live for this workflow run after completion.
 	// This value is copied from the ComponentWorkflow template.
-	// Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
-	// Examples: "90d", "10d", "1h30m", "30m", "1d 12h 30m 15s"
+	// Format: duration string supporting days, hours, minutes, seconds without spaces (e.g., "90d", "10d1h30m", "1h30m")
+	// Examples: "90d", "10d", "1h30m", "30m", "1d12h30m15s"
 	// +optional
-	// +kubebuilder:validation:Pattern=`^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$`
+	// +kubebuilder:validation:Pattern=`^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$`
 	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
 }
 
@@ -157,10 +157,10 @@ type ComponentWorkflowRunStatus struct {
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 
-	// FinishedAt is the timestamp when this workflow run finished execution (succeeded or failed).
+	// CompletedAt is the timestamp when this workflow run finished execution (succeeded or failed).
 	// This is used together with TTLAfterCompletion to determine when to delete the workflow run.
 	// +optional
-	FinishedAt *metav1.Time `json:"finishedAt,omitempty"`
+	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 }
 
 // ComponentWorkflowImage contains information about a container image produced by a component workflow execution.
@@ -189,9 +189,9 @@ type WorkflowTask struct {
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`
 
-	// FinishedAt is the timestamp when the task finished execution.
+	// CompletedAt is the timestamp when the task finished execution.
 	// +optional
-	FinishedAt *metav1.Time `json:"finishedAt,omitempty"`
+	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
 
 	// Message provides additional details about the task status.
 	// This is typically populated when the task fails or errors.

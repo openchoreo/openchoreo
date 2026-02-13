@@ -524,9 +524,9 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRunStatus(ctx context.Con
 			startedAt := task.StartedAt.Time
 			step.StartedAt = &startedAt
 		}
-		if task.FinishedAt != nil {
-			finishedAt := task.FinishedAt.Time
-			step.FinishedAt = &finishedAt
+		if task.CompletedAt != nil {
+			completedAt := task.CompletedAt.Time
+			step.FinishedAt = &completedAt
 		}
 		steps = append(steps, step)
 	}

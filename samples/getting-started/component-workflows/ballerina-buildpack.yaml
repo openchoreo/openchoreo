@@ -6,6 +6,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:

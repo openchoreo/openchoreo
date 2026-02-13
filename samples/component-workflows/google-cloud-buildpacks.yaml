@@ -16,6 +16,10 @@ spec:
   # ${parameters.*}              - Custom developer parameters defined in schema (version, testMode, cache, etc.)
   # ${secretRef.*}               - Secret reference details when systemParameters.repository.secretRef is provided
 
+  # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
+  # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
+  ttlAfterCompletion: "1d"
+
   # Schema definition for workflow parameters
   # Defines the contract between platform engineers (who create workflows) and developers (who use them)
   schema:

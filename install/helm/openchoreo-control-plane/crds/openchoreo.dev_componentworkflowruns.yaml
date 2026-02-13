@@ -60,9 +60,9 @@ spec:
                 description: |-
                   TTLAfterCompletion defines the time-to-live for this workflow run after completion.
                   This value is copied from the ComponentWorkflow template.
-                  Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
-                  Examples: "90d", "10d", "1h30m", "30m", "1d 12h 30m 15s"
-                pattern: ^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$
+                  Format: duration string supporting days, hours, minutes, seconds without spaces (e.g., "90d", "10d1h30m", "1h30m")
+                  Examples: "90d", "10d", "1h30m", "30m", "1d12h30m15s"
+                pattern: ^(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                 type: string
               workflow:
                 description: Workflow configuration referencing the ComponentWorkflow
@@ -156,6 +156,12 @@ spec:
           status:
             description: status defines the observed state of ComponentWorkflowRun
             properties:
+              completedAt:
+                description: |-
+                  CompletedAt is the timestamp when this workflow run finished execution (succeeded or failed).
+                  This is used together with TTLAfterCompletion to determine when to delete the workflow run.
+                format: date-time
+                type: string
               conditions:
                 description: Conditions represent the current state of the ComponentWorkflowRun
                   resource.
@@ -217,12 +223,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              finishedAt:
-                description: |-
-                  FinishedAt is the timestamp when this workflow run finished execution (succeeded or failed).
-                  This is used together with TTLAfterCompletion to determine when to delete the workflow run.
-                format: date-time
-                type: string
               imageStatus:
                 description: |-
                   ImageStatus contains information about the built container image from the workflow execution.
@@ -313,8 +313,8 @@ spec:
                     This provides a vendor-neutral abstraction over workflow engine-specific steps
                     (e.g., Argo Workflow nodes, Tekton TaskRuns).
                   properties:
-                    finishedAt:
-                      description: FinishedAt is the timestamp when the task finished
+                    completedAt:
+                      description: CompletedAt is the timestamp when the task finished
                         execution.
                       format: date-time
                       type: string

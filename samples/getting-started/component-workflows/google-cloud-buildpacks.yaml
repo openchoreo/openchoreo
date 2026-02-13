@@ -6,6 +6,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:

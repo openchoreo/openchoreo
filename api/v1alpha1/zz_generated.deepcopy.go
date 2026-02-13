@@ -1757,8 +1757,8 @@ func (in *ComponentWorkflowRunStatus) DeepCopyInto(out *ComponentWorkflowRunStat
 		in, out := &in.StartedAt, &out.StartedAt
 		*out = (*in).DeepCopy()
 	}
-	if in.FinishedAt != nil {
-		in, out := &in.FinishedAt, &out.FinishedAt
+	if in.CompletedAt != nil {
+		in, out := &in.CompletedAt, &out.CompletedAt
 		*out = (*in).DeepCopy()
 	}
 }
@@ -4890,8 +4890,8 @@ func (in *WorkflowRunStatus) DeepCopyInto(out *WorkflowRunStatus) {
 		in, out := &in.StartedAt, &out.StartedAt
 		*out = (*in).DeepCopy()
 	}
-	if in.FinishedAt != nil {
-		in, out := &in.FinishedAt, &out.FinishedAt
+	if in.CompletedAt != nil {
+		in, out := &in.CompletedAt, &out.CompletedAt
 		*out = (*in).DeepCopy()
 	}
 }
@@ -4992,8 +4992,8 @@ func (in *WorkflowTask) DeepCopyInto(out *WorkflowTask) {
 		in, out := &in.StartedAt, &out.StartedAt
 		*out = (*in).DeepCopy()
 	}
-	if in.FinishedAt != nil {
-		in, out := &in.FinishedAt, &out.FinishedAt
+	if in.CompletedAt != nil {
+		in, out := &in.CompletedAt, &out.CompletedAt
 		*out = (*in).DeepCopy()
 	}
 }

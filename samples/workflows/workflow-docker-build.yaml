@@ -11,6 +11,10 @@ spec:
   # ${metadata.namespaceName}          - Namespace name (namespace)
   # ${parameters.*}              - Developer-provided values from parameters schema
 
+  # Time-to-live for completed workflow runs - Automatically cleans up workflow resources after the specified duration
+  # Format is a duration string without spaces (e.g., "1d" for 1 day, "12h" for 12 hours, "10d12h30m" for 10 days, 12 hours, and 30 minutes)
+  ttlAfterCompletion: "1d"
+
   # Schema definition for workflows
   schema:
     parameters:

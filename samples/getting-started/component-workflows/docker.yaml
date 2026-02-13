@@ -6,6 +6,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:
@@ -20,7 +21,6 @@ spec:
       docker:
         context: string | default=. description="Docker build context path relative to the repository root"
         filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
-
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow

@@ -118,8 +118,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if isWorkflowCompleted(workflowRun) {
-		// Set FinishedAt timestamp if not already set
-		setFinishedAtIfNeeded(workflowRun)
+		// Set CompletedAt timestamp if not already set
+		setCompletedAtIfNeeded(workflowRun)
 
 		return ctrl.Result{}, nil
 	}
@@ -576,7 +576,7 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 		}
 		if !node.FinishedAt.IsZero() {
 			finishedAt := node.FinishedAt
-			task.FinishedAt = &finishedAt
+			task.CompletedAt = &finishedAt
 		}
 
 		tasksWithOrder = append(tasksWithOrder, taskWithOrder{task: task, order: order})
@@ -639,7 +639,7 @@ func (r *Reconciler) checkTTLExpiration(
 	ctx context.Context,
 	wfRun *openchoreodevv1alpha1.WorkflowRun,
 ) (bool, ctrl.Result, error) {
-	if wfRun.Status.FinishedAt == nil || wfRun.Spec.TTLAfterCompletion == "" {
+	if wfRun.Status.CompletedAt == nil || wfRun.Spec.TTLAfterCompletion == "" {
 		return false, ctrl.Result{}, nil
 	}
 
@@ -650,10 +650,10 @@ func (r *Reconciler) checkTTLExpiration(
 		return false, ctrl.Result{}, nil
 	}
 
-	expirationTime := wfRun.Status.FinishedAt.Add(ttlDuration)
+	expirationTime := wfRun.Status.CompletedAt.Add(ttlDuration)
 	if time.Now().After(expirationTime) {
 		logger.Info("TTL expired, deleting WorkflowRun",
-			"finishedAt", wfRun.Status.FinishedAt.Time,
+			"completedAt", wfRun.Status.CompletedAt.Time,
 			"ttl", wfRun.Spec.TTLAfterCompletion,
 			"expiredAt", expirationTime)
 		if err := r.Delete(ctx, wfRun); err != nil {
@@ -683,13 +683,13 @@ func setStartedAtIfNeeded(cwRun *openchoreodevv1alpha1.WorkflowRun) {
 	cwRun.Status.StartedAt = &now
 }
 
-// setFinishedAtIfNeeded sets the FinishedAt timestamp when the workflow completes.
-func setFinishedAtIfNeeded(wfRun *openchoreodevv1alpha1.WorkflowRun) {
-	if wfRun.Status.FinishedAt != nil {
+// setCompletedAtIfNeeded sets the CompletedAt timestamp when the workflow completes.
+func setCompletedAtIfNeeded(wfRun *openchoreodevv1alpha1.WorkflowRun) {
+	if wfRun.Status.CompletedAt != nil {
 		return
 	}
 
 	now := metav1.Now()
-	wfRun.Status.FinishedAt = &now
-	log.Log.Info("Workflow finished", "finishedAt", now, "workflowrun", wfRun.Name)
+	wfRun.Status.CompletedAt = &now
+	log.Log.Info("Workflow completed", "completedAt", now, "workflowrun", wfRun.Name)
 }

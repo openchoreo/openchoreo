@@ -621,6 +621,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Docker build workflow for containerized builds using Dockerfile"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:
@@ -635,7 +636,6 @@ spec:
       docker:
         context: string | default=. description="Docker build context path relative to the repository root"
         filePath: string | default=./Dockerfile description="Path to the Dockerfile relative to the repository root"
-
   runTemplate:
     apiVersion: argoproj.io/v1alpha1
     kind: Workflow
@@ -733,6 +733,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Build workflow for React web applications"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:
@@ -841,6 +842,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Ballerina build workflow for containerized builds using Ballerina Buildpack"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:
@@ -946,6 +948,7 @@ metadata:
   annotations:
     openchoreo.dev/description: "Google Cloud Buildpacks workflow for containerized builds"
 spec:
+  ttlAfterCompletion: "1d"
   schema:
     systemParameters:
       repository:
