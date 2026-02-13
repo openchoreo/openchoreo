@@ -30,16 +30,6 @@ spec:
     parameters:
       nodeVersion: "20"
 
-  parameters:
-    replicas: 2
-    resources:
-      requests:
-        cpu: "100m"
-        memory: "256Mi"
-      limits:
-        cpu: "500m"
-        memory: "512Mi"
-
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentWorkflowRun

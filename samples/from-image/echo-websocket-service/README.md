@@ -52,6 +52,8 @@ You can test the WebSocket service using `wscat` (install via `npm install -g ws
 
 ### Connect to the WebSocket
 
+The service is exposed at the base path `/{component-name}`. For this sample, the component name is `echo-websocket-service`.
+
 ```bash
 wscat -c "ws://localhost:19080/echo-websocket-service/.ws" --header "Host: development-default.openchoreoapis.localhost"
 ```

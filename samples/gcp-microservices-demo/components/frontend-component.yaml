@@ -10,16 +10,6 @@ spec:
   componentType: deployment/web-application
   autoDeploy: true
 
-  parameters:
-    replicas: 1
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
-
 ---
 
 apiVersion: openchoreo.dev/v1alpha1

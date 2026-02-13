@@ -12,6 +12,9 @@ spec:
   # Set auto-deploy to true
   autoDeploy: true
 
+  parameters:
+    exposed: true
+
   # Component Workflow configuration (developer-provided)
   workflow:
     # Reference to ComponentWorkflow
@@ -26,17 +29,6 @@ spec:
           # Optional commit hash, should be a valid git commit
           # commit: ""
         appPath: "/service-ballerina-patient-management"
-
-  parameters:
-    exposed: true
-    replicas: 1
-    resources:
-      requests:
-        cpu: "100m"
-        memory: "256Mi"
-      limits:
-        cpu: "500m"
-        memory: "512Mi"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

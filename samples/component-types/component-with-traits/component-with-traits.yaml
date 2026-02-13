@@ -1,76 +1,13 @@
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: web-app
-  namespace: default
-spec:
-  workloadType: deployment
-
-  allowedTraits:
-    - persistent-volume
-    - emptydir-volume
-
-  schema:
-    parameters:
-      replicas: "integer | default=1"
-      imagePullPolicy: "string | default=IfNotPresent"
-
-    envOverrides:
-      resources:
-        $default: {}
-        requests:
-          $default: {}
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-        limits:
-          $default: {}
-          cpu: "string | default=1000m"
-          memory: "string | default=1Gi"
-
-  resources:
-    - id: deployment
-      template:
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          replicas: ${parameters.replicas}
-          selector:
-            matchLabels: ${metadata.podSelectors}
-          template:
-            metadata:
-              labels: ${metadata.podSelectors}
-            spec:
-              containers:
-                - name: app
-                  image: ${workload.containers["app"].image}
-                  imagePullPolicy: ${parameters.imagePullPolicy}
-                  resources:
-                    requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
-                    limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
-
-    - id: service
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          type: ClusterIP
-          selector: ${metadata.podSelectors}
-          ports: ${workload.toServicePorts()}
+# Sample: Service Component with Developer-Attached Traits
+#
+# This sample demonstrates:
+# - Using the default deployment/service ComponentType with custom traits
+# - persistent-volume trait: Creates PVCs and mounts them to containers
+# - emptydir-volume trait: Creates emptyDir volumes with multi-container mount support
+# - Environment-specific trait overrides via ReleaseBinding
 
 ---
+# Persistent Volume Trait - creates PVC and mounts to specified container
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
@@ -81,7 +18,7 @@ spec:
     parameters:
       volumeName: "string"
       mountPath: "string"
-      containerName: "string | default=app"
+      containerName: "string | default=main"
 
     envOverrides:
       size: "string | default=10Gi"
@@ -127,6 +64,7 @@ spec:
             mountPath: ${parameters.mountPath}
 
 ---
+# EmptyDir Volume Trait - creates emptyDir volumes with support for multiple container mounts
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
@@ -187,6 +125,7 @@ spec:
               ${has(mount.subPath) ? mount.subPath : ""}
 
 ---
+# Component using the default deployment/service ComponentType with developer-attached traits
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -196,11 +135,11 @@ spec:
   owner:
     projectName: default
 
-  componentType: deployment/web-app
+  componentType: deployment/service
   autoDeploy: true
 
   parameters:
-    replicas: 1
+    exposed: true
 
   traits:
     - name: persistent-volume
@@ -208,13 +147,13 @@ spec:
       parameters:
         volumeName: app-data
         mountPath: /var/data
-        containerName: app
+        containerName: main
     - name: emptydir-volume
       instanceName: cache
       parameters:
         volumeName: cache-vol
         mounts:
-          - containerName: app
+          - containerName: main
             mountPath: /tmp/cache
             readOnly: false
     - name: emptydir-volume
@@ -222,7 +161,7 @@ spec:
       parameters:
         volumeName: workspace-vol
         mounts:
-          - containerName: app
+          - containerName: main
             mountPath: /tmp/work
             readOnly: false
 
@@ -243,7 +182,7 @@ spec:
       port: 8080
 
   containers:
-    app:
+    main:
       image: "nginx:1.25-alpine"
 
 ---
@@ -260,6 +199,7 @@ spec:
   environment: development
 
   componentTypeEnvOverrides:
+    replicas: 1
     resources:
       requests:
         cpu: "50m"

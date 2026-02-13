@@ -9,16 +9,6 @@ spec:
   autoDeploy: true
   componentType: deployment/web-application
 
-  parameters:
-    replicas: 2
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
-
 ---
 
 # Defines a workload that specifies the developer contract which describes the source code including

@@ -73,8 +73,10 @@ kubectl get releasebinding demo-app-http-service-development -o yaml | grep -A 5
 
 ## Test the Service by invoking
 
+The service is exposed at the base path `/{component-name}`. For this sample, the component name is `demo-app-http-service`.
+
 ```bash
-curl http://development-default.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet
+curl http://development-default.openchoreoapis.localhost:19080/demo-app-http-service/greeter/greet
 ```
 
 Output:
@@ -83,7 +85,7 @@ Hello, Stranger!
 ```
 
 ```bash
-curl "http://development-default.openchoreoapis.localhost:19080/demo-app-http-service-development-51adbdb3/greeter/greet?name=Alice"
+curl "http://development-default.openchoreoapis.localhost:19080/demo-app-http-service/greeter/greet?name=Alice"
 ```
 
 Output:

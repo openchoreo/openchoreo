@@ -1,90 +1,10 @@
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: web-service
-  namespace: default
-spec:
-  workloadType: deployment
+# Sample: Web Application Component using the default deployment/web-application ComponentType
+#
+# This sample demonstrates:
+# - Using the default deployment/web-application ComponentType
+# - Web applications require HTTP or REST endpoints
+# - Environment-specific resource overrides via ReleaseBinding
 
-  schema:
-    parameters:
-      replicas: "integer | default=1"
-      imagePullPolicy: "string | default=IfNotPresent"
-
-    envOverrides:
-      resources:
-        $default: {}
-        requests:
-          $default: {}
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-        limits:
-          $default: {}
-          cpu: "string | default=1000m"
-          memory: "string | default=1Gi"
-
-  resources:
-    - id: deployment
-      template:
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          replicas: ${parameters.replicas}
-          selector:
-            matchLabels: ${metadata.podSelectors}
-          template:
-            metadata:
-              labels: ${metadata.podSelectors}
-            spec:
-              containers:
-                - name: app
-                  image: ${workload.containers["app"].image}
-                  imagePullPolicy: ${parameters.imagePullPolicy}
-                  resources:
-                    requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
-                    limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
-
-    - id: service
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          type: ClusterIP
-          selector: ${metadata.podSelectors}
-          ports: ${workload.toServicePorts()}
-
-    - id: httproute
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: gateway.networking.k8s.io/v1
-        kind: HTTPRoute
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          parentRefs:
-            - name: gateway-default
-              namespace: openchoreo-data-plane
-          hostnames:
-            - ${metadata.componentNamespace}.${metadata.name}.${dataplane.publicVirtualHost}
-          rules:
-          - backendRefs:
-            - name: ${metadata.name}
-              port: ${workload.endpoints.http.port}
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
@@ -96,10 +16,8 @@ spec:
     projectName: default
 
   autoDeploy: true
-  componentType: deployment/web-service
+  componentType: deployment/web-application
 
-  parameters:
-    replicas: 2
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
@@ -117,7 +35,7 @@ spec:
       port: 8080
 
   containers:
-    app:
+    main:
       image: "choreoanonymouspullable.azurecr.io/react-spa:v0.9"
       env:
         - key: NODE_ENV
@@ -139,6 +57,7 @@ spec:
   environment: development
 
   componentTypeEnvOverrides:
+    replicas: 2
     resources:
       requests:
         cpu: "50m"

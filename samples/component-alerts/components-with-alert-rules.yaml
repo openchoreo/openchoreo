@@ -12,17 +12,6 @@ spec:
   componentType: deployment/web-application
   autoDeploy: true
 
-  parameters:
-    replicas: 1
-    port: 8080
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
-
   # Attach alert rule as a trait
   traits:
     - name: observability-alert-rule
@@ -55,17 +44,6 @@ spec:
   componentType: deployment/service
   autoDeploy: true
 
-  parameters:
-    replicas: 1
-    port: 8080
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
-
   # Attach alert rule as a trait
   traits:
     - name: observability-alert-rule
@@ -96,17 +74,6 @@ spec:
 
   componentType: deployment/service
   autoDeploy: true
-
-  parameters:
-    replicas: 1
-    port: 7070
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-      limits:
-        cpu: "200m"
-        memory: "256Mi"
 
   # Attach alert rule as a trait
   traits:

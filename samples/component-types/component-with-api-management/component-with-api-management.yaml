@@ -1,112 +1,17 @@
-# ComponentType without APIConfiguration
-apiVersion: openchoreo.dev/v1alpha1
-kind: ComponentType
-metadata:
-  name: http-service-with-api-management
-  namespace: default
-spec:
-  workloadType: deployment
-
-  allowedTraits:
-    - api-configuration
-
-  schema:
-    parameters:
-      replicas: "integer | default=1"
-      imagePullPolicy: "string | default=IfNotPresent"
-
-    envOverrides:
-      resources:
-        $default: {}
-        requests:
-          $default: {}
-          cpu: "string | default=100m"
-          memory: "string | default=256Mi"
-        limits:
-          $default: {}
-          cpu: "string | default=1000m"
-          memory: "string | default=1Gi"
-
-  resources:
-    # Kubernetes deployment for the HTTP service
-    - id: deployment
-      template:
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          replicas: ${parameters.replicas}
-          selector:
-            matchLabels: ${metadata.podSelectors}
-          template:
-            metadata:
-              labels: ${metadata.podSelectors}
-            spec:
-              containers:
-                - name: app
-                  image: ${workload.containers["app"].image}
-                  imagePullPolicy: ${parameters.imagePullPolicy}
-                  resources:
-                    requests:
-                      cpu: ${envOverrides.resources.requests.cpu}
-                      memory: ${envOverrides.resources.requests.memory}
-                    limits:
-                      cpu: ${envOverrides.resources.limits.cpu}
-                      memory: ${envOverrides.resources.limits.memory}
-
-    # Kubernetes service to expose the HTTP service deployment
-    - id: service
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: ${metadata.componentName}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          type: ClusterIP
-          selector: ${metadata.podSelectors}
-          ports: ${workload.toServicePorts()}
-
-    # Gateway API HTTPRoute to accept ingress traffic to the HTTP service
-    # By default routes directly to the service (no API management)
-    # If api-configuration addon is used, it will patch this to route through API Gateway
-    - id: httproute
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: gateway.networking.k8s.io/v1
-        kind: HTTPRoute
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          parentRefs:
-            - name: gateway-default
-              namespace: openchoreo-data-plane
-          hostnames:
-            - ${metadata.componentNamespace}.${metadata.environmentName}.${dataplane.publicVirtualHost}
-          rules:
-          - matches:
-            - path:
-                type: PathPrefix
-                value: /${metadata.componentName}
-            filters:
-              - type: URLRewrite
-                urlRewrite:
-                  path:
-                    type: ReplacePrefixMatch
-                    replacePrefixMatch: /
-            # Default: Route directly to the component service (no API management)
-            backendRefs:
-            - name: ${metadata.componentName}
-              port: ${workload.endpoints.http.port}
+# Copyright 2025 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# This sample demonstrates how to use the api-configuration trait with the default service component type
+# to add API management capabilities to HTTP services.
+#
+# Key concepts:
+# 1. Uses the default deployment/service ComponentType
+# 2. Adds API management via the api-configuration trait
+# 3. Trait patches the HTTPRoute to route through API Platform Gateway
+# 4. Supports JWT authentication and other API policies
 
 ---
+# API Configuration Trait - adds API management capabilities to services
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
@@ -125,6 +30,7 @@ spec:
         "array<map<string>> | default=[]"
 
   creates:
+    # Backend resource to route through API Platform Gateway
     - template:
         apiVersion: gateway.kgateway.dev/v1alpha1
         kind: Backend
@@ -138,6 +44,7 @@ spec:
               - host: api-platform-default-gateway-router.openchoreo-data-plane
                 port: 8080
 
+    # RestApi resource that configures the API in API Platform
     - template:
         apiVersion: gateway.api-platform.wso2.com/v1alpha1
         kind: RestApi
@@ -155,6 +62,7 @@ spec:
           operations: ${parameters.operations}
 
   patches:
+    # Patch the HTTPRoute to route through API Platform Gateway instead of directly to service
     - target:
         group: gateway.networking.k8s.io
         version: v1
@@ -172,8 +80,9 @@ spec:
           value:
             type: ReplacePrefixMatch
             replacePrefixMatch: ${parameters.context}
+
 ---
-# Component using the ComponentType and the API Configuration addon
+# Component using the default deployment/service ComponentType with api-configuration trait
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -183,13 +92,13 @@ spec:
   owner:
     projectName: default
   autoDeploy: true
-  componentType: deployment/http-service-with-api-management
+  componentType: deployment/service
 
-  # Parameters for the ComponentType
   parameters:
-    replicas: 2
+    # Enable HTTPRoute creation (required for api-configuration trait to patch it)
+    exposed: true
 
-  # Traits - API Configuration is now added as a trait
+  # Traits - API Configuration is added as a trait
   traits:
     - name: api-configuration
       instanceName: greeter-api
@@ -219,7 +128,7 @@ spec:
       port: 9090
 
   containers:
-    app:
+    main:
       image: "ghcr.io/openchoreo/samples/greeter-service:latest"
       args:
         - --port
@@ -240,6 +149,7 @@ spec:
 
   # Override ComponentType envOverrides for this environment
   componentTypeEnvOverrides:
+    replicas: 2
     resources:
       requests:
         cpu: "50m"
