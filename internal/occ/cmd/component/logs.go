@@ -71,7 +71,7 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 	}
 
 	// Calculate time range from --since flag
-	duration, err := parseDuration(params.Since)
+	duration, err := time.ParseDuration(params.Since)
 	if err != nil {
 		return fmt.Errorf("invalid duration format: %w", err)
 	}
@@ -144,15 +144,12 @@ func (c *CompImpl) followLogs(
 	}
 
 	// Update startTime to the last log timestamp or endTime
+	startTime = endTime // default
 	if len(logs) > 0 {
 		lastTimestamp, err := time.Parse(time.RFC3339, logs[len(logs)-1].Timestamp)
 		if err == nil {
 			startTime = lastTimestamp.Add(1 * time.Millisecond) // Add 1ms to avoid duplicate
-		} else {
-			startTime = endTime
 		}
-	} else {
-		startTime = endTime
 	}
 
 	// Poll for new logs
@@ -230,11 +227,6 @@ func (c *CompImpl) fetchLogs(
 	}
 
 	return logResponse.Logs, nil
-}
-
-// parseDuration parses duration strings like "5m", "1h", "24h"
-func parseDuration(s string) (time.Duration, error) {
-	return time.ParseDuration(s)
 }
 
 // findRootEnvironment finds the lowest environment in a deployment pipeline.
