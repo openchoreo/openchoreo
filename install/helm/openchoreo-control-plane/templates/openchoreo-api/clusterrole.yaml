@@ -19,6 +19,9 @@ rules:
   - apis
   - buildplanes
   - builds
+  - clusterbuildplanes
+  - clusterdataplanes
+  - clusterobservabilityplanes
   - componentreleases
   - components
   - componenttypes
@@ -79,6 +82,9 @@ rules:
   - apis/status
   - buildplanes/status
   - builds/status
+  - clusterbuildplanes/status
+  - clusterdataplanes/status
+  - clusterobservabilityplanes/status
   - componentreleases/status
   - components/status
   - componenttypes/status
