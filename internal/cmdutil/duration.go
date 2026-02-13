@@ -102,7 +102,8 @@ func ParseDuration(s string) (time.Duration, error) {
 	}
 
 	// Ensure at least one unit was specified
-	if totalDuration == 0 {
+	// Check if any unit tokens were found (not just if duration is zero)
+	if matches[1] == "" && matches[2] == "" && matches[3] == "" && matches[4] == "" {
 		return 0, fmt.Errorf("duration must specify at least one unit (d, h, m, s): %s", s)
 	}
 

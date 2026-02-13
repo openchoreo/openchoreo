@@ -240,8 +240,32 @@ func TestParseDurationEdgeCases(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "zero duration",
+			name:     "zero duration seconds",
 			input:    "0s",
+			expected: 0,
+			wantErr:  false, // Zero is a valid duration value
+		},
+		{
+			name:     "zero duration days",
+			input:    "0d",
+			expected: 0,
+			wantErr:  false, // Zero is a valid duration value
+		},
+		{
+			name:     "zero duration hours",
+			input:    "0h",
+			expected: 0,
+			wantErr:  false, // Zero is a valid duration value
+		},
+		{
+			name:     "zero duration minutes",
+			input:    "0m",
+			expected: 0,
+			wantErr:  false, // Zero is a valid duration value
+		},
+		{
+			name:     "zero duration mixed units",
+			input:    "0d 0h 0m 0s",
 			expected: 0,
 			wantErr:  false, // Zero is a valid duration value
 		},

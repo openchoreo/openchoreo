@@ -11,6 +11,7 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +22,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
@@ -74,6 +76,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Check if TTL has expired
+	if shouldReturn, result, err := r.checkTTLExpiration(ctx, workflowRun); shouldReturn {
+		return result, err
+	}
+
 	// Deferred status update
 	defer func() {
 		// Skip update if nothing changed
@@ -89,6 +96,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}()
 
 	if !isWorkflowInitiated(workflowRun) {
+		setStartedAtIfNeeded(workflowRun)
 		setWorkflowPendingCondition(workflowRun)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -110,6 +118,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if isWorkflowCompleted(workflowRun) {
+		// Set FinishedAt timestamp if not already set
+		setFinishedAtIfNeeded(workflowRun)
+
 		return ctrl.Result{}, nil
 	}
 
@@ -139,6 +150,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}, workflow); err != nil {
 		logger.Error(err, "failed to get Workflow",
 			"workflow", workflowRun.Spec.Workflow.Name)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Copy TTL from Workflow to WorkflowRun if not already set
+	if workflowRun.Spec.TTLAfterCompletion == "" && workflow.Spec.TTLAfterCompletion != "" {
+		workflowRun.Spec.TTLAfterCompletion = workflow.Spec.TTLAfterCompletion
+		if err := r.Update(ctx, workflowRun); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -611,4 +631,65 @@ func extractArgoStepOrderFromNodeName(nodeName string) int {
 	}
 
 	return order
+}
+
+// checkTTLExpiration checks if the TTL has expired and deletes the WorkflowRun if needed.
+// Returns (shouldReturn, result, error) where shouldReturn indicates if the caller should return immediately.
+func (r *Reconciler) checkTTLExpiration(
+	ctx context.Context,
+	wfRun *openchoreodevv1alpha1.WorkflowRun,
+) (bool, ctrl.Result, error) {
+	if wfRun.Status.FinishedAt == nil || wfRun.Spec.TTLAfterCompletion == "" {
+		return false, ctrl.Result{}, nil
+	}
+
+	logger := log.FromContext(ctx)
+	ttlDuration, err := cmdutil.ParseDuration(wfRun.Spec.TTLAfterCompletion)
+	if err != nil {
+		logger.Error(err, "Invalid TTL duration", "ttl", wfRun.Spec.TTLAfterCompletion)
+		return false, ctrl.Result{}, nil
+	}
+
+	expirationTime := wfRun.Status.FinishedAt.Add(ttlDuration)
+	if time.Now().After(expirationTime) {
+		logger.Info("TTL expired, deleting WorkflowRun",
+			"finishedAt", wfRun.Status.FinishedAt.Time,
+			"ttl", wfRun.Spec.TTLAfterCompletion,
+			"expiredAt", expirationTime)
+		if err := r.Delete(ctx, wfRun); err != nil {
+			if !errors.IsNotFound(err) {
+				return true, ctrl.Result{}, err
+			}
+		}
+		return true, ctrl.Result{}, nil
+	}
+
+	// Requeue to check again when TTL expires
+	requeueAfter := time.Until(expirationTime)
+	if requeueAfter > 0 {
+		logger.V(1).Info("Requeuing for TTL check", "requeueAfter", requeueAfter)
+		return true, ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	return false, ctrl.Result{}, nil
+}
+
+// setStartedAtIfNeeded sets StartedAt when the controller starts processing the workflow run, if it hasn't been set already.
+func setStartedAtIfNeeded(cwRun *openchoreodevv1alpha1.WorkflowRun) {
+	if cwRun.Status.StartedAt != nil {
+		return
+	}
+	now := metav1.Now()
+	cwRun.Status.StartedAt = &now
+}
+
+// setFinishedAtIfNeeded sets the FinishedAt timestamp when the workflow completes.
+func setFinishedAtIfNeeded(wfRun *openchoreodevv1alpha1.WorkflowRun) {
+	if wfRun.Status.FinishedAt != nil {
+		return
+	}
+
+	now := metav1.Now()
+	wfRun.Status.FinishedAt = &now
+	log.Log.Info("Workflow finished", "finishedAt", now, "workflowrun", wfRun.Name)
 }

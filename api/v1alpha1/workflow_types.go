@@ -59,6 +59,14 @@ type WorkflowSpec struct {
 	// Template variables are substituted with context and parameter values using CEL expressions.
 	// +optional
 	Resources []WorkflowResource `json:"resources,omitempty"`
+
+	// TTLAfterCompletion defines the time-to-live for WorkflowRun instances after completion.
+	// Once a WorkflowRun completes, it will be automatically deleted after this duration.
+	// Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
+	// If empty, workflow runs are not automatically deleted.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$`
+	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
 }
 
 // WorkflowSchema defines the parameter schemas for workflows.

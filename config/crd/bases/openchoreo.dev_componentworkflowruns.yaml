@@ -57,6 +57,14 @@ spec:
                 - componentName
                 - projectName
                 type: object
+              ttlAfterCompletion:
+                description: |-
+                  TTLAfterCompletion defines the time-to-live for this workflow run after completion.
+                  This value is copied from the ComponentWorkflow template.
+                  Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
+                  Examples: "90d", "10d", "1h30m", "30m", "1d 12h 30m 15s"
+                pattern: ^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$
+                type: string
               workflow:
                 description: Workflow configuration referencing the ComponentWorkflow
                   CR and providing parameter values.
@@ -210,6 +218,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              finishedAt:
+                description: |-
+                  FinishedAt is the timestamp when this workflow run finished execution (succeeded or failed).
+                  This is used together with TTLAfterCompletion to determine when to delete the workflow run.
+                format: date-time
+                type: string
               imageStatus:
                 description: |-
                   ImageStatus contains information about the built container image from the workflow execution.
@@ -283,6 +297,11 @@ spec:
                 - kind
                 - name
                 type: object
+              startedAt:
+                description: StartedAt is the timestamp when this workflow run started
+                  execution.
+                format: date-time
+                type: string
               tasks:
                 description: |-
                   Tasks contains the list of workflow tasks with their execution status.

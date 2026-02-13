@@ -40,6 +40,15 @@ spec:
           spec:
             description: spec defines the desired state of WorkflowRun
             properties:
+              ttlAfterCompletion:
+                description: |-
+                  TTLAfterCompletion defines the time-to-live for this workflow run after completion.
+                  This value is copied from the Workflow template.
+                  Once the workflow completes, the run will be automatically deleted after this duration.
+                  Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
+                  Examples: "90d", "10d", "1h30m", "30m", "1d 12h 30m 15s"
+                pattern: ^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$
+                type: string
               workflow:
                 description: Workflow configuration referencing the Workflow CR and
                   providing schema values.
@@ -128,6 +137,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              finishedAt:
+                description: |-
+                  FinishedAt is the timestamp when this workflow run finished execution (succeeded or failed).
+                  This is used together with TTLAfterCompletion to determine when to delete the workflow run.
+                format: date-time
+                type: string
               resources:
                 description: |-
                   Resources contains references to additional resources applied to the cluster.
@@ -192,6 +207,11 @@ spec:
                 - kind
                 - name
                 type: object
+              startedAt:
+                description: StartedAt is the timestamp when this workflow run started
+                  execution.
+                format: date-time
+                type: string
               tasks:
                 description: |-
                   Tasks contains the list of workflow tasks with their execution status.

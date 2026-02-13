@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -356,6 +357,175 @@ var _ = Describe("Helper Functions", func() {
 			result := convertParameterValuesToStrings(resource)
 			Expect(result["apiVersion"]).To(Equal("argoproj.io/v1alpha1"))
 			Expect(result["kind"]).To(Equal("Workflow"))
+		})
+	})
+
+	Context("When testing TTL inheritance for WorkflowRun", func() {
+		const workflowWithTTL = "workflow-with-ttl-inherit"
+
+		ctx := context.Background()
+
+		BeforeEach(func() {
+			By("Creating a Workflow with TTLAfterCompletion set")
+			// Create a minimal valid workflow template for testing
+			runTemplate := map[string]any{
+				"apiVersion": "argoproj.io/v1alpha1",
+				"kind":       "Workflow",
+				"metadata": map[string]any{
+					"name":      "${metadata.workflowRunName}",
+					"namespace": "${metadata.namespaceName}",
+				},
+				"spec": map[string]any{
+					"entrypoint": "main",
+					"templates": []any{
+						map[string]any{
+							"name": "main",
+							"container": map[string]any{
+								"image":   "alpine:latest",
+								"command": []string{"echo", "hello"},
+							},
+						},
+					},
+				},
+			}
+
+			runTemplateJSON, err := json.Marshal(runTemplate)
+			Expect(err).NotTo(HaveOccurred())
+
+			workflow := &openchoreodevv1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      workflowWithTTL,
+					Namespace: "default",
+				},
+				Spec: openchoreodevv1alpha1.WorkflowSpec{
+					RunTemplate:        &runtime.RawExtension{Raw: runTemplateJSON},
+					TTLAfterCompletion: "1h",
+				},
+			}
+			Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			By("Cleaning up the Workflow resource")
+			workflow := &openchoreodevv1alpha1.Workflow{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      workflowWithTTL,
+				Namespace: "default",
+			}, workflow); err == nil {
+				Expect(k8sClient.Delete(ctx, workflow)).To(Succeed())
+			}
+		})
+
+		It("should have empty TTL when WorkflowRun is created without TTLAfterCompletion", func() {
+			By("Creating a WorkflowRun without TTL")
+			resourceName := "test-ttl-inheritance"
+			workflowRun := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
+						Name: workflowWithTTL,
+					},
+					// No TTLAfterCompletion set - TTL inheritance tested in controller logic
+				},
+			}
+			Expect(k8sClient.Create(ctx, workflowRun)).To(Succeed())
+
+			defer func() {
+				By("Cleaning up the WorkflowRun resource")
+				resource := &openchoreodevv1alpha1.WorkflowRun{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      resourceName,
+					Namespace: "default",
+				}, resource); err == nil {
+					if controllerutil.ContainsFinalizer(resource, WorkflowRunCleanupFinalizer) {
+						controllerutil.RemoveFinalizer(resource, WorkflowRunCleanupFinalizer)
+						Expect(k8sClient.Update(ctx, resource)).To(Succeed())
+					}
+					Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+				}
+			}()
+
+			By("Verifying TTL is initially empty and references the parent Workflow")
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{
+					Name:      resourceName,
+					Namespace: "default",
+				}, workflowRun)
+			}, "5s", "500ms").Should(Succeed())
+
+			Expect(workflowRun.Spec.TTLAfterCompletion).To(Equal(""))
+			Expect(workflowRun.Spec.Workflow.Name).To(Equal(workflowWithTTL))
+
+			By("Verifying the parent Workflow has TTLAfterCompletion set")
+			workflow := &openchoreodevv1alpha1.Workflow{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{
+				Name:      workflowWithTTL,
+				Namespace: "default",
+			}, workflow)).To(Succeed())
+			Expect(workflow.Spec.TTLAfterCompletion).To(Equal("1h"))
+		})
+
+		It("should not override explicit TTL with Workflow TTL", func() {
+			By("Creating a WorkflowRun with explicit TTL")
+			resourceName := "test-ttl-override"
+			explicitTTL := "30m"
+			workflowRun := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
+						Name: workflowWithTTL,
+					},
+					TTLAfterCompletion: explicitTTL, // Explicit TTL should not be overridden
+				},
+			}
+			Expect(k8sClient.Create(ctx, workflowRun)).To(Succeed())
+
+			defer func() {
+				By("Cleaning up the WorkflowRun resource")
+				resource := &openchoreodevv1alpha1.WorkflowRun{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      resourceName,
+					Namespace: "default",
+				}, resource); err == nil {
+					if controllerutil.ContainsFinalizer(resource, WorkflowRunCleanupFinalizer) {
+						controllerutil.RemoveFinalizer(resource, WorkflowRunCleanupFinalizer)
+						Expect(k8sClient.Update(ctx, resource)).To(Succeed())
+					}
+					Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+				}
+			}()
+
+			By("Reconciling the WorkflowRun")
+			reconciler := &Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying TTL was not overridden")
+			Consistently(func() string {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      resourceName,
+					Namespace: "default",
+				}, workflowRun)
+				if err != nil {
+					return ""
+				}
+				return workflowRun.Spec.TTLAfterCompletion
+			}, "2s", "500ms").Should(Equal(explicitTTL))
 		})
 	})
 })
