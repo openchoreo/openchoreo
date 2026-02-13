@@ -42,7 +42,7 @@ spec:
 
         # Authorization Configuration
         - name: AUTHZ_ENABLED
-          value: {{ .Values.rca.authz.enabled | default false | quote }}
+          value: {{ .Values.rca.authz.enabled | default true | quote }}
 
         - name: AUTHZ_TIMEOUT_SECONDS
           value: {{ .Values.rca.authz.timeoutSeconds | default 30 | quote }}

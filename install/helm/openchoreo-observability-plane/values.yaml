@@ -1022,7 +1022,7 @@ observer:
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
   - name: AUTHZ_ENABLED
-    value: "false"
+    value: "true"
   - name: AUTHZ_SERVICE_URL
     value: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
   - name: AUTHZ_TIMEOUT
