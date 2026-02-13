@@ -126,13 +126,20 @@ create_k3d_cluster() {
     # which causes DNS timeouts in Colima due to firewall/network isolation.
     # k3d v5.9.0+ auto-detects Colima, but we handle it explicitly for older versions.
     # See https://github.com/k3d-io/k3d/issues/1449
-    local dns_fix_env=""
+    local use_dns_fix=false
     if docker info --format '{{.Name}}' 2>/dev/null | grep -qi "colima"; then
         log_info "Detected Colima runtime - disabling k3d DNS fix for compatibility"
-        dns_fix_env="K3D_FIX_DNS=0"
+        use_dns_fix=true
     fi
 
-    if run_command eval $dns_fix_env k3d cluster create "$CLUSTER_NAME" --config "$k3d_config" --wait; then
+    local create_ok=false
+    if [[ "$use_dns_fix" == "true" ]]; then
+        K3D_FIX_DNS=0 run_command k3d cluster create "$CLUSTER_NAME" --config "$k3d_config" --wait && create_ok=true
+    else
+        run_command k3d cluster create "$CLUSTER_NAME" --config "$k3d_config" --wait && create_ok=true
+    fi
+
+    if [[ "$create_ok" == "true" ]]; then
         log_success "k3d cluster '$CLUSTER_NAME' created successfully"
     else
         log_error "Failed to create k3d cluster '$CLUSTER_NAME'"
@@ -410,24 +417,21 @@ install_helm_chart() {
     shift 7
     local additional_args=("$@")
 
-    log_info "Installing/upgrading Helm chart '$chart_name' as release '$release_name' in namespace '$namespace'..."
-
     # Determine chart reference based on dev mode and chart type
     # Third-party charts (containing "/") are used as-is (e.g., "twuni/docker-registry")
     # OpenChoreo charts are prefixed with HELM_REPO (e.g., "openchoreo-control-plane")
     local chart_ref
     local is_third_party=false
     if [[ "$chart_name" == *"/"* ]]; then
-        # Third-party chart with repo prefix (e.g., twuni/docker-registry)
         chart_ref="$chart_name"
         is_third_party=true
     elif [[ "$DEV_MODE" == "true" && -d "$DEV_HELM_CHARTS_DIR/$chart_name" ]]; then
         chart_ref="$DEV_HELM_CHARTS_DIR/$chart_name"
-        log_info "Using local chart from $chart_ref"
     else
-        # OpenChoreo chart from OCI registry
         chart_ref="${HELM_REPO}/${chart_name}"
     fi
+
+    log_info "Installing '$release_name' in namespace '$namespace'..."
 
     # Build helm upgrade --install command
     local helm_args=(
@@ -545,9 +549,182 @@ install_eso() {
 }
 
 install_gateway_crds() {
-    log_info "Installing Gateway CRDs...."
-    
-    kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+    log_info "Installing Gateway API CRDs..."
+    kubectl apply --server-side \
+        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml >/dev/null
+    log_success "Gateway API CRDs installed"
+}
+
+# Install kgateway CRDs and controller in both CP and DP namespaces
+install_kgateway() {
+    log_info "Installing kgateway ($KGATEWAY_VERSION)..."
+
+    local chart_ref="oci://cr.kgateway.dev/kgateway-dev/charts"
+
+    install_helm_chart "kgateway-crds" "$chart_ref/kgateway-crds" "default" "false" "false" "false" "300" \
+        "--version" "$KGATEWAY_VERSION"
+
+    install_helm_chart "kgateway" "$chart_ref/kgateway" "$CONTROL_PLANE_NS" "true" "false" "false" "300" \
+        "--version" "$KGATEWAY_VERSION"
+
+    install_helm_chart "kgateway-dp" "$chart_ref/kgateway" "$DATA_PLANE_NS" "true" "false" "false" "300" \
+        "--version" "$KGATEWAY_VERSION"
+
+    log_success "kgateway installed"
+}
+
+# Install Thunder identity provider
+install_thunder() {
+    log_info "Installing Thunder ($THUNDER_VERSION)..."
+
+    local thunder_values="$SCRIPT_DIR/../k3d/common/values-thunder.yaml"
+    if [[ ! -f "$thunder_values" ]]; then
+        # Inside container
+        thunder_values="/home/openchoreo/install/k3d/common/values-thunder.yaml"
+    fi
+
+    install_helm_chart "thunder" "oci://ghcr.io/asgardeo/helm-charts/thunder" "$CONTROL_PLANE_NS" "true" "false" "true" "600" \
+        "--version" "$THUNDER_VERSION" \
+        "--values" "$thunder_values"
+
+    log_success "Thunder installed"
+}
+
+# Apply CoreDNS custom config for *.openchoreo.localhost resolution
+apply_coredns_config() {
+    log_info "Applying CoreDNS custom config..."
+
+    local coredns_config="$SCRIPT_DIR/../k3d/common/coredns-custom.yaml"
+    if [[ ! -f "$coredns_config" ]]; then
+        coredns_config="/home/openchoreo/install/k3d/common/coredns-custom.yaml"
+    fi
+
+    kubectl apply -f "$coredns_config" >/dev/null
+    log_success "CoreDNS config applied"
+}
+
+# Copy cluster-gateway CA from control plane to data plane namespace
+setup_data_plane_ca() {
+    log_info "Setting up Data Plane CA..."
+
+    if ! namespace_exists "$DATA_PLANE_NS"; then
+        kubectl create namespace "$DATA_PLANE_NS" >/dev/null
+    fi
+
+    # Copy CA ConfigMap
+    local ca_crt
+    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+
+    kubectl create configmap cluster-gateway-ca \
+        --from-literal=ca.crt="$ca_crt" \
+        -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    # Copy CA Secret (needed by cluster-agent CA issuer)
+    local tls_crt tls_key
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+    kubectl create secret generic cluster-gateway-ca \
+        --from-literal=tls.crt="$tls_crt" \
+        --from-literal=tls.key="$tls_key" \
+        --from-literal=ca.crt="$ca_crt" \
+        -n "$DATA_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    log_success "Data Plane CA configured"
+}
+
+# Create fake ClusterSecretStore for development
+create_fake_secret_store() {
+    log_info "Creating development ClusterSecretStore..."
+
+    kubectl apply --server-side -f - >/dev/null 2>&1 <<CSSEOF
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: default
+spec:
+  provider:
+    fake:
+      data:
+      - key: npm-token
+        value: "fake-npm-token-for-development"
+      - key: docker-username
+        value: "dev-user"
+      - key: docker-password
+        value: "dev-password"
+      - key: github-pat
+        value: "fake-github-token-for-development"
+      - key: username
+        value: "dev-user"
+      - key: password
+        value: "dev-password"
+      - key: RCA_LLM_API_KEY
+        value: "fake-llm-api-key-for-development"
+CSSEOF
+
+    log_success "ClusterSecretStore created"
+}
+
+# Patch kgateway envoy deployment to mount /tmp as emptyDir
+# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+patch_gateway_tmp_volume() {
+    local namespace="$1"
+    log_info "Patching gateway /tmp volume in $namespace..."
+
+    local patch_file="$SCRIPT_DIR/../k3d/common/gateway-tmp-volume-patch.json"
+    if [[ ! -f "$patch_file" ]]; then
+        patch_file="/home/openchoreo/install/k3d/common/gateway-tmp-volume-patch.json"
+    fi
+
+    if [[ -f "$patch_file" ]]; then
+        if kubectl patch deployment gateway-default -n "$namespace" \
+            --type='json' -p="$(cat "$patch_file")" >/dev/null 2>&1; then
+            log_info "Waiting for gateway rollout in $namespace..."
+            kubectl rollout status deployment/gateway-default -n "$namespace" --timeout=120s >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+# Extract cluster-agent CA and create DataPlane CR
+create_dataplane_resource() {
+    log_info "Creating DataPlane resource..."
+
+    # Wait for cluster-agent-tls secret
+    local max_attempts=60
+    local attempt=0
+    while ! kubectl get secret cluster-agent-tls -n "$DATA_PLANE_NS" >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [[ $attempt -ge $max_attempts ]]; then
+            log_warning "Timed out waiting for cluster-agent-tls secret"
+            return 1
+        fi
+        sleep 2
+    done
+
+    local agent_ca
+    agent_ca=$(kubectl get secret cluster-agent-tls -n "$DATA_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+    kubectl apply -f - >/dev/null <<DPEOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default-dataplane
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo "$agent_ca" | sed 's/^/        /')
+  secretStoreRef:
+    name: default
+  gateway:
+    publicVirtualHost: openchoreoapis.localhost
+    publicHTTPPort: 19080
+    publicHTTPSPort: 19443
+DPEOF
+
+    log_success "DataPlane resource created"
 }
 
 # Install OpenChoreo Control Plane
@@ -579,79 +756,13 @@ install_data_plane() {
         "--set" "observability.enabled=${ENABLE_OBSERVABILITY:-false}"
 }
 
-# Create TLS certificate for control plane gateway
-create_control_plane_certificate() {
-    log_info "Creating control plane gateway TLS certificate..."
-
-    # Check if control plane certificate already exists
-    if kubectl get certificate control-plane-tls -n "$CONTROL_PLANE_NS" >/dev/null 2>&1; then
-        log_warning "Control plane TLS certificate already exists, skipping creation"
-        return 0
-    fi
-
-    kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: control-plane-tls
-  namespace: $CONTROL_PLANE_NS
-spec:
-  secretName: control-plane-tls
-  issuerRef:
-    name: openchoreo-selfsigned-issuer
-    kind: ClusterIssuer
-  dnsNames:
-    - "*.openchoreo.localhost"
-EOF
-
-    if [[ $? -eq 0 ]]; then
-        log_success "Control plane TLS certificate created"
-    else
-        log_error "Failed to create control plane TLS certificate"
-        return 1
-    fi
-}
-
-# Create TLS certificate for data plane gateway
-create_data_plane_certificate() {
-    log_info "Creating data plane gateway TLS certificate..."
-
-    # Check if data plane certificate already exists
-    if kubectl get certificate openchoreo-gateway-tls -n "$DATA_PLANE_NS" >/dev/null 2>&1; then
-        log_warning "Data plane TLS certificate already exists, skipping creation"
-        return 0
-    fi
-
-    kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: openchoreo-gateway-tls
-  namespace: $DATA_PLANE_NS
-spec:
-  secretName: openchoreo-gateway-tls
-  issuerRef:
-    name: openchoreo-selfsigned-issuer
-    kind: ClusterIssuer
-  dnsNames:
-    - "*.openchoreoapis.localhost"
-EOF
-
-    if [[ $? -eq 0 ]]; then
-        log_success "Data plane TLS certificate created"
-    else
-        log_error "Failed to create data plane TLS certificate"
-        return 1
-    fi
-}
-
 # Configure the dataplane and buildplane with observabilityplane reference
 configure_observabilityplane_reference() {
     log_info "Configuring OpenChoreo Data Plane with observabilityplane reference..."
-    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
+    kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
     if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
         log_info "Configuring OpenChoreo Build Plane with observabilityplane reference..."
-        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
+        kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}' >/dev/null
     fi
 }
 
@@ -718,12 +829,24 @@ install_default_resources() {
         sleep 2
     done
 
-    if kubectl apply -f "$resources_file" >/dev/null 2>&1; then
-        log_success "Default resources installed"
-    else
-        log_warning "Failed to install default resources, you can apply them manually later"
-        log_info "  kubectl apply -f samples/getting-started/all.yaml"
-    fi
+    local apply_attempts=3
+    local apply_attempt=0
+    while [[ $apply_attempt -lt $apply_attempts ]]; do
+        apply_attempt=$((apply_attempt + 1))
+        local apply_output
+        if apply_output=$(kubectl apply -f "$resources_file" 2>&1); then
+            log_success "Default resources installed"
+            return 0
+        fi
+        if [[ $apply_attempt -lt $apply_attempts ]]; then
+            log_info "Retrying resource apply (attempt $((apply_attempt + 1))/$apply_attempts)..."
+            sleep 5
+        fi
+    done
+
+    log_warning "Failed to install default resources after $apply_attempts attempts:"
+    echo "$apply_output"
+    log_info "You can apply them manually: kubectl apply -f samples/getting-started/all.yaml"
 }
 
 # Label the default namespace as a control plane namespace

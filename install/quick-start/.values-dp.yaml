@@ -1,57 +1,7 @@
 # Helm values for OpenChoreo Data Plane in quick-start container
-# This file contains overrides for running the data plane in the quick-start k3d environment
-# Port mapping: k3d maps host ports 19080:19080 (HTTP) and 19443:19443 (HTTPS) for KGateway
 
-# Gateway configuration for quick-start setup
-# Reuse the existing control plane's cluster gateway controller
-gatewayController:
-  enabled: false
-
-# The gateway will be accessible on port 19080 (HTTP) and 19443 (HTTPS) by default
 gateway:
-  enabled: true
-  # Envoy - enabled by default for traffic routing
   httpPort: 19080
   httpsPort: 19443
-
-  # Use self-signed issuer in control plane for TLS certs
-  selfSignedIssuer:
-    enabled: false
-
-  # Envoy configuration
-  envoy:
-    enabled: true
-    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
-    # Enable this if gateway pods crash with "Failed to create temporary file" errors
-    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
-    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-    mountTmpVolume: true
-
-# Enable cluster agent for secure communication with control plane
-clusterAgent:
-  enabled: true
-  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeID: default-dataplane
-  planeType: dataplane
-  # TLS configuration for single-cluster setup
-  # Helm post-install jobs will automatically copy the CA from control plane
   tls:
-    enabled: true
-    # Don't generate certs locally - use CA from control plane (single-cluster mode)
-    generateCerts: false
-    # CA secret to copy from control plane namespace
-    caSecretName: cluster-gateway-ca
-    caSecretNamespace: openchoreo-control-plane
-    # Server CA will be copied from control plane (not provided inline)
-    serverCAValue: ""
-  # Namespace where cluster-gateway CA ConfigMap exists (control plane)
-  serverCANamespace: openchoreo-control-plane
-
-networking:
-  enabled: false
-
-security:
-  enabled: false
-
-observability:
-  enabled: false
+    enabled: false

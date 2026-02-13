@@ -10,7 +10,6 @@ source "${SCRIPT_DIR}/.helpers.sh"
 # Parse command line arguments
 ENABLE_BUILD_PLANE=false
 ENABLE_OBSERVABILITY=false
-SKIP_STATUS_CHECK=false
 SKIP_PRELOAD=false
 SKIP_RESOURCE_CHECK=false
 DEBUG=false
@@ -23,10 +22,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --with-observability)
             ENABLE_OBSERVABILITY=true
-            shift
-            ;;
-        --skip-status-check)
-            SKIP_STATUS_CHECK=true
             shift
             ;;
         --skip-preload)
@@ -54,7 +49,6 @@ while [[ $# -gt 0 ]]; do
             echo "  --version VER             Specify version to install (default: latest)"
             echo "  --with-build              Install with Build Plane (Argo Workflows + Registry)"
             echo "  --with-observability      Install with Observability Plane"
-            echo "  --skip-status-check       Skip status check at the end"
             echo "  --skip-preload            Skip image preloading from host Docker"
             echo "  --skip-resource-check     Skip system resource validation"
             echo "  --debug                   Enable debug mode"
@@ -89,10 +83,8 @@ derive_chart_version
 log_info "Starting OpenChoreo installation..."
 print_installation_config
 
-# Verify prerequisites
+# Step 1: Verify prerequisites and create cluster
 verify_prerequisites
-
-# Step 1: Create k3d cluster
 create_k3d_cluster
 
 # Step 2: Preload Docker images (unless skipped)
@@ -100,80 +92,71 @@ if [[ "$SKIP_PRELOAD" != "true" ]]; then
     preload_images
 fi
 
-# Step 3: Install cert-manager (prerequisite for TLS certificate management)
+# Step 3: Install prerequisites
 install_cert_manager
-
-# Step 3.5: Install External Secrets Operator (prerequisite for secret management)
 install_eso
-
-# Step 3.6: Install Gateway CRDs
 install_gateway_crds
 
-# Step 4: Install OpenChoreo Control Plane
+# Step 4: Install kgateway and Thunder
+install_kgateway
+install_thunder
+
+# Step 5: Apply CoreDNS config
+apply_coredns_config
+
+# Step 6: Install Control Plane
 install_control_plane
+patch_gateway_tmp_volume "$CONTROL_PLANE_NS"
 
-# Step 5: Install OpenChoreo Data Plane
+# Step 7: Set up Data Plane CA and secret store
+setup_data_plane_ca
+create_fake_secret_store
+
+# Step 8: Install Data Plane
 install_data_plane
+patch_gateway_tmp_volume "$DATA_PLANE_NS"
 
-# Step 6: Create TLS certificates for gateways
-create_control_plane_certificate
-create_data_plane_certificate
+# Step 9: Create DataPlane resource and default resources
+create_dataplane_resource
+install_default_resources
+label_default_namespace
 
-# Step 7: Install Container Registry and Build Plane (optional)
+# Step 10: Install Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     install_registry
     install_build_plane
-fi
 
-# Step 8: Install OpenChoreo Observability Plane (optional)
-if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
-    install_observability_plane
-fi
-
-# Step 9: Check installation status
-if [[ "$SKIP_STATUS_CHECK" != "true" ]]; then
-    bash "${SCRIPT_DIR}/check-status.sh"
-fi
-
-# Step 10: Add default dataplane
-if [[ -f "${SCRIPT_DIR}/add-data-plane.sh" ]]; then
-    bash "${SCRIPT_DIR}/add-data-plane.sh" --name default
-else
-    log_warning "add-data-plane.sh not found, skipping dataplane configuration"
-fi
-
-# Step 11: Install default OpenChoreo resources (Project, Environments, ComponentTypes, etc.)
-install_default_resources
-
-# Step 12: Label default namespace
-label_default_namespace
-
-# Step 13: Add default buildplane (if build plane enabled)
-if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-build-plane.sh" --name default
+    elif [[ -f "${SCRIPT_DIR}/../add-build-plane.sh" ]]; then
+        bash "${SCRIPT_DIR}/../add-build-plane.sh" --name default
     else
-        log_warning "add-build-plane.sh not found, skipping buildplane configuration"
+        log_warning "add-build-plane.sh not found, skipping buildplane resource"
     fi
 fi
 
-# Step 14: Add default observabilityplane (if observability plane enabled)
+# Step 11: Install Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    install_observability_plane
+    patch_gateway_tmp_volume "$OBSERVABILITY_NS"
+
     if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
         bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
+    elif [[ -f "${SCRIPT_DIR}/../add-observability-plane.sh" ]]; then
+        bash "${SCRIPT_DIR}/../add-observability-plane.sh" --name default
     else
-        log_warning "add-observability-plane.sh not found, skipping observabilityplane configuration"
+        log_warning "add-observability-plane.sh not found, skipping observabilityplane resource"
     fi
-fi
 
-# Step 15: Configure the dataplane and buildplane with observabilityplane reference
-if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     configure_observabilityplane_reference
 fi
 
-# Step 16: Configure OCC CLI login
+# Step 12: Configure OCC CLI login (non-fatal, Thunder may need time to start)
 if [[ -f "${SCRIPT_DIR}/occ-login.sh" ]]; then
-    bash "${SCRIPT_DIR}/occ-login.sh"
+    if ! bash "${SCRIPT_DIR}/occ-login.sh"; then
+        log_warning "OCC CLI login setup failed (Thunder may not be ready yet)"
+        log_info "You can retry later: bash occ-login.sh"
+    fi
 else
     log_warning "occ-login.sh not found, skipping OCC CLI login"
 fi

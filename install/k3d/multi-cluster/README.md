@@ -372,43 +372,36 @@ kubectl patch deployment gateway-default -n openchoreo-observability-plane --con
 
 ### 5. Create DataPlane Resource
 
-The `add-data-plane.sh` script automatically extracts the cluster agent's client CA certificate from the data plane and creates the DataPlane CR. All DataPlanes use cluster agent for secure communication.
+Extract the cluster agent's client CA certificate from the data plane and create the DataPlane CR. All DataPlanes use cluster agent for secure communication.
 
 ```bash
-# Create DataPlane CR with automatic client CA extraction
-./install/add-data-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --dataplane-context k3d-openchoreo-dp \
-  --name default
+# Extract the cluster agent client CA from the data plane
+AGENT_CA=$(kubectl --context k3d-openchoreo-dp get secret cluster-agent-tls \
+  -n openchoreo-data-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+# Create DataPlane CR
+kubectl --context k3d-openchoreo-cp apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default-dataplane
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo "$AGENT_CA" | sed 's/^/        /')
+  secretStoreRef:
+    name: default
+  gateway:
+    organizationVirtualHost: openchoreoapis.internal
+    publicVirtualHost: openchoreoapis.localhost
+EOF
 
 # Verify the DataPlane resource was created
 kubectl --context k3d-openchoreo-cp get dataplane default -n default
 ```
-
-<details>
-<summary>Alternative: Manual creation with secret reference</summary>
-
-If you prefer to manage the client CA as a Kubernetes secret:
-
-```bash
-# Extract data plane agent's client CA certificate
-kubectl --context k3d-openchoreo-dp get secret cluster-agent-tls \
-  -n openchoreo-data-plane \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/dataplane-ca.crt
-
-# Create secret in control plane with data plane's client CA
-kubectl --context k3d-openchoreo-cp create secret generic dataplane-default-ca \
-  --from-file=ca.crt=/tmp/dataplane-ca.crt \
-  -n default \
-  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
-
-# Create DataPlane CR referencing the secret
-./install/add-data-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --agent-ca-secret dataplane-default-ca \
-  --name default
-```
-</details>
 
 ### 6. Install Default Resources
 
