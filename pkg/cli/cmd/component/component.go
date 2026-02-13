@@ -144,7 +144,8 @@ func newLogsComponentCmd(impl api.CommandImplementationInterface) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "logs COMPONENT_NAME",
 		Short: "Get logs for a component",
-		Long:  "Retrieve logs for a component from a specific environment. If --env is not specified, uses the lowest environment from the deployment pipeline.",
+		Long: `Retrieve logs for a component from a specific environment.
+If --env is not specified, uses the lowest environment from the deployment pipeline.`,
 		Example: `  # Get logs for a component (uses lowest environment if --env not specified)
   occ component logs my-component
 

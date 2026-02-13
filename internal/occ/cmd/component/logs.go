@@ -13,7 +13,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	gen "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
@@ -125,9 +125,9 @@ func (c *CompImpl) followLogs(
 	startTime time.Time,
 	endTime time.Time,
 ) error {
-	// Set up signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	// Set up signal handling for graceful shutdown with cancelable context
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// Initial fetch
 	logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
@@ -158,7 +158,7 @@ func (c *CompImpl) followLogs(
 
 	for {
 		select {
-		case <-sigChan:
+		case <-ctx.Done():
 			fmt.Println("\nStopping log streaming...")
 			return nil
 		case <-ticker.C:
@@ -166,6 +166,10 @@ func (c *CompImpl) followLogs(
 
 			logs, err := c.fetchLogs(ctx, observerURL, token, componentID, environmentID, params, startTime, endTime)
 			if err != nil {
+				// Check if context was cancelled
+				if ctx.Err() != nil {
+					return nil
+				}
 				// Log error but continue
 				fmt.Fprintf(os.Stderr, "Error fetching logs: %v\n", err)
 				continue
@@ -210,7 +214,6 @@ func (c *CompImpl) fetchLogs(
 		ProjectName:     params.Project,
 		NamespaceName:   params.Namespace,
 		EnvironmentName: params.Environment,
-		Limit:           100,
 		SortOrder:       "asc",
 		LogType:         "runtime",
 	}
