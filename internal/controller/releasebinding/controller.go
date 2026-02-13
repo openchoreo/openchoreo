@@ -831,6 +831,14 @@ func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.Component
 // Helper functions to build snapshot structures from ComponentRelease
 
 func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.Component {
+	var parameters *runtime.RawExtension
+	var traits []openchoreov1alpha1.ComponentTrait
+
+	if componentRelease.Spec.ComponentProfile != nil {
+		parameters = componentRelease.Spec.ComponentProfile.Parameters
+		traits = componentRelease.Spec.ComponentProfile.Traits
+	}
+
 	return &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      componentRelease.Spec.Owner.ComponentName,
@@ -840,8 +848,8 @@ func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRel
 			Owner: openchoreov1alpha1.ComponentOwner{
 				ProjectName: componentRelease.Spec.Owner.ProjectName,
 			},
-			Parameters: componentRelease.Spec.ComponentProfile.Parameters,
-			Traits:     componentRelease.Spec.ComponentProfile.Traits,
+			Parameters: parameters,
+			Traits:     traits,
 		},
 	}
 }
@@ -1182,6 +1190,11 @@ func (r *Reconciler) applyDefaultNotificationChannel(
 	rb *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 ) error {
+	// Check if ComponentProfile exists
+	if componentRelease.Spec.ComponentProfile == nil {
+		return nil
+	}
+
 	// Identify observability-alert-rule trait instances in the release.
 	alertRuleInstances := make([]openchoreov1alpha1.ComponentTrait, 0)
 	for _, trait := range componentRelease.Spec.ComponentProfile.Traits {

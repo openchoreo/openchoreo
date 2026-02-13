@@ -1,23 +1,21 @@
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
-  name: service
+  name: worker
   namespace: default
 spec:
   workloadType: deployment
 
   allowedWorkflows:
     - google-cloud-buildpacks
-    - ballerina-buildpack
     - docker
 
   allowedTraits:
-    - api-configuration
     - observability-alert-rule
 
   validations:
-    - rule: "${size(workload.endpoints) > 0}"
-      message: "Service components must have at least one endpoint. Use 'deployment/worker' for components without endpoints."
+    - rule: "${size(workload.endpoints) == 0}"
+      message: "Worker components must not have endpoints. Use 'deployment/service' for components with endpoints."
 
   schema:
     types:
@@ -28,8 +26,7 @@ spec:
         cpu: "string | default=100m"
         memory: "string | default=256Mi"
 
-    parameters:
-      exposed: "boolean | default=false"
+    parameters: {}
 
     envOverrides:
       replicas: "integer | default=1"
@@ -72,48 +69,6 @@ spec:
                   volumeMounts: ${configurations.toContainerVolumeMounts("main")}
               volumes: ${configurations.toVolumes()}
 
-    - id: service
-      includeWhen: ${size(workload.endpoints) > 0}
-      template:
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: ${metadata.componentName}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          type: ClusterIP
-          selector: ${metadata.podSelectors}
-          ports: ${workload.toServicePorts()}
-    - id: httproute
-      includeWhen: ${parameters.exposed == true}
-      template:
-        apiVersion: gateway.networking.k8s.io/v1
-        kind: HTTPRoute
-        metadata:
-          name: ${metadata.name}
-          namespace: ${metadata.namespace}
-          labels: ${metadata.labels}
-        spec:
-          parentRefs:
-            - name: gateway-default
-              namespace: openchoreo-data-plane
-          hostnames:
-            - ${metadata.environmentName}-${metadata.componentNamespace}.${dataplane.publicVirtualHost}
-          rules:
-          - matches:
-            - path:
-                type: PathPrefix
-                value: /${metadata.componentName}
-            filters:
-              - type: URLRewrite
-                urlRewrite:
-                  path:
-                    type: ReplacePrefixMatch
-                    replacePrefixMatch: /
-            backendRefs:
-            - name: ${metadata.componentName}
-              port: ${workload.toServicePorts()[0].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

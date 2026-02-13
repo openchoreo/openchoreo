@@ -80,6 +80,7 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/project.yaml \
 	$(GETTING_STARTED_DIR)/deployment-pipeline.yaml \
 	$(GETTING_STARTED_DIR)/environments.yaml \
+	$(GETTING_STARTED_DIR)/component-types/worker.yaml \
 	$(GETTING_STARTED_DIR)/component-types/service.yaml \
 	$(GETTING_STARTED_DIR)/component-types/webapp.yaml \
 	$(GETTING_STARTED_DIR)/component-types/scheduled-task.yaml \

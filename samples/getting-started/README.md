@@ -40,6 +40,7 @@ NAME                                        AGE
 componenttype.openchoreo.dev/scheduled-task    10s
 componenttype.openchoreo.dev/service           10s
 componenttype.openchoreo.dev/web-application   10s
+componenttype.openchoreo.dev/worker            10s
 
 NAME                                                   AGE
 componentworkflow.openchoreo.dev/ballerina-buildpack   10s
@@ -67,11 +68,12 @@ trait.openchoreo.dev/api-configuration      10s
 
 ### Component Types
 
-| Name | Workload Type | Build Workflows |
-|------|---------------|-----------------|
-| service | Deployment | docker, google-cloud-buildpacks, ballerina-buildpack |
-| web-application | Deployment | react |
-| scheduled-task | CronJob | docker, google-cloud-buildpacks |
+| Name | Workload Type | Build Workflows | Validation |
+|------|---------------|-----------------|------------|
+| worker | Deployment | docker, google-cloud-buildpacks | No endpoints |
+| service | Deployment | docker, google-cloud-buildpacks, ballerina-buildpack | At least 1 endpoint |
+| web-application | Deployment | react, docker | HTTP/REST endpoint required |
+| scheduled-task | CronJob | docker, google-cloud-buildpacks | - |
 
 ### Component Workflows
 
@@ -99,6 +101,7 @@ getting-started/
 ├── environments.yaml           # Development, staging, production
 ├── deployment-pipeline.yaml    # Promotion pipeline
 ├── component-types/
+│   ├── worker.yaml
 │   ├── service.yaml
 │   ├── webapp.yaml
 │   └── scheduled-task.yaml
