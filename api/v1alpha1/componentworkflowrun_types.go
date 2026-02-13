@@ -19,6 +19,14 @@ type ComponentWorkflowRunSpec struct {
 	// Workflow configuration referencing the ComponentWorkflow CR and providing parameter values.
 	// +kubebuilder:validation:Required
 	Workflow ComponentWorkflowRunConfig `json:"workflow"`
+
+	// TTLAfterCompletion defines the time-to-live for this workflow run after completion.
+	// This value is copied from the ComponentWorkflow template.
+	// Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
+	// Examples: "90d", "10d", "1h30m", "30m", "1d 12h 30m 15s"
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$`
+	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
 }
 
 // ComponentWorkflowOwner identifies the Component that owns a ComponentWorkflowRun execution.
@@ -144,6 +152,15 @@ type ComponentWorkflowRunStatus struct {
 	// Tasks are ordered by their execution sequence.
 	// +optional
 	Tasks []WorkflowTask `json:"tasks,omitempty"`
+
+	// StartedAt is the timestamp when this workflow run started execution.
+	// +optional
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+
+	// FinishedAt is the timestamp when this workflow run finished execution (succeeded or failed).
+	// This is used together with TTLAfterCompletion to determine when to delete the workflow run.
+	// +optional
+	FinishedAt *metav1.Time `json:"finishedAt,omitempty"`
 }
 
 // ComponentWorkflowImage contains information about a container image produced by a component workflow execution.

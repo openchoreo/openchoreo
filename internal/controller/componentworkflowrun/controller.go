@@ -12,6 +12,7 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -23,6 +24,7 @@ import (
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/build/engines"
 	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
@@ -78,6 +80,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
+	// Check if TTL has expired
+	if shouldReturn, result, err := r.checkTTLExpiration(ctx, componentWorkflowRun); shouldReturn {
+		return result, err
+	}
+
 	// Deferred status update
 	defer func() {
 		// Skip update if nothing changed
@@ -97,6 +104,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	if !isWorkflowInitiated(componentWorkflowRun) {
+		setStartedAtIfNeeded(componentWorkflowRun)
 		setWorkflowPendingCondition(componentWorkflowRun)
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -117,41 +125,131 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	if isWorkflowCompleted(componentWorkflowRun) {
-		if isWorkflowSucceeded(componentWorkflowRun) && hasGenerateWorkloadTask(componentWorkflowRun) {
-			return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient), nil
-		}
-		return ctrl.Result{}, nil
+	// Handle completed workflow
+	if res, shouldReturn := r.handleCompletedWorkflow(ctx, componentWorkflowRun, bpClient); shouldReturn {
+		return res, nil
 	}
 
-	if componentWorkflowRun.Status.RunReference != nil && componentWorkflowRun.Status.RunReference.Name != "" && componentWorkflowRun.Status.RunReference.Namespace != "" {
-		runResource := &argoproj.Workflow{}
-		err = bpClient.Get(ctx, types.NamespacedName{
-			Name:      componentWorkflowRun.Status.RunReference.Name,
-			Namespace: componentWorkflowRun.Status.RunReference.Namespace,
-		}, runResource)
-
-		if err == nil {
-			return r.syncWorkflowRunStatus(componentWorkflowRun, runResource), nil
-		} else if !errors.IsNotFound(err) {
-			logger.Error(err, "failed to get run resource",
-				"runName", componentWorkflowRun.Status.RunReference.Name,
-				"runNamespace", componentWorkflowRun.Status.RunReference.Namespace)
-			return ctrl.Result{Requeue: true}, nil
-		}
-		setWorkflowNotFoundCondition(componentWorkflowRun)
-		return ctrl.Result{}, nil
+	// Sync existing workflow run status
+	if res, shouldReturn := r.syncExistingWorkflowRun(ctx, componentWorkflowRun, bpClient); shouldReturn {
+		return res, nil
 	}
 
+	// Prepare workflow template and render resources
+	componentWorkflow, res, err := r.prepareWorkflowForRun(ctx, componentWorkflowRun)
+	if err != nil || componentWorkflow == nil || res.Requeue || res.RequeueAfter > 0 {
+		return res, err
+	}
+
+	// Render workflow resources
+	output, res := r.renderWorkflowResources(ctx, componentWorkflowRun, componentWorkflow)
+	if res.Requeue || res.RequeueAfter > 0 {
+		return res, nil
+	}
+
+	runResNamespace, err := extractRunResourceNamespace(output.Resource)
+	if err != nil {
+		logger.Error(err, "failed to extract namespace from rendered resource")
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient), nil
+}
+
+// handleCompletedWorkflow handles logic for completed workflows (workload creation, timestamp setting).
+// Returns (result, shouldReturn). If shouldReturn is true, the caller should return with the given result.
+func (r *Reconciler) handleCompletedWorkflow(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	bpClient client.Client,
+) (ctrl.Result, bool) {
+	if !isWorkflowCompleted(componentWorkflowRun) {
+		return ctrl.Result{}, false
+	}
+
+	if isWorkflowSucceeded(componentWorkflowRun) && hasGenerateWorkloadTask(componentWorkflowRun) {
+		return r.handleWorkloadCreation(ctx, componentWorkflowRun, bpClient), true
+	}
+
+	// Set FinishedAt timestamp if not already set
+	setFinishedAtIfNeeded(componentWorkflowRun)
+
+	return ctrl.Result{}, true
+}
+
+// syncExistingWorkflowRun syncs the status of an existing workflow run if a RunReference exists.
+// Returns (result, shouldReturn). If shouldReturn is true, the caller should return with the given result.
+func (r *Reconciler) syncExistingWorkflowRun(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	bpClient client.Client,
+) (ctrl.Result, bool) {
+	logger := log.FromContext(ctx)
+
+	if componentWorkflowRun.Status.RunReference == nil ||
+		componentWorkflowRun.Status.RunReference.Name == "" ||
+		componentWorkflowRun.Status.RunReference.Namespace == "" {
+		return ctrl.Result{}, false
+	}
+
+	runResource := &argoproj.Workflow{}
+	err := bpClient.Get(ctx, types.NamespacedName{
+		Name:      componentWorkflowRun.Status.RunReference.Name,
+		Namespace: componentWorkflowRun.Status.RunReference.Namespace,
+	}, runResource)
+
+	if err == nil {
+		return r.syncWorkflowRunStatus(componentWorkflowRun, runResource), true
+	}
+
+	if !errors.IsNotFound(err) {
+		logger.Error(err, "failed to get run resource",
+			"runName", componentWorkflowRun.Status.RunReference.Name,
+			"runNamespace", componentWorkflowRun.Status.RunReference.Namespace)
+		return ctrl.Result{Requeue: true}, true
+	}
+
+	setWorkflowNotFoundCondition(componentWorkflowRun)
+	return ctrl.Result{}, true
+}
+
+// prepareWorkflowForRun validates the ComponentWorkflow and copies TTL settings.
+// Returns (componentWorkflow, result, error). If result is non-zero, error is non-nil,
+// or componentWorkflow is nil, the caller should return early.
+func (r *Reconciler) prepareWorkflowForRun(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+) (*openchoreodevv1alpha1.ComponentWorkflow, ctrl.Result, error) {
 	// Validate ComponentWorkflow against ComponentType allowedWorkflows
 	componentWorkflow, err := r.validateComponentWorkflow(ctx, componentWorkflowRun)
 	if err != nil {
-		return ctrl.Result{}, err
+		return nil, ctrl.Result{}, err
 	}
 	if componentWorkflow == nil {
 		// Validation failed, condition already set
-		return ctrl.Result{}, nil
+		return nil, ctrl.Result{}, nil
 	}
+
+	// Copy TTL from ComponentWorkflow to ComponentWorkflowRun if not already set
+	if componentWorkflowRun.Spec.TTLAfterCompletion == "" && componentWorkflow.Spec.TTLAfterCompletion != "" {
+		componentWorkflowRun.Spec.TTLAfterCompletion = componentWorkflow.Spec.TTLAfterCompletion
+		if err := r.Update(ctx, componentWorkflowRun); err != nil {
+			return nil, ctrl.Result{}, err
+		}
+		return nil, ctrl.Result{Requeue: true}, nil
+	}
+
+	return componentWorkflow, ctrl.Result{}, nil
+}
+
+// renderWorkflowResources resolves git secrets and renders the workflow.
+// Returns (output, result). If result is non-zero, the caller should return early.
+func (r *Reconciler) renderWorkflowResources(
+	ctx context.Context,
+	componentWorkflowRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+	componentWorkflow *openchoreodevv1alpha1.ComponentWorkflow,
+) (*componentworkflowpipeline.RenderOutput, ctrl.Result) {
+	logger := log.FromContext(ctx)
 
 	// Resolve git secret if secretRef is provided
 	var gitSecret *componentworkflowpipeline.GitSecretInfo
@@ -164,10 +262,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			// If SecretReference CR not found, set failure condition and don't requeue
 			if errors.IsNotFound(err) {
 				setSecretResolutionFailedCondition(componentWorkflowRun, err.Error())
-				return ctrl.Result{}, nil
+				return nil, ctrl.Result{}
 			}
 			// For other transient errors (validation failures, empty data), requeue
-			return ctrl.Result{Requeue: true}, nil
+			return nil, ctrl.Result{Requeue: true}
 		}
 		gitSecret = gitSecretInfo
 	}
@@ -187,16 +285,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	output, err := r.Pipeline.Render(renderInput)
 	if err != nil {
 		logger.Error(err, "failed to render component workflow")
-		return ctrl.Result{Requeue: true}, nil
+		return nil, ctrl.Result{Requeue: true}
 	}
 
-	runResNamespace, err := extractRunResourceNamespace(output.Resource)
-	if err != nil {
-		logger.Error(err, "failed to extract namespace from rendered resource")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	return r.ensureRunResource(ctx, componentWorkflowRun, output, runResNamespace, bpClient), nil
+	return output, ctrl.Result{}
 }
 
 // validateComponentWorkflow validates that the referenced ComponentWorkflow exists
@@ -309,6 +401,10 @@ func (r *Reconciler) handleWorkloadCreation(
 	}
 
 	setWorkloadUpdatedCondition(componentWorkflowRun)
+
+	// Set FinishedAt timestamp if not already set
+	setFinishedAtIfNeeded(componentWorkflowRun)
+
 	return ctrl.Result{}
 }
 
@@ -928,4 +1024,64 @@ func hasGenerateWorkloadTask(componentWorkflowRun *openchoreodevv1alpha1.Compone
 		}
 	}
 	return false
+}
+
+// checkTTLExpiration checks if the TTL has expired and deletes the ComponentWorkflowRun if needed.
+// Returns (shouldReturn, result, error) where shouldReturn indicates if the caller should return immediately.
+func (r *Reconciler) checkTTLExpiration(
+	ctx context.Context,
+	cwRun *openchoreodevv1alpha1.ComponentWorkflowRun,
+) (bool, ctrl.Result, error) {
+	if cwRun.Status.FinishedAt == nil || cwRun.Spec.TTLAfterCompletion == "" {
+		return false, ctrl.Result{}, nil
+	}
+
+	logger := log.FromContext(ctx)
+	ttlDuration, err := cmdutil.ParseDuration(cwRun.Spec.TTLAfterCompletion)
+	if err != nil {
+		logger.Error(err, "Invalid TTL duration", "ttl", cwRun.Spec.TTLAfterCompletion)
+		return false, ctrl.Result{}, nil
+	}
+
+	expirationTime := cwRun.Status.FinishedAt.Add(ttlDuration)
+	if time.Now().After(expirationTime) {
+		logger.Info("TTL expired, deleting ComponentWorkflowRun",
+			"finishedAt", cwRun.Status.FinishedAt.Time,
+			"ttl", cwRun.Spec.TTLAfterCompletion,
+			"expiredAt", expirationTime)
+		if err := r.Delete(ctx, cwRun); err != nil {
+			if !errors.IsNotFound(err) {
+				return true, ctrl.Result{}, err
+			}
+		}
+		return true, ctrl.Result{}, nil
+	}
+
+	// Requeue to check again when TTL expires
+	requeueAfter := time.Until(expirationTime)
+	if requeueAfter > 0 {
+		logger.V(1).Info("Requeuing for TTL check", "requeueAfter", requeueAfter)
+		return true, ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
+	return false, ctrl.Result{}, nil
+}
+
+// setStartedAtIfNeeded sets StartedAt when the controller starts processing the workflow run, if it hasn't been set already.
+func setStartedAtIfNeeded(cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) {
+	if cwRun.Status.StartedAt != nil {
+		return
+	}
+	now := metav1.Now()
+	cwRun.Status.StartedAt = &now
+}
+
+// setFinishedAtIfNeeded sets the FinishedAt timestamp when the workflow completes.
+func setFinishedAtIfNeeded(cwRun *openchoreodevv1alpha1.ComponentWorkflowRun) {
+	if cwRun.Status.FinishedAt != nil {
+		return
+	}
+	now := metav1.Now()
+	cwRun.Status.FinishedAt = &now
+	log.Log.Info("Workflow finished", "finishedAt", now, "componentworkflowrun", cwRun.Name)
 }

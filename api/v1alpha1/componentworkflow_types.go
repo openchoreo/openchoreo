@@ -37,6 +37,13 @@ type ComponentWorkflowSpec struct {
 	// Template variables are substituted with context and parameter values.
 	// +optional
 	Resources []ComponentWorkflowResource `json:"resources,omitempty"`
+
+	// TTLAfterCompletion defines the time-to-live for ComponentWorkflowRun instances after completion.
+	// it will be automatically deleted after this duration.
+	// Format: duration string supporting days, hours, minutes, seconds (e.g., "90d", "10d 1h 30m", "1h30m")
+	// +optional
+	// +kubebuilder:validation:Pattern=`^(\d+d)?(\s*\d+h)?(\s*\d+m)?(\s*\d+s)?$`
+	TTLAfterCompletion string `json:"ttlAfterCompletion,omitempty"`
 }
 
 // ComponentWorkflowResource defines a template for generating Kubernetes resources
