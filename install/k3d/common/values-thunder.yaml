@@ -49,7 +49,7 @@ bootstrap:
       THUNDER_URL="http://localhost:8090"
 
       log_info "Checking if default organization unit exists..."
-      if ! curl -s --max-time 10 "${THUNDER_URL}/organization-units" | grep -q '"handle":"default"'; then
+      if ! curl -s --max-time 10 "${THUNDER_URL}/organization-units" | grep -q '"handle" *: *"default"'; then
         log_info "Creating default organization unit..."
         curl --location "${THUNDER_URL}/organization-units" \
           --header 'Content-Type: application/json' \
@@ -68,13 +68,13 @@ bootstrap:
         log_info "Default organization unit already exists"
       fi
 
-      ORG_UNIT_ID=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -o '"handle":"default"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"handle":"default"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"handle":"default"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"handle":"default"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
       log_info "Using organization unit ID: $ORG_UNIT_ID"
 
       log_info "Checking if user schema 'engineer' already exists..."
       existing_schemas=$(curl -s --max-time 10 "${THUNDER_URL}/user-schemas")
 
-      if echo "$existing_schemas" | grep -q '"name":"engineer"'; then
+      if echo "$existing_schemas" | grep -q '"name" *: *"engineer"'; then
         log_info "User schema 'engineer' already exists, skipping creation"
       else
         log_info "User schema does not exist, creating user schema..."
@@ -113,9 +113,9 @@ bootstrap:
       log_info "Checking if user 'admin@openchoreo.dev' already exists..."
       existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
 
-      if echo "$existing_users" | grep -q '"username":"admin@openchoreo.dev"'; then
+      if echo "$existing_users" | grep -q '"username" *: *"admin@openchoreo.dev"'; then
         log_info "User 'admin@openchoreo.dev' already exists, getting ID..."
-        USER_ID_0=$(echo "$existing_users" | grep -o '"username":"admin@openchoreo.dev"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"username":"admin@openchoreo.dev"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        USER_ID_0=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"username":"admin@openchoreo.dev"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"username":"admin@openchoreo.dev"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
       else
         log_info "User does not exist, creating user 'admin@openchoreo.dev'..."
         USER_RESPONSE=$(curl --location "${THUNDER_URL}/users" \
@@ -143,7 +143,7 @@ bootstrap:
       log_info "Checking if group 'platformEngineer' already exists..."
       existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
 
-      if echo "$existing_groups" | grep -q '"name":"platformEngineer"'; then
+      if echo "$existing_groups" | grep -q '"name" *: *"platformEngineer"'; then
         log_info "Group 'platformEngineer' already exists, skipping creation"
       else
         log_info "Group does not exist, creating group 'platformEngineer' with members..."
@@ -177,7 +177,7 @@ bootstrap:
       log_info "Checking if application 'Backstage' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "Backstage",
@@ -241,7 +241,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"name":"Backstage"'; then
+      if echo "$existing_apps" | grep -q '"name" *: *"Backstage"'; then
         log_info "Application 'Backstage' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -274,7 +274,7 @@ bootstrap:
       log_info "Checking if application with client ID 'customer-portal-client' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"client_id":"customer-portal-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"customer-portal-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"customer-portal-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"customer-portal-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "Default App",
@@ -301,7 +301,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id":"customer-portal-client"'; then
+      if echo "$existing_apps" | grep -q '"client_id" *: *"customer-portal-client"'; then
         log_info "Application with client ID 'customer-portal-client' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -334,7 +334,7 @@ bootstrap:
       log_info "Checking if RCA Agent application already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"client_id":"openchoreo-rca-agent"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-rca-agent"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-rca-agent"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-rca-agent"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "RCA Agent",
@@ -361,7 +361,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id":"openchoreo-rca-agent"'; then
+      if echo "$existing_apps" | grep -q '"client_id" *: *"openchoreo-rca-agent"'; then
         log_info "RCA Agent application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -394,7 +394,7 @@ bootstrap:
       log_info "Checking if application 'OpenChoreo CLI' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "OpenChoreo CLI",
@@ -456,7 +456,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"name":"OpenChoreo CLI"'; then
+      if echo "$existing_apps" | grep -q '"name" *: *"OpenChoreo CLI"'; then
         log_info "Application 'OpenChoreo CLI' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -489,7 +489,7 @@ bootstrap:
       log_info "Checking if system application already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"client_id":"openchoreo-system-app"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-system-app"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-system-app"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-system-app"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "System Application",
@@ -516,7 +516,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id":"openchoreo-system-app"'; then
+      if echo "$existing_apps" | grep -q '"client_id" *: *"openchoreo-system-app"'; then
         log_info "System application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
