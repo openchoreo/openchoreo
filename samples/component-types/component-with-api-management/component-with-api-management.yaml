@@ -107,7 +107,6 @@ spec:
               port: ${workload.endpoints.http.port}
 
 ---
-# Addon for API Configuration - reusable across any component type
 apiVersion: openchoreo.dev/v1alpha1
 kind: Trait
 metadata:
@@ -115,50 +114,22 @@ metadata:
   namespace: default
 spec:
   schema:
-    types:
-      GatewayRef:
-        name: "string"
-        namespace: "string"
-
     parameters:
-      # Developer-facing parameters - static across environments
       apiName: "string"
       apiVersion: "string | default=v1.0"
-      context: "string"  # API context path (e.g., /greeter-api, /checkout-service)
-      upstreamPort: "integer | default=80"  # Port on the service to route to
-      operations: 'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
-        # Array of API operations
-        # Example:
-        # - method: GET
-        #   path: /*
-        # - method: POST
-        #   path: /orders
-      policies: "array<map<string>> | default=[]"
-        # Array of policies to apply
-        # Example:
-        # - name: JwtAuthentication
-        #   version: v0.1.0
-        #   params:
-        #     issuers:
-        #     - ThunderKeyManager
-
-    envOverrides:
-      # Platform engineers can override per environment
-      gatewayRefs: '[]GatewayRef | default=[{"name": "api-platform-default", "namespace": "openchoreo-data-plane"}]'
-        # Gateway references - can be overridden per environment
-        # Example:
-        # - name: cluster-gateway
-        #   namespace: openchoreo-data-plane
-        # - name: edge-gateway
-        #   namespace: openchoreo-edge
+      context: "string"
+      upstreamPort: "integer | default=80"
+      operations:
+        'array<map<string>> | default=[{"method": "GET", "path": "/*"}, {"method": "POST", "path": "/*"}, {"method": "PUT", "path": "/*"}, {"method": "DELETE", "path": "/*"}, {"method": "PATCH", "path": "/*"}, {"method": "OPTIONS", "path": "/*"}]'
+      policies:
+        "array<map<string>> | default=[]"
 
   creates:
-    # Create Backend resource that references the API gateway.
     - template:
         apiVersion: gateway.kgateway.dev/v1alpha1
         kind: Backend
         metadata:
-          name: api-platform-default-gateway-router
+          name: ${metadata.componentName}-api-gw-backend
           namespace: ${metadata.namespace}
         spec:
           type: Static
@@ -167,50 +138,40 @@ spec:
               - host: api-platform-default-gateway-router.openchoreo-data-plane
                 port: 8080
 
-    # Create APIConfiguration resource
     - template:
-        apiVersion: api.api-platform.wso2.com/v1
-        kind: APIConfiguration
+        apiVersion: gateway.api-platform.wso2.com/v1alpha1
+        kind: RestApi
         metadata:
           name: ${metadata.name}
           namespace: ${metadata.namespace}
         spec:
-          gatewayRefs: ${envOverrides.gatewayRefs}
-          apiConfiguration:
-            version: api-platform.wso2.com/v1
-            kind: http/rest
-            spec:
-              name: ${parameters.apiName}
-              version: ${parameters.apiVersion}
-              context: ${parameters.context}
-              upstream:
-                main:
-                  url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
-              policies: ${parameters.policies}
-              operations: ${parameters.operations}
+          displayName: ${parameters.apiName}
+          version: ${parameters.apiVersion}
+          context: ${parameters.context}
+          upstream:
+            main:
+              url: http://${metadata.componentName}.${metadata.namespace}:${parameters.upstreamPort}
+          policies: ${parameters.policies}
+          operations: ${parameters.operations}
 
   patches:
-    # Patch HTTPRoute to route through API Gateway instead of directly to service
     - target:
         group: gateway.networking.k8s.io
         version: v1
         kind: HTTPRoute
       operations:
-        # Replace the backendRefs to route through API platform gateway router
         - op: replace
           path: /spec/rules/0/backendRefs/[?(@.name=='${metadata.componentName}')]
           value:
             group: gateway.kgateway.dev
             kind: Backend
-            name: api-platform-default-gateway-router
+            name: ${metadata.componentName}-api-gw-backend
 
-        # Update the URLRewrite filter to rewrite to the API context
         - op: replace
           path: /spec/rules/0/filters/0/urlRewrite/path
           value:
             type: ReplacePrefixMatch
             replacePrefixMatch: ${parameters.context}
-
 ---
 # Component using the ComponentType and the API Configuration addon
 apiVersion: openchoreo.dev/v1alpha1
