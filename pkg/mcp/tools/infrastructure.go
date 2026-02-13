@@ -354,3 +354,176 @@ func (t *Toolsets) RegisterGetComponentWorkflowSchemaOrgLevel(s *mcp.Server) {
 		return handleToolResult(result, err)
 	})
 }
+
+// RegisterListClusterDataPlanes registers the "list_cluster_dataplanes" MCP tool
+// which lists all cluster-scoped data planes (shared infrastructure managed by
+// platform admins, not scoped to any namespace). This tool is only registered
+// when InfrastructureToolset also implements ClusterPlaneHandler; otherwise it
+// is a no-op. Added in v0.12.0 (non-breaking, additive).
+func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_dataplanes",
+		Description: "List all cluster-scoped data planes. These are shared infrastructure managed by " +
+			"platform admins, not scoped to any namespace.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.ListClusterDataPlanes(ctx)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterDataPlane registers the "get_cluster_dataplane" MCP tool
+// which returns detailed information about a specific cluster-scoped data plane
+// including cluster details, capacity, health status, and network configuration.
+// Requires a "cdp_name" parameter (discoverable via list_cluster_dataplanes).
+// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
+// otherwise it is a no-op. Added in v0.12.0 (non-breaking, additive).
+func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_dataplane",
+		Description: "Get detailed information about a cluster-scoped data plane including cluster details, " +
+			"capacity, health status, and network configuration.",
+		InputSchema: createSchema(map[string]any{
+			"cdp_name": stringProperty("Use list_cluster_dataplanes to discover valid names"),
+		}, []string{"cdp_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CdpName string `json:"cdp_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.GetClusterDataPlane(ctx, args.CdpName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterCreateClusterDataPlane(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "create_cluster_dataplane",
+		Description: "Create a new cluster-scoped data plane. Cluster data planes are shared infrastructure " +
+			"managed by platform admins. Uses cluster agent for communication.",
+		InputSchema: createSchema(map[string]any{
+			"name": stringProperty(
+				"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
+			"display_name":              stringProperty("Human-readable display name"),
+			"description":               stringProperty("Human-readable description"),
+			"plane_id":                  stringProperty("Logical plane identifier for the physical cluster"),
+			"cluster_agent_client_ca":   stringProperty("CA certificate to verify cluster agent's client certificate"),
+			"public_virtual_host":       stringProperty("Public virtual host for the data plane"),
+			"organization_virtual_host": stringProperty("Organization-specific virtual host"),
+			"public_http_port": map[string]any{
+				"type":        "integer",
+				"description": "Public HTTP port",
+			},
+			"public_https_port": map[string]any{
+				"type":        "integer",
+				"description": "Public HTTPS port",
+			},
+			"organization_http_port": map[string]any{
+				"type":        "integer",
+				"description": "Organization HTTP port",
+			},
+			"organization_https_port": map[string]any{
+				"type":        "integer",
+				"description": "Organization HTTPS port",
+			},
+			"observability_plane_ref": map[string]any{
+				"type":        "object",
+				"description": "Optional: Reference to a ClusterObservabilityPlane resource",
+				"required":    []string{"name"},
+				"properties": map[string]any{
+					"name": map[string]any{
+						"type":        "string",
+						"description": "Name of the ClusterObservabilityPlane resource",
+					},
+				},
+			},
+		}, []string{
+			"name", "plane_id", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+		}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		Name                    string `json:"name"`
+		DisplayName             string `json:"display_name"`
+		Description             string `json:"description"`
+		PlaneID                 string `json:"plane_id"`
+		ClusterAgentClientCA    string `json:"cluster_agent_client_ca"`
+		PublicVirtualHost       string `json:"public_virtual_host"`
+		OrganizationVirtualHost string `json:"organization_virtual_host"`
+		PublicHTTPPort          *int32 `json:"public_http_port"`
+		PublicHTTPSPort         *int32 `json:"public_https_port"`
+		OrganizationHTTPPort    *int32 `json:"organization_http_port"`
+		OrganizationHTTPSPort   *int32 `json:"organization_https_port"`
+		ObservabilityPlaneRef   *struct {
+			Name string `json:"name"`
+		} `json:"observability_plane_ref"`
+	}) (*mcp.CallToolResult, any, error) {
+		cdpReq := &models.CreateClusterDataPlaneRequest{
+			Name:                    args.Name,
+			DisplayName:             args.DisplayName,
+			Description:             args.Description,
+			PlaneID:                 args.PlaneID,
+			ClusterAgentClientCA:    args.ClusterAgentClientCA,
+			PublicVirtualHost:       args.PublicVirtualHost,
+			OrganizationVirtualHost: args.OrganizationVirtualHost,
+			PublicHTTPPort:          args.PublicHTTPPort,
+			PublicHTTPSPort:         args.PublicHTTPSPort,
+			OrganizationHTTPPort:    args.OrganizationHTTPPort,
+			OrganizationHTTPSPort:   args.OrganizationHTTPSPort,
+		}
+		if args.ObservabilityPlaneRef != nil {
+			if args.ObservabilityPlaneRef.Name == "" {
+				return nil, nil, fmt.Errorf("observability_plane_ref.name is required when observability_plane_ref is provided")
+			}
+			cdpReq.ObservabilityPlaneRef = &models.ObservabilityPlaneRef{
+				Kind: "ClusterObservabilityPlane",
+				Name: args.ObservabilityPlaneRef.Name,
+			}
+		}
+		if err := cdpReq.Validate(); err != nil {
+			return nil, nil, fmt.Errorf("invalid cluster dataplane request: %w", err)
+		}
+		result, err := cp.CreateClusterDataPlane(ctx, cdpReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListClusterBuildPlanes(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_buildplanes",
+		Description: "List all cluster-scoped build planes. These are shared build infrastructure managed by " +
+			"platform admins, not scoped to any namespace.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.ListClusterBuildPlanes(ctx)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_observability_planes",
+		Description: "List all cluster-scoped observability planes. These are shared observability infrastructure " +
+			"managed by platform admins, not scoped to any namespace.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.ListClusterObservabilityPlanes(ctx)
+		return handleToolResult(result, err)
+	})
+}

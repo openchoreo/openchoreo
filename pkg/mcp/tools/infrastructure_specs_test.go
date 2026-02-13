@@ -271,5 +271,78 @@ func infrastructureToolSpecs() []toolTestSpec {
 				}
 			},
 		},
+		{
+			name:                "list_cluster_dataplanes",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "data", "plane"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterDataPlanes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments to validate
+			},
+		},
+		{
+			name:                "get_cluster_dataplane",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "data", "plane"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cdp_name"},
+			testArgs: map[string]any{
+				"cdp_name": "cdp1",
+			},
+			expectedMethod: "GetClusterDataPlane",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "cdp1" {
+					t.Errorf("Expected cdp_name %q, got %v", "cdp1", args[0])
+				}
+			},
+		},
+		{
+			name:                "create_cluster_dataplane",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"create", "cluster", "data", "plane"},
+			descriptionMinLen:   10,
+			requiredParams: []string{
+				"name", "plane_id", "cluster_agent_client_ca", "public_virtual_host", "organization_virtual_host",
+			},
+			optionalParams: []string{
+				"display_name", "description", "public_http_port", "public_https_port",
+				"organization_http_port", "organization_https_port", "observability_plane_ref",
+			},
+			testArgs: map[string]any{
+				"name":                      "new-cdp",
+				"plane_id":                  "us-west-prod",
+				"cluster_agent_client_ca":   "-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----",
+				"public_virtual_host":       "public.example.com",
+				"organization_virtual_host": "org.example.com",
+			},
+			expectedMethod: "CreateClusterDataPlane",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// args[0] is *models.CreateClusterDataPlaneRequest
+			},
+		},
+		{
+			name:                "list_cluster_buildplanes",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "build", "plane"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterBuildPlanes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments to validate
+			},
+		},
+		{
+			name:                "list_cluster_observability_planes",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "observability", "plane"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterObservabilityPlanes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments to validate
+			},
+		},
 	}
 }

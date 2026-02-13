@@ -167,6 +167,24 @@ type InfrastructureToolsetHandler interface {
 	GetComponentWorkflowSchema(ctx context.Context, namespaceName, cwName string) (any, error)
 }
 
+// ClusterPlaneHandler is an optional extension of InfrastructureToolsetHandler
+// for cluster-scoped plane operations. Handlers that implement this interface
+// alongside InfrastructureToolsetHandler will have cluster-plane MCP tools
+// registered automatically. If the InfrastructureToolset does not implement
+// ClusterPlaneHandler, the cluster-plane tools are silently skipped.
+type ClusterPlaneHandler interface {
+	// ClusterDataPlane operations
+	ListClusterDataPlanes(ctx context.Context) (any, error)
+	GetClusterDataPlane(ctx context.Context, cdpName string) (any, error)
+	CreateClusterDataPlane(ctx context.Context, req *models.CreateClusterDataPlaneRequest) (any, error)
+
+	// ClusterBuildPlane operations
+	ListClusterBuildPlanes(ctx context.Context) (any, error)
+
+	// ClusterObservabilityPlane operations
+	ListClusterObservabilityPlanes(ctx context.Context) (any, error)
+}
+
 // SchemaToolsetHandler handles schema and resource explanation operations
 type SchemaToolsetHandler interface {
 	ExplainSchema(ctx context.Context, kind, path string) (any, error)

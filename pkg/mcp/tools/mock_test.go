@@ -363,6 +363,33 @@ func (m *MockCoreToolsetHandler) ListObservabilityPlanes(ctx context.Context, na
 	return `[{"name":"observability-plane-1"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) ListClusterDataPlanes(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterDataPlanes")
+	return `[{"name":"cdp1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterDataPlane(ctx context.Context, cdpName string) (any, error) {
+	m.recordCall("GetClusterDataPlane", cdpName)
+	return `{"name":"cdp1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterDataPlane(
+	ctx context.Context, req *models.CreateClusterDataPlaneRequest,
+) (any, error) {
+	m.recordCall("CreateClusterDataPlane", req)
+	return `{"name":"new-cdp"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterBuildPlanes(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterBuildPlanes")
+	return `[{"name":"cbp1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterObservabilityPlanes")
+	return `[{"name":"cop1"}]`, nil
+}
+
 func (m *MockCoreToolsetHandler) ApplyResource(ctx context.Context, resource map[string]interface{}) (any, error) {
 	m.recordCall("ApplyResource", resource)
 	return `{"operation":"created"}`, nil

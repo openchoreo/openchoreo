@@ -93,6 +93,11 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 		t.RegisterListObservabilityPlanes,
 		t.RegisterListComponentWorkflowsOrgLevel,
 		t.RegisterGetComponentWorkflowSchemaOrgLevel,
+		t.RegisterListClusterDataPlanes,
+		t.RegisterGetClusterDataPlane,
+		t.RegisterCreateClusterDataPlane,
+		t.RegisterListClusterBuildPlanes,
+		t.RegisterListClusterObservabilityPlanes,
 	}
 }
 
