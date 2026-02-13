@@ -122,6 +122,12 @@ jobs:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
 
+      - name: Upload events-collector binaries
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: events-collector
+          path: bin/dist/**/events-collector
+
   publish:
     name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
     runs-on: ubuntu-24.04
@@ -169,6 +175,12 @@ jobs:
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: cluster-agent
+          path: bin/dist
+
+      - name: Download events-collector binaries
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: events-collector
           path: bin/dist
 
       - name: Set executable permissions
