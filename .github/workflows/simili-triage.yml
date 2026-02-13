@@ -1,0 +1,30 @@
+name: Simili Issue & PR Triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  pull_request:
+    types: [opened, edited, reopened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Simili Bot
+        uses: similigh/simili-bot@v1
+        with:
+          config_path: .github/simili.yaml
+          # Use the default command 'process'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          TRANSFER_TOKEN: ${{ secrets.SIMILI_BOT_TOKEN }}
