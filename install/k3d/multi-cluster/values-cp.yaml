@@ -16,9 +16,9 @@ backstage:
 security:
   oidc:
     issuer: "http://thunder.openchoreo.localhost:8080"
-    jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
+    jwksUrl: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
     authorizationUrl: "http://thunder.openchoreo.localhost:8080/oauth2/authorize"
-    tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
+    tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
 
 # Cluster Gateway configuration for agent-based communication
 # Exposes the cluster gateway for remote data/build plane agents to connect
