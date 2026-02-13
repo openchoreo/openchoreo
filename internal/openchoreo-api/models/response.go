@@ -320,6 +320,7 @@ type ComponentTypeResponse struct {
 	Description      string    `json:"description,omitempty"`
 	WorkloadType     string    `json:"workloadType"`
 	AllowedWorkflows []string  `json:"allowedWorkflows,omitempty"`
+	AllowedTraits    []string  `json:"allowedTraits,omitempty"`
 	CreatedAt        time.Time `json:"createdAt"`
 }
 
