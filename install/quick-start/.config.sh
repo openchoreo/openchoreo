@@ -23,3 +23,9 @@ CERT_MANAGER_REPO="oci://quay.io/jetstack/charts"
 # External Secrets Operator configuration
 ESO_VERSION="v1.3.2"
 ESO_REPO="oci://ghcr.io/external-secrets/charts"
+
+# kgateway configuration
+KGATEWAY_VERSION="v2.1.1"
+
+# Thunder configuration
+THUNDER_VERSION="0.21.0"
