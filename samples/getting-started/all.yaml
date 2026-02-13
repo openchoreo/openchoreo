@@ -385,7 +385,7 @@ spec:
           rules:
           - backendRefs:
             - name: ${metadata.componentName}
-              port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
+              port: ${workload.toServicePorts()[0].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

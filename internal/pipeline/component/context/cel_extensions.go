@@ -95,8 +95,8 @@ func CELExtensions() []cel.EnvOption {
 			),
 		),
 		cel.Function("workloadToServicePorts",
-			cel.Overload("workloadToServicePorts_map",
-				[]*cel.Type{cel.MapType(cel.StringType, cel.DynType)}, cel.ListType(cel.DynType),
+			cel.Overload("workloadToServicePorts_dyn",
+				[]*cel.Type{cel.DynType}, cel.ListType(cel.DynType),
 				cel.UnaryBinding(workloadToServicePortsFunction),
 			),
 		),
@@ -749,12 +749,21 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 			return types.NewErr("toServicePorts: endpoint '%s' must be an object, got %T", endpointName, endpointVal)
 		}
 
-		port, ok := endpoint["port"].(int64) // CEL converts int32 to int64
-		if !ok {
-			portVal := endpoint["port"]
-			if portVal == nil {
-				return types.NewErr("toServicePorts: endpoint '%s' is missing required 'port' field", endpointName)
-			}
+		portVal := endpoint["port"]
+		if portVal == nil {
+			return types.NewErr("toServicePorts: endpoint '%s' is missing required 'port' field", endpointName)
+		}
+		var port int64
+		switch p := portVal.(type) {
+		case int64:
+			port = p
+		case float64:
+			port = int64(p)
+		case int:
+			port = int64(p)
+		case int32:
+			port = int64(p)
+		default:
 			return types.NewErr("toServicePorts: endpoint '%s' must have a numeric port, got %T", endpointName, portVal)
 		}
 
