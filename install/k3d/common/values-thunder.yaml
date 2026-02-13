@@ -23,10 +23,13 @@ configuration:
   database:
     identity:
       type: sqlite
+      sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
     runtime:
       type: sqlite
+      sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
     user:
       type: sqlite
+      sqliteOptions: "_journal_mode=WAL&_busy_timeout=5000&_pragma=foreign_keys(1)"
 
   cors:
     allowedOrigins:
