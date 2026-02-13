@@ -13,11 +13,11 @@ metadata:
     app.kubernetes.io/component: dns-rewrite
 data:
   observer-services.override: |
-    # Rewrite observer service hostname to use host.k3d.internal
-    # This allows control plane services to reach observer
-    # Matches: observer.openchoreo.localhost
+    # Rewrite control plane service hostnames to use host.k3d.internal
+    # This allows observer to reach control plane services (thunder, api, etc.)
+    # Matches: thunder.openchoreo.localhost, api.openchoreo.localhost, openchoreo.localhost, observer.openchoreo.localhost
     rewrite stop {
-      name exact observer.openchoreo.localhost host.k3d.internal
+      name regex (thunder|api|observer)\.openchoreo\.localhost host.k3d.internal
       answer auto
     }
 {{- end }}

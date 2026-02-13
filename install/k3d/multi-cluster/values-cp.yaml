@@ -47,3 +47,8 @@ thunder:
 gateway:
   tls:
     hostname: "*.openchoreo.localhost"
+
+# DNS rewrite for in-cluster OIDC resolution
+k3d:
+  dnsRewrite:
+    enabled: true
