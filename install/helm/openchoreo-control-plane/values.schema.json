@@ -2222,21 +2222,6 @@
           "title": "infrastructure",
           "type": "object"
         },
-        "selfSignedIssuer": {
-          "additionalProperties": false,
-          "description": "Self-signed ClusterIssuer configuration",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "selfSignedIssuer",
-          "type": "object"
-        },
         "tls": {
           "additionalProperties": false,
           "description": "TLS configuration for the HTTPS listener",

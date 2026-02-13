@@ -3205,18 +3205,6 @@ gateway:
 
   # @schema
   # type: object
-  # description: Self-signed ClusterIssuer configuration
-  # @schema
-  selfSignedIssuer:
-    # @schema
-    # type: boolean
-    # description: Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).
-    # default: false
-    # @schema
-    enabled: false
-
-  # @schema
-  # type: object
   # description: Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.
   # additionalProperties:
   #   type: string
@@ -3267,5 +3255,4 @@ gateway:
     #       type: string
     #       description: Secret name containing the TLS certificate
     # @schema
-    certificateRefs:
-      - name: control-plane-tls
+    certificateRefs: []

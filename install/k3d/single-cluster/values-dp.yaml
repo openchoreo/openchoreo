@@ -4,12 +4,8 @@
 gateway:
   httpPort: 19080
   httpsPort: 19443
-  selfSignedIssuer:
-    enabled: true
-  annotations:
-    cert-manager.io/cluster-issuer: openchoreo-dp-selfsigned-issuer
   tls:
-    hostname: "*.openchoreoapis.localhost"
+    enabled: false
 
 fluent-bit:
   # Skip Secret-based envFrom for local dev, inject env vars directly

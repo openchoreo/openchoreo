@@ -78,6 +78,12 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
   --namespace openchoreo-control-plane \
   --create-namespace \
   --version v2.1.1
+
+helm upgrade --install kgateway-dp oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-data-plane \
+  --create-namespace \
+  --version v2.1.1
 ```
 
 #### Thunder (Asgardeo Identity Provider)
@@ -86,6 +92,7 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
 helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
+  --create-namespace \
   --version 0.21.0 \
   --values install/k3d/common/values-thunder.yaml
 ```
@@ -118,11 +125,27 @@ kubectl patch deployment gateway-default -n openchoreo-control-plane --type='jso
 
 # Data Plane
 
-# Copy the cluster-gateway CA from control plane to data plane namespace
+# Create the data plane namespace early so we can copy resources into it
+kubectl --context k3d-openchoreo create namespace openchoreo-data-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo apply -f -
+
+# Copy the cluster-gateway CA ConfigMap from control plane to data plane namespace
 CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
 
 kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-data-plane
+
+# Copy the cluster-gateway CA Secret (needed by the cluster-agent CA issuer)
+TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
+TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
+  --from-literal=tls.crt="$TLS_CRT" \
+  --from-literal=tls.key="$TLS_KEY" \
   --from-literal=ca.crt="$CA_CRT" \
   -n openchoreo-data-plane
 
@@ -233,55 +256,39 @@ kubectl patch deployment gateway-default -n openchoreo-observability-plane --typ
 ]'
 ```
 
-### 4. Create TLS Certificates for Gateways
+### 4. Create DataPlane Resource
+
+Create a DataPlane resource to enable workload deployment. The gateway ports must match the `httpPort` and `httpsPort` values in your data plane helm values.
 
 ```bash
-# Control plane gateway TLS Certificate
-kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
+# Extract the cluster agent client CA from the data plane
+AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+  -n openchoreo-data-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+kubectl --context k3d-openchoreo apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
 metadata:
-  name: control-plane-tls
-  namespace: openchoreo-control-plane
+  name: default
+  namespace: default
 spec:
-  secretName: control-plane-tls
-  issuerRef:
-    name: openchoreo-selfsigned-issuer
-    kind: ClusterIssuer
-  dnsNames:
-    - "*.openchoreo.localhost"
+  planeID: default-dataplane
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo "$AGENT_CA" | sed 's/^/        /')
+  secretStoreRef:
+    name: default
+  gateway:
+    publicVirtualHost: openchoreoapis.localhost
+    publicHTTPPort: 19080
+    publicHTTPSPort: 19443
 EOF
-
-# Data plane gateway TLS Certificate
-kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: openchoreo-gateway-tls
-  namespace: openchoreo-data-plane
-spec:
-  secretName: openchoreo-gateway-tls
-  issuerRef:
-    name: openchoreo-selfsigned-issuer
-    kind: ClusterIssuer
-  dnsNames:
-    - "*.openchoreoapis.localhost"
-EOF
-```
-
-### 5. Create DataPlane Resource
-
-Create a DataPlane resource to enable workload deployment. All DataPlanes use cluster agent for secure communication.
-
-```bash
-./install/add-data-plane.sh \
-  --control-plane-context k3d-openchoreo \
-  --name default
 ```
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
 
-### 6. Install Default Resources
+### 5. Install Default Resources
 
 Install the default OpenChoreo resources (Project, Environments, DeploymentPipeline, ComponentTypes, ComponentWorkflows, and Traits):
 
@@ -295,7 +302,7 @@ Or from the remote repository:
 kubectl --context k3d-openchoreo apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
 ```
 
-### 7. Label Default Namespace
+### 6. Label Default Namespace
 
 Label the default namespace to mark it as a control plane namespace:
 
@@ -303,7 +310,7 @@ Label the default namespace to mark it as a control plane namespace:
 kubectl label namespace default openchoreo.dev/controlplane-namespace=true
 ```
 
-### 8. Create BuildPlane Resource (optional)
+### 7. Create BuildPlane Resource (optional)
 
 Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
@@ -315,7 +322,7 @@ Create a BuildPlane resource to enable building from source. All BuildPlanes use
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-### 9. Create ObservabilityPlane Resource (optional)
+### 8. Create ObservabilityPlane Resource (optional)
 
 Create a ObservabilityPlane resource to enable observability in data plane and build plane.
 

@@ -1,8 +1,0 @@
-{{- if .Values.gateway.selfSignedIssuer.enabled }}
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: openchoreo-cp-selfsigned-issuer
-spec:
-  selfSigned: {}
-{{- end }}
