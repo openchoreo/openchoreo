@@ -68,7 +68,7 @@ bootstrap:
         log_info "Default organization unit already exists"
       fi
 
-      ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      ORG_UNIT_ID=$(curl {{ $curlInsecure }} -s --max-time 10 '{{ $thunderUrl }}/organization-units' | grep -o '"handle":"default"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"handle":"default"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
       log_info "Using organization unit ID: $ORG_UNIT_ID"
 
       log_info "Checking if user schema 'engineer' already exists..."
@@ -177,7 +177,7 @@ bootstrap:
       log_info "Checking if application 'Backstage' already exists..."
       existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
 
-      app_id=$(echo "$existing_apps" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      app_id=$(echo "$existing_apps" | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       APP_PAYLOAD='{
         "name": "Backstage",
