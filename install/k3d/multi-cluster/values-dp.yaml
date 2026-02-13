@@ -42,6 +42,7 @@ fluent-bit:
           Logstash_Prefix container-logs
           Match kube.*
           Port 11085
+          Replace_Dots On
           Suppress_Type_Name On
           tls On
           tls.verify Off

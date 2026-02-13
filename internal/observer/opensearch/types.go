@@ -202,11 +202,11 @@ func ParseLogEntry(hit Hit) LogEntry {
 	if k8s, ok := source["kubernetes"].(map[string]interface{}); ok {
 		// Parse labels
 		if labelMap, ok := k8s["labels"].(map[string]interface{}); ok {
-			entry.ComponentID = getStringValue(labelMap, labels.ComponentID)
-			entry.EnvironmentID = getStringValue(labelMap, labels.EnvironmentID)
-			entry.ProjectID = getStringValue(labelMap, labels.ProjectID)
-			entry.Version = getStringValue(labelMap, labels.Version)
-			entry.VersionID = getStringValue(labelMap, labels.VersionID)
+			entry.ComponentID = getStringValue(labelMap, labels.ReplaceDots(labels.ComponentID))
+			entry.EnvironmentID = getStringValue(labelMap, labels.ReplaceDots(labels.EnvironmentID))
+			entry.ProjectID = getStringValue(labelMap, labels.ReplaceDots(labels.ProjectID))
+			entry.Version = getStringValue(labelMap, labels.ReplaceDots(labels.Version))
+			entry.VersionID = getStringValue(labelMap, labels.ReplaceDots(labels.VersionID))
 
 			// Convert all labels to string map
 			for k, v := range labelMap {

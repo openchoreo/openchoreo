@@ -600,7 +600,7 @@ func (qb *QueryBuilder) BuildNamespaceLogsQuery(params QueryParams, podLabels ma
 	for key, value := range podLabels {
 		labelFilter := map[string]interface{}{
 			"term": map[string]interface{}{
-				fmt.Sprintf("kubernetes.labels.%s.keyword", key): value,
+				fmt.Sprintf("kubernetes.labels.%s.keyword", labels.ReplaceDots(key)): value,
 			},
 		}
 		mustConditions = append(mustConditions, labelFilter)

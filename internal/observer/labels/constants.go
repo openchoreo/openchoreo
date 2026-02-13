@@ -5,6 +5,14 @@
 // This centralizes label definitions to eliminate magic strings and improve maintainability.
 package labels
 
+import "strings"
+
+// ReplaceDots replaces dots with underscores in a string
+// This is used to match Fluent-Bit's Replace_Dots behavior in the OpenSearch output plugin.
+func ReplaceDots(s string) string {
+	return strings.ReplaceAll(s, ".", "_")
+}
+
 // Kubernetes label keys used for log filtering and identification across all logging components.
 // These labels are applied to Kubernetes resources and used by:
 // - OpenSearch queries for log filtering
@@ -77,20 +85,22 @@ const (
 	KubernetesLabelsPrefix  = KubernetesPrefix + ".labels"
 	KubernetesPodName       = KubernetesPrefix + ".pod_name"
 	KubernetesContainerName = KubernetesPrefix + ".container_name"
+)
 
-	// Full field paths for OpenSearch queries
-	OSComponentID   = KubernetesLabelsPrefix + "." + ComponentID
-	OSEnvironmentID = KubernetesLabelsPrefix + "." + EnvironmentID
-	OSProjectID     = KubernetesLabelsPrefix + "." + ProjectID
-	OSVersion       = KubernetesLabelsPrefix + "." + Version
-	OSVersionID     = KubernetesLabelsPrefix + "." + VersionID
-	OSNamespaceName = KubernetesLabelsPrefix + "." + NamespaceName
-	OSPipelineID    = KubernetesLabelsPrefix + "." + PipelineID
-	OSRunID         = KubernetesLabelsPrefix + "." + RunID
-	OSWorkflowName  = KubernetesLabelsPrefix + "." + WorkflowName
-	OSBuildID       = KubernetesLabelsPrefix + "." + BuildID
-	OSBuildUUID     = KubernetesLabelsPrefix + "." + BuildUUID
-	OSTarget        = KubernetesLabelsPrefix + "." + Target
+// OpenSearch field paths with dots replaced by underscores in label keys
+var (
+	OSComponentID   = KubernetesLabelsPrefix + "." + ReplaceDots(ComponentID)
+	OSEnvironmentID = KubernetesLabelsPrefix + "." + ReplaceDots(EnvironmentID)
+	OSProjectID     = KubernetesLabelsPrefix + "." + ReplaceDots(ProjectID)
+	OSVersion       = KubernetesLabelsPrefix + "." + ReplaceDots(Version)
+	OSVersionID     = KubernetesLabelsPrefix + "." + ReplaceDots(VersionID)
+	OSNamespaceName = KubernetesLabelsPrefix + "." + ReplaceDots(NamespaceName)
+	OSPipelineID    = KubernetesLabelsPrefix + "." + ReplaceDots(PipelineID)
+	OSRunID         = KubernetesLabelsPrefix + "." + ReplaceDots(RunID)
+	OSWorkflowName  = KubernetesLabelsPrefix + "." + ReplaceDots(WorkflowName)
+	OSBuildID       = KubernetesLabelsPrefix + "." + ReplaceDots(BuildID)
+	OSBuildUUID     = KubernetesLabelsPrefix + "." + ReplaceDots(BuildUUID)
+	OSTarget        = KubernetesLabelsPrefix + "." + ReplaceDots(Target)
 )
 
 // RequiredLabels are the required labels that must be present on all Choreo components for proper log filtering

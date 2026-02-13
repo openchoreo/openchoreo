@@ -143,8 +143,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 						"log":        "INFO: Application started",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
-								"openchoreo.dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
+								"openchoreo_dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
+								"openchoreo_dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
 							},
 							"namespace_name": "default",
 						},
@@ -156,8 +156,8 @@ func TestLoggingService_GetComponentLogs(t *testing.T) {
 						"log":        "ERROR: Something went wrong",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/component-uid":   "comp-123",
-								"openchoreo.dev/environment-uid": "env-456",
+								"openchoreo_dev/component-uid":   "comp-123",
+								"openchoreo_dev/environment-uid": "env-456",
 							},
 							"namespace_name": "default",
 						},
@@ -257,9 +257,9 @@ func TestLoggingService_GetProjectLogs(t *testing.T) {
 						"log":        "Project log entry",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/project-uid":     "proj-123",
-								"openchoreo.dev/component-uid":   "comp-456",
-								"openchoreo.dev/environment-uid": "env-789",
+								"openchoreo_dev/project-uid":     "proj-123",
+								"openchoreo_dev/component-uid":   "comp-456",
+								"openchoreo_dev/environment-uid": "env-789",
 							},
 						},
 					},
@@ -363,8 +363,8 @@ func TestParseLogEntry(t *testing.T) {
 			"log":        "ERROR: Database connection failed",
 			"kubernetes": map[string]interface{}{
 				"labels": map[string]interface{}{
-					"openchoreo.dev/component-uid":   "api-service",
-					"openchoreo.dev/environment-uid": "production",
+					"openchoreo_dev/component-uid":   "api-service",
+					"openchoreo_dev/environment-uid": "production",
 					"version":                        "v1.2.3",
 					"version_id":                     "ver-456",
 				},
@@ -427,8 +427,8 @@ func TestParseLogEntry(t *testing.T) {
 		t.Errorf("Expected 4 labels, got %d", len(entry.Labels))
 	}
 
-	if entry.Labels["openchoreo.dev/component-uid"] != "api-service" {
-		t.Errorf("Expected label component UID 'api-service', got '%s'", entry.Labels["openchoreo.dev/component-uid"])
+	if entry.Labels["openchoreo_dev/component-uid"] != "api-service" {
+		t.Errorf("Expected label component UID 'api-service', got '%s'", entry.Labels["openchoreo_dev/component-uid"])
 	}
 }
 
@@ -810,8 +810,8 @@ func TestLoggingService_GetBuildLogs(t *testing.T) {
 						"log":        "Build finished successfully",
 						"kubernetes": map[string]interface{}{
 							"labels": map[string]interface{}{
-								"openchoreo.dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
-								"openchoreo.dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
+								"openchoreo_dev/component-uid":   "8a4c5e2f-9d3b-4a7e-b1f6-2c8d4e9f3a7b",
+								"openchoreo_dev/environment-uid": "6c2d3e4f-7a1b-3d8c-9e5f-2c6d4e8f1a9b",
 							},
 							"namespace_name": "build-system",
 							"pod_name":       "build-123-job",
