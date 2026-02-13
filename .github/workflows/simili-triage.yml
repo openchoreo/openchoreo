@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Simili Bot
-        uses: similigh/simili-bot@v1
+        uses: similigh/simili-bot@v0.1.6
         with:
           config_path: .github/simili.yaml
           # Use the default command 'process'
