@@ -72,6 +72,10 @@ bootstrap:
       fi
 
       ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units/tree/default" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      if [ -z "$ORG_UNIT_ID" ]; then
+        log_error "Failed to resolve default organization unit ID from ${THUNDER_URL}"
+        exit 1
+      fi
       log_info "Using organization unit ID: $ORG_UNIT_ID"
 
       log_info "Checking if user schema 'engineer' already exists..."

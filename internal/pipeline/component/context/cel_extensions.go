@@ -6,6 +6,7 @@ package context
 import (
 	"fmt"
 	"hash/fnv"
+	"math"
 	"sort"
 	"strings"
 
@@ -758,6 +759,9 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 		case int64:
 			port = p
 		case float64:
+			if math.Trunc(p) != p {
+				return types.NewErr("toServicePorts: endpoint '%s' port must be an integer, got %v", endpointName, p)
+			}
 			port = int64(p)
 		case int:
 			port = int64(p)

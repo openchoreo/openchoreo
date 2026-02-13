@@ -321,7 +321,7 @@
                       "title": "accessMode"
                     },
                     "enabled": {
-                      "default": true,
+                      "default": false,
                       "description": "Enable PVC for persistence (false = emptyDir)",
                       "title": "enabled",
                       "type": "boolean"

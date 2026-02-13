@@ -2512,9 +2512,9 @@ backstage:
         # @schema
         # type: boolean
         # description: Enable PVC for persistence (false = emptyDir)
-        # default: true
+        # default: false
         # @schema
-        enabled: true
+        enabled: false
         # @schema
         # type: string
         # description: PVC storage size
