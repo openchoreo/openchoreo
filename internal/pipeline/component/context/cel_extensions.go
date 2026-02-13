@@ -20,6 +20,8 @@ import (
 
 const (
 	configurationsIdentifier = "configurations"
+	protocolTCP              = "TCP"
+	protocolUDP              = "UDP"
 )
 
 // CELExtensions returns CEL environment options for configuration helpers.
@@ -724,16 +726,21 @@ func workloadEndpointsToServicePortsFunction(endpoints ref.Val) ref.Val {
 	}
 
 	result := make([]map[string]any, 0, len(endpointsMap))
+	usedNames := make(map[string]bool)
 
 	for endpointName, endpointVal := range endpointsMap {
 		endpoint, ok := endpointVal.(map[string]any)
 		if !ok {
-			continue
+			return types.NewErr("toServicePorts: endpoint '%s' must be an object, got %T", endpointName, endpointVal)
 		}
 
 		port, ok := endpoint["port"].(int64) // CEL converts int32 to int64
 		if !ok {
-			continue
+			portVal := endpoint["port"]
+			if portVal == nil {
+				return types.NewErr("toServicePorts: endpoint '%s' is missing required 'port' field", endpointName)
+			}
+			return types.NewErr("toServicePorts: endpoint '%s' must have a numeric port, got %T", endpointName, portVal)
 		}
 
 		endpointType, _ := endpoint["type"].(string)
@@ -742,10 +749,35 @@ func workloadEndpointsToServicePortsFunction(endpoints ref.Val) ref.Val {
 		// Sanitize endpoint name for Kubernetes port naming
 		sanitizedName := sanitizePortName(endpointName)
 
+		// If sanitization resulted in empty string, use port number as fallback
+		if sanitizedName == "" {
+			sanitizedName = fmt.Sprintf("port-%d", port)
+		}
+
+		// Ensure uniqueness by adding suffix if needed
+		finalName := sanitizedName
+		counter := 2
+		for usedNames[finalName] {
+			finalName = fmt.Sprintf("%s-%d", sanitizedName, counter)
+			// Ensure the final name doesn't exceed 15 characters
+			if len(finalName) > 15 {
+				// Truncate the base name to make room for suffix
+				maxBaseLen := 15 - len(fmt.Sprintf("-%d", counter))
+				if maxBaseLen > 0 {
+					finalName = fmt.Sprintf("%s-%d", sanitizedName[:maxBaseLen], counter)
+				} else {
+					// If counter is too large, use minimal name
+					finalName = fmt.Sprintf("p-%d", counter)
+				}
+			}
+			counter++
+		}
+		usedNames[finalName] = true
+
 		result = append(result, map[string]any{
-			"name":       sanitizedName,
-			"port":       port,       // External port uses endpoint port
-			"targetPort": port,       // Target port uses endpoint port
+			"name":       finalName,
+			"port":       port, // External port uses endpoint port
+			"targetPort": port, // Target port uses endpoint port
 			"protocol":   protocol,
 		})
 	}
@@ -756,27 +788,51 @@ func workloadEndpointsToServicePortsFunction(endpoints ref.Val) ref.Val {
 // mapEndpointTypeToProtocol maps WorkloadEndpoint.Type to Kubernetes Service protocol.
 func mapEndpointTypeToProtocol(endpointType string) string {
 	switch endpointType {
-	case "TCP":
-		return "TCP"
-	case "UDP":
-		return "UDP"
+	case protocolTCP:
+		return protocolTCP
+	case protocolUDP:
+		return protocolUDP
 	default:
 		// HTTP, REST, gRPC, GraphQL, Websocket all use TCP
-		return "TCP"
+		return protocolTCP
 	}
 }
 
 // sanitizePortName sanitizes endpoint names for use as Kubernetes port names.
-// Kubernetes port names must be lowercase alphanumeric + hyphens.
+// Kubernetes port names must be:
+// - lowercase alphanumeric + hyphens
+// - start and end with alphanumeric (not hyphen)
+// - max 15 characters (IANA service name limit)
+// Returns empty string if name cannot be sanitized.
 func sanitizePortName(name string) string {
+	// Convert to lowercase
 	name = strings.ToLower(name)
+	// Replace underscores with hyphens
 	name = strings.ReplaceAll(name, "_", "-")
-	// Remove any remaining invalid characters (keep only alphanumeric and hyphens)
+
+	// Remove invalid characters (keep only alphanumeric and hyphens)
 	var result strings.Builder
 	for _, ch := range name {
 		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
 			result.WriteRune(ch)
 		}
 	}
-	return result.String()
+	sanitized := result.String()
+
+	// Trim leading and trailing hyphens (Kubernetes requirement)
+	sanitized = strings.Trim(sanitized, "-")
+
+	// If empty after sanitization, return empty (caller must handle)
+	if len(sanitized) == 0 {
+		return ""
+	}
+
+	// Limit to 15 characters (IANA service name limit)
+	if len(sanitized) > 15 {
+		sanitized = sanitized[:15]
+		// Trim trailing hyphen if we cut in the middle of a word
+		sanitized = strings.TrimRight(sanitized, "-")
+	}
+
+	return sanitized
 }

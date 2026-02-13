@@ -1523,3 +1523,487 @@ func TestConfigurationsToSecretEnvsByContainerMacro(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
+	tests := []struct {
+		name   string
+		expr   string
+		inputs map[string]any
+		want   []map[string]any
+	}{
+		{
+			name: "single HTTP endpoint",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "multiple endpoints with different types",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+						"grpc": map[string]any{
+							"type": "gRPC",
+							"port": int64(9090),
+						},
+						"metrics": map[string]any{
+							"type": "REST",
+							"port": int64(9091),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+				{"name": "grpc", "port": int64(9090), "targetPort": int64(9090), "protocol": "TCP"},
+				{"name": "metrics", "port": int64(9091), "targetPort": int64(9091), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "empty endpoints returns empty list",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{},
+				},
+			},
+			want: []map[string]any{},
+		},
+		{
+			name: "TCP endpoint maps to TCP protocol",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"custom": map[string]any{
+							"type": "TCP",
+							"port": int64(5432),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "custom", "port": int64(5432), "targetPort": int64(5432), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "UDP endpoint maps to UDP protocol",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"dns": map[string]any{
+							"type": "UDP",
+							"port": int64(53),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "dns", "port": int64(53), "targetPort": int64(53), "protocol": "UDP"},
+			},
+		},
+		{
+			name: "GraphQL endpoint maps to TCP protocol",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"graphql": map[string]any{
+							"type": "GraphQL",
+							"port": int64(8000),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "graphql", "port": int64(8000), "targetPort": int64(8000), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "Websocket endpoint maps to TCP protocol",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"websocket": map[string]any{
+							"type": "Websocket",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "websocket", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name with underscores converts to hyphens",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"api_endpoint": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "api-endpoint", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name with mixed case converts to lowercase",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"HttpAPI": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "httpapi", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name with invalid characters removed",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"api@endpoint!": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "apiendpoint", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name with leading/trailing hyphens trimmed",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"-api-": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "api", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name longer than 15 characters truncated",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"verylongendpointname": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "verylongendpoin", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "endpoint name with only invalid characters uses port number",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"@@@": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "port-8080", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
+			name: "duplicate names after sanitization get unique suffixes",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": int64(8080),
+						},
+						"http_": map[string]any{
+							"type": "HTTP",
+							"port": int64(8081),
+						},
+						"HTTP": map[string]any{
+							"type": "HTTP",
+							"port": int64(8082),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+				{"name": "http-2", "port": int64(8081), "targetPort": int64(8081), "protocol": "TCP"},
+				{"name": "http-3", "port": int64(8082), "targetPort": int64(8082), "protocol": "TCP"},
+			},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			got, ok := result.([]map[string]any)
+			if !ok {
+				t.Fatalf("expected []map[string]any, got %T", result)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpopts.SortSlices(func(a, b map[string]any) bool {
+				return a["name"].(string) < b["name"].(string)
+			})); diff != "" {
+				t.Errorf("toServicePorts() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		expr        string
+		inputs      map[string]any
+		expectError string
+	}{
+		{
+			name: "endpoint not an object returns error",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": "invalid",
+					},
+				},
+			},
+			expectError: "endpoint 'http' must be an object",
+		},
+		{
+			name: "endpoint missing port field returns error",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+						},
+					},
+				},
+			},
+			expectError: "endpoint 'http' is missing required 'port' field",
+		},
+		{
+			name: "endpoint with non-numeric port returns error",
+			expr: `workload.endpoints.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type": "HTTP",
+							"port": "8080",
+						},
+					},
+				},
+			},
+			expectError: "endpoint 'http' must have a numeric port",
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := engine.Render("${"+tt.expr+"}", tt.inputs)
+			if err == nil {
+				t.Fatal("expected error but got none")
+			}
+			if !strings.Contains(err.Error(), tt.expectError) {
+				t.Errorf("expected error containing %q, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	// This should work - workload.endpoints is the expected receiver
+	_, err := engine.Render(`${workload.endpoints.toServicePorts()}`, map[string]any{
+		"workload": map[string]any{
+			"endpoints": map[string]any{},
+		},
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// This should fail - "other" is not a valid receiver for the macro
+	_, err = engine.Render(`${other.endpoints.toServicePorts()}`, map[string]any{
+		"other": map[string]any{
+			"endpoints": map[string]any{},
+		},
+	})
+	if err == nil {
+		t.Error("expected error for non-workload receiver")
+	}
+
+	// This should fail - direct call on non-endpoints field
+	_, err = engine.Render(`${workload.containers.toServicePorts()}`, map[string]any{
+		"workload": map[string]any{
+			"containers": map[string]any{},
+		},
+	})
+	if err == nil {
+		t.Error("expected error for non-endpoints field")
+	}
+}
+
+func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	inputs := map[string]any{
+		"workload": map[string]any{
+			"endpoints": map[string]any{
+				"http": map[string]any{
+					"type": "HTTP",
+					"port": int64(8080),
+				},
+				"grpc": map[string]any{
+					"type": "gRPC",
+					"port": int64(9090),
+				},
+			},
+		},
+	}
+
+	t.Run("size() operation", func(t *testing.T) {
+		result, err := engine.Render(`${size(workload.endpoints.toServicePorts())}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if diff := cmp.Diff(int64(2), result); diff != "" {
+			t.Errorf("size() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("map() operation to extract port names", func(t *testing.T) {
+		result, err := engine.Render(`${workload.endpoints.toServicePorts().map(p, p.name)}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{"http", "grpc"}
+		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
+			return a.(string) < b.(string)
+		})); diff != "" {
+			t.Errorf("map() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("map() operation to extract port numbers", func(t *testing.T) {
+		result, err := engine.Render(`${workload.endpoints.toServicePorts().map(p, p.port)}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{int64(8080), int64(9090)}
+		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
+			return a.(int64) < b.(int64)
+		})); diff != "" {
+			t.Errorf("map() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("filter() operation by protocol", func(t *testing.T) {
+		udpInputs := map[string]any{
+			"workload": map[string]any{
+				"endpoints": map[string]any{
+					"http": map[string]any{
+						"type": "HTTP",
+						"port": int64(8080),
+					},
+					"dns": map[string]any{
+						"type": "UDP",
+						"port": int64(53),
+					},
+				},
+			},
+		}
+		result, err := engine.Render(`${workload.endpoints.toServicePorts().filter(p, p.protocol == "UDP")}`, udpInputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{
+			map[string]any{"name": "dns", "port": int64(53), "targetPort": int64(53), "protocol": "UDP"},
+		}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("filter() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("list concatenation with inline items", func(t *testing.T) {
+		result, err := engine.Render(`${workload.endpoints.toServicePorts() + [{"name": "admin", "port": 9999, "targetPort": 9999, "protocol": "TCP"}]}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		want := []any{
+			map[string]any{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+			map[string]any{"name": "grpc", "port": int64(9090), "targetPort": int64(9090), "protocol": "TCP"},
+			map[string]any{"name": "admin", "port": int64(9999), "targetPort": int64(9999), "protocol": "TCP"},
+		}
+		if diff := cmp.Diff(want, result, cmpopts.SortSlices(func(a, b any) bool {
+			aMap, aOk := a.(map[string]any)
+			bMap, bOk := b.(map[string]any)
+			if aOk && bOk {
+				return aMap["name"].(string) < bMap["name"].(string)
+			}
+			return false
+		})); diff != "" {
+			t.Errorf("concatenation mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
