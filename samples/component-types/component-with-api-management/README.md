@@ -37,6 +37,63 @@ This example shows a modular approach to API management where:
   - API Configuration Trait
   - Sample Component, Workload, and ReleaseBinding
 
+## Installation
+
+The API Platform module is disabled by default and must be explicitly enabled on the OpenChoreo Data Plane.
+
+### Prerequisites
+
+- OpenChoreo deployed in a Kubernetes cluster
+- `kubectl` configured for cluster access
+- Helm 3.12 or later
+
+### Fresh Installation
+
+When installing the OpenChoreo Data Plane for the first time, enable the API Platform with:
+
+```bash
+helm upgrade --install openchoreo-data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
+  --version 0.0.0-latest-dev \
+  --namespace openchoreo-data-plane \
+  --create-namespace \
+  --set gateway.httpPort=19080 \
+  --set gateway.httpsPort=19443 \
+  --set gatewayController.enabled=false \
+  --set gateway.envoy.mountTmpVolume=true \
+  --set gateway.selfSignedIssuer.enabled=false \
+  --set api-platform.enabled=true
+```
+
+### Enabling on an Existing Installation
+
+For an already-running OpenChoreo deployment, first install the required CRDs:
+
+```bash
+kubectl apply --server-side \
+  -f https://raw.githubusercontent.com/wso2/api-platform/gateway-v0.3.0/kubernetes/helm/operator-helm-chart/crds/gateway.api-platform.wso2.com_restapis.yaml \
+  -f https://raw.githubusercontent.com/wso2/api-platform/gateway-v0.3.0/kubernetes/helm/operator-helm-chart/crds/gateway.api-platform.wso2.com_gateways.yaml
+```
+
+Then upgrade the Data Plane with the API Platform enabled:
+
+```bash
+helm upgrade --install openchoreo-data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
+  --version 0.0.0-latest-dev \
+  --namespace openchoreo-data-plane \
+  --reuse-values \
+  --set api-platform.enabled=true
+```
+
+### Verify Installation
+
+Confirm the API Platform pods are running:
+
+```bash
+kubectl get pods -n openchoreo-data-plane --selector="app.kubernetes.io/instance=api-platform-default-gateway"
+```
+
+You should see three running pods: the controller, policy engine, and router.
+
 ## How It Works
 
 ### 1. Base ComponentType
