@@ -268,7 +268,7 @@ func (h *Handler) GetComponentWorkflowRunStatus(w http.ResponseWriter, r *http.R
 
 	log = log.With("namespace", namespaceName, "project", projectName, "component", componentName, "run", runName)
 	// Call service to get component workflow run status
-	status, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunStatus(ctx, namespaceName, projectName, componentName, runName)
+	status, err := h.services.ComponentWorkflowService.GetComponentWorkflowRunStatus(ctx, namespaceName, projectName, componentName, runName, h.config.ClusterGateway.URL)
 	if err != nil {
 		if errors.Is(err, services.ErrComponentWorkflowRunNotFound) {
 			log.Error("Component workflow run not found")
