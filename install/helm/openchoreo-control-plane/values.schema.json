@@ -2330,13 +2330,6 @@
       "title": "k3d",
       "type": "object"
     },
-    "kgateway-crds": {
-      "additionalProperties": true,
-      "description": "KGateway CRDs subchart configuration (Helm dependency)",
-      "required": [],
-      "title": "kgateway-crds",
-      "type": "object"
-    },
     "kubernetesClusterDomain": {
       "default": "cluster.local",
       "description": "Kubernetes cluster domain suffix",

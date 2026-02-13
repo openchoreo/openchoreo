@@ -83,6 +83,9 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 	if err != nil {
 		return fmt.Errorf("failed to get credentials: %w", err)
 	}
+	if credential == nil {
+		return fmt.Errorf("no current credential available")
+	}
 
 	if params.Follow {
 		return c.followLogs(ctx, observerURL, credential.Token, component.Uid.String(), environment.Uid.String(), params, startTime, endTime)
@@ -222,7 +225,8 @@ func (c *CompImpl) fetchLogs(
 	obsClient := client.NewObserverClient(observerURL, token)
 	logResponse, err := obsClient.FetchComponentLogs(ctx, componentID, reqBody)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch logs for component %s/%s/%s in environment %s from observer %s: %w",
+			params.Namespace, params.Project, params.Component, params.Environment, observerURL, err)
 	}
 
 	return logResponse.Logs, nil

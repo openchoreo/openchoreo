@@ -5,12 +5,14 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 // ListEnvironments returns a paginated list of environments
@@ -89,6 +91,9 @@ func (h *Handler) GetEnvironment(
 
 	environment, err := h.services.EnvironmentService.GetEnvironment(ctx, request.NamespaceName, request.EnvName)
 	if err != nil {
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			return gen.GetEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
 		h.logger.Error("Failed to get environment", "error", err, "namespace", request.NamespaceName, "env", request.EnvName)
 		return gen.GetEnvironment500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -105,6 +110,9 @@ func (h *Handler) GetEnvironmentObserverURL(
 
 	observerResponse, err := h.services.EnvironmentService.GetEnvironmentObserverURL(ctx, request.NamespaceName, request.EnvName)
 	if err != nil {
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			return gen.GetEnvironmentObserverURL404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
 		h.logger.Error("Failed to get environment observer URL", "error", err, "namespace", request.NamespaceName, "env", request.EnvName)
 		return gen.GetEnvironmentObserverURL500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
