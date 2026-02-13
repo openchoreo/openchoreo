@@ -288,7 +288,7 @@ Create a ObservabilityPlane resource to enable observability in data plane and b
 ./install/add-observability-plane.sh \
   --control-plane-context k3d-openchoreo \
   --name default \
-  --observer-url http://observer.openchoreo-observability-plane.svc.cluster.local:8080
+  --observer-url http://observer.openchoreo.localhost:11080
 ```
 The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
