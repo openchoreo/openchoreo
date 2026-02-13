@@ -42,10 +42,10 @@ spec:
 
         # Authorization Configuration
         - name: AUTHZ_ENABLED
-          value: {{ .Values.rca.authz.enabled | default true | quote }}
+          value: {{ .Values.rca.authz.enabled | quote }}
 
         - name: AUTHZ_TIMEOUT_SECONDS
-          value: {{ .Values.rca.authz.timeoutSeconds | default 30 | quote }}
+          value: {{ .Values.rca.authz.timeoutSeconds | quote }}
 
         # LLM Configuration
         - name: RCA_MODEL_NAME
