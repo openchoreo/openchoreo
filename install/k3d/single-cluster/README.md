@@ -117,6 +117,41 @@ kubectl patch deployment gateway-default -n openchoreo-control-plane --type='jso
 ]'
 
 # Data Plane
+
+# Copy the cluster-gateway CA from control plane to data plane namespace
+CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
+
+kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-data-plane
+
+# Create fake ClusterSecretStore for development
+kubectl --context k3d-openchoreo apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: default
+spec:
+  provider:
+    fake:
+      data:
+      - key: npm-token
+        value: "fake-npm-token-for-development"
+      - key: docker-username
+        value: "dev-user"
+      - key: docker-password
+        value: "dev-password"
+      - key: github-pat
+        value: "fake-github-token-for-development"
+      - key: username
+        value: "dev-user"
+      - key: password
+        value: "dev-password"
+      - key: RCA_LLM_API_KEY
+        value: "fake-llm-api-key-for-development"
+EOF
+
 helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --dependency-update \
   --kube-context k3d-openchoreo \

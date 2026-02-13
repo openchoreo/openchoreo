@@ -7,11 +7,3 @@ gateway:
   # Use self-signed issuer in control plane for TLS certs
   selfSignedIssuer:
     enabled: false
-  envoy:
-    # Mount /tmp as emptyDir to fix Envoy temp file issues on macOS Docker/Colima
-    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-    mountTmpVolume: true
-
-# Reuse the existing control plane's cluster gateway controller
-gatewayController:
-  enabled: false

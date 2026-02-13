@@ -2,29 +2,14 @@
 # This file contains overrides specific to running the data plane in a k3d environment
 
 # Cluster Agent configuration for secure communication with control plane
-# IMPORTANT: Before installing, run ./install/extract-agent-cas.sh server-ca
-# and paste the server CA certificate below
+# IMPORTANT: Before installing, create the server CA ConfigMap manually.
+# See the README for instructions on extracting and creating CA resources.
 clusterAgent:
-  serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"  # Control plane cluster gateway URL
-
-  # DNS rewrite configuration for multi-cluster k3d setup
-  # Rewrites *.openchoreo.localhost to host.k3d.internal for cross-cluster communication
-  dnsRewrite:
-    enabled: true
+  serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"
 
   tls:
     generateCerts: true
-    # For multi-cluster, don't set caSecretName - use self-signed certs
-    # The cluster gateway will verify the client cert via mTLS
     caSecretName: ""
-    caSecretNamespace: ""
-    # Server CA certificate for TLS verification
-    # Extract from control plane: kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}' | base64 -d
-    # Or use: ./install/extract-agent-cas.sh server-ca
-    serverCAValue: |
-      -----BEGIN CERTIFICATE-----
-      <PASTE_SERVER_CA_CERTIFICATE_HERE>
-      -----END CERTIFICATE-----
 
 fluent-bit:
   enabled: true
@@ -48,17 +33,13 @@ fluent-bit:
           tls.verify Off
           tls.vhost opensearch.observability.openchoreo.localhost
 
+k3d:
+  dnsRewrite:
+    enabled: true
+
 gateway:
   httpPort: 19080
   httpsPort: 19443
-
-  # Envoy configuration for traffic routing
-  envoy:
-    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
-    # Enable this if gateway pods crash with "Failed to create temporary file" errors
-    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
-    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-    mountTmpVolume: true
 
 kube-prometheus-stack:
   enabled: true
@@ -66,7 +47,6 @@ kube-prometheus-stack:
     prometheusSpec:
       remoteWrite:
       - url: "http://host.k3d.internal:11084/api/v1/write"
-      ## TODO: Enable mTLS
 
 observability:
   observabilityPlaneUrl: "http://host.k3d.internal:11086"

@@ -353,19 +353,6 @@ kube-prometheus-stack:
 
 # @schema
 # type: object
-# additionalProperties: true
-# description: Wait job configuration for post-install Helm hooks that wait for resources
-# @schema
-waitJob:
-  # @schema
-  # type: string
-  # description: Container image for kubectl-based wait jobs used in Helm hooks
-  # default: bitnamilegacy/kubectl:1.32.4
-  # @schema
-  image: bitnamilegacy/kubectl:1.32.4
-
-# @schema
-# type: object
 # description: "[DEPRECATED] Container registry configuration. Registry has been moved to Build Plane."
 # @schema
 registry:
@@ -441,26 +428,6 @@ registry:
     # default: 2Gi
     # @schema
     size: 2Gi
-
-# @schema
-# type: object
-# additionalProperties: true
-# description: KGateway CRDs subchart configuration (values passed through to kgateway-crds)
-# @schema
-kgateway-crds: {}
-
-# @schema
-# type: object
-# additionalProperties: true
-# description: KGateway controller configuration
-# @schema
-gatewayController:
-  # @schema
-  # type: boolean
-  # description: Enable kgateway controller installation (set to false in single cluster mode for data-plane)
-  # default: true
-  # @schema
-  enabled: true
 
 # @schema
 # type: object
@@ -712,102 +679,6 @@ gateway:
     # default: false
     # @schema
     enabled: false
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Envoy proxy configuration for actual traffic routing
-  # @schema
-  envoy:
-    # @schema
-    # type: boolean
-    # description: Enable Envoy proxy for traffic routing
-    # default: true
-    # @schema
-    enabled: true
-
-    # @schema
-    # type: boolean
-    # description: Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima
-    # default: false
-    # @schema
-    mountTmpVolume: false
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: Default container image configuration for gateway components
-  # @schema
-  image:
-    # @schema
-    # type: string
-    # description: Container registry for gateway images
-    # default: cr.kgateway.dev/kgateway-dev
-    # @schema
-    registry: cr.kgateway.dev/kgateway-dev
-
-    # @schema
-    # type: string
-    # description: Image tag. Empty uses Chart.AppVersion.
-    # default: ""
-    # @schema
-    tag: ""
-
-    # @schema
-    # description: Image pull policy for gateway containers
-    # enum: [Always, IfNotPresent, Never]
-    # default: IfNotPresent
-    # @schema
-    pullPolicy: IfNotPresent
-
-# @schema
-# type: object
-# additionalProperties: true
-# description: Fake Secret Store for development and testing. Replace with a real ClusterSecretStore in production.
-# @schema
-fakeSecretStore:
-  # @schema
-  # type: boolean
-  # description: Enable the fake secret store (development only - disable in production)
-  # default: true
-  # @schema
-  enabled: true
-
-  # @schema
-  # type: string
-  # description: Name of the fake ClusterSecretStore resource
-  # default: default
-  # @schema
-  name: default
-
-  # @schema
-  # type: array
-  # description: List of fake secrets for development testing
-  # items:
-  #   type: object
-  #   properties:
-  #     key:
-  #       type: string
-  #       description: Secret key name
-  #     value:
-  #       type: string
-  #       description: Secret value (for development only)
-  # @schema
-  secrets:
-    - key: npm-token
-      value: "fake-npm-token-for-development"
-    - key: docker-username
-      value: "dev-user"
-    - key: docker-password
-      value: "dev-password"
-    - key: github-pat
-      value: "fake-github-token-for-development"
-    - key: username
-      value: "dev-user"
-    - key: password
-      value: "dev-password"
-    - key: RCA_LLM_API_KEY
-      value: "fake-llm-api-key-for-development"
 
 # @schema
 # type: object
@@ -1412,18 +1283,6 @@ clusterAgent:
   planeType: dataplane
 
   # @schema
-  # type: object
-  # description: DNS rewrite configuration for multi-cluster k3d setups
-  # @schema
-  dnsRewrite:
-    # @schema
-    # type: boolean
-    # description: Enable CoreDNS rewrite of *.openchoreo.localhost to host.k3d.internal
-    # default: false
-    # @schema
-    enabled: false
-
-  # @schema
   # type: string
   # description: Interval between heartbeat messages to control plane
   # default: 30s
@@ -1617,31 +1476,10 @@ clusterAgent:
 
     # @schema
     # type: string
-    # description: Inline server CA certificate in PEM format (for multi-cluster setup). Takes precedence over copying from control plane.
-    # default: ""
-    # @schema
-    serverCAValue: ""
-
-    # @schema
-    # type: string
     # description: CA secret name for signing agent client certificates. If empty, self-signed certs will be generated (required for multi-cluster setup).
     # default: cluster-gateway-ca
     # @schema
     caSecretName: cluster-gateway-ca
-
-    # @schema
-    # type: string
-    # description: Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).
-    # default: openchoreo-control-plane
-    # @schema
-    caSecretNamespace: openchoreo-control-plane
-
-    # @schema
-    # type: string
-    # description: Inline CA certificate in PEM format (for multi-cluster setup). Takes precedence over caSecretName/caSecretNamespace.
-    # default: ""
-    # @schema
-    caValue: ""
 
     # @schema
     # type: string
@@ -1656,13 +1494,6 @@ clusterAgent:
     # default: 360h
     # @schema
     renewBefore: 360h
-
-  # @schema
-  # type: string
-  # description: Namespace where cluster-gateway CA exists (control plane namespace)
-  # default: openchoreo-control-plane
-  # @schema
-  serverCANamespace: openchoreo-control-plane
 
   # @schema
   # type: object
@@ -1766,6 +1597,23 @@ clusterAgent:
   # default: {}
   # @schema
   affinity: {}
+
+# @schema
+# type: object
+# description: k3d-specific configuration for local development clusters
+# @schema
+k3d:
+  # @schema
+  # type: object
+  # description: CoreDNS rewrite for multi-cluster k3d setups
+  # @schema
+  dnsRewrite:
+    # @schema
+    # type: boolean
+    # description: Deploy a CoreDNS custom ConfigMap that rewrites *.openchoreo.localhost to host.k3d.internal
+    # default: false
+    # @schema
+    enabled: false
 
 # @schema
 # type: object

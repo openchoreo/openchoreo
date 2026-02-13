@@ -65,21 +65,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "dnsRewrite": {
-          "additionalProperties": false,
-          "description": "DNS rewrite configuration for multi-cluster k3d setups",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable CoreDNS rewrite of *.openchoreo.localhost to host.k3d.internal",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "dnsRewrite",
-          "type": "object"
-        },
         "enabled": {
           "default": true,
           "description": "Enable the cluster agent deployment",
@@ -387,12 +372,6 @@
           "title": "securityContext",
           "type": "object"
         },
-        "serverCANamespace": {
-          "default": "openchoreo-control-plane",
-          "description": "Namespace where cluster-gateway CA exists (control plane namespace)",
-          "title": "serverCANamespace",
-          "type": "string"
-        },
         "serverUrl": {
           "default": "wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws",
           "description": "WebSocket URL of the cluster gateway in control plane",
@@ -440,18 +419,6 @@
               "title": "caSecretName",
               "type": "string"
             },
-            "caSecretNamespace": {
-              "default": "openchoreo-control-plane",
-              "description": "Namespace where the CA secret exists. If empty, self-signed certs will be generated (required for multi-cluster setup).",
-              "title": "caSecretNamespace",
-              "type": "string"
-            },
-            "caValue": {
-              "default": "",
-              "description": "Inline CA certificate in PEM format (for multi-cluster setup). Takes precedence over caSecretName/caSecretNamespace.",
-              "title": "caValue",
-              "type": "string"
-            },
             "clientSecretName": {
               "default": "cluster-agent-tls",
               "description": "Secret name for client certificate (typically same as secretName)",
@@ -492,12 +459,6 @@
               "default": "cluster-gateway-ca",
               "description": "ConfigMap name containing server CA certificate for verifying gateway",
               "title": "serverCAConfigMap",
-              "type": "string"
-            },
-            "serverCAValue": {
-              "default": "",
-              "description": "Inline server CA certificate in PEM format (for multi-cluster setup). Takes precedence over copying from control plane.",
-              "title": "serverCAValue",
               "type": "string"
             }
           },
@@ -541,46 +502,6 @@
       },
       "required": [],
       "title": "clusterAgent",
-      "type": "object"
-    },
-    "fakeSecretStore": {
-      "additionalProperties": true,
-      "description": "Fake Secret Store for development and testing. Replace with a real ClusterSecretStore in production.",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable the fake secret store (development only - disable in production)",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "name": {
-          "default": "default",
-          "description": "Name of the fake ClusterSecretStore resource",
-          "title": "name",
-          "type": "string"
-        },
-        "secrets": {
-          "description": "List of fake secrets for development testing",
-          "items": {
-            "properties": {
-              "key": {
-                "description": "Secret key name",
-                "type": "string"
-              },
-              "value": {
-                "description": "Secret value (for development only)",
-                "type": "string"
-              }
-            },
-            "required": [],
-            "type": "object"
-          },
-          "title": "secrets",
-          "type": "array"
-        }
-      },
-      "required": [],
-      "title": "fakeSecretStore",
       "type": "object"
     },
     "fluent-bit": {
@@ -1035,27 +956,6 @@
           "title": "enabled",
           "type": "boolean"
         },
-        "envoy": {
-          "additionalProperties": true,
-          "description": "Envoy proxy configuration for actual traffic routing",
-          "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Enable Envoy proxy for traffic routing",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "mountTmpVolume": {
-              "default": false,
-              "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
-              "title": "mountTmpVolume",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "envoy",
-          "type": "object"
-        },
         "gatewayClassName": {
           "default": "kgateway",
           "description": "GatewayClass name to reference in the Gateway CR",
@@ -1077,38 +977,6 @@
           "minimum": 1,
           "title": "httpsPort",
           "type": "integer"
-        },
-        "image": {
-          "additionalProperties": true,
-          "description": "Default container image configuration for gateway components",
-          "properties": {
-            "pullPolicy": {
-              "default": "IfNotPresent",
-              "description": "Image pull policy for gateway containers",
-              "enum": [
-                "Always",
-                "IfNotPresent",
-                "Never"
-              ],
-              "required": [],
-              "title": "pullPolicy"
-            },
-            "registry": {
-              "default": "cr.kgateway.dev/kgateway-dev",
-              "description": "Container registry for gateway images",
-              "title": "registry",
-              "type": "string"
-            },
-            "tag": {
-              "default": "",
-              "description": "Image tag. Empty uses Chart.AppVersion.",
-              "title": "tag",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "image",
-          "type": "object"
         },
         "infrastructure": {
           "additionalProperties": true,
@@ -1164,21 +1032,6 @@
       "title": "gateway",
       "type": "object"
     },
-    "gatewayController": {
-      "additionalProperties": true,
-      "description": "KGateway controller configuration",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable kgateway controller installation (set to false in single cluster mode for data-plane)",
-          "title": "enabled",
-          "type": "boolean"
-        }
-      },
-      "required": [],
-      "title": "gatewayController",
-      "type": "object"
-    },
     "global": {
       "additionalProperties": false,
       "description": "Global values shared across all components in the data plane",
@@ -1198,11 +1051,28 @@
       "title": "global",
       "type": "object"
     },
-    "kgateway-crds": {
-      "additionalProperties": true,
-      "description": "KGateway CRDs subchart configuration (values passed through to kgateway-crds)",
+    "k3d": {
+      "additionalProperties": false,
+      "description": "k3d-specific configuration for local development clusters",
+      "properties": {
+        "dnsRewrite": {
+          "additionalProperties": false,
+          "description": "CoreDNS rewrite for multi-cluster k3d setups",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Deploy a CoreDNS custom ConfigMap that rewrites *.openchoreo.localhost to host.k3d.internal",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "dnsRewrite",
+          "type": "object"
+        }
+      },
       "required": [],
-      "title": "kgateway-crds",
+      "title": "k3d",
       "type": "object"
     },
     "kube-prometheus-stack": {
@@ -1927,21 +1797,6 @@
       },
       "required": [],
       "title": "security",
-      "type": "object"
-    },
-    "waitJob": {
-      "additionalProperties": true,
-      "description": "Wait job configuration for post-install Helm hooks that wait for resources",
-      "properties": {
-        "image": {
-          "default": "bitnamilegacy/kubectl:1.32.4",
-          "description": "Container image for kubectl-based wait jobs used in Helm hooks",
-          "title": "image",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "title": "waitJob",
       "type": "object"
     }
   },

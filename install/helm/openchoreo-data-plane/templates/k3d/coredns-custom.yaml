@@ -1,8 +1,4 @@
-{{- if .Values.clusterAgent.enabled }}
-{{- if .Values.clusterAgent.dnsRewrite.enabled }}
----
-# CoreDNS custom hosts for cluster gateway resolution
-# Maps cluster-gateway.openchoreo.localhost to host.k3d.internal for multi-cluster communication
+{{- if .Values.k3d.dnsRewrite.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,10 +6,7 @@ metadata:
   namespace: kube-system
   labels:
     {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: cluster-agent-dns
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "-10"
+    app.kubernetes.io/component: k3d-dns
 data:
   cluster-gateway.override: |
     # Rewrite cluster gateway hostname to use host.k3d.internal
@@ -22,5 +15,4 @@ data:
       name exact cluster-gateway.openchoreo.localhost host.k3d.internal
       answer auto
     }
-{{- end }}
 {{- end }}

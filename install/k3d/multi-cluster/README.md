@@ -98,19 +98,11 @@ spec:
     - "*.openchoreo.localhost"
 EOF
 
-# Extract cluster-gateway server CA certificate (needed for agent configuration)
-./install/extract-agent-cas.sh --control-plane-context k3d-openchoreo-cp server-ca
 ```
 
-The server CA certificate will be saved to `./agent-cas/server-ca.crt`.
-You'll need to paste its contents into the data plane, build plane and observability plane values files.
+The server CA certificate is extracted directly via kubectl during each plane's installation step.
 
 ### 2. Data Plane
-
-> [!IMPORTANT]
-> Before installing the data plane, verify that the server CA certificate from Step 1 is already in `install/k3d/multi-cluster/values-dp.yaml` under `clusterAgent.tls.serverCAValue`.
->
-> The values file in the repository already contains the CA certificate. If you regenerated it in Step 1, paste the contents of `./agent-cas/server-ca.crt` to update the values file.
 
 Create cluster and install components:
 
@@ -150,6 +142,57 @@ kubectl wait --context k3d-openchoreo-dp \
   --for=condition=Available deployment/external-secrets \
   -n external-secrets --timeout=180s
 
+# Install kgateway
+helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+  --kube-context k3d-openchoreo-dp \
+  --version v2.1.1
+
+helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+  --kube-context k3d-openchoreo-dp \
+  --namespace openchoreo-data-plane \
+  --create-namespace \
+  --version v2.1.1
+
+# Create namespace (if not already created by kgateway)
+kubectl --context k3d-openchoreo-dp create namespace openchoreo-data-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo-dp apply -f -
+
+# Extract server CA from control plane and create ConfigMap
+kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca \
+  -n openchoreo-control-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/server-ca.crt
+
+kubectl --context k3d-openchoreo-dp create configmap cluster-gateway-ca \
+  --from-file=ca.crt=/tmp/server-ca.crt \
+  -n openchoreo-data-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-dp apply -f -
+
+# Create fake ClusterSecretStore for development
+kubectl --context k3d-openchoreo-dp apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: default
+spec:
+  provider:
+    fake:
+      data:
+      - key: npm-token
+        value: "fake-npm-token-for-development"
+      - key: docker-username
+        value: "dev-user"
+      - key: docker-password
+        value: "dev-password"
+      - key: github-pat
+        value: "fake-github-token-for-development"
+      - key: username
+        value: "dev-user"
+      - key: password
+        value: "dev-password"
+      - key: RCA_LLM_API_KEY
+        value: "fake-llm-api-key-for-development"
+EOF
+
 # Install Data Plane Helm chart
 helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --dependency-update \
@@ -166,7 +209,7 @@ kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-
 ]'
 
 # Create TLS Certificate for Data plane gateway
-kubectl apply -f - <<EOF
+kubectl apply --context k3d-openchoreo-dp -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -712,9 +755,6 @@ If you see errors like `no such host` or `lookup ... i/o timeout` in agent logs:
 ```bash
 # Check if CoreDNS custom config exists
 kubectl --context k3d-openchoreo-dp get configmap coredns-custom -n kube-system
-
-# Check if DNS rewrite is enabled in values file
-grep -A2 dnsRewrite install/k3d/multi-cluster/values-dp.yaml
 
 # Test DNS resolution
 kubectl --context k3d-openchoreo-dp run test-dns --image=busybox --rm -it --restart=Never -- \
