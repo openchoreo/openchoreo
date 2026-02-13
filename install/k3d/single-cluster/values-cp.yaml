@@ -27,3 +27,15 @@ thunder:
 gateway:
   tls:
     hostname: "*.openchoreo.localhost"
+  # Envoy configuration for traffic routing
+  envoy:
+    # Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues
+    # Enable this if gateway pods crash with "Failed to create temporary file" errors
+    # Common on: macOS with Docker Desktop/Colima with Rosetta enabled.
+    # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
+    mountTmpVolume: true
+
+# DNS rewrite for observer access
+k3d:
+  dnsRewrite:
+    enabled: true

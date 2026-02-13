@@ -1,0 +1,23 @@
+{{- if .Values.k3d.dnsRewrite.enabled }}
+---
+# CoreDNS custom hosts for multi-cluster DNS resolution
+# This ConfigMap provides DNS rewrites for control plane components to reach observer
+# Maps observer hostname to host.k3d.internal for cross-cluster communication
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dns-rewrite
+data:
+  observer-services.override: |
+    # Rewrite observer service hostname to use host.k3d.internal
+    # This allows control plane services to reach observer
+    # Matches: observer.openchoreo.localhost
+    rewrite stop {
+      name exact observer.openchoreo.localhost host.k3d.internal
+      answer auto
+    }
+{{- end }}

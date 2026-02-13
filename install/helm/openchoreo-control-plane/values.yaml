@@ -58,6 +58,23 @@ global:
   commonLabels: {}
 
 # @schema
+# type: object
+# description: k3d-specific configuration for local development
+# @schema
+k3d:
+  # @schema
+  # type: object
+  # description: DNS rewrite configuration for multi-cluster k3d setups
+  # @schema
+  dnsRewrite:
+    # @schema
+    # type: boolean
+    # description: Enable CoreDNS rewrite for observer.openchoreo.localhost to host.k3d.internal
+    # default: false
+    # @schema
+    enabled: false
+
+# @schema
 # type: string
 # description: Override the full name of the chart release
 # default: openchoreo
