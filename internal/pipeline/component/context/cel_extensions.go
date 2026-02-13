@@ -6,6 +6,7 @@ package context
 import (
 	"fmt"
 	"hash/fnv"
+	"sort"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -40,8 +41,8 @@ const (
 //   - Function: configurationsToConfigEnvsByContainer
 //   - Macro: configurations.toSecretEnvsByContainer() -> configurationsToSecretEnvsByContainer(configurations, prefix)
 //   - Function: configurationsToSecretEnvsByContainer
-//   - Macro: workload.endpoints.toServicePorts() -> workloadEndpointsToServicePorts(workload.endpoints)
-//   - Function: workloadEndpointsToServicePorts
+//   - Macro: workload.toServicePorts() -> workloadToServicePorts(workload)
+//   - Function: workloadToServicePorts
 //
 // Where prefix = metadata.componentName + "-" + metadata.environmentName (automatically injected by macros)
 func CELExtensions() []cel.EnvOption {
@@ -93,10 +94,10 @@ func CELExtensions() []cel.EnvOption {
 				cel.BinaryBinding(configurationsToSecretEnvsByContainerFunction),
 			),
 		),
-		cel.Function("workloadEndpointsToServicePorts",
-			cel.Overload("workloadEndpointsToServicePorts_map",
+		cel.Function("workloadToServicePorts",
+			cel.Overload("workloadToServicePorts_map",
 				[]*cel.Type{cel.MapType(cel.StringType, cel.DynType)}, cel.ListType(cel.DynType),
-				cel.UnaryBinding(workloadEndpointsToServicePortsFunction),
+				cel.UnaryBinding(workloadToServicePortsFunction),
 			),
 		),
 	}
@@ -187,18 +188,13 @@ var toSecretEnvsByContainerMacro = cel.ReceiverMacro("toSecretEnvsByContainer", 
 		return nil, nil
 	})
 
-// toServicePortsMacro transforms workload.endpoints.toServicePorts() into
-// workloadEndpointsToServicePorts(workload.endpoints) at compile time.
+// toServicePortsMacro transforms workload.toServicePorts() into
+// workloadToServicePorts(workload) at compile time.
 var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		// Check if target is workload.endpoints
-		if target.Kind() == ast.SelectKind {
-			sel := target.AsSelect()
-			if sel.FieldName() == "endpoints" &&
-				sel.Operand().Kind() == ast.IdentKind &&
-				sel.Operand().AsIdent() == "workload" {
-				return eh.NewCall("workloadEndpointsToServicePorts", target), nil
-			}
+		// Check if target is workload
+		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
+			return eh.NewCall("workloadToServicePorts", target), nil
 		}
 		return nil, nil
 	})
@@ -713,22 +709,41 @@ func generateEnvResourceName(prefix, container, suffix string) string {
 	)
 }
 
-// workloadEndpointsToServicePortsFunction is the CEL binding for workload.endpoints.toServicePorts().
+// workloadToServicePortsFunction is the CEL binding for workload.toServicePorts().
 // Returns a list of Service port definitions, each containing: name, port, targetPort, protocol.
-func workloadEndpointsToServicePortsFunction(endpoints ref.Val) ref.Val {
-	endpointsMap, ok := endpoints.Value().(map[string]any)
+func workloadToServicePortsFunction(workload ref.Val) ref.Val {
+	workloadMap, ok := workload.Value().(map[string]any)
 	if !ok {
-		return types.NewErr("toServicePorts: expected map[string]any, got %T", endpoints.Value())
+		return types.NewErr("toServicePorts: expected workload to be a map, got %T", workload.Value())
+	}
+
+	// Extract endpoints from workload
+	endpointsVal, hasEndpoints := workloadMap["endpoints"]
+	if !hasEndpoints {
+		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
+	}
+
+	endpointsMap, ok := endpointsVal.(map[string]any)
+	if !ok {
+		return types.NewErr("toServicePorts: workload.endpoints must be a map, got %T", endpointsVal)
 	}
 
 	if len(endpointsMap) == 0 {
 		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
 	}
 
+	// Sort endpoint names for deterministic output
+	endpointNames := make([]string, 0, len(endpointsMap))
+	for endpointName := range endpointsMap {
+		endpointNames = append(endpointNames, endpointName)
+	}
+	sort.Strings(endpointNames)
+
 	result := make([]map[string]any, 0, len(endpointsMap))
 	usedNames := make(map[string]bool)
 
-	for endpointName, endpointVal := range endpointsMap {
+	for _, endpointName := range endpointNames {
+		endpointVal := endpointsMap[endpointName]
 		endpoint, ok := endpointVal.(map[string]any)
 		if !ok {
 			return types.NewErr("toServicePorts: endpoint '%s' must be an object, got %T", endpointName, endpointVal)

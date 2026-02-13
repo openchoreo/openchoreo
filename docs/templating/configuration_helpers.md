@@ -437,7 +437,7 @@ volumes: |
 
 ### Workload Endpoint Helpers
 
-#### workload.endpoints.toServicePorts()
+#### workload.toServicePorts()
 
 Helper method that converts the `workload.endpoints` map into a list of Service port definitions. This simplifies Service generation by automatically creating ports based on the workload's endpoint configuration.
 
@@ -471,7 +471,7 @@ Helper method that converts the `workload.endpoints` map into a list of Service 
       namespace: ${metadata.namespace}
     spec:
       selector: ${metadata.podSelectors}
-      ports: ${workload.endpoints.toServicePorts()}
+      ports: ${workload.toServicePorts()}
 
 # Before - verbose manual logic:
 ports: |
@@ -483,7 +483,7 @@ ports: |
   })}
 
 # After - clean helper usage:
-ports: ${workload.endpoints.toServicePorts()}
+ports: ${workload.toServicePorts()}
 ```
 
 **With multiple endpoints:**
@@ -514,16 +514,23 @@ ports:
 **Dynamic port references in HTTPRoute:**
 
 ```yaml
-# Reference the first endpoint's port dynamically
+# Reference a specific endpoint's port
 backendRefs:
   - name: ${metadata.componentName}
-    port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
+    port: ${workload.endpoints.http.port}
+
+# Or use the first port from the service ports list
+backendRefs:
+  - name: ${metadata.componentName}
+    port: ${workload.toServicePorts()[0].port}
 ```
 
 **Notes:**
 - Returns an empty list if `workload.endpoints` is empty
-- Endpoint names are sanitized for Kubernetes port naming (lowercase alphanumeric + hyphens)
+- Endpoint names are sanitized for Kubernetes port naming (lowercase alphanumeric + hyphens, max 15 chars)
+- Duplicate names after sanitization get unique numeric suffixes (e.g., http, http-2, http-3)
 - Both `port` and `targetPort` use the same value from the endpoint configuration
+- Endpoints are processed in alphabetical order for deterministic output
 - Use with `includeWhen: ${size(workload.endpoints) > 0}` to conditionally create Services only when endpoints exist
 
 ## See Also

@@ -1533,7 +1533,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 	}{
 		{
 			name: "single HTTP endpoint",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1550,7 +1550,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "multiple endpoints with different types",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1577,7 +1577,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "empty endpoints returns empty list",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{},
@@ -1587,7 +1587,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "TCP endpoint maps to TCP protocol",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1604,7 +1604,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "UDP endpoint maps to UDP protocol",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1621,7 +1621,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "GraphQL endpoint maps to TCP protocol",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1638,7 +1638,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "Websocket endpoint maps to TCP protocol",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1655,7 +1655,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name with underscores converts to hyphens",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1672,7 +1672,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name with mixed case converts to lowercase",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1689,7 +1689,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name with invalid characters removed",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1706,7 +1706,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name with leading/trailing hyphens trimmed",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1723,7 +1723,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name longer than 15 characters truncated",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1740,7 +1740,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "endpoint name with only invalid characters uses port number",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1757,7 +1757,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 		},
 		{
 			name: "duplicate names after sanitization get unique suffixes",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1776,10 +1776,11 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 					},
 				},
 			},
+			// With alphabetical sorting: "HTTP" (8082) -> "http", then "http" (8080) -> "http-2", then "http_" (8081) -> "http-3"
 			want: []map[string]any{
-				{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
-				{"name": "http-2", "port": int64(8081), "targetPort": int64(8081), "protocol": "TCP"},
-				{"name": "http-3", "port": int64(8082), "targetPort": int64(8082), "protocol": "TCP"},
+				{"name": "http", "port": int64(8082), "targetPort": int64(8082), "protocol": "TCP"},
+				{"name": "http-2", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+				{"name": "http-3", "port": int64(8081), "targetPort": int64(8081), "protocol": "TCP"},
 			},
 		},
 	}
@@ -1815,7 +1816,7 @@ func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
 	}{
 		{
 			name: "endpoint not an object returns error",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1827,7 +1828,7 @@ func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
 		},
 		{
 			name: "endpoint missing port field returns error",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1841,7 +1842,7 @@ func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
 		},
 		{
 			name: "endpoint with non-numeric port returns error",
-			expr: `workload.endpoints.toServicePorts()`,
+			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
 				"workload": map[string]any{
 					"endpoints": map[string]any{
@@ -1874,7 +1875,7 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
 	// This should work - workload.endpoints is the expected receiver
-	_, err := engine.Render(`${workload.endpoints.toServicePorts()}`, map[string]any{
+	_, err := engine.Render(`${workload.toServicePorts()}`, map[string]any{
 		"workload": map[string]any{
 			"endpoints": map[string]any{},
 		},
@@ -1884,7 +1885,7 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	}
 
 	// This should fail - "other" is not a valid receiver for the macro
-	_, err = engine.Render(`${other.endpoints.toServicePorts()}`, map[string]any{
+	_, err = engine.Render(`${other.toServicePorts()}`, map[string]any{
 		"other": map[string]any{
 			"endpoints": map[string]any{},
 		},
@@ -1923,7 +1924,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	}
 
 	t.Run("size() operation", func(t *testing.T) {
-		result, err := engine.Render(`${size(workload.endpoints.toServicePorts())}`, inputs)
+		result, err := engine.Render(`${size(workload.toServicePorts())}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1933,7 +1934,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation to extract port names", func(t *testing.T) {
-		result, err := engine.Render(`${workload.endpoints.toServicePorts().map(p, p.name)}`, inputs)
+		result, err := engine.Render(`${workload.toServicePorts().map(p, p.name)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1946,7 +1947,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("map() operation to extract port numbers", func(t *testing.T) {
-		result, err := engine.Render(`${workload.endpoints.toServicePorts().map(p, p.port)}`, inputs)
+		result, err := engine.Render(`${workload.toServicePorts().map(p, p.port)}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1973,7 +1974,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 				},
 			},
 		}
-		result, err := engine.Render(`${workload.endpoints.toServicePorts().filter(p, p.protocol == "UDP")}`, udpInputs)
+		result, err := engine.Render(`${workload.toServicePorts().filter(p, p.protocol == "UDP")}`, udpInputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1986,7 +1987,7 @@ func TestToServicePortsCanBeUsedWithCELOperations(t *testing.T) {
 	})
 
 	t.Run("list concatenation with inline items", func(t *testing.T) {
-		result, err := engine.Render(`${workload.endpoints.toServicePorts() + [{"name": "admin", "port": 9999, "targetPort": 9999, "protocol": "TCP"}]}`, inputs)
+		result, err := engine.Render(`${workload.toServicePorts() + [{"name": "admin", "port": 9999, "targetPort": 9999, "protocol": "TCP"}]}`, inputs)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

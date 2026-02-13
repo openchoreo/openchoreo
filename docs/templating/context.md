@@ -297,11 +297,11 @@ ports: |
 
 **Workload Endpoint Helper Method:**
 
-The `workload.endpoints` object provides a helper method to simplify Service port generation:
+The `workload` object provides a helper method to simplify Service port generation:
 
 | Helper Method | Description |
 |---------------|-------------|
-| `workload.endpoints.toServicePorts()` | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization |
+| `workload.toServicePorts()` | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization |
 
 For detailed documentation and examples, see [Configuration Helpers - Workload Endpoint Helpers](./configuration_helpers.md#workload-endpoint-helpers).
 
@@ -313,7 +313,7 @@ For detailed documentation and examples, see [Configuration Helpers - Workload E
   includeWhen: ${size(workload.endpoints) > 0}
   template:
     spec:
-      ports: ${workload.endpoints.toServicePorts()}
+      ports: ${workload.toServicePorts()}
 ```
 
 ### configurations

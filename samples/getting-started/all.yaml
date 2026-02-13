@@ -127,7 +127,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
       exposed: "boolean | default=false"
       containerName: "string | default=main"
 
@@ -159,10 +158,6 @@ spec:
                     ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
                   args: |
                     ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
-                  ports:
-                    - name: http
-                      containerPort: ${parameters.port}
-                      protocol: TCP
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -175,6 +170,7 @@ spec:
               volumes: ${configurations.toVolumes()}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -185,11 +181,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.toServicePorts()}
     - id: httproute
       includeWhen: ${parameters.exposed == true}
       template:
@@ -218,7 +210,7 @@ spec:
                     replacePrefixMatch: /
             backendRefs:
             - name: ${metadata.componentName}
-              port: 80
+              port: ${workload.toServicePorts()[0].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig
@@ -320,7 +312,6 @@ spec:
     parameters:
       replicas: "integer | default=1"
       imagePullPolicy: "string | default=IfNotPresent"
-      port: "integer | default=80"
       containerName: "string | default=main"
 
     envOverrides:
@@ -351,10 +342,6 @@ spec:
                     ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
                   args: |
                     ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
-                  ports:
-                    - name: http
-                      containerPort: ${parameters.port}
-                      protocol: TCP
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -367,6 +354,7 @@ spec:
               volumes: ${configurations.toVolumes()}
 
     - id: service
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: v1
         kind: Service
@@ -377,13 +365,10 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports:
-            - name: http
-              port: 80
-              targetPort: ${parameters.port}
-              protocol: TCP
+          ports: ${workload.toServicePorts()}
 
     - id: httproute
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -400,7 +385,7 @@ spec:
           rules:
           - backendRefs:
             - name: ${metadata.componentName}
-              port: 80
+              port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

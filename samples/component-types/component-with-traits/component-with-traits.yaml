@@ -48,10 +48,6 @@ spec:
                 - name: app
                   image: ${workload.containers["app"].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
-                  ports:
-                    - name: http
-                      containerPort: ${parameters.port}
-                      protocol: TCP
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -72,7 +68,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports: ${workload.endpoints.toServicePorts()}
+          ports: ${workload.toServicePorts()}
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

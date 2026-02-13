@@ -58,10 +58,6 @@ spec:
                     ${has(workload.containers[parameters.containerName].command) ? workload.containers[parameters.containerName].command : oc_omit()}
                   args: |
                     ${has(workload.containers[parameters.containerName].args) ? workload.containers[parameters.containerName].args : oc_omit()}
-                  ports:
-                    - name: http
-                      containerPort: ${parameters.port}
-                      protocol: TCP
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -85,7 +81,7 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports: ${workload.endpoints.toServicePorts()}
+          ports: ${workload.toServicePorts()}
     - id: httproute
       includeWhen: ${parameters.exposed == true}
       template:
@@ -114,7 +110,7 @@ spec:
                     replacePrefixMatch: /
             backendRefs:
             - name: ${metadata.componentName}
-              port: ${workload.endpoints[workload.endpoints.keys()[0]].port}
+              port: ${workload.toServicePorts()[0].port}
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
       var: envConfig

@@ -198,10 +198,6 @@ spec:
                 - name: app
                   image: ${workload.containers["app"].image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
-                  ports:
-                    - name: http
-                      containerPort: ${parameters.port}
-                      protocol: TCP
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -222,9 +218,10 @@ spec:
         spec:
           type: ClusterIP
           selector: ${metadata.podSelectors}
-          ports: ${workload.endpoints.toServicePorts()}
+          ports: ${workload.toServicePorts()}
 
     - id: httproute
+      includeWhen: ${size(workload.endpoints) > 0}
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -252,7 +249,7 @@ spec:
                     replacePrefixMatch: /
             backendRefs:
             - name: ${metadata.name}
-              port: 9090
+              port: ${workload.endpoints.http.port}
 
 ---
 # Component using the ComponentType with embedded traits
