@@ -241,7 +241,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"name" *: *"Backstage"'; then
+      if [ -n "$app_id" ]; then
         log_info "Application 'Backstage' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -301,7 +301,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id" *: *"customer-portal-client"'; then
+      if [ -n "$app_id" ]; then
         log_info "Application with client ID 'customer-portal-client' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -361,7 +361,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id" *: *"openchoreo-rca-agent"'; then
+      if [ -n "$app_id" ]; then
         log_info "RCA Agent application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -456,7 +456,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"name" *: *"OpenChoreo CLI"'; then
+      if [ -n "$app_id" ]; then
         log_info "Application 'OpenChoreo CLI' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -516,7 +516,7 @@ bootstrap:
         ]
       }'
 
-      if echo "$existing_apps" | grep -q '"client_id" *: *"openchoreo-system-app"'; then
+      if [ -n "$app_id" ]; then
         log_info "System application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
           --header 'Content-Type: application/json' \
@@ -538,4 +538,164 @@ bootstrap:
           --retry-delay 5
 
         log_info "System application created successfully"
+      fi
+
+    56-user-mcp-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'User MCP App' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      # Extract application ID if it exists
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"User MCP App"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"User MCP App"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+
+      # Define the application payload
+      APP_PAYLOAD='{
+        "name": "User MCP App",
+        "description": "User MCP app to be used by terminals and user facing AI agents",
+        "allowed_user_types": ["engineer"],
+        "assertion": {
+          "validity_period": 3600
+        },
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "user_mcp_client",
+              "redirect_uris": [
+                "http://localhost:8075/callback",
+                "cursor://anysphere.cursor-mcp/oauth/callback"
+              ],
+              "grant_types": [
+                "authorization_code",
+                "refresh_token"
+              ],
+              "response_types": [
+                "code"
+              ],
+              "token_endpoint_auth_method": "none",
+              "pkce_required": true,
+              "public_client": true,
+              "token": {
+                "access_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                },
+                "id_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ],
+                  "scope_claims": {
+                    "groups": [
+                      "groups"
+                    ],
+                    "profile": [
+                      "username",
+                      "given_name",
+                      "family_name",
+                      "picture"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if [ -n "$app_id" ]; then
+        log_info "Application 'User MCP App' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "User MCP App application created successfully"
+      fi
+
+    57-service-mcp-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'Service MCP App' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      # Extract application ID if it exists
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Service MCP App"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"Service MCP App"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
+
+      # Define the application payload
+      APP_PAYLOAD='{
+          "name": "Service MCP App",
+          "description": "Service MCP app to be used by backend services which can securely store the secret",
+          "auth_flow_graph_id": "auth_flow_config_basic",
+          "inbound_auth_config": [
+              {
+                  "type": "oauth2",
+                  "config": {
+                      "client_id": "service_mcp_client",
+                      "client_secret": "service_mcp_client_secret",
+                      "grant_types": [
+                          "client_credentials"
+                      ],
+                      "token_endpoint_auth_method": "client_secret_basic",
+                      "token": {
+                          "access_token": {
+                              "validity_period": 86400
+                          }
+                      }
+                  }
+              }
+          ]
+      }'
+
+      if [ -n "$app_id" ]; then
+        log_info "Application 'Service MCP App' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Service MCP App application created successfully"
       fi
