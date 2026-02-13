@@ -19,6 +19,7 @@ type Action struct {
 var systemActions = []Action{
 	// Namespace
 	{Name: "namespace:view", IsInternal: false},
+	{Name: "namespace:create", IsInternal: false},
 
 	// Project
 	{Name: "project:view", IsInternal: false},
