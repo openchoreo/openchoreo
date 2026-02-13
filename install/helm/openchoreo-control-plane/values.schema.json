@@ -164,7 +164,7 @@
           "type": "string"
         },
         "baseUrl": {
-          "default": "http://openchoreo.local",
+          "default": "http://openchoreo.invalid",
           "description": "Backstage public base URL",
           "title": "baseUrl",
           "type": "string"
@@ -321,7 +321,7 @@
                       "title": "accessMode"
                     },
                     "enabled": {
-                      "default": false,
+                      "default": true,
                       "description": "Enable PVC for persistence (false = emptyDir)",
                       "title": "enabled",
                       "type": "boolean"
@@ -516,7 +516,7 @@
             },
             "hostnames": {
               "default": [
-                "openchoreo.local"
+                "openchoreo.invalid"
               ],
               "description": "HTTPRoute hostnames",
               "items": {
@@ -923,6 +923,21 @@
           },
           "required": [],
           "title": "serviceAccount",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration for Backstage. When disabled, a CSP config is mounted to prevent upgrade-insecure-requests.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable TLS/HTTPS for Backstage",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "tls",
           "type": "object"
         },
         "tolerations": {
@@ -2172,6 +2187,16 @@
       "additionalProperties": true,
       "description": "KGateway (Gateway API) configuration. kgateway is installed separately; these values configure the Gateway CR created by this chart.",
       "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.",
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
         "enabled": {
           "default": true,
           "description": "Enable Gateway CR creation",
@@ -2202,8 +2227,8 @@
           "description": "Self-signed ClusterIssuer configuration",
           "properties": {
             "enabled": {
-              "default": true,
-              "description": "Create self-signed ClusterIssuer (set to false in single cluster mode for data-plane)",
+              "default": false,
+              "description": "Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).",
               "title": "enabled",
               "type": "boolean"
             }
@@ -2214,23 +2239,32 @@
         },
         "tls": {
           "additionalProperties": false,
-          "description": "TLS configuration for gateway",
+          "description": "TLS configuration for the HTTPS listener",
           "properties": {
-            "certName": {
-              "default": "{{ .Values.global.tls.secretName }}",
-              "description": "Certificate secret name",
-              "title": "certName",
-              "type": "string"
+            "certificateRefs": {
+              "description": "TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.",
+              "items": {
+                "properties": {
+                  "name": {
+                    "description": "Secret name containing the TLS certificate",
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "certificateRefs",
+              "type": "array"
             },
-            "clusterIssuer": {
-              "default": "",
-              "description": "ClusterIssuer for certificate generation (empty uses default self-signed issuer)",
-              "title": "clusterIssuer",
-              "type": "string"
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.",
+              "title": "enabled",
+              "type": "boolean"
             },
             "hostname": {
-              "default": "*.openchoreo.local",
-              "description": "Hostname pattern for TLS certificate",
+              "default": "*.openchoreo.invalid",
+              "description": "Hostname pattern for the HTTPS listener (SNI matching)",
               "title": "hostname",
               "type": "string"
             }
@@ -2248,12 +2282,6 @@
       "additionalProperties": false,
       "description": "Global values shared across all components",
       "properties": {
-        "clusterName": {
-          "default": "openchoreo",
-          "description": "Kubernetes cluster name identifier",
-          "title": "clusterName",
-          "type": "string"
-        },
         "commonLabels": {
           "additionalProperties": {
             "type": "string"
@@ -2262,43 +2290,6 @@
           "description": "Labels applied to all resources created by the chart",
           "required": [],
           "title": "commonLabels",
-          "type": "object"
-        },
-        "imagePullSecrets": {
-          "default": [],
-          "description": "Docker registry credentials for pulling images",
-          "items": {
-            "properties": {
-              "name": {
-                "description": "Name of the image pull secret",
-                "type": "string"
-              }
-            },
-            "required": [],
-            "type": "object"
-          },
-          "title": "imagePullSecrets",
-          "type": "array"
-        },
-        "tls": {
-          "additionalProperties": false,
-          "description": "TLS configuration - enables HTTPS for all ingresses",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable TLS/HTTPS for all ingresses",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "secretName": {
-              "default": "control-plane-tls",
-              "description": "Secret containing TLS certificate for ingress hosts",
-              "title": "secretName",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "tls",
           "type": "object"
         }
       },
@@ -2335,27 +2326,6 @@
       "description": "Kubernetes cluster domain suffix",
       "title": "kubernetesClusterDomain",
       "type": "string"
-    },
-    "metricsServer": {
-      "additionalProperties": false,
-      "description": "Kubernetes metrics server configuration",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Enable metrics server deployment",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "kubeletInsecureTlsEnabled": {
-          "default": true,
-          "description": "Allow insecure TLS connections to kubelet",
-          "title": "kubeletInsecureTlsEnabled",
-          "type": "boolean"
-        }
-      },
-      "required": [],
-      "title": "metricsServer",
-      "type": "object"
     },
     "metricsService": {
       "additionalProperties": false,
@@ -2973,7 +2943,7 @@
                   "type": "integer"
                 },
                 "publicUrl": {
-                  "default": "http://api.openchoreo.local",
+                  "default": "http://api.openchoreo.invalid",
                   "description": "Public URL for the API server",
                   "title": "publicUrl",
                   "type": "string"
@@ -3196,7 +3166,7 @@
             },
             "hostnames": {
               "default": [
-                "api.openchoreo.local"
+                "api.openchoreo.invalid"
               ],
               "description": "HTTPRoute hostnames",
               "items": {
@@ -3721,7 +3691,7 @@
           "description": "OpenID Connect (OIDC) configuration for authentication",
           "properties": {
             "authorizationUrl": {
-              "default": "http://thunder.openchoreo.local/oauth2/authorize",
+              "default": "http://thunder.openchoreo.invalid/oauth2/authorize",
               "description": "OIDC authorization endpoint URL",
               "title": "authorizationUrl",
               "type": "string"
@@ -3776,19 +3746,19 @@
               "type": "array"
             },
             "issuer": {
-              "default": "http://thunder.openchoreo.local",
+              "default": "http://thunder.openchoreo.invalid",
               "description": "OIDC provider issuer URL",
               "title": "issuer",
               "type": "string"
             },
             "jwksUrl": {
-              "default": "http://thunder.openchoreo.local/oauth2/jwks",
+              "default": "http://thunder.openchoreo.invalid/oauth2/jwks",
               "description": "OIDC JWKS URL for token validation",
               "title": "jwksUrl",
               "type": "string"
             },
             "tokenUrl": {
-              "default": "http://thunder.openchoreo.local/oauth2/token",
+              "default": "http://thunder.openchoreo.invalid/oauth2/token",
               "description": "OIDC token endpoint URL",
               "title": "tokenUrl",
               "type": "string"
@@ -3820,7 +3790,7 @@
           "type": "boolean"
         },
         "host": {
-          "default": "thunder.openchoreo.local",
+          "default": "thunder.openchoreo.invalid",
           "description": "Thunder hostname for HTTPRoute",
           "title": "host",
           "type": "string"

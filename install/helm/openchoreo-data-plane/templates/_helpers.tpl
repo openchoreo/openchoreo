@@ -140,3 +140,15 @@ Cluster Agent service account name
 {{- end }}
 {{- end }}
 
+{{/*
+Validate that placeholder .invalid hostnames have been replaced with real domains.
+*/}}
+{{- define "openchoreo-data-plane.validateHostnames" -}}
+{{- if .Values.gateway.tls.enabled -}}
+  {{- $hostname := .Values.gateway.tls.hostname | default "" -}}
+  {{- if contains ".invalid" $hostname -}}
+    {{- fail "gateway.tls.hostname contains placeholder domain (.invalid). Set a real domain." -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+

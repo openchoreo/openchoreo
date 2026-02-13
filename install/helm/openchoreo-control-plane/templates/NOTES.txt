@@ -1,17 +1,25 @@
-OpenChoreo Control Plane installed successfully!
+{{- include "openchoreo-control-plane.validateHostnames" . -}}
+OpenChoreo Control Plane installed in namespace "{{ .Release.Namespace }}".
 
 {{- if .Values.backstage.http.enabled }}
-Access URLs:
-  Console:  {{ .Values.backstage.baseUrl | trimSuffix "/" }}
-  API:      {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
-  Thunder:  http://{{ .Values.thunder.host }}
 
-Default Credentials: admin@openchoreo.dev / Admin@123
+URLs:
+  Console: {{ .Values.backstage.baseUrl | trimSuffix "/" }}
+  API:     {{ .Values.openchoreoApi.config.server.publicUrl | trimSuffix "/" }}
 
 {{- else }}
 
-Ingress disabled. Use port-forward:
+Port-forward to access the console:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "openchoreo-control-plane.backstage.name" . }} 7007:7007
 {{- end }}
 
-Next: Install Data Plane, Build Plane, and Observability Plane.
+Gateway:
+  HTTP:  {{ .Values.gateway.httpPort }}
+{{- if .Values.gateway.tls.enabled }}
+  HTTPS: {{ .Values.gateway.httpsPort }}
+{{- end }}
+
+Components:
+  Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
+  Thunder:    {{ ternary "enabled" "disabled" .Values.thunder.enabled }}
+  Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}

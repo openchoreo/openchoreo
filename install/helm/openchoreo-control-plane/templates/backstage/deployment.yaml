@@ -54,7 +54,7 @@ spec:
         - "app-config.yaml"
         - "--config"
         - "app-config.ci.yaml"
-        {{- if not .Values.global.tls.enabled }}
+        {{- if not .Values.backstage.tls.enabled }}
         - "--config"
         - "app-config.csp.yaml"
         {{- end }}
@@ -167,7 +167,7 @@ spec:
           mountPath: /app/app-config.ci.yaml
           subPath: app-config.ci.yaml
           readOnly: true
-        {{- if not .Values.global.tls.enabled }}
+        {{- if not .Values.backstage.tls.enabled }}
         - name: csp-config
           mountPath: /app/app-config.csp.yaml
           subPath: app-config.csp.yaml
@@ -186,7 +186,7 @@ spec:
       - name: ci-config
         configMap:
           name: {{ include "openchoreo-control-plane.backstage.name" . }}-ci-config
-      {{- if not .Values.global.tls.enabled }}
+      {{- if not .Values.backstage.tls.enabled }}
       - name: csp-config
         configMap:
           name: {{ include "openchoreo-control-plane.backstage.name" . }}-csp-config

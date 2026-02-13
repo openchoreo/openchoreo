@@ -25,6 +25,10 @@ thunder:
   host: thunder.openchoreo.localhost
 
 gateway:
+  selfSignedIssuer:
+    enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: openchoreo-cp-selfsigned-issuer
   tls:
     hostname: "*.openchoreo.localhost"
   # Envoy configuration for traffic routing

@@ -2,7 +2,7 @@
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
-  name: openchoreo-selfsigned-issuer
+  name: openchoreo-dp-selfsigned-issuer
   labels:
     {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
 spec:

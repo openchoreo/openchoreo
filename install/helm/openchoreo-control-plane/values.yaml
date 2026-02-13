@@ -12,44 +12,6 @@
 global:
   # @schema
   # type: object
-  # description: TLS configuration - enables HTTPS for all ingresses
-  # @schema
-  tls:
-    # @schema
-    # type: boolean
-    # description: Enable TLS/HTTPS for all ingresses
-    # default: false
-    # @schema
-    enabled: false
-    # @schema
-    # type: string
-    # description: Secret containing TLS certificate for ingress hosts
-    # default: control-plane-tls
-    # @schema
-    secretName: "control-plane-tls"
-
-  # @schema
-  # type: string
-  # description: Kubernetes cluster name identifier
-  # default: openchoreo
-  # @schema
-  clusterName: openchoreo
-
-  # @schema
-  # type: array
-  # description: Docker registry credentials for pulling images
-  # items:
-  #   type: object
-  #   properties:
-  #     name:
-  #       type: string
-  #       description: Name of the image pull secret
-  # default: []
-  # @schema
-  imagePullSecrets: []
-
-  # @schema
-  # type: object
   # description: Labels applied to all resources created by the chart
   # additionalProperties:
   #   type: string
@@ -101,9 +63,9 @@ security:
     # @schema
     # type: string
     # description: OIDC provider issuer URL
-    # default: "http://thunder.openchoreo.local"
+    # default: "http://thunder.openchoreo.invalid"
     # @schema
-    issuer: "http://thunder.openchoreo.local"
+    issuer: "http://thunder.openchoreo.invalid"
     # @schema
     # type: string
     # description: OIDC well-known configuration endpoint URL
@@ -113,21 +75,21 @@ security:
     # @schema
     # type: string
     # description: OIDC JWKS URL for token validation
-    # default: "http://thunder.openchoreo.local/oauth2/jwks"
+    # default: "http://thunder.openchoreo.invalid/oauth2/jwks"
     # @schema
-    jwksUrl: "http://thunder.openchoreo.local/oauth2/jwks"
+    jwksUrl: "http://thunder.openchoreo.invalid/oauth2/jwks"
     # @schema
     # type: string
     # description: OIDC authorization endpoint URL
-    # default: "http://thunder.openchoreo.local/oauth2/authorize"
+    # default: "http://thunder.openchoreo.invalid/oauth2/authorize"
     # @schema
-    authorizationUrl: "http://thunder.openchoreo.local/oauth2/authorize"
+    authorizationUrl: "http://thunder.openchoreo.invalid/oauth2/authorize"
     # @schema
     # type: string
     # description: OIDC token endpoint URL
-    # default: "http://thunder.openchoreo.local/oauth2/token"
+    # default: "http://thunder.openchoreo.invalid/oauth2/token"
     # @schema
-    tokenUrl: "http://thunder.openchoreo.local/oauth2/token"
+    tokenUrl: "http://thunder.openchoreo.invalid/oauth2/token"
 
     # @schema
     # type: array
@@ -848,24 +810,6 @@ waitJob:
 
 # @schema
 # type: object
-# description: Kubernetes metrics server configuration
-# @schema
-metricsServer:
-  # @schema
-  # type: boolean
-  # description: Enable metrics server deployment
-  # default: false
-  # @schema
-  enabled: false
-  # @schema
-  # type: boolean
-  # description: Allow insecure TLS connections to kubelet
-  # default: true
-  # @schema
-  kubeletInsecureTlsEnabled: true
-
-# @schema
-# type: object
 # description: OpenChoreo API server configuration
 # @schema
 openchoreoApi:
@@ -942,9 +886,9 @@ openchoreoApi:
       # @schema
       # type: string
       # description: Public URL for the API server
-      # default: "http://api.openchoreo.local"
+      # default: "http://api.openchoreo.invalid"
       # @schema
-      publicUrl: "http://api.openchoreo.local"
+      publicUrl: "http://api.openchoreo.invalid"
       # @schema
       # type: object
       # description: HTTP server timeout settings
@@ -1657,10 +1601,10 @@ openchoreoApi:
     # items:
     #   type: string
     # default:
-    #   - api.openchoreo.local
+    #   - api.openchoreo.invalid
     # @schema
     hostnames:
-      - api.openchoreo.local
+      - api.openchoreo.invalid
   # @schema
   # type: array
   # description: Topology spread constraints
@@ -1860,6 +1804,18 @@ openchoreoApi:
 # description: Backstage UI configuration
 # @schema
 backstage:
+  # @schema
+  # type: object
+  # description: TLS configuration for Backstage. When disabled, a CSP config is mounted to prevent upgrade-insecure-requests.
+  # @schema
+  tls:
+    # @schema
+    # type: boolean
+    # description: Enable TLS/HTTPS for Backstage
+    # default: false
+    # @schema
+    enabled: false
+
   # @schema
   # type: string
   # description: Static name for all backstage resources (Service, Deployment, etc.)
@@ -2141,9 +2097,9 @@ backstage:
   # @schema
   # type: string
   # description: Backstage public base URL
-  # default: "http://openchoreo.local"
+  # default: "http://openchoreo.invalid"
   # @schema
-  baseUrl: "http://openchoreo.local"
+  baseUrl: "http://openchoreo.invalid"
 
   # @schema
   # type: object
@@ -2398,10 +2354,10 @@ backstage:
     # items:
     #   type: string
     # default:
-    #   - openchoreo.local
+    #   - openchoreo.invalid
     # @schema
     hostnames:
-      - openchoreo.local
+      - openchoreo.invalid
   # @schema
   # type: array
   # description: Topology spread constraints
@@ -2573,9 +2529,9 @@ backstage:
         # @schema
         # type: boolean
         # description: Enable PVC for persistence (false = emptyDir)
-        # default: false
+        # default: true
         # @schema
-        enabled: false
+        enabled: true
         # @schema
         # type: string
         # description: PVC storage size
@@ -2659,9 +2615,9 @@ thunder:
   # @schema
   # type: string
   # description: Thunder hostname for HTTPRoute
-  # default: thunder.openchoreo.local
+  # default: thunder.openchoreo.invalid
   # @schema
-  host: thunder.openchoreo.local
+  host: thunder.openchoreo.invalid
 
   # @schema
   # type: object
@@ -3254,10 +3210,19 @@ gateway:
   selfSignedIssuer:
     # @schema
     # type: boolean
-    # description: Create self-signed ClusterIssuer (set to false in single cluster mode for data-plane)
-    # default: true
+    # description: Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).
+    # default: false
     # @schema
-    enabled: true
+    enabled: false
+
+  # @schema
+  # type: object
+  # description: Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  annotations: {}
 
   # @schema
   # type: integer
@@ -3275,26 +3240,32 @@ gateway:
 
   # @schema
   # type: object
-  # description: TLS configuration for gateway
+  # description: TLS configuration for the HTTPS listener
   # @schema
   tls:
     # @schema
-    # type: string
-    # description: ClusterIssuer for certificate generation (empty uses default self-signed issuer)
-    # default: ""
+    # type: boolean
+    # description: Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.
+    # default: true
     # @schema
-    clusterIssuer: ""
+    enabled: true
 
     # @schema
     # type: string
-    # description: Hostname pattern for TLS certificate
-    # default: "*.openchoreo.local"
+    # description: Hostname pattern for the HTTPS listener (SNI matching)
+    # default: "*.openchoreo.invalid"
     # @schema
-    hostname: "*.openchoreo.local"
+    hostname: "*.openchoreo.invalid"
 
     # @schema
-    # type: string
-    # description: Certificate secret name
-    # default: "{{ .Values.global.tls.secretName }}"
+    # type: array
+    # description: TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Secret name containing the TLS certificate
     # @schema
-    certName: ""
+    certificateRefs:
+      - name: control-plane-tls

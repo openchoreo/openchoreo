@@ -353,84 +353,6 @@ kube-prometheus-stack:
 
 # @schema
 # type: object
-# description: "[DEPRECATED] Container registry configuration. Registry has been moved to Build Plane."
-# @schema
-registry:
-  # @schema
-  # type: boolean
-  # description: "[DEPRECATED] Enable the container registry. Use Build Plane registry instead."
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: object
-  # description: Resource limits and requests for the registry container
-  # @schema
-  resources:
-    # @schema
-    # type: object
-    # description: Maximum resources the registry can consume
-    # @schema
-    limits:
-      # @schema
-      # type: string
-      # description: Memory limit for the registry
-      # default: 256Mi
-      # @schema
-      memory: 256Mi
-      # @schema
-      # type: string
-      # description: CPU limit for the registry
-      # default: 100m
-      # @schema
-      cpu: 100m
-    # @schema
-    # type: object
-    # description: Minimum resources guaranteed for the registry
-    # @schema
-    requests:
-      # @schema
-      # type: string
-      # description: Memory request for the registry
-      # default: 128Mi
-      # @schema
-      memory: 128Mi
-      # @schema
-      # type: string
-      # description: CPU request for the registry
-      # default: 50m
-      # @schema
-      cpu: 50m
-
-  # @schema
-  # type: object
-  # description: Kubernetes service configuration for the registry
-  # @schema
-  service:
-    # @schema
-    # type: integer
-    # description: NodePort for external access to the registry
-    # default: 30003
-    # minimum: 30000
-    # maximum: 32767
-    # @schema
-    nodePort: 30003
-
-  # @schema
-  # type: object
-  # description: Persistent volume storage configuration for registry data
-  # @schema
-  storage:
-    # @schema
-    # type: string
-    # description: Size of the persistent volume for storing container images
-    # default: 2Gi
-    # @schema
-    size: 2Gi
-
-# @schema
-# type: object
 # additionalProperties: true
 # description: KGateway API gateway configuration. Provides HTTP/HTTPS traffic routing using Kubernetes Gateway API and Envoy proxy.
 # @schema
@@ -472,55 +394,69 @@ gateway:
   selfSignedIssuer:
     # @schema
     # type: boolean
-    # description: Create self-signed ClusterIssuer (set to false in single cluster mode)
-    # default: true
+    # description: Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).
+    # default: false
     # @schema
-    enabled: true
+    enabled: false
+
+  # @schema
+  # type: object
+  # description: Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  annotations: {}
 
   # @schema
   # type: integer
   # description: Port for the HTTP listener on the gateway
-  # default: 9080
+  # default: 80
   # minimum: 1
   # maximum: 65535
   # @schema
-  httpPort: 9080
+  httpPort: 80
 
   # @schema
   # type: integer
   # description: Port for the HTTPS listener on the gateway
-  # default: 9443
+  # default: 443
   # minimum: 1
   # maximum: 65535
   # @schema
-  httpsPort: 9443
+  httpsPort: 443
 
   # @schema
   # type: object
-  # additionalProperties: true
-  # description: TLS configuration for HTTPS listeners. Requires cert-manager for automatic certificate generation.
+  # description: TLS configuration for the HTTPS listener
   # @schema
   tls:
     # @schema
-    # type: string
-    # description: Cert-manager ClusterIssuer name for certificate generation. Defaults to openchoreo-selfsigned-issuer if empty.
-    # default: ""
+    # type: boolean
+    # description: Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.
+    # default: true
     # @schema
-    clusterIssuer: ""
+    enabled: true
 
     # @schema
     # type: string
-    # description: Hostname pattern for the HTTPS listener certificate
-    # default: "*.openchoreoapis.localhost"
+    # description: Hostname pattern for the HTTPS listener (SNI matching)
+    # default: "*.openchoreoapis.invalid"
     # @schema
-    hostname: "*.openchoreoapis.localhost"
+    hostname: "*.openchoreoapis.invalid"
 
     # @schema
-    # type: string
-    # description: Kubernetes Secret name for storing the TLS certificate
-    # default: openchoreo-gateway-tls
+    # type: array
+    # description: TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Secret name containing the TLS certificate
     # @schema
-    certName: "openchoreo-gateway-tls"
+    certificateRefs:
+      - name: openchoreo-gateway-tls
 
   # @schema
   # type: object
@@ -838,10 +774,10 @@ fluent-bit:
     outputs: |
       [OUTPUT]
           Name opensearch
-          Host opensearch
+          Host ${OPENSEARCH_HOST}
           Generate_ID On
-          HTTP_Passwd ThisIsTheOpenSearchPassword1
-          HTTP_User admin
+          HTTP_User ${OPENSEARCH_USER}
+          HTTP_Passwd ${OPENSEARCH_PASSWORD}
           Logstash_Format On
           Logstash_DateFormat %Y-%m-%d
           Logstash_Prefix container-logs
@@ -851,6 +787,16 @@ fluent-bit:
           Suppress_Type_Name On
           tls On
           tls.verify Off
+
+  # @schema
+  # type: array
+  # description: Load environment variables from Secrets or ConfigMaps. The referenced Secret must contain OPENSEARCH_HOST, OPENSEARCH_USER, and OPENSEARCH_PASSWORD keys.
+  # items:
+  #   type: object
+  # @schema
+  envFrom:
+    - secretRef:
+        name: fluent-bit-opensearch
 
   # @schema
   # description: DNS policy for Fluent Bit pods

@@ -186,3 +186,31 @@ Cluster Gateway service account name
 {{- default "default" .Values.clusterGateway.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate that placeholder .invalid hostnames have been replaced with real domains.
+*/}}
+{{- define "openchoreo-control-plane.validateHostnames" -}}
+{{- $errors := list -}}
+{{- if contains ".invalid" (join "," .Values.openchoreoApi.http.hostnames) -}}
+  {{- $errors = append $errors "openchoreoApi.http.hostnames contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if contains ".invalid" (join "," .Values.backstage.http.hostnames) -}}
+  {{- $errors = append $errors "backstage.http.hostnames contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if contains ".invalid" .Values.backstage.baseUrl -}}
+  {{- $errors = append $errors "backstage.baseUrl contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if contains ".invalid" .Values.thunder.host -}}
+  {{- $errors = append $errors "thunder.host contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if and .Values.gateway.tls.enabled (contains ".invalid" .Values.gateway.tls.hostname) -}}
+  {{- $errors = append $errors "gateway.tls.hostname contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if contains ".invalid" .Values.security.oidc.issuer -}}
+  {{- $errors = append $errors "security.oidc.issuer contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if gt (len $errors) 0 -}}
+  {{- fail (printf "Placeholder domains found. Set real hostnames for:\n  - %s" (join "\n  - " $errors)) -}}
+{{- end -}}
+{{- end -}}

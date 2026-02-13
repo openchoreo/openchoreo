@@ -1,10 +1,24 @@
-OpenChoreo Data Plane installed successfully!
+{{- include "openchoreo-data-plane.validateHostnames" . -}}
+OpenChoreo Data Plane installed in namespace "{{ .Release.Namespace }}".
 
 {{- if .Values.gateway.enabled }}
 
-Gateway Ports:
-  HTTP:  {{ .Values.gateway.httpPort }}
-  HTTPS: {{ .Values.gateway.httpsPort }}
+Gateway:
+{{- with .Values.gateway.tls.hostname }}
+  Domain: {{ . }}
+{{- end }}
+  HTTP:   {{ .Values.gateway.httpPort }}
+{{- if .Values.gateway.tls.enabled }}
+  HTTPS:  {{ .Values.gateway.httpsPort }}
+{{- end }}
 {{- end }}
 
-Next: Register this Data Plane with the Control Plane using the DataPlane CRD.
+Cluster Agent:
+  Server:   {{ .Values.clusterAgent.serverUrl }}
+  Plane ID: {{ .Values.clusterAgent.planeID }}
+
+Components:
+  Gateway:       {{ ternary "enabled" "disabled" .Values.gateway.enabled }}
+  Cluster Agent: {{ ternary "enabled" "disabled" .Values.clusterAgent.enabled }}
+  Networking:    {{ ternary "enabled" "disabled" .Values.networking.enabled }}
+  Observability: {{ ternary "enabled" "disabled" .Values.observability.enabled }}

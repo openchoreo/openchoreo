@@ -4,8 +4,10 @@ kind: Gateway
 metadata:
   name: gateway-default
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.gateway.annotations }}
   annotations:
-    cert-manager.io/cluster-issuer: {{ .Values.gateway.tls.clusterIssuer | default "openchoreo-selfsigned-issuer" }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   gatewayClassName: kgateway
   {{- with .Values.gateway.infrastructure }}
@@ -19,6 +21,7 @@ spec:
       allowedRoutes:
         namespaces:
           from: Same
+{{- if .Values.gateway.tls.enabled }}
     - name: https
       protocol: HTTPS
       port: {{ .Values.gateway.httpsPort | default 443 }}
@@ -31,9 +34,14 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - kind: Secret
-            name: {{ .Values.gateway.tls.certName | default .Values.global.tls.secretName }}
-            namespace: {{ .Release.Namespace }}
+          {{- range .Values.gateway.tls.certificateRefs }}
+          - kind: {{ .kind | default "Secret" }}
+            name: {{ .name }}
+            {{- with .namespace }}
+            namespace: {{ . }}
+            {{- end }}
+          {{- end }}
+{{- end }}
 {{- if and .Values.clusterGateway.enabled .Values.clusterGateway.tlsRoute.enabled }}
     - name: tls-passthrough
       protocol: TLS

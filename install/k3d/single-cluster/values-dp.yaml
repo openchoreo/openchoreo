@@ -4,6 +4,20 @@
 gateway:
   httpPort: 19080
   httpsPort: 19443
-  # Use self-signed issuer in control plane for TLS certs
   selfSignedIssuer:
-    enabled: false
+    enabled: true
+  annotations:
+    cert-manager.io/cluster-issuer: openchoreo-dp-selfsigned-issuer
+  tls:
+    hostname: "*.openchoreoapis.localhost"
+
+fluent-bit:
+  # Skip Secret-based envFrom for local dev, inject env vars directly
+  envFrom: []
+  env:
+    - name: OPENSEARCH_HOST
+      value: opensearch
+    - name: OPENSEARCH_USER
+      value: admin
+    - name: OPENSEARCH_PASSWORD
+      value: ThisIsTheOpenSearchPassword1

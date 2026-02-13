@@ -531,7 +531,7 @@
               "type": "string"
             },
             "outputs": {
-              "default": "[OUTPUT]\n    Name opensearch\n    Host opensearch\n    Generate_ID On\n    HTTP_Passwd ThisIsTheOpenSearchPassword1\n    HTTP_User admin\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
+              "default": "[OUTPUT]\n    Name opensearch\n    Host ${OPENSEARCH_HOST}\n    Generate_ID On\n    HTTP_User ${OPENSEARCH_USER}\n    HTTP_Passwd ${OPENSEARCH_PASSWORD}\n    Logstash_Format On\n    Logstash_DateFormat %Y-%m-%d\n    Logstash_Prefix container-logs\n    Match kube.*\n    Port 9200\n    Replace_Dots On\n    Suppress_Type_Name On\n    tls On\n    tls.verify Off\n",
               "description": "Output plugin configuration for log forwarding to OpenSearch",
               "title": "outputs",
               "type": "string"
@@ -558,6 +558,15 @@
           "description": "Enable Fluent Bit log collector deployment",
           "title": "enabled",
           "type": "boolean"
+        },
+        "envFrom": {
+          "description": "Load environment variables from Secrets or ConfigMaps. The referenced Secret must contain OPENSEARCH_HOST, OPENSEARCH_USER, and OPENSEARCH_PASSWORD keys.",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "envFrom",
+          "type": "array"
         },
         "extraVolumeMounts": {
           "description": "Extra volume mounts for the Fluent Bit container",
@@ -779,6 +788,16 @@
           "title": "agentgateway",
           "type": "object"
         },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.",
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
         "controller": {
           "additionalProperties": true,
           "description": "KGateway controller configuration for managing Gateway API resources",
@@ -963,7 +982,7 @@
           "type": "string"
         },
         "httpPort": {
-          "default": 9080,
+          "default": 80,
           "description": "Port for the HTTP listener on the gateway",
           "maximum": 65535,
           "minimum": 1,
@@ -971,7 +990,7 @@
           "type": "integer"
         },
         "httpsPort": {
-          "default": 9443,
+          "default": 443,
           "description": "Port for the HTTPS listener on the gateway",
           "maximum": 65535,
           "minimum": 1,
@@ -990,8 +1009,8 @@
           "description": "Self-signed ClusterIssuer configuration",
           "properties": {
             "enabled": {
-              "default": true,
-              "description": "Create self-signed ClusterIssuer (set to false in single cluster mode)",
+              "default": false,
+              "description": "Create self-signed ClusterIssuer for development. Disable when using a real ClusterIssuer (e.g. Let's Encrypt).",
               "title": "enabled",
               "type": "boolean"
             }
@@ -1001,24 +1020,33 @@
           "type": "object"
         },
         "tls": {
-          "additionalProperties": true,
-          "description": "TLS configuration for HTTPS listeners. Requires cert-manager for automatic certificate generation.",
+          "additionalProperties": false,
+          "description": "TLS configuration for the HTTPS listener",
           "properties": {
-            "certName": {
-              "default": "openchoreo-gateway-tls",
-              "description": "Kubernetes Secret name for storing the TLS certificate",
-              "title": "certName",
-              "type": "string"
+            "certificateRefs": {
+              "description": "TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.",
+              "items": {
+                "properties": {
+                  "name": {
+                    "description": "Secret name containing the TLS certificate",
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "certificateRefs",
+              "type": "array"
             },
-            "clusterIssuer": {
-              "default": "",
-              "description": "Cert-manager ClusterIssuer name for certificate generation. Defaults to openchoreo-selfsigned-issuer if empty.",
-              "title": "clusterIssuer",
-              "type": "string"
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.",
+              "title": "enabled",
+              "type": "boolean"
             },
             "hostname": {
-              "default": "*.openchoreoapis.localhost",
-              "description": "Hostname pattern for the HTTPS listener certificate",
+              "default": "*.openchoreoapis.invalid",
+              "description": "Hostname pattern for the HTTPS listener (SNI matching)",
               "title": "hostname",
               "type": "string"
             }
@@ -1684,104 +1712,6 @@
       },
       "required": [],
       "title": "opentelemetry-collector",
-      "type": "object"
-    },
-    "registry": {
-      "additionalProperties": false,
-      "description": "[DEPRECATED] Container registry configuration. Registry has been moved to Build Plane.",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "[DEPRECATED] Enable the container registry. Use Build Plane registry instead.",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "resources": {
-          "additionalProperties": false,
-          "description": "Resource limits and requests for the registry container",
-          "properties": {
-            "limits": {
-              "additionalProperties": false,
-              "description": "Maximum resources the registry can consume",
-              "properties": {
-                "cpu": {
-                  "default": "100m",
-                  "description": "CPU limit for the registry",
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "256Mi",
-                  "description": "Memory limit for the registry",
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "limits",
-              "type": "object"
-            },
-            "requests": {
-              "additionalProperties": false,
-              "description": "Minimum resources guaranteed for the registry",
-              "properties": {
-                "cpu": {
-                  "default": "50m",
-                  "description": "CPU request for the registry",
-                  "title": "cpu",
-                  "type": "string"
-                },
-                "memory": {
-                  "default": "128Mi",
-                  "description": "Memory request for the registry",
-                  "title": "memory",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "requests",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "resources",
-          "type": "object"
-        },
-        "service": {
-          "additionalProperties": false,
-          "description": "Kubernetes service configuration for the registry",
-          "properties": {
-            "nodePort": {
-              "default": 30003,
-              "description": "NodePort for external access to the registry",
-              "maximum": 32767,
-              "minimum": 30000,
-              "title": "nodePort",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "service",
-          "type": "object"
-        },
-        "storage": {
-          "additionalProperties": false,
-          "description": "Persistent volume storage configuration for registry data",
-          "properties": {
-            "size": {
-              "default": "2Gi",
-              "description": "Size of the persistent volume for storing container images",
-              "title": "size",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "storage",
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "registry",
       "type": "object"
     },
     "security": {
