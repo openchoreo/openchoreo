@@ -3385,62 +3385,6 @@
           "title": "resources",
           "type": "object"
         },
-        "security": {
-          "additionalProperties": false,
-          "description": "Security configuration for authorization user types",
-          "properties": {
-            "userTypes": {
-              "description": "User type definitions for authorization",
-              "items": {
-                "properties": {
-                  "auth_mechanisms": {
-                    "items": {
-                      "properties": {
-                        "entitlement": {
-                          "properties": {
-                            "claim": {
-                              "type": "string"
-                            },
-                            "display_name": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [],
-                          "type": "object"
-                        },
-                        "type": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [],
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "display_name": {
-                    "description": "Human-readable name",
-                    "type": "string"
-                  },
-                  "priority": {
-                    "description": "Priority order",
-                    "type": "integer"
-                  },
-                  "type": {
-                    "description": "User type identifier",
-                    "type": "string"
-                  }
-                },
-                "required": [],
-                "type": "object"
-              },
-              "title": "userTypes",
-              "type": "array"
-            }
-          },
-          "required": [],
-          "title": "security",
-          "type": "object"
-        },
         "service": {
           "additionalProperties": false,
           "description": "Kubernetes service configuration",
