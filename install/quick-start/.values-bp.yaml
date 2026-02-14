@@ -1,44 +1,9 @@
 # Helm values for OpenChoreo Build Plane in quick-start environment
-# Based on single-cluster setup, optimized for containerized quick-start experience
 
-# Argo Workflows configuration
-argo-workflows:
-  server:
-    enabled: false
-
-global:
-  defaultResources:
-    enabled: true
-    registry:
-      host: "host.k3d.internal:10082"
-    buildpackCache:
-      enabled: true
-
-# Fluent Bit logging
-# Disabled because Data Plane's FluentBit DaemonSet already collects logs
-# from ALL namespaces including openchoreo-build-plane and openchoreo-ci-*
-fluent-bit:
-  enabled: false
-
-# Cluster Agent configuration for single-cluster setup
-clusterAgent:
+defaultResources:
   enabled: true
-  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeID: default-buildplane
-  planeType: buildplane
-  # TLS configuration for single-cluster setup
-  # Helm post-install jobs will automatically copy the CA from control plane
-  tls:
-    enabled: true
-    # Don't generate certs locally - use CA from control plane (single-cluster mode)
-    generateCerts: false
-    # CA secret to copy from control plane namespace
-    caSecretName: cluster-gateway-ca
-    caSecretNamespace: openchoreo-control-plane
-    # Server CA will be copied from control plane (not provided inline)
-    serverCAValue: ""
-  # Namespace where cluster-gateway CA ConfigMap exists (control plane)
-  serverCANamespace: openchoreo-control-plane
+  registry:
+    host: "host.k3d.internal:10082"
 
 openbao:
   server:

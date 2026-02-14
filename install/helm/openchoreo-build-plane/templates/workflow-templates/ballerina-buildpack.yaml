@@ -1,4 +1,4 @@
-{{ if .Values.global.defaultResources.enabled }}
+{{ if and .Values.defaultResources.enabled .Values.defaultResources.clusterWorkflowTemplate.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
@@ -246,12 +246,12 @@ spec:
             BUILDER="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-builder" "context" .) }}"
             RUN_IMAGE="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "ballerina-run" "context" .) }}"
 
-            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
+            {{- if .Values.defaultResources.buildpackCache.enabled }}
             echo "Pulling cached builder: $BUILDER"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
+            podman pull --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} "$BUILDER"
 
             echo "Pulling cached run image: $RUN_IMAGE"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMAGE"
+            podman pull --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} "$RUN_IMAGE"
             {{- end }}
 
             /usr/local/bin/pack build "$IMAGE" \
@@ -325,9 +325,9 @@ spec:
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
             else
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
             fi
 
             #####################################################################

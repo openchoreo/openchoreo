@@ -1,3 +1,4 @@
+{{- include "openchoreo-build-plane.validateConfig" . -}}
 OpenChoreo Build Plane installed successfully!
 
 Next: Register this Build Plane with the Control Plane using the BuildPlane CRD.

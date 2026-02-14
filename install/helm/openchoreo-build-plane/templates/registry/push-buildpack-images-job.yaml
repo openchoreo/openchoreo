@@ -1,4 +1,4 @@
-{{- if and .Values.global.defaultResources.enabled .Values.global.defaultResources.buildpackCache.enabled }}
+{{- if and .Values.defaultResources.enabled .Values.defaultResources.buildpackCache.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -108,7 +108,7 @@ spec:
             echo ""
           }
 
-          {{- range .Values.global.defaultResources.buildpackCache.images }}
+          {{- range .Values.defaultResources.buildpackCache.images }}
           push_image "{{ .remoteImage }}" "{{ .cachedImage }}"
           {{- end }}
 

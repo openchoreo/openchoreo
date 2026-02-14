@@ -633,6 +633,36 @@ setup_data_plane_ca() {
     log_success "Data Plane CA configured"
 }
 
+# Copy cluster-gateway CA from control plane to build plane namespace
+setup_build_plane_ca() {
+    log_info "Setting up Build Plane CA..."
+
+    if ! namespace_exists "$BUILD_PLANE_NS"; then
+        kubectl create namespace "$BUILD_PLANE_NS" >/dev/null
+    fi
+
+    # Copy CA ConfigMap
+    local ca_crt
+    ca_crt=$(kubectl get configmap cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.ca\.crt}')
+
+    kubectl create configmap cluster-gateway-ca \
+        --from-literal=ca.crt="$ca_crt" \
+        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    # Copy CA Secret (needed by cluster-agent CA issuer)
+    local tls_crt tls_key
+    tls_crt=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.crt}' | base64 -d)
+    tls_key=$(kubectl get secret cluster-gateway-ca -n "$CONTROL_PLANE_NS" -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+    kubectl create secret generic cluster-gateway-ca \
+        --from-literal=tls.crt="$tls_crt" \
+        --from-literal=tls.key="$tls_key" \
+        --from-literal=ca.crt="$ca_crt" \
+        -n "$BUILD_PLANE_NS" -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    log_success "Build Plane CA configured"
+}
+
 # Create fake ClusterSecretStore for development
 create_fake_secret_store() {
     log_info "Creating development ClusterSecretStore..."

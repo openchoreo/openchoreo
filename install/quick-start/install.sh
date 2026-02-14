@@ -124,6 +124,7 @@ label_default_namespace
 
 # Step 10: Install Build Plane (optional)
 if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
+    setup_build_plane_ca
     install_registry
     install_build_plane
 

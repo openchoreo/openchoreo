@@ -1791,7 +1791,7 @@ backstage:
 
   # @schema
   # type: string
-  # description: Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.
+  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
   # default: ""
   # @schema
   secretName: ""

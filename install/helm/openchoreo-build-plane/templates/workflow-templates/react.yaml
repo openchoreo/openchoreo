@@ -1,4 +1,4 @@
-{{ if .Values.global.defaultResources.enabled }}
+{{ if and .Values.defaultResources.enabled .Values.defaultResources.clusterWorkflowTemplate.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
@@ -339,9 +339,9 @@ spec:
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
             else
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
             fi
 
             #####################################################################

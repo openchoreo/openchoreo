@@ -10,12 +10,10 @@ argo-workflows:
     authModes:
       - server
 
-global:
-  defaultResources:
-    registry:
-      host: "host.k3d.internal:10082"
-    buildpackCache:
-      enabled: true
+defaultResources:
+  enabled: true
+  registry:
+    host: "host.k3d.internal:10082"
 
 openbao:
   server:

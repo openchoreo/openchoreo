@@ -1,4 +1,4 @@
-{{ if .Values.global.defaultResources.enabled }}
+{{ if .Values.defaultResources.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:

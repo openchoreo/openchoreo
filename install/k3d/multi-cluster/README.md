@@ -242,11 +242,6 @@ EOF
 
 ### 3. Build Plane (Optional)
 
-> [!IMPORTANT]
-> Before installing the build plane, verify that the server CA certificate from Step 1 is already in `install/k3d/multi-cluster/values-bp.yaml` under `clusterAgent.tls.serverCAValue`.
->
-> The values file in the repository already contains the CA certificate. If you regenerated it in Step 1, paste the contents of `./agent-cas/server-ca.crt` to update the values file.
-
 Create cluster and install components:
 
 ```bash
@@ -283,6 +278,20 @@ kubectl wait --context k3d-openchoreo-bp \
 
 # CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
 kubectl apply --context k3d-openchoreo-bp -f install/k3d/common/coredns-custom.yaml
+
+# Create build plane namespace
+kubectl --context k3d-openchoreo-bp create namespace openchoreo-build-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo-bp apply -f -
+
+# Extract server CA from control plane and create ConfigMap
+kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca \
+  -n openchoreo-control-plane \
+  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/server-ca.crt
+
+kubectl --context k3d-openchoreo-bp create configmap cluster-gateway-ca \
+  --from-file=ca.crt=/tmp/server-ca.crt \
+  -n openchoreo-build-plane \
+  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-bp apply -f -
 
 # Install Container Registry (required for Build Plane)
 helm repo add twuni https://twuni.github.io/docker-registry.helm

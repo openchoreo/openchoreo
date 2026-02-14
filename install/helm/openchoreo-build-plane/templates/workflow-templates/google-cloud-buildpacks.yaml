@@ -1,4 +1,4 @@
-{{ if .Values.global.defaultResources.enabled }}
+{{ if and .Values.defaultResources.enabled .Values.defaultResources.clusterWorkflowTemplate.enabled }}
 apiVersion: argoproj.io/v1alpha1
 kind: ClusterWorkflowTemplate
 metadata:
@@ -247,15 +247,15 @@ spec:
             RUN_IMG="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-run" "context" .) }}"
             LIFECYCLE_IMG="{{ include "openchoreo-build-plane.buildpackImage" (dict "id" "lifecycle" "context" .) }}"
 
-            {{- if .Values.global.defaultResources.buildpackCache.enabled }}
+            {{- if .Values.defaultResources.buildpackCache.enabled }}
             echo "Pulling cached builder: $BUILDER"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$BUILDER"
+            podman pull --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} "$BUILDER"
 
             echo "Pulling cached run image: $RUN_IMG"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$RUN_IMG"
+            podman pull --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} "$RUN_IMG"
 
             echo "Pulling cached lifecycle: $LIFECYCLE_IMG"
-            podman pull --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} "$LIFECYCLE_IMG"
+            podman pull --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} "$LIFECYCLE_IMG"
 
             # Tag lifecycle image to expected name (referenced by builder image metadata)
             podman tag "$LIFECYCLE_IMG" "docker.io/buildpacksio/lifecycle:0.20.5"
@@ -332,9 +332,9 @@ spec:
             podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
             else
-              podman push --tls-verify={{ .Values.global.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify={{ .Values.defaultResources.registry.tlsVerify }} $REGISTRY_ENDPOINT/$SRC_IMAGE
             fi
 
             #####################################################################

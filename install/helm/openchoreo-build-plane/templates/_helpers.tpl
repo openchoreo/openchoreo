@@ -123,15 +123,24 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
+Validate that placeholder .invalid hostnames have been replaced when defaultResources is enabled.
+*/}}
+{{- define "openchoreo-build-plane.validateConfig" -}}
+{{- if .Values.defaultResources.enabled -}}
+  {{- $host := .Values.defaultResources.registry.host | default "" -}}
+  {{- if or (contains ".invalid" $host) (eq $host "") -}}
+    {{- fail "defaultResources.registry.host contains placeholder domain (.invalid). Set a real registry host when defaultResources.enabled is true." -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get the registry endpoint for workflow templates.
 Returns placeholder if host is empty (for lint/template).
 */}}
 {{- define "openchoreo-build-plane.registryEndpoint" -}}
-{{- $host := .Values.global.defaultResources.registry.host -}}
-{{- if not $host -}}
-  {{- $host = "REGISTRY_HOST_NOT_SET" -}}
-{{- end -}}
-{{- $repoPath := .Values.global.defaultResources.registry.repoPath -}}
+{{- $host := .Values.defaultResources.registry.host -}}
+{{- $repoPath := .Values.defaultResources.registry.repoPath -}}
 {{- if $repoPath -}}
   {{- printf "%s/%s" $host $repoPath -}}
 {{- else -}}
@@ -155,9 +164,9 @@ Parameters:
 {{- define "openchoreo-build-plane.buildpackImage" -}}
 {{- $id := .id -}}
 {{- $ctx := .context -}}
-{{- $cacheEnabled := $ctx.Values.global.defaultResources.buildpackCache.enabled -}}
+{{- $cacheEnabled := $ctx.Values.defaultResources.buildpackCache.enabled -}}
 {{- $registryEndpoint := include "openchoreo-build-plane.registryEndpoint" $ctx -}}
-{{- range $ctx.Values.global.defaultResources.buildpackCache.images -}}
+{{- range $ctx.Values.defaultResources.buildpackCache.images -}}
   {{- if eq .id $id -}}
     {{- if $cacheEnabled -}}
       {{- printf "%s/%s" $registryEndpoint .cachedImage -}}

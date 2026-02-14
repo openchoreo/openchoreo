@@ -346,12 +346,6 @@
           "title": "env",
           "type": "array"
         },
-        "secretName": {
-          "default": "",
-          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
-          "title": "secretName",
-          "type": "string"
-        },
         "externalCI": {
           "additionalProperties": false,
           "description": "External CI platform integrations (Jenkins). GitHub Actions and GitLab support coming soon.",
@@ -815,6 +809,12 @@
           "required": [],
           "title": "resources",
           "type": "object"
+        },
+        "secretName": {
+          "default": "",
+          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
+          "title": "secretName",
+          "type": "string"
         },
         "service": {
           "additionalProperties": false,
