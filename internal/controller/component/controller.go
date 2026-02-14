@@ -27,7 +27,8 @@ import (
 // Reconciler reconciles a Component object
 type Reconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme               *runtime.Scheme
+	RevisionHistoryLimit int
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
@@ -183,6 +184,14 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
 			logger.Error(err, "Failed to handle autoDeploy")
 			return ctrl.Result{}, err
+		}
+	}
+
+	// Cleanup old ComponentReleases if retention is enabled
+	if r.RevisionHistoryLimit > 0 {
+		if err := r.cleanupComponentReleases(ctx, comp); err != nil {
+			logger.Error(err, "Failed to cleanup old ComponentReleases")
+			// Non-fatal: don't fail the reconcile, just log
 		}
 	}
 
