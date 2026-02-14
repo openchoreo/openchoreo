@@ -17,8 +17,8 @@ import (
 //
 // Resolution priority:
 //  1. If existing bindings exist for the component in the index, use the same directory.
-//  2. If no existing bindings, use a "bindings/" directory alongside the component file.
-//  3. If "bindings/" already exists at that location, use "bindings-<componentName>/" to avoid conflicts.
+//  2. If no existing bindings, use a "release-bindings/" directory alongside the component file.
+//  3. If "release-bindings/" already exists at that location, use "release-bindings-<componentName>/" to avoid conflicts.
 func buildBindingOutputDirResolver(ocIndex *fsmode.Index, namespace string) output.OutputDirResolverFunc {
 	return func(projectName, componentName string) string {
 		// Priority 1: Use directory of existing bindings
@@ -37,14 +37,14 @@ func buildBindingOutputDirResolver(ocIndex *fsmode.Index, namespace string) outp
 		}
 
 		componentDir := filepath.Dir(compEntry.FilePath)
-		bindingsDir := filepath.Join(componentDir, "bindings")
+		bindingsDir := filepath.Join(componentDir, "release-bindings")
 
-		// Priority 2: Use "bindings/" next to the component file (if it doesn't already exist)
+		// Priority 2: Use "release-bindings/" next to the component file (if it doesn't already exist)
 		if _, err := os.Stat(bindingsDir); os.IsNotExist(err) {
 			return bindingsDir
 		}
 
-		// Priority 3: Use "bindings-<componentName>/" to avoid conflicts
-		return filepath.Join(componentDir, "bindings-"+componentName)
+		// Priority 3: Use "release-bindings-<componentName>/" to avoid conflicts
+		return filepath.Join(componentDir, "release-bindings-"+componentName)
 	}
 }

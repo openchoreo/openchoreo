@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
@@ -27,7 +28,11 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
-const releaseConfigFileName = "release-config.yaml"
+const (
+	releaseConfigFileName = "release-config.yaml"
+	actionCreated         = "Created"
+	actionUpdated         = "Updated"
+)
 
 // ReleaseBindingImpl implements ReleaseBindingAPI
 type ReleaseBindingImpl struct{}
@@ -125,21 +130,8 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 	}
 
 	// 5. Derive pipeline from project if not specified
-	if params.UsePipeline == "" && params.ProjectName != "" {
-		projectEntry, ok := ocIndex.GetProject(namespace, params.ProjectName)
-		if !ok {
-			return fmt.Errorf("project %q not found in namespace %q", params.ProjectName, namespace)
-		}
-		pipelineRef := projectEntry.GetNestedString("spec", "deploymentPipelineRef")
-		if pipelineRef == "" {
-			return fmt.Errorf("project %q has no deploymentPipelineRef set", params.ProjectName)
-		}
-		params.UsePipeline = pipelineRef
-		fmt.Printf("No --use-pipeline specified, using project's deploymentPipelineRef: %s\n", pipelineRef)
-	}
-
-	if params.UsePipeline == "" {
-		return fmt.Errorf("--use-pipeline is required (could not derive from project)")
+	if err := deriveUsePipeline(ocIndex, namespace, &params); err != nil {
+		return err
 	}
 
 	// Get and validate deployment pipeline
@@ -155,6 +147,9 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 
 	// 6. Derive target environment from pipeline root if not specified
 	if params.TargetEnv == "" {
+		if params.All {
+			return fmt.Errorf("--target-env is required when using --all")
+		}
 		params.TargetEnv = pipelineInfo.RootEnvironment
 		fmt.Printf("No --target-env specified, using root environment: %s\n", params.TargetEnv)
 	}
@@ -178,7 +173,7 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 
 	if params.ComponentName != "" {
 		// Single component mode
-		return r.generateForComponent(gen, params, namespace, pipelineInfo, baseDir, releaseConfig)
+		return r.generateForComponent(gen, params, namespace, pipelineInfo, baseDir, releaseConfig, resolver)
 	}
 
 	// Project-only scope
@@ -238,8 +233,8 @@ func (r *ReleaseBindingImpl) generateForProject(gen *generator.BindingGenerator,
 	return r.writeResults(result, baseDir, customOutputPath, dryRun, releaseConfig, resolver)
 }
 
-func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerator, params api.GenerateReleaseBindingParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig) error {
-	binding, err := gen.GenerateBinding(generator.BindingOptions{
+func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerator, params api.GenerateReleaseBindingParams, namespace string, pipelineInfo *pipeline.PipelineInfo, baseDir string, releaseConfig *occonfig.ReleaseConfig, resolver output.OutputDirResolverFunc) error {
+	bindingInfo, err := gen.GenerateBindingWithInfo(generator.BindingOptions{
 		ProjectName:      params.ProjectName,
 		ComponentName:    params.ComponentName,
 		ComponentRelease: params.ComponentRelease,
@@ -252,20 +247,28 @@ func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerato
 	}
 
 	if params.DryRun {
-		return r.printYAML(binding)
+		return r.printYAML(bindingInfo.Binding)
 	}
 
 	// Write to file
 	writer := output.NewWriter(baseDir)
 
-	// Determine output directory using config if available
+	// Determine output directory
 	var componentOutputDir string
-	if releaseConfig != nil {
-		componentOutputDir = releaseConfig.GetBindingOutputDir(params.ProjectName, params.ComponentName)
-	}
-	// If user provided --output-path, use it; otherwise use config or default
-	if componentOutputDir == "" && params.OutputPath != "" {
-		componentOutputDir = params.OutputPath
+
+	if bindingInfo.IsUpdate && bindingInfo.ExistingFilePath != "" {
+		// UPDATE: write back to the original file location
+		componentOutputDir = filepath.Dir(bindingInfo.ExistingFilePath)
+	} else {
+		// CREATE: --output-path → release-config → resolver → default
+		if params.OutputPath != "" {
+			componentOutputDir = params.OutputPath
+		} else if releaseConfig != nil {
+			componentOutputDir = releaseConfig.GetBindingOutputDir(params.ProjectName, params.ComponentName)
+		}
+		if componentOutputDir == "" && resolver != nil {
+			componentOutputDir = resolver(params.ProjectName, params.ComponentName)
+		}
 	}
 
 	writeOpts := output.WriteOptions{
@@ -273,12 +276,16 @@ func (r *ReleaseBindingImpl) generateForComponent(gen *generator.BindingGenerato
 		OutputDir: componentOutputDir,
 	}
 
-	path, _, err := writer.WriteBinding(binding, writeOpts)
+	path, _, err := writer.WriteBinding(bindingInfo.Binding, writeOpts)
 	if err != nil {
 		return fmt.Errorf("failed to write binding: %w", err)
 	}
 
-	fmt.Printf("Generated: %s\n", path)
+	action := actionCreated
+	if bindingInfo.IsUpdate {
+		action = actionUpdated
+	}
+	fmt.Printf("%s: %s\n", action, path)
 	return nil
 }
 
@@ -292,9 +299,9 @@ func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, b
 	if dryRun {
 		// Dry-run mode: print all bindings to stdout
 		for _, info := range result.Bindings {
-			action := "Created"
+			action := actionCreated
 			if info.IsUpdate {
-				action = "Updated"
+				action = actionUpdated
 			}
 			fmt.Printf("# %s binding: %s (project: %s, component: %s, release: %s)\n",
 				action, info.BindingName, info.ProjectName, info.ComponentName, info.ReleaseName)
@@ -306,26 +313,38 @@ func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, b
 	} else {
 		// Use bulk write with config for proper output directory resolution
 		bindings := make([]*unstructured.Unstructured, 0, len(result.Bindings))
+		existingPaths := make(map[string]string)
 		for _, info := range result.Bindings {
 			bindings = append(bindings, info.Binding)
+			if info.IsUpdate && info.ExistingFilePath != "" {
+				existingPaths[info.BindingName] = info.ExistingFilePath
+			}
 		}
 
 		writer := output.NewWriter(baseDir)
 		writeResult, err := writer.WriteBulkBindings(bindings, output.BulkBindingWriteOptions{
-			Config:    releaseConfig,
-			OutputDir: customOutputPath,
-			Resolver:  resolver,
-			DryRun:    false,
+			Config:        releaseConfig,
+			OutputDir:     customOutputPath,
+			Resolver:      resolver,
+			ExistingPaths: existingPaths,
+			DryRun:        false,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to write bindings: %w", err)
 		}
 
+		// Build lookup map from binding name to IsUpdate
+		updateMap := make(map[string]bool, len(result.Bindings))
+		for _, info := range result.Bindings {
+			updateMap[info.BindingName] = info.IsUpdate
+		}
+
 		// Print results
-		for i, path := range writeResult.OutputPaths {
-			action := "Created"
-			if i < len(result.Bindings) && result.Bindings[i].IsUpdate {
-				action = "Updated"
+		for _, path := range writeResult.OutputPaths {
+			bindingName := strings.TrimSuffix(filepath.Base(path), ".yaml")
+			action := actionCreated
+			if updateMap[bindingName] {
+				action = actionUpdated
 			}
 			fmt.Printf("%s: %s\n", action, path)
 		}
@@ -343,6 +362,33 @@ func (r *ReleaseBindingImpl) writeResults(result *generator.BulkBindingResult, b
 	}
 
 	fmt.Printf("\nSummary: %d bindings generated, %d errors\n", len(result.Bindings), len(result.Errors))
+	return nil
+}
+
+// deriveUsePipeline resolves params.UsePipeline from the project's deploymentPipelineRef
+// when UsePipeline is not explicitly set.
+func deriveUsePipeline(ocIndex *fsmode.Index, namespace string, params *api.GenerateReleaseBindingParams) error {
+	if params.UsePipeline == "" && params.All {
+		return fmt.Errorf("--use-pipeline is required when using --all")
+	}
+
+	if params.UsePipeline == "" && params.ProjectName != "" {
+		projectEntry, ok := ocIndex.GetProject(namespace, params.ProjectName)
+		if !ok {
+			return fmt.Errorf("project %q not found in namespace %q", params.ProjectName, namespace)
+		}
+		pipelineRef := projectEntry.GetNestedString("spec", "deploymentPipelineRef")
+		if pipelineRef == "" {
+			return fmt.Errorf("project %q has no deploymentPipelineRef set", params.ProjectName)
+		}
+		params.UsePipeline = pipelineRef
+		fmt.Printf("No --use-pipeline specified, using project's deploymentPipelineRef: %s\n", pipelineRef)
+	}
+
+	if params.UsePipeline == "" {
+		return fmt.Errorf("--use-pipeline is required (could not derive from project)")
+	}
+
 	return nil
 }
 

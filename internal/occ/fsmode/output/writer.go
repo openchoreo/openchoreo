@@ -348,11 +348,12 @@ func (w *Writer) resolveOutputPath(
 
 // BulkBindingWriteOptions configures bulk binding write operations
 type BulkBindingWriteOptions struct {
-	Config    *config.ReleaseConfig // Config for output directory resolution
-	OutputDir string                // Default output directory
-	Resolver  OutputDirResolverFunc // Optional resolver for output directory
-	DryRun    bool                  // If true, write to stdout
-	Stdout    io.Writer             // Writer for dry-run output
+	Config        *config.ReleaseConfig // Config for output directory resolution
+	OutputDir     string                // Default output directory
+	Resolver      OutputDirResolverFunc // Optional resolver for output directory
+	ExistingPaths map[string]string     // bindingName → original full file path for update-in-place
+	DryRun        bool                  // If true, write to stdout
+	Stdout        io.Writer             // Writer for dry-run output
 }
 
 // WriteBinding writes a ReleaseBinding to a file or stdout
@@ -405,7 +406,7 @@ func (w *Writer) determineBindingOutputPath(binding *unstructured.Unstructured, 
 		return filepath.Join(outputDir, bindingName+".yaml")
 	}
 
-	// Default: projects/<project>/components/<component>/bindings/
+	// Default: projects/<project>/components/<component>/release-bindings/
 	projectName := getNestedString(binding.Object, "spec", "owner", "projectName")
 	componentName := getNestedString(binding.Object, "spec", "owner", "componentName")
 
@@ -413,7 +414,7 @@ func (w *Writer) determineBindingOutputPath(binding *unstructured.Unstructured, 
 		w.baseDir,
 		"projects", projectName,
 		"components", componentName,
-		"bindings",
+		"release-bindings",
 		bindingName+".yaml",
 	)
 }
@@ -495,7 +496,24 @@ func (w *Writer) resolveBindingOutputPath(
 ) string {
 	bindingName := binding.GetName()
 
-	// Priority 1: Check config file for component-specific or project-specific path
+	// Priority 0: If an existing file path is known (update-in-place), return it directly
+	if opts.ExistingPaths != nil {
+		if existingPath, ok := opts.ExistingPaths[bindingName]; ok && existingPath != "" {
+			return existingPath
+		}
+	}
+
+	// Priority 1: Use --output flag if provided
+	if opts.OutputDir != "" {
+		// If output dir is relative, resolve it against baseDir
+		outputDir := opts.OutputDir
+		if !filepath.IsAbs(outputDir) {
+			outputDir = filepath.Join(w.baseDir, outputDir)
+		}
+		return filepath.Join(outputDir, bindingName+".yaml")
+	}
+
+	// Priority 2: Check config file for component-specific or project-specific path
 	if opts.Config != nil {
 		if configDir := opts.Config.GetBindingOutputDir(projectName, componentName); configDir != "" {
 			// If config path is relative, resolve it against baseDir
@@ -504,16 +522,6 @@ func (w *Writer) resolveBindingOutputPath(
 			}
 			return filepath.Join(configDir, bindingName+".yaml")
 		}
-	}
-
-	// Priority 2: Use --output flag if provided
-	if opts.OutputDir != "" {
-		// If output dir is relative, resolve it against baseDir
-		outputDir := opts.OutputDir
-		if !filepath.IsAbs(outputDir) {
-			outputDir = filepath.Join(w.baseDir, outputDir)
-		}
-		return filepath.Join(outputDir, bindingName+".yaml")
 	}
 
 	// Priority 3: Use resolver function if provided
@@ -527,12 +535,12 @@ func (w *Writer) resolveBindingOutputPath(
 	}
 
 	// Priority 4: Use default path structure
-	// projects/<project>/components/<component>/bindings/<binding>.yaml
+	// projects/<project>/components/<component>/release-bindings/<binding>.yaml
 	return filepath.Join(
 		w.baseDir,
 		"projects", projectName,
 		"components", componentName,
-		"bindings",
+		"release-bindings",
 		bindingName+".yaml",
 	)
 }

@@ -55,18 +55,18 @@ func TestBuildBindingOutputDirResolver(t *testing.T) {
 		resolver := buildBindingOutputDirResolver(ocIndex, namespace)
 
 		got := resolver("my-proj", "my-comp")
-		want := filepath.Join(compDir, "bindings")
+		want := filepath.Join(compDir, "release-bindings")
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
 	})
 
-	t.Run("priority 3: bindings dir already exists, use bindings-<name>", func(t *testing.T) {
+	t.Run("priority 3: release-bindings dir already exists, use release-bindings-<name>", func(t *testing.T) {
 		idx := index.New("/repo")
 
 		tmpDir := t.TempDir()
 		compDir := filepath.Join(tmpDir, "projects", "my-proj", "components", "my-comp")
-		bindingsDir := filepath.Join(compDir, "bindings")
+		bindingsDir := filepath.Join(compDir, "release-bindings")
 		if err := os.MkdirAll(bindingsDir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -81,7 +81,7 @@ func TestBuildBindingOutputDirResolver(t *testing.T) {
 		resolver := buildBindingOutputDirResolver(ocIndex, namespace)
 
 		got := resolver("my-proj", "my-comp")
-		want := filepath.Join(compDir, "bindings-my-comp")
+		want := filepath.Join(compDir, "release-bindings-my-comp")
 		if got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}

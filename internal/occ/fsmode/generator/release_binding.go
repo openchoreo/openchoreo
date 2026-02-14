@@ -5,8 +5,10 @@ package generator
 
 import (
 	"fmt"
+	"os"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
@@ -49,13 +51,14 @@ type BulkBindingResult struct {
 
 // BindingInfo contains information about a generated binding
 type BindingInfo struct {
-	BindingName   string
-	ProjectName   string
-	ComponentName string
-	ReleaseName   string
-	Environment   string
-	Binding       *unstructured.Unstructured
-	IsUpdate      bool // true if updating existing binding, false if creating new
+	BindingName      string
+	ProjectName      string
+	ComponentName    string
+	ReleaseName      string
+	Environment      string
+	Binding          *unstructured.Unstructured
+	IsUpdate         bool   // true if updating existing binding, false if creating new
+	ExistingFilePath string // original file path when IsUpdate is true
 }
 
 // BindingError contains error information for a failed binding
@@ -99,8 +102,12 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 	existingBinding, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
 
 	if exists {
-		// UPDATE mode: Clone existing and only update releaseName
-		updated := existingBinding.Resource.DeepCopy()
+		// UPDATE mode: Read the original file from disk to preserve all fields,
+		// then only update releaseName.
+		updated, err := readBindingFromFile(existingBinding.FilePath)
+		if err != nil {
+			return nil, err
+		}
 		if err := unstructured.SetNestedField(updated.Object, releaseName, "spec", "releaseName"); err != nil {
 			return nil, fmt.Errorf("failed to update releaseName in existing binding: %w", err)
 		}
@@ -109,6 +116,36 @@ func (g *BindingGenerator) GenerateBinding(opts BindingOptions) (*unstructured.U
 
 	// CREATE mode: Generate minimal new binding
 	return g.buildMinimalBinding(opts.ProjectName, opts.ComponentName, releaseName, opts.TargetEnv, opts.Namespace), nil
+}
+
+// GenerateBindingWithInfo generates a single ReleaseBinding and returns rich info
+// including whether this is an update and the existing file path.
+func (g *BindingGenerator) GenerateBindingWithInfo(opts BindingOptions) (*BindingInfo, error) {
+	binding, err := g.GenerateBinding(opts)
+	if err != nil {
+		return nil, fmt.Errorf("generate binding: %w", err)
+	}
+
+	bindingName := binding.GetName()
+	releaseName := getNestedString(binding.Object, "spec", "releaseName")
+
+	info := &BindingInfo{
+		BindingName:   bindingName,
+		ProjectName:   opts.ProjectName,
+		ComponentName: opts.ComponentName,
+		ReleaseName:   releaseName,
+		Environment:   opts.TargetEnv,
+		Binding:       binding,
+	}
+
+	// Check if this is an update and capture existing file path
+	entry, exists := g.index.GetReleaseBindingForEnv(opts.ProjectName, opts.ComponentName, opts.TargetEnv)
+	if exists {
+		info.IsUpdate = true
+		info.ExistingFilePath = entry.FilePath
+	}
+
+	return info, nil
 }
 
 // selectComponentRelease determines which ComponentRelease to use based on:
@@ -268,12 +305,12 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 		}
 
 		// Check if this is an update or create
-		_, exists := g.index.GetReleaseBindingForEnv(owner.ProjectName, owner.ComponentName, opts.TargetEnv)
+		entry, exists := g.index.GetReleaseBindingForEnv(owner.ProjectName, owner.ComponentName, opts.TargetEnv)
 
 		bindingName := binding.GetName()
 		releaseName := getNestedString(binding.Object, "spec", "releaseName")
 
-		result.Bindings = append(result.Bindings, BindingInfo{
+		info := BindingInfo{
 			BindingName:   bindingName,
 			ProjectName:   owner.ProjectName,
 			ComponentName: owner.ComponentName,
@@ -281,10 +318,31 @@ func (g *BindingGenerator) GenerateBulkBindings(opts BulkBindingOptions) (*BulkB
 			Environment:   opts.TargetEnv,
 			Binding:       binding,
 			IsUpdate:      exists,
-		})
+		}
+		if exists {
+			info.ExistingFilePath = entry.FilePath
+		}
+
+		result.Bindings = append(result.Bindings, info)
 	}
 
 	return result, nil
+}
+
+// readBindingFromFile reads a ReleaseBinding YAML file from disk and returns it
+// as an unstructured object, preserving all fields from the original file.
+func readBindingFromFile(filePath string) (*unstructured.Unstructured, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read existing binding file %s: %w", filePath, err)
+	}
+
+	obj := &unstructured.Unstructured{}
+	if err := yaml.Unmarshal(data, &obj.Object); err != nil {
+		return nil, fmt.Errorf("failed to parse existing binding file %s: %w", filePath, err)
+	}
+
+	return obj, nil
 }
 
 // getNestedString is a helper to safely extract nested string values
