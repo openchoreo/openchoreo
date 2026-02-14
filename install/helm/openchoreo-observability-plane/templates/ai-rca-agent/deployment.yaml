@@ -38,7 +38,7 @@ spec:
           value: {{ .Values.rca.observerMcpUrl | default "http://observer:8080/mcp" | quote }}
 
         - name: CONTROL_PLANE_URL
-          value: {{ .Values.rca.controlPlaneUrl | default "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080" | quote }}
+          value: {{ (.Values.rca.controlPlaneUrl | default .Values.controlPlaneApiUrl) | quote }}
 
         - name: AUTHZ_TIMEOUT_SECONDS
           value: {{ .Values.rca.authz.timeoutSeconds | quote }}

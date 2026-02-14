@@ -2,6 +2,8 @@
 # This file contains overrides specific to running the observability plane in a k3d environment
 
 
+controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
+
 fluent-bit:
   enabled: true
 
@@ -24,8 +26,6 @@ observer:
     value: "30s"
   - name: AUTHZ_ENABLED
     value: "true"
-  - name: AUTHZ_SERVICE_URL
-    value: "http://api.openchoreo.localhost:8080"
   - name: AUTHZ_TIMEOUT
     value: "30s"
   http:

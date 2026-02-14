@@ -453,6 +453,12 @@
       "title": "clusterAgent",
       "type": "object"
     },
+    "controlPlaneApiUrl": {
+      "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+      "description": "Control plane API base URL used by observer (for authz) and rca-agent",
+      "title": "controlPlaneApiUrl",
+      "type": "string"
+    },
     "controllerManager": {
       "additionalProperties": false,
       "description": "Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs",
