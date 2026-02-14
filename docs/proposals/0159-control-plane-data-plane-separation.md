@@ -75,7 +75,7 @@ This proposal presents three main approaches for CP-DP separation, each with dif
 In scenarios where CP and DP exist within the same virtual network (local setups or cloud VPCs), the Control Plane can
 directly access the Data Plane using its credentials.
 
-![Direct Access Architecture](0159-assets/direct-access.png)
+![Direct Access Architecture](assets/0159-direct-access.png)
 
 **Advantages:**
 
@@ -110,7 +110,7 @@ A more scalable option using an agent-based communication model where:
 3. Agents running in Data Planes connect to the CP server
 4. CP applies and reads YAML manifests through the agent connection
 
-![Agent-Based Architecture](0159-assets/agent-based.png)
+![Agent-Based Architecture](assets/0159-agent-based.png)
 
 **Advantages:**
 
@@ -127,7 +127,7 @@ This approach uses a secondary GitHub repository for generated Kubernetes YAML m
 2. CP generates Kubernetes YAMLs and stores them in a secondary repository
 3. FluxCD in the Data Plane periodically retrieves and applies these resources
 
-![GitOps Architecture](0159-assets/gitops.png)
+![GitOps Architecture](assets/0159-gitops.png)
 
 **Advantages:**
 
@@ -136,7 +136,7 @@ This approach uses a secondary GitHub repository for generated Kubernetes YAML m
 - GitOps-native approach
 
 **Considerations:**
-
+x
 - Still requires reading cluster status (via agent or API)
 - Additional complexity in managing secondary repository
 - Requires structured YAML organization (folders/branches per project/component/environment)
