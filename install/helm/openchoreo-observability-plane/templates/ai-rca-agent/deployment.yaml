@@ -40,10 +40,6 @@ spec:
         - name: CONTROL_PLANE_URL
           value: {{ .Values.rca.controlPlaneUrl | default "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080" | quote }}
 
-        # Authorization Configuration
-        - name: AUTHZ_ENABLED
-          value: {{ .Values.rca.authz.enabled | quote }}
-
         - name: AUTHZ_TIMEOUT_SECONDS
           value: {{ .Values.rca.authz.timeoutSeconds | quote }}
 
