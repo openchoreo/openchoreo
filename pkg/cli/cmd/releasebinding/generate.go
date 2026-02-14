@@ -49,22 +49,17 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.RootDir,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
-			// Validate required flags
-			targetEnv := fg.GetString(flags.TargetEnv)
-			usePipeline := fg.GetString(flags.UsePipeline)
-
-			if targetEnv == "" {
-				return fmt.Errorf("--target-env is required")
-			}
-			if usePipeline == "" {
-				return fmt.Errorf("--use-pipeline is required")
-			}
-
 			// Check flag combinations
 			allSet := isFlagInArgs("--all")
 			projectSet := isFlagInArgs("--project")
 			componentSet := isFlagInArgs("--component")
 			componentReleaseSet := isFlagInArgs("--component-release")
+
+			// --use-pipeline is required for --all scope (no single project to derive from)
+			usePipeline := fg.GetString(flags.UsePipeline)
+			if allSet && usePipeline == "" {
+				return fmt.Errorf("--use-pipeline is required when using --all scope")
+			}
 
 			// --component-release requires both --project and --component
 			if componentReleaseSet && !(projectSet && componentSet) {
@@ -85,7 +80,7 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			}
 
 			params := api.GenerateReleaseBindingParams{
-				TargetEnv:   targetEnv,
+				TargetEnv:   fg.GetString(flags.TargetEnv),
 				UsePipeline: usePipeline,
 				OutputPath:  fg.GetString(flags.OutputPath),
 				DryRun:      fg.GetBool(flags.DryRun),

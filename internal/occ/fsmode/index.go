@@ -280,6 +280,11 @@ func (idx *Index) GetLatestReleaseForComponent(projectName, componentName string
 	return latestRelease, nil
 }
 
+// GetProject retrieves a project by namespace and name
+func (idx *Index) GetProject(namespace, name string) (*index.ResourceEntry, bool) {
+	return idx.Index.Get(ProjectGVK, namespace, name)
+}
+
 // GetDeploymentPipeline retrieves a deployment pipeline by name
 func (idx *Index) GetDeploymentPipeline(name string) (*index.ResourceEntry, bool) {
 	idx.mu.RLock()

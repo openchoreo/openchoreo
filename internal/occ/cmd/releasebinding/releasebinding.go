@@ -112,13 +112,37 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 
 	ocIndex := fsmode.WrapIndex(persistentIndex.Index)
 
-	// 3. Load release config (optional - when absent, output dirs are inferred from index)
+	// 3. Get namespace from context
+	namespace := ctx.Namespace
+	if namespace == "" {
+		return fmt.Errorf("namespace is required in context")
+	}
+
+	// 4. Load release config (optional - when absent, output dirs are inferred from index)
 	releaseConfig, err := r.loadReleaseConfig(repoPath, false)
 	if err != nil {
 		return err
 	}
 
-	// 4. Get and validate deployment pipeline
+	// 5. Derive pipeline from project if not specified
+	if params.UsePipeline == "" && params.ProjectName != "" {
+		projectEntry, ok := ocIndex.GetProject(namespace, params.ProjectName)
+		if !ok {
+			return fmt.Errorf("project %q not found in namespace %q", params.ProjectName, namespace)
+		}
+		pipelineRef := projectEntry.GetNestedString("spec", "deploymentPipelineRef")
+		if pipelineRef == "" {
+			return fmt.Errorf("project %q has no deploymentPipelineRef set", params.ProjectName)
+		}
+		params.UsePipeline = pipelineRef
+		fmt.Printf("No --use-pipeline specified, using project's deploymentPipelineRef: %s\n", pipelineRef)
+	}
+
+	if params.UsePipeline == "" {
+		return fmt.Errorf("--use-pipeline is required (could not derive from project)")
+	}
+
+	// Get and validate deployment pipeline
 	pipelineEntry, ok := ocIndex.GetDeploymentPipeline(params.UsePipeline)
 	if !ok {
 		return fmt.Errorf("deployment pipeline %q not found", params.UsePipeline)
@@ -129,15 +153,15 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 		return fmt.Errorf("failed to parse deployment pipeline: %w", err)
 	}
 
-	// 5. Validate target environment exists in pipeline
-	if err := pipelineInfo.ValidateEnvironment(params.TargetEnv); err != nil {
-		return fmt.Errorf("invalid target environment: %w", err)
+	// 6. Derive target environment from pipeline root if not specified
+	if params.TargetEnv == "" {
+		params.TargetEnv = pipelineInfo.RootEnvironment
+		fmt.Printf("No --target-env specified, using root environment: %s\n", params.TargetEnv)
 	}
 
-	// 6. Get namespace from context
-	namespace := ctx.Namespace
-	if namespace == "" {
-		return fmt.Errorf("namespace is required in context")
+	// Validate target environment exists in pipeline
+	if err := pipelineInfo.ValidateEnvironment(params.TargetEnv); err != nil {
+		return fmt.Errorf("invalid target environment: %w", err)
 	}
 
 	// 7. Create generator
