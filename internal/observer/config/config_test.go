@@ -134,6 +134,10 @@ func TestValidate(t *testing.T) {
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
 				},
+				Authz: AuthzConfig{
+					ServiceURL: "http://localhost:8081",
+					Timeout:    30 * time.Second,
+				},
 			},
 			expectErr: false,
 		},
@@ -273,6 +277,54 @@ func TestValidate(t *testing.T) {
 				},
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "missing authz service URL",
+			config: Config{
+				Server: ServerConfig{
+					Port: 8080,
+				},
+				OpenSearch: OpenSearchConfig{
+					Address: "http://localhost:9200",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
+				Logging: LoggingConfig{
+					MaxLogLimit: 1000,
+				},
+				Authz: AuthzConfig{
+					ServiceURL: "",
+					Timeout:    30 * time.Second,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "invalid authz timeout",
+			config: Config{
+				Server: ServerConfig{
+					Port: 8080,
+				},
+				OpenSearch: OpenSearchConfig{
+					Address: "http://localhost:9200",
+					Timeout: 30 * time.Second,
+				},
+				Prometheus: PrometheusConfig{
+					Address: "http://localhost:9090",
+					Timeout: 30 * time.Second,
+				},
+				Logging: LoggingConfig{
+					MaxLogLimit: 1000,
+				},
+				Authz: AuthzConfig{
+					ServiceURL: "http://localhost:8081",
+					Timeout:    0,
 				},
 			},
 			expectErr: true,

@@ -21,8 +21,6 @@ observer:
     value: "http://openchoreo-observability-prometheus:9091"
   - name: PROMETHEUS_TIMEOUT
     value: "30s"
-  - name: AUTHZ_ENABLED
-    value: "true"
   - name: AUTHZ_TIMEOUT
     value: "30s"
   http:
