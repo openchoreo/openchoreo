@@ -3066,33 +3066,6 @@
               "description": "Path to the SQLite database file",
               "title": "path",
               "type": "string"
-            },
-            "persistence": {
-              "additionalProperties": false,
-              "description": "Persistent volume configuration for the database",
-              "properties": {
-                "enabled": {
-                  "default": true,
-                  "description": "Enable persistent storage for the database",
-                  "title": "enabled",
-                  "type": "boolean"
-                },
-                "size": {
-                  "default": "500Mi",
-                  "description": "Size of the persistent volume",
-                  "title": "size",
-                  "type": "string"
-                },
-                "storageClassName": {
-                  "default": "",
-                  "description": "Storage class name. If empty, uses the default storage class",
-                  "title": "storageClassName",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "persistence",
-              "type": "object"
             }
           },
           "required": [],

@@ -1226,30 +1226,6 @@ openchoreoApi:
     # default: /var/lib/openchoreo/data/controlplane.db
     # @schema
     path: "/var/lib/openchoreo/data/controlplane.db"
-    # @schema
-    # type: object
-    # description: Persistent volume configuration for the database
-    # @schema
-    persistence:
-      # @schema
-      # type: boolean
-      # description: Enable persistent storage for the database
-      # default: true
-      # @schema
-      enabled: true
-      # @schema
-      # type: string
-      # description: Size of the persistent volume
-      # default: 500Mi
-      # @schema
-      size: 500Mi
-      # @schema
-      # type: string
-      # description: Storage class name. If empty, uses the default storage class
-      # default: ""
-      # @schema
-      storageClassName: ""
-
   # @schema
   # type: object
   # description: Resource requests and limits

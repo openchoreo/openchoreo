@@ -85,12 +85,7 @@ spec:
         {{- end }}
       volumes:
       - name: data
-      {{- if .Values.openchoreoApi.database.persistence.enabled }}
-        persistentVolumeClaim:
-          claimName: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-db
-      {{- else }}
         emptyDir: {}
-      {{- end }}
       - name: config
         configMap:
           name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
