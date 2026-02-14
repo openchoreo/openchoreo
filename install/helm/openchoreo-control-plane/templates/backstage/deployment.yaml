@@ -73,7 +73,7 @@ spec:
         - name: BACKEND_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
+              name: {{ .Values.backstage.secretName }}
               key: backend-secret
         # Common security and OAuth configuration
         # OIDC Discovery URL (optional) - enables auto-discovery of OAuth endpoints
@@ -91,7 +91,7 @@ spec:
         - name: OPENCHOREO_AUTH_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
+              name: {{ .Values.backstage.secretName }}
               key: client-secret
         # Feature flags for OpenChoreo functionality
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
@@ -111,7 +111,7 @@ spec:
         - name: JENKINS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.backstage.name" . }}-secrets
+              name: {{ .Values.backstage.secretName }}
               key: jenkins-api-key
         # Database configuration
         {{- if eq .Values.backstage.database.type "sqlite" }}
@@ -123,18 +123,30 @@ spec:
         - name: DATABASE_CLIENT
           value: "pg"
         - name: POSTGRES_HOST
-          value: {{ .Values.backstage.database.postgresql.host | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: postgres-host
         - name: POSTGRES_PORT
-          value: {{ .Values.backstage.database.postgresql.port | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: postgres-port
         - name: POSTGRES_USER
-          value: {{ .Values.backstage.database.postgresql.user | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: postgres-user
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: {{ include "openchoreo-control-plane.backstage.secretName" . }}
+              name: {{ .Values.backstage.secretName }}
               key: postgres-password
         - name: POSTGRES_DB
-          value: {{ .Values.backstage.database.postgresql.database | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: postgres-db
         {{- if .Values.backstage.database.postgresql.ssl }}
         - name: PGSSLMODE
           value: "require"

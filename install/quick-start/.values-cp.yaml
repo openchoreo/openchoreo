@@ -43,6 +43,7 @@ openchoreoApi:
               effect: allow
 
 backstage:
+  secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"
   http:
     hostnames:

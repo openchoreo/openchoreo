@@ -9,6 +9,7 @@ openchoreoApi:
       publicUrl: "http://api.openchoreo.localhost:8080"
 
 backstage:
+  secretName: backstage-secrets
   baseUrl: "http://openchoreo.localhost:8080"
   http:
     hostnames:

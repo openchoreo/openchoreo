@@ -130,14 +130,6 @@ Backstage resource name
 {{- end }}
 
 {{/*
-Backstage secrets name.
-Uses existingSecret when provided, otherwise falls back to the chart-generated secret.
-*/}}
-{{- define "openchoreo-control-plane.backstage.secretName" -}}
-{{- .Values.backstage.existingSecret | default (printf "%s-secrets" (include "openchoreo-control-plane.backstage.name" .)) }}
-{{- end }}
-
-{{/*
 Backstage service account name
 Always returns openchoreo-backstage (or custom name from values).
 Service account is always created when backstage is enabled for security.
@@ -209,6 +201,9 @@ Validate that placeholder .invalid hostnames have been replaced with real domain
 {{- end -}}
 {{- if contains ".invalid" .Values.security.oidc.issuer -}}
   {{- $errors = append $errors "security.oidc.issuer contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if and .Values.backstage.enabled (not .Values.backstage.secretName) -}}
+  {{- $errors = append $errors "backstage.secretName is required when backstage is enabled" -}}
 {{- end -}}
 {{- if gt (len $errors) 0 -}}
   {{- fail (printf "Placeholder domains found. Set real hostnames for:\n  - %s" (join "\n  - " $errors)) -}}

@@ -24,12 +24,6 @@
               "title": "clientId",
               "type": "string"
             },
-            "clientSecret": {
-              "default": "backstage-portal-secret",
-              "description": "OAuth client secret",
-              "title": "clientSecret",
-              "type": "string"
-            },
             "redirectUrls": {
               "default": [],
               "description": "OAuth redirect URLs",
@@ -157,12 +151,6 @@
           "title": "autoscaling",
           "type": "object"
         },
-        "backendSecret": {
-          "default": "",
-          "description": "Backend secret for Backstage encryption. If empty, a random secret is generated",
-          "title": "backendSecret",
-          "type": "string"
-        },
         "baseUrl": {
           "default": "http://openchoreo.invalid",
           "description": "Backstage public base URL",
@@ -255,41 +243,11 @@
               "additionalProperties": false,
               "description": "PostgreSQL settings (only used when type is postgresql)",
               "properties": {
-                "database": {
-                  "default": "backstage",
-                  "description": "PostgreSQL database name",
-                  "title": "database",
-                  "type": "string"
-                },
-                "host": {
-                  "default": "",
-                  "description": "PostgreSQL host",
-                  "title": "host",
-                  "type": "string"
-                },
-                "password": {
-                  "default": "",
-                  "description": "PostgreSQL password",
-                  "title": "password",
-                  "type": "string"
-                },
-                "port": {
-                  "default": 5432,
-                  "description": "PostgreSQL port",
-                  "title": "port",
-                  "type": "integer"
-                },
                 "ssl": {
                   "default": false,
                   "description": "Enable SSL for the PostgreSQL connection (sets PGSSLMODE=require)",
                   "title": "ssl",
                   "type": "boolean"
-                },
-                "user": {
-                  "default": "backstage",
-                  "description": "PostgreSQL username",
-                  "title": "user",
-                  "type": "string"
                 }
               },
               "required": [],
@@ -388,10 +346,10 @@
           "title": "env",
           "type": "array"
         },
-        "existingSecret": {
+        "secretName": {
           "default": "",
-          "description": "Name of an existing Secret containing backstage secrets (backend-secret, client-secret, postgres-password). When set, the chart does not create its own Secret.",
-          "title": "existingSecret",
+          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
+          "title": "secretName",
           "type": "string"
         },
         "externalCI": {
@@ -402,12 +360,6 @@
               "additionalProperties": false,
               "description": "Jenkins CI integration configuration",
               "properties": {
-                "apiKey": {
-                  "default": "",
-                  "description": "Jenkins API key/token for authentication",
-                  "title": "apiKey",
-                  "type": "string"
-                },
                 "baseUrl": {
                   "default": "",
                   "description": "Jenkins server base URL (e.g., https://jenkins.example.com)",

@@ -1791,10 +1791,10 @@ backstage:
 
   # @schema
   # type: string
-  # description: Name of an existing Secret containing backstage secrets (backend-secret, client-secret, postgres-password). When set, the chart does not create its own Secret.
+  # description: Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.
   # default: ""
   # @schema
-  existingSecret: ""
+  secretName: ""
 
   # @schema
   # type: integer
@@ -1936,13 +1936,6 @@ backstage:
     value: 800000
 
   # @schema
-  # type: string
-  # description: Backend secret for Backstage encryption. If empty, a random secret is generated
-  # default: ""
-  # @schema
-  backendSecret: ""
-
-  # @schema
   # type: object
   # description: OpenChoreo API connection configuration
   # @schema
@@ -2010,12 +2003,6 @@ backstage:
       # default: ""
       # @schema
       username: "jenkins-user"
-      # @schema
-      # type: string
-      # description: Jenkins API key/token for authentication
-      # default: ""
-      # @schema
-      apiKey: "jenkins-api-key"
 
   # @schema
   # type: array
@@ -2071,12 +2058,6 @@ backstage:
     # default: openchoreo-backstage-client
     # @schema
     clientId: "openchoreo-backstage-client"
-    # @schema
-    # type: string
-    # description: OAuth client secret
-    # default: backstage-portal-secret
-    # @schema
-    clientSecret: "backstage-portal-secret"
     # @schema
     # type: array
     # description: OAuth redirect URLs
@@ -2515,41 +2496,11 @@ backstage:
     # @schema
     postgresql:
       # @schema
-      # type: string
-      # description: PostgreSQL host
-      # default: ""
-      # @schema
-      host: ""
-      # @schema
-      # type: integer
-      # description: PostgreSQL port
-      # default: 5432
-      # @schema
-      port: 5432
-      # @schema
-      # type: string
-      # description: PostgreSQL username
-      # default: backstage
-      # @schema
-      user: backstage
-      # @schema
-      # type: string
-      # description: PostgreSQL password
-      # default: ""
-      # @schema
-      password: ""
-      # @schema
       # type: boolean
       # description: Enable SSL for the PostgreSQL connection (sets PGSSLMODE=require)
       # default: false
       # @schema
       ssl: false
-      # @schema
-      # type: string
-      # description: PostgreSQL database name
-      # default: backstage
-      # @schema
-      database: backstage
 
 # @schema
 # type: object

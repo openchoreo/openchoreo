@@ -104,7 +104,8 @@ install_thunder
 # Step 5: Apply CoreDNS config
 apply_coredns_config
 
-# Step 6: Install Control Plane
+# Step 6: Create backstage secret and install Control Plane
+create_backstage_secret "$CONTROL_PLANE_NS"
 install_control_plane
 patch_gateway_tmp_volume "$CONTROL_PLANE_NS"
 

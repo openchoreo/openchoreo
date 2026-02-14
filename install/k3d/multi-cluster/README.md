@@ -71,6 +71,16 @@ helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
 # CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
 kubectl apply --context k3d-openchoreo-cp -f install/k3d/common/coredns-custom.yaml
 
+# Create backstage secret (contains backend encryption key, OAuth client secret, etc.)
+kubectl --context k3d-openchoreo-cp create namespace openchoreo-control-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo-cp apply -f -
+
+kubectl --context k3d-openchoreo-cp create secret generic backstage-secrets \
+  -n openchoreo-control-plane \
+  --from-literal=backend-secret="$(head -c 32 /dev/urandom | base64)" \
+  --from-literal=client-secret="backstage-portal-secret" \
+  --from-literal=jenkins-api-key="placeholder-not-in-use"
+
 # Install Control Plane Helm chart
 helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --kube-context k3d-openchoreo-cp \

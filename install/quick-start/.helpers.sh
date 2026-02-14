@@ -727,6 +727,24 @@ DPEOF
     log_success "DataPlane resource created"
 }
 
+# Create backstage secret with required credentials
+create_backstage_secret() {
+    local namespace="$1"
+    log_info "Creating backstage secret..."
+
+    local backend_secret
+    backend_secret=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+
+    kubectl create secret generic backstage-secrets \
+        --namespace "$namespace" \
+        --from-literal=backend-secret="$backend_secret" \
+        --from-literal=client-secret="backstage-portal-secret" \
+        --from-literal=jenkins-api-key="placeholder-not-in-use" \
+        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
+
+    log_success "Backstage secret created"
+}
+
 # Install OpenChoreo Control Plane
 install_control_plane() {
     log_info "Installing OpenChoreo Control Plane..."
