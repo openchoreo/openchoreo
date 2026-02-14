@@ -3414,12 +3414,6 @@
           "additionalProperties": false,
           "description": "Authorization configuration for RCA agent",
           "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable authorization checks",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "timeoutSeconds": {
               "default": 30,
               "description": "Authorization request timeout in seconds",
