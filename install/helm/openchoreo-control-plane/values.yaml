@@ -1714,59 +1714,6 @@ openchoreoApi:
       # @schema
       type: Unconfined
 
-  # @schema
-  # type: object
-  # description: Security configuration for authorization user types
-  # @schema
-  security:
-    # @schema
-    # type: array
-    # description: User type definitions for authorization
-    # items:
-    #   type: object
-    #   properties:
-    #     type:
-    #       type: string
-    #       description: User type identifier
-    #     display_name:
-    #       type: string
-    #       description: Human-readable name
-    #     priority:
-    #       type: integer
-    #       description: Priority order
-    #     auth_mechanisms:
-    #       type: array
-    #       items:
-    #         type: object
-    #         properties:
-    #           type:
-    #             type: string
-    #           entitlement:
-    #             type: object
-    #             properties:
-    #               claim:
-    #                 type: string
-    #               display_name:
-    #                 type: string
-    # @schema
-    userTypes:
-      - type: "user"
-        display_name: "User"
-        priority: 1
-        auth_mechanisms:
-          - type: "oauth2"
-            entitlement:
-              claim: "groups"
-              display_name: "User Group"
-      - type: "service_account"
-        display_name: "Service Account"
-        priority: 2
-        auth_mechanisms:
-          - type: "oauth2"
-            entitlement:
-              claim: "sub"
-              display_name: "Client ID"
-
 # @schema
 # type: object
 # description: Backstage UI configuration
