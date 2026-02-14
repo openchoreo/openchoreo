@@ -128,13 +128,7 @@ if [[ "$ENABLE_BUILD_PLANE" == "true" ]]; then
     install_registry
     install_build_plane
 
-    if [[ -f "${SCRIPT_DIR}/add-build-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/add-build-plane.sh" --name default
-    elif [[ -f "${SCRIPT_DIR}/../add-build-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/../add-build-plane.sh" --name default
-    else
-        log_warning "add-build-plane.sh not found, skipping buildplane resource"
-    fi
+    create_buildplane_resource
 fi
 
 # Step 11: Install Observability Plane (optional)
@@ -149,13 +143,7 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     install_observability_plane
     patch_gateway_tmp_volume "$OBSERVABILITY_NS"
 
-    if [[ -f "${SCRIPT_DIR}/add-observability-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/add-observability-plane.sh" --name default
-    elif [[ -f "${SCRIPT_DIR}/../add-observability-plane.sh" ]]; then
-        bash "${SCRIPT_DIR}/../add-observability-plane.sh" --name default
-    else
-        log_warning "add-observability-plane.sh not found, skipping observabilityplane resource"
-    fi
+    create_observabilityplane_resource
 
     configure_observabilityplane_reference
 fi

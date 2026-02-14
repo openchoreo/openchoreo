@@ -72,7 +72,7 @@ clusterAgent:
     caSecretNamespace: ""
     # Server CA certificate for TLS verification
     # Extract from control plane: kubectl --context k3d-openchoreo-cp get secret cluster-gateway-ca -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}' | base64 -d
-    # Or use: ./install/extract-agent-cas.sh server-ca
+    # Or extract from control plane: kubectl get secret cluster-gateway-ca -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}' | base64 -d
     serverCAValue: |
       -----BEGIN CERTIFICATE-----
       <PASTE_SERVER_CA_CERTIFICATE_HERE>

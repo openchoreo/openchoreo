@@ -380,22 +380,54 @@ kubectl label namespace default openchoreo.dev/controlplane-namespace=true
 Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
 
 ```bash
-./install/add-build-plane.sh \
-  --control-plane-context k3d-openchoreo \
-  --name default
+# Extract the cluster agent client CA from the build plane
+AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+  -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+# Create the BuildPlane CR
+kubectl apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: BuildPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo '        ${AGENT_CA}')
+  secretStoreRef:
+    name: openbao
+EOF
 ```
 
 The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
 ### 8. Create ObservabilityPlane Resource (optional)
 
-Create a ObservabilityPlane resource to enable observability in data plane and build plane.
+Create an ObservabilityPlane resource to enable observability in data plane and build plane.
 
 ```bash
-./install/add-observability-plane.sh \
-  --control-plane-context k3d-openchoreo \
-  --name default \
-  --observer-url http://observer.openchoreo.localhost:11080
+# Extract the cluster agent client CA from the observability plane
+AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+  -n openchoreo-observability-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+# Create the ObservabilityPlane CR
+kubectl apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo '        ${AGENT_CA}')
+  observerURL: http://observer.openchoreo.localhost:11080
+EOF
 ```
 The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 

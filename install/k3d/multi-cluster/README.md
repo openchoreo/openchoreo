@@ -446,85 +446,62 @@ kubectl --context k3d-openchoreo-cp label namespace default openchoreo.dev/contr
 
 ### 8. Create BuildPlane Resource (optional)
 
-Similar to the DataPlane, use `add-build-plane.sh` to automatically extract and configure. All BuildPlanes use cluster agent for secure communication.
+Extract the cluster agent client CA from the build plane and create the BuildPlane CR. All BuildPlanes use cluster agent for secure communication.
 
 ```bash
-# Create BuildPlane CR with automatic client CA extraction
-./install/add-build-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --buildplane-context k3d-openchoreo-bp \
-  --name default
+# Extract build plane agent's client CA certificate
+AGENT_CA=$(kubectl --context k3d-openchoreo-bp get secret cluster-agent-tls \
+  -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+# Create BuildPlane CR
+kubectl --context k3d-openchoreo-cp apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: BuildPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+        ${AGENT_CA}
+  secretStoreRef:
+    name: openbao
+EOF
 
 # Verify the BuildPlane resource was created
 kubectl --context k3d-openchoreo-cp get buildplane default -n default
 ```
 
-<details>
-<summary>Alternative: Manual creation with secret reference</summary>
-
-If you prefer to manage the client CA as a Kubernetes secret:
-
-```bash
-# Extract build plane agent's client CA certificate
-kubectl --context k3d-openchoreo-bp get secret cluster-agent-tls \
-  -n openchoreo-build-plane \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/buildplane-ca.crt
-
-# Create secret in control plane with build plane's client CA
-kubectl --context k3d-openchoreo-cp create secret generic buildplane-default-ca \
-  --from-file=ca.crt=/tmp/buildplane-ca.crt \
-  -n default \
-  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
-
-# Create BuildPlane CR referencing the secret
-./install/add-build-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --agent-ca-secret buildplane-default-ca \
-  --name default
-```
-</details>
-
 ### 9. Create ObservabilityPlane Resource (optional)
 
-Similar to the DataPlane and BuildPlane, use `add-observability-plane.sh` to automatically extract and configure:
+Extract the cluster agent client CA from the observability plane and create the ObservabilityPlane CR:
 
 ```bash
-# Create ObservabilityPlane CR with automatic client CA extraction
-./install/add-observability-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --observabilityplane-context k3d-openchoreo-op \
-  --name default \
-  --observer-url http://host.k3d.internal:11087
+# Extract observability plane agent's client CA certificate
+AGENT_CA=$(kubectl --context k3d-openchoreo-op get secret cluster-agent-tls \
+  -n openchoreo-observability-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+# Create ObservabilityPlane CR
+kubectl --context k3d-openchoreo-cp apply -f - <<EOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+        ${AGENT_CA}
+  observerURL: http://host.k3d.internal:11087
+EOF
 
 # Verify the ObservabilityPlane resource was created
 kubectl --context k3d-openchoreo-cp get observabilityplane default -n default
 ```
-
-<details>
-<summary>Alternative: Manual creation with secret reference</summary>
-
-If you prefer to manage the client CA as a Kubernetes secret:
-
-```bash
-# Extract observability plane agent's client CA certificate
-kubectl --context k3d-openchoreo-op get secret cluster-agent-tls \
-  -n openchoreo-observability-plane \
-  -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/observabilityplane-ca.crt
-
-# Create secret in control plane with observability plane's client CA
-kubectl --context k3d-openchoreo-cp create secret generic observabilityplane-default-ca \
-  --from-file=ca.crt=/tmp/observabilityplane-ca.crt \
-  -n default \
-  --dry-run=client -o yaml | kubectl --context k3d-openchoreo-cp apply -f -
-
-# Create ObservabilityPlane CR referencing the secret
-./install/add-observability-plane.sh \
-  --control-plane-context k3d-openchoreo-cp \
-  --agent-ca-secret observabilityplane-default-ca \
-  --name default \
-  --observer-url http://host.k3d.internal:11087
-```
-</details>
 
 ### 10. Configure DataPlane to use default ObservabilityPlane (Optional)
 ```bash

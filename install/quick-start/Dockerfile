@@ -65,8 +65,6 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/quick-start/.values-registry.yaml ${USER_HOME}/.values-registry.yaml && \
     cp /tmp/install/quick-start/.values-op.yaml ${USER_HOME}/.values-op.yaml && \
     cp /tmp/install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh && \
-    cp /tmp/install/add-build-plane.sh ${USER_HOME}/add-build-plane.sh && \
-    cp /tmp/install/add-observability-plane.sh ${USER_HOME}/add-observability-plane.sh && \
     mkdir -p ${USER_HOME}/install/k3d/common && \
     cp /tmp/install/k3d/common/values-thunder.yaml ${USER_HOME}/install/k3d/common/values-thunder.yaml && \
     cp /tmp/install/k3d/common/coredns-custom.yaml ${USER_HOME}/install/k3d/common/coredns-custom.yaml && \

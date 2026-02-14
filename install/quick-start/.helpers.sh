@@ -757,6 +757,81 @@ DPEOF
     log_success "DataPlane resource created"
 }
 
+# Extract cluster-agent CA and create BuildPlane CR
+create_buildplane_resource() {
+    log_info "Creating BuildPlane resource..."
+
+    # Wait for cluster-agent-tls secret
+    local max_attempts=60
+    local attempt=0
+    while ! kubectl get secret cluster-agent-tls -n "$BUILD_PLANE_NS" >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [[ $attempt -ge $max_attempts ]]; then
+            log_warning "Timed out waiting for cluster-agent-tls secret in $BUILD_PLANE_NS"
+            return 1
+        fi
+        sleep 2
+    done
+
+    local agent_ca
+    agent_ca=$(kubectl get secret cluster-agent-tls -n "$BUILD_PLANE_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+    kubectl apply -f - >/dev/null <<BPEOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: BuildPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo "$agent_ca" | sed 's/^/        /')
+  secretStoreRef:
+    name: openbao
+BPEOF
+
+    log_success "BuildPlane resource created"
+}
+
+# Extract cluster-agent CA and create ObservabilityPlane CR
+create_observabilityplane_resource() {
+    log_info "Creating ObservabilityPlane resource..."
+
+    # Wait for cluster-agent-tls secret
+    local max_attempts=60
+    local attempt=0
+    while ! kubectl get secret cluster-agent-tls -n "$OBSERVABILITY_NS" >/dev/null 2>&1; do
+        attempt=$((attempt + 1))
+        if [[ $attempt -ge $max_attempts ]]; then
+            log_warning "Timed out waiting for cluster-agent-tls secret in $OBSERVABILITY_NS"
+            return 1
+        fi
+        sleep 2
+    done
+
+    local agent_ca
+    agent_ca=$(kubectl get secret cluster-agent-tls -n "$OBSERVABILITY_NS" -o jsonpath='{.data.ca\.crt}' | base64 -d)
+
+    kubectl apply -f - >/dev/null <<OPEOF
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: |
+$(echo "$agent_ca" | sed 's/^/        /')
+  observerURL: http://observer.openchoreo-observability-plane.svc.cluster.local:8080
+OPEOF
+
+    log_success "ObservabilityPlane resource created"
+}
+
 # Create backstage secret with required credentials
 create_backstage_secret() {
     local namespace="$1"
