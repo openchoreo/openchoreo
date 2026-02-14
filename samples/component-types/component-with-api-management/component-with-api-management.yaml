@@ -94,10 +94,6 @@ spec:
   autoDeploy: true
   componentType: deployment/service
 
-  parameters:
-    # Enable HTTPRoute creation (required for api-configuration trait to patch it)
-    exposed: true
-
   # Traits - API Configuration is added as a trait
   traits:
     - name: api-configuration

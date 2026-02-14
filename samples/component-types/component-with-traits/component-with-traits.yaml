@@ -138,9 +138,6 @@ spec:
   componentType: deployment/service
   autoDeploy: true
 
-  parameters:
-    exposed: true
-
   traits:
     - name: persistent-volume
       instanceName: data-storage

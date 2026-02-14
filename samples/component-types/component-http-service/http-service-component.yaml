@@ -17,9 +17,6 @@ spec:
   autoDeploy: true
   componentType: deployment/service
 
-  parameters:
-    exposed: true
-
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload

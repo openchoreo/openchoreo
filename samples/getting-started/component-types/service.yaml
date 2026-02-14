@@ -29,7 +29,7 @@ spec:
         memory: "string | default=256Mi"
 
     parameters:
-      exposed: "boolean | default=false"
+      exposed: "boolean | default=true"
 
     envOverrides:
       replicas: "integer | default=1"

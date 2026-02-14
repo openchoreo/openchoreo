@@ -150,7 +150,7 @@ spec:
         memory: "string | default=256Mi"
 
     parameters:
-      exposed: "boolean | default=false"
+      exposed: "boolean | default=true"
       # Autoscaling parameters - wired to embedded HPA trait
       # Developers can configure min/max replicas; CPU threshold is locked by PE
       autoscaling:
@@ -351,7 +351,6 @@ spec:
   autoDeploy: true
 
   parameters:
-    exposed: true
     # Configure autoscaling - this activates the embedded HPA trait
     # Note: targetCPUUtilizationPercentage is locked by PE at 75%
     autoscaling:

@@ -10,9 +10,6 @@ spec:
   autoDeploy: true
   componentType: deployment/service
 
-  parameters:
-    exposed: true
-
 ---
 
 # Defines a workload that specifies the developer contract which describes the source code including

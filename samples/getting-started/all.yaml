@@ -273,7 +273,7 @@ spec:
         memory: "string | default=256Mi"
 
     parameters:
-      exposed: "boolean | default=false"
+      exposed: "boolean | default=true"
 
     envOverrides:
       replicas: "integer | default=1"
@@ -449,7 +449,7 @@ spec:
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"
-      message: "Web-application components must have at least one HTTP or REST endpoint."
+      message: "Web-application components must have at least one HTTP."
 
   schema:
     types:

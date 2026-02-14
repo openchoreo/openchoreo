@@ -12,9 +12,6 @@ spec:
   # Set auto-deploy to true
   autoDeploy: true
 
-  parameters:
-    exposed: true
-
   # Component Workflow configuration (developer-provided)
   workflow:
     # Reference to ComponentWorkflow
