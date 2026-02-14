@@ -37,6 +37,8 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 		flags.Output,
 		flags.WorkloadDescriptor,
 		flags.DryRun,
+		flags.Mode,
+		flags.RootDir,
 	}
 
 	return (&builder.CommandBuilder{
@@ -51,6 +53,8 @@ func newCreateWorkloadCmd(impl api.CommandImplementationInterface) *cobra.Comman
 				ImageURL:      fg.GetString(flags.Image),
 				OutputPath:    fg.GetString(flags.Output),
 				DryRun:        fg.GetBool(flags.DryRun),
+				Mode:          fg.GetString(flags.Mode),
+				RootDir:       fg.GetString(flags.RootDir),
 			})
 		},
 	}).Build()

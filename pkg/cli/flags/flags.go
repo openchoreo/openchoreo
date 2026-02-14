@@ -17,6 +17,12 @@ type Flag struct {
 	Type      string
 }
 
+// Mode constants for --mode flag
+const (
+	ModeAPIServer  = "api-server"
+	ModeFileSystem = "file-system"
+)
+
 var (
 	Kubeconfig = Flag{
 		Name:  "kubeconfig",
@@ -329,15 +335,15 @@ var (
 		Usage:     "Write output to specified file instead of stdout",
 	}
 
-	// Mode (context) flags
+	// Mode flags
 
 	Mode = Flag{
 		Name:  "mode",
-		Usage: "Context mode: 'api-server' (default) or 'file-system'",
+		Usage: "Operational mode: 'api-server' (default) or 'file-system'",
 	}
 
-	RootDirectoryPath = Flag{
-		Name:  "root-directory-path",
+	RootDir = Flag{
+		Name:  "root-dir",
 		Usage: "Root directory path for file-system mode (defaults to current directory)",
 	}
 

@@ -363,11 +363,9 @@ spec:
             BINDING_NAME="${TARGET_ENV}-${COMPONENT_NAME}"
 
             echo "===== Initializing OCC Context ====="
-            # Initialize occ context for file-system mode (only once)
-            occ config set-context gitops-context \
-              --mode file-system \
-              --root-directory-path /mnt/vol/gitops \
-              --namespace "${NAMESPACE_NAME}"
+            # Initialize occ context
+            occ config context add gitops-context \
+              --namespace "${NAMESPACE_NAME}" --controlplane default --credentials default
 
             # Use the gitops-context
             occ config use-context gitops-context
@@ -392,6 +390,7 @@ spec:
                   --project "$PROJECT_NAME" \
                   --component "$COMPONENT_NAME" \
                   --image "$CONTAINER_IMAGE" \
+                  --mode file-system --root-dir /mnt/vol/gitops \
                   --descriptor /tmp/workload-descriptor.yaml
             else
                 echo "No workload descriptor provided, generating basic workload"
@@ -399,7 +398,8 @@ spec:
                 occ workload create \
                   --project "$PROJECT_NAME" \
                   --component "$COMPONENT_NAME" \
-                  --image "$CONTAINER_IMAGE"
+                  --image "$CONTAINER_IMAGE" \
+                  --mode file-system --root-dir /mnt/vol/gitops
             fi
             echo "Workload generated successfully"
 
@@ -411,11 +411,12 @@ spec:
             OUTPUT_PATH="projects/$PROJECT_NAME/components/$COMPONENT_NAME/releases"
             echo " - output-path: $OUTPUT_PATH"
 
-            occ component-release generate \
+            occ componentrelease generate \
               --name "$RELEASE_NAME" \
               --component "$COMPONENT_NAME" \
               --project "$PROJECT_NAME" \
-              --output-path "$OUTPUT_PATH"
+              --output-path "$OUTPUT_PATH" \
+              --mode file-system --root-dir /mnt/vol/gitops
 
             echo "ComponentRelease generated successfully"
 
@@ -427,12 +428,13 @@ spec:
             echo "Project: $PROJECT_NAME"
             echo "Use pipeline: $USE_PIPELINE"
 
-            occ release-binding generate \
+            occ releasebinding generate \
               --component "$COMPONENT_NAME" \
               --component-release "$RELEASE_NAME" \
               --target-env "$TARGET_ENV" \
               --project "$PROJECT_NAME" \
-              --use-pipeline "$USE_PIPELINE"
+              --use-pipeline "$USE_PIPELINE" \
+              --mode file-system --root-dir /mnt/vol/gitops
 
             echo "ReleaseBinding generated successfully"
             echo "===== All GitOps resources generated successfully ====="

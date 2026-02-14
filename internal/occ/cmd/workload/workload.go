@@ -8,14 +8,13 @@ import (
 	"os"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
-	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
 	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -35,28 +34,15 @@ func (i *WorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
 		return err
 	}
 
-	// Load config to check current mode
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		// If no config, default to API server mode (existing behavior)
-		return i.createWorkloadAPIServerMode(params)
-	}
-
-	// Get current context
-	var ctx *configContext.Context
-	if cfg.CurrentContext != "" {
-		for _, c := range cfg.Contexts {
-			if c.Name == cfg.CurrentContext {
-				ctxCopy := c
-				ctx = &ctxCopy
-				break
-			}
-		}
+	// Determine mode from params (default to api-server)
+	mode := params.Mode
+	if mode == "" {
+		mode = flags.ModeAPIServer
 	}
 
 	// Route to appropriate implementation based on mode
-	if ctx != nil && ctx.Mode == configContext.ModeFileSystem {
-		return i.createWorkloadFileSystemMode(ctx, params)
+	if mode == flags.ModeFileSystem {
+		return i.createWorkloadFileSystemMode(params)
 	}
 
 	// Default: API server mode (existing implementation)
@@ -78,11 +64,9 @@ func (i *WorkloadImpl) createWorkloadAPIServerMode(params api.CreateWorkloadPara
 }
 
 // createWorkloadFileSystemMode handles file-system mode for GitOps repos
-func (i *WorkloadImpl) createWorkloadFileSystemMode(
-	ctx *configContext.Context, params api.CreateWorkloadParams,
-) error {
+func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadParams) error {
 	// Determine repo path
-	repoPath := ctx.RootDirectoryPath
+	repoPath := params.RootDir
 	if repoPath == "" {
 		var err error
 		repoPath, err = os.Getwd()

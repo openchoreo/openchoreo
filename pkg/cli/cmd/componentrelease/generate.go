@@ -43,6 +43,8 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.Name,
 			flags.OutputPath,
 			flags.DryRun,
+			flags.Mode,
+			flags.RootDir,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			// Check which flags were explicitly provided by the user on the command line
@@ -96,6 +98,8 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			params := api.GenerateComponentReleaseParams{
 				OutputPath: fg.GetString(flags.OutputPath),
 				DryRun:     fg.GetBool(flags.DryRun),
+				Mode:       fg.GetString(flags.Mode),
+				RootDir:    fg.GetString(flags.RootDir),
 			}
 
 			// Only set the values that were explicitly provided

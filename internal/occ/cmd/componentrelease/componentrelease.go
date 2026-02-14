@@ -21,6 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -58,7 +59,21 @@ func (l *ComponentReleaseImpl) ListComponentReleases(params api.ListComponentRel
 
 // GenerateComponentRelease implements the component-release generate command
 func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateComponentReleaseParams) error {
-	// 1. Load context and validate file-system mode
+	// 1. Determine mode from params (default to api-server)
+	mode := params.Mode
+	if mode == "" {
+		mode = flags.ModeAPIServer
+	}
+
+	if mode == flags.ModeAPIServer {
+		return fmt.Errorf("component-release generate is not implemented for api-server mode")
+	}
+
+	if mode != flags.ModeFileSystem {
+		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
+	}
+
+	// 2. Load context for other defaults (namespace, etc.)
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -82,14 +97,13 @@ func (c *ComponentReleaseImpl) GenerateComponentRelease(params api.GenerateCompo
 		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
 	}
 
-	if ctx.Mode != configContext.ModeFileSystem {
-		// TODO: support API server mode and update this properly
-		return fmt.Errorf("component-release generate only supports file-system mode currently; current mode is %q", ctx.Mode)
-	}
-
-	repoPath := ctx.RootDirectoryPath
+	repoPath := params.RootDir
 	if repoPath == "" {
-		repoPath, _ = os.Getwd()
+		var err error
+		repoPath, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
 	}
 
 	// 2. Load or build index

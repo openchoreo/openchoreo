@@ -285,16 +285,14 @@ func printContextDetails(cfg *configContext.StoredConfig, ctx *configContext.Con
 		{"Namespace", formatValueOrPlaceholder(ctx.Namespace)},
 		{"Project", formatValueOrPlaceholder(ctx.Project)},
 		{"Component", formatValueOrPlaceholder(ctx.Component)},
-		{"Mode", formatValueOrPlaceholder(ctx.Mode)},
-		{"Root Directory Path", formatValueOrPlaceholder(ctx.RootDirectoryPath)},
 	}
 
 	if err := printTable(headers, rows); err != nil {
 		return err
 	}
 
-	// Print control plane info if available and not in file-system mode
-	if ctx.ControlPlane != "" && ctx.Mode != configContext.ModeFileSystem {
+	// Print control plane info if available
+	if ctx.ControlPlane != "" {
 		for _, cp := range cfg.ControlPlanes {
 			if cp.Name == ctx.ControlPlane {
 				fmt.Println("\nControl Plane:")

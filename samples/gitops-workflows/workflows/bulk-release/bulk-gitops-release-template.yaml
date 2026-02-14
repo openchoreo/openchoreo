@@ -112,11 +112,9 @@ spec:
             USE_PIPELINE={{workflow.parameters.gitops-deployment-pipeline}}
 
             echo "===== Initializing OCC Context ====="
-            # Initialize occ context for file-system mode
-            occ config set-context gitops-context \
-              --mode file-system \
-              --root-directory-path /mnt/vol/gitops \
-              --namespace "${NAMESPACE_NAME}"
+            # Initialize occ context
+            occ config context add gitops-context \
+              --namespace "${NAMESPACE_NAME}" --controlplane default --credentials default
 
             # Use the gitops-context
             occ config use-context gitops-context
@@ -127,10 +125,10 @@ spec:
 
             if [ "$SCOPE_ALL" = "true" ]; then
                 echo "Generating bindings for ALL components across all projects"
-                occ release-binding generate --all --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
+                occ releasebinding generate --all --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE" --mode file-system --root-dir /mnt/vol/gitops
             elif [ -n "$PROJECT_NAME" ]; then
                 echo "Generating bindings for project: $PROJECT_NAME"
-                occ release-binding generate --project "$PROJECT_NAME" --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE"
+                occ releasebinding generate --project "$PROJECT_NAME" --target-env "$TARGET_ENV" --use-pipeline "$USE_PIPELINE" --mode file-system --root-dir /mnt/vol/gitops
             else
                 echo "Error: scope-project-name is required when scope-all is false"
                 exit 1

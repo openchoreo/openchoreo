@@ -22,6 +22,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	configContext "github.com/openchoreo/openchoreo/pkg/cli/cmd/config"
+	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -59,7 +60,21 @@ func (l *ReleaseBindingImpl) ListReleaseBindings(params api.ListReleaseBindingsP
 
 // GenerateReleaseBinding implements the release-binding generate command
 func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBindingParams) error {
-	// 1. Load context and validate file-system mode
+	// 1. Determine mode from params (default to api-server)
+	mode := params.Mode
+	if mode == "" {
+		mode = flags.ModeAPIServer
+	}
+
+	if mode == flags.ModeAPIServer {
+		return fmt.Errorf("release-binding generate is not implemented for api-server mode")
+	}
+
+	if mode != flags.ModeFileSystem {
+		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
+	}
+
+	// 2. Load context for other defaults (namespace, etc.)
 	cfg, err := config.LoadStoredConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -83,13 +98,13 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
 	}
 
-	if ctx.Mode != configContext.ModeFileSystem {
-		return fmt.Errorf("release-binding generate only supports file-system mode currently; current mode is %q", ctx.Mode)
-	}
-
-	repoPath := ctx.RootDirectoryPath
+	repoPath := params.RootDir
 	if repoPath == "" {
-		repoPath, _ = os.Getwd()
+		var err error
+		repoPath, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current directory: %w", err)
+		}
 	}
 
 	// 2. Load or build index

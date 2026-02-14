@@ -352,6 +352,8 @@ type CreateWorkloadParams struct {
 	ImageURL      string
 	OutputPath    string
 	DryRun        bool
+	Mode          string // Operational mode: "api-server" or "file-system"
+	RootDir       string // Root directory path for file-system mode
 }
 
 // ScaffoldComponentParams defines parameters for scaffolding a component
@@ -375,6 +377,8 @@ type GenerateComponentReleaseParams struct {
 	ReleaseName   string // Optional: custom release name (only valid with --component)
 	OutputPath    string // Optional: custom output directory
 	DryRun        bool   // Preview without writing files
+	Mode          string // Operational mode: "api-server" or "file-system"
+	RootDir       string // Root directory path for file-system mode
 }
 
 // GenerateReleaseBindingParams defines parameters for generating release bindings
@@ -387,6 +391,8 @@ type GenerateReleaseBindingParams struct {
 	UsePipeline      string // Required: deployment pipeline name
 	OutputPath       string // Optional: custom output directory
 	DryRun           bool   // Preview without writing files
+	Mode             string // Operational mode: "api-server" or "file-system"
+	RootDir          string // Root directory path for file-system mode
 }
 
 // ListNamespacesParams defines parameters for listing namespaces

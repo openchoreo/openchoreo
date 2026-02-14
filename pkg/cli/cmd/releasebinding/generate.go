@@ -45,6 +45,8 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 			flags.ComponentRelease,
 			flags.OutputPath,
 			flags.DryRun,
+			flags.Mode,
+			flags.RootDir,
 		},
 		RunE: func(fg *builder.FlagGetter) error {
 			// Validate required flags
@@ -87,6 +89,8 @@ func newGenerateCmd(impl api.CommandImplementationInterface) *cobra.Command {
 				UsePipeline: usePipeline,
 				OutputPath:  fg.GetString(flags.OutputPath),
 				DryRun:      fg.GetBool(flags.DryRun),
+				Mode:        fg.GetString(flags.Mode),
+				RootDir:     fg.GetString(flags.RootDir),
 			}
 
 			if allSet {

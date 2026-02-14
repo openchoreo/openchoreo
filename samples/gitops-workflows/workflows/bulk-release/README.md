@@ -168,7 +168,7 @@ kubectl logs -n openchoreo-ci-default -l workflows.argoproj.io/workflow=<workflo
 |------|-------------|--------|
 | 1. `clone-gitops` | Clones the GitOps repository | GitOps workspace |
 | 2. `create-feature-branch` | Creates a release branch (`bulk-release/all-*` or `bulk-release/<project>-*`) | Branch name |
-| 3. `generate-bulk-bindings` | Generates ReleaseBindings for all components using `occ release-binding generate` | ReleaseBinding manifests |
+| 3. `generate-bulk-bindings` | Generates ReleaseBindings for all components using `occ releasebinding generate` | ReleaseBinding manifests |
 | 4. `git-commit-push-pr` | Commits changes, pushes to remote, and creates PR using GitHub CLI | PR URL |
 
 ## CLI Commands Used
@@ -177,10 +177,10 @@ The workflow internally uses the following `occ` CLI commands:
 
 ```bash
 # For all components across all projects
-occ release-binding generate --all --target-env <env> --use-pipeline <pipeline>
+occ releasebinding generate --all --target-env <env> --use-pipeline <pipeline>
 
 # For a specific project
-occ release-binding generate --project <project> --target-env <env> --use-pipeline <pipeline>
+occ releasebinding generate --project <project> --target-env <env> --use-pipeline <pipeline>
 ```
 
 ## Workflow Outputs
