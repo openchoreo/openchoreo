@@ -1,4 +1,4 @@
-{{ if .Values.defaultResources.enabled }}
+{{ if and .Values.defaultResources.enabled .Values.defaultResources.clusterWorkflowTemplate.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
