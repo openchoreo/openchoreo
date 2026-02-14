@@ -337,7 +337,7 @@ metadata:
   name: default
   namespace: default
 spec:
-  planeID: default-dataplane
+  planeID: default
   clusterAgent:
     clientCA:
       value: |

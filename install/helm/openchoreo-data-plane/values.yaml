@@ -1204,9 +1204,9 @@ clusterAgent:
   # @schema
   # type: string
   # description: Logical plane identifier shared across multiple CRs connecting to the same physical plane. Defaults to Helm release name if not specified.
-  # default: default-dataplane
+  # default: default
   # @schema
-  planeID: default-dataplane
+  planeID: default
 
   # @schema
   # description: Type of plane this agent manages

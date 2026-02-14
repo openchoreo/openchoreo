@@ -48,7 +48,7 @@ Options:
                                     Default: same as --namespace
 
   --plane-id ID                     (Optional) Logical plane identifier shared across multiple CRs
-                                    Default: default-observabilityplane
+                                    Default: default
                                     Use this for multi-tenant setups where multiple CRs share same physical plane
 
   --observabilityplane-context CONTEXT
@@ -101,7 +101,7 @@ CONTROL_PLANE_CONTEXT=""
 OBSERVABILITYPLANE_CONTEXT=""  # Observability plane cluster for CA extraction
 OBSERVABILITYPLANE_NAME="default"
 NAMESPACE="default"
-PLANE_ID="default-observabilityplane"  # Optional logical plane identifier
+PLANE_ID="default"  # Optional logical plane identifier
 OBSERVER_URL="http://observer.openchoreo-observability-plane.svc.cluster.local:8080" # Single cluster mode
 RCA_URL="" # Disabled by default
 DRY_RUN=false

@@ -87,7 +87,7 @@
           "type": "object"
         },
         "planeID": {
-          "default": "default-observabilityplane",
+          "default": "default",
           "description": "Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.\nDefaults to Helm release name if not specified.\n",
           "title": "planeID",
           "type": "string"

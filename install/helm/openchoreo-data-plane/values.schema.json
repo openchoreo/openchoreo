@@ -139,7 +139,7 @@
           "type": "object"
         },
         "planeID": {
-          "default": "default-dataplane",
+          "default": "default",
           "description": "Logical plane identifier shared across multiple CRs connecting to the same physical plane. Defaults to Helm release name if not specified.",
           "title": "planeID",
           "type": "string"

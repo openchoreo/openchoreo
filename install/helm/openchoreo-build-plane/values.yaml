@@ -824,9 +824,9 @@ clusterAgent:
   # @schema
   # type: string
   # description: Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.
-  # default: default-buildplane
+  # default: default
   # @schema
-  planeID: default-buildplane
+  planeID: default
 
   # @schema
   # description: Type of plane

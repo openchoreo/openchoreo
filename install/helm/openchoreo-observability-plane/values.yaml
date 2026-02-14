@@ -1905,9 +1905,9 @@ clusterAgent:
   # description: |
   #   Logical plane identifier for multi-tenancy. Multiple CRs with the same planeID share one agent.
   #   Defaults to Helm release name if not specified.
-  # default: default-observabilityplane
+  # default: default
   # @schema
-  planeID: default-observabilityplane
+  planeID: default
 
   # @schema
   # description: Type of plane this agent serves

@@ -220,7 +220,7 @@
           "type": "object"
         },
         "planeID": {
-          "default": "default-buildplane",
+          "default": "default",
           "description": "Logical plane identifier. Shared across multiple CRs connecting to the same physical plane for multi-tenancy.",
           "title": "planeID",
           "type": "string"

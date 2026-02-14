@@ -1,9 +1,7 @@
 # Helm values for OpenChoreo Observability Plane in quick-start container. This file overrides the default
 # values of the openchoreo-observability-plane Helm chart to suit the quick-start k3d environment.
 
-# Global values shared across all components
 global:
-  commonLabels: {}
   installationMode: quickStart
 
 fluent-bit:
@@ -15,11 +13,9 @@ opentelemetry-collector:
 openSearch:
   enabled: true
 
-
 # OpenSearch cluster configuration
 openSearchCluster:
   enabled: false
-
 
 # OpenChoreo Observer Service Configuration
 observer:
@@ -38,12 +34,6 @@ observer:
     requests:
       cpu: 20m
       memory: 20Mi
-
-# Cluster Agent configuration for single-cluster setup
-clusterAgent:
-  serverUrl: wss://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443/ws
-  planeID: default-observabilityplane
-  planeType: observabilityplane
 
 # Gateway configuration for quick-start
 gateway:
