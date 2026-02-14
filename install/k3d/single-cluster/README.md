@@ -84,6 +84,13 @@ helm upgrade --install kgateway-dp oci://cr.kgateway.dev/kgateway-dev/charts/kga
   --namespace openchoreo-data-plane \
   --create-namespace \
   --version v2.1.1
+
+# If installing the observability plane, also install kgateway there:
+# helm upgrade --install kgateway-op oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+#   --kube-context k3d-openchoreo \
+#   --namespace openchoreo-observability-plane \
+#   --create-namespace \
+#   --version v2.1.1
 ```
 
 #### Thunder (Asgardeo Identity Provider)
@@ -220,12 +227,46 @@ helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plan
 
 # Observability Plane (optional)
 
+# Create the observability plane namespace
+kubectl --context k3d-openchoreo create namespace openchoreo-observability-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo apply -f -
+
+# Copy the cluster-gateway CA from control plane (same pattern as data/build planes)
+CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
+
+kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-observability-plane
+
+TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
+TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
+  --from-literal=tls.crt="$TLS_CRT" \
+  --from-literal=tls.key="$TLS_KEY" \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-observability-plane
+
+# Create OpenSearch credentials secret
+kubectl --context k3d-openchoreo create secret generic observer-opensearch-credentials \
+  -n openchoreo-observability-plane \
+  --from-literal=username="admin" \
+  --from-literal=password="ThisIsTheOpenSearchPassword1"
+
+# Install kgateway in the observability namespace
+helm upgrade --install kgateway-op oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+  --kube-context k3d-openchoreo \
+  --namespace openchoreo-observability-plane \
+  --version v2.1.1
+
 ## Non-HA mode
 helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
   --kube-context k3d-openchoreo \
   --namespace openchoreo-observability-plane \
-  --create-namespace \
   --values install/k3d/single-cluster/values-op.yaml \
   --set openSearch.enabled=true \
   --set openSearchCluster.enabled=false
@@ -254,11 +295,6 @@ helm install openchoreo-observability-plane install/helm/openchoreo-observabilit
   --namespace openchoreo-observability-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-op.yaml
-
-# If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
-# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
 ```
 
 ### 4. Create DataPlane Resource

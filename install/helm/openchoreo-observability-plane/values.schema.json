@@ -14,21 +14,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "dnsRewrite": {
-          "additionalProperties": false,
-          "description": "DNS rewrite configuration for multi-cluster k3d setups",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable CoreDNS rewrite for *.openchoreo.localhost to host.k3d.internal",
-              "title": "enabled",
-              "type": "boolean"
-            }
-          },
-          "required": [],
-          "title": "dnsRewrite",
-          "type": "object"
-        },
         "enabled": {
           "default": true,
           "description": "Enable cluster agent deployment for multi-cluster communication",
@@ -1083,46 +1068,6 @@
       "title": "data-prepper",
       "type": "object"
     },
-    "fakeSecretStore": {
-      "additionalProperties": true,
-      "description": "Fake Secret Store configuration for local development without a real secret backend",
-      "properties": {
-        "enabled": {
-          "default": false,
-          "description": "Enable fake secret store (requires External Secrets Operator to be installed)",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "name": {
-          "default": "default",
-          "description": "Name of the ClusterSecretStore resource",
-          "title": "name",
-          "type": "string"
-        },
-        "secrets": {
-          "description": "List of fake secrets to provide for development",
-          "items": {
-            "properties": {
-              "key": {
-                "description": "Secret key name",
-                "type": "string"
-              },
-              "value": {
-                "description": "Secret value",
-                "type": "string"
-              }
-            },
-            "required": [],
-            "type": "object"
-          },
-          "title": "secrets",
-          "type": "array"
-        }
-      },
-      "required": [],
-      "title": "fakeSecretStore",
-      "type": "object"
-    },
     "fluent-bit": {
       "additionalProperties": true,
       "description": "Fluent Bit subchart configuration for log collection and forwarding to OpenSearch",
@@ -1381,34 +1326,105 @@
     },
     "gateway": {
       "additionalProperties": false,
-      "description": "KGateway resource configuration for HTTPS gateway routing",
+      "description": "Gateway resource configuration for observability plane routing",
       "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.",
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
         "enabled": {
-          "default": false,
-          "description": "Enable gateway resource creation",
+          "default": true,
+          "description": "Enable Gateway CR creation",
           "title": "enabled",
           "type": "boolean"
         },
-        "envoy": {
+        "httpPort": {
+          "default": 80,
+          "description": "HTTP listener port",
+          "title": "httpPort",
+          "type": "integer"
+        },
+        "httpsPort": {
+          "default": 443,
+          "description": "HTTPS listener port",
+          "title": "httpsPort",
+          "type": "integer"
+        },
+        "infrastructure": {
           "additionalProperties": true,
-          "description": "Envoy proxy configuration for actual traffic routing",
+          "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"",
+          "required": [],
+          "title": "infrastructure",
+          "type": "object"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "description": "TLS configuration for the HTTPS listener",
           "properties": {
-            "mountTmpVolume": {
-              "default": false,
-              "description": "Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima",
-              "title": "mountTmpVolume",
+            "certificateRefs": {
+              "description": "TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.",
+              "items": {
+                "properties": {
+                  "name": {
+                    "description": "Secret name containing the TLS certificate",
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "title": "certificateRefs",
+              "type": "array"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.",
+              "title": "enabled",
               "type": "boolean"
+            },
+            "hostname": {
+              "default": "*.openchoreo.invalid",
+              "description": "Hostname pattern for the HTTPS listener (SNI matching)",
+              "title": "hostname",
+              "type": "string"
             }
           },
           "required": [],
-          "title": "envoy",
+          "title": "tls",
           "type": "object"
         },
-        "tlsHostname": {
-          "default": "",
-          "description": "TLS listener hostname for OpenSearch passthrough route. Required when gateway.enabled=true",
-          "title": "tlsHostname",
-          "type": "string"
+        "tlsPassthrough": {
+          "additionalProperties": false,
+          "description": "TLS passthrough configuration for OpenSearch direct access",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable TLS passthrough listener (used for OpenSearch direct access)",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostname": {
+              "default": "",
+              "description": "Hostname for TLS passthrough listener",
+              "title": "hostname",
+              "type": "string"
+            },
+            "port": {
+              "default": 11443,
+              "description": "Port for TLS passthrough listener",
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "tlsPassthrough",
+          "type": "object"
         }
       },
       "required": [],
@@ -1443,144 +1459,6 @@
       },
       "required": [],
       "title": "global",
-      "type": "object"
-    },
-    "kgateway": {
-      "additionalProperties": true,
-      "description": "KGateway subchart configuration for API gateway functionality using Envoy-based gateway",
-      "properties": {
-        "controller": {
-          "additionalProperties": true,
-          "description": "KGateway controller configuration",
-          "properties": {
-            "image": {
-              "additionalProperties": true,
-              "description": "Container image configuration for the KGateway controller",
-              "properties": {
-                "pullPolicy": {
-                  "default": "IfNotPresent",
-                  "description": "Image pull policy for the KGateway controller",
-                  "enum": [
-                    "Always",
-                    "IfNotPresent",
-                    "Never"
-                  ],
-                  "required": [],
-                  "title": "pullPolicy"
-                }
-              },
-              "required": [],
-              "title": "image",
-              "type": "object"
-            },
-            "resources": {
-              "additionalProperties": true,
-              "description": "Resource requests and limits for the KGateway controller",
-              "properties": {
-                "limits": {
-                  "additionalProperties": true,
-                  "description": "Maximum resources the container can use",
-                  "properties": {
-                    "cpu": {
-                      "default": "200m",
-                      "description": "CPU limit for KGateway controller",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "256Mi",
-                      "description": "Memory limit for KGateway controller",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "limits",
-                  "type": "object"
-                },
-                "requests": {
-                  "additionalProperties": true,
-                  "description": "Minimum resources guaranteed to the container",
-                  "properties": {
-                    "cpu": {
-                      "default": "100m",
-                      "description": "CPU request for KGateway controller",
-                      "title": "cpu",
-                      "type": "string"
-                    },
-                    "memory": {
-                      "default": "128Mi",
-                      "description": "Memory request for KGateway controller",
-                      "title": "memory",
-                      "type": "string"
-                    }
-                  },
-                  "required": [],
-                  "title": "requests",
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "title": "resources",
-              "type": "object"
-            },
-            "service": {
-              "additionalProperties": true,
-              "description": "Service configuration for the KGateway controller",
-              "properties": {
-                "ports": {
-                  "additionalProperties": true,
-                  "description": "Service port configuration",
-                  "properties": {
-                    "agwGrpc": {
-                      "default": 9978,
-                      "description": "gRPC port for the API gateway",
-                      "maximum": 65535,
-                      "minimum": 1,
-                      "title": "agwGrpc",
-                      "type": "integer"
-                    }
-                  },
-                  "required": [],
-                  "title": "ports",
-                  "type": "object"
-                },
-                "type": {
-                  "default": "ClusterIP",
-                  "description": "Kubernetes service type",
-                  "enum": [
-                    "ClusterIP",
-                    "NodePort",
-                    "LoadBalancer"
-                  ],
-                  "required": [],
-                  "title": "type"
-                }
-              },
-              "required": [],
-              "title": "service",
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "controller",
-          "type": "object"
-        },
-        "enabled": {
-          "default": false,
-          "description": "Enable KGateway API gateway",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "fullnameOverride": {
-          "default": "kgateway",
-          "description": "Override the full name of KGateway resources",
-          "title": "fullnameOverride",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "title": "kgateway",
       "type": "object"
     },
     "kubernetesClusterDomain": {
@@ -1687,16 +1565,10 @@
           "required": [],
           "title": "logLevel"
         },
-        "openSearchPassword": {
-          "default": "ThisIsTheOpenSearchPassword1",
-          "description": "Password for OpenSearch authentication",
-          "title": "openSearchPassword",
-          "type": "string"
-        },
-        "openSearchUsername": {
-          "default": "admin",
-          "description": "Username for OpenSearch authentication",
-          "title": "openSearchUsername",
+        "openSearchSecretName": {
+          "default": "",
+          "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.",
+          "title": "openSearchSecretName",
           "type": "string"
         },
         "prometheus": {
@@ -1962,16 +1834,10 @@
       "additionalProperties": false,
       "description": "OpenSearch Operator-based cluster configuration (preferred over openSearch Helm chart)",
       "properties": {
-        "adminUserPassword": {
-          "default": "ThisIsTheOpenSearchPassword1",
-          "description": "Admin password for OpenSearch cluster",
-          "title": "adminUserPassword",
-          "type": "string"
-        },
-        "adminUsername": {
-          "default": "admin",
-          "description": "Admin username for OpenSearch cluster",
-          "title": "adminUsername",
+        "adminPassword": {
+          "default": "",
+          "description": "Admin password for OpenSearch cluster, used to generate internal_users.yml security config. Required when openSearchCluster is enabled.",
+          "title": "adminPassword",
           "type": "string"
         },
         "bootstrap": {
@@ -2033,6 +1899,12 @@
           "required": [],
           "title": "bootstrap",
           "type": "object"
+        },
+        "credentialsSecretName": {
+          "default": "",
+          "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch admin credentials. Required when openSearchCluster is enabled.",
+          "title": "credentialsSecretName",
+          "type": "string"
         },
         "dashboards": {
           "additionalProperties": false,
@@ -3877,21 +3749,6 @@
       },
       "required": [],
       "title": "tls",
-      "type": "object"
-    },
-    "waitJob": {
-      "additionalProperties": false,
-      "description": "Wait job configuration for post-install hooks",
-      "properties": {
-        "image": {
-          "default": "bitnamilegacy/kubectl:1.32.4",
-          "description": "Container image for kubectl-based wait jobs",
-          "title": "image",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "title": "waitJob",
       "type": "object"
     }
   },

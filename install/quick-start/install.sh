@@ -139,6 +139,13 @@ fi
 
 # Step 11: Install Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+    setup_observability_plane_ca
+    create_opensearch_secret "$OBSERVABILITY_NS"
+
+    # Install kgateway in the observability namespace
+    install_helm_chart "kgateway-op" "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway" "$OBSERVABILITY_NS" "true" "false" "false" "300" \
+        "--version" "$KGATEWAY_VERSION"
+
     install_observability_plane
     patch_gateway_tmp_volume "$OBSERVABILITY_NS"
 

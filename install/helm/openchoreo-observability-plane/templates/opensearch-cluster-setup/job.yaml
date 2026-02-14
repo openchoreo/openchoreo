@@ -19,12 +19,12 @@ spec:
         - name: OPENSEARCH_USERNAME
           valueFrom:
             secretKeyRef:
-              name: observer-opensearch
+              name: {{ .Values.observer.openSearchSecretName }}
               key: username
         - name: OPENSEARCH_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: observer-opensearch
+              name: {{ .Values.observer.openSearchSecretName }}
               key: password
         - name: OBSERVER_ALERTING_WEBHOOK_URL
           value: "{{ .Values.openSearchClusterSetup.alertingWebhookUrl }}"

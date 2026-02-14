@@ -466,165 +466,6 @@ data-prepper:
 # @schema
 # type: object
 # additionalProperties: true
-# description: Fake Secret Store configuration for local development without a real secret backend
-# @schema
-fakeSecretStore:
-  # @schema
-  # type: boolean
-  # description: Enable fake secret store (requires External Secrets Operator to be installed)
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: Name of the ClusterSecretStore resource
-  # default: default
-  # @schema
-  name: default
-
-  # @schema
-  # type: array
-  # description: List of fake secrets to provide for development
-  # items:
-  #   type: object
-  #   properties:
-  #     key:
-  #       type: string
-  #       description: Secret key name
-  #     value:
-  #       type: string
-  #       description: Secret value
-  # @schema
-  secrets:
-    - key: npm-token
-      value: "fake-npm-token-for-development"
-    - key: docker-username
-      value: "dev-user"
-    - key: docker-password
-      value: "dev-password"
-    - key: github-pat
-      value: "fake-github-token-for-development"
-    - key: username
-      value: "dev-user"
-    - key: password
-      value: "dev-password"
-    - key: RCA_LLM_API_KEY
-      value: "fake-llm-api-key-for-development"
-
-# @schema
-# type: object
-# additionalProperties: true
-# description: KGateway subchart configuration for API gateway functionality using Envoy-based gateway
-# @schema
-kgateway:
-  # @schema
-  # type: boolean
-  # description: Enable KGateway API gateway
-  # default: false
-  # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: Override the full name of KGateway resources
-  # default: kgateway
-  # @schema
-  fullnameOverride: "kgateway"
-
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # description: KGateway controller configuration
-  # @schema
-  controller:
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Container image configuration for the KGateway controller
-    # @schema
-    image:
-      # @schema
-      # description: Image pull policy for the KGateway controller
-      # enum: [Always, IfNotPresent, Never]
-      # default: IfNotPresent
-      # @schema
-      pullPolicy: IfNotPresent
-
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Service configuration for the KGateway controller
-    # @schema
-    service:
-      # @schema
-      # description: Kubernetes service type
-      # enum: [ClusterIP, NodePort, LoadBalancer]
-      # default: ClusterIP
-      # @schema
-      type: ClusterIP
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Service port configuration
-      # @schema
-      ports:
-        # @schema
-        # type: integer
-        # description: gRPC port for the API gateway
-        # minimum: 1
-        # maximum: 65535
-        # default: 9978
-        # @schema
-        agwGrpc: 9978
-
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # description: Resource requests and limits for the KGateway controller
-    # @schema
-    resources:
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Maximum resources the container can use
-      # @schema
-      limits:
-        # @schema
-        # type: string
-        # description: CPU limit for KGateway controller
-        # default: 200m
-        # @schema
-        cpu: 200m
-        # @schema
-        # type: string
-        # description: Memory limit for KGateway controller
-        # default: 256Mi
-        # @schema
-        memory: 256Mi
-      # @schema
-      # type: object
-      # additionalProperties: true
-      # description: Minimum resources guaranteed to the container
-      # @schema
-      requests:
-        # @schema
-        # type: string
-        # description: CPU request for KGateway controller
-        # default: 100m
-        # @schema
-        cpu: 100m
-        # @schema
-        # type: string
-        # description: Memory request for KGateway controller
-        # default: 128Mi
-        # @schema
-        memory: 128Mi
-
-
-# @schema
-# type: object
-# additionalProperties: true
 # description: OpenTelemetry Collector subchart configuration for telemetry data collection and processing
 # @schema
 opentelemetry-collector:
@@ -1014,7 +855,7 @@ observer:
   - name: OBSERVER_BASE_URL
     value: "http://localhost:11080"
   - name: AUTH_SERVER_BASE_URL
-    value: "http://thunder.openchoreo.localhost:8080"
+    value: "http://thunder.openchoreo.invalid:8080"
   - name: OPENSEARCH_ADDRESS
     value: "https://opensearch:9200"
   - name: PROMETHEUS_ADDRESS
@@ -1139,17 +980,10 @@ observer:
 
   # @schema
   # type: string
-  # description: Username for OpenSearch authentication
-  # default: admin
+  # description: Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.
+  # default: ""
   # @schema
-  openSearchUsername: admin
-
-  # @schema
-  # type: string
-  # description: Password for OpenSearch authentication
-  # default: ThisIsTheOpenSearchPassword1
-  # @schema
-  openSearchPassword: ThisIsTheOpenSearchPassword1
+  openSearchSecretName: ""
 
   # @schema
   # type: object
@@ -2083,18 +1917,6 @@ clusterAgent:
   planeType: observabilityplane
 
   # @schema
-  # type: object
-  # description: DNS rewrite configuration for multi-cluster k3d setups
-  # @schema
-  dnsRewrite:
-    # @schema
-    # type: boolean
-    # description: Enable CoreDNS rewrite for *.openchoreo.localhost to host.k3d.internal
-    # default: false
-    # @schema
-    enabled: false
-
-  # @schema
   # type: string
   # description: Interval between heartbeat messages to the control plane
   # default: 30s
@@ -2416,35 +2238,108 @@ clusterAgent:
 
 # @schema
 # type: object
-# description: KGateway resource configuration for HTTPS gateway routing
+# description: Gateway resource configuration for observability plane routing
 # @schema
 gateway:
   # @schema
   # type: boolean
-  # description: Enable gateway resource creation
-  # default: false
+  # description: Enable Gateway CR creation
+  # default: true
   # @schema
-  enabled: false
-
-  # @schema
-  # type: string
-  # description: TLS listener hostname for OpenSearch passthrough route. Required when gateway.enabled=true
-  # default: ""
-  # @schema
-  tlsHostname: ""
+  enabled: true
 
   # @schema
   # type: object
   # additionalProperties: true
-  # description: Envoy proxy configuration for actual traffic routing
+  # description: |
+  #   Gateway infrastructure configuration passed to the generated Service.
+  #   Used to configure cloud provider load balancer settings via annotations.
+  #   Example for AWS with Elastic IP:
+  #     infrastructure:
+  #       annotations:
+  #         service.beta.kubernetes.io/aws-load-balancer-type: "external"
   # @schema
-  envoy:
+  infrastructure: {}
+
+  # @schema
+  # type: object
+  # description: Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  annotations: {}
+
+  # @schema
+  # type: integer
+  # description: HTTP listener port
+  # default: 80
+  # @schema
+  httpPort: 80
+
+  # @schema
+  # type: integer
+  # description: HTTPS listener port
+  # default: 443
+  # @schema
+  httpsPort: 443
+
+  # @schema
+  # type: object
+  # description: TLS configuration for the HTTPS listener
+  # @schema
+  tls:
     # @schema
     # type: boolean
-    # description: Mount /tmp as emptyDir volume to fix Envoy temporary file creation issues on macOS with Docker Desktop/Colima
+    # description: Enable HTTPS listener on the gateway. When false, only the HTTP listener is created.
+    # default: true
+    # @schema
+    enabled: true
+
+    # @schema
+    # type: string
+    # description: Hostname pattern for the HTTPS listener (SNI matching)
+    # default: "*.openchoreo.invalid"
+    # @schema
+    hostname: "*.openchoreo.invalid"
+
+    # @schema
+    # type: array
+    # description: TLS certificate references for the HTTPS listener. Each entry references a Secret containing the TLS cert/key pair.
+    # items:
+    #   type: object
+    #   properties:
+    #     name:
+    #       type: string
+    #       description: Secret name containing the TLS certificate
+    # @schema
+    certificateRefs: []
+
+  # @schema
+  # type: object
+  # description: TLS passthrough configuration for OpenSearch direct access
+  # @schema
+  tlsPassthrough:
+    # @schema
+    # type: boolean
+    # description: Enable TLS passthrough listener (used for OpenSearch direct access)
     # default: false
     # @schema
-    mountTmpVolume: false
+    enabled: false
+
+    # @schema
+    # type: string
+    # description: Hostname for TLS passthrough listener
+    # default: ""
+    # @schema
+    hostname: ""
+
+    # @schema
+    # type: integer
+    # description: Port for TLS passthrough listener
+    # default: 11443
+    # @schema
+    port: 11443
 
 # @schema
 # type: object
@@ -2669,17 +2564,17 @@ openSearchCluster:
 
   # @schema
   # type: string
-  # description: Admin username for OpenSearch cluster
-  # default: admin
+  # description: Name of an existing Secret with 'username' and 'password' keys for OpenSearch admin credentials. Required when openSearchCluster is enabled.
+  # default: ""
   # @schema
-  adminUsername: admin
+  credentialsSecretName: ""
 
   # @schema
   # type: string
-  # description: Admin password for OpenSearch cluster
-  # default: ThisIsTheOpenSearchPassword1
+  # description: Admin password for OpenSearch cluster, used to generate internal_users.yml security config. Required when openSearchCluster is enabled.
+  # default: ""
   # @schema
-  adminUserPassword: ThisIsTheOpenSearchPassword1
+  adminPassword: ""
 
   # @schema
   # type: string
@@ -2918,18 +2813,6 @@ tls:
   # default: []
   # @schema
   dnsNames: []
-
-# @schema
-# type: object
-# description: Wait job configuration for post-install hooks
-# @schema
-waitJob:
-  # @schema
-  # type: string
-  # description: Container image for kubectl-based wait jobs
-  # default: bitnamilegacy/kubectl:1.32.4
-  # @schema
-  image: bitnamilegacy/kubectl:1.32.4
 
 # @schema
 # type: object

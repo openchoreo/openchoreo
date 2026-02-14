@@ -23,6 +23,7 @@ openSearchCluster:
 
 # OpenChoreo Observer Service Configuration
 observer:
+  openSearchSecretName: observer-opensearch-credentials
   extraEnvs:
     - name: OPENSEARCH_ADDRESS
       value: "https://opensearch:9200"
@@ -44,6 +45,12 @@ clusterAgent:
   planeID: default-observabilityplane
   planeType: observabilityplane
 
+# Gateway configuration for quick-start
+gateway:
+  tls:
+    enabled: false
+
 security:
+  enabled: false
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"

@@ -55,7 +55,7 @@ spec:
   security:
     config:
       adminCredentialsSecret:
-        name: opensearch-admin-credentials-secret
+        name: {{ .Values.openSearchCluster.credentialsSecretName }}
       securityConfigSecret:
         name: opensearch-security-config
       adminSecret:

@@ -1,26 +1,53 @@
 {{- if .Values.gateway.enabled }}
-{{- $tlsHostname := .Values.gateway.tlsHostname -}}
-{{- if not $tlsHostname -}}
-{{- fail "Set gateway.tlsHostname when gateway.enabled=true" -}}
-{{- end -}}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-default
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   gatewayClassName: kgateway
+  {{- with .Values.gateway.infrastructure }}
+  infrastructure:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   listeners:
-    - name: tls
-      protocol: TLS
-      hostname: {{ $tlsHostname | quote }}
-      tls:
-        mode: Passthrough
-      port: 11443
     - name: http
       protocol: HTTP
-      port: 8075
+      port: {{ .Values.gateway.httpPort | default 80 }}
       allowedRoutes:
         namespaces:
           from: All
+{{- if .Values.gateway.tls.enabled }}
+    - name: https
+      protocol: HTTPS
+      port: {{ .Values.gateway.httpsPort | default 443 }}
+      {{- if .Values.gateway.tls.hostname }}
+      hostname: {{ .Values.gateway.tls.hostname | quote }}
+      {{- end }}
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          {{- range .Values.gateway.tls.certificateRefs }}
+          - kind: {{ .kind | default "Secret" }}
+            name: {{ .name }}
+            {{- with .namespace }}
+            namespace: {{ . }}
+            {{- end }}
+          {{- end }}
+{{- end }}
+{{- if .Values.gateway.tlsPassthrough.enabled }}
+    - name: tls
+      protocol: TLS
+      hostname: {{ .Values.gateway.tlsPassthrough.hostname | quote }}
+      tls:
+        mode: Passthrough
+      port: {{ .Values.gateway.tlsPassthrough.port | default 11443 }}
+{{- end }}
 {{- end }}
