@@ -43,6 +43,9 @@ spec:
           {{- end }}
 {{- end }}
 {{- if .Values.gateway.tlsPassthrough.enabled }}
+{{- if not .Values.gateway.tlsPassthrough.hostname }}
+{{- fail "gateway.tlsPassthrough.hostname is required when gateway.tlsPassthrough.enabled is true" }}
+{{- end }}
     - name: tls
       protocol: TLS
       hostname: {{ .Values.gateway.tlsPassthrough.hostname | quote }}
