@@ -41,12 +41,14 @@ func (i *WorkloadImpl) CreateWorkload(params api.CreateWorkloadParams) error {
 	}
 
 	// Route to appropriate implementation based on mode
-	if mode == flags.ModeFileSystem {
+	switch mode {
+	case flags.ModeFileSystem:
 		return i.createWorkloadFileSystemMode(params)
+	case flags.ModeAPIServer:
+		return i.createWorkloadAPIServerMode(params)
+	default:
+		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
 	}
-
-	// Default: API server mode (existing implementation)
-	return i.createWorkloadAPIServerMode(params)
 }
 
 // createWorkloadAPIServerMode handles the existing API server mode logic

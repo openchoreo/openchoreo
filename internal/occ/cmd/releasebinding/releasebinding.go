@@ -66,12 +66,8 @@ func (r *ReleaseBindingImpl) GenerateReleaseBinding(params api.GenerateReleaseBi
 		mode = flags.ModeAPIServer
 	}
 
-	if mode == flags.ModeAPIServer {
-		return fmt.Errorf("release-binding generate is not implemented for api-server mode")
-	}
-
 	if mode != flags.ModeFileSystem {
-		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
+		return fmt.Errorf("releasebinding generate only supports file-system mode; use --mode file-system (got %q)", mode)
 	}
 
 	// 2. Load context for other defaults (namespace, etc.)
