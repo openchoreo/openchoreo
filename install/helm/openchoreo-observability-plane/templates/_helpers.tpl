@@ -139,3 +139,21 @@ Cluster Agent service account name
 {{- default "default" .Values.clusterAgent.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Events Collector name
+*/}}
+{{- define "openchoreo-observability-plane.eventsCollector.name" -}}
+{{- default "events-collector" .Values.eventsCollector.name }}
+{{- end }}
+
+{{/*
+Events Collector service account name
+*/}}
+{{- define "openchoreo-observability-plane.eventsCollector.serviceAccountName" -}}
+{{- if .Values.eventsCollector.serviceAccount.create }}
+{{- default "events-collector" .Values.eventsCollector.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.eventsCollector.serviceAccount.name }}
+{{- end }}
+{{- end }}
