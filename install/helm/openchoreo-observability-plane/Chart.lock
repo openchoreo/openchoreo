@@ -4,7 +4,7 @@ dependencies:
   version: 0.3.1
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
-  version: 0.54.0
+  version: 0.55.0
 - name: kube-prometheus-stack
   repository: https://prometheus-community.github.io/helm-charts
   version: 78.3.0
@@ -17,5 +17,5 @@ dependencies:
 - name: opensearch-dashboards
   repository: https://opensearch-project.github.io/helm-charts/
   version: 3.3.0
-digest: sha256:1d57eda2881ed0d2be479caab959a82d6b87f3de4af23995bedc49d8045e3cda
-generated: "2026-02-14T17:38:58.767705+05:30"
+digest: sha256:b4202b3d445731ad9351694e10c31d8735d56bb65e0ddea7505eec218d425dc5
+generated: "2026-02-15T04:00:03.818762795Z"
