@@ -301,3 +301,42 @@ func ValidateValidationRule(
 func containsCELExpression(str string) bool {
 	return strings.Contains(str, "${")
 }
+
+// ValidateClusterComponentTypeResourcesWithSchema validates all resources in a ClusterComponentType with schema-aware type checking.
+// It checks CEL expressions, forEach loops, and ensures proper variable usage.
+//
+// Parameters:
+//   - cct: The ClusterComponentType to validate
+//   - parametersSchema: Structural schema for parameters (from ClusterComponentType.Schema.Parameters)
+//   - envOverridesSchema: Structural schema for envOverrides (from ClusterComponentType.Schema.EnvOverrides)
+//
+// If schemas are nil, DynType will be used for those variables (no static type checking).
+// This provides better error messages by catching type errors at validation time.
+func ValidateClusterComponentTypeResourcesWithSchema(
+	cct *v1alpha1.ClusterComponentType,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Create schema-aware validator for component context
+	validator, err := NewCELValidator(ComponentTypeResource, SchemaOptions{
+		ParametersSchema:   parametersSchema,
+		EnvOverridesSchema: envOverridesSchema,
+	})
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(
+			field.NewPath("spec"),
+			fmt.Errorf("failed to create CEL validator: %w", err)))
+		return allErrs
+	}
+
+	// Validate each resource template
+	for i, resource := range cct.Spec.Resources {
+		resourcePath := field.NewPath("spec", "resources").Index(i)
+		errs := ValidateResourceTemplate(resource, validator, resourcePath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	return allErrs
+}

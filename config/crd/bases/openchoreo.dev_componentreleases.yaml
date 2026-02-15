@@ -282,8 +282,9 @@ spec:
                 - message: spec.componentType is immutable
                   rule: self == oldSelf
                 - message: resources must contain a primary resource with id matching
-                    workloadType
-                  rule: self.resources.exists(r, r.id == self.workloadType)
+                    workloadType (unless workloadType is 'proxy')
+                  rule: self.workloadType == 'proxy' || self.resources.exists(r, r.id
+                    == self.workloadType)
               owner:
                 description: Owner identifies the component and project this ComponentRelease
                   belongs to
