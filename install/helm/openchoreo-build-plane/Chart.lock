@@ -1,12 +1,12 @@
 dependencies:
 - name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
-  version: 0.45.2
+  version: 0.47.3
 - name: fluent-bit
   repository: https://fluent.github.io/helm-charts
   version: 0.54.0
 - name: openbao
   repository: https://openbao.github.io/openbao-helm
   version: 0.4.0
-digest: sha256:4ad9b54f672a243bb26af58d3f64026acce60c010d09924035167d567fd1a936
-generated: "2026-02-06T13:34:54.604379+05:30"
+digest: sha256:8a97b16765d5bb46c71e7f57d8ed51904ea2a221b17eb47e64cd561b270d0f06
+generated: "2026-02-15T04:00:05.959576992Z"
