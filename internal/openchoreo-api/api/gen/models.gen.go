@@ -578,6 +578,9 @@ type ComponentTraitList struct {
 
 // ComponentType ComponentType resource defining a workload template
 type ComponentType struct {
+	// AllowedTraits List of allowed trait names for this component type
+	AllowedTraits *[]string `json:"allowedTraits,omitempty"`
+
 	// AllowedWorkflows List of allowed workflow names for this component type
 	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
 

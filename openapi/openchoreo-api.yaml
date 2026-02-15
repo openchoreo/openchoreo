@@ -4626,6 +4626,12 @@ components:
           items:
             type: string
           example: ["docker-build", "buildpack-build"]
+        allowedTraits:
+          type: array
+          description: List of allowed trait names for this component type
+          items:
+            type: string
+          example: ["autoscaler", "logger"]
         createdAt:
           type: string
           format: date-time
