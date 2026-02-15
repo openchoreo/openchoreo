@@ -208,6 +208,30 @@ kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-
 # Build Plane (optional)
 # The Build Plane requires a container registry. Install the registry first, then the build plane.
 
+# Create the build plane namespace early so we can copy resources into it
+kubectl --context k3d-openchoreo create namespace openchoreo-build-plane --dry-run=client -o yaml | \
+  kubectl --context k3d-openchoreo apply -f -
+
+# Copy the cluster-gateway CA ConfigMap from control plane to build plane namespace
+CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
+
+kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-build-plane
+
+# Copy the cluster-gateway CA Secret (needed by the cluster-agent CA issuer)
+TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
+TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
+  --from-literal=tls.crt="$TLS_CRT" \
+  --from-literal=tls.key="$TLS_KEY" \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-build-plane
+
 # Install Container Registry
 helm repo add twuni https://twuni.github.io/docker-registry.helm
 helm repo update
