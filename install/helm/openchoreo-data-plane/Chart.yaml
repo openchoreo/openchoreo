@@ -28,7 +28,7 @@ maintainers:
 dependencies:
   - name: fluent-bit
     repository: https://fluent.github.io/helm-charts
-    version: 0.54.0
+    version: 0.55.0
     condition: fluent-bit.enabled
   - name: kube-prometheus-stack
     repository: https://prometheus-community.github.io/helm-charts
