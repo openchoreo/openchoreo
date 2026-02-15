@@ -46,9 +46,6 @@ func NewProxyClient(gatewayURL, planeIdentifier string, crNamespace, crName stri
 	if planeIdentifier == "" {
 		return nil, fmt.Errorf("planeIdentifier is required")
 	}
-	if crNamespace == "" {
-		return nil, fmt.Errorf("crNamespace is required")
-	}
 	if crName == "" {
 		return nil, fmt.Errorf("crName is required")
 	}

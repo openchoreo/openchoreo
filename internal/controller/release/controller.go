@@ -47,6 +47,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -177,16 +179,21 @@ func (r *Reconciler) getDPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Use the resolution function to get the DataPlane (with default fallback)
-	dataplane, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	// Use the resolution function to get the DataPlane or ClusterDataPlane (with default fallback)
+	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
 	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
-	dpClient, err := kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataplane, r.GatewayURL)
+	var dpClient client.Client
+	if dataPlaneResult.DataPlane != nil {
+		dpClient, err = kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataPlaneResult.DataPlane, r.GatewayURL)
+	} else {
+		dpClient, err = kubernetesClient.GetK8sClientFromClusterDataPlane(r.K8sClientMgr, dataPlaneResult.ClusterDataPlane, r.GatewayURL)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataplane.Name, err)
+		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataPlaneResult.GetName(), err)
 	}
 
 	return dpClient, nil
@@ -200,22 +207,27 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Use the resolution function to get the DataPlane (with default fallback)
-	dataPlane, err := controller.GetDataplaneOfEnv(ctx, r.Client, env)
+	// Use the resolution function to get the DataPlane or ClusterDataPlane (with default fallback)
+	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
-	// Use the resolution function to get the ObservabilityPlane (with default fallback)
-	observabilityPlane, err := controller.GetObservabilityPlaneOfDataPlane(ctx, r.Client, dataPlane)
+	// Resolve the ObservabilityPlane (or ClusterObservabilityPlane) from the data plane
+	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlane.Name, err)
+		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
 	}
 
 	// Get Kubernetes client - supports agent mode (via HTTP proxy) through cluster gateway
-	opClient, err := kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, observabilityPlane, r.GatewayURL)
+	var opClient client.Client
+	if obsResult.ObservabilityPlane != nil {
+		opClient, err = kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, obsResult.ObservabilityPlane, r.GatewayURL)
+	} else {
+		opClient, err = kubernetesClient.GetK8sClientFromClusterObservabilityPlane(r.K8sClientMgr, obsResult.ClusterObservabilityPlane, r.GatewayURL)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", observabilityPlane.Name, err)
+		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
 	}
 
 	return opClient, nil

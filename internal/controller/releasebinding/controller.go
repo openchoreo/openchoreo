@@ -57,6 +57,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
@@ -146,8 +148,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	// Fetch DataPlane object using the resolution function
-	dataPlane, err := controller.GetDataplaneOfEnv(ctx, r.Client, environment)
+	// Fetch DataPlane or ClusterDataPlane object using the resolution function
+	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, environment)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("DataPlane not found for environment %q", environment.Name)
@@ -194,7 +196,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return ctrl.Result{}, err
 	}
 
-	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlane, component, project)
+	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
 }
 
 // validateComponentRelease validates the ComponentRelease configuration
@@ -360,7 +362,7 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 // reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
-	dataPlane *openchoreov1alpha1.DataPlane, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
+	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Handle undeploy state - delete Release resources if they exist
@@ -368,6 +370,10 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		releaseBinding.Status.Endpoints = nil
 		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
 	}
+
+	// Build a facade DataPlane from the result for use by the pipeline and helper functions.
+	// This works because ClusterDataPlane has the same spec fields (Gateway, SecretStoreRef, etc.).
+	dataPlane := dataPlaneResult.ToDataPlane()
 
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
@@ -521,7 +527,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	// Reconcile observability plane Release (create, update, or cleanup)
-	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlane, observabilityPlaneReleaseResources)
+	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -668,7 +674,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	ctx context.Context,
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
-	dataPlane *openchoreov1alpha1.DataPlane,
+	dataPlaneResult *controller.DataPlaneResult,
 	observabilityPlaneReleaseResources []openchoreov1alpha1.Resource,
 ) (observabilityReleaseResult, error) {
 	logger := log.FromContext(ctx)
@@ -679,7 +685,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	shouldManage := false
 	if len(observabilityPlaneReleaseResources) > 0 {
 		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
-		_, err := controller.GetObservabilityPlaneOfDataPlane(ctx, r.Client, dataPlane)
+		_, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
 		shouldManage = (err == nil)
 	}
 

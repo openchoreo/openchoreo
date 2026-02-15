@@ -154,6 +154,39 @@ func GetK8sClientFromBuildPlane(
 	})
 }
 
+// GetK8sClientFromClusterDataPlane retrieves a Kubernetes client from ClusterDataPlane specification.
+// Only supports cluster agent mode via HTTP proxy through cluster gateway.
+// Note: Cache key includes CR for isolation, but planeIdentifier for proxy uses only planeID
+func GetK8sClientFromClusterDataPlane(
+	clientMgr *KubeMultiClientManager,
+	clusterDataplane *openchoreov1alpha1.ClusterDataPlane,
+	gatewayURL string,
+) (client.Client, error) {
+	if gatewayURL == "" {
+		return nil, fmt.Errorf("gatewayURL is required for cluster agent mode")
+	}
+
+	// Determine effective planeID (defaults to CR name if not specified)
+	planeID := clusterDataplane.Spec.PlaneID
+	if planeID == "" {
+		planeID = clusterDataplane.Name
+	}
+
+	// Cache key: CR-specific for client isolation (cluster-scoped, no namespace)
+	// Include "v2" to force cache invalidation after proxy client signature change
+	key := fmt.Sprintf("v2/clusterdataplane/%s/%s", planeID, clusterDataplane.Name)
+
+	// Plane identifier for proxy routing: same format as namespace-scoped DataPlane
+	// Agents register by planeType/planeID regardless of CR scope
+	planeIdentifier := fmt.Sprintf("dataplane/%s", planeID)
+
+	// Use GetOrAddClient to cache the proxy client
+	return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+		// Cluster-scoped: use placeholder namespace to maintain 6-part URL format
+		return NewProxyClient(gatewayURL, planeIdentifier, "_cluster", clusterDataplane.Name, clientMgr.ProxyTLSConfig)
+	})
+}
+
 // GetK8sClientFromObservabilityPlane retrieves a Kubernetes client from ObservabilityPlane specification.
 // Currently only supports agent mode (via HTTP proxy through cluster gateway).
 func GetK8sClientFromObservabilityPlane(
@@ -188,4 +221,41 @@ func GetK8sClientFromObservabilityPlane(
 
 	// ObservabilityPlane currently only supports agent mode
 	return nil, fmt.Errorf("agent mode must be enabled for ObservabilityPlane")
+}
+
+// GetK8sClientFromClusterObservabilityPlane retrieves a Kubernetes client from ClusterObservabilityPlane specification.
+// Only supports agent mode (via HTTP proxy through cluster gateway).
+func GetK8sClientFromClusterObservabilityPlane(
+	clientMgr *KubeMultiClientManager,
+	clusterObsPlane *openchoreov1alpha1.ClusterObservabilityPlane,
+	gatewayURL string,
+) (client.Client, error) {
+	// Include plane type in cache key to avoid collision with other plane types
+	// Cluster-scoped: no namespace in key
+	key := fmt.Sprintf("v2/clusterobservabilityplane/%s", clusterObsPlane.Name)
+
+	// Agent mode - use HTTP proxy through cluster gateway
+	if clusterObsPlane.Spec.ClusterAgent.ClientCA.Value != "" {
+		if gatewayURL == "" {
+			return nil, fmt.Errorf("gatewayURL is required for agent mode")
+		}
+
+		// Determine effective planeID (defaults to CR name if not specified)
+		planeID := clusterObsPlane.Spec.PlaneID
+		if planeID == "" {
+			planeID = clusterObsPlane.Name
+		}
+
+		// Use planeType/planeName format to match agent registration
+		planeIdentifier := fmt.Sprintf("observabilityplane/%s", planeID)
+
+		// Use GetOrAddClient to cache the proxy client
+		return clientMgr.GetOrAddClient(key, func() (client.Client, error) {
+			// Cluster-scoped: use placeholder namespace to maintain 6-part URL format
+			return NewProxyClient(gatewayURL, planeIdentifier, "_cluster", clusterObsPlane.Name, clientMgr.ProxyTLSConfig)
+		})
+	}
+
+	// ClusterObservabilityPlane currently only supports agent mode
+	return nil, fmt.Errorf("agent mode must be enabled for ClusterObservabilityPlane")
 }

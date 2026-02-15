@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -41,6 +42,53 @@ func (r *DataPlaneResult) GetNamespace() string {
 		return r.DataPlane.Namespace
 	}
 	return ""
+}
+
+// ToDataPlane returns a *DataPlane - either the real one or a facade built from ClusterDataPlane.
+// This allows downstream code (e.g. rendering pipeline) to remain unchanged.
+func (r *DataPlaneResult) ToDataPlane() *openchoreov1alpha1.DataPlane {
+	if r.DataPlane != nil {
+		return r.DataPlane
+	}
+	if r.ClusterDataPlane != nil {
+		var obsRef *openchoreov1alpha1.ObservabilityPlaneRef
+		if r.ClusterDataPlane.Spec.ObservabilityPlaneRef != nil {
+			obsRef = &openchoreov1alpha1.ObservabilityPlaneRef{
+				Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane,
+				Name: r.ClusterDataPlane.Spec.ObservabilityPlaneRef.Name,
+			}
+		}
+		return &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: r.ClusterDataPlane.Name,
+				UID:  r.ClusterDataPlane.UID,
+			},
+			Spec: openchoreov1alpha1.DataPlaneSpec{
+				PlaneID:               r.ClusterDataPlane.Spec.PlaneID,
+				ClusterAgent:          r.ClusterDataPlane.Spec.ClusterAgent,
+				Gateway:               r.ClusterDataPlane.Spec.Gateway,
+				ImagePullSecretRefs:   r.ClusterDataPlane.Spec.ImagePullSecretRefs,
+				SecretStoreRef:        r.ClusterDataPlane.Spec.SecretStoreRef,
+				ObservabilityPlaneRef: obsRef,
+			},
+		}
+	}
+	return nil
+}
+
+// GetObservabilityPlane resolves the observability plane for this data plane result.
+func (r *DataPlaneResult) GetObservabilityPlane(ctx context.Context, c client.Client) (*ObservabilityPlaneResult, error) {
+	if r.DataPlane != nil {
+		return GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, c, r.DataPlane)
+	}
+	if r.ClusterDataPlane != nil {
+		cop, err := GetClusterObservabilityPlaneOfClusterDataPlane(ctx, c, r.ClusterDataPlane)
+		if err != nil {
+			return nil, err
+		}
+		return &ObservabilityPlaneResult{ClusterObservabilityPlane: cop}, nil
+	}
+	return nil, fmt.Errorf("no data plane set in result")
 }
 
 // ObservabilityPlaneResult contains either an ObservabilityPlane or ClusterObservabilityPlane

@@ -420,6 +420,11 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Construct identifiers for CR-aware routing
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	// Handle cluster-scoped CR namespace placeholder: "_cluster" maps to empty namespace
+	// to match the key format "/name" used by getAllPlaneClientCAs for cluster-scoped resources
+	if crNamespace == "_cluster" {
+		crNamespace = ""
+	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
 
 	isStreaming := s.isStreamingRequest(r, targetPath)
