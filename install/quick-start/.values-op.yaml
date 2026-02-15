@@ -37,6 +37,8 @@ observer:
 
 # Gateway configuration for quick-start
 gateway:
+  httpPort: 11080
+  httpsPort: 11085
   tls:
     enabled: false
 

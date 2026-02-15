@@ -13,8 +13,6 @@ openSearchCluster:
 # Observer API - REST API for querying logs and metrics
 observer:
   openSearchSecretName: observer-opensearch-credentials
-  service:
-    type: LoadBalancer
   http:
     hostnames:
     - observer.openchoreo.localhost
@@ -25,11 +23,12 @@ openSearchDashboards:
     type: LoadBalancer
 
 security:
-  enabled: false
   oidc:
     jwksUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/jwks"
     tokenUrl: "http://thunder-service.openchoreo-control-plane.svc.cluster.local:8090/oauth2/token"
 
 gateway:
+  httpPort: 11080
+  httpsPort: 11085
   tls:
     enabled: false

@@ -25,7 +25,7 @@ ports:
     nodeFilters:
       - loadbalancer
   # KGateway TLS
-  - port: 11085:11443
+  - port: 11085:11085
     nodeFilters:
       - loadbalancer
   # OpenTelemetry Collector
@@ -33,7 +33,7 @@ ports:
     nodeFilters:
       - loadbalancer
   # KGateway HTTP
-  - port: 11087:8075
+  - port: 11087:11087
     nodeFilters:
       - loadbalancer
     

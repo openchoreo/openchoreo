@@ -6,4 +6,4 @@ persistence:
 
 service:
   type: LoadBalancer
-  port: 5000
+  port: 10082

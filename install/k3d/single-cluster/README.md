@@ -2,173 +2,170 @@
 
 All-in-one OpenChoreo setup with all planes running in a single k3d cluster.
 
-## Overview
-
-This setup creates one k3d cluster that hosts all OpenChoreo planes, providing a simpler development environment with
-lower resource requirements.
-
-## Quick Start
+> [!TIP]
+> For a detailed walkthrough with explanations, see the [public getting started guide](https://openchoreo.dev/docs/getting-started/try-it-out/locally/).
 
 > [!IMPORTANT]
-> If you're using Colima, set the `K3D_FIX_DNS=0` environment variable when creating clusters.
-> See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449) for more details.
-> Example: `K3D_FIX_DNS=0 k3d cluster create --config install/k3d/single-cluster/config.yaml`
+> If you're using Colima, set `K3D_FIX_DNS=0` when creating clusters.
+> See [k3d-io/k3d#1449](https://github.com/k3d-io/k3d/issues/1449).
 
-> [!TIP]
-> For faster setup or if you have slow network, consider using [Image Preloading](#image-preloading-optional) after creating the cluster.
-
-### 1. Create Cluster
+## 1. Create Cluster
 
 ```bash
-# Create single OpenChoreo cluster
 k3d cluster create --config install/k3d/single-cluster/config.yaml
 
-# Generate a machine-id (Required for Fluent Bit when running k3d)
-docker exec k3d-openchoreo-server-0 sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
+docker exec k3d-openchoreo-server-0 sh -c \
+  "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 ```
 
-### 2. Install Prerequisites
+> [!TIP]
+> For faster setup, consider using [Image Preloading](#image-preloading) after creating the cluster.
 
-#### Gateway API CRDs
+## 2. Install Prerequisites
+
+### Gateway API CRDs
 
 ```bash
-kubectl apply --context k3d-openchoreo --server-side \
+kubectl apply --server-side \
   -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
 ```
 
-#### cert-manager
+### cert-manager
 
 ```bash
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
-  --kube-context k3d-openchoreo \
   --namespace cert-manager \
   --create-namespace \
   --version v1.19.2 \
   --set crds.enabled=true
+```
 
-kubectl wait --context k3d-openchoreo \
-  --for=condition=Available deployment/cert-manager \
+```bash
+kubectl wait --for=condition=Available deployment/cert-manager \
   -n cert-manager --timeout=180s
 ```
 
-#### External Secrets Operator
+### External Secrets Operator
 
 ```bash
 helm upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
-  --kube-context k3d-openchoreo \
   --namespace external-secrets \
   --create-namespace \
   --version 1.3.2 \
   --set installCRDs=true
+```
 
-kubectl wait --context k3d-openchoreo \
-  --for=condition=Available deployment/external-secrets \
+```bash
+kubectl wait --for=condition=Available deployment/external-secrets \
   -n external-secrets --timeout=180s
 ```
 
-#### kgateway
+### kgateway
+
+Single install, watches Gateway resources across all namespaces.
 
 ```bash
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-  --kube-context k3d-openchoreo \
   --version v2.1.1
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --version v2.1.1
-
-helm upgrade --install kgateway-dp oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-data-plane \
-  --create-namespace \
-  --version v2.1.1
-
-# If installing the observability plane, also install kgateway there:
-# helm upgrade --install kgateway-op oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-#   --kube-context k3d-openchoreo \
-#   --namespace openchoreo-observability-plane \
-#   --create-namespace \
-#   --version v2.1.1
 ```
 
-#### Thunder (Asgardeo Identity Provider)
+## 3. Setup Control Plane
+
+### Thunder (Identity Provider)
+
+Bootstrap scripts auto-configure the org, users, groups, and OAuth apps on first startup.
 
 ```bash
 helm upgrade --install thunder oci://ghcr.io/asgardeo/helm-charts/thunder \
-  --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --version 0.21.0 \
   --values install/k3d/common/values-thunder.yaml
 ```
 
-### 3. Install Components
-
-> [!NOTE]
-> This setup uses **cluster gateway and agents** by default for secure communication between Control Plane and Data/Build Planes. The agents connect via in-cluster service (`cluster-gateway.openchoreo-control-plane.svc.cluster.local`) using mTLS authentication.
-
-Install all planes in the single cluster:
+### CoreDNS Rewrite
 
 ```bash
-# CoreDNS rewrite for resolving *.openchoreo.localhost inside the cluster
-kubectl apply --context k3d-openchoreo -f install/k3d/common/coredns-custom.yaml
+kubectl apply -f install/k3d/common/coredns-custom.yaml
+```
 
-# Create backstage secret (contains backend encryption key, OAuth client secret, etc.)
-kubectl --context k3d-openchoreo create namespace openchoreo-control-plane --dry-run=client -o yaml | \
-  kubectl --context k3d-openchoreo apply -f -
+### Backstage Secrets
 
-kubectl --context k3d-openchoreo create secret generic backstage-secrets \
+```bash
+kubectl create namespace openchoreo-control-plane --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl create secret generic backstage-secrets \
   -n openchoreo-control-plane \
   --from-literal=backend-secret="$(head -c 32 /dev/urandom | base64)" \
   --from-literal=client-secret="backstage-portal-secret" \
   --from-literal=jenkins-api-key="placeholder-not-in-use"
+```
 
-# Control Plane
+### Install Control Plane
+
+```bash
 helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-plane \
-  --kube-context k3d-openchoreo \
   --namespace openchoreo-control-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-cp.yaml
+```
 
-# Wait for cluster-gateway to be ready (required for agent connections)
-kubectl --context k3d-openchoreo wait --for=condition=available deployment/cluster-gateway \
-  -n openchoreo-control-plane --timeout=120s
+```bash
+kubectl wait -n openchoreo-control-plane \
+  --for=condition=available --timeout=300s deployment --all
+```
 
-# If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
-# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-control-plane --context k3d-openchoreo \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
+### Gateway Patch
 
-# Data Plane
+Optional workaround for envoy `/tmp` crash. See [kgateway#9800](https://github.com/kgateway-dev/kgateway/issues/9800).
 
-# Create the data plane namespace early so we can copy resources into it
-kubectl --context k3d-openchoreo create namespace openchoreo-data-plane --dry-run=client -o yaml | \
-  kubectl --context k3d-openchoreo apply -f -
+```bash
+kubectl patch deployment gateway-default -n openchoreo-control-plane \
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
+```
 
-# Copy the cluster-gateway CA ConfigMap from control plane to data plane namespace
-CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
+## 4. Install Default Resources
+
+```bash
+kubectl apply -f samples/getting-started/all.yaml
+kubectl label namespace default openchoreo.dev/controlplane-namespace=true
+```
+
+## 5. Setup Data Plane
+
+### Namespace and Certificates
+
+```bash
+kubectl create namespace openchoreo-data-plane --dry-run=client -o yaml | kubectl apply -f -
+
+CA_CRT=$(kubectl get configmap cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
 
-kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
+kubectl create configmap cluster-gateway-ca \
   --from-literal=ca.crt="$CA_CRT" \
   -n openchoreo-data-plane
 
-# Copy the cluster-gateway CA Secret (needed by the cluster-agent CA issuer)
-TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+TLS_CRT=$(kubectl get secret cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
+TLS_KEY=$(kubectl get secret cluster-gateway-ca \
   -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
 
-kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
+kubectl create secret generic cluster-gateway-ca \
   --from-literal=tls.crt="$TLS_CRT" \
   --from-literal=tls.key="$TLS_KEY" \
   --from-literal=ca.crt="$CA_CRT" \
   -n openchoreo-data-plane
+```
 
-# Create fake ClusterSecretStore for development
-kubectl --context k3d-openchoreo apply -f - <<EOF
+### Secret Store
+
+```bash
+kubectl apply -f - <<EOF
 apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
 metadata:
@@ -192,145 +189,32 @@ spec:
       - key: RCA_LLM_API_KEY
         value: "fake-llm-api-key-for-development"
 EOF
+```
 
+### Install Data Plane
+
+```bash
 helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane \
   --dependency-update \
-  --kube-context k3d-openchoreo \
   --namespace openchoreo-data-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-dp.yaml
-
-# If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
-# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-openchoreo \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
-
-# Build Plane (optional)
-# The Build Plane requires a container registry. Install the registry first, then the build plane.
-
-# Create the build plane namespace early so we can copy resources into it
-kubectl --context k3d-openchoreo create namespace openchoreo-build-plane --dry-run=client -o yaml | \
-  kubectl --context k3d-openchoreo apply -f -
-
-# Copy the cluster-gateway CA ConfigMap from control plane to build plane namespace
-CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
-
-kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-build-plane
-
-# Copy the cluster-gateway CA Secret (needed by the cluster-agent CA issuer)
-TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
-
-kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
-  --from-literal=tls.crt="$TLS_CRT" \
-  --from-literal=tls.key="$TLS_KEY" \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-build-plane
-
-# Install Container Registry
-helm repo add twuni https://twuni.github.io/docker-registry.helm
-helm repo update
-
-helm install registry twuni/docker-registry \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-build-plane \
-  --create-namespace \
-  --values install/k3d/single-cluster/values-registry.yaml
-
-# Install Build Plane
-helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plane \
-  --dependency-update \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-build-plane \
-  --values install/k3d/single-cluster/values-bp.yaml
-
-# Observability Plane (optional)
-
-# Create the observability plane namespace
-kubectl --context k3d-openchoreo create namespace openchoreo-observability-plane --dry-run=client -o yaml | \
-  kubectl --context k3d-openchoreo apply -f -
-
-# Copy the cluster-gateway CA from control plane (same pattern as data/build planes)
-CA_CRT=$(kubectl --context k3d-openchoreo get configmap cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
-
-kubectl --context k3d-openchoreo create configmap cluster-gateway-ca \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-observability-plane
-
-TLS_CRT=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
-TLS_KEY=$(kubectl --context k3d-openchoreo get secret cluster-gateway-ca \
-  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
-
-kubectl --context k3d-openchoreo create secret generic cluster-gateway-ca \
-  --from-literal=tls.crt="$TLS_CRT" \
-  --from-literal=tls.key="$TLS_KEY" \
-  --from-literal=ca.crt="$CA_CRT" \
-  -n openchoreo-observability-plane
-
-# Create OpenSearch credentials secret
-kubectl --context k3d-openchoreo create secret generic observer-opensearch-credentials \
-  -n openchoreo-observability-plane \
-  --from-literal=username="admin" \
-  --from-literal=password="ThisIsTheOpenSearchPassword1"
-
-# Install kgateway in the observability namespace
-helm upgrade --install kgateway-op oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-observability-plane \
-  --version v2.1.1
-
-## Non-HA mode
-helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --dependency-update \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-observability-plane \
-  --values install/k3d/single-cluster/values-op.yaml \
-  --set openSearch.enabled=true \
-  --set openSearchCluster.enabled=false
-
-# If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
-# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
-
-## HA mode
-
-### OpenSearch Kubernetes Operator (Prerequisite)
-helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
-
-helm repo update
-
-helm install opensearch-operator opensearch-operator/opensearch-operator \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 2.8.0
-
-### OpenChoreo Observability Plane
-helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --dependency-update \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-observability-plane \
-  --create-namespace \
-  --values install/k3d/single-cluster/values-op.yaml
 ```
 
-### 4. Create DataPlane Resource
-
-Create a DataPlane resource to enable workload deployment. The gateway ports must match the `httpPort` and `httpsPort` values in your data plane helm values.
+### Gateway Patch
 
 ```bash
-# Extract the cluster agent client CA from the data plane
-AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+kubectl patch deployment gateway-default -n openchoreo-data-plane \
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
+```
+
+### Register Data Plane
+
+```bash
+AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-data-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
-kubectl --context k3d-openchoreo apply -f - <<EOF
+kubectl apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane
 metadata:
@@ -351,40 +235,59 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
-The cluster agent establishes an outbound WebSocket connection to the cluster gateway, eliminating the need to expose the data plane Kubernetes API.
+## 6. Setup Build Plane (Optional)
 
-### 5. Install Default Resources
-
-Install the default OpenChoreo resources (Project, Environments, DeploymentPipeline, ComponentTypes, ComponentWorkflows, and Traits):
+### Namespace and Certificates
 
 ```bash
-kubectl --context k3d-openchoreo apply -f samples/getting-started/all.yaml
+kubectl create namespace openchoreo-build-plane --dry-run=client -o yaml | kubectl apply -f -
+
+CA_CRT=$(kubectl get configmap cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
+
+kubectl create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-build-plane
+
+TLS_CRT=$(kubectl get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
+TLS_KEY=$(kubectl get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+kubectl create secret generic cluster-gateway-ca \
+  --from-literal=tls.crt="$TLS_CRT" \
+  --from-literal=tls.key="$TLS_KEY" \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-build-plane
 ```
 
-Or from the remote repository:
+### Container Registry
 
 ```bash
-kubectl --context k3d-openchoreo apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+helm repo add twuni https://twuni.github.io/docker-registry.helm
+helm repo update
+
+helm install registry twuni/docker-registry \
+  --namespace openchoreo-build-plane \
+  --create-namespace \
+  --values install/k3d/single-cluster/values-registry.yaml
 ```
 
-### 6. Label Default Namespace
-
-Label the default namespace to mark it as a control plane namespace:
+### Install Build Plane
 
 ```bash
-kubectl label namespace default openchoreo.dev/controlplane-namespace=true
+helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plane \
+  --dependency-update \
+  --namespace openchoreo-build-plane \
+  --values install/k3d/single-cluster/values-bp.yaml
 ```
 
-### 7. Create BuildPlane Resource (optional)
-
-Create a BuildPlane resource to enable building from source. All BuildPlanes use cluster agent for secure communication.
+### Register Build Plane
 
 ```bash
-# Extract the cluster agent client CA from the build plane
-AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-build-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
-# Create the BuildPlane CR
 kubectl apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: BuildPlane
@@ -396,24 +299,96 @@ spec:
   clusterAgent:
     clientCA:
       value: |
-$(echo '        ${AGENT_CA}')
+$(echo "$AGENT_CA" | sed 's/^/        /')
   secretStoreRef:
     name: openbao
 EOF
 ```
 
-The cluster agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
+## 7. Setup Observability Plane (Optional)
 
-### 8. Create ObservabilityPlane Resource (optional)
-
-Create an ObservabilityPlane resource to enable observability in data plane and build plane.
+### Namespace and Certificates
 
 ```bash
-# Extract the cluster agent client CA from the observability plane
-AGENT_CA=$(kubectl --context k3d-openchoreo get secret cluster-agent-tls \
+kubectl create namespace openchoreo-observability-plane --dry-run=client -o yaml | kubectl apply -f -
+
+CA_CRT=$(kubectl get configmap cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.ca\.crt}')
+
+kubectl create configmap cluster-gateway-ca \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-observability-plane
+
+TLS_CRT=$(kubectl get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.crt}' | base64 -d)
+TLS_KEY=$(kubectl get secret cluster-gateway-ca \
+  -n openchoreo-control-plane -o jsonpath='{.data.tls\.key}' | base64 -d)
+
+kubectl create secret generic cluster-gateway-ca \
+  --from-literal=tls.crt="$TLS_CRT" \
+  --from-literal=tls.key="$TLS_KEY" \
+  --from-literal=ca.crt="$CA_CRT" \
+  -n openchoreo-observability-plane
+```
+
+### OpenSearch Credentials
+
+```bash
+kubectl create secret generic observer-opensearch-credentials \
+  -n openchoreo-observability-plane \
+  --from-literal=username="admin" \
+  --from-literal=password="ThisIsTheOpenSearchPassword1"
+```
+
+### Install Observability Plane
+
+Non-HA mode (standalone OpenSearch, no operator):
+
+```bash
+helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --dependency-update \
+  --namespace openchoreo-observability-plane \
+  --values install/k3d/single-cluster/values-op.yaml \
+  --set openSearch.enabled=true \
+  --set openSearchCluster.enabled=false \
+  --set fluent-bit.enabled=true \
+  --timeout 10m
+```
+
+<details>
+<summary>HA mode (OpenSearch operator)</summary>
+
+```bash
+helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
+helm repo update
+
+helm install opensearch-operator opensearch-operator/opensearch-operator \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 2.8.0
+
+helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
+  --dependency-update \
+  --namespace openchoreo-observability-plane \
+  --create-namespace \
+  --values install/k3d/single-cluster/values-op.yaml
+```
+
+</details>
+
+### Gateway Patch
+
+```bash
+kubectl patch deployment gateway-default -n openchoreo-observability-plane \
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
+```
+
+### Register Observability Plane
+
+```bash
+AGENT_CA=$(kubectl get secret cluster-agent-tls \
   -n openchoreo-observability-plane -o jsonpath='{.data.ca\.crt}' | base64 -d)
 
-# Create the ObservabilityPlane CR
 kubectl apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: ObservabilityPlane
@@ -425,221 +400,75 @@ spec:
   clusterAgent:
     clientCA:
       value: |
-$(echo '        ${AGENT_CA}')
+$(echo "$AGENT_CA" | sed 's/^/        /')
   observerURL: http://observer.openchoreo.localhost:11080
 EOF
 ```
-The agent establishes an outbound WebSocket connection to the cluster gateway, providing secure communication without exposing the Kubernetes API server.
 
-Configure DataPlane to use default ObservabilityPlane
-```bash
-kubectl patch dataplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
-```
+### Link Other Planes
 
-Configure BuildPlane (if installed) to use default ObservabilityPlane
 ```bash
-kubectl patch buildplane default -n default --type merge -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
-```
+kubectl patch dataplane default -n default --type merge \
+  -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 
-Enable logs collection by upgrading the observability plane with Fluent Bit enabled:
-```bash
-helm upgrade openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --kube-context k3d-openchoreo \
-  --namespace openchoreo-observability-plane \
-  --reuse-values \
-  --set fluent-bit.enabled=true \
-  --timeout 10m
+# If build plane is installed:
+kubectl patch buildplane default -n default --type merge \
+  -p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'
 ```
 
 ## Port Mappings
 
-| Plane               | Namespace                      | Kube API Port | Port Range |
-|---------------------|--------------------------------|---------------|------------|
-| Control Plane       | openchoreo-control-plane       | 6550          | 8xxx       |
-| Data Plane          | openchoreo-data-plane          | -             | 9xxx       |
-| Build Plane         | openchoreo-build-plane         | -             | 10xxx      |
-| Observability Plane | openchoreo-observability-plane | -             | 11xxx      |
+All ports are mapped 1:1 (host:container) unless noted.
 
-> [!NOTE]
-> Port ranges (e.g., 8xxx) indicate the ports exposed to your host machine for accessing services from that plane. Each
-> range uses ports like 8080 (HTTP) and 8443 (HTTPS) on localhost. In single-cluster mode, all planes share the same
-> Kubernetes API (port 6550).
+| Port  | Plane         | Service                |
+|-------|---------------|------------------------|
+| 8080  | Control       | Gateway HTTP           |
+| 8443  | Control       | Gateway HTTPS          |
+| 19080 | Data          | Gateway HTTP           |
+| 19443 | Data          | Gateway HTTPS          |
+| 10081 | Build         | Argo Workflows UI      |
+| 10082 | Build         | Container Registry     |
+| 11080 | Observability | Observer API (HTTP)    |
+| 11085 | Observability | Gateway HTTPS          |
+| 11081 | Observability | OpenSearch Dashboards* |
+| 11082 | Observability | OpenSearch API*        |
+
+*OpenSearch ports are not 1:1 (11081:5601, 11082:9200) since those services don't support port overrides.
 
 ## Access Services
 
-### Control Plane
-
-- OpenChoreo UI: http://openchoreo.localhost:8080
-- OpenChoreo API: http://api.openchoreo.localhost:8080
-- Asgardeo Thunder: http://thunder.openchoreo.localhost:8080
-
-### Data Plane
-
-- User Workloads: http://localhost:19080 (kgateway)
-
-### Build Plane (if installed)
-
-- Argo Workflows UI: http://localhost:10081
-- Container Registry: http://localhost:10082
-
-### Observability Plane (if installed)
-
-- Observer API: http://localhost:11080
-- OpenSearch API: http://localhost:11082 (for Fluent Bit and direct API access)
+| Service              | URL                                           |
+|----------------------|-----------------------------------------------|
+| OpenChoreo Console   | http://openchoreo.localhost:8080               |
+| OpenChoreo API       | http://api.openchoreo.localhost:8080           |
+| Thunder Admin        | http://thunder.openchoreo.localhost:8080       |
+| Argo Workflows UI    | http://localhost:10081                         |
+| Observer API         | http://observer.openchoreo.localhost:11080     |
 
 ## Verification
 
-Check that all components are running:
-
 ```bash
-# Control Plane
-kubectl --context k3d-openchoreo get pods -n openchoreo-control-plane
+# All pods
+kubectl get pods -n openchoreo-control-plane
+kubectl get pods -n openchoreo-data-plane
+kubectl get pods -n openchoreo-build-plane
+kubectl get pods -n openchoreo-observability-plane
 
-# Data Plane
-kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane
+# Plane resources
+kubectl get dataplane,buildplane,observabilityplane -n default
 
-# Build Plane
-kubectl --context k3d-openchoreo get pods -n openchoreo-build-plane
-
-# Observability Plane
-kubectl --context k3d-openchoreo get pods -n openchoreo-observability-plane
-
-# Verify DataPlane resource
-kubectl --context k3d-openchoreo get dataplane -n default
-
-# Verify BuildPlane resource (if created)
-kubectl --context k3d-openchoreo get buildplane -n default
-
-# Verify ObservabilityPlane resource (if created)
-kubectl --context k3d-openchoreo get observabilityplane -n default
-
-# Verify Cluster Agent Connection (if using agent mode)
-echo "=== Data Plane Cluster Agent Status ==="
-kubectl --context k3d-openchoreo get pods -n openchoreo-data-plane -l app=cluster-agent
-
-echo "=== Data Plane Agent Connection Logs ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-data-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
-
-echo "=== Build Plane Cluster Agent Status ==="
-kubectl --context k3d-openchoreo get pods -n openchoreo-build-plane -l app=cluster-agent
-
-echo "=== Build Plane Agent Connection Logs ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-build-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
-
-echo "=== Observability Plane Cluster Agent Status ==="
-kubectl --context k3d-openchoreo get pods -n openchoreo-observability-plane -l app=cluster-agent
-
-echo "=== Observability Plane Agent Connection Logs ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-observability-plane -l app=cluster-agent --tail=5 | grep "connected to control plane"
-
-echo "=== Gateway Registration ==="
-kubectl --context k3d-openchoreo logs -n openchoreo-control-plane -l app=cluster-gateway | grep "agent registered" | tail -5
+# Agent connections
+kubectl logs -n openchoreo-data-plane -l app=cluster-agent --tail=5
+kubectl logs -n openchoreo-build-plane -l app=cluster-agent --tail=5
+kubectl logs -n openchoreo-observability-plane -l app=cluster-agent --tail=5
 ```
 
-## Architecture
+## Image Preloading
 
-```mermaid
-graph TB
-    subgraph "Host Machine (Docker)"
-        subgraph "Single k3d Cluster (k3d-openchoreo)"
-            ExtLB["k3d-serverlb<br/>localhost:6550/8080/8443/19080/19443/10081/10082/11080/11081/11082"]
-            K8sAPI["K8s API Server<br/>:6443"]
+Pull images to your host first, then import into the cluster. Useful for slow networks or frequent cluster recreation.
 
-            subgraph "Control Plane Namespace"
-                CP_IntLB["Kgateway<br/>LoadBalancer :80/:443"]
-                CP["Controller Manager"]
-                API["OpenChoreo API :8080"]
-                UI["OpenChoreo UI :7007"]
-                Thunder["Asgardeo Thunder :8090"]
-            end
-
-            subgraph "Data Plane Namespace"
-                DP_IntLB["kgateway<br/>LoadBalancer :19080/:19443"]
-                Workloads["User Workloads"]
-                FB_ALL["Fluent Bit DaemonSet<br/>Collects logs from ALL namespaces<br/>(CP + DP + BP + OP)"]
-            end
-
-            subgraph "Build Plane Namespace"
-                BP_IntLB["Argo Server<br/>LoadBalancer :10081"]
-                Registry["Container Registry<br/>LoadBalancer :5000"]
-                ArgoWF["Argo Workflows"]
-            end
-
-            subgraph "Observability Plane Namespace"
-                Observer["Observer API<br/>LoadBalancer :11080"]
-                OSD["OpenSearch Dashboard<br/>LoadBalancer :11081"]
-                OS["OpenSearch<br/>LoadBalancer :11082"]
-            end
-
-            %% External access via load balancer
-            ExtLB -->|":6550→:6443"| K8sAPI
-            ExtLB -->|":8080→:80"| CP_IntLB
-            ExtLB -->|":9080→:19080"| DP_IntLB
-            ExtLB -->|":10081→:10081"| BP_IntLB
-            ExtLB -->|":10082→:5000"| Registry
-            ExtLB -->|":11080→:11080"| Observer
-            ExtLB -->|":11081→:11081"| OSD
-            ExtLB -->|":11082→:11082"| OS
-
-            %% Control plane internal routing
-            CP_IntLB --> UI
-            CP_IntLB --> API
-            CP_IntLB --> Thunder
-
-            %% Data plane internal routing
-            DP_IntLB --> Workloads
-            BP_IntLB --> ArgoWF
-
-            %% Control plane to workload communication (in-cluster)
-            CP -->|"In-cluster"| Workloads
-            CP -->|"In-cluster"| ArgoWF
-
-            %% Logging flow - ALL logs go through Data Plane FluentBit
-            FB_ALL -->|"In-cluster<br/>opensearch.openchoreo-observability-plane:9200"| OS
-
-            %% Observability internal
-            Observer --> OS
-            OSD --> OS
-        end
-    end
-
-    %% Styling
-    classDef extLbStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef intLbStyle fill:#fff3e0,stroke:#ff6f00,stroke-width:2px
-    classDef apiStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-
-    class ExtLB extLbStyle
-    class CP_IntLB,DP_IntLB,BP_IntLB,Registry,Observer,OSD,OS intLbStyle
-    class K8sAPI apiStyle
-```
-
-## Image Preloading (Optional)
-
-If you have slow network or want to save bandwidth when re-creating clusters, you can preload images before installing components. This pulls images to your host machine first, then imports them to the k3d cluster, which is significantly faster than pulling from within the cluster.
-
-**Control Plane and Data Plane:**
 ```bash
-install/k3d/preload-images.sh \
-  --cluster openchoreo \
-  --local-charts \
-  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
-  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
-  --parallel 4
-```
-
-**With Build Plane:**
-```bash
-install/k3d/preload-images.sh \
-  --cluster openchoreo \
-  --local-charts \
-  --control-plane --cp-values install/k3d/single-cluster/values-cp.yaml \
-  --data-plane --dp-values install/k3d/single-cluster/values-dp.yaml \
-  --build-plane --bp-values install/k3d/single-cluster/values-bp.yaml \
-  --parallel 4
-```
-
-**With all planes including Observability:**
-```bash
+# All planes
 install/k3d/preload-images.sh \
   --cluster openchoreo \
   --local-charts \
@@ -650,11 +479,9 @@ install/k3d/preload-images.sh \
   --parallel 4
 ```
 
-Run this after creating the cluster (step 1) but before installing components (step 2).
+Run after creating the cluster but before installing anything.
 
 ## Cleanup
-
-Delete the cluster:
 
 ```bash
 k3d cluster delete openchoreo

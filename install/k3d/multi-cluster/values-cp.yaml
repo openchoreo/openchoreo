@@ -46,5 +46,7 @@ thunder:
   host: thunder.openchoreo.localhost
 
 gateway:
+  httpPort: 8080
+  httpsPort: 8443
   tls:
     hostname: "*.openchoreo.localhost"

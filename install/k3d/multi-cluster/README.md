@@ -91,7 +91,7 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
 kubectl patch deployment gateway-default -n openchoreo-control-plane --context k3d-openchoreo-cp \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 
 # Create TLS Certificate for Control Plane Gateway
 kubectl apply -f - <<EOF
@@ -218,7 +218,7 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
 kubectl patch deployment gateway-default -n openchoreo-data-plane --context k3d-openchoreo-dp \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 
 # Create TLS Certificate for Data plane gateway
 kubectl apply --context k3d-openchoreo-dp -f - <<EOF
@@ -383,7 +383,7 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 # If envoy is crashing due to missing /tmp directory, patch the deployment to add an emptyDir volume for /tmp
 # Ref: https://github.com/kgateway-dev/kgateway/issues/9800
 kubectl patch deployment gateway-default -n openchoreo-observability-plane --context k3d-openchoreo-op \
-  --type='json' -p="$(cat install/k3d/common/gateway-tmp-volume-patch.json)"
+  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 > [!NOTE]
@@ -628,14 +628,14 @@ graph TB
         subgraph "Control Plane Network (k3d-openchoreo-cp) - Ports: 8xxx"
             CP_ExtLB["k3d-serverlb<br/>localhost:8080/8443/6550<br/>(host.k3d.internal for pods)"]
             CP_K8sAPI["K8s API Server<br/>:6443"]
-            CP_IntLB["Kgateway<br/>LoadBalancer :80/:443"]
+            CP_IntLB["Kgateway<br/>LoadBalancer :8080/:8443"]
             CP["Controller Manager"]
             API["OpenChoreo API :8080"]
             UI["OpenChoreo UI :7007"]
             Thunder["Asgardeo Thunder :8090"]
 
             CP_ExtLB -->|":6550→:6443"| CP_K8sAPI
-            CP_ExtLB -->|":8080→:80"| CP_IntLB
+            CP_ExtLB -->|":8080"| CP_IntLB
             CP_IntLB --> UI
             CP_IntLB --> API
             CP_IntLB --> Thunder
@@ -644,12 +644,12 @@ graph TB
         subgraph "Data Plane Network (k3d-openchoreo-dp) - Ports: 9xxx"
             DP_ExtLB["k3d-serverlb<br/>localhost:19080/19443/6551<br/>(host.k3d.internal for pods)"]
             DP_K8sAPI["K8s API Server<br/>:6443"]
-            DP_IntLB["kgateway<br/>LoadBalancer :80/:443"]
+            DP_IntLB["kgateway<br/>LoadBalancer :19080/:19443"]
             Workloads["User Workloads"]
             FB_DP["Fluent Bit"]
 
             DP_ExtLB -->|":6551→:6443"| DP_K8sAPI
-            DP_ExtLB -->|":9080→:80"| DP_IntLB
+            DP_ExtLB -->|":19080"| DP_IntLB
             DP_IntLB --> Workloads
             Workloads -.->|logs| FB_DP
         end
@@ -657,13 +657,13 @@ graph TB
         subgraph "Build Plane Network (k3d-openchoreo-bp) - Ports: 10xxx"
             BP_ExtLB["k3d-serverlb<br/>localhost:10081/10082/6552<br/>(host.k3d.internal for pods)"]
             BP_K8sAPI["K8s API Server<br/>:6443"]
-            BP_IntLB["Argo Server<br/>LoadBalancer :2746"]
-            Registry["Container Registry<br/>LoadBalancer :5000"]
+            BP_IntLB["Argo Server<br/>LoadBalancer :10081"]
+            Registry["Container Registry<br/>LoadBalancer :10082"]
             FB_BP["Fluent Bit"]
 
             BP_ExtLB -->|":6552→:6443"| BP_K8sAPI
-            BP_ExtLB -->|":10081→:2746"| BP_IntLB
-            BP_ExtLB -->|":10082→:5000"| Registry
+            BP_ExtLB -->|":10081"| BP_IntLB
+            BP_ExtLB -->|":10082"| Registry
             BP_IntLB -.->|logs| FB_BP
         end
 
@@ -675,7 +675,7 @@ graph TB
             OS["OpenSearch<br/>LoadBalancer :9200"]
 
             OP_ExtLB -->|":6553→:6443"| OP_K8sAPI
-            OP_ExtLB -->|":11080→:8080"| Observer
+            OP_ExtLB -->|":11087"| Observer
             OP_ExtLB -->|":11081→:5601"| OSD
             OP_ExtLB -->|":11082→:9200"| OS
             Observer --> OS

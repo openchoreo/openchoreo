@@ -80,6 +80,8 @@ clusterAgent:
 
 gateway:
   enabled: true
+  httpPort: 11087
+  httpsPort: 11085
   tlsHostname: "opensearch.observability.openchoreo.localhost"
 
   envoy:

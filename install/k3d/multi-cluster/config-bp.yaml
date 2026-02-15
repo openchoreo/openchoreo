@@ -10,11 +10,11 @@ kubeAPI:
 # Build Plane uses port range 10xxx
 ports:
   # Argo Workflows UI for development testing
-  - port: 10081:2746
+  - port: 10081:10081
     nodeFilters:
       - loadbalancer
   # Container Registry for storing built images
-  - port: 10082:5000
+  - port: 10082:10082
     nodeFilters:
       - loadbalancer
 options:

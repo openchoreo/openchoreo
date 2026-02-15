@@ -4,8 +4,8 @@ OpenChoreo Data Plane installed in namespace "{{ .Release.Namespace }}".
 {{- if .Values.gateway.enabled }}
 
 Gateway:
-{{- with .Values.gateway.tls.hostname }}
-  Domain: {{ . }}
+{{- if .Values.gateway.tls.enabled }}
+  Domain: {{ .Values.gateway.tls.hostname }}
 {{- end }}
   HTTP:   {{ .Values.gateway.httpPort }}
 {{- if .Values.gateway.tls.enabled }}

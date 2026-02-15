@@ -5,3 +5,4 @@ persistence:
 
 service:
   type: LoadBalancer
+  port: 10082

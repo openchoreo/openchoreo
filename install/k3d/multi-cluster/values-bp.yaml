@@ -18,7 +18,7 @@ argo-workflows:
     # Disable this to save resources in development setups.
     enabled: true
     serviceType: LoadBalancer
-    servicePort: 2746
+    servicePort: 10081
     authModes:
       - server
 
