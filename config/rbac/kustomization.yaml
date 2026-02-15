@@ -116,5 +116,8 @@ resources:
   - observabilityalertrule_admin_role.yaml
   - observabilityalertrule_editor_role.yaml
   - observabilityalertrule_viewer_role.yaml
+  - clustertrait_admin_role.yaml
+  - clustertrait_editor_role.yaml
+  - clustertrait_viewer_role.yaml
 
 
