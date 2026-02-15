@@ -6,7 +6,7 @@ require (
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/getkin/kin-openapi v0.133.0
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
