@@ -28,7 +28,13 @@ fi
 CHOREO_API_ENDPOINT="http://${API_URL}:8080"
 
 # Discover Thunder URL from HTTPRoute
-THUNDER_URL=$(kubectl get httproute -n openchoreo-control-plane thunder-openchoreo -o jsonpath='{.spec.hostnames[0]}' 2>/dev/null || echo "")
+THUNDER_URL=$(kubectl get httproute -n openchoreo-control-plane thunder-service -o jsonpath='{.spec.hostnames[0]}' 2>/dev/null || echo "")
+
+if [ -z "$THUNDER_URL" ]; then
+  log_error "Failed to discover Thunder URL from HTTPRoute"
+  exit 1
+fi
+
 THUNDER_ENDPOINT="http://${THUNDER_URL}:8080"
 
 # Step 1: Get token using system app with scope=system
