@@ -55,7 +55,7 @@ func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 				return true
 			},
 		},
-		connMgr:             NewConnectionManager(logger),
+		connMgr:             NewConnectionManager(logger, config.SkipClientCertVerify),
 		pendingHTTPRequests: make(map[string]chan *messaging.HTTPTunnelResponse),
 		validator:           NewRequestValidator(),
 		logger:              logger.With("component", "agent-server"),
@@ -225,31 +225,42 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract client certificate for per-CR validation
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
-		s.logger.Warn("connection rejected: no client certificate presented",
+	var validCRs []string
+	var clientCert *x509.Certificate
+
+	if s.config.SkipClientCertVerify {
+		s.logger.Debug("skipping client certificate verification",
 			"planeType", planeType,
 			"planeID", planeID,
 		)
-		http.Error(w, "no client certificate presented", http.StatusUnauthorized)
-		return
-	}
+	} else {
+		// Extract client certificate for per-CR validation
+		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+			s.logger.Warn("connection rejected: no client certificate presented",
+				"planeType", planeType,
+				"planeID", planeID,
+			)
+			http.Error(w, "no client certificate presented", http.StatusUnauthorized)
+			return
+		}
 
-	peerCerts := r.TLS.PeerCertificates
-	clientCert := peerCerts[0]
-	intermediates := peerCerts[1:]
+		peerCerts := r.TLS.PeerCertificates
+		clientCert = peerCerts[0]
+		intermediates := peerCerts[1:]
 
-	// Per-CR certificate validation enforces security boundaries
-	// Each CR is validated independently to prevent cross-tenant access
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediates, planeType, planeID)
-	if err != nil {
-		s.logger.Warn("per-CR certificate verification failed",
-			"planeType", planeType,
-			"planeID", planeID,
-			"error", err,
-		)
-		http.Error(w, fmt.Sprintf("client certificate verification failed: %v", err), http.StatusUnauthorized)
-		return
+		// Per-CR certificate validation enforces security boundaries
+		// Each CR is validated independently to prevent cross-tenant access
+		var err error
+		validCRs, err = s.verifyClientCertificatePerCR(clientCert, intermediates, planeType, planeID)
+		if err != nil {
+			s.logger.Warn("per-CR certificate verification failed",
+				"planeType", planeType,
+				"planeID", planeID,
+				"error", err,
+			)
+			http.Error(w, fmt.Sprintf("client certificate verification failed: %v", err), http.StatusUnauthorized)
+			return
+		}
 	}
 
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)

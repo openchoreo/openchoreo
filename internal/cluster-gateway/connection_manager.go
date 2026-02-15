@@ -136,17 +136,19 @@ type ConnectionManager struct {
 	// Key format: "planeType/planeID", Value: slice of agent connections
 	connections map[string][]*AgentConnection
 
-	mu         sync.RWMutex
-	roundRobin map[string]int // Track round-robin index per planeIdentifier
-	logger     *slog.Logger
+	mu                   sync.RWMutex
+	roundRobin           map[string]int // Track round-robin index per planeIdentifier
+	skipClientCertVerify bool           // When true, all connections are authorized for all CRs
+	logger               *slog.Logger
 }
 
 // NewConnectionManager creates a new ConnectionManager
-func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
+func NewConnectionManager(logger *slog.Logger, skipClientCertVerify bool) *ConnectionManager {
 	return &ConnectionManager{
-		connections: make(map[string][]*AgentConnection),
-		roundRobin:  make(map[string]int),
-		logger:      logger.With("component", "connection-manager"),
+		connections:          make(map[string][]*AgentConnection),
+		roundRobin:           make(map[string]int),
+		skipClientCertVerify: skipClientCertVerify,
+		logger:               logger.With("component", "connection-manager"),
 	}
 }
 
@@ -289,7 +291,8 @@ func (cm *ConnectionManager) GetForCR(planeIdentifier, crKey string) (*AgentConn
 
 	var validConns []*AgentConnection
 	for _, conn := range conns {
-		if conn.IsValidForCR(crKey) {
+		// When client cert verification is skipped, all connections are considered authorized
+		if cm.skipClientCertVerify || conn.IsValidForCR(crKey) {
 			validConns = append(validConns, conn)
 		}
 	}
@@ -505,13 +508,8 @@ func (cm *ConnectionManager) GetCRAuthorizationStatus(planeType, planeID, namesp
 
 	for _, conn := range conns {
 		conn.mu.Lock()
-		isAuthorized := false
-		for _, validCR := range conn.ValidCRs {
-			if validCR == crIdentifier {
-				isAuthorized = true
-				break
-			}
-		}
+		// When client cert verification is skipped, all connections are considered authorized
+		isAuthorized := cm.skipClientCertVerify || slices.Contains(conn.ValidCRs, crIdentifier)
 
 		if isAuthorized {
 			authorizedConnCount++
