@@ -10,6 +10,44 @@ This example shows a simple approach to adding API management where:
 - When the trait is applied, traffic is routed through the API Platform Gateway instead of directly to the service
 - The Component must set `exposed: true` to create an HTTPRoute that the trait can patch
 
+## Installation
+
+The API Platform module is disabled by default and must be explicitly enabled on the OpenChoreo Data Plane.
+
+### Prerequisites
+
+- OpenChoreo deployed in a Kubernetes cluster
+- `kubectl` configured for cluster access
+- Helm 3.12 or later
+
+First install the required CRDs:
+
+```bash
+kubectl apply --server-side \
+  -f https://raw.githubusercontent.com/wso2/api-platform/gateway-v0.3.0/kubernetes/helm/operator-helm-chart/crds/gateway.api-platform.wso2.com_restapis.yaml \
+  -f https://raw.githubusercontent.com/wso2/api-platform/gateway-v0.3.0/kubernetes/helm/operator-helm-chart/crds/gateway.api-platform.wso2.com_gateways.yaml
+```
+
+Then upgrade the Data Plane with the API Platform enabled:
+
+```bash
+helm upgrade --install openchoreo-data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
+  --version 0.0.0-latest-dev \
+  --namespace openchoreo-data-plane \
+  --reuse-values \
+  --set api-platform.enabled=true
+```
+
+### Verify Installation
+
+Confirm the API Platform pods are running:
+
+```bash
+kubectl get pods -n openchoreo-data-plane --selector="app.kubernetes.io/instance=api-platform-default-gateway"
+```
+
+You should see three running pods: the controller, policy engine, and router.
+
 ## Architecture
 
 ```
