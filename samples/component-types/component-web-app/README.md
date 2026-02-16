@@ -70,7 +70,7 @@ kubectl get releasebinding demo-app-web-service-development -o yaml | grep -A 50
 
 # Test the Web App by opening it via a web browser
 
-Open your web browser and go to http://default.demo-app-web-service-development-3135937b.openchoreoapis.localhost:19080/.
+Open your web browser and go to http://demo-app-web-service-development-default.openchoreoapis.localhost:19080/.
 
 ## Cleanup
 

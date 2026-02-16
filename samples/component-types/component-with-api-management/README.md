@@ -242,7 +242,7 @@ The `RestApi` resource is processed by the WSO2 API Platform Gateway which:
 Deploy the example:
 
 ```bash
-kubectl apply -f component-with-api-management.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-api-management/component-with-api-management.yaml
 ```
 
 Verify resources created:
@@ -268,7 +268,7 @@ Since the API is secured with JWT authentication, you need to obtain an access t
 1. **Get an access token** using the OAuth2 client credentials flow:
 
 ```bash
-curl -k -X POST https://thunder.openchoreo.localhost:8443/oauth2/token \
+curl -k -X POST http://thunder.openchoreo.localhost:8080/oauth2/token \
   -d 'grant_type=client_credentials' \
   -d 'client_id=customer-portal-client' \
   -d 'client_secret=supersecret'
@@ -292,7 +292,7 @@ The service is exposed at the base path `/{component-name}`. For this sample, th
 export TOKEN="<access_token_from_previous_response>"
 
 # Call the API (base path is /{component-name})
-curl https://development-default.openchoreoapis.localhost:19443/demo-app-http-service/greeter/greet -kv \
+curl http://development-default.openchoreoapis.localhost:19080/demo-app-http-service/greeter/greet -kv \
   -H "Authorization: Bearer ${TOKEN}"
 ```
 

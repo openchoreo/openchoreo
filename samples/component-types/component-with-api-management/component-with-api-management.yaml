@@ -104,7 +104,7 @@ spec:
         context: /greeter-api/v1.0
         upstreamPort: 9090
         policies:
-          - name: JwtAuthentication
+          - name: jwt-auth
             version: v0.1.0
 
 ---
