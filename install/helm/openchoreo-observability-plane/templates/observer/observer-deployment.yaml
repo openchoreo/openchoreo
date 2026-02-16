@@ -44,7 +44,7 @@ spec:
           echo "OpenSearch is ready!"
         env:
         - name: EXPERIMENTAL_USE_LOGS_BACKEND
-          value: {{ if .Values.observer.experimental }}{{ .Values.observer.experimental.useLogsBackend | default "false" }}{{ else }}"false"{{ end }}
+          value: {{ if .Values.observer.experimental }}{{ .Values.observer.experimental.useLogsBackend | default "false" | quote }}{{ else }}"false"{{ end }}
         - name: OPENSEARCH_ADDRESS
           value: "https://opensearch:9200"
         - name: OPENSEARCH_USERNAME
