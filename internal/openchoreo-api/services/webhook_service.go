@@ -69,7 +69,7 @@ func (s *WebhookService) ProcessWebhook(ctx context.Context, provider git.Provid
 			"component", componentName,
 			"commit", event.Commit)
 
-		_, err := s.workflowService.TriggerWorkflow(
+		_, err := s.workflowService.triggerWorkflowInternal(
 			ctx,
 			namespaceName,
 			projectName,

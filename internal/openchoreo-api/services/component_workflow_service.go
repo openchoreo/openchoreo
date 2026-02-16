@@ -70,6 +70,12 @@ func (s *ComponentWorkflowService) TriggerWorkflow(ctx context.Context, namespac
 		return nil, err
 	}
 
+	return s.triggerWorkflowInternal(ctx, namespaceName, projectName, componentName, commit)
+}
+
+// triggerWorkflowInternal contains the core workflow triggering logic without authorization checks.
+// This is used by the webhook service which authenticates via HMAC signature validation instead of user-level auth.
+func (s *ComponentWorkflowService) triggerWorkflowInternal(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.ComponentWorkflowResponse, error) {
 	// Retrieve component and use that to create the workflow run
 	var component openchoreov1alpha1.Component
 	err := s.k8sClient.Get(ctx, client.ObjectKey{
