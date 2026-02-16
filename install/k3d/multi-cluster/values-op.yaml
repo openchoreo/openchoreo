@@ -72,3 +72,10 @@ prometheus:
       enableRemoteWriteReceiver: true
     service:
       type: LoadBalancer
+
+rca:
+  controlPlaneUrl: "https://api.openchoreo.localhost:8443"
+  http:
+    hostnames:
+    - host.k3d.internal
+    - rca-agent.observability.openchoreo.localhost
