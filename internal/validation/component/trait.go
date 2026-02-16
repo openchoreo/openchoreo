@@ -15,17 +15,24 @@ import (
 )
 
 // ValidateTraitCreatesAndPatchesWithSchema validates all creates and patches in a Trait with schema-aware type checking.
-// It checks CEL expressions, forEach loops, and ensures proper variable usage.
-//
-// Parameters:
-//   - trait: The Trait to validate
-//   - parametersSchema: Structural schema for parameters (from Trait.Schema.Parameters)
-//   - envOverridesSchema: Structural schema for envOverrides (from Trait.Schema.EnvOverrides)
-//
-// If schemas are nil, DynType will be used for those variables (no static type checking).
-// This provides better error messages by catching type errors at validation time.
 func ValidateTraitCreatesAndPatchesWithSchema(
 	trait *v1alpha1.Trait,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
+	return validateTraitCreatesAndPatchesWithSchema(trait.Spec.Creates, trait.Spec.Patches, parametersSchema, envOverridesSchema)
+}
+
+// validateTraitCreatesAndPatchesWithSchema validates trait create and patch operations with schema-aware CEL type checking.
+//
+// Parameters:
+//   - creates: Trait create operations to validate
+//   - patches: Trait patch operations to validate
+//   - parametersSchema: Structural schema for parameters (nil uses DynType)
+//   - envOverridesSchema: Structural schema for envOverrides (nil uses DynType)
+func validateTraitCreatesAndPatchesWithSchema(
+	creates []v1alpha1.TraitCreate,
+	patches []v1alpha1.TraitPatch,
 	parametersSchema *apiextschema.Structural,
 	envOverridesSchema *apiextschema.Structural,
 ) field.ErrorList {
@@ -53,14 +60,14 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	}
 
 	// Validate creates
-	for i, create := range trait.Spec.Creates {
+	for i, create := range creates {
 		createPath := basePath.Child("creates").Index(i)
 		errs := ValidateTraitCreate(create, validator, createPath)
 		allErrs = append(allErrs, errs...)
 	}
 
 	// Validate patches
-	for i, patch := range trait.Spec.Patches {
+	for i, patch := range patches {
 		patchPath := basePath.Child("patches").Index(i)
 		errs := ValidateTraitPatch(patch, validator, patchPath)
 		allErrs = append(allErrs, errs...)
