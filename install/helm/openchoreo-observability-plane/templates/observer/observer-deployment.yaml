@@ -108,7 +108,7 @@ spec:
         - name: OBSERVER_AUTH_CONFIG_PATH
           value: /etc/openchoreo/auth-config.yaml
         - name: AUTHZ_SERVICE_URL
-          value: {{ .Values.controlPlaneApiUrl | quote }}
+          value: {{ .Values.observer.controlPlaneApiUrl | quote }}
         {{- if .Values.observer.extraEnvs }}
         {{- toYaml .Values.observer.extraEnvs | nindent 8 }}
         {{- end }}

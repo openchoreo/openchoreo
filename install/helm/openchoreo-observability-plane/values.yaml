@@ -46,13 +46,6 @@ global:
 kubernetesClusterDomain: cluster.local
 
 # @schema
-# type: string
-# description: Control plane API base URL used by observer and rca-agent
-# default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-# @schema
-controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-
-# @schema
 # type: object
 # description: Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs
 # @schema
@@ -773,6 +766,13 @@ openSearchDashboards:
 # description: OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing
 # @schema
 observer:
+  # @schema
+  # type: string
+  # description: Control plane API base URL used by observer
+  # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  # @schema
+  controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+
   # @schema
   # type: object
   # additionalProperties: true
@@ -2944,10 +2944,10 @@ rca:
 
   # @schema
   # type: string
-  # description: Control plane API base URL
-  # default: ""
+  # description: Control plane API base URL used by rca-agent
+  # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
   # @schema
-  controlPlaneUrl: ""
+  controlPlaneUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
 
   # @schema
   # type: object

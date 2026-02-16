@@ -453,12 +453,6 @@
       "title": "clusterAgent",
       "type": "object"
     },
-    "controlPlaneApiUrl": {
-      "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
-      "description": "Control plane API base URL used by observer and rca-agent",
-      "title": "controlPlaneApiUrl",
-      "type": "string"
-    },
     "controllerManager": {
       "additionalProperties": false,
       "description": "Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs",
@@ -1477,6 +1471,12 @@
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
       "properties": {
+        "controlPlaneApiUrl": {
+          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "description": "Control plane API base URL used by observer",
+          "title": "controlPlaneApiUrl",
+          "type": "string"
+        },
         "experimental": {
           "additionalProperties": true,
           "default": true,
@@ -3432,8 +3432,8 @@
           "type": "object"
         },
         "controlPlaneUrl": {
-          "default": "",
-          "description": "Control plane API base URL",
+          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "description": "Control plane API base URL used by rca-agent",
           "title": "controlPlaneUrl",
           "type": "string"
         },
