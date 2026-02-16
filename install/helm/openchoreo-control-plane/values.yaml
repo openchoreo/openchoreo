@@ -1163,6 +1163,15 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-rca-agent
               effect: allow
+
+            # MCP tryout client mapping - grants MCP tryout client full access
+            - name: mcp-tryout-client-binding
+              roleRef:
+                name: super-admin
+              entitlement:
+                claim: sub
+                value: service_mcp_client
+              effect: allow
     # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients
     # @schema
     # type: object
