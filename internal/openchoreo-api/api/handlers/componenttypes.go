@@ -50,6 +50,9 @@ func toGenComponentType(ct *models.ComponentTypeResponse) gen.ComponentType {
 	if len(ct.AllowedWorkflows) > 0 {
 		result.AllowedWorkflows = ptr.To(ct.AllowedWorkflows)
 	}
+	if len(ct.AllowedTraits) > 0 {
+		result.AllowedTraits = ptr.To(ct.AllowedTraits)
+	}
 	return result
 }
 
