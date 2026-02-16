@@ -216,8 +216,6 @@ spec:
         value: "dev-user"
       - key: password
         value: "dev-password"
-      - key: RCA_LLM_API_KEY
-        value: "fake-llm-api-key-for-development"
 EOF
 ```
 

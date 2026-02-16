@@ -79,7 +79,7 @@ prometheus:
       type: LoadBalancer
 
 rca:
-  controlPlaneUrl: "https://api.openchoreo.localhost:8443"
+  controlPlaneUrl: "http://api.openchoreo.localhost:8080"
   http:
     hostnames:
     - host.k3d.internal
