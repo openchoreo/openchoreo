@@ -574,7 +574,8 @@ bootstrap:
               "client_id": "user_mcp_client",
               "redirect_uris": [
                 "http://localhost:8075/callback",
-                "cursor://anysphere.cursor-mcp/oauth/callback"
+                "cursor://anysphere.cursor-mcp/oauth/callback",
+                "http://127.0.0.1:19876/mcp/oauth/callback"
               ],
               "grant_types": [
                 "authorization_code",
