@@ -420,6 +420,16 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
   --namespace openchoreo-observability-plane \
   --create-namespace \
   --version v2.1.1
+
+# OpenSearch Operator (for HA OpenSearch cluster)
+helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
+helm repo update
+
+helm install opensearch-operator opensearch-operator/opensearch-operator \
+  --kube-context k3d-openchoreo-op \
+  --namespace openchoreo-observability-plane \
+  --create-namespace \
+  --version 2.8.0
 ```
 
 ### CoreDNS Rewrite and Certificates

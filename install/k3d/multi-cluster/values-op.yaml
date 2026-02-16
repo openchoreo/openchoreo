@@ -1,14 +1,12 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 
-# Use standalone OpenSearch (not operator-managed cluster)
 openSearch:
-  enabled: true
-  service:
-    type: LoadBalancer
-
-# Disable OpenSearch operator cluster (using standalone instead)
-openSearchCluster:
   enabled: false
+
+openSearchCluster:
+  enabled: true
+  credentialsSecretName: observer-opensearch-credentials
+  adminPassword: "ThisIsTheOpenSearchPassword1"
 
 observer:
   openSearchSecretName: observer-opensearch-credentials
@@ -59,6 +57,12 @@ clusterAgent:
   tls:
     generateCerts: true
     caSecretName: ""
+
+tls:
+  enabled: true
+  dnsNames:
+    - "observability.openchoreo.localhost"
+    - "*.observability.openchoreo.localhost"
 
 fluent-bit:
   enabled: true
