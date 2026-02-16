@@ -42,6 +42,7 @@ security:
   oidc:
     jwksUrl: "http://thunder.openchoreo.localhost:8080/oauth2/jwks"
     tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
+    jwksUrlTlsInsecureSkipVerify: "true"
 
 gateway:
   httpPort: 11080
