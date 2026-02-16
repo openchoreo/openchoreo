@@ -22,7 +22,6 @@ type Client struct {
 	httpClient *http.Client
 	baseURL    string
 	logger     *slog.Logger
-	disabled   bool
 }
 
 // AuthzResponse represents the wrapped response from the authz service
@@ -39,16 +38,8 @@ type BatchAuthzResponse struct {
 
 // NewClient creates a new authz HTTP client
 func NewClient(cfg *config.AuthzConfig, logger *slog.Logger) (*Client, error) {
-	if !cfg.Enabled {
-		logger.Info("Authorization is disabled")
-		return &Client{
-			disabled: true,
-			logger:   logger,
-		}, nil
-	}
-
 	if cfg.ServiceURL == "" {
-		return nil, fmt.Errorf("authz service URL is required when authz is enabled")
+		return nil, fmt.Errorf("authz service URL is required")
 	}
 
 	if cfg.Timeout <= 0 {
@@ -67,16 +58,11 @@ func NewClient(cfg *config.AuthzConfig, logger *slog.Logger) (*Client, error) {
 		baseURL:    cfg.ServiceURL,
 		httpClient: httpClient,
 		logger:     logger,
-		disabled:   false,
 	}, nil
 }
 
 // Evaluate evaluates a single authorization request
 func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
-	if c.disabled {
-		return &authzcore.Decision{Decision: true}, nil
-	}
-
 	body, err := json.Marshal(request)
 	if err != nil {
 		c.logger.Error("failed to marshal evaluate request", "error", err)
@@ -144,14 +130,6 @@ func (c *Client) Evaluate(ctx context.Context, request *authzcore.EvaluateReques
 
 // BatchEvaluate evaluates multiple authorization requests
 func (c *Client) BatchEvaluate(ctx context.Context, request *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
-	if c.disabled {
-		decisions := make([]authzcore.Decision, len(request.Requests))
-		for i := range decisions {
-			decisions[i] = authzcore.Decision{Decision: true}
-		}
-		return &authzcore.BatchEvaluateResponse{Decisions: decisions}, nil
-	}
-
 	body, err := json.Marshal(request)
 	if err != nil {
 		c.logger.Error("Failed to marshal batch evaluate request", "error", err)
