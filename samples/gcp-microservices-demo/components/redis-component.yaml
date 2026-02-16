@@ -25,6 +25,7 @@ spec:
     redis:
       type: TCP
       port: 6379
+      visibility: project
   containers:
     main:
       image: redis:7.2-alpine

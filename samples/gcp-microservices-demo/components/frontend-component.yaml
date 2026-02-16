@@ -25,6 +25,7 @@ spec:
     http:
       type: HTTP
       port: 8080
+      visibility: external
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3

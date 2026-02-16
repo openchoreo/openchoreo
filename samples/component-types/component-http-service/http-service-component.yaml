@@ -32,6 +32,7 @@ spec:
     http:
       type: HTTP
       port: 9090
+      visibility: external
 
   containers:
     main:

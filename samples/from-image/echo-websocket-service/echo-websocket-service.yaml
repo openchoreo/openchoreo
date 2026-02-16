@@ -11,7 +11,6 @@ spec:
   componentType: deployment/service
 
 ---
-
 # Defines a workload that specifies the developer contract which describes the source code including
 # what configuration is needed to run, what endpoints are exposed, and how it connects to other components or platform resources.
 apiVersion: openchoreo.dev/v1alpha1
@@ -27,6 +26,7 @@ spec:
     websocket:
       type: Websocket
       port: 8080
+      visibility: external
   containers:
     main:
       image: "jmalloc/echo-server:latest"
