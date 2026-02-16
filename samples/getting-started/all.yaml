@@ -775,7 +775,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
-        secretRef: string | description="Secret reference name for Git credentials"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -887,7 +887,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
-        secretRef: string | description="Secret reference name for Git credentials"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -996,7 +996,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
-        secretRef: string | description="Secret reference name for Git credentials"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
@@ -1102,7 +1102,7 @@ spec:
     systemParameters:
       repository:
         url: string | description="Git repository URL"
-        secretRef: string | description="Secret reference name for Git credentials"
+        secretRef: string | default="" description="Secret reference name for Git credentials"
         revision:
           branch: string | default=main description="Git branch to checkout"
           commit: string | description="Git commit SHA or reference (optional, defaults to latest)"
