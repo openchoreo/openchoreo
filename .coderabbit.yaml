@@ -11,6 +11,7 @@ reviews:
   request_changes_workflow: false
 
   high_level_summary: true
+  high_level_summary_in_walkthrough: true
   high_level_summary_instructions: |
     Keep the summary evidence-based and quant-heavy:
     1) Show a mini breakdown: changed files count by top-level folder (api/, config/, internal/, pkg/, install/, docs/, openapi/, rca-agent/, make/, cmd/, samples/).
@@ -23,14 +24,14 @@ reviews:
     - "!hack/**"
     - "!logo/**"
     - "!tools/**"
-    - "!api/**/zz_generated.*"
+    - "!**/zz_generated.*"
     - "!internal/openchoreo-api/api/gen/**"
+    - "!config/crd/bases/**"
     - "!**/*.png"
     - "!**/*.jpg"
     - "!**/*.jpeg"
     - "!**/*.gif"
     - "!**/*.svg"
-    # add gen
 
   auto_review:
     enabled: true
@@ -108,7 +109,7 @@ reviews:
         - Ensure upgrades are safe: hooks, CRDs, RBAC, PSP/PSA alignment.
         - Validate naming, labels, and selector consistency across charts.
 
-    - path: "internal/**/controller/**"
+    - path: "internal/controller/**"
       instructions: |
         LEVEL: STRICT (Controllers / reconcilers)
         - Reconciliation must be idempotent and requeue-safe.
@@ -132,6 +133,10 @@ reviews:
         - Keep error contracts stable and document behavior changes.
         - Encourage tests for exported behavior.
 
+    # =================
+    # LEVEL: STANDARD
+    # =================
+
     - path: "cmd/**"
       instructions: |
         LEVEL: STANDARD (Entrypoints / CLIs)
@@ -139,10 +144,6 @@ reviews:
         - Check signal handling, context cancellation, and graceful shutdown.
         - Avoid global mutable state; validate config early.
         - Flag breaking changes to commands, flags, or output formats.
-
-    # =================
-    # LEVEL: STANDARD
-    # =================
 
     - path: "rca-agent/**"
       instructions: |
