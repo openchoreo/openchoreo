@@ -534,21 +534,23 @@ func (s *ComponentService) GetComponentReleaseSchema(ctx context.Context, namesp
 
 	// Process trait overrides from ComponentRelease (trait instances with instance names)
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
-	for _, componentTrait := range release.Spec.ComponentProfile.Traits {
-		traitSpec, found := release.Spec.Traits[componentTrait.Name]
-		if !found {
-			s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "instanceName", componentTrait.InstanceName)
-			continue
-		}
+	if release.Spec.ComponentProfile != nil {
+		for _, componentTrait := range release.Spec.ComponentProfile.Traits {
+			traitSpec, found := release.Spec.Traits[componentTrait.Name]
+			if !found {
+				s.logger.Warn("Trait definition not found in release", "trait", componentTrait.Name, "instanceName", componentTrait.InstanceName)
+				continue
+			}
 
-		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, componentTrait.Name)
-		if err != nil {
-			return nil, err
-		}
+			traitJSONSchema, err := s.buildTraitEnvOverridesSchema(traitSpec, componentTrait.Name)
+			if err != nil {
+				return nil, err
+			}
 
-		// Use instance name as the key (not trait name)
-		if traitJSONSchema != nil {
-			traitSchemas[componentTrait.InstanceName] = *traitJSONSchema
+			// Use instance name as the key (not trait name)
+			if traitJSONSchema != nil {
+				traitSchemas[componentTrait.InstanceName] = *traitJSONSchema
+			}
 		}
 	}
 
