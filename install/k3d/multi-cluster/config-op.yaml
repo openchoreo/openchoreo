@@ -21,6 +21,10 @@ ports:
   - port: 11082:9200
     nodeFilters:
       - loadbalancer
+  # KGateway TLS for OpenSearch via SNI routing
+  - port: 11085:11085
+    nodeFilters:
+      - loadbalancer
   # Prometheus for metrics remote write from DP/BP
   - port: 11084:9091
     nodeFilters:

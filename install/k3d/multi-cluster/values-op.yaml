@@ -47,6 +47,10 @@ gateway:
   httpsPort: 11085
   tls:
     enabled: false
+  tlsPassthrough:
+    enabled: true
+    hostname: "opensearch.observability.openchoreo.localhost"
+    port: 11085
 
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"

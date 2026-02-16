@@ -41,11 +41,12 @@ fluent-bit:
           Logstash_DateFormat %Y-%m-%d
           Logstash_Prefix container-logs
           Match kube.*
-          Port 11082
+          Port 11085
           Replace_Dots On
           Suppress_Type_Name On
           tls On
           tls.verify Off
+          tls.vhost opensearch.observability.openchoreo.localhost
 
 openbao:
   server:
