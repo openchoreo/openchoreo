@@ -31,6 +31,7 @@ observer:
     value: "30s"
   http:
     hostnames:
+    - host.k3d.internal
     - observer.openchoreo.localhost
 
 openSearchDashboards:
