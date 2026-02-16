@@ -46,6 +46,9 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write # Required for Codecov OIDC
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -56,6 +59,13 @@ jobs:
       - name: Running Tests
         run: |
           make test
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
+        with:
+          files: ./cover.out
+          fail_ci_if_error: ${{ github.event_name == 'push' }}
+          use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
 
   build:
     name: Build

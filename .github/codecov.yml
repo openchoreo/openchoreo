@@ -1,0 +1,18 @@
+# Codecov configuration for OpenChoreo
+# Validate: curl -X POST --data-binary @.github/codecov.yml https://codecov.io/validate
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+ignore:
+  - "cmd"                                # Application entrypoints
+  - "test"                               # Test helpers and utilities
+  - "**/zz_generated.*.go"               # Generated deepcopy and register files
+  - "api/v1alpha1/groupversion_info.go"  # Generated CRD group/version boilerplate
+  - "internal/openchoreo-api/api/gen"    # Generated OpenAPI server, client, and models
+
