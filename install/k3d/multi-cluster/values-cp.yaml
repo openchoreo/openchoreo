@@ -14,6 +14,7 @@ backstage:
   http:
     hostnames:
     - openchoreo.localhost
+
 security:
   oidc:
     issuer: "http://thunder.openchoreo.localhost:8080"
@@ -21,10 +22,7 @@ security:
     authorizationUrl: "http://thunder.openchoreo.localhost:8080/oauth2/authorize"
     tokenUrl: "http://thunder.openchoreo.localhost:8080/oauth2/token"
 
-# Cluster Gateway configuration for agent-based communication
-# Exposes the cluster gateway for remote data/build plane agents to connect
-# Note: For k3d, we use Kgateway TLSRoute for TLS passthrough on shared port 8443
-# Alternative: Add dedicated port mapping in k3d config (requires cluster recreation)
+# Cluster Gateway TLS route for agent connections from remote planes
 clusterGateway:
   tlsRoute:
     enabled: true
@@ -34,13 +32,12 @@ clusterGateway:
           - path: /
             pathType: Prefix
   tls:
-    # mTLS for secure agent communication
     issuerRef:
-      name: cluster-gateway-server-issuer  # CA issuer for server certificates
+      name: cluster-gateway-server-issuer
     dnsNames:
       - cluster-gateway.openchoreo-control-plane.svc
       - cluster-gateway.openchoreo-control-plane.svc.cluster.local
-      - cluster-gateway.openchoreo.localhost  # External hostname for multi-cluster access
+      - cluster-gateway.openchoreo.localhost
 
 thunder:
   host: thunder.openchoreo.localhost
@@ -49,4 +46,4 @@ gateway:
   httpPort: 8080
   httpsPort: 8443
   tls:
-    hostname: "*.openchoreo.localhost"
+    enabled: false

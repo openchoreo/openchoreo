@@ -1,21 +1,13 @@
 # Helm values for OpenChoreo Build Plane in k3d multi-cluster setup
-# This file contains overrides specific to running the build plane in a k3d environment
-#
-# IMPORTANT: Before installing, set up the following pre-requisites:
-#   1. Apply CoreDNS config: kubectl apply --context k3d-openchoreo-bp -f install/k3d/common/coredns-custom.yaml
-#   2. Create server CA ConfigMap from control plane (see README for commands)
 
 clusterAgent:
   serverUrl: "wss://cluster-gateway.openchoreo.localhost:8443/ws"
-
   tls:
     generateCerts: true
     caSecretName: ""
 
 argo-workflows:
   server:
-    # Argo Workflows UI is enabled only for testing/development purposes.
-    # Disable this to save resources in development setups.
     enabled: true
     serviceType: LoadBalancer
     servicePort: 10081
@@ -29,25 +21,31 @@ defaultResources:
 
 fluent-bit:
   enabled: true
-
+  envFrom: []
+  env:
+    - name: OPENSEARCH_HOST
+      value: host.k3d.internal
+    - name: OPENSEARCH_USER
+      value: admin
+    - name: OPENSEARCH_PASSWORD
+      value: ThisIsTheOpenSearchPassword1
   config:
     outputs: |
       [OUTPUT]
           Name opensearch
-          Host host.k3d.internal
+          Host ${OPENSEARCH_HOST}
           Generate_ID On
-          HTTP_Passwd ThisIsTheOpenSearchPassword1
-          HTTP_User admin
+          HTTP_User ${OPENSEARCH_USER}
+          HTTP_Passwd ${OPENSEARCH_PASSWORD}
           Logstash_Format On
           Logstash_DateFormat %Y-%m-%d
           Logstash_Prefix container-logs
           Match kube.*
-          Port 11085
+          Port 11082
           Replace_Dots On
           Suppress_Type_Name On
           tls On
           tls.verify Off
-          tls.vhost opensearch.observability.openchoreo.localhost
 
 openbao:
   server:

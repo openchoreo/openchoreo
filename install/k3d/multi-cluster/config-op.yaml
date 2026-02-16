@@ -9,34 +9,26 @@ kubeAPI:
   hostPort: "6553"
 # Observability Plane uses port range 11xxx
 ports:
+  # Gateway HTTP for Observer API
+  - port: 11080:11080
+    nodeFilters:
+      - loadbalancer
   # OpenSearch Dashboard
   - port: 11081:5601
     nodeFilters:
       - loadbalancer
-  # OpenSearch API for Fluent Bit data pushing
+  # OpenSearch API for Fluent Bit data pushing from DP/BP
   - port: 11082:9200
     nodeFilters:
       - loadbalancer
-  # Prometheus
-  - port: 11083:8081
-    nodeFilters:
-      - loadbalancer
+  # Prometheus for metrics remote write from DP/BP
   - port: 11084:9091
     nodeFilters:
       - loadbalancer
-  # KGateway TLS
-  - port: 11085:11085
-    nodeFilters:
-      - loadbalancer
-  # OpenTelemetry Collector
+  # OpenTelemetry Collector for traces from DP/BP
   - port: 11086:4317
     nodeFilters:
       - loadbalancer
-  # KGateway HTTP
-  - port: 11087:11087
-    nodeFilters:
-      - loadbalancer
-    
 options:
   k3s:
     extraArgs:
