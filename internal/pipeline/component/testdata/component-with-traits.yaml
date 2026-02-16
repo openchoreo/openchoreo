@@ -282,11 +282,6 @@ spec:
     kind: DataPlane
     name: dev-dataplane
   isProduction: false
-  gateway:
-    dnsPrefix: dev
-    security:
-      remoteJwks:
-        uri: https://auth.example.com/.well-known/jwks.json
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: DataPlane

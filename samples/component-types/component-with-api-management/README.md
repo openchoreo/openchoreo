@@ -302,6 +302,33 @@ The API Platform Gateway will:
 - Route the request to the backend service
 - Return the response from the greeter service
 
+## Cleanup
+
+### 1. Disable API Management for a Component
+
+To disable API management for a component, remove the trait:
+
+```bash
+kubectl patch component demo-app-http-service --type=json \
+  -p='[{"op": "remove", "path": "/spec/traits"}]'
+```
+
+### 2. Delete the API Platform Gateway Instance
+
+```bash
+kubectl delete gateway/api-platform-default -n openchoreo-data-plane
+```
+
+### 3. Uninstall the API Platform Module
+
+```bash
+helm upgrade openchoreo-data-plane oci://ghcr.io/openchoreo/helm-charts/openchoreo-data-plane \
+  --version 0.0.0-latest-dev \
+  --namespace openchoreo-data-plane \
+  --reuse-values \
+  --set api-platform.enabled=false
+```
+
 ## Notes
 
 - The Backend resource is created in the **component's namespace**, avoiding cross-namespace permission issues
