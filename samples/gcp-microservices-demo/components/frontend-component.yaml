@@ -42,18 +42,18 @@ spec:
         - key: ENABLE_ASSISTANT
           value: "false"
         - key: AD_SERVICE_ADDR
-          value: "ad:80"
+          value: "ad:9555"
         - key: CART_SERVICE_ADDR
-          value: "cart:80"
+          value: "cart:7070"
         - key: CHECKOUT_SERVICE_ADDR
-          value: "checkout:80"
+          value: "checkout:5050"
         - key: CURRENCY_SERVICE_ADDR
-          value: "currency:80"
+          value: "currency:7000"
         - key: PAYMENT_SERVICE_ADDR
-          value: "payment:80"
+          value: "payment:50051"
         - key: RECOMMENDATION_SERVICE_ADDR
-          value: "recommendation:80"
+          value: "recommendation:8080"
         - key: SHIPPING_SERVICE_ADDR
-          value: "shipping:80"
+          value: "shipping:50055"
         - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog:80"
+          value: "productcatalog:3550"

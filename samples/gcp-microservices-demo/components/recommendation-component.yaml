@@ -34,4 +34,4 @@ spec:
         - key: PORT
           value: "8080"
         - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog:80"
+          value: "productcatalog:3550"

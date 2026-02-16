@@ -32,4 +32,4 @@ spec:
         - key: PORT
           value: "7070"
         - key: REDIS_ADDR
-          value: "redis:80"
+          value: "redis:6379"
