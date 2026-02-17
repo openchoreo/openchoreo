@@ -425,6 +425,120 @@ func TestValidateTraitValidationRules(t *testing.T) {
 	})
 }
 
+func TestValidateClusterTraitCreatesAndPatchesWithSchema(t *testing.T) {
+	parametersSchema := &apiextschema.Structural{
+		Generic: apiextschema.Generic{Type: "object"},
+		Properties: map[string]apiextschema.Structural{
+			"volumeName": {Generic: apiextschema.Generic{Type: "string"}},
+			"mountPath":  {Generic: apiextschema.Generic{Type: "string"}},
+		},
+	}
+
+	envOverridesSchema := &apiextschema.Structural{
+		Generic: apiextschema.Generic{Type: "object"},
+		Properties: map[string]apiextschema.Structural{
+			"size": {Generic: apiextschema.Generic{Type: "string"}},
+		},
+	}
+
+	t.Run("valid creates pass", func(t *testing.T) {
+		ct := &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{
+				Creates: []v1alpha1.TraitCreate{
+					{
+						Template: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "${metadata.name}-pvc"}, "spec": {"resources": {"requests": {"storage": "${envOverrides.size}"}}}}`),
+						},
+					},
+				},
+			},
+		}
+
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, envOverridesSchema)
+		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
+	})
+
+	t.Run("valid patches pass", func(t *testing.T) {
+		ct := &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{
+				Patches: []v1alpha1.TraitPatch{
+					{
+						Target: v1alpha1.PatchTarget{
+							Group:   "apps",
+							Version: "v1",
+							Kind:    "Deployment",
+						},
+						Operations: []v1alpha1.JSONPatchOperation{
+							{
+								Op:    "add",
+								Path:  "/spec/template/spec/volumes/-",
+								Value: &runtime.RawExtension{Raw: []byte(`{"name": "${parameters.volumeName}"}`)},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, nil)
+		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
+	})
+
+	t.Run("invalid CEL in creates rejected", func(t *testing.T) {
+		ct := &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{
+				Creates: []v1alpha1.TraitCreate{
+					{
+						Template: &runtime.RawExtension{
+							Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "test"}, "data": {"key": "${parameters.volumeName +}"}}`),
+						},
+					},
+				},
+			},
+		}
+
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, nil)
+		assert.NotEmpty(t, errs, "expected validation error")
+		assert.Contains(t, errs.ToAggregate().Error(), "invalid CEL expression")
+	})
+
+	t.Run("invalid CEL in patches rejected", func(t *testing.T) {
+		ct := &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{
+				Patches: []v1alpha1.TraitPatch{
+					{
+						Target: v1alpha1.PatchTarget{
+							Group:   "apps",
+							Version: "v1",
+							Kind:    "Deployment",
+						},
+						Operations: []v1alpha1.JSONPatchOperation{
+							{
+								Op:    "add",
+								Path:  "/metadata/annotations/key",
+								Value: &runtime.RawExtension{Raw: []byte(`"${parameters.volumeName +}"`)},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, parametersSchema, nil)
+		assert.NotEmpty(t, errs, "expected validation error")
+		assert.Contains(t, errs.ToAggregate().Error(), "invalid CEL expression")
+	})
+
+	t.Run("empty spec is valid", func(t *testing.T) {
+		ct := &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{},
+		}
+
+		errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, nil, nil)
+		assert.Empty(t, errs, "unexpected validation errors: %v", errs)
+	})
+}
+
 func TestExtractCELFromTemplate(t *testing.T) {
 	tests := []struct {
 		name    string

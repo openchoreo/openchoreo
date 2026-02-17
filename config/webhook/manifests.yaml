@@ -116,6 +116,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-clustertrait
+  failurePolicy: Fail
+  name: vclustertrait-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clustertraits
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-openchoreo-dev-v1alpha1-component
   failurePolicy: Fail
   name: vcomponent-v1alpha1.kb.io

@@ -69,6 +69,46 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	return allErrs
 }
 
+// ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates and patches in a ClusterTrait with schema-aware type checking.
+// ClusterTraitSpec does not have Validations, so only creates and patches are validated.
+func ValidateClusterTraitCreatesAndPatchesWithSchema(
+	ct *v1alpha1.ClusterTrait,
+	parametersSchema *apiextschema.Structural,
+	envOverridesSchema *apiextschema.Structural,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	// Create schema-aware validator for trait context
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{
+		ParametersSchema:   parametersSchema,
+		EnvOverridesSchema: envOverridesSchema,
+	})
+	if err != nil {
+		allErrs = append(allErrs, field.InternalError(
+			field.NewPath("spec"),
+			fmt.Errorf("failed to create CEL validator: %w", err)))
+		return allErrs
+	}
+
+	basePath := field.NewPath("spec")
+
+	// Validate creates
+	for i, create := range ct.Spec.Creates {
+		createPath := basePath.Child("creates").Index(i)
+		errs := ValidateTraitCreate(create, validator, createPath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	// Validate patches
+	for i, patch := range ct.Spec.Patches {
+		patchPath := basePath.Child("patches").Index(i)
+		errs := ValidateTraitPatch(patch, validator, patchPath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	return allErrs
+}
+
 // ValidateTraitCreate validates a single trait create operation.
 // It validates includeWhen (must return boolean), forEach (must return iterable),
 // and the template body with schema-aware type checking.

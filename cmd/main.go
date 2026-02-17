@@ -62,6 +62,7 @@ import (
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
 	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
@@ -546,6 +547,13 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := traitwebhook.SetupTraitWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Trait")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := clustertraitwebhook.SetupClusterTraitWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterTrait")
 			os.Exit(1)
 		}
 	}
