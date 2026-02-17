@@ -42,9 +42,17 @@ func PrintProjects(list *gen.ProjectList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, proj := range list.Items {
+		name := ""
+		if proj.Metadata.Name != nil {
+			name = *proj.Metadata.Name
+		}
+		var createdAt time.Time
+		if proj.Metadata.CreationTimestamp != nil {
+			createdAt = *proj.Metadata.CreationTimestamp
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			proj.Name,
-			formatAge(proj.CreatedAt))
+			name,
+			formatAge(createdAt))
 	}
 
 	return w.Flush()

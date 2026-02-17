@@ -139,7 +139,7 @@ func (d *CompImpl) promoteComponent(ctx context.Context, c *client.Client, param
 		return nil, "", fmt.Errorf("failed to get project: %w", err)
 	}
 
-	if project.DeploymentPipeline == nil {
+	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil {
 		return nil, "", fmt.Errorf("project does not have a deployment pipeline configured")
 	}
 
