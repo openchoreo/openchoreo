@@ -155,7 +155,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuthProtectedResourceMetadata'
 
-  /api/v1/.well-known/openid-configuration:
+  /.well-known/openid-configuration:
     get:
       operationId: getOpenIDConfiguration
       summary: Get OpenID configuration

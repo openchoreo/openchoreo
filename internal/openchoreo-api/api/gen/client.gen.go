@@ -2000,7 +2000,7 @@ func NewGetOpenIDConfigurationRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/.well-known/openid-configuration")
+	operationPath := fmt.Sprintf("/.well-known/openid-configuration")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}

@@ -22,7 +22,7 @@ type OIDCConfig struct {
 	JwksURI               string   `json:"jwks_uri,omitempty"`
 }
 
-// OpenIDConfigurationResponse represents the response from /api/v1/.well-known/openid-configuration
+// OpenIDConfigurationResponse represents the response from /.well-known/openid-configuration
 type OpenIDConfigurationResponse struct {
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 	TokenEndpoint         string `json:"token_endpoint"`
@@ -40,7 +40,7 @@ type OpenIDConfigurationResponse struct {
 func FetchOIDCConfig(apiURL string) (*OIDCConfig, error) {
 	req, err := http.NewRequest(
 		http.MethodGet,
-		apiURL+"/api/v1/.well-known/openid-configuration",
+		apiURL+"/.well-known/openid-configuration",
 		nil,
 	)
 	if err != nil {
