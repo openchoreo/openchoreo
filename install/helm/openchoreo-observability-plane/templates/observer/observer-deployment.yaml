@@ -21,49 +21,6 @@ spec:
         runAsUser: 65532
         runAsGroup: 65532
         fsGroup: 65532
-      initContainers:
-      - name: wait-for-opensearch
-        image: curlimages/curl:latest
-        command:
-        - /bin/sh
-        - -c
-        - |
-          # Skip OpenSearch check if using logs backend
-          if [ -n "$EXPERIMENTAL_USE_LOGS_BACKEND" ] && [ "$EXPERIMENTAL_USE_LOGS_BACKEND" = "true" ]; then
-            echo "Logs backend enabled, skipping OpenSearch check"
-            exit 0
-          fi
-          
-          echo "Waiting for OpenSearch to be ready..."
-          AUTH_TOKEN=$(echo -n "$OPENSEARCH_USERNAME:$OPENSEARCH_PASSWORD" | base64)
-          echo "Checking OpenSearch at: $OPENSEARCH_ADDRESS"
-          until curl -s -H "Authorization: Basic $AUTH_TOKEN" "$OPENSEARCH_ADDRESS/_cluster/health" --insecure | grep -q '"status":"green\|yellow"'; do
-            echo "OpenSearch not ready, waiting 10 seconds..."
-            sleep 10
-          done
-          echo "OpenSearch is ready!"
-        env:
-        - name: EXPERIMENTAL_USE_LOGS_BACKEND
-          value: {{ if .Values.observer.experimental }}{{ .Values.observer.experimental.useLogsBackend | default "false" | quote }}{{ else }}"false"{{ end }}
-        - name: OPENSEARCH_ADDRESS
-          value: "https://opensearch:9200"
-        - name: OPENSEARCH_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.observer.openSearchSecretName }}
-              key: username
-        - name: OPENSEARCH_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: {{ .Values.observer.openSearchSecretName }}
-              key: password
-        securityContext:
-          runAsNonRoot: true
-          runAsUser: 65532
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
       containers:
       - name: observer
         image: "{{ if .Values.observer.image }}{{ .Values.observer.image.repository | default "ghcr.io/openchoreo/observer" }}:{{ .Values.observer.image.tag | default .Chart.AppVersion }}{{ else }}ghcr.io/openchoreo/observer:{{ .Chart.AppVersion }}{{ end }}"

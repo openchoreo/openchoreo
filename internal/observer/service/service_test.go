@@ -20,7 +20,6 @@ import (
 type MockOpenSearchClient struct {
 	searchResponse *opensearch.SearchResponse
 	searchError    error
-	healthError    error
 	monitorID      string
 	monitorExists  bool
 	monitorSearch  error
@@ -41,10 +40,6 @@ func (m *MockOpenSearchClient) Search(ctx context.Context, indices []string, que
 
 func (m *MockOpenSearchClient) GetIndexMapping(ctx context.Context, index string) (*opensearch.MappingResponse, error) {
 	return &opensearch.MappingResponse{}, nil
-}
-
-func (m *MockOpenSearchClient) HealthCheck(ctx context.Context) error {
-	return m.healthError
 }
 
 func (m *MockOpenSearchClient) SearchMonitorByName(ctx context.Context, name string) (string, bool, error) {
@@ -304,56 +299,6 @@ func TestLoggingService_GetProjectLogs(t *testing.T) {
 	if log.ProjectID != "proj-123" {
 		t.Errorf("Expected project ID 'proj-123', got '%s'", log.ProjectID)
 	}
-}
-
-func TestLoggingService_HealthCheck(t *testing.T) {
-	service := newMockLoggingService()
-
-	tests := []struct {
-		name        string
-		healthError error
-		expectError bool
-	}{
-		{
-			name:        "healthy",
-			healthError: nil,
-			expectError: false,
-		},
-		{
-			name:        "unhealthy",
-			healthError: &mockError{"OpenSearch connection failed"},
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockClient := &MockOpenSearchClient{
-				healthError: tt.healthError,
-			}
-			service.osClient = mockClient
-
-			ctx := context.Background()
-			err := service.HealthCheck(ctx)
-
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-		})
-	}
-}
-
-// mockError implements the error interface for testing
-type mockError struct {
-	message string
-}
-
-func (e *mockError) Error() string {
-	return e.message
 }
 
 func TestParseLogEntry(t *testing.T) {

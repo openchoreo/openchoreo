@@ -50,7 +50,6 @@ type OpenSearchClient interface {
 	UpdateMonitor(ctx context.Context, monitorID string, monitor map[string]interface{}) (lastUpdateTime int64, err error)
 	DeleteMonitor(ctx context.Context, monitorID string) error
 	WriteAlertEntry(ctx context.Context, entry map[string]interface{}) (string, error)
-	HealthCheck(ctx context.Context) error
 }
 
 // LoggingService provides logging and metrics functionality
@@ -589,25 +588,8 @@ func (s *LoggingService) GetTraces(ctx context.Context, params opensearch.Traces
 	}, nil
 }
 
-// HealthCheck performs a health check on the service
+// HealthCheck performs a health check on observer service
 func (s *LoggingService) HealthCheck(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	// Skip OpenSearch health check if using experimental logs backend
-	if s.config.Experimental.UseLogsBackend {
-		if s.logsBackend == nil {
-			return fmt.Errorf("logs backend enabled but not configured")
-		}
-		s.logger.Debug("Health check passed (OpenSearch check skipped - using logs backend)")
-		return nil
-	}
-
-	if err := s.osClient.HealthCheck(ctx); err != nil {
-		s.logger.Error("Health check failed", "error", err)
-		return fmt.Errorf("opensearch health check failed: %w", err)
-	}
-
 	s.logger.Debug("Health check passed")
 	return nil
 }

@@ -137,15 +137,6 @@ func (c *Client) GetIndexMapping(ctx context.Context, index string) (*MappingRes
 	return mapping, nil
 }
 
-// HealthCheck performs a basic health check on the OpenSearch cluster
-func (c *Client) HealthCheck(ctx context.Context) error {
-	_, err := c.client.Info()
-	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
-	}
-	return nil
-}
-
 // SearchMonitorByName searches alerting monitors by name using the Alerting plugin API.
 func (c *Client) SearchMonitorByName(ctx context.Context, name string) (string, bool, error) {
 	path := "/_plugins/_alerting/monitors/_search"
