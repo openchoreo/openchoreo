@@ -38,6 +38,3 @@ registries:
       "host.k3d.internal:10082":
         endpoint:
           - http://host.k3d.internal:10082
-
-opentelemetry-collector:
-  enabled: true
