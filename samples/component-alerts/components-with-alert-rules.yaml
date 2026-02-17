@@ -9,7 +9,9 @@ spec:
   owner:
     projectName: gcp-microservice-demo
 
-  componentType: deployment/web-application
+  componentType:
+    kind: ComponentType
+    name: deployment/web-application
   autoDeploy: true
 
   # Attach alert rule as a trait
@@ -41,7 +43,9 @@ spec:
   owner:
     projectName: gcp-microservice-demo
 
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   autoDeploy: true
 
   # Attach alert rule as a trait
@@ -72,7 +76,9 @@ spec:
   owner:
     projectName: gcp-microservice-demo
 
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   autoDeploy: true
 
   # Attach alert rule as a trait

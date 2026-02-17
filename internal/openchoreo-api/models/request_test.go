@@ -406,6 +406,228 @@ func TestUpdateComponentTraitsRequest_Validate(t *testing.T) {
 	}
 }
 
+func TestCreateComponentRequest_Validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		req     *CreateComponentRequest
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "Valid request with ComponentType",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "deployment/web-app",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid request with ClusterComponentType",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ClusterComponentType",
+					Name: "deployment/shared-web",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid request with empty kind (defaults to ComponentType)",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Name: "deployment/web-app",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Valid request without ComponentType (legacy mode)",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				Type: "Service",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid - ComponentType with empty name",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "",
+				},
+			},
+			wantErr: true,
+			errMsg:  "componentType.name is required when componentType is provided",
+		},
+		{
+			name: "Invalid - ComponentType with whitespace-only name",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "   ",
+				},
+			},
+			wantErr: true,
+			errMsg:  "componentType.name is required when componentType is provided",
+		},
+		{
+			name: "Invalid - ComponentType with bad kind",
+			req: &CreateComponentRequest{
+				Name: "my-comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "InvalidKind",
+					Name: "deployment/web-app",
+				},
+			},
+			wantErr: true,
+			errMsg:  "componentType.kind must be 'ComponentType' or 'ClusterComponentType', got 'InvalidKind'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.req.Validate()
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Validate() expected error but got none")
+					return
+				}
+				if err.Error() != tt.errMsg {
+					t.Errorf("Validate() error = %v, want %v", err.Error(), tt.errMsg)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Validate() unexpected error = %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateComponentRequest_Sanitize(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *CreateComponentRequest
+		want *CreateComponentRequest
+	}{
+		{
+			name: "Nil ComponentType - no panic, other fields trimmed",
+			req: &CreateComponentRequest{
+				Name:          "  my-comp  ",
+				DisplayName:   "  My Component  ",
+				Description:   "  desc  ",
+				Type:          "  Service  ",
+				ComponentType: nil,
+			},
+			want: &CreateComponentRequest{
+				Name:          "my-comp",
+				DisplayName:   "My Component",
+				Description:   "desc",
+				Type:          "Service",
+				ComponentType: nil,
+			},
+		},
+		{
+			name: "ComponentType with whitespace in Kind and Name",
+			req: &CreateComponentRequest{
+				Name: "comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "  ComponentType  ",
+					Name: "  deployment/web-app  ",
+				},
+			},
+			want: &CreateComponentRequest{
+				Name: "comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "deployment/web-app",
+				},
+			},
+		},
+		{
+			name: "Full request with all fields having whitespace",
+			req: &CreateComponentRequest{
+				Name:        "  my-comp  ",
+				DisplayName: "  My Comp  ",
+				Description: "  A description  ",
+				Type:        "  Service  ",
+				ComponentType: &ComponentTypeRef{
+					Kind: "  ClusterComponentType  ",
+					Name: "  deployment/my-ct  ",
+				},
+				Traits: []ComponentTrait{
+					{Name: "  logging  ", InstanceName: "  app-logging  "},
+				},
+			},
+			want: &CreateComponentRequest{
+				Name:        "my-comp",
+				DisplayName: "My Comp",
+				Description: "A description",
+				Type:        "Service",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ClusterComponentType",
+					Name: "deployment/my-ct",
+				},
+				Traits: []ComponentTrait{
+					{Name: "logging", InstanceName: "app-logging"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.req.Sanitize()
+
+			if tt.req.Name != tt.want.Name {
+				t.Errorf("Name = %q, want %q", tt.req.Name, tt.want.Name)
+			}
+			if tt.req.DisplayName != tt.want.DisplayName {
+				t.Errorf("DisplayName = %q, want %q", tt.req.DisplayName, tt.want.DisplayName)
+			}
+			if tt.req.Description != tt.want.Description {
+				t.Errorf("Description = %q, want %q", tt.req.Description, tt.want.Description)
+			}
+			if tt.req.Type != tt.want.Type {
+				t.Errorf("Type = %q, want %q", tt.req.Type, tt.want.Type)
+			}
+
+			if tt.want.ComponentType == nil {
+				if tt.req.ComponentType != nil {
+					t.Errorf("ComponentType = %v, want nil", tt.req.ComponentType)
+				}
+			} else {
+				if tt.req.ComponentType == nil {
+					t.Fatal("ComponentType is nil, want non-nil")
+				}
+				if tt.req.ComponentType.Kind != tt.want.ComponentType.Kind {
+					t.Errorf("ComponentType.Kind = %q, want %q", tt.req.ComponentType.Kind, tt.want.ComponentType.Kind)
+				}
+				if tt.req.ComponentType.Name != tt.want.ComponentType.Name {
+					t.Errorf("ComponentType.Name = %q, want %q", tt.req.ComponentType.Name, tt.want.ComponentType.Name)
+				}
+			}
+
+			for i, trait := range tt.req.Traits {
+				if trait.Name != tt.want.Traits[i].Name {
+					t.Errorf("Traits[%d].Name = %q, want %q", i, trait.Name, tt.want.Traits[i].Name)
+				}
+				if trait.InstanceName != tt.want.Traits[i].InstanceName {
+					t.Errorf("Traits[%d].InstanceName = %q, want %q", i, trait.InstanceName, tt.want.Traits[i].InstanceName)
+				}
+			}
+		})
+	}
+}
+
 func TestPatchReleaseBindingRequest(t *testing.T) {
 	tests := []struct {
 		name        string

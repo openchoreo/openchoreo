@@ -347,7 +347,9 @@ spec:
   owner:
     projectName: default
 
-  componentType: deployment/service-with-autoscaling
+  componentType:
+    kind: ComponentType
+    name: deployment/service-with-autoscaling
   autoDeploy: true
 
   parameters:

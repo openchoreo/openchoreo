@@ -7,7 +7,9 @@ spec:
     projectName: default
 
   # References the ComponentType
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
 
   autoDeploy: true
 

@@ -9,7 +9,9 @@ metadata:
 spec:
   owner:
     projectName: test-project
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   # autoDeploy: true # Enable automatic deployment on changes
 
   # Parameters for the ComponentType

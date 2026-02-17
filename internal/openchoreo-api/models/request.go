@@ -72,13 +72,19 @@ type ComponentTrait struct {
 	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
+// ComponentTypeRef represents a reference to a ComponentType or ClusterComponentType in API requests
+type ComponentTypeRef struct {
+	Kind string `json:"kind,omitempty"` // ComponentType or ClusterComponentType
+	Name string `json:"name"`           // Format: {workloadType}/{componentTypeName}
+}
+
 // CreateComponentRequest represents the request to create a new component
 type CreateComponentRequest struct {
 	Name              string                `json:"name"`
 	DisplayName       string                `json:"displayName,omitempty"`
 	Description       string                `json:"description,omitempty"`
-	Type              string                `json:"type,omitempty"`          // LEGACY: Use componentType instead
-	ComponentType     string                `json:"componentType,omitempty"` // Format: {workloadType}/{componentTypeName}
+	Type              string                `json:"type,omitempty"` // LEGACY: Use componentType instead
+	ComponentType     *ComponentTypeRef     `json:"componentType,omitempty"`
 	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
 	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
 	Traits            []ComponentTrait      `json:"traits,omitempty"`
@@ -177,7 +183,16 @@ func (req *CreateProjectRequest) Validate() error {
 
 // Validate validates the CreateComponentRequest
 func (req *CreateComponentRequest) Validate() error {
-	// TODO: Implement custom validation using Go stdlib
+	if req.ComponentType != nil {
+		name := strings.TrimSpace(req.ComponentType.Name)
+		if name == "" {
+			return errors.New("componentType.name is required when componentType is provided")
+		}
+		kind := strings.TrimSpace(req.ComponentType.Kind)
+		if kind != "" && kind != "ComponentType" && kind != "ClusterComponentType" {
+			return fmt.Errorf("componentType.kind must be 'ComponentType' or 'ClusterComponentType', got '%s'", kind)
+		}
+	}
 	return nil
 }
 
@@ -233,7 +248,10 @@ func (req *CreateComponentRequest) Sanitize() {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
 	req.Type = strings.TrimSpace(req.Type)
-	req.ComponentType = strings.TrimSpace(req.ComponentType)
+	if req.ComponentType != nil {
+		req.ComponentType.Kind = strings.TrimSpace(req.ComponentType.Kind)
+		req.ComponentType.Name = strings.TrimSpace(req.ComponentType.Name)
+	}
 
 	for i := range req.Traits {
 		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)

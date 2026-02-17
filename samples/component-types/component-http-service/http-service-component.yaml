@@ -15,7 +15,9 @@ spec:
   owner:
     projectName: default
   autoDeploy: true
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

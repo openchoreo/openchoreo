@@ -92,7 +92,9 @@ spec:
   owner:
     projectName: default
   autoDeploy: true
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
 
   # Traits - API Configuration is added as a trait
   traits:

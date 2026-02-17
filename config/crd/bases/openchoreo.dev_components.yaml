@@ -21,7 +21,7 @@ spec:
     - jsonPath: .spec.owner.projectName
       name: Project
       type: string
-    - jsonPath: .spec.componentType
+    - jsonPath: .spec.componentType.name
       name: ComponentType
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -65,11 +65,27 @@ spec:
                 type: boolean
               componentType:
                 description: |-
-                  ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
-                  Example: "deployment/web-app", "cronjob/scheduled-task"
+                  ComponentType specifies the component type reference with kind and name.
+                  Name is in the format: {workloadType}/{componentTypeName}
+                  Example: kind=ComponentType, name="deployment/web-app"
                   This field is used with ComponentTypes (new model)
-                pattern: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-                type: string
+                properties:
+                  kind:
+                    default: ComponentType
+                    description: Kind is the kind of component type (ComponentType
+                      or ClusterComponentType)
+                    enum:
+                    - ComponentType
+                    - ClusterComponentType
+                    type: string
+                  name:
+                    description: 'Name is the component type reference in format:
+                      {workloadType}/{componentTypeName}'
+                    pattern: ^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
                 x-kubernetes-validations:
                 - message: spec.componentType cannot be changed after creation
                   rule: self == oldSelf
@@ -219,6 +235,8 @@ spec:
             - message: Component must have either spec.type or spec.componentType
                 set
               rule: has(self.type) || has(self.componentType)
+            - message: spec.componentType.name is required when componentType is set
+              rule: '!has(self.componentType) || has(self.componentType.name)'
           status:
             description: ComponentStatus defines the observed state of Component.
             properties:

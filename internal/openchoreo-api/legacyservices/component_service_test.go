@@ -4,13 +4,168 @@
 package legacyservices
 
 import (
+	"context"
+	"log/slog"
+	"os"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
+
+// TestFetchComponentTypeSpec tests the fetchComponentTypeSpec method
+func TestFetchComponentTypeSpec(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add v1alpha1 to scheme: %v", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	tests := []struct {
+		name         string
+		ctRef        *v1alpha1.ComponentTypeRef
+		namespace    string
+		objects      []client.Object
+		wantSpec     bool
+		wantErr      bool
+		wantWorkload string
+		errSubstring string
+	}{
+		{
+			name: "ComponentType found - returns spec",
+			ctRef: &v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/web-app",
+			},
+			namespace: "default",
+			objects: []client.Object{
+				&v1alpha1.ComponentType{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "web-app",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.ComponentTypeSpec{
+						WorkloadType: "deployment",
+						Resources: []v1alpha1.ResourceTemplate{
+							{ID: "deployment"},
+						},
+					},
+				},
+			},
+			wantSpec:     true,
+			wantWorkload: "deployment",
+		},
+		{
+			name: "ClusterComponentType found - returns spec",
+			ctRef: &v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindClusterComponentType,
+				Name: "deployment/shared-web",
+			},
+			namespace: "default",
+			objects: []client.Object{
+				&v1alpha1.ClusterComponentType{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-web",
+					},
+					Spec: v1alpha1.ClusterComponentTypeSpec{
+						WorkloadType: "deployment",
+						Resources: []v1alpha1.ResourceTemplate{
+							{ID: "deployment"},
+						},
+					},
+				},
+			},
+			wantSpec:     true,
+			wantWorkload: "deployment",
+		},
+		{
+			name: "ComponentType not found - returns nil without error",
+			ctRef: &v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/nonexistent",
+			},
+			namespace: "default",
+			objects:   []client.Object{},
+			wantSpec:  false,
+			wantErr:   false,
+		},
+		{
+			name: "ClusterComponentType not found - returns nil without error",
+			ctRef: &v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindClusterComponentType,
+				Name: "deployment/nonexistent",
+			},
+			namespace: "default",
+			objects:   []client.Object{},
+			wantSpec:  false,
+			wantErr:   false,
+		},
+		{
+			name: "Invalid name format - no slash separator",
+			ctRef: &v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindComponentType,
+				Name: "no-slash-here",
+			},
+			namespace:    "default",
+			objects:      []client.Object{},
+			wantSpec:     false,
+			wantErr:      true,
+			errSubstring: "invalid component type format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.objects...).
+				Build()
+
+			service := &ComponentService{
+				k8sClient: fakeClient,
+				logger:    logger,
+			}
+
+			spec, err := service.fetchComponentTypeSpec(context.Background(), tt.ctRef, tt.namespace)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("fetchComponentTypeSpec() expected error, got nil")
+					return
+				}
+				if tt.errSubstring != "" && !strings.Contains(err.Error(), tt.errSubstring) {
+					t.Errorf("fetchComponentTypeSpec() error = %q, want substring %q", err.Error(), tt.errSubstring)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("fetchComponentTypeSpec() unexpected error: %v", err)
+				return
+			}
+
+			if tt.wantSpec {
+				if spec == nil {
+					t.Fatal("fetchComponentTypeSpec() returned nil spec, want non-nil")
+				}
+				if spec.WorkloadType != tt.wantWorkload {
+					t.Errorf("fetchComponentTypeSpec() WorkloadType = %q, want %q", spec.WorkloadType, tt.wantWorkload)
+				}
+			} else {
+				if spec != nil {
+					t.Errorf("fetchComponentTypeSpec() = %v, want nil", spec)
+				}
+			}
+		})
+	}
+}
 
 // TestFindLowestEnvironment tests the findLowestEnvironment helper method
 func TestFindLowestEnvironment(t *testing.T) {

@@ -223,7 +223,9 @@ spec:
   owner:
     projectName: default
 
-  componentType: deployment/service-with-configs
+  componentType:
+    kind: ComponentType
+    name: deployment/service-with-configs
   autoDeploy: true
 
 ---

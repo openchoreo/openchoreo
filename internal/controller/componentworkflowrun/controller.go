@@ -19,7 +19,9 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -48,6 +50,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflowruns/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentworkflows,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clustercomponenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
 // +kubebuilder:rbac:groups=argoproj.io,resources=workflows,verbs=get;list;watch;create;update;patch;delete
@@ -313,8 +317,17 @@ func (r *Reconciler) validateComponentWorkflow(
 		return nil, err
 	}
 
-	// Parse componentType: {workloadType}/{componentTypeName}
-	_, ctName, err := parseComponentType(component.Spec.ComponentType)
+	// Validate componentType ref is set
+	ctRef := component.Spec.ComponentType
+	if ctRef == nil {
+		msg := "Component has no componentType set"
+		setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+		logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+		return nil, nil
+	}
+
+	// Parse componentType name: {workloadType}/{componentTypeName}
+	_, ctName, err := parseComponentType(ctRef.Name)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid componentType format: %v", err)
 		setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
@@ -322,21 +335,45 @@ func (r *Reconciler) validateComponentWorkflow(
 		return nil, nil
 	}
 
-	// Fetch the ComponentType
-	componentType := &openchoreodevv1alpha1.ComponentType{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name:      ctName,
-		Namespace: componentWorkflowRun.Namespace,
-	}, componentType); err != nil {
-		if errors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentType %q not found", ctName)
-			setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
-			logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
-			return nil, nil
+	// Fetch the ComponentType or ClusterComponentType based on kind
+	var componentType *openchoreodevv1alpha1.ComponentType
+	switch ctRef.Kind {
+	case openchoreodevv1alpha1.ComponentTypeRefKindClusterComponentType:
+		cct := &openchoreodevv1alpha1.ClusterComponentType{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ctName}, cct); err != nil {
+			if errors.IsNotFound(err) {
+				msg := fmt.Sprintf("ClusterComponentType %q not found", ctName)
+				setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+				logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+				return nil, nil
+			}
+			logger.Error(err, "failed to get ClusterComponentType", "clusterComponentType", ctName)
+			return nil, err
 		}
-		// Transient error - requeue
-		logger.Error(err, "failed to get ComponentType", "componentType", ctName)
-		return nil, err
+		componentType = &openchoreodevv1alpha1.ComponentType{
+			ObjectMeta: cct.ObjectMeta,
+			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType:     cct.Spec.WorkloadType,
+				AllowedWorkflows: cct.Spec.AllowedWorkflows,
+				Schema:           cct.Spec.Schema,
+				Resources:        cct.Spec.Resources,
+			},
+		}
+	default:
+		componentType = &openchoreodevv1alpha1.ComponentType{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      ctName,
+			Namespace: componentWorkflowRun.Namespace,
+		}, componentType); err != nil {
+			if errors.IsNotFound(err) {
+				msg := fmt.Sprintf("ComponentType %q not found", ctName)
+				setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
+				logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
+				return nil, nil
+			}
+			logger.Error(err, "failed to get ComponentType", "componentType", ctName)
+			return nil, err
+		}
 	}
 
 	// Performance optimization: Check allowedWorkflows list first
@@ -742,8 +779,60 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreodevv1alpha1.ComponentWorkflowRun{}).
+		Watches(&openchoreodevv1alpha1.ComponentType{}, handler.EnqueueRequestsFromMapFunc(r.findWorkflowRunsForComponentType)).
+		Watches(&openchoreodevv1alpha1.ClusterComponentType{}, handler.EnqueueRequestsFromMapFunc(r.findWorkflowRunsForClusterComponentType)).
 		Named("componentworkflowrun").
 		Complete(r)
+}
+
+// findWorkflowRunsForComponentType returns reconcile requests for all ComponentWorkflowRuns
+// in the same namespace as the ComponentType. This ensures that runs which failed validation
+// due to a missing ComponentType get re-reconciled when the type is created.
+func (r *Reconciler) findWorkflowRunsForComponentType(ctx context.Context, obj client.Object) []reconcile.Request {
+	ct := obj.(*openchoreodevv1alpha1.ComponentType)
+	logger := ctrl.LoggerFrom(ctx)
+
+	var runs openchoreodevv1alpha1.ComponentWorkflowRunList
+	if err := r.List(ctx, &runs, client.InNamespace(ct.Namespace)); err != nil {
+		logger.Error(err, "Failed to list ComponentWorkflowRuns for ComponentType", "componentType", ct.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(runs.Items))
+	for i, run := range runs.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      run.Name,
+				Namespace: run.Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// findWorkflowRunsForClusterComponentType returns reconcile requests for all ComponentWorkflowRuns
+// across all namespaces. This ensures that runs which failed validation due to a missing
+// ClusterComponentType get re-reconciled when the type is created.
+func (r *Reconciler) findWorkflowRunsForClusterComponentType(ctx context.Context, obj client.Object) []reconcile.Request {
+	cct := obj.(*openchoreodevv1alpha1.ClusterComponentType)
+	logger := ctrl.LoggerFrom(ctx)
+
+	var runs openchoreodevv1alpha1.ComponentWorkflowRunList
+	if err := r.List(ctx, &runs); err != nil {
+		logger.Error(err, "Failed to list ComponentWorkflowRuns for ClusterComponentType", "clusterComponentType", cct.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(runs.Items))
+	for i, run := range runs.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      run.Name,
+				Namespace: run.Namespace,
+			},
+		}
+	}
+	return requests
 }
 
 // extractWorkloadCRFromRunResource extracts workload CR from run resource outputs

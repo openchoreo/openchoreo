@@ -335,8 +335,10 @@ func (g *Generator) generateSpec(b *YAMLBuilder, result *schemaProcessingResult)
 		})
 
 		// ComponentType
-		componentTypeValue := fmt.Sprintf("%s/%s", g.workloadType, g.componentTypeName)
-		b.AddField("componentType", componentTypeValue)
+		b.InMapping("componentType", func(b *YAMLBuilder) {
+			b.AddField("kind", "ComponentType")
+			b.AddField("name", fmt.Sprintf("%s/%s", g.workloadType, g.componentTypeName))
+		})
 
 		// AutoDeploy (commented out by default)
 		var autoDeployOpts []FieldOption

@@ -104,7 +104,9 @@ kind: Component
 metadata:
   name: my-service
 spec:
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   workflow:
     name: docker
     systemParameters:
@@ -198,7 +200,9 @@ metadata:
 spec:
   owner:
     projectName: my-project
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
 
   # ComponentWorkflow configuration
   workflow:

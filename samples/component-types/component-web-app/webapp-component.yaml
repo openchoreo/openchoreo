@@ -16,7 +16,9 @@ spec:
     projectName: default
 
   autoDeploy: true
-  componentType: deployment/web-application
+  componentType:
+    kind: ComponentType
+    name: deployment/web-application
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

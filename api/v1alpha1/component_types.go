@@ -12,7 +12,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=comp;comps
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
-// +kubebuilder:printcolumn:name="ComponentType",type=string,JSONPath=`.spec.componentType`
+// +kubebuilder:printcolumn:name="ComponentType",type=string,JSONPath=`.spec.componentType.name`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Component is the Schema for the components API.
@@ -35,6 +35,7 @@ type ComponentList struct {
 
 // ComponentSpec defines the desired state of Component.
 // +kubebuilder:validation:XValidation:rule="has(self.type) || has(self.componentType)",message="Component must have either spec.type or spec.componentType set"
+// +kubebuilder:validation:XValidation:rule="!has(self.componentType) || has(self.componentType.name)",message="spec.componentType.name is required when componentType is set"
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
 	// +kubebuilder:validation:Required
@@ -46,13 +47,13 @@ type ComponentSpec struct {
 	// +optional
 	Type DefinedComponentType `json:"type,omitempty"`
 
-	// ComponentType specifies the component type in the format: {workloadType}/{componentTypeName}
-	// Example: "deployment/web-app", "cronjob/scheduled-task"
+	// ComponentType specifies the component type reference with kind and name.
+	// Name is in the format: {workloadType}/{componentTypeName}
+	// Example: kind=ComponentType, name="deployment/web-app"
 	// This field is used with ComponentTypes (new model)
 	// +optional
-	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
-	ComponentType string `json:"componentType,omitempty"`
+	ComponentType *ComponentTypeRef `json:"componentType,omitempty"`
 
 	// AutoDeploy indicates whether the component should be deployed automatically when created
 	// When not specified, defaults to false (zero value)

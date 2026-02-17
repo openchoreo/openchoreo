@@ -212,6 +212,31 @@ type ClusterObservabilityPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// ComponentTypeRefKind defines the kind of component type referenced by a ComponentTypeRef
+// +kubebuilder:validation:Enum=ComponentType;ClusterComponentType
+type ComponentTypeRefKind string
+
+const (
+	// ComponentTypeRefKindComponentType references a namespace-scoped ComponentType
+	ComponentTypeRefKindComponentType ComponentTypeRefKind = "ComponentType"
+
+	// ComponentTypeRefKindClusterComponentType references a cluster-scoped ClusterComponentType
+	ComponentTypeRefKindClusterComponentType ComponentTypeRefKind = "ClusterComponentType"
+)
+
+// ComponentTypeRef represents a reference to a ComponentType or ClusterComponentType
+type ComponentTypeRef struct {
+	// Kind is the kind of component type (ComponentType or ClusterComponentType)
+	// +optional
+	// +kubebuilder:default=ComponentType
+	Kind ComponentTypeRefKind `json:"kind,omitempty"`
+
+	// Name is the component type reference in format: {workloadType}/{componentTypeName}
+	// +required
+	// +kubebuilder:validation:Pattern=`^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
 // EffectType defines whether to allow or deny access
 // Used by AuthzRoleBinding and AuthzClusterRoleBinding
 // +kubebuilder:validation:Enum=allow;deny
