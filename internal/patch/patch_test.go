@@ -438,6 +438,122 @@ spec:
 			wantErr: true,
 		},
 		{
+			name: "replace via wildcard across all array elements",
+			initial: `
+spec:
+  rules:
+    - host: a.example.com
+    - host: b.example.com
+    - host: c.example.com
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:    "replace",
+					Path:  "/spec/rules/[*]/host",
+					Value: "new.example.com",
+				},
+			},
+			want: `
+spec:
+  rules:
+    - host: new.example.com
+    - host: new.example.com
+    - host: new.example.com
+`,
+		},
+		{
+			name: "add via wildcard combined with filter",
+			initial: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+          port: 80
+        - name: svc-b
+          port: 80
+    - backendRefs:
+        - name: svc-a
+          port: 8080
+        - name: svc-c
+          port: 80
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "replace",
+					Path: "/spec/rules/[*]/backendRefs/[?(@.name=='svc-a')]",
+					Value: map[string]any{
+						"name": "svc-a",
+						"port": 443,
+						"kind": "Backend",
+					},
+				},
+			},
+			want: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+          port: 443
+          kind: Backend
+        - name: svc-b
+          port: 80
+    - backendRefs:
+        - name: svc-a
+          port: 443
+          kind: Backend
+        - name: svc-c
+          port: 80
+`,
+		},
+		{
+			name: "wildcard on empty array should error",
+			initial: `
+spec:
+  rules: []
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:    "replace",
+					Path:  "/spec/rules/[*]/host",
+					Value: "new.example.com",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "add via wildcard with append marker",
+			initial: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+    - backendRefs:
+        - name: svc-b
+`,
+			operations: []JSONPatchOperation{
+				{
+					Op:   "add",
+					Path: "/spec/rules/[*]/backendRefs/-",
+					Value: map[string]any{
+						"name": "svc-new",
+						"port": 8080,
+					},
+				},
+			},
+			want: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+        - name: svc-new
+          port: 8080
+    - backendRefs:
+        - name: svc-b
+        - name: svc-new
+          port: 8080
+`,
+		},
+		{
 			name: "add with out-of-bounds array index should error",
 			initial: `
 spec:

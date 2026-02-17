@@ -15,8 +15,8 @@ const (
 	opRemove  = "remove"
 )
 
-// filterPattern matches array filter expressions like [?(@.name=='app')]
-var filterPattern = regexp.MustCompile(`\[\?\(.*?\)\]`)
+// filterOrWildcardPattern matches array filter expressions like [?(@.name=='app')] and wildcard [*].
+var filterOrWildcardPattern = regexp.MustCompile(`\[\?\(.*?\)\]|\[\*\]`)
 
 // ApplyPatches applies a list of JSON Patch operations to a single resource.
 //
@@ -87,8 +87,8 @@ func applyRFC6902(target map[string]any, op, rawPath string, value any) error {
 	if len(resolved) == 0 {
 		// If the path contains a filter expression, not finding any matches is an error
 		// (e.g., trying to patch a container that doesn't exist)
-		if containsFilter(rawPath) {
-			return fmt.Errorf("path %q contains a filter but matched 0 elements (filter criteria not met or target does not exist)", rawPath)
+		if containsFilterOrWildcard(rawPath) {
+			return fmt.Errorf("path %q contains a filter or wildcard but matched 0 elements (filter criteria not met or target does not exist)", rawPath)
 		}
 		// No matches for non-filter paths; treat as no-op
 		// This typically means an array-based path returned no results (empty array, etc.)
@@ -110,10 +110,10 @@ func applyRFC6902(target map[string]any, op, rawPath string, value any) error {
 	return nil
 }
 
-// containsFilter checks if a path contains a JSONPath filter expression.
-// Filter expressions follow the pattern [?(@.field=='value')].
-func containsFilter(path string) bool {
-	return filterPattern.MatchString(path)
+// containsFilterOrWildcard checks if a path contains a JSONPath filter expression
+// or a wildcard [*]. Both indicate the user expects array elements to exist.
+func containsFilterOrWildcard(path string) bool {
+	return filterOrWildcardPattern.MatchString(path)
 }
 
 // applyMergeShallow applies a shallow merge operation, overlaying top-level keys

@@ -189,6 +189,38 @@ Use JSONPath-like syntax to target specific array elements:
 
 **Not supported**: Multiple conditions (`&&`, `||`), operators like `contains`, array indexing in filters (`@.ports[0]`), or existence checks (`@.ports`).
 
+### Wildcard `[*]`
+
+The `[*]` selector matches **all elements** of an array, expanding the path into one target per element. This is useful when you need to apply a patch across all items without knowing their count or filtering by a field.
+
+```yaml
+# Replace a field in every rule
+- op: replace
+  path: /spec/rules/[*]/host
+  value: "new.example.com"
+
+# Append to every rule's backendRefs
+- op: add
+  path: /spec/rules/[*]/backendRefs/-
+  value:
+    name: new-backend
+    port: 8080
+```
+
+Wildcards compose with filters to target nested elements across all parents:
+
+```yaml
+# Replace matching backendRefs across ALL rules (not just rules/0)
+- op: replace
+  path: /spec/rules/[*]/backendRefs/[?(@.name=='${metadata.componentName}')]
+  value:
+    group: gateway.kgateway.dev
+    kind: Backend
+    name: ${metadata.componentName}-api-gw-backend
+```
+
+Like filters, `[*]` returns an error if the array is empty or the path doesn't point to an array.
+
 ## Path Resolution Behavior
 
 OpenChoreo extends RFC 6902 JSON Patch to provide Kubernetes-friendly behavior:
@@ -196,6 +228,7 @@ OpenChoreo extends RFC 6902 JSON Patch to provide Kubernetes-friendly behavior:
 | Path Type | Operation | Behavior | RFC 6902 |
 |-----------|-----------|----------|----------|
 | **Filter** `[?(...)]` | add, replace, remove | **Error** if selector matches zero elements | Standard |
+| **Wildcard** `[*]` | add, replace, remove | **Error** if array is empty or path is not an array | Extended |
 | **Map key** | add | **Auto-create** parent maps if missing | Extended |
 | **Map key** | replace | **Error** if target doesn't exist | Standard |
 | **Map key** | remove | **Idempotent** - no error if key doesn't exist | Extended |
@@ -610,13 +643,18 @@ spec:
   value: "128Mi"
 ```
 
-### Use Filters for Explicit Targeting
+### Use Filters and Wildcards for Explicit Targeting
 
 ```yaml
 # Good - explicit container selection
 - op: add
   path: /spec/containers[?(@.name=='app')]/env/-
   value: {name: VAR, value: val}
+
+# Good - target all array elements with wildcard
+- op: replace
+  path: /spec/rules/[*]/backendRefs/[?(@.name=='my-svc')]
+  value: {name: my-svc, port: 443}
 
 # Bad - assumes container position
 - op: add

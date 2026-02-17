@@ -116,6 +116,9 @@ func applySegment(state pathState, segment string) ([]pathState, error) {
 				// Array filter: [?(@.field=='value')]
 				expr := content[2 : len(content)-1]
 				current, err = applyFilter(current, expr)
+			case content == "*":
+				// Wildcard: [*] matches all array elements
+				current, err = applyWildcard(current)
 			case content == "-":
 				// Append marker: [-]
 				current = applyDash(current)
@@ -224,6 +227,31 @@ func applyDash(states []pathState) []pathState {
 	return next
 }
 
+// applyWildcard expands all elements of an array into separate states.
+//
+// For each state that contains an array, every element becomes a new state.
+// This allows paths like /rules/[*]/backendRefs to fan out across all rules.
+//
+// Returns an error if the value is not an array, since [*] explicitly asserts
+// that the target is an array. Empty arrays produce zero states (the caller
+// decides whether that is an error).
+func applyWildcard(states []pathState) ([]pathState, error) {
+	next := []pathState{}
+	for _, st := range states {
+		arr, ok := toAnySlice(st.value)
+		if !ok {
+			return nil, fmt.Errorf("wildcard [*] expects an array, got %T at %s", st.value, buildJSONPointer(st.pointer))
+		}
+		for idx, item := range arr {
+			next = append(next, pathState{
+				pointer: appendPointer(st.pointer, strconv.Itoa(idx)),
+				value:   item,
+			})
+		}
+	}
+	return next, nil
+}
+
 // applyFilter evaluates a filter expression against array elements.
 //
 // For each state that contains an array, we iterate through its elements
@@ -238,9 +266,8 @@ func applyFilter(states []pathState, expr string) ([]pathState, error) {
 	next := []pathState{}
 	for _, st := range states {
 		arr, ok := toAnySlice(st.value)
-		if !ok || len(arr) == 0 {
-			// Not an array or empty array; skip this state
-			continue
+		if !ok {
+			return nil, fmt.Errorf("filter expects an array, got %T at %s", st.value, buildJSONPointer(st.pointer))
 		}
 		for idx, item := range arr {
 			match, err := matchesFilter(item, expr)

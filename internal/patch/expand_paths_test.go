@@ -31,10 +31,11 @@ spec:
 `
 
 	tests := []struct {
-		name string
-		root string
-		path string
-		want []string
+		name    string
+		root    string
+		path    string
+		want    []string
+		wantErr bool
 	}{
 		{
 			name: "simple index",
@@ -223,6 +224,89 @@ spec:
 			},
 		},
 		{
+			name: "wildcard expands all array elements",
+			root: `
+spec:
+  rules:
+    - host: a.example.com
+    - host: b.example.com
+    - host: c.example.com
+`,
+			path: "/spec/rules/[*]/host",
+			want: []string{
+				"/spec/rules/0/host",
+				"/spec/rules/1/host",
+				"/spec/rules/2/host",
+			},
+		},
+		{
+			name: "wildcard combined with filter",
+			root: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+          port: 80
+        - name: svc-b
+          port: 80
+    - backendRefs:
+        - name: svc-a
+          port: 8080
+        - name: svc-c
+          port: 80
+`,
+			path: "/spec/rules/[*]/backendRefs/[?(@.name=='svc-a')]/port",
+			want: []string{
+				"/spec/rules/0/backendRefs/0/port",
+				"/spec/rules/1/backendRefs/0/port",
+			},
+		},
+		{
+			name: "wildcard on empty array",
+			root: `
+spec:
+  rules: []
+`,
+			path: "/spec/rules/[*]/host",
+			want: []string{},
+		},
+		{
+			name: "filter on non-array errors",
+			root: `
+spec:
+  containers:
+    name: app
+`,
+			path:    "/spec/containers/[?(@.name=='app')]/image",
+			wantErr: true,
+		},
+		{
+			name: "wildcard on non-array errors",
+			root: `
+spec:
+  rules:
+    host: example.com
+`,
+			path:    "/spec/rules/[*]/host",
+			wantErr: true,
+		},
+		{
+			name: "wildcard with append marker",
+			root: `
+spec:
+  rules:
+    - backendRefs:
+        - name: svc-a
+    - backendRefs:
+        - name: svc-b
+`,
+			path: "/spec/rules/[*]/backendRefs/-",
+			want: []string{
+				"/spec/rules/0/backendRefs/-",
+				"/spec/rules/1/backendRefs/-",
+			},
+		},
+		{
 			name: "filter with deep nested field - metadata.labels.app",
 			root: `
 spec:
@@ -261,6 +345,12 @@ spec:
 			}
 
 			got, err := expandPaths(root, tt.path)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got nil")
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("expandPaths error = %v", err)
 			}
