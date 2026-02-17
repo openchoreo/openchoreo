@@ -348,6 +348,60 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    put:
+      operationId: updateProject
+      summary: Update project
+      description: Replaces an existing project (full update).
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteProject
+      summary: Delete project
+      description: Deletes a project by name.
+      tags: [Projects]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectNameParam'
+      responses:
+        '204':
+          description: Project deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # Component Endpoints
   # =============================================================================
@@ -3170,6 +3224,79 @@ components:
                 example: must be at least 1 character
 
     # -------------------------------------------------------------------------
+    # Shared Kubernetes-style Types
+    # -------------------------------------------------------------------------
+    ObjectMeta:
+      type: object
+      description: |
+        Standard Kubernetes object metadata (without kind/apiVersion).
+        Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+      properties:
+        name:
+          type: string
+          description: Name of the resource (unique within namespace)
+          example: my-project
+        namespace:
+          type: string
+          description: Kubernetes namespace
+          example: my-namespace
+        uid:
+          type: string
+          description: Unique identifier (Kubernetes UID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        labels:
+          type: object
+          description: Map of string keys and values for organizing resources
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          description: Map of string keys and values for storing auxiliary data
+          additionalProperties:
+            type: string
+        creationTimestamp:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+
+    Condition:
+      type: object
+      description: Kubernetes-style condition
+      required:
+        - type
+        - status
+        - lastTransitionTime
+        - reason
+      properties:
+        type:
+          type: string
+          description: Type of condition (e.g., Ready)
+          example: Ready
+        status:
+          type: string
+          description: Status of the condition
+          enum: ["True", "False", "Unknown"]
+          example: "True"
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation observed when this condition was set
+        lastTransitionTime:
+          type: string
+          format: date-time
+          description: Last time the condition transitioned
+          example: "2025-01-06T10:00:05Z"
+        reason:
+          type: string
+          description: Machine-readable reason for the condition
+          example: Reconciled
+        message:
+          type: string
+          description: Human-readable message
+          example: "Project is ready"
+
+    # -------------------------------------------------------------------------
     # Version
     # -------------------------------------------------------------------------
     VersionResponse:
@@ -3477,12 +3604,70 @@ components:
     # -------------------------------------------------------------------------
     # Projects
     # -------------------------------------------------------------------------
+    BuildPlaneRef:
+      type: object
+      description: Reference to a BuildPlane or ClusterBuildPlane
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of build plane
+          enum: [BuildPlane, ClusterBuildPlane]
+          example: BuildPlane
+        name:
+          type: string
+          description: Name of the build plane resource
+          example: default
+
+    ProjectSpec:
+      type: object
+      description: Desired state of a Project
+      properties:
+        deploymentPipelineRef:
+          type: string
+          description: |
+            Reference to the DeploymentPipeline that defines the environments
+            and deployment progression for components in this project.
+          example: default
+        buildPlaneRef:
+          $ref: '#/components/schemas/BuildPlaneRef'
+
+    ProjectStatus:
+      type: object
+      description: Observed state of a Project
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed Project
+        conditions:
+          type: array
+          description: Current state conditions of the Project
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    Project:
+      type: object
+      description: |
+        Project resource (Kubernetes object without kind/apiVersion).
+        Projects group components within a namespace and reference a deployment pipeline.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectSpec'
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+
     ProjectList:
       type: object
       description: Paginated list of projects
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -3491,114 +3676,31 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    Project:
-      type: object
-      description: Project resource
-      required:
-        - uid
-        - name
-        - namespaceName
-        - createdAt
-      properties:
-        uid:
-          type: string
-          format: uuid
-          description: Unique identifier (Kubernetes UID)
-          example: 550e8400-e29b-41d4-a716-446655440000
-        name:
-          type: string
-          description: Project name (unique within namespace)
-          example: my-project
-        namespaceName:
-          type: string
-          description: Parent namespace name
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: My Project
-        description:
-          type: string
-          description: Project description
-          example: Backend services project
-        deploymentPipeline:
-          type: string
-          description: Referenced deployment pipeline name
-          example: default-pipeline
-        buildPlaneRef:
-          type: object
-          description: Reference to the BuildPlane or ClusterBuildPlane for this project's build operations
-          properties:
-            kind:
-              type: string
-              description: Kind of build plane (BuildPlane or ClusterBuildPlane)
-              enum: [BuildPlane, ClusterBuildPlane]
-              example: BuildPlane
-            name:
-              type: string
-              description: Name of the build plane resource
-              example: default
-          required:
-            - kind
-            - name
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: Project status
-          example: Ready
-
     CreateProjectRequest:
       type: object
-      description: Request to create a new project
+      description: |
+        Request to create a new project. Uses the Kubernetes object structure
+        (metadata + spec) without kind/apiVersion.
       required:
-        - name
+        - metadata
       properties:
-        name:
-          type: string
-          description: Project name (must be unique within namespace)
-          example: my-project
-          minLength: 1
-          maxLength: 63
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: My Project
-          maxLength: 256
-        description:
-          type: string
-          description: Project description
-          example: Backend services project
-          maxLength: 1024
-        deploymentPipeline:
-          type: string
-          description: Deployment pipeline to use (defaults to namespace default)
-          example: default-pipeline
-        buildPlaneRef:
-          type: object
-          description: |
-            Reference to the BuildPlane or ClusterBuildPlane for this project's build operations.
-            If not specified, defaults to "default" BuildPlane in the same namespace.
-          properties:
-            kind:
-              type: string
-              description: Kind of build plane (BuildPlane or ClusterBuildPlane)
-              enum: [BuildPlane, ClusterBuildPlane]
-              example: BuildPlane
-            name:
-              type: string
-              description: Name of the build plane resource
-              minLength: 1
-              maxLength: 63
-              pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-              example: default
-          required:
-            - kind
-            - name
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectSpec'
+
+    UpdateProjectRequest:
+      type: object
+      description: |
+        Request to update an existing project. Uses the Kubernetes object structure
+        (metadata + spec) without kind/apiVersion.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectSpec'
 
     # -------------------------------------------------------------------------
     # Components

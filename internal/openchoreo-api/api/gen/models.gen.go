@@ -30,9 +30,22 @@ const (
 	BindingStatusStatusSuspended  BindingStatusStatus = "Suspended"
 )
 
+// Defines values for BuildPlaneRefKind.
+const (
+	BuildPlaneRefKindBuildPlane        BuildPlaneRefKind = "BuildPlane"
+	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
+)
+
 // Defines values for ClusterObservabilityPlaneRefKind.
 const (
 	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
+)
+
+// Defines values for ConditionStatus.
+const (
+	False   ConditionStatus = "False"
+	True    ConditionStatus = "True"
+	Unknown ConditionStatus = "Unknown"
 )
 
 // Defines values for CreateClusterRoleBindingRequestEffect.
@@ -51,12 +64,6 @@ const (
 const (
 	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
 	CreateNamespaceRoleBindingRequestEffectDeny  CreateNamespaceRoleBindingRequestEffect = "deny"
-)
-
-// Defines values for CreateProjectRequestBuildPlaneRefKind.
-const (
-	CreateProjectRequestBuildPlaneRefKindBuildPlane        CreateProjectRequestBuildPlaneRefKind = "BuildPlane"
-	CreateProjectRequestBuildPlaneRefKindClusterBuildPlane CreateProjectRequestBuildPlaneRefKind = "ClusterBuildPlane"
 )
 
 // Defines values for DeleteResourceResponseOperation.
@@ -85,12 +92,6 @@ const (
 const (
 	ObservabilityPlaneRefKindClusterObservabilityPlane ObservabilityPlaneRefKind = "ClusterObservabilityPlane"
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
-)
-
-// Defines values for ProjectBuildPlaneRefKind.
-const (
-	ProjectBuildPlaneRefKindBuildPlane        ProjectBuildPlaneRefKind = "BuildPlane"
-	ProjectBuildPlaneRefKindClusterBuildPlane ProjectBuildPlaneRefKind = "ClusterBuildPlane"
 )
 
 // Defines values for RoleEntitlementMappingEffect.
@@ -297,6 +298,18 @@ type BuildPlaneList struct {
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
 }
+
+// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
+type BuildPlaneRef struct {
+	// Kind Kind of build plane
+	Kind BuildPlaneRefKind `json:"kind"`
+
+	// Name Name of the build plane resource
+	Name string `json:"name"`
+}
+
+// BuildPlaneRefKind Kind of build plane
+type BuildPlaneRefKind string
 
 // CapabilityResource Resource with permission details
 type CapabilityResource struct {
@@ -729,6 +742,30 @@ type ComponentWorkflowTemplateList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// Condition Kubernetes-style condition
+type Condition struct {
+	// LastTransitionTime Last time the condition transitioned
+	LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+	// Message Human-readable message
+	Message *string `json:"message,omitempty"`
+
+	// ObservedGeneration Generation observed when this condition was set
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// Reason Machine-readable reason for the condition
+	Reason string `json:"reason"`
+
+	// Status Status of the condition
+	Status ConditionStatus `json:"status"`
+
+	// Type Type of condition (e.g., Ready)
+	Type string `json:"type"`
+}
+
+// ConditionStatus Status of the condition
+type ConditionStatus string
+
 // ContainerOverride Container-level overrides
 type ContainerOverride struct {
 	Env   *[]EnvVar  `json:"env,omitempty"`
@@ -952,33 +989,16 @@ type CreateNamespaceRoleRequest struct {
 	Name string `json:"name"`
 }
 
-// CreateProjectRequest Request to create a new project
+// CreateProjectRequest Request to create a new project. Uses the Kubernetes object structure
+// (metadata + spec) without kind/apiVersion.
 type CreateProjectRequest struct {
-	// BuildPlaneRef Reference to the BuildPlane or ClusterBuildPlane for this project's build operations.
-	// If not specified, defaults to "default" BuildPlane in the same namespace.
-	BuildPlaneRef *struct {
-		// Kind Kind of build plane (BuildPlane or ClusterBuildPlane)
-		Kind CreateProjectRequestBuildPlaneRefKind `json:"kind"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-		// Name Name of the build plane resource
-		Name string `json:"name"`
-	} `json:"buildPlaneRef,omitempty"`
-
-	// DeploymentPipeline Deployment pipeline to use (defaults to namespace default)
-	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
-
-	// Description Project description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Project name (must be unique within namespace)
-	Name string `json:"name"`
+	// Spec Desired state of a Project
+	Spec *ProjectSpec `json:"spec,omitempty"`
 }
-
-// CreateProjectRequestBuildPlaneRefKind Kind of build plane (BuildPlane or ClusterBuildPlane)
-type CreateProjectRequestBuildPlaneRefKind string
 
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
@@ -1382,6 +1402,28 @@ type OAuthProtectedResourceMetadata struct {
 	ScopesSupported []string `json:"scopes_supported"`
 }
 
+// ObjectMeta Standard Kubernetes object metadata (without kind/apiVersion).
+// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+type ObjectMeta struct {
+	// Annotations Map of string keys and values for storing auxiliary data
+	Annotations *map[string]string `json:"annotations,omitempty"`
+
+	// CreationTimestamp Creation timestamp
+	CreationTimestamp *time.Time `json:"creationTimestamp,omitempty"`
+
+	// Labels Map of string keys and values for organizing resources
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Name Name of the resource (unique within namespace)
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Kubernetes namespace
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Uid Unique identifier (Kubernetes UID)
+	Uid *string `json:"uid,omitempty"`
+}
+
 // ObservabilityPlane ObservabilityPlane resource for monitoring and logging infrastructure
 type ObservabilityPlane struct {
 	// CreatedAt Creation timestamp
@@ -1472,44 +1514,19 @@ type PatchReleaseBindingRequest struct {
 	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
 }
 
-// Project Project resource
+// Project Project resource (Kubernetes object without kind/apiVersion).
+// Projects group components within a namespace and reference a deployment pipeline.
 type Project struct {
-	// BuildPlaneRef Reference to the BuildPlane or ClusterBuildPlane for this project's build operations
-	BuildPlaneRef *struct {
-		// Kind Kind of build plane (BuildPlane or ClusterBuildPlane)
-		Kind ProjectBuildPlaneRefKind `json:"kind"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-		// Name Name of the build plane resource
-		Name string `json:"name"`
-	} `json:"buildPlaneRef,omitempty"`
+	// Spec Desired state of a Project
+	Spec *ProjectSpec `json:"spec,omitempty"`
 
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// DeploymentPipeline Referenced deployment pipeline name
-	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
-
-	// Description Project description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Project name (unique within namespace)
-	Name string `json:"name"`
-
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
-	// Status Project status
-	Status *string `json:"status,omitempty"`
-
-	// Uid Unique identifier (Kubernetes UID)
-	Uid openapi_types.UUID `json:"uid"`
+	// Status Observed state of a Project
+	Status *ProjectStatus `json:"status,omitempty"`
 }
-
-// ProjectBuildPlaneRefKind Kind of build plane (BuildPlane or ClusterBuildPlane)
-type ProjectBuildPlaneRefKind string
 
 // ProjectList Paginated list of projects
 type ProjectList struct {
@@ -1517,7 +1534,26 @@ type ProjectList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// ProjectSpec Desired state of a Project
+type ProjectSpec struct {
+	// BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
+	BuildPlaneRef *BuildPlaneRef `json:"buildPlaneRef,omitempty"`
+
+	// DeploymentPipelineRef Reference to the DeploymentPipeline that defines the environments
+	// and deployment progression for components in this project.
+	DeploymentPipelineRef *string `json:"deploymentPipelineRef,omitempty"`
+}
+
+// ProjectStatus Observed state of a Project
+type ProjectStatus struct {
+	// Conditions Current state conditions of the Project
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed Project
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // PromoteComponentRequest Request to promote a component between environments
@@ -1925,6 +1961,17 @@ type UpdateNamespaceRoleRequest struct {
 
 	// Description Human-readable description of the role
 	Description *string `json:"description,omitempty"`
+}
+
+// UpdateProjectRequest Request to update an existing project. Uses the Kubernetes object structure
+// (metadata + spec) without kind/apiVersion.
+type UpdateProjectRequest struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Project
+	Spec *ProjectSpec `json:"spec,omitempty"`
 }
 
 // UpdateRoleMappingRequest Request to update a role mapping
@@ -2431,6 +2478,9 @@ type CreateEnvironmentJSONRequestBody = CreateEnvironmentRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
+
+// UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
+type UpdateProjectJSONRequestBody = UpdateProjectRequest
 
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = CreateComponentRequest

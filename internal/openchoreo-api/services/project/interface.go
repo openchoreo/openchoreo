@@ -6,15 +6,17 @@ package project
 import (
 	"context"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // Service defines the project service interface.
 // Both the core service (no authz) and the authz-wrapped service implement this.
+// Methods accept and return Kubernetes CRD types directly for alignment with
+// the K8s-native API design (discussion #1716).
 type Service interface {
-	CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error)
-	ListProjects(ctx context.Context, namespaceName string) ([]*models.ProjectResponse, error)
-	GetProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error)
+	CreateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error)
+	UpdateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error)
+	ListProjects(ctx context.Context, namespaceName string) ([]openchoreov1alpha1.Project, error)
+	GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error)
 	DeleteProject(ctx context.Context, namespaceName, projectName string) error
-	ProjectExists(ctx context.Context, namespaceName, projectName string) (bool, error)
 }

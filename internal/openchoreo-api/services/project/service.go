@@ -12,17 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 const (
 	defaultPipeline = "default"
-
-	statusReady    = "Ready"
-	statusNotReady = "NotReady"
-	statusUnknown  = "Unknown"
 )
 
 // projectService handles project-related business logic without authorization checks.
@@ -42,36 +36,90 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	}
 }
 
-func (s *projectService) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
-	if req == nil {
-		return nil, fmt.Errorf("create project request cannot be nil")
+func (s *projectService) CreateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
+	if project == nil {
+		return nil, fmt.Errorf("project cannot be nil")
 	}
 
-	s.logger.Debug("Creating project", "namespace", namespaceName, "project", req.Name)
+	s.logger.Debug("Creating project", "namespace", namespaceName, "project", project.Name)
 
-	req.Sanitize()
-
-	exists, err := s.ProjectExists(ctx, namespaceName, req.Name)
+	exists, err := s.projectExists(ctx, namespaceName, project.Name)
 	if err != nil {
 		s.logger.Error("Failed to check project existence", "error", err)
 		return nil, fmt.Errorf("failed to check project existence: %w", err)
 	}
 	if exists {
-		s.logger.Warn("Project already exists", "namespace", namespaceName, "project", req.Name)
+		s.logger.Warn("Project already exists", "namespace", namespaceName, "project", project.Name)
 		return nil, ErrProjectAlreadyExists
 	}
 
-	projectCR := s.buildProjectCR(namespaceName, req)
-	if err := s.k8sClient.Create(ctx, projectCR); err != nil {
+	// Set defaults
+	project.TypeMeta = metav1.TypeMeta{
+		Kind:       "Project",
+		APIVersion: "core.choreo.dev/v1alpha1",
+	}
+	project.Namespace = namespaceName
+	if project.Labels == nil {
+		project.Labels = make(map[string]string)
+	}
+	project.Labels[labels.LabelKeyNamespaceName] = namespaceName
+	project.Labels[labels.LabelKeyName] = project.Name
+
+	if project.Spec.DeploymentPipelineRef == "" {
+		project.Spec.DeploymentPipelineRef = defaultPipeline
+	}
+
+	if err := s.k8sClient.Create(ctx, project); err != nil {
 		s.logger.Error("Failed to create project CR", "error", err)
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
 
-	s.logger.Debug("Project created successfully", "namespace", namespaceName, "project", req.Name)
-	return s.toProjectResponse(projectCR), nil
+	s.logger.Debug("Project created successfully", "namespace", namespaceName, "project", project.Name)
+	return project, nil
 }
 
-func (s *projectService) ListProjects(ctx context.Context, namespaceName string) ([]*models.ProjectResponse, error) {
+func (s *projectService) UpdateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
+	if project == nil {
+		return nil, fmt.Errorf("project cannot be nil")
+	}
+
+	s.logger.Debug("Updating project", "namespace", namespaceName, "project", project.Name)
+
+	existing := &openchoreov1alpha1.Project{}
+	key := client.ObjectKey{
+		Name:      project.Name,
+		Namespace: namespaceName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Project not found", "namespace", namespaceName, "project", project.Name)
+			return nil, ErrProjectNotFound
+		}
+		s.logger.Error("Failed to get project", "error", err)
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	// Update mutable fields
+	existing.Spec = project.Spec
+	existing.Annotations = project.Annotations
+	if existing.Labels == nil {
+		existing.Labels = make(map[string]string)
+	}
+	for k, v := range project.Labels {
+		existing.Labels[k] = v
+	}
+
+	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		s.logger.Error("Failed to update project CR", "error", err)
+		return nil, fmt.Errorf("failed to update project: %w", err)
+	}
+
+	s.logger.Debug("Project updated successfully", "namespace", namespaceName, "project", project.Name)
+	return existing, nil
+}
+
+func (s *projectService) ListProjects(ctx context.Context, namespaceName string) ([]openchoreov1alpha1.Project, error) {
 	s.logger.Debug("Listing projects", "namespace", namespaceName)
 
 	var projectList openchoreov1alpha1.ProjectList
@@ -84,16 +132,11 @@ func (s *projectService) ListProjects(ctx context.Context, namespaceName string)
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 
-	projects := make([]*models.ProjectResponse, 0, len(projectList.Items))
-	for i := range projectList.Items {
-		projects = append(projects, s.toProjectResponse(&projectList.Items[i]))
-	}
-
-	s.logger.Debug("Listed projects", "namespace", namespaceName, "count", len(projects))
-	return projects, nil
+	s.logger.Debug("Listed projects", "namespace", namespaceName, "count", len(projectList.Items))
+	return projectList.Items, nil
 }
 
-func (s *projectService) GetProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error) {
+func (s *projectService) GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error) {
 	s.logger.Debug("Getting project", "namespace", namespaceName, "project", projectName)
 
 	project := &openchoreov1alpha1.Project{}
@@ -111,7 +154,7 @@ func (s *projectService) GetProject(ctx context.Context, namespaceName, projectN
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	return s.toProjectResponse(project), nil
+	return project, nil
 }
 
 func (s *projectService) DeleteProject(ctx context.Context, namespaceName, projectName string) error {
@@ -141,7 +184,7 @@ func (s *projectService) DeleteProject(ctx context.Context, namespaceName, proje
 	return nil
 }
 
-func (s *projectService) ProjectExists(ctx context.Context, namespaceName, projectName string) (bool, error) {
+func (s *projectService) projectExists(ctx context.Context, namespaceName, projectName string) (bool, error) {
 	project := &openchoreov1alpha1.Project{}
 	key := client.ObjectKey{
 		Name:      projectName,
@@ -156,81 +199,4 @@ func (s *projectService) ProjectExists(ctx context.Context, namespaceName, proje
 		return false, fmt.Errorf("checking existence of project %s/%s: %w", namespaceName, projectName, err)
 	}
 	return true, nil
-}
-
-func (s *projectService) buildProjectCR(namespaceName string, req *models.CreateProjectRequest) *openchoreov1alpha1.Project {
-	deploymentPipeline := req.DeploymentPipeline
-	if deploymentPipeline == "" {
-		deploymentPipeline = defaultPipeline
-	}
-
-	projectSpec := openchoreov1alpha1.ProjectSpec{
-		DeploymentPipelineRef: deploymentPipeline,
-	}
-
-	if req.BuildPlaneRef != nil {
-		projectSpec.BuildPlaneRef = &openchoreov1alpha1.BuildPlaneRef{
-			Kind: openchoreov1alpha1.BuildPlaneRefKind(req.BuildPlaneRef.Kind),
-			Name: req.BuildPlaneRef.Name,
-		}
-	}
-
-	return &openchoreov1alpha1.Project{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Project",
-			APIVersion: "openchoreo.dev/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: namespaceName,
-			Annotations: map[string]string{
-				controller.AnnotationKeyDisplayName: req.DisplayName,
-				controller.AnnotationKeyDescription: req.Description,
-			},
-			Labels: map[string]string{
-				labels.LabelKeyNamespaceName: namespaceName,
-				labels.LabelKeyName:          req.Name,
-			},
-		},
-		Spec: projectSpec,
-	}
-}
-
-func (s *projectService) toProjectResponse(project *openchoreov1alpha1.Project) *models.ProjectResponse {
-	displayName := project.Annotations[controller.AnnotationKeyDisplayName]
-	description := project.Annotations[controller.AnnotationKeyDescription]
-
-	status := statusUnknown
-	if len(project.Status.Conditions) > 0 {
-		latestCondition := project.Status.Conditions[len(project.Status.Conditions)-1]
-		if latestCondition.Status == metav1.ConditionTrue {
-			status = statusReady
-		} else {
-			status = statusNotReady
-		}
-	}
-
-	response := &models.ProjectResponse{
-		UID:                string(project.UID),
-		Name:               project.Name,
-		NamespaceName:      project.Namespace,
-		DisplayName:        displayName,
-		Description:        description,
-		DeploymentPipeline: project.Spec.DeploymentPipelineRef,
-		CreatedAt:          project.CreationTimestamp.Time,
-		Status:             status,
-	}
-
-	if project.Spec.BuildPlaneRef != nil {
-		response.BuildPlaneRef = &models.BuildPlaneRef{
-			Kind: string(project.Spec.BuildPlaneRef.Kind),
-			Name: project.Spec.BuildPlaneRef.Name,
-		}
-	}
-
-	if project.DeletionTimestamp != nil {
-		response.DeletionTimestamp = &project.DeletionTimestamp.Time
-	}
-
-	return response
 }

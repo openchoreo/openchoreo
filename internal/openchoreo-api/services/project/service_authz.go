@@ -10,13 +10,14 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 const (
 	actionCreateProject = "project:create"
+	actionUpdateProject = "project:update"
 	actionViewProject   = "project:view"
 	actionDeleteProject = "project:delete"
 
@@ -40,25 +41,37 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 	}
 }
 
-func (s *projectServiceWithAuthz) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
+func (s *projectServiceWithAuthz) CreateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionCreateProject,
 		ResourceType: resourceTypeProject,
-		ResourceID:   req.Name,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: req.Name},
+		ResourceID:   project.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: project.Name},
 	}); err != nil {
 		return nil, err
 	}
-	return s.internal.CreateProject(ctx, namespaceName, req)
+	return s.internal.CreateProject(ctx, namespaceName, project)
 }
 
-func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceName string) ([]*models.ProjectResponse, error) {
+func (s *projectServiceWithAuthz) UpdateProject(ctx context.Context, namespaceName string, project *openchoreov1alpha1.Project) (*openchoreov1alpha1.Project, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateProject,
+		ResourceType: resourceTypeProject,
+		ResourceID:   project.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: project.Name},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateProject(ctx, namespaceName, project)
+}
+
+func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceName string) ([]openchoreov1alpha1.Project, error) {
 	allProjects, err := s.internal.ListProjects(ctx, namespaceName)
 	if err != nil {
 		return nil, err
 	}
 
-	authorized := make([]*models.ProjectResponse, 0, len(allProjects))
+	authorized := make([]openchoreov1alpha1.Project, 0, len(allProjects))
 	for _, p := range allProjects {
 		if err := s.authz.Check(ctx, services.CheckRequest{
 			Action:       actionViewProject,
@@ -77,7 +90,7 @@ func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceNam
 	return authorized, nil
 }
 
-func (s *projectServiceWithAuthz) GetProject(ctx context.Context, namespaceName, projectName string) (*models.ProjectResponse, error) {
+func (s *projectServiceWithAuthz) GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionViewProject,
 		ResourceType: resourceTypeProject,
@@ -99,8 +112,4 @@ func (s *projectServiceWithAuthz) DeleteProject(ctx context.Context, namespaceNa
 		return err
 	}
 	return s.internal.DeleteProject(ctx, namespaceName, projectName)
-}
-
-func (s *projectServiceWithAuthz) ProjectExists(ctx context.Context, namespaceName, projectName string) (bool, error) {
-	return s.internal.ProjectExists(ctx, namespaceName, projectName)
 }
