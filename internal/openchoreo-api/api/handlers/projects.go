@@ -49,7 +49,7 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	projectCR, err := convert[gen.CreateProjectRequest, openchoreov1alpha1.Project](*request.Body)
+	projectCR, err := convert[gen.Project, openchoreov1alpha1.Project](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateProject400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
@@ -116,7 +116,7 @@ func (h *Handler) UpdateProject(
 		return gen.UpdateProject400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	projectCR, err := convert[gen.UpdateProjectRequest, openchoreov1alpha1.Project](*request.Body)
+	projectCR, err := convert[gen.Project, openchoreov1alpha1.Project](*request.Body)
 	if err != nil {
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateProject400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil

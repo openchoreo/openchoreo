@@ -304,7 +304,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateProjectRequest'
+              $ref: '#/components/schemas/Project'
       responses:
         '201':
           description: Project created successfully
@@ -361,7 +361,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateProjectRequest'
+              $ref: '#/components/schemas/Project'
       responses:
         '200':
           description: Project updated successfully
@@ -3676,31 +3676,6 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    CreateProjectRequest:
-      type: object
-      description: |
-        Request to create a new project. Uses the Kubernetes object structure
-        (metadata + spec) without kind/apiVersion.
-      required:
-        - metadata
-      properties:
-        metadata:
-          $ref: '#/components/schemas/ObjectMeta'
-        spec:
-          $ref: '#/components/schemas/ProjectSpec'
-
-    UpdateProjectRequest:
-      type: object
-      description: |
-        Request to update an existing project. Uses the Kubernetes object structure
-        (metadata + spec) without kind/apiVersion.
-      required:
-        - metadata
-      properties:
-        metadata:
-          $ref: '#/components/schemas/ObjectMeta'
-        spec:
-          $ref: '#/components/schemas/ProjectSpec'
 
     # -------------------------------------------------------------------------
     # Components

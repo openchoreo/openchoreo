@@ -989,17 +989,6 @@ type CreateNamespaceRoleRequest struct {
 	Name string `json:"name"`
 }
 
-// CreateProjectRequest Request to create a new project. Uses the Kubernetes object structure
-// (metadata + spec) without kind/apiVersion.
-type CreateProjectRequest struct {
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Desired state of a Project
-	Spec *ProjectSpec `json:"spec,omitempty"`
-}
-
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
 	// Parameters User-defined workflow parameters
@@ -1963,17 +1952,6 @@ type UpdateNamespaceRoleRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// UpdateProjectRequest Request to update an existing project. Uses the Kubernetes object structure
-// (metadata + spec) without kind/apiVersion.
-type UpdateProjectRequest struct {
-	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
-	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
-	Metadata ObjectMeta `json:"metadata"`
-
-	// Spec Desired state of a Project
-	Spec *ProjectSpec `json:"spec,omitempty"`
-}
-
 // UpdateRoleMappingRequest Request to update a role mapping
 type UpdateRoleMappingRequest struct {
 	// Context Additional context for authorization
@@ -2477,10 +2455,10 @@ type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
 type CreateEnvironmentJSONRequestBody = CreateEnvironmentRequest
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
-type CreateProjectJSONRequestBody = CreateProjectRequest
+type CreateProjectJSONRequestBody = Project
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
-type UpdateProjectJSONRequestBody = UpdateProjectRequest
+type UpdateProjectJSONRequestBody = Project
 
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = CreateComponentRequest
