@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 

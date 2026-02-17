@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net/http"
 
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 )
 
 // ListSecretReferences handles GET /api/v1/namespaces/{namespaceName}/secret-references

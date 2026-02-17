@@ -33,7 +33,11 @@ func NewAuthzChecker(pdp authz.PDP, logger *slog.Logger) *AuthzChecker {
 
 // Check performs a single authorization check.
 func (c *AuthzChecker) Check(ctx context.Context, req CheckRequest) error {
-	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
+	authSubjectCtx, ok := auth.GetSubjectContextFromContext(ctx)
+	if !ok || authSubjectCtx == nil {
+		return fmt.Errorf("failed to get user information from token")
+	}
+
 	authzSubjectCtx := authz.GetAuthzSubjectContext(authSubjectCtx)
 
 	evalReq := &authz.EvaluateRequest{
@@ -71,7 +75,11 @@ func (c *AuthzChecker) BatchCheck(ctx context.Context, requests []CheckRequest) 
 		return nil, nil
 	}
 
-	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
+	authSubjectCtx, ok := auth.GetSubjectContextFromContext(ctx)
+	if !ok || authSubjectCtx == nil {
+		return nil, fmt.Errorf("failed to get user information from token")
+	}
+
 	authzSubjectCtx := authz.GetAuthzSubjectContext(authSubjectCtx)
 
 	evalRequests := make([]authz.EvaluateRequest, len(requests))

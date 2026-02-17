@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 type ListComponentsResponse struct {

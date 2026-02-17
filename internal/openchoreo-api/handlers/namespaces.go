@@ -8,8 +8,8 @@ import (
 	"errors"
 	"net/http"
 
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // ListNamespaces handles GET /api/v1/namespaces

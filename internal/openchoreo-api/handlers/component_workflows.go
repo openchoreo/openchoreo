@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strconv"
 
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 

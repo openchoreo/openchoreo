@@ -1,4 +1,3 @@
-
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
@@ -44,6 +43,10 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 }
 
 func (s *projectService) CreateProject(ctx context.Context, namespaceName string, req *models.CreateProjectRequest) (*models.ProjectResponse, error) {
+	if req == nil {
+		return nil, fmt.Errorf("create project request cannot be nil")
+	}
+
 	s.logger.Debug("Creating project", "namespace", namespaceName, "project", req.Name)
 
 	req.Sanitize()
@@ -150,7 +153,7 @@ func (s *projectService) ProjectExists(ctx context.Context, namespaceName, proje
 		if client.IgnoreNotFound(err) == nil {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("checking existence of project %s/%s: %w", namespaceName, projectName, err)
 	}
 	return true, nil
 }

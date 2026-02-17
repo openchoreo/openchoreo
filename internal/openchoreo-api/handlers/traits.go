@@ -7,8 +7,8 @@ import (
 	"errors"
 	"net/http"
 
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 )
 

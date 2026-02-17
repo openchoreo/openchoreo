@@ -11,8 +11,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 const (

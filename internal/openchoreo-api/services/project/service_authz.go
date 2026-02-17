@@ -8,10 +8,11 @@ import (
 	"errors"
 	"log/slog"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
