@@ -51,7 +51,6 @@ class Settings(BaseSettings):
     jwt_jwks_refresh_interval: int = 3600  # seconds (1 hour)
 
     # Authorization settings
-    authz_enabled: bool = False
     authz_timeout_seconds: int = 30
 
     @property

@@ -27,7 +27,6 @@ def get_authz_client() -> AuthzClient:
         _authz_client = AuthzClient(
             base_url=settings.authz_service_url,
             timeout=settings.authz_timeout_seconds,
-            disabled=not settings.authz_enabled,
             verify_ssl=not settings.tls_insecure_skip_verify,
         )
     return _authz_client
@@ -134,10 +133,6 @@ class AuthorizationChecker:
             return None
 
         client = get_authz_client()
-
-        if client.disabled:
-            logger.info("Authorization disabled, skipping authz check")
-            return subject
 
         logger.info(
             "Authorization check: action=%s, resource_type=%s, subject_type=%s",

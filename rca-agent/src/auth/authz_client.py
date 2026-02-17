@@ -12,20 +12,16 @@ logger = logging.getLogger(__name__)
 
 
 class AuthzClient:
-    def __init__(self, base_url: str, timeout: float, disabled: bool, verify_ssl: bool = True):
+    def __init__(self, base_url: str, timeout: float, verify_ssl: bool = True):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self.disabled = disabled
         self.verify_ssl = verify_ssl
         self._client: httpx.AsyncClient | None = None
 
-        if disabled:
-            logger.info("Authorization is disabled")
-        else:
-            logger.info(
-                "Authorization client initialized",
-                extra={"service_url": base_url, "timeout": timeout},
-            )
+        logger.info(
+            "Authorization client initialized",
+            extra={"service_url": base_url, "timeout": timeout},
+        )
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -41,16 +37,13 @@ class AuthzClient:
             self._client = None
 
     async def evaluate(self, request: EvaluateRequest, auth_token: str | None = None) -> Decision:
-        if self.disabled:
-            return Decision(decision=True)
-
         url = f"{self.base_url}/api/v1/authz/evaluate"
         headers = {"Content-Type": "application/json"}
 
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
-        body = request.model_dump(by_alias=True)
+        body = request.model_dump()
 
         logger.debug("Authz request", extra={"url": url, "body": body})
 
