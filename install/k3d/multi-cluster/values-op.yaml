@@ -9,7 +9,6 @@ openSearchCluster:
   adminPassword: "ThisIsTheOpenSearchPassword1"
 
 observer:
-  controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
   openSearchSecretName: observer-opensearch-credentials
   extraEnvs:
   - name: OBSERVER_BASE_URL
@@ -76,7 +75,6 @@ prometheus:
       type: LoadBalancer
 
 rca:
-  controlPlaneUrl: "http://api.openchoreo.localhost:8080"
   http:
     hostnames:
     - host.k3d.internal

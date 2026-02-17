@@ -1472,7 +1472,7 @@
       "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
       "properties": {
         "controlPlaneApiUrl": {
-          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "default": "http://api.openchoreo.localhost:8080",
           "description": "Control plane API base URL used by observer",
           "title": "controlPlaneApiUrl",
           "type": "string"
@@ -3432,7 +3432,7 @@
           "type": "object"
         },
         "controlPlaneUrl": {
-          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "default": "http://api.openchoreo.localhost:8080",
           "description": "Control plane API base URL used by rca-agent",
           "title": "controlPlaneUrl",
           "type": "string"

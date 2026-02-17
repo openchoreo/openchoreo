@@ -769,9 +769,9 @@ observer:
   # @schema
   # type: string
   # description: Control plane API base URL used by observer
-  # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  # default: "http://api.openchoreo.localhost:8080"
   # @schema
-  controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
   # type: object
@@ -2945,9 +2945,9 @@ rca:
   # @schema
   # type: string
   # description: Control plane API base URL used by rca-agent
-  # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  # default: "http://api.openchoreo.localhost:8080"
   # @schema
-  controlPlaneUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  controlPlaneUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
   # type: object
