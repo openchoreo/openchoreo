@@ -11,7 +11,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // ListNamespaces returns a paginated list of namespaces

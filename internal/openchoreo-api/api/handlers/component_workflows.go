@@ -14,7 +14,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // ListComponentWorkflows returns a list of component workflows

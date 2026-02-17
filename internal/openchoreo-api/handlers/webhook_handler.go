@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services/git"
 )
 
 const (

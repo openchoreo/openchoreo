@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // ListDataPlanes handles GET /api/v1/namespaces/{namespaceName}/dataplanes

@@ -9,7 +9,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 type ListComponentsResponse struct {

@@ -10,7 +10,7 @@ import (
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 

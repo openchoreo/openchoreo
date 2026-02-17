@@ -6,7 +6,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // ListClusterBuildPlanes handles GET /api/v1/clusterbuildplanes

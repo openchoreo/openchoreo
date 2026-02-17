@@ -1,7 +1,7 @@
 // Copyright 2025 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package services
+package legacy_services
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services/git"
 )
 
 // WebhookService handles webhook processing for all git providers

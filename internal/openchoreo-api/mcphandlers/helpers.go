@@ -4,7 +4,7 @@
 package mcphandlers
 
 import (
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 type MCPHandler struct {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 )
 
 // errNotImplemented is returned for stub methods that are not yet implemented.

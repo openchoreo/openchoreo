@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacy_services"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/jwt"
