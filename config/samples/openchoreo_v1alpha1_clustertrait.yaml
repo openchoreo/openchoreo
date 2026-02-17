@@ -1,0 +1,52 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: clustertrait-sample
+spec:
+  schema:
+    parameters:
+      volumeName: "string | required=true"
+      mountPath: "string | required=true"
+      containerName: "string | default=app"
+
+    envOverrides:
+      size: "string | default=10Gi"
+      storageClass: "string | default=standard"
+
+  creates:
+    - targetPlane: dataplane
+      template:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: ${metadata.name}-${parameters.volumeName}
+          namespace: ${metadata.namespace}
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: ${envOverrides.size}
+          storageClassName: ${envOverrides.storageClass}
+
+  patches:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      targetPlane: dataplane
+      operations:
+        - op: add
+          path: /spec/template/spec/volumes/-
+          value:
+            name: ${parameters.volumeName}
+            persistentVolumeClaim:
+              claimName: ${metadata.name}-${parameters.volumeName}
+        - op: add
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
+          value:
+            name: ${parameters.volumeName}
+            mountPath: ${parameters.mountPath}
