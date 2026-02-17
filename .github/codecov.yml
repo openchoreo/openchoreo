@@ -16,3 +16,6 @@ ignore:
   - "api/v1alpha1/groupversion_info.go"  # Generated CRD group/version boilerplate
   - "internal/openchoreo-api/api/gen"    # Generated OpenAPI server, client, and models
 
+comment:
+  hide_project_coverage: false
+
