@@ -34,6 +34,7 @@ resources:
   - bases/openchoreo.dev_clusterdataplanes.yaml
   - bases/openchoreo.dev_clusterobservabilityplanes.yaml
   - bases/openchoreo.dev_clustercomponenttypes.yaml
+  - bases/openchoreo.dev_clustertraits.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

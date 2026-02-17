@@ -265,4 +265,12 @@ resources:
   kind: ClusterComponentType
   path: github.com/openchoreo/openchoreo/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: openchoreo.dev
+  group: openchoreo.dev
+  kind: ClusterTrait
+  path: github.com/openchoreo/openchoreo/api/v1alpha1
+  version: v1alpha1
 version: "3"

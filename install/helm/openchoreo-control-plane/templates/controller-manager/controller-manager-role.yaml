@@ -65,6 +65,7 @@ rules:
     - clustercomponenttypes
     - clusterdataplanes
     - clusterobservabilityplanes
+    - clustertraits
     - componentreleases
     - components
     - componenttypes
@@ -101,6 +102,7 @@ rules:
     - clustercomponenttypes/finalizers
     - clusterdataplanes/finalizers
     - clusterobservabilityplanes/finalizers
+    - clustertraits/finalizers
     - componentreleases/finalizers
     - components/finalizers
     - componenttypes/finalizers
@@ -132,6 +134,7 @@ rules:
     - clustercomponenttypes/status
     - clusterdataplanes/status
     - clusterobservabilityplanes/status
+    - clustertraits/status
     - componentreleases/status
     - components/status
     - componenttypes/status
