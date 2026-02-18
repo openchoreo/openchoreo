@@ -47,19 +47,3 @@ jobs:
           subjectPatternError: |
             The subject must start with a lowercase letter, got: "{subject}".
             Example: "feat(api): add user endpoint"
-
-  # TODO: Remove this job once we move for squash-only merge
-  # with "Default to PR title for squash merge commits" enabled.
-  validate-commits:
-    name: Validate commit messages
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
-        with:
-          configFile: .github/commitlint.config.mjs

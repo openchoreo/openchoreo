@@ -8,7 +8,7 @@ Examples:
   docs: update contributor guide
   chore(deps): bump sigs.k8s.io/controller-runtime
 
-See: docs/contributors/github_workflow.md#commit-message-convention
+See: docs/contributors/github_workflow.md#pr-title-convention
 -->
 
 ## Purpose
