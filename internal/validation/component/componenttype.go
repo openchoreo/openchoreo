@@ -271,7 +271,7 @@ func ValidateClusterComponentTypeResourcesWithSchema(
 	parametersSchema *apiextschema.Structural,
 	envOverridesSchema *apiextschema.Structural,
 ) field.ErrorList {
-	return validateResourcesWithSchema(cct.Spec.Resources, nil, parametersSchema, envOverridesSchema)
+	return validateResourcesWithSchema(cct.Spec.Resources, cct.Spec.Validations, parametersSchema, envOverridesSchema)
 }
 
 // validateResourcesWithSchema validates resource templates and validation rules with schema-aware CEL type checking.

@@ -112,6 +112,86 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 	resourceErrs := validateResourceStructure(cct)
 	allErrs = append(allErrs, resourceErrs...)
 
+	// Validate embedded traits
+	embeddedTraitErrs := validateEmbeddedTraits(cct)
+	allErrs = append(allErrs, embeddedTraitErrs...)
+
+	// Validate allowedTraits
+	allowedTraitErrs := validateAllowedTraits(cct)
+	allErrs = append(allErrs, allowedTraitErrs...)
+
+	return allErrs
+}
+
+// validateEmbeddedTraits validates the embedded traits in a ClusterComponentType.
+func validateEmbeddedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) field.ErrorList {
+	allErrs := field.ErrorList{}
+	traitsPath := field.NewPath("spec", "traits")
+
+	instanceNames := make(map[string]int)
+	for i, trait := range cct.Spec.Traits {
+		traitPath := traitsPath.Index(i)
+
+		// Validate non-empty name
+		if trait.Name == "" {
+			allErrs = append(allErrs, field.Required(traitPath.Child("name"), "trait name is required"))
+		}
+
+		// Validate non-empty instanceName
+		if trait.InstanceName == "" {
+			allErrs = append(allErrs, field.Required(traitPath.Child("instanceName"), "trait instanceName is required"))
+		}
+
+		// Check for duplicate instanceNames
+		if prevIdx, exists := instanceNames[trait.InstanceName]; exists {
+			allErrs = append(allErrs, field.Duplicate(
+				traitPath.Child("instanceName"),
+				fmt.Sprintf("instanceName %q is already used by trait at index %d", trait.InstanceName, prevIdx),
+			))
+		}
+		instanceNames[trait.InstanceName] = i
+	}
+
+	return allErrs
+}
+
+// validateAllowedTraits validates the allowedTraits list in a ClusterComponentType.
+func validateAllowedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) field.ErrorList {
+	allErrs := field.ErrorList{}
+	allowedPath := field.NewPath("spec", "allowedTraits")
+
+	// Build set of embedded trait names for overlap check
+	embeddedTraitNames := make(map[string]bool)
+	for _, trait := range cct.Spec.Traits {
+		embeddedTraitNames[trait.Name] = true
+	}
+
+	seen := make(map[string]bool)
+	for i, traitName := range cct.Spec.AllowedTraits {
+		entryPath := allowedPath.Index(i)
+
+		// Validate non-empty
+		if traitName == "" {
+			allErrs = append(allErrs, field.Required(entryPath, "allowed trait name must not be empty"))
+			continue
+		}
+
+		// Check for duplicates
+		if seen[traitName] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, traitName))
+		}
+		seen[traitName] = true
+
+		// Check for overlap with embedded traits
+		if embeddedTraitNames[traitName] {
+			allErrs = append(allErrs, field.Invalid(
+				entryPath,
+				traitName,
+				"trait is already embedded in spec.traits and cannot also be in allowedTraits",
+			))
+		}
+	}
+
 	return allErrs
 }
 

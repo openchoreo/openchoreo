@@ -82,6 +82,9 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 			WorkloadType:     cct.Spec.WorkloadType,
 			AllowedWorkflows: cct.Spec.AllowedWorkflows,
 			Schema:           cct.Spec.Schema,
+			Traits:           cct.Spec.Traits,
+			AllowedTraits:    cct.Spec.AllowedTraits,
+			Validations:      cct.Spec.Validations,
 			Resources:        cct.Spec.Resources,
 		}
 		return &spec, nil

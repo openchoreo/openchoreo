@@ -349,6 +349,9 @@ func (r *Reconciler) validateComponentWorkflow(
 				WorkloadType:     cct.Spec.WorkloadType,
 				AllowedWorkflows: cct.Spec.AllowedWorkflows,
 				Schema:           cct.Spec.Schema,
+				Traits:           cct.Spec.Traits,
+				AllowedTraits:    cct.Spec.AllowedTraits,
+				Validations:      cct.Spec.Validations,
 				Resources:        cct.Spec.Resources,
 			},
 		}

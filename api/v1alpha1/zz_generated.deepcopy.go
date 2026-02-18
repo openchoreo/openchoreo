@@ -844,6 +844,23 @@ func (in *ClusterComponentTypeSpec) DeepCopyInto(out *ClusterComponentTypeSpec) 
 		copy(*out, *in)
 	}
 	in.Schema.DeepCopyInto(&out.Schema)
+	if in.Traits != nil {
+		in, out := &in.Traits, &out.Traits
+		*out = make([]ComponentTypeTrait, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.AllowedTraits != nil {
+		in, out := &in.AllowedTraits, &out.AllowedTraits
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Validations != nil {
+		in, out := &in.Validations, &out.Validations
+		*out = make([]ValidationRule, len(*in))
+		copy(*out, *in)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = make([]ResourceTemplate, len(*in))
