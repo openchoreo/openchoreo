@@ -270,9 +270,13 @@ func (r *Reconciler) buildMetadataContext(
 
 	// Build pod selectors
 	podSelectors := map[string]string{
-		labels.LabelKeyComponentUID:   componentUID,
-		labels.LabelKeyEnvironmentUID: environmentUID,
-		labels.LabelKeyProjectUID:     projectUID,
+		labels.LabelKeyNamespaceName:   namespaceName,
+		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyComponentName:   componentName,
+		labels.LabelKeyEnvironmentName: environmentName,
+		labels.LabelKeyComponentUID:    componentUID,
+		labels.LabelKeyEnvironmentUID:  environmentUID,
+		labels.LabelKeyProjectUID:      projectUID,
 	}
 
 	return pipelinecontext.MetadataContext{

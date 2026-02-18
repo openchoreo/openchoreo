@@ -870,6 +870,10 @@ spec:
 					},
 					Annotations: map[string]string{},
 					PodSelectors: map[string]string{
+						"openchoreo.dev/namespace":       "test-namespace",
+						"openchoreo.dev/project":         "test-project",
+						"openchoreo.dev/component":       "test-app",
+						"openchoreo.dev/environment":     "dev",
 						"openchoreo.dev/component-uid":   "a1b2c3d4-5678-90ab-cdef-1234567890ab",
 						"openchoreo.dev/environment-uid": "d4e5f6a7-8901-23de-f012-4567890abcde",
 						"openchoreo.dev/project-uid":     "b2c3d4e5-6789-01bc-def0-234567890abc",

@@ -66,6 +66,10 @@ type MetadataContext struct {
 	// PodSelectors are platform-injected selectors for pod identity.
 	// Used in Deployment selectors, Service selectors, etc.
 	// Example: {
+	//   "openchoreo.dev/namespace": "dp-acme-corp-payment-dev-x1y2z3w4",
+	//   "openchoreo.dev/project": "acme-corp",
+	//   "openchoreo.dev/component": "payment",
+	//   "openchoreo.dev/environment": "dev",
 	//   "openchoreo.dev/component-uid": "abc123",
 	//   "openchoreo.dev/environment-uid": "dev",
 	//   "openchoreo.dev/project-uid": "xyz789",
