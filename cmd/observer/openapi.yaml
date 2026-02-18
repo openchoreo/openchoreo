@@ -288,6 +288,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/workflow-runs/{runId}/logs:
+    post:
+      tags:
+        - Logs
+      summary: Get workflow run logs
+      description: Retrieve logs for a specific workflow run by its run ID
+      operationId: getWorkflowRunLogs
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          description: The unique identifier of the workflow run
+          schema:
+            type: string
+            example: "wfr-abc123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowRunLogsRequest'
+      responses:
+        '200':
+          description: Successfully retrieved workflow run logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/logs/component/{componentId}:
     post:
       tags:
@@ -670,6 +723,41 @@ components:
           type: string
           description: Namespace name
           example: "my-namespace"
+
+    WorkflowRunLogsRequest:
+      type: object
+      required:
+        - namespaceName
+        - startTime
+        - endTime
+      properties:
+        namespaceName:
+          type: string
+          description: Namespace name (required for authorization)
+          example: "reading-list-service-workflow-290506e5"
+        startTime:
+          type: string
+          format: date-time
+          description: Start time for log query in RFC3339 format
+          example: "2025-01-10T00:00:00Z"
+        endTime:
+          type: string
+          format: date-time
+          description: End time for log query in RFC3339 format
+          example: "2025-01-10T23:59:59Z"
+        limit:
+          type: integer
+          description: Maximum number of log entries to return
+          default: 100
+          minimum: 1
+          maximum: 10000
+          example: 100
+        sortOrder:
+          type: string
+          description: Sort order for logs (workflow run logs are sorted in ascending order by default)
+          enum: [asc, desc]
+          default: asc
+          example: "asc"
 
     ComponentLogsRequest:
       type: object
