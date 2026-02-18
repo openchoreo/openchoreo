@@ -3231,6 +3231,8 @@ components:
       description: |
         Standard Kubernetes object metadata (without kind/apiVersion).
         Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+      required:
+        - name
       properties:
         name:
           type: string
