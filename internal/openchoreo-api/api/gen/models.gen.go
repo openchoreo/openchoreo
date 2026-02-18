@@ -1511,9 +1511,7 @@ type Project struct {
 	Metadata ObjectMeta `json:"metadata"`
 
 	// Spec Desired state of a Project
-	Spec *ProjectSpec `json:"spec,omitempty"`
-
-	// Status Observed state of a Project
+	Spec   *ProjectSpec   `json:"spec,omitempty"`
 	Status *ProjectStatus `json:"status,omitempty"`
 }
 

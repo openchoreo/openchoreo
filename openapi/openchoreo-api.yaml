@@ -3663,7 +3663,9 @@ components:
         spec:
           $ref: '#/components/schemas/ProjectSpec'
         status:
-          $ref: '#/components/schemas/ProjectStatus'
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ProjectStatus'
 
     ProjectList:
       type: object
