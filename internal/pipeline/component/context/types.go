@@ -231,10 +231,13 @@ type ContainerData struct {
 
 // EndpointData contains endpoint information.
 type EndpointData struct {
-	Visibility string      `json:"visibility"`
-	Type       string      `json:"type"`
-	Port       int32       `json:"port"`
-	Schema     *SchemaData `json:"schema,omitempty"`
+	DisplayName string      `json:"displayName,omitempty"`
+	Port        int32       `json:"port"`
+	TargetPort  int32       `json:"targetPort"`
+	Type        string      `json:"type"`
+	BasePath    string      `json:"basePath,omitempty"`
+	Schema      *SchemaData `json:"schema,omitempty"`
+	Visibility  []string    `json:"visibility"`
 }
 
 // SchemaData contains API schema information for an endpoint.

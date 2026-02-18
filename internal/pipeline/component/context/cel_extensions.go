@@ -710,6 +710,27 @@ func generateEnvResourceName(prefix, container, suffix string) string {
 	)
 }
 
+// toInt64 converts a numeric value (int, int32, int64, float64) to int64.
+// Returns (value, true) on success, or (0, false) if the value is not a supported numeric type.
+// For float64 values, returns an error-indicating (0, false) if the value is not a whole number.
+func toInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case float64:
+		if math.Trunc(n) != n {
+			return 0, false
+		}
+		return int64(n), true
+	case int:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	default:
+		return 0, false
+	}
+}
+
 // workloadToServicePortsFunction is the CEL binding for workload.toServicePorts().
 // Returns a list of Service port definitions, each containing: name, port, targetPort, protocol.
 func workloadToServicePortsFunction(workload ref.Val) ref.Val {
@@ -718,7 +739,6 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 		return types.NewErr("toServicePorts: expected workload to be a map, got %T", workload.Value())
 	}
 
-	// Extract endpoints from workload
 	endpointsVal, hasEndpoints := workloadMap["endpoints"]
 	if !hasEndpoints {
 		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
@@ -754,21 +774,18 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 		if portVal == nil {
 			return types.NewErr("toServicePorts: endpoint '%s' is missing required 'port' field", endpointName)
 		}
-		var port int64
-		switch p := portVal.(type) {
-		case int64:
-			port = p
-		case float64:
-			if math.Trunc(p) != p {
-				return types.NewErr("toServicePorts: endpoint '%s' port must be an integer, got %v", endpointName, p)
+		port, ok := toInt64(portVal)
+		if !ok {
+			return types.NewErr("toServicePorts: endpoint '%s' must have a numeric integer port, got %v (%T)", endpointName, portVal, portVal)
+		}
+
+		// targetPort is already resolved by ExtractWorkloadData (defaults to port when unset),
+		// so read it directly; fall back to port only for raw/unresolved data.
+		targetPort := port
+		if tpVal := endpoint["targetPort"]; tpVal != nil {
+			if tp, ok := toInt64(tpVal); ok && tp != 0 {
+				targetPort = tp
 			}
-			port = int64(p)
-		case int:
-			port = int64(p)
-		case int32:
-			port = int64(p)
-		default:
-			return types.NewErr("toServicePorts: endpoint '%s' must have a numeric port, got %T", endpointName, portVal)
 		}
 
 		endpointType, _ := endpoint["type"].(string)
@@ -776,8 +793,6 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 
 		// Sanitize endpoint name for Kubernetes port naming
 		sanitizedName := sanitizePortName(endpointName)
-
-		// If sanitization resulted in empty string, use port number as fallback
 		if sanitizedName == "" {
 			sanitizedName = fmt.Sprintf("port-%d", port)
 		}
@@ -804,8 +819,8 @@ func workloadToServicePortsFunction(workload ref.Val) ref.Val {
 
 		result = append(result, map[string]any{
 			"name":       finalName,
-			"port":       port, // External port uses endpoint port
-			"targetPort": port, // Target port uses endpoint port
+			"port":       port,
+			"targetPort": targetPort,
 			"protocol":   protocol,
 		})
 	}

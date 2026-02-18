@@ -228,15 +228,29 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 	}
 
 	for name, endpoint := range workload.Spec.Endpoints {
-		visibility := string(endpoint.Visibility)
-		if visibility == "" {
-			visibility = string(v1alpha1.EndpointVisibilityProject)
+		targetPort := endpoint.TargetPort
+		if targetPort == 0 {
+			targetPort = endpoint.Port
+		}
+
+		// Build visibility array: always include "project", then append additional unique visibilities.
+		visibilitySet := map[string]struct{}{string(v1alpha1.EndpointVisibilityProject): {}}
+		visibility := []string{string(v1alpha1.EndpointVisibilityProject)}
+		for _, v := range endpoint.Visibility {
+			vs := string(v)
+			if _, exists := visibilitySet[vs]; !exists {
+				visibilitySet[vs] = struct{}{}
+				visibility = append(visibility, vs)
+			}
 		}
 
 		epData := EndpointData{
-			Visibility: visibility,
-			Type:       string(endpoint.Type),
-			Port:       endpoint.Port,
+			DisplayName: endpoint.DisplayName,
+			Port:        endpoint.Port,
+			TargetPort:  targetPort,
+			Type:        string(endpoint.Type),
+			BasePath:    endpoint.BasePath,
+			Visibility:  visibility,
 		}
 		if endpoint.Schema != nil {
 			epData.Schema = &SchemaData{

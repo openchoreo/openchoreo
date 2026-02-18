@@ -1654,6 +1654,24 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 			},
 		},
 		{
+			name: "targetPort differs from port",
+			expr: `workload.toServicePorts()`,
+			inputs: map[string]any{
+				"workload": map[string]any{
+					"endpoints": map[string]any{
+						"http": map[string]any{
+							"type":       "HTTP",
+							"port":       int64(80),
+							"targetPort": int64(8080),
+						},
+					},
+				},
+			},
+			want: []map[string]any{
+				{"name": "http", "port": int64(80), "targetPort": int64(8080), "protocol": "TCP"},
+			},
+		},
+		{
 			name: "endpoint name with underscores converts to hyphens",
 			expr: `workload.toServicePorts()`,
 			inputs: map[string]any{
@@ -1853,7 +1871,7 @@ func TestWorkloadEndpointsToServicePortsMacroErrors(t *testing.T) {
 					},
 				},
 			},
-			expectError: "endpoint 'http' must have a numeric port",
+			expectError: "endpoint 'http' must have a numeric integer port",
 		},
 	}
 

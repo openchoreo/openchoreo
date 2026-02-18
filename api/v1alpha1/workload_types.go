@@ -136,24 +136,38 @@ const (
 
 // WorkloadEndpoint represents a simple network endpoint for basic exposure.
 type WorkloadEndpoint struct {
-	// Visibility defines the access scope for the endpoint.
+	// Visibility is an array of additional endpoint visibilities beyond the implicit project visibility.
+	// Every endpoint always gets project visibility. This array adds extra scopes.
 	// +optional
-	// +kubebuilder:default=project
-	Visibility EndpointVisibility `json:"visibility,omitempty"`
+	// +listType=set
+	Visibility []EndpointVisibility `json:"visibility,omitempty"`
 
-	// Type indicates the protocol/technology of the endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+	// Type indicates the protocol/technology of the endpoint.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=HTTP;REST;gRPC;GraphQL;Websocket;TCP;UDP
 	Type EndpointType `json:"type"`
 
-	// Port number for the endpoint.
+	// Port exposed by the endpoint. If targetPort is not set, platform defaults to port for both.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 
-	// Optional schema for the endpoint.
-	// This can be used to define the actual API definition of the endpoint that is exposed by the workload.
+	// TargetPort maps to the container listening port. Optional — defaults to port.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	TargetPort int32 `json:"targetPort,omitempty"`
+
+	// DisplayName is an optional human-readable name for the endpoint.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// BasePath is the base path of the API exposed via the endpoint.
+	// +optional
+	BasePath string `json:"basePath,omitempty"`
+
+	// Schema for the endpoint API definition.
 	// +optional
 	Schema *Schema `json:"schema,omitempty"`
 }

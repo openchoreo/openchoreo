@@ -851,25 +851,39 @@ spec:
                       description: WorkloadEndpoint represents a simple network endpoint
                         for basic exposure.
                       properties:
+                        basePath:
+                          description: BasePath is the base path of the API exposed
+                            via the endpoint.
+                          type: string
+                        displayName:
+                          description: DisplayName is an optional human-readable name
+                            for the endpoint.
+                          type: string
                         port:
-                          description: Port number for the endpoint.
+                          description: Port exposed by the endpoint. If targetPort
+                            is not set, platform defaults to port for both.
                           format: int32
                           maximum: 65535
                           minimum: 1
                           type: integer
                         schema:
-                          description: |-
-                            Optional schema for the endpoint.
-                            This can be used to define the actual API definition of the endpoint that is exposed by the workload.
+                          description: Schema for the endpoint API definition.
                           properties:
                             content:
                               type: string
                             type:
                               type: string
                           type: object
+                        targetPort:
+                          description: TargetPort maps to the container listening
+                            port. Optional — defaults to port.
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
                         type:
                           description: Type indicates the protocol/technology of the
-                            endpoint (HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP).
+                            endpoint.
                           enum:
                           - HTTP
                           - REST
@@ -880,15 +894,21 @@ spec:
                           - UDP
                           type: string
                         visibility:
-                          default: project
-                          description: Visibility defines the access scope for the
-                            endpoint.
-                          enum:
-                          - project
-                          - namespace
-                          - internal
-                          - external
-                          type: string
+                          description: |-
+                            Visibility is an array of additional endpoint visibilities beyond the implicit project visibility.
+                            Every endpoint always gets project visibility. This array adds extra scopes.
+                          items:
+                            description: |-
+                              EndpointVisibility defines the visibility scope for an endpoint.
+                              It determines which components can access the endpoint and how that access is enforced at runtime.
+                            enum:
+                            - project
+                            - namespace
+                            - internal
+                            - external
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
                       required:
                       - port
                       - type
