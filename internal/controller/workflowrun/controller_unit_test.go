@@ -6,10 +6,12 @@ package workflowrun
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 )
 
 // Unit tests for helper functions that don't require k8s test environment
@@ -497,6 +499,146 @@ func TestConditionFunctions(t *testing.T) {
 			t.Error("expected true for succeeded workflow")
 		}
 	})
+}
+
+// ---- extractArgoStepOrderFromNodeName ----
+
+func TestExtractArgoStepOrderFromNodeName(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeName string
+		want     int
+	}{
+		{"standard pattern index 0", "workflow-name[0].step-name", 0},
+		{"standard pattern index 3", "my-wf[3].build-step", 3},
+		{"no brackets", "simple-name", -1},
+		{"empty string", "", -1},
+		{"only open bracket", "name[0", -1},
+		{"only close bracket", "name]", -1},
+		{"non-numeric index", "name[abc].step", -1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractArgoStepOrderFromNodeName(tt.nodeName)
+			if got != tt.want {
+				t.Errorf("extractArgoStepOrderFromNodeName(%q) = %d, want %d", tt.nodeName, got, tt.want)
+			}
+		})
+	}
+}
+
+// ---- extractArgoTasksFromWorkflowNodes ----
+
+func TestExtractArgoTasksFromWorkflowNodes_Nil(t *testing.T) {
+	got := extractArgoTasksFromWorkflowNodes(nil)
+	if got != nil {
+		t.Errorf("extractArgoTasksFromWorkflowNodes(nil) = %v, want nil", got)
+	}
+}
+
+func TestExtractArgoTasksFromWorkflowNodes_OnlyNonPod(t *testing.T) {
+	nodes := argoproj.Nodes{
+		"dag-node": {
+			Name: "wf[0].step",
+			Type: argoproj.NodeTypeDAG,
+		},
+	}
+	got := extractArgoTasksFromWorkflowNodes(nodes)
+	if len(got) != 0 {
+		t.Errorf("expected 0 tasks for non-Pod nodes, got %d", len(got))
+	}
+}
+
+func TestExtractArgoTasksFromWorkflowNodes_SinglePod(t *testing.T) {
+	nodes := argoproj.Nodes{
+		"pod-node": {
+			Name:         "wf[0].build",
+			Type:         argoproj.NodeTypePod,
+			TemplateName: "build-step",
+			Phase:        argoproj.NodeSucceeded,
+			Message:      "done",
+		},
+	}
+	got := extractArgoTasksFromWorkflowNodes(nodes)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(got))
+	}
+	if got[0].Name != "build-step" {
+		t.Errorf("Task.Name = %q, want build-step", got[0].Name)
+	}
+	if got[0].Phase != string(argoproj.NodeSucceeded) {
+		t.Errorf("Task.Phase = %q, want Succeeded", got[0].Phase)
+	}
+}
+
+func TestExtractArgoTasksFromWorkflowNodes_MultiplePodsSorted(t *testing.T) {
+	now := metav1.NewTime(time.Now())
+	nodes := argoproj.Nodes{
+		"b": {Name: "wf[1].step-b", Type: argoproj.NodeTypePod, TemplateName: "step-b", StartedAt: now, FinishedAt: now},
+		"a": {Name: "wf[0].step-a", Type: argoproj.NodeTypePod, TemplateName: "step-a", StartedAt: now, FinishedAt: now},
+	}
+	got := extractArgoTasksFromWorkflowNodes(nodes)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(got))
+	}
+	if got[0].Name != "step-a" {
+		t.Errorf("tasks not sorted: first task = %q, want step-a", got[0].Name)
+	}
+	if got[1].Name != "step-b" {
+		t.Errorf("tasks not sorted: second task = %q, want step-b", got[1].Name)
+	}
+	if got[0].StartedAt == nil {
+		t.Error("expected StartedAt to be set for pod with StartedAt")
+	}
+	if got[0].CompletedAt == nil {
+		t.Error("expected CompletedAt to be set for pod with FinishedAt")
+	}
+}
+
+// ---- setStartedAtIfNeeded ----
+
+func TestSetStartedAtIfNeeded_SetsWhenNil(t *testing.T) {
+	wfRun := &openchoreodevv1alpha1.WorkflowRun{}
+	if wfRun.Status.StartedAt != nil {
+		t.Fatal("precondition: StartedAt should be nil")
+	}
+	setStartedAtIfNeeded(wfRun)
+	if wfRun.Status.StartedAt == nil {
+		t.Error("setStartedAtIfNeeded should set StartedAt when nil")
+	}
+}
+
+func TestSetStartedAtIfNeeded_DoesNotOverwrite(t *testing.T) {
+	original := metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	wfRun := &openchoreodevv1alpha1.WorkflowRun{}
+	wfRun.Status.StartedAt = &original
+	setStartedAtIfNeeded(wfRun)
+	if !wfRun.Status.StartedAt.Equal(&original) {
+		t.Error("setStartedAtIfNeeded should not overwrite existing StartedAt")
+	}
+}
+
+// ---- setCompletedAtIfNeeded ----
+
+func TestSetCompletedAtIfNeeded_SetsWhenNil(t *testing.T) {
+	wfRun := &openchoreodevv1alpha1.WorkflowRun{}
+	if wfRun.Status.CompletedAt != nil {
+		t.Fatal("precondition: CompletedAt should be nil")
+	}
+	setCompletedAtIfNeeded(wfRun)
+	if wfRun.Status.CompletedAt == nil {
+		t.Error("setCompletedAtIfNeeded should set CompletedAt when nil")
+	}
+}
+
+func TestSetCompletedAtIfNeeded_DoesNotOverwrite(t *testing.T) {
+	original := metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	wfRun := &openchoreodevv1alpha1.WorkflowRun{}
+	wfRun.Status.CompletedAt = &original
+	setCompletedAtIfNeeded(wfRun)
+	if !wfRun.Status.CompletedAt.Equal(&original) {
+		t.Error("setCompletedAtIfNeeded should not overwrite existing CompletedAt")
+	}
 }
 
 // Helper function

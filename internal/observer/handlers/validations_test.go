@@ -5,7 +5,11 @@ package handlers
 
 import (
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
+
+const testInvalidValue = "invalid"
 
 func TestValidateLimit(t *testing.T) {
 	tests := []struct {
@@ -130,7 +134,7 @@ func TestValidateSortOrder(t *testing.T) {
 		},
 		{
 			name:      "Invalid sort order - random string",
-			sortOrder: "invalid",
+			sortOrder: testInvalidValue,
 			wantErr:   true,
 			errMsg:    "sortOrder must be either 'asc' or 'desc'",
 		},
@@ -294,6 +298,179 @@ func TestValidateTimes(t *testing.T) {
 				if err != nil {
 					t.Errorf("validateTimes() unexpected error = %v", err)
 				}
+			}
+		})
+	}
+}
+
+// ---- validateComponentUIDs ----
+
+func TestValidateComponentUIDs(t *testing.T) {
+	tests := []struct {
+		name    string
+		uids    []string
+		wantErr bool
+	}{
+		{"nil slice", nil, false},
+		{"empty slice", []string{}, false},
+		{"valid single uid", []string{"abc123"}, false},
+		{"valid multiple uids", []string{"uid-1", "uid-2"}, false},
+		{"empty string in slice", []string{"valid", ""}, true},
+		{"all empty strings", []string{"", ""}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateComponentUIDs(tt.uids)
+			if tt.wantErr && err == nil {
+				t.Error("validateComponentUIDs() expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("validateComponentUIDs() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// ---- validateTraceID ----
+
+func TestValidateTraceID(t *testing.T) {
+	tests := []struct {
+		name    string
+		traceID string
+		wantErr bool
+	}{
+		{"empty", "", false},
+		{"valid hex lowercase", "abcdef0123456789", false},
+		{"valid hex uppercase", "ABCDEF0123456789", false},
+		{"with wildcard star", "abc*", false},
+		{"with wildcard question", "abc?ef", false},
+		{"invalid char g", "abcdefg", true},
+		{"invalid char space", "abc def", true},
+		{"invalid char colon", "abc:def", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateTraceID(tt.traceID)
+			if tt.wantErr && err == nil {
+				t.Error("validateTraceID() expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("validateTraceID() unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// ---- validateAlertingRule ----
+
+func makeValidAlertingRule() types.AlertingRuleRequest {
+	return types.AlertingRuleRequest{
+		Metadata: types.AlertingRuleMetadata{
+			Name:           "my-alert",
+			ComponentUID:   "comp-uid",
+			ProjectUID:     "proj-uid",
+			EnvironmentUID: "env-uid",
+			Severity:       "critical",
+		},
+		Source: types.AlertingRuleSource{
+			Type:  "log",
+			Query: "level=error",
+		},
+		Condition: types.AlertingRuleCondition{
+			Window:    "5m",
+			Interval:  "1m",
+			Operator:  "gt",
+			Threshold: 10,
+		},
+	}
+}
+
+func TestValidateAlertingRule_Valid(t *testing.T) {
+	req := makeValidAlertingRule()
+	if err := validateAlertingRule(req); err != nil {
+		t.Errorf("validateAlertingRule(valid) = %v, want nil", err)
+	}
+}
+
+func TestValidateAlertingRule_MissingMetadata(t *testing.T) {
+	tests := []struct {
+		name   string
+		modify func(*types.AlertingRuleRequest)
+	}{
+		{"missing name", func(r *types.AlertingRuleRequest) { r.Metadata.Name = "" }},
+		{"missing componentUID", func(r *types.AlertingRuleRequest) { r.Metadata.ComponentUID = "" }},
+		{"missing projectUID", func(r *types.AlertingRuleRequest) { r.Metadata.ProjectUID = "" }},
+		{"missing environmentUID", func(r *types.AlertingRuleRequest) { r.Metadata.EnvironmentUID = "" }},
+		{"missing severity", func(r *types.AlertingRuleRequest) { r.Metadata.Severity = "" }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := makeValidAlertingRule()
+			tt.modify(&req)
+			if err := validateAlertingRule(req); err == nil {
+				t.Errorf("validateAlertingRule(%s) expected error, got nil", tt.name)
+			}
+		})
+	}
+}
+
+func TestValidateAlertingRule_InvalidSourceType(t *testing.T) {
+	req := makeValidAlertingRule()
+	req.Source.Type = testInvalidValue
+	if err := validateAlertingRule(req); err == nil {
+		t.Error("validateAlertingRule(invalid source type) expected error, got nil")
+	}
+}
+
+func TestValidateAlertingRule_LogSourceMissingQuery(t *testing.T) {
+	req := makeValidAlertingRule()
+	req.Source.Type = "log"
+	req.Source.Query = ""
+	if err := validateAlertingRule(req); err == nil {
+		t.Error("validateAlertingRule(log without query) expected error, got nil")
+	}
+}
+
+func TestValidateAlertingRule_MetricSource(t *testing.T) {
+	req := makeValidAlertingRule()
+	req.Source.Type = "metric"
+	req.Source.Query = ""
+	req.Source.Metric = "cpu_usage"
+	if err := validateAlertingRule(req); err != nil {
+		t.Errorf("validateAlertingRule(metric/cpu_usage) = %v, want nil", err)
+	}
+}
+
+func TestValidateAlertingRule_MetricSourceInvalidMetric(t *testing.T) {
+	req := makeValidAlertingRule()
+	req.Source.Type = "metric"
+	req.Source.Metric = "bad_metric"
+	if err := validateAlertingRule(req); err == nil {
+		t.Error("validateAlertingRule(metric/bad_metric) expected error, got nil")
+	}
+}
+
+func TestValidateAlertingRule_InvalidCondition(t *testing.T) {
+	tests := []struct {
+		name   string
+		modify func(*types.AlertingRuleRequest)
+	}{
+		{"invalid window", func(r *types.AlertingRuleRequest) { r.Condition.Window = testInvalidValue }},
+		{"invalid interval", func(r *types.AlertingRuleRequest) { r.Condition.Interval = testInvalidValue }},
+		{"interval > window", func(r *types.AlertingRuleRequest) {
+			r.Condition.Window = "1m"
+			r.Condition.Interval = "5m"
+		}},
+		{"invalid operator", func(r *types.AlertingRuleRequest) { r.Condition.Operator = "bad" }},
+		{"zero threshold", func(r *types.AlertingRuleRequest) { r.Condition.Threshold = 0 }},
+		{"negative threshold", func(r *types.AlertingRuleRequest) { r.Condition.Threshold = -1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := makeValidAlertingRule()
+			tt.modify(&req)
+			if err := validateAlertingRule(req); err == nil {
+				t.Errorf("validateAlertingRule(%s) expected error, got nil", tt.name)
 			}
 		})
 	}

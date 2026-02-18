@@ -32,7 +32,7 @@ func GetResourceStatus(
 	for _, condType := range priorityConditions {
 		for _, condition := range conditions {
 			if condition.Type == condType {
-				if condition.Status == "True" {
+				if condition.Status == metav1.ConditionTrue {
 					return fmt.Sprintf("%s (%s)", readyStatus, condition.Reason)
 				}
 				return fmt.Sprintf("%s (%s: %s)", notReadyStatus, condition.Reason, condition.Message)
@@ -48,7 +48,7 @@ func GetResourceStatus(
 		}
 	}
 
-	if latest.Status == "True" {
+	if latest.Status == metav1.ConditionTrue {
 		return fmt.Sprintf("%s: %s", latest.Type, latest.Reason)
 	}
 	return fmt.Sprintf("%s: %s - %s", latest.Type, latest.Status, latest.Message)
