@@ -87,12 +87,7 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 	s.logger.Debug("Updating project", "namespace", namespaceName, "project", project.Name)
 
 	existing := &openchoreov1alpha1.Project{}
-	key := client.ObjectKey{
-		Name:      project.Name,
-		Namespace: namespaceName,
-	}
-
-	if err := s.k8sClient.Get(ctx, key, existing); err != nil {
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: project.Name, Namespace: namespaceName}, existing); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			s.logger.Warn("Project not found", "namespace", namespaceName, "project", project.Name)
 			return nil, ErrProjectNotFound
@@ -101,23 +96,17 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	// Update mutable fields
-	existing.Spec = project.Spec
-	existing.Annotations = project.Annotations
-	if existing.Labels == nil {
-		existing.Labels = make(map[string]string)
-	}
-	for k, v := range project.Labels {
-		existing.Labels[k] = v
-	}
+	// Apply incoming spec directly from the request body, preserving server-managed fields
+	project.ResourceVersion = existing.ResourceVersion
+	project.Namespace = namespaceName
 
-	if err := s.k8sClient.Update(ctx, existing); err != nil {
+	if err := s.k8sClient.Update(ctx, project); err != nil {
 		s.logger.Error("Failed to update project CR", "error", err)
 		return nil, fmt.Errorf("failed to update project: %w", err)
 	}
 
 	s.logger.Debug("Project updated successfully", "namespace", namespaceName, "project", project.Name)
-	return existing, nil
+	return project, nil
 }
 
 func (s *projectService) ListProjects(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {
