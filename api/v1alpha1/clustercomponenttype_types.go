@@ -27,19 +27,20 @@ type ClusterComponentTypeSpec struct {
 	// +optional
 	Schema ComponentTypeSchema `json:"schema,omitempty"`
 
-	// Traits are pre-configured trait instances embedded in the ComponentType.
+	// Traits are pre-configured trait instances embedded in the ClusterComponentType.
+	// Only ClusterTrait references are allowed since ClusterComponentType is cluster-scoped.
 	// The PE binds trait parameters using concrete values or CEL expressions
 	// referencing the ComponentType schema (e.g., "${parameters.storage.mountPath}").
 	// These traits are automatically applied to all Components of this type.
 	// +optional
-	Traits []ComponentTypeTrait `json:"traits,omitempty"`
+	Traits []ClusterComponentTypeTrait `json:"traits,omitempty"`
 
-	// AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
-	// When specified, only traits listed here may be attached beyond those already embedded in spec.traits.
-	// Trait names listed here must not overlap with traits already embedded in spec.traits.
+	// AllowedTraits restricts which ClusterTrait CRs developers can attach to Components of this type.
+	// When specified, only ClusterTraits listed here (matched by name) may be attached beyond those already embedded in spec.traits.
+	// ClusterTrait references listed here must not overlap with traits already embedded in spec.traits.
 	// If empty or omitted, no additional component-level traits are allowed.
 	// +optional
-	AllowedTraits []string `json:"allowedTraits,omitempty"`
+	AllowedTraits []ClusterTraitRef `json:"allowedTraits,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
 	// All rules must evaluate to true for rendering to proceed.

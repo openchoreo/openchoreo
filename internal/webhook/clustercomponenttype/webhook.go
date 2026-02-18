@@ -124,6 +124,7 @@ func validateClusterComponentType(cct *openchoreodevv1alpha1.ClusterComponentTyp
 }
 
 // validateEmbeddedTraits validates the embedded traits in a ClusterComponentType.
+// ClusterComponentType can only reference ClusterTrait (not namespace-scoped Trait).
 func validateEmbeddedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) field.ErrorList {
 	allErrs := field.ErrorList{}
 	traitsPath := field.NewPath("spec", "traits")
@@ -131,6 +132,15 @@ func validateEmbeddedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) fie
 	instanceNames := make(map[string]int)
 	for i, trait := range cct.Spec.Traits {
 		traitPath := traitsPath.Index(i)
+
+		// Validate kind is ClusterTrait (schema enforces this, but validate explicitly for safety)
+		if trait.Kind != openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait {
+			allErrs = append(allErrs, field.Invalid(
+				traitPath.Child("kind"),
+				string(trait.Kind),
+				"ClusterComponentType can only reference ClusterTrait, not namespace-scoped Trait",
+			))
+		}
 
 		// Validate non-empty name
 		if trait.Name == "" {
@@ -156,37 +166,38 @@ func validateEmbeddedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) fie
 }
 
 // validateAllowedTraits validates the allowedTraits list in a ClusterComponentType.
+// AllowedTraits uses []ClusterTraitRef (kind is always ClusterTrait).
 func validateAllowedTraits(cct *openchoreodevv1alpha1.ClusterComponentType) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allowedPath := field.NewPath("spec", "allowedTraits")
 
-	// Build set of embedded trait names for overlap check
+	// Build set of embedded trait names for overlap check (kind is always ClusterTrait)
 	embeddedTraitNames := make(map[string]bool)
 	for _, trait := range cct.Spec.Traits {
 		embeddedTraitNames[trait.Name] = true
 	}
 
 	seen := make(map[string]bool)
-	for i, traitName := range cct.Spec.AllowedTraits {
+	for i, ref := range cct.Spec.AllowedTraits {
 		entryPath := allowedPath.Index(i)
 
-		// Validate non-empty
-		if traitName == "" {
-			allErrs = append(allErrs, field.Required(entryPath, "allowed trait name must not be empty"))
+		// Validate non-empty name
+		if ref.Name == "" {
+			allErrs = append(allErrs, field.Required(entryPath.Child("name"), "allowed trait name must not be empty"))
 			continue
 		}
 
-		// Check for duplicates
-		if seen[traitName] {
-			allErrs = append(allErrs, field.Duplicate(entryPath, traitName))
+		// Check for duplicates by name (kind is always ClusterTrait)
+		if seen[ref.Name] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, ref.Name))
 		}
-		seen[traitName] = true
+		seen[ref.Name] = true
 
-		// Check for overlap with embedded traits
-		if embeddedTraitNames[traitName] {
+		// Check for overlap with embedded traits by name (both are ClusterTrait)
+		if embeddedTraitNames[ref.Name] {
 			allErrs = append(allErrs, field.Invalid(
 				entryPath,
-				traitName,
+				ref.Name,
 				"trait is already embedded in spec.traits and cannot also be in allowedTraits",
 			))
 		}

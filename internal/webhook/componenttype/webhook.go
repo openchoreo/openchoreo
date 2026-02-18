@@ -164,37 +164,40 @@ func validateEmbeddedTraits(ct *openchoreodevv1alpha1.ComponentType) field.Error
 }
 
 // validateAllowedTraits validates the allowedTraits list in a ComponentType.
+// AllowedTraits uses []TraitRef with kind+name.
 func validateAllowedTraits(ct *openchoreodevv1alpha1.ComponentType) field.ErrorList {
 	allErrs := field.ErrorList{}
 	allowedPath := field.NewPath("spec", "allowedTraits")
 
-	// Build set of embedded trait names for overlap check
-	embeddedTraitNames := make(map[string]bool)
+	// Build set of embedded trait kind:name keys for overlap check
+	embeddedTraitKeys := make(map[string]bool)
 	for _, trait := range ct.Spec.Traits {
-		embeddedTraitNames[trait.Name] = true
+		key := string(trait.Kind) + ":" + trait.Name
+		embeddedTraitKeys[key] = true
 	}
 
 	seen := make(map[string]bool)
-	for i, traitName := range ct.Spec.AllowedTraits {
+	for i, ref := range ct.Spec.AllowedTraits {
 		entryPath := allowedPath.Index(i)
 
-		// Validate non-empty
-		if traitName == "" {
-			allErrs = append(allErrs, field.Required(entryPath, "allowed trait name must not be empty"))
+		// Validate non-empty name
+		if ref.Name == "" {
+			allErrs = append(allErrs, field.Required(entryPath.Child("name"), "allowed trait name must not be empty"))
 			continue
 		}
 
-		// Check for duplicates
-		if seen[traitName] {
-			allErrs = append(allErrs, field.Duplicate(entryPath, traitName))
+		// Check for duplicates using kind:name composite key
+		key := string(ref.Kind) + ":" + ref.Name
+		if seen[key] {
+			allErrs = append(allErrs, field.Duplicate(entryPath, key))
 		}
-		seen[traitName] = true
+		seen[key] = true
 
-		// Check for overlap with embedded traits
-		if embeddedTraitNames[traitName] {
+		// Check for overlap with embedded traits matching both kind and name
+		if embeddedTraitKeys[key] {
 			allErrs = append(allErrs, field.Invalid(
 				entryPath,
-				traitName,
+				key,
 				"trait is already embedded in spec.traits and cannot also be in allowedTraits",
 			))
 		}

@@ -132,9 +132,9 @@ spec:
     - docker
 
   allowedTraits:
-    - api-configuration
-    - observability-alert-rule
-    - persistent-volume
+    - name: api-configuration
+    - name: observability-alert-rule
+    - name: persistent-volume
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

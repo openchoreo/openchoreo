@@ -51,7 +51,14 @@ func toGenComponentType(ct *models.ComponentTypeResponse) gen.ComponentType {
 		result.AllowedWorkflows = ptr.To(ct.AllowedWorkflows)
 	}
 	if len(ct.AllowedTraits) > 0 {
-		result.AllowedTraits = ptr.To(ct.AllowedTraits)
+		traitStrings := make([]string, len(ct.AllowedTraits))
+		for i, t := range ct.AllowedTraits {
+			traitStrings[i] = t.Name
+			if t.Kind != "" && t.Kind != "Trait" {
+				traitStrings[i] = t.Kind + ":" + t.Name
+			}
+		}
+		result.AllowedTraits = ptr.To(traitStrings)
 	}
 	return result
 }

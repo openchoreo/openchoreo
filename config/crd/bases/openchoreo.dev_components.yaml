@@ -120,6 +120,13 @@ spec:
                         Must be unique across all traits in the component
                       minLength: 1
                       type: string
+                    kind:
+                      default: Trait
+                      description: Kind is the kind of trait (Trait or ClusterTrait)
+                      enum:
+                      - Trait
+                      - ClusterTrait
+                      type: string
                     name:
                       description: Name is the name of the Trait resource to use
                       minLength: 1

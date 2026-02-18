@@ -58,12 +58,12 @@ type ComponentTypeSpec struct {
 	// +optional
 	Traits []ComponentTypeTrait `json:"traits,omitempty"`
 
-	// AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
-	// When specified, only traits listed here may be attached beyond those already embedded in spec.traits.
-	// Trait names listed here must not overlap with traits already embedded in spec.traits.
+	// AllowedTraits restricts which Trait or ClusterTrait CRs developers can attach to Components of this type.
+	// When specified, only traits listed here (matched by kind and name) may be attached beyond those already embedded in spec.traits.
+	// Trait references listed here must not overlap with traits already embedded in spec.traits.
 	// If empty or omitted, no additional component-level traits are allowed.
 	// +optional
-	AllowedTraits []string `json:"allowedTraits,omitempty"`
+	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
 	// All rules must evaluate to true for rendering to proceed.
@@ -171,6 +171,11 @@ type ResourceTemplate struct {
 // The PE binds trait parameters using concrete values (locked) or CEL expressions
 // referencing the ComponentType schema (wired to developer-configurable fields).
 type ComponentTypeTrait struct {
+	// Kind is the kind of trait (Trait or ClusterTrait)
+	// +optional
+	// +kubebuilder:default=Trait
+	Kind TraitRefKind `json:"kind,omitempty"`
+
 	// Name is the name of the Trait resource to use.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -178,6 +183,44 @@ type ComponentTypeTrait struct {
 
 	// InstanceName uniquely identifies this trait instance.
 	// Must be unique across all embedded traits in the ComponentType
+	// and must not collide with any component-level trait instance names.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	InstanceName string `json:"instanceName"`
+
+	// Parameters contains trait parameter bindings.
+	// Values can be concrete (locked by PE) or CEL expressions referencing
+	// the ComponentType schema using ${...} syntax.
+	// Example: "${parameters.storage.mountPath}" or "app-data" (locked)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+
+	// EnvOverrides contains trait environment override bindings.
+	// Values can be concrete (locked by PE) or CEL expressions referencing
+	// the ComponentType schema using ${...} syntax.
+	// Example: "${envOverrides.storage.size}" or "local-path" (locked)
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	EnvOverrides *runtime.RawExtension `json:"envOverrides,omitempty"`
+}
+
+// ClusterComponentTypeTrait represents a pre-configured trait instance embedded in a ClusterComponentType.
+// Only ClusterTrait references are allowed since ClusterComponentType is cluster-scoped.
+type ClusterComponentTypeTrait struct {
+	// Kind is the kind of trait. Must be ClusterTrait.
+	// +kubebuilder:default=ClusterTrait
+	Kind ClusterTraitRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the ClusterTrait resource to use.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// InstanceName uniquely identifies this trait instance.
+	// Must be unique across all embedded traits in the ClusterComponentType
 	// and must not collide with any component-level trait instance names.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1

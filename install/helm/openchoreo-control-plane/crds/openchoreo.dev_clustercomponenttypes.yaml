@@ -53,12 +53,29 @@ spec:
             properties:
               allowedTraits:
                 description: |-
-                  AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
-                  When specified, only traits listed here may be attached beyond those already embedded in spec.traits.
-                  Trait names listed here must not overlap with traits already embedded in spec.traits.
+                  AllowedTraits restricts which ClusterTrait CRs developers can attach to Components of this type.
+                  When specified, only ClusterTraits listed here (matched by name) may be attached beyond those already embedded in spec.traits.
+                  ClusterTrait references listed here must not overlap with traits already embedded in spec.traits.
                   If empty or omitted, no additional component-level traits are allowed.
                 items:
-                  type: string
+                  description: |-
+                    ClusterTraitRef represents a reference to a ClusterTrait.
+                    Used by cluster-scoped resources (ClusterComponentType) that can only
+                    reference cluster-scoped traits.
+                  properties:
+                    kind:
+                      description: Kind is the kind of trait. Must be ClusterTrait.
+                      enum:
+                      - ClusterTrait
+                      type: string
+                    name:
+                      description: Name is the name of the ClusterTrait resource
+                      minLength: 1
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
                 type: array
               allowedWorkflows:
                 description: |-
@@ -154,15 +171,15 @@ spec:
                 type: object
               traits:
                 description: |-
-                  Traits are pre-configured trait instances embedded in the ComponentType.
+                  Traits are pre-configured trait instances embedded in the ClusterComponentType.
+                  Only ClusterTrait references are allowed since ClusterComponentType is cluster-scoped.
                   The PE binds trait parameters using concrete values or CEL expressions
                   referencing the ComponentType schema (e.g., "${parameters.storage.mountPath}").
                   These traits are automatically applied to all Components of this type.
                 items:
                   description: |-
-                    ComponentTypeTrait represents a pre-configured trait instance embedded in a ComponentType.
-                    The PE binds trait parameters using concrete values (locked) or CEL expressions
-                    referencing the ComponentType schema (wired to developer-configurable fields).
+                    ClusterComponentTypeTrait represents a pre-configured trait instance embedded in a ClusterComponentType.
+                    Only ClusterTrait references are allowed since ClusterComponentType is cluster-scoped.
                   properties:
                     envOverrides:
                       description: |-
@@ -174,12 +191,19 @@ spec:
                     instanceName:
                       description: |-
                         InstanceName uniquely identifies this trait instance.
-                        Must be unique across all embedded traits in the ComponentType
+                        Must be unique across all embedded traits in the ClusterComponentType
                         and must not collide with any component-level trait instance names.
                       minLength: 1
                       type: string
+                    kind:
+                      default: ClusterTrait
+                      description: Kind is the kind of trait. Must be ClusterTrait.
+                      enum:
+                      - ClusterTrait
+                      type: string
                     name:
-                      description: Name is the name of the Trait resource to use.
+                      description: Name is the name of the ClusterTrait resource to
+                        use.
                       minLength: 1
                       type: string
                     parameters:

@@ -111,7 +111,7 @@ spec:
     - docker
 
   allowedTraits:
-    - observability-alert-rule
+    - name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) == 0}"
@@ -256,8 +256,8 @@ spec:
     - docker
 
   allowedTraits:
-    - api-configuration
-    - observability-alert-rule
+    - name: api-configuration
+    - name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"
@@ -444,8 +444,8 @@ spec:
     - docker
 
   allowedTraits:
-    - api-configuration
-    - observability-alert-rule
+    - name: api-configuration
+    - name: observability-alert-rule
 
   validations:
     - rule: "${workload.endpoints.exists(name, endpoint, endpoint.type == 'HTTP')}"

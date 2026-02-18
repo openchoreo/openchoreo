@@ -67,6 +67,7 @@ type ComponentWorkflowRepositoryRevision struct {
 
 // ComponentTrait represents a trait instance attached to a component in API requests
 type ComponentTrait struct {
+	Kind         string                `json:"kind,omitempty"` // Trait or ClusterTrait
 	Name         string                `json:"name"`
 	InstanceName string                `json:"instanceName"`
 	Parameters   *runtime.RawExtension `json:"parameters,omitempty"`
@@ -253,6 +254,7 @@ func (req *CreateComponentRequest) Sanitize() {
 	}
 
 	for i := range req.Traits {
+		req.Traits[i].Kind = strings.TrimSpace(req.Traits[i].Kind)
 		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
 		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
 	}
@@ -484,6 +486,8 @@ type UpdateComponentWorkflowRequest struct {
 
 // ComponentTraitRequest represents a single trait instance in API requests
 type ComponentTraitRequest struct {
+	// Kind is the kind of trait (Trait or ClusterTrait)
+	Kind string `json:"kind,omitempty"`
 	// Name is the name of the Trait resource to use
 	Name string `json:"name"`
 	// InstanceName uniquely identifies this trait instance within the component
@@ -518,6 +522,7 @@ func (req *UpdateComponentTraitsRequest) Validate() error {
 // Sanitize sanitizes the UpdateComponentTraitsRequest by trimming whitespace
 func (req *UpdateComponentTraitsRequest) Sanitize() {
 	for i := range req.Traits {
+		req.Traits[i].Kind = strings.TrimSpace(req.Traits[i].Kind)
 		req.Traits[i].Name = strings.TrimSpace(req.Traits[i].Name)
 		req.Traits[i].InstanceName = strings.TrimSpace(req.Traits[i].InstanceName)
 	}

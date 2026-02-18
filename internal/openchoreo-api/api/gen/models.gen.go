@@ -41,6 +41,18 @@ const (
 	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
 )
 
+// Defines values for ComponentTraitKind.
+const (
+	ComponentTraitKindClusterTrait ComponentTraitKind = "ClusterTrait"
+	ComponentTraitKindTrait        ComponentTraitKind = "Trait"
+)
+
+// Defines values for ComponentTraitInputKind.
+const (
+	ComponentTraitInputKindClusterTrait ComponentTraitInputKind = "ClusterTrait"
+	ComponentTraitInputKindTrait        ComponentTraitInputKind = "Trait"
+)
+
 // Defines values for ConditionStatus.
 const (
 	False   ConditionStatus = "False"
@@ -565,6 +577,9 @@ type ComponentTrait struct {
 	// InstanceName Instance name for this trait attachment
 	InstanceName string `json:"instanceName"`
 
+	// Kind Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+	Kind *ComponentTraitKind `json:"kind,omitempty"`
+
 	// Name Trait template name
 	Name string `json:"name"`
 
@@ -572,10 +587,16 @@ type ComponentTrait struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
+// ComponentTraitKind Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+type ComponentTraitKind string
+
 // ComponentTraitInput Trait instance to attach to a component
 type ComponentTraitInput struct {
 	// InstanceName Unique instance name within the component
 	InstanceName string `json:"instanceName"`
+
+	// Kind Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+	Kind *ComponentTraitInputKind `json:"kind,omitempty"`
 
 	// Name Trait resource name
 	Name string `json:"name"`
@@ -584,6 +605,9 @@ type ComponentTraitInput struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
+// ComponentTraitInputKind Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+type ComponentTraitInputKind string
+
 // ComponentTraitList List of component traits
 type ComponentTraitList struct {
 	Items []ComponentTrait `json:"items"`
@@ -591,7 +615,7 @@ type ComponentTraitList struct {
 
 // ComponentType ComponentType resource defining a workload template
 type ComponentType struct {
-	// AllowedTraits List of allowed trait names for this component type
+	// AllowedTraits List of allowed trait references for this component type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind)
 	AllowedTraits *[]string `json:"allowedTraits,omitempty"`
 
 	// AllowedWorkflows List of allowed workflow names for this component type

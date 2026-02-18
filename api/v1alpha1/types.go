@@ -212,6 +212,56 @@ type ClusterObservabilityPlaneRef struct {
 	Name string `json:"name"`
 }
 
+// TraitRefKind defines the kind of trait referenced by a TraitRef
+// +kubebuilder:validation:Enum=Trait;ClusterTrait
+type TraitRefKind string
+
+const (
+	// TraitRefKindTrait references a namespace-scoped Trait
+	TraitRefKindTrait TraitRefKind = "Trait"
+
+	// TraitRefKindClusterTrait references a cluster-scoped ClusterTrait
+	TraitRefKindClusterTrait TraitRefKind = "ClusterTrait"
+)
+
+// TraitRef represents a reference to a Trait or ClusterTrait
+type TraitRef struct {
+	// Kind is the kind of trait (Trait or ClusterTrait)
+	// +optional
+	// +kubebuilder:default=Trait
+	Kind TraitRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the trait resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
+// ClusterTraitRefKind defines the kind for cluster-scoped trait references.
+// Only ClusterTrait is allowed since cluster-scoped resources can only reference
+// other cluster-scoped resources.
+// +kubebuilder:validation:Enum=ClusterTrait
+type ClusterTraitRefKind string
+
+const (
+	// ClusterTraitRefKindClusterTrait references a cluster-scoped ClusterTrait
+	ClusterTraitRefKindClusterTrait ClusterTraitRefKind = "ClusterTrait"
+)
+
+// ClusterTraitRef represents a reference to a ClusterTrait.
+// Used by cluster-scoped resources (ClusterComponentType) that can only
+// reference cluster-scoped traits.
+type ClusterTraitRef struct {
+	// Kind is the kind of trait. Must be ClusterTrait.
+	// +required
+	Kind ClusterTraitRefKind `json:"kind"`
+
+	// Name is the name of the ClusterTrait resource
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // ComponentTypeRefKind defines the kind of component type referenced by a ComponentTypeRef
 // +kubebuilder:validation:Enum=ComponentType;ClusterComponentType
 type ComponentTypeRefKind string

@@ -46,16 +46,21 @@ func (r *Reconciler) setupComponentTypeRefIndex(ctx context.Context, mgr ctrl.Ma
 		})
 }
 
-// setupTraitsRefIndex sets up the field index for trait references
+// setupTraitsRefIndex sets up the field index for trait references.
+// Index key format: "{kind}:{name}" (e.g., "Trait:autoscaler", "ClusterTrait:rate-limiter")
 func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
 		traitsIndex, func(obj client.Object) []string {
 			comp := obj.(*openchoreov1alpha1.Component)
-			traitNames := []string{}
+			keys := []string{}
 			for _, trait := range comp.Spec.Traits {
-				traitNames = append(traitNames, trait.Name)
+				kind := trait.Kind
+				if kind == "" {
+					kind = openchoreov1alpha1.TraitRefKindTrait
+				}
+				keys = append(keys, string(kind)+":"+trait.Name)
 			}
-			return traitNames
+			return keys
 		})
 }
 
@@ -185,11 +190,37 @@ func (r *Reconciler) listComponentsForClusterComponentType(ctx context.Context, 
 func (r *Reconciler) listComponentsUsingTrait(ctx context.Context, obj client.Object) []reconcile.Request {
 	trait := obj.(*openchoreov1alpha1.Trait)
 
+	indexKey := string(openchoreov1alpha1.TraitRefKindTrait) + ":" + trait.Name
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
-		client.MatchingFields{traitsIndex: trait.Name}); err != nil {
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
 		logger := ctrl.LoggerFrom(ctx)
 		logger.Error(err, "Failed to list components for Trait", "trait", trait.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(components.Items))
+	for i, comp := range components.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      comp.Name,
+				Namespace: comp.Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// listComponentsUsingClusterTrait returns reconcile requests for all Components using this ClusterTrait
+func (r *Reconciler) listComponentsUsingClusterTrait(ctx context.Context, obj client.Object) []reconcile.Request {
+	clusterTrait := obj.(*openchoreov1alpha1.ClusterTrait)
+
+	indexKey := string(openchoreov1alpha1.TraitRefKindClusterTrait) + ":" + clusterTrait.Name
+	var components openchoreov1alpha1.ComponentList
+	if err := r.List(ctx, &components,
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
+		logger := ctrl.LoggerFrom(ctx)
+		logger.Error(err, "Failed to list components for ClusterTrait", "clusterTrait", clusterTrait.Name)
 		return nil
 	}
 

@@ -634,7 +634,20 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should admit valid allowedTraits list", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "rate-limiter"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should admit allowedTraits with ClusterTrait kind", func() {
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindClusterTrait, Name: "rate-limiter"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -648,7 +661,10 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject empty string in allowedTraits", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", ""}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: ""},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -656,21 +672,39 @@ var _ = Describe("ComponentType Webhook", func() {
 		})
 
 		It("should reject duplicate entries in allowedTraits", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter", "autoscaler"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "rate-limiter"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Duplicate"))
 		})
 
+		It("should allow same name with different kinds in allowedTraits", func() {
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindClusterTrait, Name: "autoscaler"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should reject allowedTraits that overlap with embedded traits", func() {
 			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "persistent-volume",
 					InstanceName: "app-data",
 				},
 			}
-			obj.Spec.AllowedTraits = []string{"persistent-volume", "autoscaler"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "persistent-volume"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -680,11 +714,15 @@ var _ = Describe("ComponentType Webhook", func() {
 		It("should admit allowedTraits with no overlap with embedded traits", func() {
 			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
 					Name:         "persistent-volume",
 					InstanceName: "app-data",
 				},
 			}
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.TraitRef{
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.TraitRefKindTrait, Name: "rate-limiter"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())

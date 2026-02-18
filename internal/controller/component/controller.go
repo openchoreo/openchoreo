@@ -36,6 +36,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clustercomponenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=traits,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clustertraits,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -243,14 +244,33 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 		}
 
 		// Wrap ClusterComponentTypeSpec into a ComponentType object for downstream compatibility
+		// Convert ClusterTraitRef to TraitRef for allowedTraits
+		allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
+		for i, ref := range cct.Spec.AllowedTraits {
+			allowedTraits[i] = openchoreov1alpha1.TraitRef{
+				Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
+		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
+		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
+		for i, t := range cct.Spec.Traits {
+			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
+				Kind:         openchoreov1alpha1.TraitRefKind(t.Kind),
+				Name:         t.Name,
+				InstanceName: t.InstanceName,
+				Parameters:   t.Parameters,
+				EnvOverrides: t.EnvOverrides,
+			}
+		}
 		ct := &openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreov1alpha1.ComponentTypeSpec{
 				WorkloadType:     cct.Spec.WorkloadType,
 				AllowedWorkflows: cct.Spec.AllowedWorkflows,
 				Schema:           cct.Spec.Schema,
-				Traits:           cct.Spec.Traits,
-				AllowedTraits:    cct.Spec.AllowedTraits,
+				Traits:           traits,
+				AllowedTraits:    allowedTraits,
 				Validations:      cct.Spec.Validations,
 				Resources:        cct.Spec.Resources,
 			},
@@ -325,13 +345,19 @@ func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha
 	// Validate allowedTraits: ensure developer's traits are in the allowed list
 	if len(ct.Spec.AllowedTraits) > 0 {
 		allowedSet := make(map[string]bool, len(ct.Spec.AllowedTraits))
-		for _, name := range ct.Spec.AllowedTraits {
-			allowedSet[name] = true
+		for _, ref := range ct.Spec.AllowedTraits {
+			key := string(ref.Kind) + ":" + ref.Name
+			allowedSet[key] = true
 		}
 		var disallowedTraits []string
 		for _, trait := range comp.Spec.Traits {
-			if !allowedSet[trait.Name] {
-				disallowedTraits = append(disallowedTraits, trait.Name)
+			kind := trait.Kind
+			if kind == "" {
+				kind = openchoreov1alpha1.TraitRefKindTrait
+			}
+			key := string(kind) + ":" + trait.Name
+			if !allowedSet[key] {
+				disallowedTraits = append(disallowedTraits, string(kind)+":"+trait.Name)
 			}
 		}
 		if len(disallowedTraits) > 0 {
@@ -516,36 +542,75 @@ func (e *traitFetchError) Unwrap() error {
 	return e.err
 }
 
-// fetchAllTraits fetches all unique Trait resources referenced by both embedded traits
-// (from ComponentType) and component-level traits, deduplicating by trait name.
+// fetchAllTraits fetches all unique Trait/ClusterTrait resources referenced by both embedded traits
+// (from ComponentType) and component-level traits, deduplicating by kind:name.
+// ClusterTraits are converted to Trait objects for downstream pipeline compatibility.
 func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.ComponentType, comp *openchoreov1alpha1.Component) ([]openchoreov1alpha1.Trait, error) {
-	seen := make(map[string]bool)
+	// seenByName tracks which Kind claimed each trait Name so we can detect
+	// cross-kind collisions (e.g. Trait "x" vs ClusterTrait "x") that would
+	// silently overwrite each other in the downstream buildTraitsMap.
+	seenByName := make(map[string]openchoreov1alpha1.TraitRefKind)
 	traits := make([]openchoreov1alpha1.Trait, 0, len(ct.Spec.Traits)+len(comp.Spec.Traits))
+
+	// fetchTrait fetches a trait by kind and name, converting ClusterTrait to Trait for pipeline compatibility
+	fetchTrait := func(kind openchoreov1alpha1.TraitRefKind, name string) (*openchoreov1alpha1.Trait, error) {
+		if kind == "" {
+			kind = openchoreov1alpha1.TraitRefKindTrait
+		}
+		if prevKind, exists := seenByName[name]; exists {
+			if prevKind == kind {
+				// Same kind:name already fetched, skip duplicate
+				return nil, nil
+			}
+			// Different kind but same name — would collide in buildTraitsMap
+			return nil, fmt.Errorf("trait name %q is referenced as both %s and %s; trait names must be unique across kinds", name, prevKind, kind)
+		}
+		seenByName[name] = kind
+
+		switch kind {
+		case openchoreov1alpha1.TraitRefKindClusterTrait:
+			ct := &openchoreov1alpha1.ClusterTrait{}
+			if err := r.Get(ctx, types.NamespacedName{Name: name}, ct); err != nil {
+				return nil, &traitFetchError{traitName: name, err: err}
+			}
+			// Convert ClusterTrait to Trait for pipeline compatibility
+			return &openchoreov1alpha1.Trait{
+				ObjectMeta: ct.ObjectMeta,
+				Spec: openchoreov1alpha1.TraitSpec{
+					Schema:  ct.Spec.Schema,
+					Creates: ct.Spec.Creates,
+					Patches: ct.Spec.Patches,
+				},
+			}, nil
+		default:
+			trait := &openchoreov1alpha1.Trait{}
+			if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: comp.Namespace}, trait); err != nil {
+				return nil, &traitFetchError{traitName: name, err: err}
+			}
+			return trait, nil
+		}
+	}
 
 	// Collect from embedded traits
 	for _, et := range ct.Spec.Traits {
-		if seen[et.Name] {
-			continue
+		trait, err := fetchTrait(et.Kind, et.Name)
+		if err != nil {
+			return nil, err
 		}
-		seen[et.Name] = true
-		trait := &openchoreov1alpha1.Trait{}
-		if err := r.Get(ctx, types.NamespacedName{Name: et.Name, Namespace: comp.Namespace}, trait); err != nil {
-			return nil, &traitFetchError{traitName: et.Name, err: err}
+		if trait != nil {
+			traits = append(traits, *trait)
 		}
-		traits = append(traits, *trait)
 	}
 
 	// Collect from component-level traits
 	for _, ref := range comp.Spec.Traits {
-		if seen[ref.Name] {
-			continue
+		trait, err := fetchTrait(ref.Kind, ref.Name)
+		if err != nil {
+			return nil, err
 		}
-		seen[ref.Name] = true
-		trait := &openchoreov1alpha1.Trait{}
-		if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: comp.Namespace}, trait); err != nil {
-			return nil, &traitFetchError{traitName: ref.Name, err: err}
+		if trait != nil {
+			traits = append(traits, *trait)
 		}
-		traits = append(traits, *trait)
 	}
 
 	return traits, nil
@@ -916,6 +981,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForClusterComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
+		Watches(&openchoreov1alpha1.ClusterTrait{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingClusterTrait)).
 		Watches(&openchoreov1alpha1.ComponentWorkflow{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentWorkflow)).
 		Watches(&openchoreov1alpha1.Workload{},

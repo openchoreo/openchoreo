@@ -209,6 +209,9 @@ func toModelTraits(traits *[]gen.ComponentTraitInput) []models.ComponentTrait {
 			InstanceName: t.InstanceName,
 			Parameters:   mapToRawExtension(t.Parameters),
 		}
+		if t.Kind != nil {
+			result[i].Kind = string(*t.Kind)
+		}
 	}
 	return result
 }

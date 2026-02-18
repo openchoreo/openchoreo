@@ -50,12 +50,27 @@ spec:
             properties:
               allowedTraits:
                 description: |-
-                  AllowedTraits restricts which Trait CRs developers can attach to Components of this type.
-                  When specified, only traits listed here may be attached beyond those already embedded in spec.traits.
-                  Trait names listed here must not overlap with traits already embedded in spec.traits.
+                  AllowedTraits restricts which Trait or ClusterTrait CRs developers can attach to Components of this type.
+                  When specified, only traits listed here (matched by kind and name) may be attached beyond those already embedded in spec.traits.
+                  Trait references listed here must not overlap with traits already embedded in spec.traits.
                   If empty or omitted, no additional component-level traits are allowed.
                 items:
-                  type: string
+                  description: TraitRef represents a reference to a Trait or ClusterTrait
+                  properties:
+                    kind:
+                      default: Trait
+                      description: Kind is the kind of trait (Trait or ClusterTrait)
+                      enum:
+                      - Trait
+                      - ClusterTrait
+                      type: string
+                    name:
+                      description: Name is the name of the trait resource
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  type: object
                 type: array
               allowedWorkflows:
                 description: |-
@@ -174,6 +189,13 @@ spec:
                         Must be unique across all embedded traits in the ComponentType
                         and must not collide with any component-level trait instance names.
                       minLength: 1
+                      type: string
+                    kind:
+                      default: Trait
+                      description: Kind is the kind of trait (Trait or ClusterTrait)
+                      enum:
+                      - Trait
+                      - ClusterTrait
                       type: string
                     name:
                       description: Name is the name of the Trait resource to use.

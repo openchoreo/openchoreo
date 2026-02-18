@@ -78,12 +78,31 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 			s.logger.Error("Failed to get ClusterComponentType", "error", err)
 			return nil, err
 		}
+		// Convert ClusterTraitRef to TraitRef for allowedTraits
+		allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
+		for i, ref := range cct.Spec.AllowedTraits {
+			allowedTraits[i] = openchoreov1alpha1.TraitRef{
+				Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
+		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
+		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
+		for i, t := range cct.Spec.Traits {
+			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
+				Kind:         openchoreov1alpha1.TraitRefKind(t.Kind),
+				Name:         t.Name,
+				InstanceName: t.InstanceName,
+				Parameters:   t.Parameters,
+				EnvOverrides: t.EnvOverrides,
+			}
+		}
 		spec := openchoreov1alpha1.ComponentTypeSpec{
 			WorkloadType:     cct.Spec.WorkloadType,
 			AllowedWorkflows: cct.Spec.AllowedWorkflows,
 			Schema:           cct.Spec.Schema,
-			Traits:           cct.Spec.Traits,
-			AllowedTraits:    cct.Spec.AllowedTraits,
+			Traits:           traits,
+			AllowedTraits:    allowedTraits,
 			Validations:      cct.Spec.Validations,
 			Resources:        cct.Spec.Resources,
 		}
@@ -99,6 +118,37 @@ func (s *ComponentService) fetchComponentTypeSpec(ctx context.Context, ctRef *op
 			return nil, err
 		}
 		return &ct.Spec, nil
+	}
+}
+
+// fetchTraitSpec fetches a TraitSpec from the cluster based on the trait kind and name.
+// For ClusterTrait, converts ClusterTraitSpec to TraitSpec for downstream compatibility.
+// Returns nil (no error) if the referenced resource is not found.
+func (s *ComponentService) fetchTraitSpec(ctx context.Context, kind openchoreov1alpha1.TraitRefKind, name, namespaceName string) (*openchoreov1alpha1.TraitSpec, error) {
+	switch kind {
+	case openchoreov1alpha1.TraitRefKindClusterTrait:
+		ct := &openchoreov1alpha1.ClusterTrait{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, ct); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return nil, nil
+			}
+			return nil, err
+		}
+		// Convert ClusterTraitSpec to TraitSpec
+		return &openchoreov1alpha1.TraitSpec{
+			Schema:  ct.Spec.Schema,
+			Creates: ct.Spec.Creates,
+			Patches: ct.Spec.Patches,
+		}, nil
+	default:
+		trait := &openchoreov1alpha1.Trait{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return &trait.Spec, nil
 	}
 }
 
@@ -232,21 +282,32 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 	componentTypeSpec = spec
 
 	traits := make(map[string]openchoreov1alpha1.TraitSpec)
+	// traitKindByName tracks which Kind claimed each trait Name so we can detect
+	// cross-kind collisions (e.g. Trait "x" vs ClusterTrait "x") that would
+	// silently overwrite each other in the traits map.
+	traitKindByName := make(map[string]openchoreov1alpha1.TraitRefKind)
 	for _, componentTrait := range component.Spec.Traits {
-		traitKey := client.ObjectKey{
-			Name:      componentTrait.Name,
-			Namespace: namespaceName,
+		kind := componentTrait.Kind
+		if kind == "" {
+			kind = openchoreov1alpha1.TraitRefKindTrait
 		}
-		trait := &openchoreov1alpha1.Trait{}
-		if err := s.k8sClient.Get(ctx, traitKey, trait); err != nil {
-			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "trait", componentTrait.Name)
-			} else {
-				s.logger.Error("Failed to get Trait", "error", err)
-			}
+		if prevKind, exists := traitKindByName[componentTrait.Name]; exists && prevKind != kind {
+			s.logger.Error("Trait name collision across kinds",
+				"trait", componentTrait.Name, "existingKind", prevKind, "newKind", kind)
+			return nil, fmt.Errorf("trait name %q is referenced as both %s and %s; trait names must be unique across kinds",
+				componentTrait.Name, prevKind, kind)
+		}
+		traitSpec, err := s.fetchTraitSpec(ctx, kind, componentTrait.Name, namespaceName)
+		if err != nil {
+			s.logger.Error("Failed to get Trait", "kind", kind, "trait", componentTrait.Name, "error", err)
 			continue
 		}
-		traits[componentTrait.Name] = trait.Spec
+		if traitSpec == nil {
+			s.logger.Warn("Trait not found", "kind", kind, "trait", componentTrait.Name)
+			continue
+		}
+		traitKindByName[componentTrait.Name] = kind
+		traits[componentTrait.Name] = *traitSpec
 	}
 
 	// Build ComponentProfile from Component parameters (only if there's content)
@@ -696,21 +757,17 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	// Process trait overrides from the component's traits
 	traitSchemas := make(map[string]extv1.JSONSchemaProps)
 	for _, componentTrait := range component.Spec.Traits {
-		traitKey := client.ObjectKey{
-			Namespace: namespaceName,
-			Name:      componentTrait.Name,
-		}
-		var trait openchoreov1alpha1.Trait
-		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
-			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "namespace", namespaceName, "trait", componentTrait.Name)
-				continue // Skip missing traits instead of failing
-			}
-			s.logger.Error("Failed to get trait", "trait", componentTrait.Name, "error", err)
+		traitSpec, err := s.fetchTraitSpec(ctx, componentTrait.Kind, componentTrait.Name, namespaceName)
+		if err != nil {
+			s.logger.Error("Failed to get trait", "kind", componentTrait.Kind, "trait", componentTrait.Name, "error", err)
 			return nil, fmt.Errorf("failed to get trait %s: %w", componentTrait.Name, err)
 		}
+		if traitSpec == nil {
+			s.logger.Warn("Trait not found", "kind", componentTrait.Kind, "namespace", namespaceName, "trait", componentTrait.Name)
+			continue // Skip missing traits instead of failing
+		}
 
-		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(trait.Spec, componentTrait.Name)
+		traitJSONSchema, err := s.buildTraitEnvOverridesSchema(*traitSpec, componentTrait.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -1761,6 +1818,7 @@ func (s *ComponentService) createComponentResources(ctx context.Context, namespa
 		componentSpec.Traits = make([]openchoreov1alpha1.ComponentTrait, len(req.Traits))
 		for i, trait := range req.Traits {
 			componentSpec.Traits[i] = openchoreov1alpha1.ComponentTrait{
+				Kind:         openchoreov1alpha1.TraitRefKind(trait.Kind),
 				Name:         trait.Name,
 				InstanceName: trait.InstanceName,
 				Parameters:   trait.Parameters,
@@ -2776,6 +2834,7 @@ func (s *ComponentService) ListComponentTraits(ctx context.Context, namespaceNam
 	traits := make([]*models.ComponentTraitResponse, 0, len(component.Spec.Traits))
 	for _, trait := range component.Spec.Traits {
 		traitResponse := &models.ComponentTraitResponse{
+			Kind:         string(trait.Kind),
 			Name:         trait.Name,
 			InstanceName: trait.InstanceName,
 		}
@@ -2838,20 +2897,17 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, namespaceN
 		return nil, ErrComponentNotFound
 	}
 
-	// Validate that all referenced traits exist in the namespace
+	// Validate that all referenced traits exist
 	for _, traitReq := range req.Traits {
-		traitKey := client.ObjectKey{
-			Namespace: namespaceName,
-			Name:      traitReq.Name,
-		}
-		var trait openchoreov1alpha1.Trait
-		if err := s.k8sClient.Get(ctx, traitKey, &trait); err != nil {
-			if client.IgnoreNotFound(err) == nil {
-				s.logger.Warn("Trait not found", "namespace", namespaceName, "trait", traitReq.Name)
-				return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
-			}
-			s.logger.Error("Failed to get trait", "error", err)
+		kind := openchoreov1alpha1.TraitRefKind(traitReq.Kind)
+		traitSpec, err := s.fetchTraitSpec(ctx, kind, traitReq.Name, namespaceName)
+		if err != nil {
+			s.logger.Error("Failed to get trait", "kind", traitReq.Kind, "error", err)
 			return nil, fmt.Errorf("failed to get trait %s: %w", traitReq.Name, err)
+		}
+		if traitSpec == nil {
+			s.logger.Warn("Trait not found", "kind", traitReq.Kind, "namespace", namespaceName, "trait", traitReq.Name)
+			return nil, fmt.Errorf("%w: %s", ErrTraitNotFound, traitReq.Name)
 		}
 	}
 
@@ -2859,6 +2915,7 @@ func (s *ComponentService) UpdateComponentTraits(ctx context.Context, namespaceN
 	componentTraits := make([]openchoreov1alpha1.ComponentTrait, 0, len(req.Traits))
 	for _, traitReq := range req.Traits {
 		componentTrait := openchoreov1alpha1.ComponentTrait{
+			Kind:         openchoreov1alpha1.TraitRefKind(traitReq.Kind),
 			Name:         traitReq.Name,
 			InstanceName: traitReq.InstanceName,
 		}

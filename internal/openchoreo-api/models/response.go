@@ -313,15 +313,21 @@ func ErrorResponse(message, code string) APIResponse[any] {
 	}
 }
 
+// AllowedTraitResponse represents a trait reference in ComponentType API responses
+type AllowedTraitResponse struct {
+	Kind string `json:"kind,omitempty"`
+	Name string `json:"name"`
+}
+
 // ComponentTypeResponse represents a ComponentType in API responses
 type ComponentTypeResponse struct {
-	Name             string    `json:"name"`
-	DisplayName      string    `json:"displayName,omitempty"`
-	Description      string    `json:"description,omitempty"`
-	WorkloadType     string    `json:"workloadType"`
-	AllowedWorkflows []string  `json:"allowedWorkflows,omitempty"`
-	AllowedTraits    []string  `json:"allowedTraits,omitempty"`
-	CreatedAt        time.Time `json:"createdAt"`
+	Name             string                 `json:"name"`
+	DisplayName      string                 `json:"displayName,omitempty"`
+	Description      string                 `json:"description,omitempty"`
+	WorkloadType     string                 `json:"workloadType"`
+	AllowedWorkflows []string               `json:"allowedWorkflows,omitempty"`
+	AllowedTraits    []AllowedTraitResponse `json:"allowedTraits,omitempty"`
+	CreatedAt        time.Time              `json:"createdAt"`
 }
 
 // TraitResponse represents an Trait in API responses
@@ -334,6 +340,7 @@ type TraitResponse struct {
 
 // ComponentTraitResponse represents a trait instance attached to a component in API responses
 type ComponentTraitResponse struct {
+	Kind         string                 `json:"kind,omitempty"`
 	Name         string                 `json:"name"`
 	InstanceName string                 `json:"instanceName"`
 	Parameters   map[string]interface{} `json:"parameters,omitempty"`

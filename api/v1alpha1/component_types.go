@@ -80,6 +80,11 @@ type ComponentSpec struct {
 
 // ComponentTrait represents an trait instance attached to a component
 type ComponentTrait struct {
+	// Kind is the kind of trait (Trait or ClusterTrait)
+	// +optional
+	// +kubebuilder:default=Trait
+	Kind TraitRefKind `json:"kind,omitempty"`
+
 	// Name is the name of the Trait resource to use
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1

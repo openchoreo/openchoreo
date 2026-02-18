@@ -172,9 +172,14 @@ func (s *ComponentTypeService) toComponentTypeResponse(ct *openchoreov1alpha1.Co
 	allowedWorkflows := make([]string, 0, len(ct.Spec.AllowedWorkflows))
 	allowedWorkflows = append(allowedWorkflows, ct.Spec.AllowedWorkflows...)
 
-	// Convert allowed traits to string list
-	allowedTraits := make([]string, 0, len(ct.Spec.AllowedTraits))
-	allowedTraits = append(allowedTraits, ct.Spec.AllowedTraits...)
+	// Convert allowed traits to response format
+	allowedTraits := make([]models.AllowedTraitResponse, 0, len(ct.Spec.AllowedTraits))
+	for _, ref := range ct.Spec.AllowedTraits {
+		allowedTraits = append(allowedTraits, models.AllowedTraitResponse{
+			Kind: string(ref.Kind),
+			Name: ref.Name,
+		})
+	}
 
 	return &models.ComponentTypeResponse{
 		Name:             ct.Name,

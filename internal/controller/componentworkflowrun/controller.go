@@ -343,14 +343,33 @@ func (r *Reconciler) validateComponentWorkflow(
 			logger.Error(err, "failed to get ClusterComponentType", "clusterComponentType", ctName)
 			return nil, err
 		}
+		// Convert ClusterTraitRef to TraitRef for allowedTraits
+		allowedTraits := make([]openchoreodevv1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
+		for i, ref := range cct.Spec.AllowedTraits {
+			allowedTraits[i] = openchoreodevv1alpha1.TraitRef{
+				Kind: openchoreodevv1alpha1.TraitRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
+		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
+		traits := make([]openchoreodevv1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
+		for i, t := range cct.Spec.Traits {
+			traits[i] = openchoreodevv1alpha1.ComponentTypeTrait{
+				Kind:         openchoreodevv1alpha1.TraitRefKind(t.Kind),
+				Name:         t.Name,
+				InstanceName: t.InstanceName,
+				Parameters:   t.Parameters,
+				EnvOverrides: t.EnvOverrides,
+			}
+		}
 		componentType = &openchoreodevv1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
 			Spec: openchoreodevv1alpha1.ComponentTypeSpec{
 				WorkloadType:     cct.Spec.WorkloadType,
 				AllowedWorkflows: cct.Spec.AllowedWorkflows,
 				Schema:           cct.Spec.Schema,
-				Traits:           cct.Spec.Traits,
-				AllowedTraits:    cct.Spec.AllowedTraits,
+				Traits:           traits,
+				AllowedTraits:    allowedTraits,
 				Validations:      cct.Spec.Validations,
 				Resources:        cct.Spec.Resources,
 			},

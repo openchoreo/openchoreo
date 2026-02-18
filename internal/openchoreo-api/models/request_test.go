@@ -265,6 +265,35 @@ func TestUpdateComponentTraitsRequest_Sanitize(t *testing.T) {
 			traits: []ComponentTraitRequest{},
 			want:   []ComponentTraitRequest{},
 		},
+		{
+			name: "Kind field with whitespace is trimmed",
+			traits: []ComponentTraitRequest{
+				{Kind: "  Trait  ", Name: "logging", InstanceName: "app-logging"},
+				{Kind: "  ClusterTrait  ", Name: "global-logger", InstanceName: "my-logger"},
+			},
+			want: []ComponentTraitRequest{
+				{Kind: "Trait", Name: "logging", InstanceName: "app-logging"},
+				{Kind: "ClusterTrait", Name: "global-logger", InstanceName: "my-logger"},
+			},
+		},
+		{
+			name: "Kind field without whitespace is preserved",
+			traits: []ComponentTraitRequest{
+				{Kind: "ClusterTrait", Name: "logging", InstanceName: "app-logging"},
+			},
+			want: []ComponentTraitRequest{
+				{Kind: "ClusterTrait", Name: "logging", InstanceName: "app-logging"},
+			},
+		},
+		{
+			name: "Empty Kind field stays empty",
+			traits: []ComponentTraitRequest{
+				{Kind: "", Name: "logging", InstanceName: "app-logging"},
+			},
+			want: []ComponentTraitRequest{
+				{Kind: "", Name: "logging", InstanceName: "app-logging"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -280,6 +309,9 @@ func TestUpdateComponentTraitsRequest_Sanitize(t *testing.T) {
 			}
 
 			for i, trait := range req.Traits {
+				if trait.Kind != tt.want[i].Kind {
+					t.Errorf("After Sanitize() Traits[%d].Kind = %v, want %v", i, trait.Kind, tt.want[i].Kind)
+				}
 				if trait.Name != tt.want[i].Name {
 					t.Errorf("After Sanitize() Traits[%d].Name = %v, want %v", i, trait.Name, tt.want[i].Name)
 				}
@@ -577,6 +609,31 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Trait Kind field with whitespace is trimmed",
+			req: &CreateComponentRequest{
+				Name: "comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "deployment/web-app",
+				},
+				Traits: []ComponentTrait{
+					{Kind: "  Trait  ", Name: "logging", InstanceName: "app-logging"},
+					{Kind: "  ClusterTrait  ", Name: "global-logger", InstanceName: "my-logger"},
+				},
+			},
+			want: &CreateComponentRequest{
+				Name: "comp",
+				ComponentType: &ComponentTypeRef{
+					Kind: "ComponentType",
+					Name: "deployment/web-app",
+				},
+				Traits: []ComponentTrait{
+					{Kind: "Trait", Name: "logging", InstanceName: "app-logging"},
+					{Kind: "ClusterTrait", Name: "global-logger", InstanceName: "my-logger"},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -610,6 +667,9 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 			}
 
 			for i, trait := range tt.req.Traits {
+				if trait.Kind != tt.want.Traits[i].Kind {
+					t.Errorf("Traits[%d].Kind = %q, want %q", i, trait.Kind, tt.want.Traits[i].Kind)
+				}
 				if trait.Name != tt.want.Traits[i].Name {
 					t.Errorf("Traits[%d].Name = %q, want %q", i, trait.Name, tt.want.Traits[i].Name)
 				}

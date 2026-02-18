@@ -12,8 +12,8 @@ spec:
     - docker
 
   allowedTraits:
-    - api-configuration
-    - observability-alert-rule
+    - name: api-configuration
+    - name: observability-alert-rule
 
   validations:
     - rule: "${size(workload.endpoints) > 0}"

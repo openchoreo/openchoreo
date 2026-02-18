@@ -3854,6 +3854,12 @@ components:
         - name
         - instanceName
       properties:
+        kind:
+          type: string
+          description: Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+          enum: [Trait, ClusterTrait]
+          default: Trait
+          example: Trait
         name:
           type: string
           description: Trait resource name
@@ -4709,10 +4715,10 @@ components:
           example: ["docker-build", "buildpack-build"]
         allowedTraits:
           type: array
-          description: List of allowed trait names for this component type
+          description: List of allowed trait references for this component type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind)
           items:
             type: string
-          example: ["autoscaler", "logger"]
+          example: ["autoscaler", "ClusterTrait:logger"]
         createdAt:
           type: string
           format: date-time
@@ -5088,6 +5094,12 @@ components:
         - name
         - instanceName
       properties:
+        kind:
+          type: string
+          description: Kind of trait resource (Trait for namespace-scoped, ClusterTrait for cluster-scoped)
+          enum: [Trait, ClusterTrait]
+          default: Trait
+          example: Trait
         name:
           type: string
           description: Trait template name

@@ -454,8 +454,9 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should admit valid embedded traits", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "app-data",
 					Parameters: &runtime.RawExtension{
@@ -469,8 +470,9 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject embedded trait with empty name", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "",
 					InstanceName: "app-data",
 				},
@@ -483,8 +485,9 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject embedded trait with empty instanceName", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "",
 				},
@@ -497,12 +500,14 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject duplicate instanceNames among embedded traits", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "storage",
 				},
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "emptydir-volume",
 					InstanceName: "storage",
 				},
@@ -515,12 +520,14 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should allow multiple embedded traits with unique instanceNames", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "data-storage",
 				},
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "log-storage",
 				},
@@ -543,7 +550,10 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should admit valid allowedTraits list", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.ClusterTraitRef{
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "rate-limiter"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -557,7 +567,10 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject empty string in allowedTraits", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", ""}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.ClusterTraitRef{
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: ""},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -565,7 +578,11 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject duplicate entries in allowedTraits", func() {
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter", "autoscaler"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.ClusterTraitRef{
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "rate-limiter"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -573,13 +590,17 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should reject allowedTraits that overlap with embedded traits", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "app-data",
 				},
 			}
-			obj.Spec.AllowedTraits = []string{"persistent-volume", "autoscaler"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.ClusterTraitRef{
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "persistent-volume"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -587,13 +608,44 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 		})
 
 		It("should admit allowedTraits with no overlap with embedded traits", func() {
-			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentTypeTrait{
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
 				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
 					Name:         "persistent-volume",
 					InstanceName: "app-data",
 				},
 			}
-			obj.Spec.AllowedTraits = []string{"autoscaler", "rate-limiter"}
+			obj.Spec.AllowedTraits = []openchoreodevv1alpha1.ClusterTraitRef{
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "autoscaler"},
+				{Kind: openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait, Name: "rate-limiter"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject embedded trait with invalid kind in ClusterComponentType", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
+				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKind("Trait"),
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("ClusterComponentType can only reference ClusterTrait"))
+		})
+
+		It("should admit embedded trait with kind=ClusterTrait in ClusterComponentType", func() {
+			obj.Spec.Traits = []openchoreodevv1alpha1.ClusterComponentTypeTrait{
+				{
+					Kind:         openchoreodevv1alpha1.ClusterTraitRefKindClusterTrait,
+					Name:         "persistent-volume",
+					InstanceName: "app-data",
+				},
+			}
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
