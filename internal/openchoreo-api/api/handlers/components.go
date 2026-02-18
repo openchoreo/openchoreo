@@ -188,7 +188,6 @@ func toModelCreateComponentRequest(req *gen.CreateComponentRequest) *models.Crea
 		Name:              req.Name,
 		DisplayName:       ptr.Deref(req.DisplayName, ""),
 		Description:       ptr.Deref(req.Description, ""),
-		Type:              ptr.Deref(req.Type, ""),
 		ComponentType:     componentTypeRef,
 		AutoDeploy:        req.AutoDeploy,
 		Parameters:        mapToRawExtension(req.Parameters),

@@ -65,10 +65,7 @@ func (r *Reconciler) setResourcesReadyStatus(
 	logger := log.FromContext(ctx)
 
 	// Extract workload type from Component's ComponentType field
-	var componentTypeName string
-	if component.Spec.ComponentType != nil {
-		componentTypeName = component.Spec.ComponentType.Name
-	}
+	componentTypeName := component.Spec.ComponentType.Name
 	workloadType := extractWorkloadType(componentTypeName)
 
 	logger.Info("Evaluating resource status",

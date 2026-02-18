@@ -42,9 +42,6 @@ func (r *Reconciler) setupComponentTypeRefIndex(ctx context.Context, mgr ctrl.Ma
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
 		componentTypeIndex, func(obj client.Object) []string {
 			comp := obj.(*openchoreov1alpha1.Component)
-			if comp.Spec.ComponentType == nil {
-				return []string{}
-			}
 			return []string{string(comp.Spec.ComponentType.Kind) + ":" + comp.Spec.ComponentType.Name}
 		})
 }

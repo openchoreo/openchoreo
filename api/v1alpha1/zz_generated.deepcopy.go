@@ -1466,11 +1466,7 @@ func (in *ComponentSource) DeepCopy() *ComponentSource {
 func (in *ComponentSpec) DeepCopyInto(out *ComponentSpec) {
 	*out = *in
 	out.Owner = in.Owner
-	if in.ComponentType != nil {
-		in, out := &in.ComponentType, &out.ComponentType
-		*out = new(ComponentTypeRef)
-		**out = **in
-	}
+	out.ComponentType = in.ComponentType
 	if in.AutoBuild != nil {
 		in, out := &in.AutoBuild, &out.AutoBuild
 		*out = new(bool)

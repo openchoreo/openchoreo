@@ -28,9 +28,6 @@ func NewComponent(entry *index.ResourceEntry) (*Component, error) {
 // ComponentTypeName extracts the type name from componentType
 // Example: "http-service" from "deployment/http-service"
 func (c *Component) ComponentTypeName() string {
-	if c.Spec.ComponentType == nil {
-		return ""
-	}
 	ct := c.Spec.ComponentType.Name
 	if idx := strings.LastIndex(ct, "/"); idx >= 0 {
 		return ct[idx+1:]
@@ -41,9 +38,6 @@ func (c *Component) ComponentTypeName() string {
 // ComponentTypeCategory extracts the category from componentType
 // Example: "deployment" from "deployment/http-service"
 func (c *Component) ComponentTypeCategory() string {
-	if c.Spec.ComponentType == nil {
-		return ""
-	}
 	ct := c.Spec.ComponentType.Name
 	if idx := strings.Index(ct, "/"); idx >= 0 {
 		return ct[:idx]

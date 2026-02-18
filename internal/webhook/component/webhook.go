@@ -108,7 +108,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	var warnings admission.Warnings
 
 	// Note: Required field validations (componentType, owner.projectName, traits.name, traits.instanceName) are enforced by the CRD schema
-	// Note: spec.componentType, spec.type immutability are enforced by CEL rules in the CRD schema
+	// Note: spec.componentType immutability is enforced by CEL rules in the CRD schema
 	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
 	// Validate unique trait instance names

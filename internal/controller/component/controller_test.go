@@ -43,7 +43,10 @@ var _ = Describe("Component Controller", func() {
 						Owner: openchoreov1alpha1.ComponentOwner{
 							ProjectName: "test-project",
 						},
-						Type: openchoreov1alpha1.ComponentTypeService,
+						ComponentType: openchoreov1alpha1.ComponentTypeRef{
+							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+							Name: "deployment/service",
+						},
 						Workflow: &openchoreov1alpha1.ComponentWorkflowRunConfig{
 							Name: "test-workflow",
 							SystemParameters: openchoreov1alpha1.SystemParametersValues{
@@ -138,7 +141,7 @@ var _ = Describe("Component Controller with ComponentType", func() {
 						Owner: openchoreov1alpha1.ComponentOwner{
 							ProjectName: "test-project",
 						},
-						ComponentType: &openchoreov1alpha1.ComponentTypeRef{
+						ComponentType: openchoreov1alpha1.ComponentTypeRef{
 							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
 							Name: "deployment/" + componentTypeName,
 						},
@@ -203,7 +206,7 @@ var _ = Describe("Component Controller with ComponentType", func() {
 						Owner: openchoreov1alpha1.ComponentOwner{
 							ProjectName: "test-project",
 						},
-						ComponentType: &openchoreov1alpha1.ComponentTypeRef{
+						ComponentType: openchoreov1alpha1.ComponentTypeRef{
 							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
 							Name: "deployment/nonexistent-ct",
 						},
@@ -293,7 +296,10 @@ var _ = Describe("Component Controller Finalization", func() {
 					Owner: openchoreov1alpha1.ComponentOwner{
 						ProjectName: projectName,
 					},
-					Type: openchoreov1alpha1.ComponentTypeService,
+					ComponentType: openchoreov1alpha1.ComponentTypeRef{
+						Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+						Name: "deployment/service",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
@@ -367,7 +373,10 @@ var _ = Describe("Component Controller Finalization", func() {
 					Owner: openchoreov1alpha1.ComponentOwner{
 						ProjectName: projectName,
 					},
-					Type: openchoreov1alpha1.ComponentTypeService,
+					ComponentType: openchoreov1alpha1.ComponentTypeRef{
+						Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+						Name: "deployment/service",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
@@ -552,7 +561,10 @@ var _ = Describe("Component Controller Finalization", func() {
 					Owner: openchoreov1alpha1.ComponentOwner{
 						ProjectName: projectName,
 					},
-					Type: openchoreov1alpha1.ComponentTypeService,
+					ComponentType: openchoreov1alpha1.ComponentTypeRef{
+						Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+						Name: "deployment/service",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, comp)).To(Succeed())

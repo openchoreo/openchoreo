@@ -34,26 +34,18 @@ type ComponentList struct {
 }
 
 // ComponentSpec defines the desired state of Component.
-// +kubebuilder:validation:XValidation:rule="has(self.type) || has(self.componentType)",message="Component must have either spec.type or spec.componentType set"
-// +kubebuilder:validation:XValidation:rule="!has(self.componentType) || has(self.componentType.name)",message="spec.componentType.name is required when componentType is set"
 type ComponentSpec struct {
 	// Owner defines the ownership information for the component
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.owner is immutable"
 	Owner ComponentOwner `json:"owner"`
 
-	// Type specifies the component type (e.g., Service, WebApplication, etc.)
-	// LEGACY FIELD: Use componentType instead for new components with ComponentTypes
-	// +optional
-	Type DefinedComponentType `json:"type,omitempty"`
-
 	// ComponentType specifies the component type reference with kind and name.
 	// Name is in the format: {workloadType}/{componentTypeName}
 	// Example: kind=ComponentType, name="deployment/web-app"
-	// This field is used with ComponentTypes (new model)
-	// +optional
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.componentType cannot be changed after creation"
-	ComponentType *ComponentTypeRef `json:"componentType,omitempty"`
+	ComponentType ComponentTypeRef `json:"componentType"`
 
 	// AutoDeploy indicates whether the component should be deployed automatically when created
 	// When not specified, defaults to false (zero value)
@@ -136,20 +128,6 @@ type LatestRelease struct {
 	// +kubebuilder:validation:Required
 	ReleaseHash string `json:"releaseHash,omitempty"`
 }
-
-// DefinedComponentType defines how the component is deployed.
-type DefinedComponentType string
-
-const (
-	ComponentTypeService        DefinedComponentType = "Service"
-	ComponentTypeManualTask     DefinedComponentType = "ManualTask"
-	ComponentTypeScheduledTask  DefinedComponentType = "ScheduledTask"
-	ComponentTypeWebApplication DefinedComponentType = "WebApplication"
-	ComponentTypeWebhook        DefinedComponentType = "Webhook"
-	ComponentTypeAPIProxy       DefinedComponentType = "APIProxy"
-	ComponentTypeTestRunner     DefinedComponentType = "TestRunner"
-	ComponentTypeEventHandler   DefinedComponentType = "EventHandler"
-)
 
 // ComponentSource defines the source information of the component where the code or image is retrieved.
 type ComponentSource struct {

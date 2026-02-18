@@ -67,7 +67,6 @@ spec:
                   ComponentType specifies the component type reference with kind and name.
                   Name is in the format: {workloadType}/{componentTypeName}
                   Example: kind=ComponentType, name="deployment/web-app"
-                  This field is used with ComponentTypes (new model)
                 properties:
                   kind:
                     default: ComponentType
@@ -134,11 +133,6 @@ spec:
                   - name
                   type: object
                 type: array
-              type:
-                description: |-
-                  Type specifies the component type (e.g., Service, WebApplication, etc.)
-                  LEGACY FIELD: Use componentType instead for new components with ComponentTypes
-                type: string
               workflow:
                 description: |-
                   Workflow defines the component workflow configuration for building the component.
@@ -228,14 +222,9 @@ spec:
                 - systemParameters
                 type: object
             required:
+            - componentType
             - owner
             type: object
-            x-kubernetes-validations:
-            - message: Component must have either spec.type or spec.componentType
-                set
-              rule: has(self.type) || has(self.componentType)
-            - message: spec.componentType.name is required when componentType is set
-              rule: '!has(self.componentType) || has(self.componentType.name)'
           status:
             description: ComponentStatus defines the observed state of Component.
             properties:

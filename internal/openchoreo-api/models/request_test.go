@@ -446,12 +446,12 @@ func TestCreateComponentRequest_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Valid request without ComponentType (legacy mode)",
+			name: "Invalid - missing ComponentType",
 			req: &CreateComponentRequest{
 				Name: "my-comp",
-				Type: "Service",
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "componentType is required",
 		},
 		{
 			name: "Invalid - ComponentType with empty name",
@@ -463,7 +463,7 @@ func TestCreateComponentRequest_Validate(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "componentType.name is required when componentType is provided",
+			errMsg:  "componentType.name is required",
 		},
 		{
 			name: "Invalid - ComponentType with whitespace-only name",
@@ -475,7 +475,7 @@ func TestCreateComponentRequest_Validate(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "componentType.name is required when componentType is provided",
+			errMsg:  "componentType.name is required",
 		},
 		{
 			name: "Invalid - ComponentType with bad kind",
@@ -524,14 +524,12 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 				Name:          "  my-comp  ",
 				DisplayName:   "  My Component  ",
 				Description:   "  desc  ",
-				Type:          "  Service  ",
 				ComponentType: nil,
 			},
 			want: &CreateComponentRequest{
 				Name:          "my-comp",
 				DisplayName:   "My Component",
 				Description:   "desc",
-				Type:          "Service",
 				ComponentType: nil,
 			},
 		},
@@ -558,7 +556,6 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 				Name:        "  my-comp  ",
 				DisplayName: "  My Comp  ",
 				Description: "  A description  ",
-				Type:        "  Service  ",
 				ComponentType: &ComponentTypeRef{
 					Kind: "  ClusterComponentType  ",
 					Name: "  deployment/my-ct  ",
@@ -571,7 +568,6 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 				Name:        "my-comp",
 				DisplayName: "My Comp",
 				Description: "A description",
-				Type:        "Service",
 				ComponentType: &ComponentTypeRef{
 					Kind: "ClusterComponentType",
 					Name: "deployment/my-ct",
@@ -595,9 +591,6 @@ func TestCreateComponentRequest_Sanitize(t *testing.T) {
 			}
 			if tt.req.Description != tt.want.Description {
 				t.Errorf("Description = %q, want %q", tt.req.Description, tt.want.Description)
-			}
-			if tt.req.Type != tt.want.Type {
-				t.Errorf("Type = %q, want %q", tt.req.Type, tt.want.Type)
 			}
 
 			if tt.want.ComponentType == nil {

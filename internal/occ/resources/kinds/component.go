@@ -94,7 +94,7 @@ func (c *ComponentResource) PrintTableItems(components []resources.ResourceWrapp
 		comp := wrapper.Resource
 		rows = append(rows, []string{
 			wrapper.LogicalName,
-			string(comp.Spec.Type),
+			comp.Spec.ComponentType.Name,
 			c.GetStatus(comp),
 			resources.FormatAge(comp.GetCreationTimestamp().Time),
 			comp.GetLabels()[constants.LabelProject],
@@ -146,11 +146,12 @@ func (c *ComponentResource) CreateComponent(params api.CreateComponentParams) er
 				constants.LabelName:      params.Name,
 				constants.LabelNamespace: params.Namespace,
 				constants.LabelProject:   params.Project,
-				constants.LabelType:      string(params.Type),
 			},
 		},
 		Spec: openchoreov1alpha1.ComponentSpec{
-			Type: params.Type,
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{
+				Name: params.ComponentType,
+			},
 		},
 	}
 

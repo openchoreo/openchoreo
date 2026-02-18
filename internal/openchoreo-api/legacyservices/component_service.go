@@ -220,15 +220,13 @@ func (s *ComponentService) CreateComponentRelease(ctx context.Context, namespace
 		releaseName = generatedName
 	}
 
-	// Get ComponentType if using new model
+	// Get ComponentType
 	var componentTypeSpec *openchoreov1alpha1.ComponentTypeSpec
-	if component.Spec.ComponentType != nil {
-		spec, err := s.fetchComponentTypeSpec(ctx, component.Spec.ComponentType, namespaceName)
-		if err != nil {
-			return nil, err
-		}
-		componentTypeSpec = spec
+	spec, err := s.fetchComponentTypeSpec(ctx, &component.Spec.ComponentType, namespaceName)
+	if err != nil {
+		return nil, err
 	}
+	componentTypeSpec = spec
 
 	traits := make(map[string]openchoreov1alpha1.TraitSpec)
 	for _, componentTrait := range component.Spec.Traits {
@@ -612,11 +610,6 @@ func (s *ComponentService) GetComponentSchema(ctx context.Context, namespaceName
 	if component.Spec.Owner.ProjectName != projectName {
 		s.logger.Warn("Component does not belong to project", "namespace", namespaceName, "project", projectName, "component", componentName)
 		return nil, ErrComponentNotFound
-	}
-
-	// Validate componentType ref is set
-	if component.Spec.ComponentType == nil {
-		return nil, fmt.Errorf("component has no componentType set")
 	}
 
 	// Parse ComponentType name from format: {workloadType}/{componentTypeName}
@@ -1428,7 +1421,7 @@ func (s *ComponentService) CreateComponent(ctx context.Context, namespaceName, p
 		Name:          component.Name,
 		DisplayName:   req.DisplayName,
 		Description:   req.Description,
-		Type:          req.Type,
+		Type:          req.ComponentType.Name,
 		ProjectName:   projectName,
 		NamespaceName: namespaceName,
 		CreatedAt:     component.CreationTimestamp.Time,
@@ -1571,7 +1564,7 @@ func (s *ComponentService) GetComponent(ctx context.Context, namespaceName, proj
 		var fetcherKey string
 		switch resourceType {
 		case "type":
-			fetcherKey = string(component.Spec.Type)
+			fetcherKey = component.Spec.ComponentType.Name
 		case "workload":
 			fetcherKey = "Workload"
 		default:
@@ -1743,18 +1736,14 @@ func (s *ComponentService) createComponentResources(ctx context.Context, namespa
 	}
 
 	if req.ComponentType != nil {
-		// New format: ComponentTypeRef with kind and name
 		kind := openchoreov1alpha1.ComponentTypeRefKind(req.ComponentType.Kind)
 		if kind == "" {
 			kind = openchoreov1alpha1.ComponentTypeRefKindComponentType
 		}
-		componentSpec.ComponentType = &openchoreov1alpha1.ComponentTypeRef{
+		componentSpec.ComponentType = openchoreov1alpha1.ComponentTypeRef{
 			Kind: kind,
 			Name: req.ComponentType.Name,
 		}
-	} else if req.Type != "" {
-		// Legacy format: "Service", "WebApplication", etc.
-		componentSpec.Type = openchoreov1alpha1.DefinedComponentType(req.Type)
 	}
 
 	if req.AutoDeploy != nil {
@@ -1854,12 +1843,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		}
 	}
 
-	var componentType string
-	if component.Spec.ComponentType != nil {
-		componentType = component.Spec.ComponentType.Name
-	} else if component.Spec.Type != "" {
-		componentType = string(component.Spec.Type)
-	}
+	componentType := component.Spec.ComponentType.Name
 
 	// Get deletion timestamp if the component is being deleted
 	var deletionTimestamp *time.Time
@@ -2508,7 +2492,7 @@ func (s *ComponentService) CreateComponentWorkload(ctx context.Context, namespac
 
 	// Create the appropriate type-specific resource based on component type if it doesn't exist
 	if err := s.createTypeSpecificResource(); err != nil {
-		s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.Type, "error", err)
+		s.logger.Error("Failed to create type-specific resource", "componentType", component.Spec.ComponentType.Name, "error", err)
 		return nil, fmt.Errorf("failed to create type-specific resource: %w", err)
 	}
 

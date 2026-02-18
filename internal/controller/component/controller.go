@@ -73,21 +73,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Detect mode based on which fields are set
-	// Note: API-level validation ensures at least one of type or componentType is set
-	if comp.Spec.ComponentType != nil {
-		// New ComponentType mode
-		logger.Info("Reconciling Component with ComponentType mode",
-			"component", comp.Name,
-			"componentType", comp.Spec.ComponentType.Name)
-		return r.reconcileWithComponentType(ctx, comp)
-	}
-
-	// Legacy mode - no action needed for now
-	logger.Info("Component using legacy mode - no snapshot management",
+	// Reconcile with ComponentType
+	logger.Info("Reconciling Component",
 		"component", comp.Name,
-		"type", comp.Spec.Type)
-	return ctrl.Result{}, nil
+		"componentType", comp.Spec.ComponentType.Name)
+	return r.reconcileWithComponentType(ctx, comp)
 }
 
 // reconcileWithComponentType handles components using ComponentTypes
@@ -348,15 +338,13 @@ func (r *Reconciler) areValidTraits(ctx context.Context, comp *openchoreov1alpha
 			logger.Info(msg, "component", comp.Name)
 			return false
 		}
-	} else {
-		// If allowedTraits is empty, no traits are allowed
-		if len(comp.Spec.Traits) > 0 {
-			msg := fmt.Sprintf("No traits are allowed by ComponentType %q, but component has %d trait(s)",
-				ct.Name, len(comp.Spec.Traits))
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-			logger.Info(msg, "component", comp.Name)
-			return false
-		}
+	} else if len(comp.Spec.Traits) > 0 {
+		// If allowedTraits is empty/omitted, no additional traits are allowed
+		msg := fmt.Sprintf("No traits are allowed by ComponentType %q, but component has %d trait(s)",
+			ct.Name, len(comp.Spec.Traits))
+		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+		logger.Info(msg, "component", comp.Name)
+		return false
 	}
 
 	// Validate instance name uniqueness across embedded and component-level traits

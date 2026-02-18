@@ -317,14 +317,7 @@ func (r *Reconciler) validateComponentWorkflow(
 		return nil, err
 	}
 
-	// Validate componentType ref is set
 	ctRef := component.Spec.ComponentType
-	if ctRef == nil {
-		msg := "Component has no componentType set"
-		setWorkflowNotAllowedCondition(componentWorkflowRun, msg)
-		logger.Info(msg, "workflowrun", componentWorkflowRun.Name)
-		return nil, nil
-	}
 
 	// Parse componentType name: {workloadType}/{componentTypeName}
 	_, ctName, err := parseComponentType(ctRef.Name)

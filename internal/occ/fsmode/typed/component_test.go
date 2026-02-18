@@ -12,32 +12,27 @@ import (
 func TestComponentTypeName(t *testing.T) {
 	tests := []struct {
 		name          string
-		componentType *v1alpha1.ComponentTypeRef
+		componentType v1alpha1.ComponentTypeRef
 		want          string
 	}{
 		{
-			name:          "Nil ComponentType returns empty string",
-			componentType: nil,
-			want:          "",
-		},
-		{
 			name:          "Name with category extracts name after slash",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "deployment/http-service"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "deployment/http-service"},
 			want:          "http-service",
 		},
 		{
 			name:          "Name without category returns full name",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "http-service"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "http-service"},
 			want:          "http-service",
 		},
 		{
 			name:          "Empty name returns empty string",
-			componentType: &v1alpha1.ComponentTypeRef{Name: ""},
+			componentType: v1alpha1.ComponentTypeRef{Name: ""},
 			want:          "",
 		},
 		{
 			name:          "Multiple slashes extracts after last slash",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "a/b/c"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "a/b/c"},
 			want:          "c",
 		},
 	}
@@ -62,32 +57,27 @@ func TestComponentTypeName(t *testing.T) {
 func TestComponentTypeCategory(t *testing.T) {
 	tests := []struct {
 		name          string
-		componentType *v1alpha1.ComponentTypeRef
+		componentType v1alpha1.ComponentTypeRef
 		want          string
 	}{
 		{
-			name:          "Nil ComponentType returns empty string",
-			componentType: nil,
-			want:          "",
-		},
-		{
 			name:          "Name with category extracts category before slash",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "deployment/http-service"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "deployment/http-service"},
 			want:          "deployment",
 		},
 		{
 			name:          "Name without category returns empty string",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "http-service"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "http-service"},
 			want:          "",
 		},
 		{
 			name:          "Empty name returns empty string",
-			componentType: &v1alpha1.ComponentTypeRef{Name: ""},
+			componentType: v1alpha1.ComponentTypeRef{Name: ""},
 			want:          "",
 		},
 		{
 			name:          "Multiple slashes extracts before first slash",
-			componentType: &v1alpha1.ComponentTypeRef{Name: "a/b/c"},
+			componentType: v1alpha1.ComponentTypeRef{Name: "a/b/c"},
 			want:          "a",
 		},
 	}

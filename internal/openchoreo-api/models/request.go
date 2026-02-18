@@ -83,7 +83,6 @@ type CreateComponentRequest struct {
 	Name              string                `json:"name"`
 	DisplayName       string                `json:"displayName,omitempty"`
 	Description       string                `json:"description,omitempty"`
-	Type              string                `json:"type,omitempty"` // LEGACY: Use componentType instead
 	ComponentType     *ComponentTypeRef     `json:"componentType,omitempty"`
 	AutoDeploy        *bool                 `json:"autoDeploy,omitempty"`
 	Parameters        *runtime.RawExtension `json:"parameters,omitempty"`
@@ -183,15 +182,16 @@ func (req *CreateProjectRequest) Validate() error {
 
 // Validate validates the CreateComponentRequest
 func (req *CreateComponentRequest) Validate() error {
-	if req.ComponentType != nil {
-		name := strings.TrimSpace(req.ComponentType.Name)
-		if name == "" {
-			return errors.New("componentType.name is required when componentType is provided")
-		}
-		kind := strings.TrimSpace(req.ComponentType.Kind)
-		if kind != "" && kind != "ComponentType" && kind != "ClusterComponentType" {
-			return fmt.Errorf("componentType.kind must be 'ComponentType' or 'ClusterComponentType', got '%s'", kind)
-		}
+	if req.ComponentType == nil {
+		return errors.New("componentType is required")
+	}
+	name := strings.TrimSpace(req.ComponentType.Name)
+	if name == "" {
+		return errors.New("componentType.name is required")
+	}
+	kind := strings.TrimSpace(req.ComponentType.Kind)
+	if kind != "" && kind != "ComponentType" && kind != "ClusterComponentType" {
+		return fmt.Errorf("componentType.kind must be 'ComponentType' or 'ClusterComponentType', got '%s'", kind)
 	}
 	return nil
 }
@@ -247,7 +247,6 @@ func (req *CreateComponentRequest) Sanitize() {
 	req.Name = strings.TrimSpace(req.Name)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.Description = strings.TrimSpace(req.Description)
-	req.Type = strings.TrimSpace(req.Type)
 	if req.ComponentType != nil {
 		req.ComponentType.Kind = strings.TrimSpace(req.ComponentType.Kind)
 		req.ComponentType.Name = strings.TrimSpace(req.ComponentType.Name)
