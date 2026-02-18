@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package handlers
@@ -8,8 +8,7 @@ import (
 	"fmt"
 )
 
-// convert converts between two types using JSON marshal/unmarshal round-trip.
-// This respects custom JSON marshalers (e.g., metav1.Time) and matches fields by json tags.
+// convert converts between two types using JSON marshal/unmarshal round-trip.ß
 // Used to convert between Kubernetes CRD types and OpenAPI generated types.
 func convert[S any, D any](src S) (D, error) {
 	var dst D

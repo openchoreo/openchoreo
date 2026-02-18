@@ -5,7 +5,6 @@ package project
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,29 +64,20 @@ func (s *projectServiceWithAuthz) UpdateProject(ctx context.Context, namespaceNa
 	return s.internal.UpdateProject(ctx, namespaceName, project)
 }
 
-func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceName string) ([]openchoreov1alpha1.Project, error) {
-	allProjects, err := s.internal.ListProjects(ctx, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	authorized := make([]openchoreov1alpha1.Project, 0, len(allProjects))
-	for _, p := range allProjects {
-		if err := s.authz.Check(ctx, services.CheckRequest{
-			Action:       actionViewProject,
-			ResourceType: resourceTypeProject,
-			ResourceID:   p.Name,
-			Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: p.Name},
-		}); err != nil {
-			if errors.Is(err, services.ErrForbidden) {
-				continue
+func (s *projectServiceWithAuthz) ListProjects(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {
+	return services.FilteredList(ctx, opts, s.authz,
+		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {
+			return s.internal.ListProjects(ctx, namespaceName, pageOpts)
+		},
+		func(p openchoreov1alpha1.Project) services.CheckRequest {
+			return services.CheckRequest{
+				Action:       actionViewProject,
+				ResourceType: resourceTypeProject,
+				ResourceID:   p.Name,
+				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName, Project: p.Name},
 			}
-			return nil, err
-		}
-		authorized = append(authorized, p)
-	}
-
-	return authorized, nil
+		},
+	)
 }
 
 func (s *projectServiceWithAuthz) GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error) {

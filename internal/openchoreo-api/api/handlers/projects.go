@@ -20,13 +20,15 @@ func (h *Handler) ListProjects(
 ) (gen.ListProjectsResponseObject, error) {
 	h.logger.Debug("ListProjects called", "namespaceName", request.NamespaceName)
 
-	projects, err := h.projectService.ListProjects(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.projectService.ListProjects(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items, err := convertList[openchoreov1alpha1.Project, gen.Project](projects)
+	items, err := convertList[openchoreov1alpha1.Project, gen.Project](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert projects", "error", err)
 		return gen.ListProjects500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
@@ -34,7 +36,7 @@ func (h *Handler) ListProjects(
 
 	return gen.ListProjects200JSONResponse{
 		Items:      items,
-		Pagination: &gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 

@@ -13,6 +13,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 const (
@@ -119,21 +120,36 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 	return existing, nil
 }
 
-func (s *projectService) ListProjects(ctx context.Context, namespaceName string) ([]openchoreov1alpha1.Project, error) {
-	s.logger.Debug("Listing projects", "namespace", namespaceName)
+func (s *projectService) ListProjects(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Project], error) {
+	s.logger.Debug("Listing projects", "namespace", namespaceName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	var projectList openchoreov1alpha1.ProjectList
 	listOpts := []client.ListOption{
 		client.InNamespace(namespaceName),
 	}
+	if opts.Limit > 0 {
+		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
+	}
+	if opts.Cursor != "" {
+		listOpts = append(listOpts, client.Continue(opts.Cursor))
+	}
 
+	var projectList openchoreov1alpha1.ProjectList
 	if err := s.k8sClient.List(ctx, &projectList, listOpts...); err != nil {
 		s.logger.Error("Failed to list projects", "error", err)
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 
+	result := &services.ListResult[openchoreov1alpha1.Project]{
+		Items:      projectList.Items,
+		NextCursor: projectList.Continue,
+	}
+	if projectList.RemainingItemCount != nil {
+		remaining := *projectList.RemainingItemCount
+		result.RemainingCount = &remaining
+	}
+
 	s.logger.Debug("Listed projects", "namespace", namespaceName, "count", len(projectList.Items))
-	return projectList.Items, nil
+	return result, nil
 }
 
 func (s *projectService) GetProject(ctx context.Context, namespaceName, projectName string) (*openchoreov1alpha1.Project, error) {
