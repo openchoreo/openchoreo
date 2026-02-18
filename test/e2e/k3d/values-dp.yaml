@@ -1,0 +1,11 @@
+# Helm values for OpenChoreo Data Plane in e2e testing setup
+# Uses *.e2e-dp.local domain, HTTP only
+
+gateway:
+  httpPort: 19080
+  httpsPort: 19443
+  tls:
+    enabled: false
+
+fluent-bit:
+  enabled: false

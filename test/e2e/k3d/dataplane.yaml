@@ -1,0 +1,18 @@
+# DataPlane CR for e2e testing
+# The clusterAgent.clientCA.value is replaced at apply time by the Makefile
+apiVersion: openchoreo.dev/v1alpha1
+kind: DataPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  secretStoreRef:
+    name: default
+  gateway:
+    publicVirtualHost: e2e-dp.local
+    publicHTTPPort: 29080
+    publicHTTPSPort: 29443

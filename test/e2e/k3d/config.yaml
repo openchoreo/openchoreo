@@ -1,0 +1,66 @@
+# k3d cluster config for e2e testing
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-e2e
+image: rancher/k3s:v1.32.9-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "26550"
+ports:
+  # Control Plane — port range 28xxx
+  - port: 28080:8080
+    nodeFilters:
+      - loadbalancer
+  - port: 28443:8443
+    nodeFilters:
+      - loadbalancer
+  # Data Plane — port range 29xxx
+  - port: 29080:19080
+    nodeFilters:
+      - loadbalancer
+  - port: 29443:19443
+    nodeFilters:
+      - loadbalancer
+  # Build Plane — port range 20xxx (only used when E2E_WITH_BUILD=true)
+  - port: 20082:10082
+    nodeFilters:
+      - loadbalancer
+  # Observability Plane — port range 21xxx (only used when E2E_WITH_OBSERVABILITY=true)
+  - port: 21080:11080
+    nodeFilters:
+      - loadbalancer
+  - port: 21085:11085
+    nodeFilters:
+      - loadbalancer
+  - port: 21081:5601
+    nodeFilters:
+      - loadbalancer
+  - port: 21082:9200
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      # Add host.k3d.internal to API server TLS SANs so kubelet can pull images
+      # from the build plane registry at host.k3d.internal:20082 via HTTP proxy
+      - arg: "--tls-san=host.k3d.internal"
+        nodeFilters:
+          - server:*
+      # Lower eviction thresholds to prevent spurious pod evictions on CI runners
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
+registries:
+  config: |
+    mirrors:
+      "host.k3d.internal:20082":
+        endpoint:
+          - http://host.k3d.internal:20082

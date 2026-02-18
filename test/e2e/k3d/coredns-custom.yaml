@@ -1,0 +1,26 @@
+# CoreDNS custom config for e2e k3d cluster
+# Rewrites e2e plane domains to host.k3d.internal so pods can
+# reach services exposed via k3d load balancer
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  e2e.override: |
+    rewrite stop {
+      name regex (.+\.)?e2e-cp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-dp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-bp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-op\.local host.k3d.internal
+      answer auto
+    }

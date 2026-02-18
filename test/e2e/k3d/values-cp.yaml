@@ -1,0 +1,34 @@
+# Helm values for OpenChoreo Control Plane in e2e testing setup
+# Uses *.e2e-cp.local domain, HTTP only
+# Backstage UI is not needed — e2e tests use kubectl/Go client
+
+openchoreoApi:
+  http:
+    hostnames:
+    - api.e2e-cp.local
+  config:
+    server:
+      publicUrl: "http://api.e2e-cp.local:28080"
+
+backstage:
+  enabled: false
+  baseUrl: "http://openchoreo.e2e-cp.local:28080"
+  http:
+    hostnames:
+      - openchoreo.e2e-cp.local
+
+security:
+  oidc:
+    issuer: "http://thunder.e2e-cp.local:28080"
+    jwksUrl: "http://thunder.e2e-cp.local:28080/oauth2/jwks"
+    authorizationUrl: "http://thunder.e2e-cp.local:28080/oauth2/authorize"
+    tokenUrl: "http://thunder.e2e-cp.local:28080/oauth2/token"
+
+thunder:
+  host: thunder.e2e-cp.local
+
+gateway:
+  httpPort: 8080
+  httpsPort: 8443
+  tls:
+    enabled: false

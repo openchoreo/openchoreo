@@ -1,39 +1,76 @@
 name: E2E Tests
 
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      helm_chart_version:
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<commit-sha>)"
+        required: false
+        default: "0.0.0-latest-dev"
+      with_build:
+        description: "Include build plane"
+        type: boolean
+        default: false
+      with_observability:
+        description: "Include observability plane"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 1 * * *" # nightly at 01:00 UTC (06:30 IST)
 
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_CHART_VERSION: ${{ github.event.inputs.helm_chart_version || '0.0.0-latest-dev' }}
+  E2E_WITH_BUILD: ${{ github.event.inputs.with_build || 'false' }}
+  E2E_WITH_OBSERVABILITY: ${{ github.event.inputs.with_observability || 'false' }}
+  K3D_VERSION: v5.8.3
+  K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
+  YQ_VERSION: v4.45.4
+  YQ_SHA256: b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
+
 jobs:
-  test-e2e:
-    name: Run on Ubuntu
-    runs-on: ubuntu-latest
+  e2e:
+    name: E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-# TODO: Enable me once the e2e tests are ready
-#      - name: Setup Go
-#        uses: actions/setup-go@v6.1.0
-#        with:
-#          go-version: '~1.23'
-#
-#      - name: Install the latest version of kind
-#        run: |
-#          curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
-#          chmod +x ./kind
-#          sudo mv ./kind /usr/local/bin/kind
-#
-#      - name: Verify kind installation
-#        run: kind version
-#
-#      - name: Create kind cluster
-#        run: kind create cluster
-#
-#      - name: Running Test e2e
-#        run: |
-#          go mod tidy
-#          make test-e2e
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Install k3d
+        run: |
+          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/${{ env.K3D_VERSION }}/k3d-linux-amd64
+          echo "${{ env.K3D_SHA256 }}  /tmp/k3d" | sha256sum -c -
+          sudo install /tmp/k3d /usr/local/bin/k3d
+          k3d version
+
+      - name: Install yq
+        run: |
+          curl -fsSL -o /tmp/yq https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64
+          echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
+          sudo install /tmp/yq /usr/local/bin/yq
+
+      - name: Run e2e tests
+        run: |
+          make e2e \
+            E2E_HELM_SOURCE=oci \
+            HELM_CHART_VERSION=${{ env.HELM_CHART_VERSION }} \
+            E2E_WITH_BUILD=${{ env.E2E_WITH_BUILD }} \
+            E2E_WITH_OBSERVABILITY=${{ env.E2E_WITH_OBSERVABILITY }}
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: e2e-diagnostics
+          path: test/e2e/_diagnostics/
+          retention-days: 7

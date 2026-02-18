@@ -1,0 +1,13 @@
+# ObservabilityPlane CR for e2e testing
+# The clusterAgent.clientCA.value is replaced at apply time by the Makefile
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  observerURL: http://observer.e2e-op.local:21080

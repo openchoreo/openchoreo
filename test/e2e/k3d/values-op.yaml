@@ -1,0 +1,32 @@
+# Helm values for OpenChoreo Observability Plane in e2e testing setup
+# Only used when E2E_WITH_OBSERVABILITY=true
+# Uses external OIDC URLs (not svc.cluster.local) to test production-like paths
+
+openSearch:
+  enabled: true
+  service:
+    type: LoadBalancer
+
+openSearchCluster:
+  enabled: false
+
+observer:
+  openSearchSecretName: observer-opensearch-credentials
+  http:
+    hostnames:
+    - observer.e2e-op.local
+
+openSearchDashboards:
+  service:
+    type: LoadBalancer
+
+security:
+  oidc:
+    jwksUrl: "http://thunder.e2e-cp.local:28080/oauth2/jwks"
+    tokenUrl: "http://thunder.e2e-cp.local:28080/oauth2/token"
+
+gateway:
+  httpPort: 11080
+  httpsPort: 11085
+  tls:
+    enabled: false

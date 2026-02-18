@@ -1,0 +1,19 @@
+# Helm values for OpenChoreo Build Plane in e2e testing setup
+# Only used when E2E_WITH_BUILD=true
+
+argo-workflows:
+  server:
+    enabled: false
+
+defaultResources:
+  enabled: true
+  registry:
+    # Port 20082 is the host-side port mapped to container port 10082 in k3d config.
+    # Inside the cluster, host.k3d.internal resolves to the k3d load balancer which
+    # routes 20082 → 10082, so pods can push/pull images through the LB.
+    host: "host.k3d.internal:20082"
+
+openbao:
+  server:
+    dev:
+      enabled: true

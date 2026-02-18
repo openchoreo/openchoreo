@@ -1,0 +1,19 @@
+# Thunder IdP overrides for e2e testing
+# Applied on top of install/k3d/common/values-thunder.yaml:
+#   helm install thunder ... -f install/k3d/common/values-thunder.yaml -f test/e2e/k3d/values-thunder.yaml
+
+configuration:
+  server:
+    publicUrl: "http://thunder.e2e-cp.local:28080"
+
+  gateClient:
+    hostname: "thunder.e2e-cp.local"
+    port: 28080
+
+  cors:
+    allowedOrigins:
+      - "http://openchoreo.e2e-cp.local:28080"
+
+  passkey:
+    allowedOrigins:
+      - "http://openchoreo.e2e-cp.local:28080"

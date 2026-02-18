@@ -4,104 +4,36 @@
 package e2e
 
 import (
+	"flag"
 	"fmt"
-	"os"
-	"os/exec"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive
+	. "github.com/onsi/gomega"    //nolint:revive
 
-	"github.com/openchoreo/openchoreo/test/utils"
+	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
-var (
-	// Optional Environment Variables:
-	// - PROMETHEUS_INSTALL_SKIP=true: Skips Prometheus Operator installation during test setup.
-	// - CERT_MANAGER_INSTALL_SKIP=true: Skips CertManager installation during test setup.
-	// These variables are useful if Prometheus or CertManager is already installed, avoiding
-	// re-installation and conflicts.
-	skipPrometheusInstall  = os.Getenv("PROMETHEUS_INSTALL_SKIP") == "true"
-	skipCertManagerInstall = os.Getenv("CERT_MANAGER_INSTALL_SKIP") == "true"
-	// isPrometheusOperatorAlreadyInstalled will be set true when prometheus CRDs be found on the cluster
-	isPrometheusOperatorAlreadyInstalled = false
-	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
-	isCertManagerAlreadyInstalled = false
+var kubeContext string
 
-	// projectImage is the name of the image which will be build and loaded
-	// with the code source changes to be tested.
-	projectImage = "example.com/choreo:v0.0.1"
-)
+func init() {
+	flag.StringVar(&kubeContext, "e2e.kubecontext", "",
+		"Kubernetes context for e2e tests (required)")
+}
 
-// TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
-// temporary environment to validate project changes with the the purposed to be used in CI jobs.
-// The default setup requires Kind, builds/loads the Manager Docker image locally, and installs
-// CertManager and Prometheus.
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	_, _ = fmt.Fprintf(GinkgoWriter, "Starting choreo integration test suite\n")
-	RunSpecs(t, "e2e suite")
+	fmt.Fprintf(GinkgoWriter, "Starting OpenChoreo e2e test suite\n")
+	RunSpecs(t, "OpenChoreo E2E Suite")
 }
 
 var _ = BeforeSuite(func() {
-	By("Ensure that Prometheus is enabled")
-	_ = utils.UncommentCode("config/default/kustomization.yaml", "#- ../prometheus", "#")
+	Expect(kubeContext).NotTo(BeEmpty(), "--e2e.kubecontext is required")
+	fmt.Fprintf(GinkgoWriter, "Using kube context: %s\n", kubeContext)
 
-	By("generating files")
-	cmd := exec.Command("make", "generate")
-	_, err := utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to run make generate")
-
-	By("generating manifests")
-	cmd = exec.Command("make", "manifests")
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to run make manifests")
-
-	By("building the manager(Operator) image")
-	cmd = exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectImage))
-	_, err = utils.Run(cmd)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
-
-	// TODO(user): If you want to change the e2e test vendor from Kind, ensure the image is
-	// built and available before running the tests. Also, remove the following block.
-	By("loading the manager(Operator) image on Kind")
-	err = utils.LoadImageToKindClusterWithName(projectImage)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image into Kind")
-
-	// The tests-e2e are intended to run on a temporary cluster that is created and destroyed for testing.
-	// To prevent errors when tests run in environments with Prometheus or CertManager already installed,
-	// we check for their presence before execution.
-	// Setup Prometheus and CertManager before the suite if not skipped and if not already installed
-	if !skipPrometheusInstall {
-		By("checking if prometheus is installed already")
-		isPrometheusOperatorAlreadyInstalled = utils.IsPrometheusCRDsInstalled()
-		if !isPrometheusOperatorAlreadyInstalled {
-			_, _ = fmt.Fprintf(GinkgoWriter, "Installing Prometheus Operator...\n")
-			Expect(utils.InstallPrometheusOperator()).To(Succeed(), "Failed to install Prometheus Operator")
-		} else {
-			_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: Prometheus Operator is already installed. Skipping installation...\n")
-		}
-	}
-	if !skipCertManagerInstall {
-		By("checking if cert manager is installed already")
-		isCertManagerAlreadyInstalled = utils.IsCertManagerCRDsInstalled()
-		if !isCertManagerAlreadyInstalled {
-			_, _ = fmt.Fprintf(GinkgoWriter, "Installing CertManager...\n")
-			Expect(utils.InstallCertManager()).To(Succeed(), "Failed to install CertManager")
-		} else {
-			_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: CertManager is already installed. Skipping installation...\n")
-		}
-	}
-})
-
-var _ = AfterSuite(func() {
-	// Teardown Prometheus and CertManager after the suite if not skipped and if they were not already installed
-	if !skipPrometheusInstall && !isPrometheusOperatorAlreadyInstalled {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling Prometheus Operator...\n")
-		utils.UninstallPrometheusOperator()
-	}
-	if !skipCertManagerInstall && !isCertManagerAlreadyInstalled {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling CertManager...\n")
-		utils.UninstallCertManager()
-	}
+	By("verifying cluster is accessible")
+	output, err := framework.Kubectl(kubeContext, "cluster-info")
+	Expect(err).NotTo(HaveOccurred(),
+		"cluster not accessible with context %s:\n%s", kubeContext, output)
+	fmt.Fprintf(GinkgoWriter, "Cluster accessible\n")
 })
