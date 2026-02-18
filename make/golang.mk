@@ -17,7 +17,8 @@ GO_BUILD_BINARIES := \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/main.go \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway \
-	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent \
+	events-collector:$(PROJECT_DIR)/cmd/events-collector
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
 

@@ -34,7 +34,8 @@ DOCKER_BUILD_IMAGES := \
 	ai-rca-agent:$(PROJECT_DIR)/rca-agent/Dockerfile:$(PROJECT_DIR)/rca-agent \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/occ/Dockerfile:$(PROJECT_DIR) \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway/Dockerfile:$(PROJECT_DIR) \
-	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR)
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR) \
+	events-collector:$(PROJECT_DIR)/cmd/events-collector/Dockerfile:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 
@@ -78,6 +79,7 @@ docker.build.observer: go.build-multiarch.observer
 docker.build.ai-rca-agent:  # Python project - no Go build dependency
 docker.build.cluster-gateway: go.build-multiarch.cluster-gateway
 docker.build.cluster-agent: go.build-multiarch.cluster-agent
+docker.build.events-collector: go.build-multiarch.events-collector
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)
