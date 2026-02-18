@@ -56,6 +56,7 @@ func (h *Handler) CreateProject(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateProject400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
+	projectCR.Status = openchoreov1alpha1.ProjectStatus{}
 
 	created, err := h.projectService.CreateProject(ctx, request.NamespaceName, &projectCR)
 	if err != nil {
@@ -123,6 +124,7 @@ func (h *Handler) UpdateProject(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateProject400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
+	projectCR.Status = openchoreov1alpha1.ProjectStatus{}
 
 	// Ensure the name from the URL path is used
 	projectCR.Name = request.ProjectName

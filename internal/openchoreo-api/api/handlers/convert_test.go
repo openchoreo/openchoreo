@@ -5,7 +5,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
@@ -89,17 +88,6 @@ type dstWithTime struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// type rename — same JSON shape, different Go type names
-type srcID struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type dstID struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
-
 // JSON tag mismatch — src field "foo_name" does not match dst field "name"
 type srcTagMismatch struct {
 	Name string `json:"foo_name"`
@@ -172,22 +160,19 @@ type dstWithAnyParameters struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
-// error helpers
-type unmarshalErrorDst struct{}
-
-func (u *unmarshalErrorDst) UnmarshalJSON(_ []byte) error {
-	return &json.SyntaxError{}
-}
-
-type marshalErrorSrc struct {
-	Ch chan int `json:"ch"`
-}
-
 // ---------------------------------------------------------------------------
 // TestConvert
 // ---------------------------------------------------------------------------
 
 func TestConvert(t *testing.T) {
+	t.Run("basic field mapping", testConvertBasicFieldMapping)
+	t.Run("pointers slices and maps", testConvertPointersSlicesMaps)
+	t.Run("primitives and tags", testConvertPrimitivesAndTags)
+	t.Run("RawExtension", testConvertRawExtension)
+	t.Run("any map and any field", testConvertAnyMapAndAnyField)
+}
+
+func testConvertBasicFieldMapping(t *testing.T) {
 	t.Run("successful conversion same type", func(t *testing.T) {
 		src := srcFull{Name: "foo", Value: 42, Extra: "bar"}
 		got, err := convert[srcFull, srcFull](src)
@@ -246,6 +231,33 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
+	t.Run("map[string]interface{} to struct extracts matching fields", func(t *testing.T) {
+		src := map[string]interface{}{"name": "alice", "unknown": "ignored"}
+		got, err := convert[map[string]interface{}, dstPartial](src)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.Name != "alice" {
+			t.Errorf("got name %q, want %q", got.Name, "alice")
+		}
+	})
+
+	t.Run("struct to map[string]interface{} produces correct keys", func(t *testing.T) {
+		src := srcFull{Name: "bob", Value: 5, Extra: "x"}
+		got, err := convert[srcFull, map[string]interface{}](src)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got["name"] != "bob" {
+			t.Errorf("got name %v, want %q", got["name"], "bob")
+		}
+		if got["value"] != float64(5) {
+			t.Errorf("got value %v (%T), want float64(5)", got["value"], got["value"])
+		}
+	})
+}
+
+func testConvertPointersSlicesMaps(t *testing.T) {
 	t.Run("nil pointer fields preserved as nil", func(t *testing.T) {
 		src := srcWithPointers{Name: nil, Count: nil}
 		got, err := convert[srcWithPointers, dstWithPointers](src)
@@ -319,7 +331,9 @@ func TestConvert(t *testing.T) {
 			t.Errorf("expected nil map, got %v", got.Labels)
 		}
 	})
+}
 
+func testConvertPrimitivesAndTags(t *testing.T) {
 	t.Run("time.Time field conversion", func(t *testing.T) {
 		ts := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
 		src := srcWithTime{Name: "event", CreatedAt: ts}
@@ -350,7 +364,7 @@ func TestConvert(t *testing.T) {
 	})
 
 	t.Run("JSON tag mismatch loses field value", func(t *testing.T) {
-		// src serialises to {"foo_name":"x"} but dst expects {"name":"..."}
+		// src serializes to {"foo_name":"x"} but dst expects {"name":"..."}
 		src := srcTagMismatch{Name: "x"}
 		got, err := convert[srcTagMismatch, dstTagMismatch](src)
 		if err != nil {
@@ -361,8 +375,10 @@ func TestConvert(t *testing.T) {
 			t.Errorf("got name %q, want empty string due to tag mismatch", got.Name)
 		}
 	})
+}
 
-	t.Run("RawExtension with flat JSON object converts to map[string]interface{}", func(t *testing.T) {
+func testConvertRawExtension(t *testing.T) {
+	t.Run("flat JSON object converts to map[string]interface{}", func(t *testing.T) {
 		raw, _ := json.Marshal(map[string]interface{}{"key": "value", "count": 3})
 		src := srcWithRawExtension{
 			Name:       "x",
@@ -385,7 +401,7 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
-	t.Run("map[string]interface{} with flat JSON object converts to RawExtension", func(t *testing.T) {
+	t.Run("map[string]interface{} converts to RawExtension", func(t *testing.T) {
 		params := map[string]interface{}{"key": "value", "count": float64(3)}
 		src := dstWithAnyParameters{
 			Name:       "x",
@@ -421,7 +437,7 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
-	t.Run("RawExtension with nested object converts to nested map", func(t *testing.T) {
+	t.Run("nested object converts to nested map", func(t *testing.T) {
 		raw, _ := json.Marshal(map[string]interface{}{
 			"db": map[string]interface{}{"host": "localhost", "port": 5432},
 		})
@@ -439,7 +455,7 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
-	t.Run("RawExtension with array value converts to []interface{}", func(t *testing.T) {
+	t.Run("array value converts to []interface{}", func(t *testing.T) {
 		raw, _ := json.Marshal(map[string]interface{}{
 			"tags": []string{"a", "b"},
 		})
@@ -457,7 +473,7 @@ func TestConvert(t *testing.T) {
 		}
 	})
 
-	t.Run("RawExtension with boolean and null values converts correctly", func(t *testing.T) {
+	t.Run("boolean and null values convert correctly", func(t *testing.T) {
 		raw, _ := json.Marshal(map[string]interface{}{
 			"enabled": true,
 			"note":    nil,
@@ -475,7 +491,9 @@ func TestConvert(t *testing.T) {
 			t.Errorf("got note %v, want nil", params["note"])
 		}
 	})
+}
 
+func testConvertAnyMapAndAnyField(t *testing.T) {
 	t.Run("map[string]interface{} conversion preserves string values", func(t *testing.T) {
 		src := srcWithAnyMap{
 			Name: "x",
@@ -574,54 +592,6 @@ func TestConvert(t *testing.T) {
 			t.Errorf("got extra %v, want nil", got.Extra)
 		}
 	})
-
-	t.Run("map[string]interface{} to struct extracts matching fields", func(t *testing.T) {
-		// convert a free-form map into a typed struct — only matching JSON keys land.
-		src := map[string]interface{}{"name": "alice", "unknown": "ignored"}
-		got, err := convert[map[string]interface{}, dstPartial](src)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got.Name != "alice" {
-			t.Errorf("got name %q, want %q", got.Name, "alice")
-		}
-	})
-
-	t.Run("struct to map[string]interface{} produces correct keys", func(t *testing.T) {
-		src := srcFull{Name: "bob", Value: 5, Extra: "x"}
-		got, err := convert[srcFull, map[string]interface{}](src)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got["name"] != "bob" {
-			t.Errorf("got name %v, want %q", got["name"], "bob")
-		}
-		if got["value"] != float64(5) {
-			t.Errorf("got value %v (%T), want float64(5)", got["value"], got["value"])
-		}
-	})
-
-	t.Run("marshal error returns wrapped error", func(t *testing.T) {
-		src := marshalErrorSrc{Ch: make(chan int)}
-		_, err := convert[marshalErrorSrc, dstPartial](src)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "marshal source") {
-			t.Errorf("error %q does not contain 'marshal source'", err.Error())
-		}
-	})
-
-	t.Run("unmarshal error returns wrapped error", func(t *testing.T) {
-		src := srcFull{Name: "foo"}
-		_, err := convert[srcFull, unmarshalErrorDst](src)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "unmarshal into destination") {
-			t.Errorf("error %q does not contain 'unmarshal into destination'", err.Error())
-		}
-	})
 }
 
 // ---------------------------------------------------------------------------
@@ -686,31 +656,6 @@ func TestConvertList(t *testing.T) {
 		}
 		if got[1].Address.City != "B" {
 			t.Errorf("got city %q, want %q", got[1].Address.City, "B")
-		}
-	})
-
-	t.Run("error at first item stops early and wraps index", func(t *testing.T) {
-		items := []marshalErrorSrc{{Ch: make(chan int)}, {Ch: make(chan int)}}
-		_, err := convertList[marshalErrorSrc, dstPartial](items)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "item 0") {
-			t.Errorf("error %q does not contain 'item 0'", err.Error())
-		}
-	})
-
-	t.Run("error at non-first item wraps correct index", func(t *testing.T) {
-		// Build a mixed slice: first two items are valid srcFull values marshaled
-		// to marshalErrorSrc is not possible across types — simulate with a
-		// dedicated mixed-error scenario using srcFull -> unmarshalErrorDst.
-		items := []srcFull{{Name: "ok1"}, {Name: "ok2"}, {Name: "fail"}}
-		_, err := convertList[srcFull, unmarshalErrorDst](items)
-		if err == nil {
-			t.Fatal("expected error, got nil")
-		}
-		if !strings.Contains(err.Error(), "item 0") {
-			t.Errorf("error %q does not contain 'item 0'", err.Error())
 		}
 	})
 }

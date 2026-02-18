@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-// convert converts between two types using JSON marshal/unmarshal round-trip.ß
+// convert converts between two types using JSON marshal/unmarshal round-trip.
 // Used to convert between Kubernetes CRD types and OpenAPI generated types.
 func convert[S any, D any](src S) (D, error) {
 	var dst D
