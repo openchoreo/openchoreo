@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -330,7 +330,7 @@ func (s *WorkflowRunService) GetWorkflowRunEvents(ctx context.Context, namespace
 	// Check if RunReference exists
 	if workflowRun.Status.RunReference == nil || workflowRun.Status.RunReference.Name == "" || workflowRun.Status.RunReference.Namespace == "" {
 		logger.Warn("Workflow run reference not found", "run", runName)
-		return nil, fmt.Errorf("workflow run reference not found")
+		return nil, fmt.Errorf("%w: %s", ErrWorkflowRunReferenceNotFound, runName)
 	}
 
 	// Get events through the build plane client (Argo specific)
@@ -364,7 +364,7 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 	}, &argoWorkflow); err != nil {
 		if client.IgnoreNotFound(err) == nil {
 			logger.Warn("Argo workflow not found in build plane", "workflow", runReference.Name, "namespace", runReference.Namespace)
-			return nil, fmt.Errorf("argo workflow not found")
+			return nil, fmt.Errorf("argo workflow not found: %w", err)
 		}
 		logger.Error("Failed to get argo workflow", "error", err)
 		return nil, fmt.Errorf("failed to get argo workflow: %w", err)
@@ -399,8 +399,11 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 				timestamp = event.EventTime.Time
 			} else if !event.FirstTimestamp.IsZero() {
 				timestamp = event.FirstTimestamp.Time
+			} else if !event.LastTimestamp.IsZero() {
+				timestamp = event.LastTimestamp.Time
 			} else {
-				timestamp = time.Now()
+				// Skip events with no real timestamp to avoid misleading time values
+				continue
 			}
 
 			allEventEntries = append(allEventEntries, models.ComponentWorkflowRunEventEntry{
@@ -412,6 +415,12 @@ func (s *WorkflowRunService) getArgoWorkflowRunEvents(
 		}
 	}
 
+	sort.SliceStable(allEventEntries, func(i, j int) bool {
+		ti, _ := time.Parse(time.RFC3339, allEventEntries[i].Timestamp)
+		tj, _ := time.Parse(time.RFC3339, allEventEntries[j].Timestamp)
+		return ti.Before(tj)
+	})
+
 	return allEventEntries, nil
 }
 
@@ -422,18 +431,18 @@ func (s *WorkflowRunService) getArgoWorkflowPods(ctx context.Context, bpClient c
 	}
 
 	var podList corev1.PodList
-	if err := bpClient.List(ctx, &podList, client.InNamespace(workflow.Namespace), client.MatchingLabelsSelector{Selector: selector.AsSelector()}); err != nil {
+	if err := bpClient.List(ctx, &podList, client.InNamespace(workflow.Namespace), client.MatchingLabels(selector)); err != nil {
 		return nil, fmt.Errorf("failed to list pods: %w", err)
 	}
 
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("no pods found for workflow")
+		return []corev1.Pod{}, nil
 	}
 
 	if stepName != "" {
 		filteredPods := make([]corev1.Pod, 0)
 		for _, pod := range podList.Items {
-			if strings.Contains(pod.Name, stepName) {
+			if pod.Annotations["workflows.argoproj.io/node-name"] == stepName {
 				filteredPods = append(filteredPods, pod)
 			}
 		}

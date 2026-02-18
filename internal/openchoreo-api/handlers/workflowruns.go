@@ -131,7 +131,7 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
-	log.Info("GetWorkflowRunEvents handler called")
+	log.Debug("GetWorkflowRunEvents handler called")
 
 	namespaceName := r.PathValue("namespaceName")
 	runName := r.PathValue("runName")
@@ -154,13 +154,18 @@ func (h *Handler) GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := h.services.WorkflowRunService.GetWorkflowRunEvents(ctx, namespaceName, runName, stepName, h.config.ClusterGateway.URL)
 	if err != nil {
 		if errors.Is(err, services.ErrWorkflowRunNotFound) {
-			log.Error("Workflow run not found")
+			log.Warn("Workflow run not found")
 			writeErrorResponse(w, http.StatusNotFound, "Workflow run not found", services.CodeWorkflowRunNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrForbidden) {
-			log.Error("Unauthorized to view workflow run events")
+			log.Warn("Unauthorized to view workflow run events")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+			log.Warn("Workflow run reference not ready")
+			writeErrorResponse(w, http.StatusNotFound, "Workflow run reference not ready", services.CodeWorkflowRunReferenceNotFound)
 			return
 		}
 		log.Error("Failed to get workflow run events", "error", err)
@@ -168,9 +173,5 @@ func (h *Handler) GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(events); err != nil {
-		log.Error("Failed to encode events response", "error", err)
-	}
+	writeSuccessResponse(w, http.StatusOK, events)
 }
