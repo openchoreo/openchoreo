@@ -5,13 +5,13 @@ global:
   installationMode: quickStart
 
 fluent-bit:
-  enabled: true
+  enabled: false
 
 opentelemetry-collector:
   enabled: false
 
 openSearch:
-  enabled: true
+  enabled: false
 
 # OpenSearch cluster configuration
 openSearchCluster:

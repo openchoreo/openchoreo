@@ -966,6 +966,16 @@ install_observability_plane() {
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
         "--values" "$HOME/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
+
+    # Install logs and metrics observability modules
+    # See https://github.com/openchoreo/community-modules for more details
+    local modules_repo="oci://ghcr.io/openchoreo/charts"
+
+    log_info "Installing observability modules..."
+
+    install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600"
+
+    install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600"
 }
 
 # Install default OpenChoreo resources (Project, Environments, ComponentTypes, etc.)

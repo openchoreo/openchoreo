@@ -474,7 +474,7 @@ opentelemetry-collector:
   # description: Enable OpenTelemetry Collector deployment
   # default: true
   # @schema
-  enabled: true
+  enabled: false
 
   # @schema
   # type: object
@@ -1317,7 +1317,7 @@ prometheus:
   # description: Enable Prometheus stack deployment
   # default: true
   # @schema
-  enabled: true
+  enabled: false
 
   # @schema
   # type: string
@@ -2355,7 +2355,7 @@ openSearchCluster:
   # description: Enable OpenSearch cluster deployment via OpenSearch Operator
   # default: true
   # @schema
-  enabled: true
+  enabled: false
 
   # @schema
   # type: object

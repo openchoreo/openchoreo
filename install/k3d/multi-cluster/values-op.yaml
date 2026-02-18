@@ -4,7 +4,7 @@ openSearch:
   enabled: false
 
 openSearchCluster:
-  enabled: true
+  enabled: false
   credentialsSecretName: observer-opensearch-credentials
   adminPassword: "ThisIsTheOpenSearchPassword1"
 
@@ -61,7 +61,7 @@ tls:
     - "*.observability.openchoreo.localhost"
 
 fluent-bit:
-  enabled: true
+  enabled: false
 
 opentelemetry-collector:
   service:

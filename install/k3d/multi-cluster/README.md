@@ -418,16 +418,6 @@ helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgatew
   --namespace openchoreo-observability-plane \
   --create-namespace \
   --version v2.1.1
-
-# OpenSearch Operator (for HA OpenSearch cluster)
-helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
-helm repo update
-
-helm install opensearch-operator opensearch-operator/opensearch-operator \
-  --kube-context k3d-openchoreo-op \
-  --namespace openchoreo-observability-plane \
-  --create-namespace \
-  --version 2.8.0
 ```
 
 ### CoreDNS Rewrite and Certificates
@@ -452,6 +442,13 @@ kubectl --context k3d-openchoreo-op create configmap cluster-gateway-ca \
 ### OpenSearch Credentials
 
 ```bash
+kubectl --context k3d-openchoreo-op create secret generic opensearch-admin-credentials \
+  -n openchoreo-observability-plane \
+  --from-literal=username="admin" \
+  --from-literal=password="ThisIsTheOpenSearchPassword1"
+```
+
+```bash
 kubectl --context k3d-openchoreo-op create secret generic observer-opensearch-credentials \
   -n openchoreo-observability-plane \
   --from-literal=username="admin" \
@@ -469,6 +466,10 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
   --values install/k3d/multi-cluster/values-op.yaml \
   --timeout 10m
 ```
+
+#### Install Observability Modules
+
+Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
 
 ```bash
 kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \

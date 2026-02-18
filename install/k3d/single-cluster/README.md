@@ -332,6 +332,11 @@ kubectl create secret generic cluster-gateway-ca \
 ### OpenSearch Credentials
 
 ```bash
+kubectl create secret generic opensearch-admin-credentials \
+  -n openchoreo-observability-plane \
+  --from-literal=username="admin" \
+  --from-literal=password="ThisIsTheOpenSearchPassword1" 
+
 kubectl create secret generic observer-opensearch-credentials \
   -n openchoreo-observability-plane \
   --from-literal=username="admin" \
@@ -340,39 +345,18 @@ kubectl create secret generic observer-opensearch-credentials \
 
 ### Install Observability Plane
 
-Non-HA mode (standalone OpenSearch, no operator):
-
 ```bash
 helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
   --dependency-update \
   --namespace openchoreo-observability-plane \
   --values install/k3d/single-cluster/values-op.yaml \
-  --set openSearch.enabled=true \
-  --set openSearchCluster.enabled=false \
-  --set fluent-bit.enabled=true \
   --timeout 10m
 ```
 
-<details>
-<summary>HA mode (OpenSearch operator)</summary>
+#### Install Observability Modules
 
-```bash
-helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/
-helm repo update
+Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
 
-helm install opensearch-operator opensearch-operator/opensearch-operator \
-  --create-namespace \
-  --namespace openchoreo-observability-plane \
-  --version 2.8.0
-
-helm install openchoreo-observability-plane install/helm/openchoreo-observability-plane \
-  --dependency-update \
-  --namespace openchoreo-observability-plane \
-  --create-namespace \
-  --values install/k3d/single-cluster/values-op.yaml
-```
-
-</details>
 
 ### Gateway Patch
 
