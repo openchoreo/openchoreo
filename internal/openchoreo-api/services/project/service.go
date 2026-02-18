@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -71,6 +72,10 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 	}
 
 	if err := s.k8sClient.Create(ctx, project); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			s.logger.Warn("Project already exists", "namespace", namespaceName, "project", project.Name)
+			return nil, ErrProjectAlreadyExists
+		}
 		s.logger.Error("Failed to create project CR", "error", err)
 		return nil, fmt.Errorf("failed to create project: %w", err)
 	}
