@@ -27,7 +27,7 @@ spec:
     http:
       type: HTTP
       port: 8080
-      visibility: external
+      visibility: [external]
   containers:
     main:
       image: choreoanonymouspullable.azurecr.io/react-spa:v0.9

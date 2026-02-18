@@ -28,7 +28,7 @@ spec:
     websocket:
       type: Websocket
       port: 8080
-      visibility: external
+      visibility: [external]
   containers:
     main:
       image: "jmalloc/echo-server:latest"

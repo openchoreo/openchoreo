@@ -27,7 +27,6 @@ spec:
     grpc:
       type: gRPC
       port: 9555
-      visibility: project
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3

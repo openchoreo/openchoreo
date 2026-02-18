@@ -29,7 +29,7 @@ spec:
     http:
       type: HTTP
       port: 9090
-      visibility: external
+      visibility: [external]
   containers:
     main:
       image: "ghcr.io/openchoreo/samples/greeter-service:latest"

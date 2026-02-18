@@ -27,7 +27,6 @@ spec:
     grpc:
       type: gRPC
       port: 50051
-      visibility: project
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/paymentservice:v0.10.3
