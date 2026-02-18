@@ -71,7 +71,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	workflowService := NewWorkflowService(k8sClient, logger.With("service", "workflow"), authzPDP)
 
 	// Create WorkflowRun service
-	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP)
+	workflowRunService := NewWorkflowRunService(k8sClient, logger.With("service", "workflowrun"), authzPDP, buildPlaneService, gwClient)
 
 	// Create ComponentWorkflow service
 	componentWorkflowService := NewComponentWorkflowService(k8sClient, logger.With("service", "componentworkflow"), authzPDP, buildPlaneService, gwClient)

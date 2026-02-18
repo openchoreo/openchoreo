@@ -140,6 +140,7 @@ func (h *Handler) Routes() http.Handler {
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs", h.ListWorkflowRuns)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/workflow-runs", h.CreateWorkflowRun)
 	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}", h.GetWorkflowRun)
+	api.HandleFunc("GET "+v1+"/namespaces/{namespaceName}/workflow-runs/{runName}/events", h.GetWorkflowRunEvents)
 
 	// ComponentWorkflow endpoints (component-specific workflows)
 	api.HandleFunc("POST "+v1+"/namespaces/{namespaceName}/component-workflows/definition", h.CreateComponentWorkflowDefinition)
