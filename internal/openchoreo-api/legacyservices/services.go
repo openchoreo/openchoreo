@@ -4,6 +4,7 @@
 package legacyservices
 
 import (
+	"context"
 	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +36,7 @@ type Services struct {
 	ClusterDataPlaneService          *ClusterDataPlaneService
 	ClusterBuildPlaneService         *ClusterBuildPlaneService
 	ClusterObservabilityPlaneService *ClusterObservabilityPlaneService
+	GatewayClient                    *gatewayClient.Client
 	k8sClient                        client.Client // Direct access to K8s client for apply operations
 }
 
@@ -125,6 +127,7 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 		ClusterDataPlaneService:          clusterDataPlaneService,
 		ClusterBuildPlaneService:         clusterBuildPlaneService,
 		ClusterObservabilityPlaneService: clusterObservabilityPlaneService,
+		GatewayClient:                    gwClient,
 		k8sClient:                        k8sClient,
 	}
 }
@@ -132,4 +135,11 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 // GetKubernetesClient returns the Kubernetes client for direct API operations
 func (s *Services) GetKubernetesClient() client.Client {
 	return s.k8sClient
+}
+
+// CheckAuthorization performs a complete authorization check using the AuthzService PDP.
+// This is exported for use by handler-level code that needs to perform authorization
+// checks without going through a specific service method.
+func (s *Services) CheckAuthorization(ctx context.Context, logger *slog.Logger, action string, resourceType string, resourceID string, hierarchy authz.ResourceHierarchy) error {
+	return checkAuthorization(ctx, logger, s.AuthzService.pdp, systemAction(action), ResourceType(resourceType), resourceID, hierarchy)
 }

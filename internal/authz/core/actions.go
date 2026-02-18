@@ -120,6 +120,11 @@ var systemActions = []Action{
 	{Name: "rcareport:view", IsInternal: false},
 	{Name: "rcareport:update", IsInternal: false},
 	{Name: "rcareport:delete", IsInternal: false},
+
+	// Plane Resource Access (read-only K8s resource proxy)
+	{Name: "dataplaneresource:view", IsInternal: false},
+	{Name: "buildplaneresource:view", IsInternal: false},
+	{Name: "observabilityplaneresource:view", IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

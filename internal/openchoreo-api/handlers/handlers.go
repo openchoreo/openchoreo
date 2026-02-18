@@ -264,6 +264,14 @@ func (h *Handler) Routes() http.Handler {
 	// ClusterObservabilityPlane management
 	api.HandleFunc("GET "+v1+"/clusterobservabilityplanes", h.ListClusterObservabilityPlanes)
 
+	// Plane K8s resource proxy (read-only)
+	api.HandleFunc("GET "+v1+"/oc-namespaces/{ocNamespace}/dataplanes/{dpName}/{k8sPath...}", h.ProxyDataPlaneK8s)
+	api.HandleFunc("GET "+v1+"/oc-namespaces/{ocNamespace}/buildplanes/{bpName}/{k8sPath...}", h.ProxyBuildPlaneK8s)
+	api.HandleFunc("GET "+v1+"/oc-namespaces/{ocNamespace}/observabilityplanes/{opName}/{k8sPath...}", h.ProxyObservabilityPlaneK8s)
+	api.HandleFunc("GET "+v1+"/cluster-dataplanes/{cdpName}/{k8sPath...}", h.ProxyClusterDataPlaneK8s)
+	api.HandleFunc("GET "+v1+"/cluster-buildplanes/{cbpName}/{k8sPath...}", h.ProxyClusterBuildPlaneK8s)
+	api.HandleFunc("GET "+v1+"/cluster-observabilityplanes/{copName}/{k8sPath...}", h.ProxyClusterObservabilityPlaneK8s)
+
 	return mux
 }
 
