@@ -11,8 +11,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"strconv"
 	"time"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -31,23 +29,6 @@ const (
 const (
 	defaultWorkflowRunLogsLimit = 1000
 )
-
-// isAIRCAEnabled checks if AI RCA analysis is enabled via environment variable
-func isAIRCAEnabled() bool {
-	enabled, _ := strconv.ParseBool(os.Getenv("AI_RCA_ENABLED"))
-	return enabled
-}
-
-// RequireRCA wraps a handler and returns 503 if AI RCA is not enabled
-func RequireRCA(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if !isAIRCAEnabled() {
-			http.Error(w, "RCA service is not enabled", http.StatusServiceUnavailable)
-			return
-		}
-		next(w, r)
-	}
-}
 
 // Error codes and messages
 const (
@@ -97,15 +78,17 @@ type Handler struct {
 	logger        *slog.Logger
 	authzPDP      authzcore.PDP
 	rcaServiceURL string
+	aiRCAEnabled  bool
 }
 
 // NewHandler creates a new handler instance
-func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, rcaServiceURL string) *Handler {
+func NewHandler(service *service.LoggingService, logger *slog.Logger, authzPDP authzcore.PDP, rcaServiceURL string, aiRCAEnabled bool) *Handler {
 	return &Handler{
 		service:       service,
 		logger:        logger,
 		authzPDP:      authzPDP,
 		rcaServiceURL: rcaServiceURL,
+		aiRCAEnabled:  aiRCAEnabled,
 	}
 }
 
@@ -1301,7 +1284,7 @@ func (h *Handler) AlertingWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Trigger AI RCA analysis in background if enabled
 	if alertDetails.AlertAIRootCauseAnalysisEnabled {
-		if isAIRCAEnabled() {
+		if h.aiRCAEnabled {
 			go func() {
 				h.logger.Info("AI RCA analysis triggered", "alertID", alertID)
 				h.logger.Debug("AI RCA analysis details", "alertID", alertID, "alertDetails", alertDetails)

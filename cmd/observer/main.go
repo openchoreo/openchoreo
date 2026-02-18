@@ -106,7 +106,7 @@ func main() {
 
 	// Initialize handlers
 	handler := handlers.NewHandler(
-		loggingService, logger, authzClient, cfg.Alerting.RCAServiceURL,
+		loggingService, logger, authzClient, cfg.Alerting.RCAServiceURL, cfg.Alerting.AIRCAEnabled,
 	)
 
 	// ===== Initialize Middlewares =====
