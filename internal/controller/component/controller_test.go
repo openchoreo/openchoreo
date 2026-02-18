@@ -87,6 +87,175 @@ var _ = Describe("Component Controller", func() {
 	})
 })
 
+var _ = Describe("Component Controller with ComponentType", func() {
+	Context("When reconciling a Component with componentType ref", func() {
+		const (
+			componentName     = "ct-ref-test-component"
+			componentTypeName = "ct-ref-test-ct"
+			namespace         = "default"
+		)
+
+		ctx := context.Background()
+
+		componentNamespacedName := types.NamespacedName{
+			Name:      componentName,
+			Namespace: namespace,
+		}
+
+		BeforeEach(func() {
+			By("Creating the ComponentType resource")
+			ct := &openchoreov1alpha1.ComponentType{}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: componentTypeName, Namespace: namespace}, ct)
+			if err != nil && errors.IsNotFound(err) {
+				ct = &openchoreov1alpha1.ComponentType{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      componentTypeName,
+						Namespace: namespace,
+					},
+					Spec: openchoreov1alpha1.ComponentTypeSpec{
+						WorkloadType: "deployment",
+						Resources: []openchoreov1alpha1.ResourceTemplate{
+							{
+								ID:       "deployment",
+								Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment"}`)},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, ct)).To(Succeed())
+			}
+
+			By("Creating the Component with componentType ref")
+			comp := &openchoreov1alpha1.Component{}
+			err = k8sClient.Get(ctx, componentNamespacedName, comp)
+			if err != nil && errors.IsNotFound(err) {
+				comp = &openchoreov1alpha1.Component{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      componentName,
+						Namespace: namespace,
+					},
+					Spec: openchoreov1alpha1.ComponentSpec{
+						Owner: openchoreov1alpha1.ComponentOwner{
+							ProjectName: "test-project",
+						},
+						ComponentType: &openchoreov1alpha1.ComponentTypeRef{
+							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+							Name: "deployment/" + componentTypeName,
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+			}
+		})
+
+		AfterEach(func() {
+			By("Cleaning up Component")
+			comp := &openchoreov1alpha1.Component{}
+			if err := k8sClient.Get(ctx, componentNamespacedName, comp); err == nil {
+				Expect(k8sClient.Delete(ctx, comp)).To(Succeed())
+			}
+
+			By("Cleaning up ComponentType")
+			ct := &openchoreov1alpha1.ComponentType{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: componentTypeName, Namespace: namespace}, ct); err == nil {
+				Expect(k8sClient.Delete(ctx, ct)).To(Succeed())
+			}
+		})
+
+		It("should reconcile without error when ComponentType exists", func() {
+			By("Reconciling the Component with ComponentType ref")
+			controllerReconciler := &Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: componentNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("When reconciling a Component referencing a non-existent ComponentType", func() {
+		const (
+			componentName = "ct-ref-missing-component"
+			namespace     = "default"
+		)
+
+		ctx := context.Background()
+
+		componentNamespacedName := types.NamespacedName{
+			Name:      componentName,
+			Namespace: namespace,
+		}
+
+		BeforeEach(func() {
+			By("Creating the Component with a ref to non-existent ComponentType")
+			comp := &openchoreov1alpha1.Component{}
+			err := k8sClient.Get(ctx, componentNamespacedName, comp)
+			if err != nil && errors.IsNotFound(err) {
+				comp = &openchoreov1alpha1.Component{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      componentName,
+						Namespace: namespace,
+					},
+					Spec: openchoreov1alpha1.ComponentSpec{
+						Owner: openchoreov1alpha1.ComponentOwner{
+							ProjectName: "test-project",
+						},
+						ComponentType: &openchoreov1alpha1.ComponentTypeRef{
+							Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+							Name: "deployment/nonexistent-ct",
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+			}
+		})
+
+		AfterEach(func() {
+			comp := &openchoreov1alpha1.Component{}
+			if err := k8sClient.Get(ctx, componentNamespacedName, comp); err == nil {
+				Expect(k8sClient.Delete(ctx, comp)).To(Succeed())
+			}
+		})
+
+		It("should reconcile without error and set condition when ComponentType not found", func() {
+			controllerReconciler := &Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+
+			By("First reconcile adds the finalizer")
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: componentNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Second reconcile performs ComponentType validation")
+			_, err = controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: componentNamespacedName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the Ready condition is set to False")
+			comp := &openchoreov1alpha1.Component{}
+			Expect(k8sClient.Get(ctx, componentNamespacedName, comp)).To(Succeed())
+
+			var readyCondition *metav1.Condition
+			for i := range comp.Status.Conditions {
+				if comp.Status.Conditions[i].Type == string(ConditionReady) {
+					readyCondition = &comp.Status.Conditions[i]
+					break
+				}
+			}
+			Expect(readyCondition).NotTo(BeNil())
+			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCondition.Reason).To(Equal(string(ReasonComponentTypeNotFound)))
+		})
+	})
+})
+
 var _ = Describe("Component Controller Finalization", func() {
 	const (
 		projectName   = "finalize-test-project"

@@ -7,7 +7,9 @@ spec:
   owner:
     projectName: gcp-microservice-demo
 
-  componentType: deployment/web-application
+  componentType:
+    kind: ComponentType
+    name: deployment/web-application
   autoDeploy: true
 
 ---

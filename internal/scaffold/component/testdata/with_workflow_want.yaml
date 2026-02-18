@@ -10,7 +10,9 @@ metadata:
 spec:
   owner:
     projectName: online-store
-  componentType: deployment/web-app
+  componentType:
+    kind: ComponentType
+    name: deployment/web-app
   # autoDeploy: true # Enable automatic deployment on changes
 
   # Parameters for the ComponentType

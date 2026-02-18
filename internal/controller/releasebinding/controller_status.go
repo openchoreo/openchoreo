@@ -65,10 +65,14 @@ func (r *Reconciler) setResourcesReadyStatus(
 	logger := log.FromContext(ctx)
 
 	// Extract workload type from Component's ComponentType field
-	workloadType := extractWorkloadType(component.Spec.ComponentType)
+	var componentTypeName string
+	if component.Spec.ComponentType != nil {
+		componentTypeName = component.Spec.ComponentType.Name
+	}
+	workloadType := extractWorkloadType(componentTypeName)
 
 	logger.Info("Evaluating resource status",
-		"componentType", component.Spec.ComponentType,
+		"componentType", componentTypeName,
 		"workloadType", workloadType,
 		"resourceCount", len(release.Status.Resources))
 
@@ -105,7 +109,7 @@ func (r *Reconciler) setResourcesReadyStatus(
 		// Fallback for unknown workload types or legacy components
 		ready, reason, message = evaluateGenericStatus(release.Status.Resources)
 		logger.Info("Using generic status evaluation for unknown workload type",
-			"componentType", component.Spec.ComponentType)
+			"componentType", componentTypeName)
 	}
 
 	// Set the ResourcesReady condition

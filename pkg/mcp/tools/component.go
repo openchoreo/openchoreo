@@ -115,11 +115,19 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 		Parameters    map[string]interface{} `json:"parameters"`
 		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
+		var componentTypeRef *models.ComponentTypeRef
+		if args.ComponentType != "" {
+			componentTypeRef = &models.ComponentTypeRef{
+				Kind: "ComponentType",
+				Name: args.ComponentType,
+			}
+		}
+
 		componentReq := &models.CreateComponentRequest{
 			Name:          args.Name,
 			DisplayName:   args.DisplayName,
 			Description:   args.Description,
-			ComponentType: args.ComponentType,
+			ComponentType: componentTypeRef,
 		}
 
 		// Set the component to auto deploy by default

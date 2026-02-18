@@ -197,7 +197,9 @@ spec:
   owner:
     projectName: default
 
-  componentType: deployment/web-service
+  componentType:
+    kind: ComponentType
+    name: deployment/web-service
 
   parameters:
     replicas: 2

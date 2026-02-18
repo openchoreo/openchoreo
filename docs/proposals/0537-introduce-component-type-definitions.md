@@ -240,8 +240,10 @@ kind: Component
 metadata:
   name: checkout-service
 spec:
-  # Select which ComponentTypeDefinition to use (format: {workloadType}/{componentTypeDefinitionName})
-  componentType: deployment/web-app
+  # Select which ComponentTypeDefinition to use
+  componentType:
+    kind: ComponentType
+    name: deployment/web-app
 
   # Parameters from ComponentTypeDefinition (oneOf schema based on componentType).
   # Like all other parameters, these are typed, validated and can have default values (so can be optional when necessary).
@@ -618,7 +620,9 @@ spec:
     metadata:
       name: checkout-service
     spec:
-      componentType: deployment/web-app
+      componentType:
+        kind: ComponentType
+        name: deployment/web-app
       parameters: { ... }
       addons:
         - name: persistent-volume-claim

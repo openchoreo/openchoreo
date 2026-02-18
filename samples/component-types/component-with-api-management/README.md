@@ -157,7 +157,9 @@ metadata:
   name: my-http-service
   namespace: default
 spec:
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   parameters:
     exposed: true
 ```
@@ -176,7 +178,9 @@ metadata:
   name: my-http-service
   namespace: default
 spec:
-  componentType: deployment/service
+  componentType:
+    kind: ComponentType
+    name: deployment/service
   parameters:
     exposed: true  # Required for HTTPRoute creation
 

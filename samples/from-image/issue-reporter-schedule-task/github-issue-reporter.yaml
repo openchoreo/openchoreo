@@ -8,7 +8,9 @@ spec:
     projectName: default
 
   autoDeploy: true
-  componentType: cronjob/scheduled-task
+  componentType:
+    kind: ComponentType
+    name: cronjob/scheduled-task
 
   parameters:
     successfulJobsHistoryLimit: 3

@@ -176,12 +176,20 @@ func toModelCreateComponentRequest(req *gen.CreateComponentRequest) *models.Crea
 		return nil
 	}
 
+	var componentTypeRef *models.ComponentTypeRef
+	if req.ComponentType != nil && *req.ComponentType != "" {
+		componentTypeRef = &models.ComponentTypeRef{
+			Kind: "ComponentType",
+			Name: *req.ComponentType,
+		}
+	}
+
 	return &models.CreateComponentRequest{
 		Name:              req.Name,
 		DisplayName:       ptr.Deref(req.DisplayName, ""),
 		Description:       ptr.Deref(req.Description, ""),
 		Type:              ptr.Deref(req.Type, ""),
-		ComponentType:     ptr.Deref(req.ComponentType, ""),
+		ComponentType:     componentTypeRef,
 		AutoDeploy:        req.AutoDeploy,
 		Parameters:        mapToRawExtension(req.Parameters),
 		Traits:            toModelTraits(req.Traits),

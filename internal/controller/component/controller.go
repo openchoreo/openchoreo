@@ -34,6 +34,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componenttypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clustercomponenttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=traits,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workloads,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch;create;update;patch;delete
@@ -74,11 +75,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// Detect mode based on which fields are set
 	// Note: API-level validation ensures at least one of type or componentType is set
-	if comp.Spec.ComponentType != "" {
+	if comp.Spec.ComponentType != nil {
 		// New ComponentType mode
 		logger.Info("Reconciling Component with ComponentType mode",
 			"component", comp.Name,
-			"componentType", comp.Spec.ComponentType)
+			"componentType", comp.Spec.ComponentType.Name)
 		return r.reconcileWithComponentType(ctx, comp)
 	}
 
@@ -212,11 +213,14 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 
 // validateAndFetchComponentType parses, fetches, and validates the ComponentType.
 // Returns the ComponentType on success, or nil with no error if validation failed (condition already set).
+// When the reference is to a ClusterComponentType, it wraps the spec into a ComponentType object.
 func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *openchoreov1alpha1.Component) (*openchoreov1alpha1.ComponentType, error) {
 	logger := log.FromContext(ctx)
 
-	// Parse componentType: {workloadType}/{componentTypeName}
-	workloadType, ctName, err := parseComponentType(comp.Spec.ComponentType)
+	ctRef := comp.Spec.ComponentType
+
+	// Parse componentType name: {workloadType}/{componentTypeName}
+	workloadType, ctName, err := parseComponentType(ctRef.Name)
 	if err != nil {
 		msg := fmt.Sprintf("Invalid componentType format: %v", err)
 		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
@@ -224,29 +228,67 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 		return nil, nil
 	}
 
-	// Fetch ComponentType (in the same namespace as the Component)
-	ct := &openchoreov1alpha1.ComponentType{}
-	if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
-		if apierrors.IsNotFound(err) {
-			msg := fmt.Sprintf("ComponentType %q not found", ctName)
-			controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
-			logger.Info(msg, "component", comp.Name)
+	switch ctRef.Kind {
+	case openchoreov1alpha1.ComponentTypeRefKindClusterComponentType:
+		// Fetch ClusterComponentType (cluster-scoped)
+		cct := &openchoreov1alpha1.ClusterComponentType{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ctName}, cct); err != nil {
+			if apierrors.IsNotFound(err) {
+				msg := fmt.Sprintf("ClusterComponentType %q not found", ctName)
+				controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
+				logger.Info(msg, "component", comp.Name)
+				return nil, nil
+			}
+			logger.Error(err, "Failed to fetch ClusterComponentType", "name", ctName)
+			return nil, err
+		}
+
+		// Verify workloadType matches
+		if cct.Spec.WorkloadType != workloadType {
+			msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ClusterComponentType has %s",
+				workloadType, cct.Spec.WorkloadType)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+			logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
 			return nil, nil
 		}
-		logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
-		return nil, err
-	}
 
-	// Verify workloadType matches
-	if ct.Spec.WorkloadType != workloadType {
-		msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
-			workloadType, ct.Spec.WorkloadType)
-		controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
-		logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
-		return nil, nil
-	}
+		// Wrap ClusterComponentTypeSpec into a ComponentType object for downstream compatibility
+		ct := &openchoreov1alpha1.ComponentType{
+			ObjectMeta: cct.ObjectMeta,
+			Spec: openchoreov1alpha1.ComponentTypeSpec{
+				WorkloadType:     cct.Spec.WorkloadType,
+				AllowedWorkflows: cct.Spec.AllowedWorkflows,
+				Schema:           cct.Spec.Schema,
+				Resources:        cct.Spec.Resources,
+			},
+		}
+		return ct, nil
 
-	return ct, nil
+	default:
+		// Default: Fetch namespace-scoped ComponentType
+		ct := &openchoreov1alpha1.ComponentType{}
+		if err := r.Get(ctx, types.NamespacedName{Name: ctName, Namespace: comp.Namespace}, ct); err != nil {
+			if apierrors.IsNotFound(err) {
+				msg := fmt.Sprintf("ComponentType %q not found", ctName)
+				controller.MarkFalseCondition(comp, ConditionReady, ReasonComponentTypeNotFound, msg)
+				logger.Info(msg, "component", comp.Name)
+				return nil, nil
+			}
+			logger.Error(err, "Failed to fetch ComponentType", "name", ctName)
+			return nil, err
+		}
+
+		// Verify workloadType matches
+		if ct.Spec.WorkloadType != workloadType {
+			msg := fmt.Sprintf("WorkloadType mismatch: component specifies %s but ComponentType has %s",
+				workloadType, ct.Spec.WorkloadType)
+			controller.MarkFalseCondition(comp, ConditionReady, ReasonInvalidConfiguration, msg)
+			logger.Error(fmt.Errorf("%s", msg), "WorkloadType mismatch")
+			return nil, nil
+		}
+
+		return ct, nil
+	}
 }
 
 // validateAndFetchWorkload fetches and validates the Workload for the component.
@@ -879,6 +921,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findComponentsForComponentWorkflowRun)).
 		Watches(&openchoreov1alpha1.ComponentType{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsForComponentType)).
+		Watches(&openchoreov1alpha1.ClusterComponentType{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentsForClusterComponentType)).
 		Watches(&openchoreov1alpha1.Trait{},
 			handler.EnqueueRequestsFromMapFunc(r.listComponentsUsingTrait)).
 		Watches(&openchoreov1alpha1.ComponentWorkflow{},

@@ -9,7 +9,9 @@ metadata:
 spec:
   owner:
     projectName: online-store
-  componentType: deployment/web-app
+  componentType:
+    kind: ComponentType
+    name: deployment/web-app
   # autoDeploy: true
   parameters:
     port: <TODO_PORT>
