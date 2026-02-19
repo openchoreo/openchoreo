@@ -1,12 +1,20 @@
 # OpenChoreo
 Internal Developer Platform
 
+<!-- License, compliance, and project health badges -->
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_shield)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/11819/badge)](https://www.bestpractices.dev/projects/11819)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/openchoreo/openchoreo/badge)](https://scorecard.dev/viewer/?uri=github.com/openchoreo/openchoreo)
+[![CLOMonitor](https://img.shields.io/endpoint?url=https://clomonitor.io/api/projects/cncf/openchoreo/badge)](https://clomonitor.io/projects/cncf/openchoreo)
 [![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=openchoreo)](https://insights.linuxfoundation.org/project/openchoreo)
-[![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
+
+<!-- Build, code quality, and project info badges -->
+[![Build and Test](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml/badge.svg?branch=main)](https://github.com/openchoreo/openchoreo/actions/workflows/build-and-test.yml)
+[![Codecov](https://codecov.io/gh/openchoreo/openchoreo/branch/main/graph/badge.svg)](https://codecov.io/gh/openchoreo/openchoreo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/openchoreo/openchoreo)](https://goreportcard.com/report/github.com/openchoreo/openchoreo)
+[![GitHub Release](https://img.shields.io/github/v/release/openchoreo/openchoreo)](https://github.com/openchoreo/openchoreo/releases/latest)
+[![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
 
 OpenChoreo is a developer platform for Kubernetes offering development and architecture abstractions, a Backstage-powered developer portal, application CI/CD, GitOps, and observability. It composes CNCF and complementary projects into a modular, extensible framework that provides both strong governance for platform engineers and simplified abstractions for developers.
@@ -173,4 +181,6 @@ This allows contributors, adopters, and maintainers to understand what’s comin
 
 ## License
 OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_large)
 
