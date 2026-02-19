@@ -94,7 +94,7 @@ The OpenChoreo controller manager uses these resources and generates the Kuberne
 Apply the sample:
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-configs/component-with-configs.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.15/samples/component-types/component-with-configs/component-with-configs.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -166,7 +166,7 @@ schema_generation:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-configs/component-with-configs.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.15/samples/component-types/component-with-configs/component-with-configs.yaml
 ```
 
 ## Troubleshooting

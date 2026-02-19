@@ -7,7 +7,7 @@ This directory contains sample implementations to help you understand, configure
 **[Getting Started](./getting-started)** contains the default resources needed to use OpenChoreo. Apply these after installing the control plane:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/getting-started/all.yaml
 ```
 
 This creates a default project, three environments (development, staging, production), component types (service, web-application, scheduled-task), build workflows, and traits. See the [getting-started README](./getting-started/README.md) for details.

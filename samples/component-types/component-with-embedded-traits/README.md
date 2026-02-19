@@ -100,7 +100,7 @@ Defines deployment settings for the `development` environment:
 Apply the sample:
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-embedded-traits/component-with-embedded-traits.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.15/samples/component-types/component-with-embedded-traits/component-with-embedded-traits.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -168,7 +168,7 @@ Hello, Alice!
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-embedded-traits/component-with-embedded-traits.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.15/samples/component-types/component-with-embedded-traits/component-with-embedded-traits.yaml
 ```
 
 ## Troubleshooting

@@ -7,7 +7,7 @@ Default resources for OpenChoreo. Apply these after installing the control plane
 Apply all resources with a single command:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/getting-started/all.yaml
 ```
 
 Or if you have cloned the repository:
