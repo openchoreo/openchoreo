@@ -49,7 +49,11 @@ func detectGitProvider(r *http.Request) (git.ProviderType, string, string, bool)
 	case r.Header.Get("X-Gitlab-Token") != "":
 		return git.ProviderGitLab, "X-Gitlab-Token", "gitlab-secret", true
 	case r.Header.Get("X-Event-Key") != "":
-		return git.ProviderBitbucket, "X-Hook-UUID", "bitbucket-secret", true
+		// Bitbucket does not send a standard secret token header (X-Hook-UUID is a
+		// webhook identity UUID, not a token). Validation relies on the stored secret
+		// being empty (open) for the MVP. HMAC support via X-Hub-Signature can be
+		// added to BitbucketProvider.ValidateWebhookPayload when needed.
+		return git.ProviderBitbucket, "", "bitbucket-secret", true
 	default:
 		return "", "", "", false
 	}
