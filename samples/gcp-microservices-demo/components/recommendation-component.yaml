@@ -26,6 +26,17 @@ spec:
       type: gRPC
       port: 8080
       visibility: project
+  connections:
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3

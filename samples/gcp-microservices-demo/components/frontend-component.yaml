@@ -26,6 +26,87 @@ spec:
       type: HTTP
       port: 8080
       visibility: external
+  connections:
+    ad:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: ad
+        endpoint: grpc
+      inject:
+        env:
+          - name: AD_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    cart:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: cart
+        endpoint: grpc
+      inject:
+        env:
+          - name: CART_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    checkout:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: checkout
+        endpoint: grpc
+      inject:
+        env:
+          - name: CHECKOUT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    currency:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: currency
+        endpoint: grpc
+      inject:
+        env:
+          - name: CURRENCY_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    payment:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: payment
+        endpoint: grpc
+      inject:
+        env:
+          - name: PAYMENT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    recommendation:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: recommendation
+        endpoint: grpc
+      inject:
+        env:
+          - name: RECOMMENDATION_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    shipping:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: shipping
+        endpoint: grpc
+      inject:
+        env:
+          - name: SHIPPING_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3

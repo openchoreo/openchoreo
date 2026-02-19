@@ -26,6 +26,17 @@ spec:
       type: gRPC
       port: 7070
       visibility: project
+  connections:
+    redis-cache:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: redis
+        endpoint: redis
+      inject:
+        env:
+          - name: REDIS_ADDR
+            value: "{{ .host }}:{{ .port }}"
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.3
