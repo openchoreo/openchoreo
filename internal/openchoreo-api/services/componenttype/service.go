@@ -54,7 +54,7 @@ func (s *componentTypeService) CreateComponentType(ctx context.Context, namespac
 	// Set defaults
 	ct.TypeMeta = metav1.TypeMeta{
 		Kind:       "ComponentType",
-		APIVersion: "core.choreo.dev/v1alpha1",
+		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	ct.Namespace = namespaceName
 	if ct.Labels == nil {

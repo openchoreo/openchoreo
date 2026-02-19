@@ -58,7 +58,7 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 	// Set defaults
 	project.TypeMeta = metav1.TypeMeta{
 		Kind:       "Project",
-		APIVersion: "core.choreo.dev/v1alpha1",
+		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	project.Namespace = namespaceName
 	if project.Labels == nil {

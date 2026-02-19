@@ -54,7 +54,7 @@ func (s *traitService) CreateTrait(ctx context.Context, namespaceName string, t 
 	// Set defaults
 	t.TypeMeta = metav1.TypeMeta{
 		Kind:       "Trait",
-		APIVersion: "core.choreo.dev/v1alpha1",
+		APIVersion: "openchoreo.dev/v1alpha1",
 	}
 	t.Namespace = namespaceName
 	if t.Labels == nil {
