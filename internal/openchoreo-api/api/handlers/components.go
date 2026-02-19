@@ -71,6 +71,9 @@ func (h *Handler) CreateComponent(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
+	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
+		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
+	}
 	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 
 	created, err := h.componentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
@@ -313,6 +316,9 @@ func (h *Handler) UpdateComponent(
 	if err != nil {
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	if componentCR.Namespace != "" && componentCR.Namespace != request.NamespaceName {
+		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
 	}
 	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
 	componentCR.Name = request.ComponentName
