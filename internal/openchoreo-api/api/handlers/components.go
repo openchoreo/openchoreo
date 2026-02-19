@@ -448,48 +448,6 @@ func (h *Handler) ListComponentReleases(
 	return gen.ListComponentReleases200JSONResponse(result), nil
 }
 
-// CreateComponentRelease creates an immutable release snapshot
-func (h *Handler) CreateComponentRelease(
-	ctx context.Context,
-	request gen.CreateComponentReleaseRequestObject,
-) (gen.CreateComponentReleaseResponseObject, error) {
-	h.logger.Info("CreateComponentRelease called",
-		"namespaceName", request.NamespaceName,
-		"projectName", request.ProjectName,
-		"componentName", request.ComponentName)
-
-	releaseName := ""
-	if request.Body != nil && request.Body.ReleaseName != nil {
-		releaseName = *request.Body.ReleaseName
-	}
-
-	release, err := h.services.ComponentService.CreateComponentRelease(
-		ctx,
-		request.NamespaceName,
-		request.ProjectName,
-		request.ComponentName,
-		releaseName,
-	)
-	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.CreateComponentRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrProjectNotFound) {
-			return gen.CreateComponentRelease404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
-		}
-		if errors.Is(err, services.ErrComponentNotFound) {
-			return gen.CreateComponentRelease404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
-		}
-		if errors.Is(err, services.ErrWorkloadNotFound) {
-			return gen.CreateComponentRelease404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
-		}
-		h.logger.Error("Failed to create component release", "error", err)
-		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-
-	return gen.CreateComponentRelease201JSONResponse(toGenComponentRelease(release)), nil
-}
-
 // GetComponentRelease returns details of a specific component release
 func (h *Handler) GetComponentRelease(
 	ctx context.Context,
@@ -706,6 +664,52 @@ func (h *Handler) PromoteComponent(
 	return gen.PromoteComponent200JSONResponse(genBinding), nil
 }
 
+// GenerateRelease generates an immutable release snapshot from the current component state
+func (h *Handler) GenerateRelease(
+	ctx context.Context,
+	request gen.GenerateReleaseRequestObject,
+) (gen.GenerateReleaseResponseObject, error) {
+	h.logger.Info("GenerateRelease called",
+		"namespaceName", request.NamespaceName,
+		"componentName", request.ComponentName)
+
+	if request.Body == nil {
+		return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	releaseName := ""
+	if request.Body.ReleaseName != nil {
+		releaseName = *request.Body.ReleaseName
+	}
+
+	release, err := h.componentService.GenerateRelease(ctx, request.NamespaceName, request.ComponentName,
+		&componentsvc.GenerateReleaseRequest{ReleaseName: releaseName})
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.GenerateRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentNotFound) {
+			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrWorkloadNotFound) {
+			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
+		}
+		if errors.Is(err, componentsvc.ErrTraitNameCollision) {
+			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+		}
+		h.logger.Error("Failed to generate release", "error", err)
+		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genRelease, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*release)
+	if err != nil {
+		h.logger.Error("Failed to convert component release", "error", err)
+		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GenerateRelease201JSONResponse(genRelease), nil
+}
+
 // GetComponentObserverURL returns the observer URL for component logs and metrics
 func (h *Handler) GetComponentObserverURL(
 	ctx context.Context,
@@ -724,25 +728,28 @@ func (h *Handler) GetBuildObserverURL(
 
 // Converter functions
 
-// toGenComponentRelease converts models.ComponentReleaseResponse to gen.ComponentRelease
+// toGenComponentRelease converts models.ComponentReleaseResponse to gen.ComponentRelease (K8s-native)
 func toGenComponentRelease(r *models.ComponentReleaseResponse) gen.ComponentRelease {
 	if r == nil {
 		return gen.ComponentRelease{}
 	}
 
-	result := gen.ComponentRelease{
-		Name:          r.Name,
-		ComponentName: r.ComponentName,
-		ProjectName:   r.ProjectName,
-		NamespaceName: r.NamespaceName,
-		CreatedAt:     r.CreatedAt,
+	return gen.ComponentRelease{
+		Metadata: gen.ObjectMeta{
+			Name:              r.Name,
+			Namespace:         &r.NamespaceName,
+			CreationTimestamp: &r.CreatedAt,
+		},
+		Spec: &gen.ComponentReleaseSpec{
+			Owner: struct {
+				ComponentName string `json:"componentName"`
+				ProjectName   string `json:"projectName"`
+			}{
+				ProjectName:   r.ProjectName,
+				ComponentName: r.ComponentName,
+			},
+		},
 	}
-
-	if r.Status != "" {
-		result.Status = &r.Status
-	}
-
-	return result
 }
 
 // toGenReleaseBinding converts models.ReleaseBindingResponse to gen.ReleaseBinding

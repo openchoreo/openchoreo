@@ -14,4 +14,6 @@ var (
 	ErrPipelineNotConfigured    = errors.New("project has no deployment pipeline configured")
 	ErrNoLowestEnvironment      = errors.New("no lowest environment found in deployment pipeline")
 	ErrInvalidPromotionPath     = errors.New("invalid promotion path")
+	ErrWorkloadNotFound         = errors.New("workload not found")
+	ErrTraitNameCollision       = errors.New("trait name collision across kinds")
 )

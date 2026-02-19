@@ -176,3 +176,24 @@ func (s *componentServiceWithAuthz) PromoteComponent(ctx context.Context, namesp
 	}
 	return s.internal.PromoteComponent(ctx, namespaceName, componentName, req)
 }
+
+func (s *componentServiceWithAuthz) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
+	// Fetch first to get the project for authz hierarchy
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeployComponent,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GenerateRelease(ctx, namespaceName, componentName, req)
+}

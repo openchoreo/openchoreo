@@ -278,15 +278,19 @@ func PrintComponentReleases(list *gen.ComponentReleaseList) error {
 	fmt.Fprintln(w, "NAME\tCOMPONENT\tSTATUS\tAGE")
 
 	for _, release := range list.Items {
-		status := ""
-		if release.Status != nil {
-			status = *release.Status
+		componentName := ""
+		if release.Spec != nil {
+			componentName = release.Spec.Owner.ComponentName
+		}
+		age := ""
+		if release.Metadata.CreationTimestamp != nil {
+			age = formatAge(*release.Metadata.CreationTimestamp)
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			release.Name,
-			release.ComponentName,
-			status,
-			formatAge(release.CreatedAt))
+			release.Metadata.Name,
+			componentName,
+			"", // status field removed in K8s-native schema
+			age)
 	}
 
 	return w.Flush()

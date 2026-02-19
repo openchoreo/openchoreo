@@ -468,6 +468,273 @@ func findLowestEnvironment(promotionPaths []openchoreov1alpha1.PromotionPath) st
 	return promotionPaths[0].SourceEnvironmentRef
 }
 
+func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error) {
+	releaseName := strings.TrimSpace(req.ReleaseName)
+
+	s.logger.Debug("Generating component release", "namespace", namespaceName, "component", componentName, "release", releaseName)
+
+	// Get the component to derive the project and component type
+	component, err := s.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	projectName := component.Spec.Owner.ProjectName
+
+	// Find the workload for this component
+	workload, err := s.findWorkload(ctx, namespaceName, projectName, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate release name if not provided
+	if releaseName == "" {
+		generated, err := s.generateReleaseName(ctx, namespaceName, projectName, componentName)
+		if err != nil {
+			return nil, err
+		}
+		releaseName = generated
+	}
+
+	// Fetch ComponentType spec
+	componentTypeSpec, err := s.fetchComponentTypeSpec(ctx, &component.Spec.ComponentType, namespaceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch component type: %w", err)
+	}
+
+	// Fetch and validate Trait specs
+	traits, err := s.fetchTraitSpecs(ctx, component.Spec.Traits, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build ComponentProfile from Component parameters
+	var componentProfile *openchoreov1alpha1.ComponentProfile
+	if component.Spec.Parameters != nil || len(component.Spec.Traits) > 0 {
+		componentProfile = &openchoreov1alpha1.ComponentProfile{}
+		if component.Spec.Parameters != nil {
+			componentProfile.Parameters = component.Spec.Parameters
+		}
+		if component.Spec.Traits != nil {
+			componentProfile.Traits = component.Spec.Traits
+		}
+	}
+
+	// Build workload template spec
+	workloadTemplateSpec := openchoreov1alpha1.WorkloadTemplateSpec{
+		Containers: workload.Spec.Containers,
+		Endpoints:  workload.Spec.Endpoints,
+	}
+
+	componentRelease := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      releaseName,
+			Namespace: namespaceName,
+			Labels: map[string]string{
+				labels.LabelKeyProjectName:   projectName,
+				labels.LabelKeyComponentName: componentName,
+			},
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   projectName,
+				ComponentName: componentName,
+			},
+			ComponentProfile: componentProfile,
+			Workload:         workloadTemplateSpec,
+		},
+	}
+
+	if componentTypeSpec != nil {
+		componentRelease.Spec.ComponentType = *componentTypeSpec
+	}
+
+	if len(traits) > 0 {
+		componentRelease.Spec.Traits = traits
+	}
+
+	if err := s.k8sClient.Create(ctx, componentRelease); err != nil {
+		s.logger.Error("Failed to create ComponentRelease CR", "error", err)
+		return nil, fmt.Errorf("failed to create component release: %w", err)
+	}
+
+	s.logger.Debug("ComponentRelease created successfully", "namespace", namespaceName, "component", componentName, "release", releaseName)
+	return componentRelease, nil
+}
+
+// findWorkload finds the workload for a given component within a namespace.
+func (s *componentService) findWorkload(ctx context.Context, namespaceName, projectName, componentName string) (*openchoreov1alpha1.Workload, error) {
+	workloadList := &openchoreov1alpha1.WorkloadList{}
+	if err := s.k8sClient.List(ctx, workloadList, client.InNamespace(namespaceName)); err != nil {
+		s.logger.Error("Failed to list workloads", "error", err)
+		return nil, fmt.Errorf("failed to list workloads: %w", err)
+	}
+
+	for i := range workloadList.Items {
+		w := &workloadList.Items[i]
+		if w.Spec.Owner.ComponentName == componentName && w.Spec.Owner.ProjectName == projectName {
+			return w, nil
+		}
+	}
+
+	return nil, ErrWorkloadNotFound
+}
+
+// generateReleaseName generates a unique release name for a component.
+// Format: <component_name>-<date>-<number>, e.g., my-component-20240118-1
+func (s *componentService) generateReleaseName(ctx context.Context, namespaceName, projectName, componentName string) (string, error) {
+	releaseList := &openchoreov1alpha1.ComponentReleaseList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(namespaceName),
+		client.MatchingLabels{
+			labels.LabelKeyProjectName:   projectName,
+			labels.LabelKeyComponentName: componentName,
+		},
+	}
+	if err := s.k8sClient.List(ctx, releaseList, listOpts...); err != nil {
+		s.logger.Error("Failed to list existing releases", "error", err)
+		return "", fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	now := metav1.Now()
+	dateStr := now.Format("20060102")
+	todayPrefix := fmt.Sprintf("%s-%s-", componentName, dateStr)
+	todayCount := 0
+	for _, release := range releaseList.Items {
+		if len(release.Name) >= len(todayPrefix) && release.Name[:len(todayPrefix)] == todayPrefix {
+			todayCount++
+		}
+	}
+
+	return fmt.Sprintf("%s-%s-%d", componentName, dateStr, todayCount+1), nil
+}
+
+// fetchComponentTypeSpec fetches the ComponentTypeSpec from the cluster based on the ComponentTypeRef.
+func (s *componentService) fetchComponentTypeSpec(ctx context.Context, ctRef *openchoreov1alpha1.ComponentTypeRef, namespaceName string) (*openchoreov1alpha1.ComponentTypeSpec, error) {
+	componentTypeName, err := parseComponentTypeName(ctRef.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	switch ctRef.Kind {
+	case openchoreov1alpha1.ComponentTypeRefKindClusterComponentType:
+		cct := &openchoreov1alpha1.ClusterComponentType{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName}, cct); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("ClusterComponentType not found", "componentType", ctRef.Name)
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
+		}
+		// Convert ClusterTraitRef to TraitRef for allowedTraits
+		allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
+		for i, ref := range cct.Spec.AllowedTraits {
+			allowedTraits[i] = openchoreov1alpha1.TraitRef{
+				Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
+				Name: ref.Name,
+			}
+		}
+		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
+		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
+		for i, t := range cct.Spec.Traits {
+			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
+				Kind:         openchoreov1alpha1.TraitRefKind(t.Kind),
+				Name:         t.Name,
+				InstanceName: t.InstanceName,
+				Parameters:   t.Parameters,
+				EnvOverrides: t.EnvOverrides,
+			}
+		}
+		spec := openchoreov1alpha1.ComponentTypeSpec{
+			WorkloadType:     cct.Spec.WorkloadType,
+			AllowedWorkflows: cct.Spec.AllowedWorkflows,
+			Schema:           cct.Spec.Schema,
+			Traits:           traits,
+			AllowedTraits:    allowedTraits,
+			Validations:      cct.Spec.Validations,
+			Resources:        cct.Spec.Resources,
+		}
+		return &spec, nil
+	default:
+		ct := &openchoreov1alpha1.ComponentType{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentTypeName, Namespace: namespaceName}, ct); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Warn("ComponentType not found", "componentType", ctRef.Name)
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get ComponentType: %w", err)
+		}
+		return &ct.Spec, nil
+	}
+}
+
+// fetchTraitSpecs fetches trait specs for all component traits, detecting cross-kind collisions.
+func (s *componentService) fetchTraitSpecs(ctx context.Context, componentTraits []openchoreov1alpha1.ComponentTrait, namespaceName string) (map[string]openchoreov1alpha1.TraitSpec, error) {
+	traits := make(map[string]openchoreov1alpha1.TraitSpec)
+	traitKindByName := make(map[string]openchoreov1alpha1.TraitRefKind)
+
+	for _, ct := range componentTraits {
+		kind := ct.Kind
+		if kind == "" {
+			kind = openchoreov1alpha1.TraitRefKindTrait
+		}
+		if prevKind, exists := traitKindByName[ct.Name]; exists && prevKind != kind {
+			return nil, fmt.Errorf("trait %q is referenced as both %s and %s: %w", ct.Name, prevKind, kind, ErrTraitNameCollision)
+		}
+
+		traitSpec, err := s.fetchTraitSpec(ctx, kind, ct.Name, namespaceName)
+		if err != nil {
+			s.logger.Error("Failed to get Trait", "kind", kind, "trait", ct.Name, "error", err)
+			continue
+		}
+		if traitSpec == nil {
+			s.logger.Warn("Trait not found", "kind", kind, "trait", ct.Name)
+			continue
+		}
+		traitKindByName[ct.Name] = kind
+		traits[ct.Name] = *traitSpec
+	}
+
+	return traits, nil
+}
+
+// fetchTraitSpec fetches a TraitSpec from the cluster based on the trait kind and name.
+func (s *componentService) fetchTraitSpec(ctx context.Context, kind openchoreov1alpha1.TraitRefKind, name, namespaceName string) (*openchoreov1alpha1.TraitSpec, error) {
+	switch kind {
+	case openchoreov1alpha1.TraitRefKindClusterTrait:
+		ct := &openchoreov1alpha1.ClusterTrait{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name}, ct); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get ClusterTrait: %w", err)
+		}
+		return &openchoreov1alpha1.TraitSpec{
+			Schema:  ct.Spec.Schema,
+			Creates: ct.Spec.Creates,
+			Patches: ct.Spec.Patches,
+		}, nil
+	default:
+		trait := &openchoreov1alpha1.Trait{}
+		if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespaceName}, trait); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to get Trait: %w", err)
+		}
+		return &trait.Spec, nil
+	}
+}
+
+// parseComponentTypeName extracts the ComponentType name from the ComponentType string.
+// Format: {workloadType}/{componentTypeName}, e.g., "deployment/web-app" → "web-app"
+func parseComponentTypeName(componentType string) (string, error) {
+	parts := strings.Split(componentType, "/")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid component type format: %s", componentType)
+	}
+	return parts[1], nil
+}
+
 func (s *componentService) componentExists(ctx context.Context, namespaceName, componentName string) (bool, error) {
 	component := &openchoreov1alpha1.Component{}
 	key := client.ObjectKey{

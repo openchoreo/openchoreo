@@ -112,13 +112,13 @@ func (d *CompImpl) DeployComponent(params api.DeployComponentParams) error {
 func (d *CompImpl) deployComponent(ctx context.Context, c *client.Client, params api.DeployComponentParams) (*gen.ReleaseBinding, string, error) {
 	releaseName := params.Release
 
-	// If no release specified, create a new one
+	// If no release specified, generate a new one
 	if releaseName == "" {
-		release, err := c.CreateComponentRelease(ctx, params.Namespace, params.Project, params.ComponentName, gen.CreateComponentReleaseRequest{})
+		release, err := c.GenerateRelease(ctx, params.Namespace, params.ComponentName, gen.GenerateReleaseRequest{})
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to create component release: %w", err)
+			return nil, "", fmt.Errorf("failed to generate component release: %w", err)
 		}
-		releaseName = release.Name
+		releaseName = release.Metadata.Name
 		fmt.Printf("Created release: %s\n", releaseName)
 	}
 

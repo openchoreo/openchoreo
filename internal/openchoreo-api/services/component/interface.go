@@ -21,6 +21,11 @@ type PromoteComponentRequest struct {
 	TargetEnvironment string
 }
 
+// GenerateReleaseRequest contains the parameters for generating a component release.
+type GenerateReleaseRequest struct {
+	ReleaseName string
+}
+
 // Service defines the component service interface.
 // Both the core service (no authz) and the authz-wrapped service implement this.
 // Methods accept and return Kubernetes CRD types directly for alignment with
@@ -33,4 +38,5 @@ type Service interface {
 	DeleteComponent(ctx context.Context, namespaceName, componentName string) error
 	DeployRelease(ctx context.Context, namespaceName, componentName string, req *DeployReleaseRequest) (*openchoreov1alpha1.ReleaseBinding, error)
 	PromoteComponent(ctx context.Context, namespaceName, componentName string, req *PromoteComponentRequest) (*openchoreov1alpha1.ReleaseBinding, error)
+	GenerateRelease(ctx context.Context, namespaceName, componentName string, req *GenerateReleaseRequest) (*openchoreov1alpha1.ComponentRelease, error)
 }

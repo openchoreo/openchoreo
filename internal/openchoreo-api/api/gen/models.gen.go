@@ -748,25 +748,18 @@ type ComponentList struct {
 	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
-// ComponentRelease Immutable release snapshot for a component
+// ComponentRelease ComponentRelease resource (Kubernetes object without kind/apiVersion).
+// Immutable snapshot of component state at release time.
 type ComponentRelease struct {
-	// ComponentName Parent component name
-	ComponentName string `json:"componentName"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Spec Desired state of a ComponentRelease
+	Spec *ComponentReleaseSpec `json:"spec,omitempty"`
 
-	// Name Release name
-	Name string `json:"name"`
-
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
-	// ProjectName Parent project name
-	ProjectName string `json:"projectName"`
-
-	// Status Release status
-	Status *string `json:"status,omitempty"`
+	// Status ComponentRelease status (currently empty, immutable after creation)
+	Status *map[string]interface{} `json:"status,omitempty"`
 }
 
 // ComponentReleaseList Paginated list of component releases
@@ -776,6 +769,36 @@ type ComponentReleaseList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// ComponentReleaseSpec Desired state of a ComponentRelease
+type ComponentReleaseSpec struct {
+	// ComponentProfile Snapshot of component parameters and trait configs
+	ComponentProfile *struct {
+		// Parameters Component type parameters
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// Traits Component trait instances
+		Traits *[]ComponentTrait `json:"traits,omitempty"`
+	} `json:"componentProfile,omitempty"`
+
+	// ComponentType Frozen ComponentType spec at release time
+	ComponentType map[string]interface{} `json:"componentType"`
+
+	// Owner Identifies the component and project this release belongs to
+	Owner struct {
+		// ComponentName Parent component name
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Traits Frozen trait specs at release time (keyed by trait name)
+	Traits *map[string]interface{} `json:"traits,omitempty"`
+
+	// Workload Frozen workload spec at release time
+	Workload map[string]interface{} `json:"workload"`
 }
 
 // ComponentSpec Desired state of a Component
@@ -1123,12 +1146,6 @@ type CreateClusterRoleRequest struct {
 
 	// Name Unique cluster role name
 	Name string `json:"name"`
-}
-
-// CreateComponentReleaseRequest Request to create a component release
-type CreateComponentReleaseRequest struct {
-	// ReleaseName Optional release name (auto-generated if not provided)
-	ReleaseName *string `json:"releaseName,omitempty"`
 }
 
 // CreateComponentRequest Request to create a new component
@@ -1592,6 +1609,12 @@ type FileVar struct {
 
 	// ValueFrom Value source reference
 	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
+}
+
+// GenerateReleaseRequest Request to generate an immutable release snapshot from the current component state
+type GenerateReleaseRequest struct {
+	// ReleaseName Optional release name (auto-generated if not provided)
+	ReleaseName *string `json:"releaseName,omitempty"`
 }
 
 // KubernetesResource Kubernetes resource with OpenChoreo API group
@@ -2719,6 +2742,9 @@ type UpdateComponentJSONRequestBody = Component
 // DeployReleaseJSONRequestBody defines body for DeployRelease for application/json ContentType.
 type DeployReleaseJSONRequestBody = DeployReleaseRequest
 
+// GenerateReleaseJSONRequestBody defines body for GenerateRelease for application/json ContentType.
+type GenerateReleaseJSONRequestBody = GenerateReleaseRequest
+
 // PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
 type PromoteComponentJSONRequestBody = PromoteComponentRequest
 
@@ -2736,9 +2762,6 @@ type UpdateProjectJSONRequestBody = Project
 
 // UpdateComponentBindingJSONRequestBody defines body for UpdateComponentBinding for application/json ContentType.
 type UpdateComponentBindingJSONRequestBody = UpdateBindingRequest
-
-// CreateComponentReleaseJSONRequestBody defines body for CreateComponentRelease for application/json ContentType.
-type CreateComponentReleaseJSONRequestBody = CreateComponentReleaseRequest
 
 // PatchReleaseBindingJSONRequestBody defines body for PatchReleaseBinding for application/json ContentType.
 type PatchReleaseBindingJSONRequestBody = PatchReleaseBindingRequest
