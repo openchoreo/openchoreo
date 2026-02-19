@@ -15,22 +15,27 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
 // componentService handles component-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type componentService struct {
-	k8sClient client.Client
-	logger    *slog.Logger
+	k8sClient      client.Client
+	projectService projectsvc.Service
+	logger         *slog.Logger
 }
 
 var _ Service = (*componentService)(nil)
 
 // NewService creates a new component service without authorization.
+// It internally creates an unwrapped project service for project validation,
+// avoiding double authz when used within the authz-wrapped component service.
 func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	return &componentService{
-		k8sClient: k8sClient,
-		logger:    logger,
+		k8sClient:      k8sClient,
+		projectService: projectsvc.NewService(k8sClient, logger.With("component", "project-service-internal")),
+		logger:         logger,
 	}
 }
 
@@ -40,6 +45,11 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 	}
 
 	s.logger.Debug("Creating component", "namespace", namespaceName, "component", component.Name)
+
+	// Validate that the referenced project exists
+	if _, err := s.projectService.GetProject(ctx, namespaceName, component.Spec.Owner.ProjectName); err != nil {
+		return nil, err
+	}
 
 	exists, err := s.componentExists(ctx, namespaceName, component.Name)
 	if err != nil {
@@ -94,6 +104,12 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}
 
+	// Prevent project reassignment: if the incoming component specifies a project,
+	// it must match the existing component's project
+	if component.Spec.Owner.ProjectName != "" && component.Spec.Owner.ProjectName != existing.Spec.Owner.ProjectName {
+		return nil, fmt.Errorf("cannot reassign component to a different project")
+	}
+
 	// Apply incoming spec directly from the request body, preserving server-managed fields
 	component.ResourceVersion = existing.ResourceVersion
 	component.Namespace = namespaceName
@@ -109,6 +125,13 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 
 func (s *componentService) ListComponents(ctx context.Context, namespaceName, projectName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Component], error) {
 	s.logger.Debug("Listing components", "namespace", namespaceName, "project", projectName, "limit", opts.Limit, "cursor", opts.Cursor)
+
+	// Validate that the referenced project exists when filtering by project
+	if projectName != "" {
+		if _, err := s.projectService.GetProject(ctx, namespaceName, projectName); err != nil {
+			return nil, err
+		}
+	}
 
 	listResource := s.listComponentsResource(namespaceName)
 

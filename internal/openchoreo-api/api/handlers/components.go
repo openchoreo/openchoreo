@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
 // ListComponents returns a paginated list of components within a namespace.
@@ -35,6 +36,9 @@ func (h *Handler) ListComponents(
 
 	result, err := h.componentService.ListComponents(ctx, request.NamespaceName, projectName, opts)
 	if err != nil {
+		if errors.Is(err, projectsvc.ErrProjectNotFound) {
+			return gen.ListComponents404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
+		}
 		h.logger.Error("Failed to list components", "error", err)
 		return gen.ListComponents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -73,6 +77,9 @@ func (h *Handler) CreateComponent(
 	if err != nil {
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, projectsvc.ErrProjectNotFound) {
+			return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Referenced project not found")}, nil
 		}
 		if errors.Is(err, componentsvc.ErrComponentAlreadyExists) {
 			return gen.CreateComponent409JSONResponse{ConflictJSONResponse: conflict("Component already exists")}, nil
