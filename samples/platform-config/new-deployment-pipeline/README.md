@@ -9,5 +9,5 @@ In this sample the new deployment pipeline facilitates promoting from developmen
 Use the following command to create the new deployment pipeline.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/platform-config/new-deployment-pipeline/deployment-pipeline.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/platform-config/new-deployment-pipeline/deployment-pipeline.yaml
 ```

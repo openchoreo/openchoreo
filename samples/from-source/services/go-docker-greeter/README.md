@@ -21,7 +21,7 @@ https://github.com/wso2/choreo-samples/tree/main/greeting-service-go
 The following command will create the relevant resources in OpenChoreo. It will also trigger a workflow by creating a workflow resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```
 
 > [!NOTE]
@@ -150,5 +150,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/go-docker-greeter/greeting-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-source/services/go-docker-greeter/greeting-service.yaml
 ```

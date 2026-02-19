@@ -12,7 +12,7 @@ The application is deployed from the pre-built image:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/react-starter-web-app/react-starter.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-image/react-starter-web-app/react-starter.yaml
 ```
 
 > [!NOTE]
@@ -74,5 +74,5 @@ If you cannot access the application:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/react-starter-web-app/react-starter.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-image/react-starter-web-app/react-starter.yaml
 ```

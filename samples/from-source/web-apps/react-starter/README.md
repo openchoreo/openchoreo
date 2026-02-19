@@ -12,7 +12,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/webapp-react-nginx
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```
 
 > [!NOTE]
@@ -134,5 +134,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/web-apps/react-starter/react-web-app.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/from-source/web-apps/react-starter/react-web-app.yaml
 ```

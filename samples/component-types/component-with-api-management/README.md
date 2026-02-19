@@ -242,7 +242,7 @@ The `RestApi` resource is processed by the WSO2 API Platform Gateway which:
 Deploy the example:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-api-management/component-with-api-management.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v0.15/samples/component-types/component-with-api-management/component-with-api-management.yaml
 ```
 
 Verify resources created:

@@ -47,7 +47,7 @@ gcp-microservices-demo/
 First, create the project that will contain all the microservices:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```
 
 ## Step 2: Deploy the Components
@@ -56,17 +56,17 @@ Deploy all the microservices components:
 
 ```bash
 kubectl apply \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/ad-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/cart-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/checkout-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/currency-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/email-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/frontend-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/payment-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/recommendation-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/redis-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/shipping-component.yaml
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/ad-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/cart-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/checkout-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/currency-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/email-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/frontend-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/payment-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/recommendation-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/redis-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/shipping-component.yaml
 ```
 
 This will deploy all the microservices using official Google Container Registry images.
@@ -98,18 +98,18 @@ Remove all resources:
 ```bash
 # Remove components
 kubectl delete \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/ad-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/cart-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/checkout-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/currency-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/email-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/frontend-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/payment-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/recommendation-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/redis-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/shipping-component.yaml
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/ad-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/cart-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/checkout-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/currency-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/email-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/frontend-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/payment-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/recommendation-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/redis-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/components/shipping-component.yaml
 
 # Remove project
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v0.15/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```
