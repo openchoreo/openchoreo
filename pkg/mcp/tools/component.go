@@ -89,8 +89,10 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
 			"display_name":   stringProperty("Human-readable display name"),
 			"description":    stringProperty("Human-readable description"),
-			"componentType": stringProperty("Component type identifier in {workloadType}/{componentTypeName} format." +
-				"Use list_component_types to discover valid types"),
+			"componentType": stringProperty("Component type identifier in {workloadType}/{componentTypeName} format. " +
+				"Use list_component_types or list_cluster_component_types to discover valid types"),
+			"componentTypeKind": stringProperty("Optional: Kind of component type reference. " +
+				"Use 'ComponentType' for namespace-scoped (default) or 'ClusterComponentType' for cluster-scoped"),
 			"autoDeploy": map[string]any{
 				"type": "boolean",
 				"description": "Optional: Automatically triggers the component deployment if the component or" +
@@ -106,20 +108,25 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 			},
 		}, []string{"namespace_name", "project_name", "name", "componentType"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		ProjectName   string                 `json:"project_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		ComponentType string                 `json:"componentType"`
-		AutoDeploy    *bool                  `json:"autoDeploy,omitempty"`
-		Parameters    map[string]interface{} `json:"parameters"`
-		Workflow      map[string]interface{} `json:"workflow"`
+		NamespaceName     string                 `json:"namespace_name"`
+		ProjectName       string                 `json:"project_name"`
+		Name              string                 `json:"name"`
+		DisplayName       string                 `json:"display_name"`
+		Description       string                 `json:"description"`
+		ComponentType     string                 `json:"componentType"`
+		ComponentTypeKind string                 `json:"componentTypeKind"`
+		AutoDeploy        *bool                  `json:"autoDeploy,omitempty"`
+		Parameters        map[string]interface{} `json:"parameters"`
+		Workflow          map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
 		var componentTypeRef *models.ComponentTypeRef
 		if args.ComponentType != "" {
+			kind := "ComponentType"
+			if args.ComponentTypeKind != "" {
+				kind = args.ComponentTypeKind
+			}
 			componentTypeRef = &models.ComponentTypeRef{
-				Kind: "ComponentType",
+				Kind: kind,
 				Name: args.ComponentType,
 			}
 		}
@@ -631,13 +638,15 @@ func (t *Toolsets) RegisterUpdateComponentTraits(s *mcp.Server) {
 		Name: "update_component_traits",
 		Description: "Update (replace) all trait instances on a component. This operation replaces the entire set of " +
 			"traits, so include all desired traits in the request. Each trait needs a name (trait type), instanceName " +
-			"(unique identifier), and optional parameters.",
+			"(unique identifier), optional kind ('Trait' for namespace-scoped or 'ClusterTrait' for cluster-scoped, " +
+			"defaults to 'Trait'), and optional parameters.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
 			"traits": arrayProperty(
-				"Array of trait configurations. Each trait must have 'name', 'instanceName', and optional 'parameters'",
+				"Array of trait configurations. Each trait must have 'name', 'instanceName', optional 'kind' "+
+					"('Trait' or 'ClusterTrait', defaults to 'Trait'), and optional 'parameters'",
 				"object",
 			),
 		}, []string{"namespace_name", "project_name", "component_name", "traits"}),

@@ -98,6 +98,12 @@ func (t *Toolsets) infrastructureToolRegistrations() []RegisterFunc {
 		t.RegisterCreateClusterDataPlane,
 		t.RegisterListClusterBuildPlanes,
 		t.RegisterListClusterObservabilityPlanes,
+		t.RegisterListClusterComponentTypes,
+		t.RegisterGetClusterComponentType,
+		t.RegisterGetClusterComponentTypeSchema,
+		t.RegisterListClusterTraits,
+		t.RegisterGetClusterTrait,
+		t.RegisterGetClusterTraitSchema,
 	}
 }
 

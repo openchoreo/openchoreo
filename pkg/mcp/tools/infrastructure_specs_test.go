@@ -344,5 +344,91 @@ func infrastructureToolSpecs() []toolTestSpec {
 				// No arguments to validate
 			},
 		},
+		{
+			name:                "list_cluster_component_types",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterComponentTypes",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments to validate
+			},
+		},
+		{
+			name:                "get_cluster_component_type",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "component", "type"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs: map[string]any{
+				"cct_name": "go-service",
+			},
+			expectedMethod: "GetClusterComponentType",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "go-service" {
+					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_component_type_schema",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "component", "type", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"cct_name"},
+			testArgs: map[string]any{
+				"cct_name": "go-service",
+			},
+			expectedMethod: "GetClusterComponentTypeSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "go-service" {
+					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+				}
+			},
+		},
+		{
+			name:                "list_cluster_traits",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+			expectedMethod:      "ListClusterTraits",
+			validateCall: func(t *testing.T, args []interface{}) {
+				// No arguments to validate
+			},
+		},
+		{
+			name:                "get_cluster_trait",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "trait"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs: map[string]any{
+				"ct_name": "autoscaler",
+			},
+			expectedMethod: "GetClusterTrait",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "autoscaler" {
+					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				}
+			},
+		},
+		{
+			name:                "get_cluster_trait_schema",
+			toolset:             "infrastructure",
+			descriptionKeywords: []string{"cluster", "trait", "schema"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"ct_name"},
+			testArgs: map[string]any{
+				"ct_name": "autoscaler",
+			},
+			expectedMethod: "GetClusterTraitSchema",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != "autoscaler" {
+					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+				}
+			},
+		},
 	}
 }

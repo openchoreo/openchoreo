@@ -183,6 +183,16 @@ type ClusterPlaneHandler interface {
 
 	// ClusterObservabilityPlane operations
 	ListClusterObservabilityPlanes(ctx context.Context) (any, error)
+
+	// ClusterComponentType operations
+	ListClusterComponentTypes(ctx context.Context) (any, error)
+	GetClusterComponentType(ctx context.Context, cctName string) (any, error)
+	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error)
+
+	// ClusterTrait operations
+	ListClusterTraits(ctx context.Context) (any, error)
+	GetClusterTrait(ctx context.Context, ctName string) (any, error)
+	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
 }
 
 // SchemaToolsetHandler handles schema and resource explanation operations

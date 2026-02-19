@@ -390,6 +390,36 @@ func (m *MockCoreToolsetHandler) ListClusterObservabilityPlanes(ctx context.Cont
 	return `[{"name":"cop1"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) ListClusterComponentTypes(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterComponentTypes")
+	return `[{"name":"go-service"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterComponentType(ctx context.Context, cctName string) (any, error) {
+	m.recordCall("GetClusterComponentType", cctName)
+	return `{"name":"go-service"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterComponentTypeSchema(ctx context.Context, cctName string) (any, error) {
+	m.recordCall("GetClusterComponentTypeSchema", cctName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterTraits(ctx context.Context) (any, error) {
+	m.recordCall("ListClusterTraits")
+	return `[{"name":"autoscaler"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterTrait(ctx context.Context, ctName string) (any, error) {
+	m.recordCall("GetClusterTrait", ctName)
+	return `{"name":"autoscaler"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterTraitSchema(ctx context.Context, ctName string) (any, error) {
+	m.recordCall("GetClusterTraitSchema", ctName)
+	return emptyObjectSchema, nil
+}
+
 func (m *MockCoreToolsetHandler) ApplyResource(ctx context.Context, resource map[string]interface{}) (any, error) {
 	m.recordCall("ApplyResource", resource)
 	return `{"operation":"created"}`, nil

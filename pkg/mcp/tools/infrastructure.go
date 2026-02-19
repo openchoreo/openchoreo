@@ -527,3 +527,139 @@ func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
 		return handleToolResult(result, err)
 	})
 }
+
+// RegisterListClusterComponentTypes registers the "list_cluster_component_types" MCP tool
+// which lists all cluster-scoped component types (shared templates managed by platform
+// admins, not scoped to any namespace). Only registered when InfrastructureToolset also
+// implements ClusterPlaneHandler; otherwise it is a no-op.
+func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_component_types",
+		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
+			"by platform admins that define the structure and capabilities of components across all namespaces.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.ListClusterComponentTypes(ctx)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterComponentType registers the "get_cluster_component_type" MCP tool
+// which returns detailed information about a specific cluster-scoped component type.
+// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
+// otherwise it is a no-op.
+func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_component_type",
+		Description: "Get detailed information about a cluster-scoped component type including workload type, " +
+			"allowed workflows, allowed traits, and description.",
+		InputSchema: createSchema(map[string]any{
+			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
+		}, []string{"cct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CctName string `json:"cct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.GetClusterComponentType(ctx, args.CctName)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterComponentTypeSchema registers the "get_cluster_component_type_schema" MCP tool
+// which returns the JSON schema for a specific cluster-scoped component type.
+// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
+// otherwise it is a no-op.
+func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_component_type_schema",
+		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
+			"showing required fields, optional fields, and their types.",
+		InputSchema: createSchema(map[string]any{
+			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
+		}, []string{"cct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CctName string `json:"cct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.GetClusterComponentTypeSchema(ctx, args.CctName)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterListClusterTraits registers the "list_cluster_traits" MCP tool
+// which lists all cluster-scoped traits (shared trait definitions managed by platform
+// admins, not scoped to any namespace). Only registered when InfrastructureToolset also
+// implements ClusterPlaneHandler; otherwise it is a no-op.
+func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "list_cluster_traits",
+		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
+			"admins that add capabilities to components across all namespaces (e.g., autoscaling, ingress).",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.ListClusterTraits(ctx)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterTrait registers the "get_cluster_trait" MCP tool
+// which returns detailed information about a specific cluster-scoped trait.
+// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
+// otherwise it is a no-op.
+func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_trait",
+		Description: "Get detailed information about a cluster-scoped trait including its name, " +
+			"display name, and description.",
+		InputSchema: createSchema(map[string]any{
+			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
+		}, []string{"ct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CtName string `json:"ct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.GetClusterTrait(ctx, args.CtName)
+		return handleToolResult(result, err)
+	})
+}
+
+// RegisterGetClusterTraitSchema registers the "get_cluster_trait_schema" MCP tool
+// which returns the JSON schema for a specific cluster-scoped trait.
+// Only registered when InfrastructureToolset also implements ClusterPlaneHandler;
+// otherwise it is a no-op.
+func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
+	cp, ok := t.InfrastructureToolset.(ClusterPlaneHandler)
+	if !ok {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "get_cluster_trait_schema",
+		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
+			"showing trait configuration options and parameters.",
+		InputSchema: createSchema(map[string]any{
+			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
+		}, []string{"ct_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		CtName string `json:"ct_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := cp.GetClusterTraitSchema(ctx, args.CtName)
+		return handleToolResult(result, err)
+	})
+}
