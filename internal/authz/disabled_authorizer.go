@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"time"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -139,6 +140,70 @@ func (da *DisabledAuthorizer) ListActions(ctx context.Context) ([]string, error)
 
 // GetRoleEntitlementMapping fails with error
 func (da *DisabledAuthorizer) GetRoleEntitlementMapping(ctx context.Context, mappingRef *authz.MappingRef) (*authz.RoleEntitlementMapping, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) CreateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) GetNamespacedRole(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) ListNamespacedRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) UpdateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) CreateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) GetNamespacedRoleBinding(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRoleBinding, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) ListNamespacedRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error) {
+	return nil, authz.ErrAuthzDisabled
+}
+
+func (da *DisabledAuthorizer) UpdateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
 	return nil, authz.ErrAuthzDisabled
 }
 

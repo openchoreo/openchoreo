@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -967,4 +968,758 @@ func TestCasbinEnforcer_ListActions(t *testing.T) {
 	if len(actions) == 0 {
 		t.Error("ListActions() returned empty list")
 	}
+}
+
+// TestCasbinEnforcer_CreateClusterRole tests creating cluster-scoped roles
+func TestCasbinEnforcer_CreateClusterRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("create cluster role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "crd-admin"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleSpec{
+				Actions:     []string{"component:view", "component:create"},
+				Description: "admin role",
+			},
+		}
+		created, err := enforcer.CreateClusterRole(ctx, role)
+		if err != nil {
+			t.Fatalf("CreateClusterRole() error = %v", err)
+		}
+		if created.Name != "crd-admin" {
+			t.Errorf("CreateClusterRole() name = %s, want crd-admin", created.Name)
+		}
+		if !sliceContainsSameElements(created.Spec.Actions, []string{"component:view", "component:create"}) {
+			t.Errorf("CreateClusterRole() actions = %v, want [component:view component:create]", created.Spec.Actions)
+		}
+	})
+
+	t.Run("create duplicate cluster role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-cluster-role"},
+			Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+		}
+		if _, err := enforcer.CreateClusterRole(ctx, role); err != nil {
+			t.Fatalf("CreateClusterRole() first call error = %v", err)
+		}
+		_, err := enforcer.CreateClusterRole(ctx, &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-cluster-role"},
+			Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+		})
+		if !errors.Is(err, authzcore.ErrRoleAlreadyExists) {
+			t.Errorf("CreateClusterRole() duplicate error = %v, want ErrRoleAlreadyExists", err)
+		}
+	})
+
+	t.Run("invalid cluster role", func(t *testing.T) {
+		_, err := enforcer.CreateClusterRole(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("CreateClusterRole(nil) error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_GetClusterRole tests fetching cluster-scoped roles
+func TestCasbinEnforcer_GetClusterRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: create a cluster role via k8s client
+	role := &openchoreov1alpha1.AuthzClusterRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "get-cluster-role"},
+		Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+	}
+	if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+		t.Fatalf("setup: failed to create cluster role: %v", err)
+	}
+
+	t.Run("get existing cluster role", func(t *testing.T) {
+		fetched, err := enforcer.GetClusterRole(ctx, "get-cluster-role")
+		if err != nil {
+			t.Fatalf("GetClusterRole() error = %v", err)
+		}
+		if fetched.Name != "get-cluster-role" {
+			t.Errorf("GetClusterRole() name = %s, want get-cluster-role", fetched.Name)
+		}
+		if !sliceContainsSameElements(fetched.Spec.Actions, []string{"component:view"}) {
+			t.Errorf("GetClusterRole() actions = %v, want [component:view]", fetched.Spec.Actions)
+		}
+	})
+
+	t.Run("get non-existent cluster role", func(t *testing.T) {
+		_, err := enforcer.GetClusterRole(ctx, "non-existent")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("GetClusterRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ListClusterRoles tests listing cluster-scoped roles
+func TestCasbinEnforcer_ListClusterRoles(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Setup: create two cluster roles
+	for _, name := range []string{"list-cr-1", "list-cr-2"} {
+		role := &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: failed to create cluster role %s: %v", name, err)
+		}
+	}
+
+	list, err := enforcer.ListClusterRoles(ctx)
+	if err != nil {
+		t.Fatalf("ListClusterRoles() error = %v", err)
+	}
+	if len(list.Items) < 2 {
+		t.Errorf("ListClusterRoles() returned %d items, want at least 2", len(list.Items))
+	}
+}
+
+// TestCasbinEnforcer_UpdateClusterRole tests updating cluster-scoped roles
+func TestCasbinEnforcer_UpdateClusterRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("update existing cluster role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-cr"},
+			Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		updated, err := enforcer.UpdateClusterRole(ctx, &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-cr"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleSpec{
+				Actions:     []string{"component:view", "component:delete"},
+				Description: "updated",
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateClusterRole() error = %v", err)
+		}
+		if !sliceContainsSameElements(updated.Spec.Actions, []string{"component:view", "component:delete"}) {
+			t.Errorf("UpdateClusterRole() actions = %v", updated.Spec.Actions)
+		}
+		if updated.Spec.Description != "updated" {
+			t.Errorf("UpdateClusterRole() description = %s, want updated", updated.Spec.Description)
+		}
+	})
+
+	t.Run("update non-existent cluster role", func(t *testing.T) {
+		_, err := enforcer.UpdateClusterRole(ctx, &openchoreov1alpha1.AuthzClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "does-not-exist"},
+			Spec:       openchoreov1alpha1.AuthzClusterRoleSpec{Actions: []string{"component:view"}},
+		})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("UpdateClusterRole() error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("update invalid cluster role", func(t *testing.T) {
+		_, err := enforcer.UpdateClusterRole(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("UpdateClusterRole(nil) error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_CreateNamespacedRole tests creating namespace-scoped roles
+func TestCasbinEnforcer_CreateNamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("create namespaced role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "ns-dev", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleSpec{
+				Actions: []string{"component:view", "component:create"},
+			},
+		}
+		created, err := enforcer.CreateNamespacedRole(ctx, role)
+		if err != nil {
+			t.Fatalf("CreateNamespacedRole() error = %v", err)
+		}
+		if created.Name != "ns-dev" || created.Namespace != testNs {
+			t.Errorf("CreateNamespacedRole() = %s/%s, want %s/ns-dev", created.Namespace, created.Name, testNs)
+		}
+	})
+
+	t.Run("create duplicate namespaced role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-ns-role", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if _, err := enforcer.CreateNamespacedRole(ctx, role); err != nil {
+			t.Fatalf("first call error = %v", err)
+		}
+		_, err := enforcer.CreateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-ns-role", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		})
+		if !errors.Is(err, authzcore.ErrRoleAlreadyExists) {
+			t.Errorf("duplicate error = %v, want ErrRoleAlreadyExists", err)
+		}
+	})
+
+	t.Run("create nil namespaced role", func(t *testing.T) {
+		_, err := enforcer.CreateNamespacedRole(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("CreateNamespacedRole(nil) error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_GetNamespacedRole tests fetching namespace-scoped roles
+func TestCasbinEnforcer_GetNamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	role := &openchoreov1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "get-ns-role", Namespace: testNs},
+		Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	t.Run("get existing namespaced role", func(t *testing.T) {
+		fetched, err := enforcer.GetNamespacedRole(ctx, "get-ns-role", testNs)
+		if err != nil {
+			t.Fatalf("GetNamespacedRole() error = %v", err)
+		}
+		if fetched.Name != "get-ns-role" || fetched.Namespace != testNs {
+			t.Errorf("GetNamespacedRole() = %s/%s", fetched.Namespace, fetched.Name)
+		}
+	})
+
+	t.Run("get non-existent namespaced role", func(t *testing.T) {
+		_, err := enforcer.GetNamespacedRole(ctx, "non-existent", testNs)
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("get namespaced role wrong namespace", func(t *testing.T) {
+		_, err := enforcer.GetNamespacedRole(ctx, "get-ns-role", "wrong-ns")
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("error = %v, want ErrRoleNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ListNamespacedRoles tests listing namespace-scoped roles
+func TestCasbinEnforcer_ListNamespacedRoles(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	for _, r := range []struct {
+		name string
+		ns   string
+	}{
+		{"list-ns-1", testNs},
+		{"list-ns-2", testNs},
+		{"list-ns-other", "other-ns"},
+	} {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: r.name, Namespace: r.ns},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+	}
+
+	t.Run("list roles in specific namespace", func(t *testing.T) {
+		list, err := enforcer.ListNamespacedRoles(ctx, testNs)
+		if err != nil {
+			t.Fatalf("ListNamespacedRoles() error = %v", err)
+		}
+		if len(list.Items) != 2 {
+			t.Errorf("ListNamespacedRoles() returned %d items, want 2", len(list.Items))
+		}
+		for _, item := range list.Items {
+			if item.Namespace != testNs {
+				t.Errorf("item namespace = %s, want %s", item.Namespace, testNs)
+			}
+		}
+	})
+
+	t.Run("list roles in empty namespace", func(t *testing.T) {
+		list, err := enforcer.ListNamespacedRoles(ctx, "empty-ns")
+		if err != nil {
+			t.Fatalf("ListNamespacedRoles() error = %v", err)
+		}
+		if len(list.Items) != 0 {
+			t.Errorf("ListNamespacedRoles() returned %d items, want 0", len(list.Items))
+		}
+	})
+}
+
+// TestCasbinEnforcer_UpdateNamespacedRole tests updating namespace-scoped roles
+func TestCasbinEnforcer_UpdateNamespacedRole(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("update existing namespaced role", func(t *testing.T) {
+		role := &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-ns-role", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		}
+		if err := enforcer.k8sClient.Create(ctx, role); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		updated, err := enforcer.UpdateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-ns-role", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleSpec{
+				Actions:     []string{"component:view", "component:delete"},
+				Description: "updated desc",
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateNamespacedRole() error = %v", err)
+		}
+		if !sliceContainsSameElements(updated.Spec.Actions, []string{"component:view", "component:delete"}) {
+			t.Errorf("UpdateNamespacedRole() actions = %v", updated.Spec.Actions)
+		}
+	})
+
+	t.Run("update non-existent namespaced role", func(t *testing.T) {
+		_, err := enforcer.UpdateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: "no-exist", Namespace: testNs},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		})
+		if !errors.Is(err, authzcore.ErrRoleNotFound) {
+			t.Errorf("error = %v, want ErrRoleNotFound", err)
+		}
+	})
+
+	t.Run("update nil namespaced role", func(t *testing.T) {
+		_, err := enforcer.UpdateNamespacedRole(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_CreateClusterRoleBinding tests creating cluster-scoped role bindings
+func TestCasbinEnforcer_CreateClusterRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("create cluster role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "crd-crb-1"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "admins"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "admin"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		created, err := enforcer.CreateClusterRoleBinding(ctx, binding)
+		if err != nil {
+			t.Fatalf("CreateClusterRoleBinding() error = %v", err)
+		}
+		if created.Name != "crd-crb-1" {
+			t.Errorf("name = %s, want crd-crb-1", created.Name)
+		}
+		if created.Spec.Entitlement.Value != "admins" {
+			t.Errorf("entitlement value = %s, want admins", created.Spec.Entitlement.Value)
+		}
+	})
+
+	t.Run("create duplicate cluster role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if _, err := enforcer.CreateClusterRoleBinding(ctx, binding); err != nil {
+			t.Fatalf("first call error = %v", err)
+		}
+		_, err := enforcer.CreateClusterRoleBinding(ctx, &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "dev"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		})
+		if !errors.Is(err, authzcore.ErrRoleMappingAlreadyExists) {
+			t.Errorf("duplicate error = %v, want ErrRoleMappingAlreadyExists", err)
+		}
+	})
+
+	t.Run("create invalid cluster role binding", func(t *testing.T) {
+		_, err := enforcer.CreateClusterRoleBinding(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_GetClusterRoleBinding tests fetching cluster-scoped role bindings
+func TestCasbinEnforcer_GetClusterRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "get-crb"},
+		Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+			Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
+			RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "ops-role"},
+			Effect:      openchoreov1alpha1.EffectAllow,
+		},
+	}
+	if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	t.Run("get existing", func(t *testing.T) {
+		fetched, err := enforcer.GetClusterRoleBinding(ctx, "get-crb")
+		if err != nil {
+			t.Fatalf("GetClusterRoleBinding() error = %v", err)
+		}
+		if fetched.Spec.RoleRef.Name != "ops-role" {
+			t.Errorf("roleRef name = %s, want ops-role", fetched.Spec.RoleRef.Name)
+		}
+	})
+
+	t.Run("get non-existent", func(t *testing.T) {
+		_, err := enforcer.GetClusterRoleBinding(ctx, "non-existent")
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+}
+
+// TestCasbinEnforcer_ListClusterRoleBindings tests listing cluster-scoped role bindings
+func TestCasbinEnforcer_ListClusterRoleBindings(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	for _, name := range []string{"list-crb-1", "list-crb-2"} {
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+	}
+
+	list, err := enforcer.ListClusterRoleBindings(ctx)
+	if err != nil {
+		t.Fatalf("ListClusterRoleBindings() error = %v", err)
+	}
+	if len(list.Items) < 2 {
+		t.Errorf("ListClusterRoleBindings() returned %d items, want at least 2", len(list.Items))
+	}
+}
+
+// TestCasbinEnforcer_UpdateClusterRoleBinding tests updating cluster-scoped role bindings
+func TestCasbinEnforcer_UpdateClusterRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	t.Run("update existing cluster role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "old-group"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "old-role"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		updated, err := enforcer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "new-role"},
+				Effect:      openchoreov1alpha1.EffectDeny,
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateClusterRoleBinding() error = %v", err)
+		}
+		if updated.Spec.Entitlement.Value != "new-group" {
+			t.Errorf("entitlement value = %s, want new-group", updated.Spec.Entitlement.Value)
+		}
+		if updated.Spec.RoleRef.Name != "new-role" {
+			t.Errorf("roleRef name = %s, want new-role", updated.Spec.RoleRef.Name)
+		}
+		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+	})
+
+	t.Run("update non-existent cluster role binding", func(t *testing.T) {
+		_, err := enforcer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.AuthzClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "no-exist-crb"},
+			Spec: openchoreov1alpha1.AuthzClusterRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzClusterRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		})
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+
+	t.Run("update nil cluster role binding", func(t *testing.T) {
+		_, err := enforcer.UpdateClusterRoleBinding(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+// ============================================================================
+// PAP Tests - CRD-returning Namespaced Role Binding Methods
+// ============================================================================
+
+func TestCasbinEnforcer_CreateNamespacedRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("create namespaced role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "crd-rb-1", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "devs"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "dev-role"},
+				TargetPath:  openchoreov1alpha1.TargetPath{Project: "p1"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		created, err := enforcer.CreateNamespacedRoleBinding(ctx, binding)
+		if err != nil {
+			t.Fatalf("CreateNamespacedRoleBinding() error = %v", err)
+		}
+		if created.Name != "crd-rb-1" || created.Namespace != testNs {
+			t.Errorf("result = %s/%s, want %s/crd-rb-1", created.Namespace, created.Name, testNs)
+		}
+		if created.Spec.TargetPath.Project != "p1" {
+			t.Errorf("targetPath.project = %s, want p1", created.Spec.TargetPath.Project)
+		}
+	})
+
+	t.Run("create duplicate namespaced role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if _, err := enforcer.CreateNamespacedRoleBinding(ctx, binding); err != nil {
+			t.Fatalf("first call error = %v", err)
+		}
+		_, err := enforcer.CreateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "dup-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		})
+		if !errors.Is(err, authzcore.ErrRoleMappingAlreadyExists) {
+			t.Errorf("duplicate error = %v, want ErrRoleMappingAlreadyExists", err)
+		}
+	})
+
+	t.Run("create nil namespaced role binding", func(t *testing.T) {
+		_, err := enforcer.CreateNamespacedRoleBinding(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
+}
+
+func TestCasbinEnforcer_GetNamespacedRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	binding := &openchoreov1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "get-rb", Namespace: testNs},
+		Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+			Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "ops"},
+			RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "ops-role"},
+			Effect:      openchoreov1alpha1.EffectAllow,
+		},
+	}
+	if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	t.Run("get existing", func(t *testing.T) {
+		fetched, err := enforcer.GetNamespacedRoleBinding(ctx, "get-rb", testNs)
+		if err != nil {
+			t.Fatalf("GetNamespacedRoleBinding() error = %v", err)
+		}
+		if fetched.Spec.RoleRef.Name != "ops-role" {
+			t.Errorf("roleRef name = %s, want ops-role", fetched.Spec.RoleRef.Name)
+		}
+	})
+
+	t.Run("get non-existent", func(t *testing.T) {
+		_, err := enforcer.GetNamespacedRoleBinding(ctx, "non-existent", testNs)
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+
+	t.Run("get wrong namespace", func(t *testing.T) {
+		_, err := enforcer.GetNamespacedRoleBinding(ctx, "get-rb", "wrong-ns")
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+}
+
+func TestCasbinEnforcer_ListNamespacedRoleBindings(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	for _, r := range []struct {
+		name string
+		ns   string
+	}{
+		{"list-rb-1", testNs},
+		{"list-rb-2", testNs},
+		{"list-rb-other", "other-ns"},
+	} {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: r.name, Namespace: r.ns},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+	}
+
+	t.Run("list bindings in specific namespace", func(t *testing.T) {
+		list, err := enforcer.ListNamespacedRoleBindings(ctx, testNs)
+		if err != nil {
+			t.Fatalf("ListNamespacedRoleBindings() error = %v", err)
+		}
+		if len(list.Items) != 2 {
+			t.Errorf("returned %d items, want 2", len(list.Items))
+		}
+		for _, item := range list.Items {
+			if item.Namespace != testNs {
+				t.Errorf("item namespace = %s, want %s", item.Namespace, testNs)
+			}
+		}
+	})
+
+	t.Run("list bindings in empty namespace", func(t *testing.T) {
+		list, err := enforcer.ListNamespacedRoleBindings(ctx, "empty-ns")
+		if err != nil {
+			t.Fatalf("ListNamespacedRoleBindings() error = %v", err)
+		}
+		if len(list.Items) != 0 {
+			t.Errorf("returned %d items, want 0", len(list.Items))
+		}
+	})
+}
+
+func TestCasbinEnforcer_UpdateNamespacedRoleBinding(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	const testNs = "acme"
+
+	t.Run("update existing namespaced role binding", func(t *testing.T) {
+		binding := &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "old-group"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "old-role"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		}
+		if err := enforcer.k8sClient.Create(ctx, binding); err != nil {
+			t.Fatalf("setup: %v", err)
+		}
+
+		updated, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "update-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "new-group"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "new-role"},
+				TargetPath:  openchoreov1alpha1.TargetPath{Project: "p1", Component: "c1"},
+				Effect:      openchoreov1alpha1.EffectDeny,
+			},
+		})
+		if err != nil {
+			t.Fatalf("UpdateNamespacedRoleBinding() error = %v", err)
+		}
+		if updated.Spec.Entitlement.Value != "new-group" {
+			t.Errorf("entitlement value = %s, want new-group", updated.Spec.Entitlement.Value)
+		}
+		if updated.Spec.RoleRef.Name != "new-role" {
+			t.Errorf("roleRef name = %s, want new-role", updated.Spec.RoleRef.Name)
+		}
+		if updated.Spec.TargetPath.Project != "p1" {
+			t.Errorf("targetPath.project = %s, want p1", updated.Spec.TargetPath.Project)
+		}
+		if updated.Spec.TargetPath.Component != "c1" {
+			t.Errorf("targetPath.component = %s, want c1", updated.Spec.TargetPath.Component)
+		}
+		if updated.Spec.Effect != openchoreov1alpha1.EffectDeny {
+			t.Errorf("effect = %s, want deny", updated.Spec.Effect)
+		}
+	})
+
+	t.Run("update non-existent namespaced role binding", func(t *testing.T) {
+		_, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "no-exist-rb", Namespace: testNs},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: testClaimGroups, Value: "g"},
+				RoleRef:     openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "r"},
+				Effect:      openchoreov1alpha1.EffectAllow,
+			},
+		})
+		if !errors.Is(err, authzcore.ErrRoleMappingNotFound) {
+			t.Errorf("error = %v, want ErrRoleMappingNotFound", err)
+		}
+	})
+
+	t.Run("update nil namespaced role binding", func(t *testing.T) {
+		_, err := enforcer.UpdateNamespacedRoleBinding(ctx, nil)
+		if !errors.Is(err, authzcore.ErrInvalidRequest) {
+			t.Errorf("error = %v, want ErrInvalidRequest", err)
+		}
+	})
 }

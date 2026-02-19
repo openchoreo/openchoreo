@@ -359,6 +359,254 @@ func (ce *CasbinEnforcer) ListActions(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
+// CreateClusterRole creates a new cluster-scoped role and returns the full CRD object
+func (ce *CasbinEnforcer) CreateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	if role == nil {
+		return nil, fmt.Errorf("%w: cluster role cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("create cluster role called", "name", role.Name)
+
+	if err := ce.k8sClient.Create(ctx, role); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil, authzcore.ErrRoleAlreadyExists
+		}
+		return nil, fmt.Errorf("failed to create AuthzClusterRole: %w", err)
+	}
+	return role, nil
+}
+
+// GetClusterRole retrieves a cluster-scoped role by name
+func (ce *CasbinEnforcer) GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	role := &openchoreov1alpha1.AuthzClusterRole{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: name}, role); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzClusterRole: %w", err)
+	}
+	return role, nil
+}
+
+// ListClusterRoles lists all cluster-scoped roles
+func (ce *CasbinEnforcer) ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error) {
+	list := &openchoreov1alpha1.AuthzClusterRoleList{}
+	if err := ce.k8sClient.List(ctx, list); err != nil {
+		return nil, fmt.Errorf("failed to list AuthzClusterRoles: %w", err)
+	}
+	return list, nil
+}
+
+// UpdateClusterRole updates a cluster-scoped role and returns the updated CRD object
+func (ce *CasbinEnforcer) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
+	if role == nil {
+		return nil, fmt.Errorf("%w: cluster role cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("update cluster role called", "name", role.Name)
+
+	existing := &openchoreov1alpha1.AuthzClusterRole{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: role.Name}, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzClusterRole: %w", err)
+	}
+
+	existing.Spec = role.Spec
+	if err := ce.k8sClient.Update(ctx, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to update AuthzClusterRole: %w", err)
+	}
+	return existing, nil
+}
+
+// CreateNamespacedRole creates a new namespace-scoped role and returns the full CRD object
+func (ce *CasbinEnforcer) CreateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
+	if role == nil {
+		return nil, fmt.Errorf("%w: namespaced role cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("create namespaced role called", "name", role.Name, "namespace", role.Namespace)
+
+	if err := ce.k8sClient.Create(ctx, role); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil, authzcore.ErrRoleAlreadyExists
+		}
+		return nil, fmt.Errorf("failed to create AuthzRole: %w", err)
+	}
+	return role, nil
+}
+
+// GetNamespacedRole retrieves a namespace-scoped role by name and namespace
+func (ce *CasbinEnforcer) GetNamespacedRole(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRole, error) {
+	role := &openchoreov1alpha1.AuthzRole{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, role); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzRole: %w", err)
+	}
+	return role, nil
+}
+
+// ListNamespacedRoles lists namespace-scoped roles in the given namespace
+func (ce *CasbinEnforcer) ListNamespacedRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error) {
+	list := &openchoreov1alpha1.AuthzRoleList{}
+	if err := ce.k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list AuthzRoles: %w", err)
+	}
+	return list, nil
+}
+
+// UpdateNamespacedRole updates a namespace-scoped role and returns the updated CRD object
+func (ce *CasbinEnforcer) UpdateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
+	if role == nil {
+		return nil, fmt.Errorf("%w: namespaced role cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("update namespaced role called", "name", role.Name, "namespace", role.Namespace)
+
+	existing := &openchoreov1alpha1.AuthzRole{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: role.Name, Namespace: role.Namespace}, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzRole: %w", err)
+	}
+
+	existing.Spec = role.Spec
+	if err := ce.k8sClient.Update(ctx, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleNotFound
+		}
+		return nil, fmt.Errorf("failed to update AuthzRole: %w", err)
+	}
+	return existing, nil
+}
+
+// CreateClusterRoleBinding creates a new cluster-scoped role binding and returns the full CRD object
+func (ce *CasbinEnforcer) CreateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	if binding == nil {
+		return nil, fmt.Errorf("%w: cluster role binding cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("create cluster role binding called", "name", binding.Name)
+
+	if err := ce.k8sClient.Create(ctx, binding); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil, authzcore.ErrRoleMappingAlreadyExists
+		}
+		return nil, fmt.Errorf("failed to create AuthzClusterRoleBinding: %w", err)
+	}
+	return binding, nil
+}
+
+// GetClusterRoleBinding retrieves a cluster-scoped role binding by name
+func (ce *CasbinEnforcer) GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	binding := &openchoreov1alpha1.AuthzClusterRoleBinding{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: name}, binding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzClusterRoleBinding: %w", err)
+	}
+	return binding, nil
+}
+
+// ListClusterRoleBindings lists all cluster-scoped role bindings
+func (ce *CasbinEnforcer) ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error) {
+	list := &openchoreov1alpha1.AuthzClusterRoleBindingList{}
+	if err := ce.k8sClient.List(ctx, list); err != nil {
+		return nil, fmt.Errorf("failed to list AuthzClusterRoleBindings: %w", err)
+	}
+	return list, nil
+}
+
+// UpdateClusterRoleBinding updates a cluster-scoped role binding and returns the updated CRD object
+func (ce *CasbinEnforcer) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
+	if binding == nil {
+		return nil, fmt.Errorf("%w: cluster role binding cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("update cluster role binding called", "name", binding.Name)
+
+	existing := &openchoreov1alpha1.AuthzClusterRoleBinding{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: binding.Name}, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzClusterRoleBinding: %w", err)
+	}
+
+	existing.Spec = binding.Spec
+	if err := ce.k8sClient.Update(ctx, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to update AuthzClusterRoleBinding: %w", err)
+	}
+	return existing, nil
+}
+
+// CreateNamespacedRoleBinding creates a new namespace-scoped role binding and returns the full CRD object
+func (ce *CasbinEnforcer) CreateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
+	if binding == nil {
+		return nil, fmt.Errorf("%w: namespaced role binding cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("create namespaced role binding called", "name", binding.Name, "namespace", binding.Namespace)
+
+	if err := ce.k8sClient.Create(ctx, binding); err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil, authzcore.ErrRoleMappingAlreadyExists
+		}
+		return nil, fmt.Errorf("failed to create AuthzRoleBinding: %w", err)
+	}
+	return binding, nil
+}
+
+// GetNamespacedRoleBinding retrieves a namespace-scoped role binding by name and namespace
+func (ce *CasbinEnforcer) GetNamespacedRoleBinding(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRoleBinding, error) {
+	binding := &openchoreov1alpha1.AuthzRoleBinding{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, binding); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzRoleBinding: %w", err)
+	}
+	return binding, nil
+}
+
+// ListNamespacedRoleBindings lists namespace-scoped role bindings in the given namespace
+func (ce *CasbinEnforcer) ListNamespacedRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error) {
+	list := &openchoreov1alpha1.AuthzRoleBindingList{}
+	if err := ce.k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list AuthzRoleBindings: %w", err)
+	}
+	return list, nil
+}
+
+// UpdateNamespacedRoleBinding updates a namespace-scoped role binding and returns the updated CRD object
+func (ce *CasbinEnforcer) UpdateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {
+	if binding == nil {
+		return nil, fmt.Errorf("%w: namespaced role binding cannot be nil", authzcore.ErrInvalidRequest)
+	}
+	ce.logger.Debug("update namespaced role binding called", "name", binding.Name, "namespace", binding.Namespace)
+
+	existing := &openchoreov1alpha1.AuthzRoleBinding{}
+	if err := ce.k8sClient.Get(ctx, client.ObjectKey{Name: binding.Name, Namespace: binding.Namespace}, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to get AuthzRoleBinding: %w", err)
+	}
+
+	existing.Spec = binding.Spec
+	if err := ce.k8sClient.Update(ctx, existing); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, authzcore.ErrRoleMappingNotFound
+		}
+		return nil, fmt.Errorf("failed to update AuthzRoleBinding: %w", err)
+	}
+	return existing, nil
+}
+
 // ============================================================================
 // K8s CRD Helper Methods
 // ============================================================================
