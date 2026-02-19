@@ -598,6 +598,9 @@ func (h *Handler) DeployRelease(
 		if errors.Is(err, componentsvc.ErrPipelineNotConfigured) || errors.Is(err, componentsvc.ErrNoLowestEnvironment) {
 			return gen.DeployRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
+		if errors.Is(err, componentsvc.ErrValidation) {
+			return gen.DeployRelease400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+		}
 		h.logger.Error("Failed to deploy release", "error", err)
 		return gen.DeployRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -649,6 +652,9 @@ func (h *Handler) PromoteComponent(
 			return gen.PromoteComponent404JSONResponse{NotFoundJSONResponse: notFound("DeploymentPipeline")}, nil
 		}
 		if errors.Is(err, componentsvc.ErrPipelineNotConfigured) {
+			return gen.PromoteComponent400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
+		}
+		if errors.Is(err, componentsvc.ErrValidation) {
 			return gen.PromoteComponent400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 		}
 		h.logger.Error("Failed to promote component", "error", err)
@@ -758,29 +764,59 @@ func toGenReleaseBinding(r *models.ReleaseBindingResponse) gen.ReleaseBinding {
 		return gen.ReleaseBinding{}
 	}
 
-	result := gen.ReleaseBinding{
-		Name:          r.Name,
-		ComponentName: r.ComponentName,
-		ProjectName:   r.ProjectName,
-		NamespaceName: r.NamespaceName,
-		Environment:   r.Environment,
-		CreatedAt:     r.CreatedAt,
+	spec := &gen.ReleaseBindingSpec{
+		Owner: struct {
+			ComponentName string `json:"componentName"`
+			ProjectName   string `json:"projectName"`
+		}{
+			ComponentName: r.ComponentName,
+			ProjectName:   r.ProjectName,
+		},
+		Environment: r.Environment,
 	}
 
 	if r.ReleaseName != "" {
-		result.ReleaseName = &r.ReleaseName
+		spec.ReleaseName = &r.ReleaseName
 	}
 
 	if len(r.ComponentTypeEnvOverrides) > 0 {
-		result.ComponentTypeEnvOverrides = &r.ComponentTypeEnvOverrides
+		spec.ComponentTypeEnvOverrides = &r.ComponentTypeEnvOverrides
 	}
 
 	if len(r.TraitOverrides) > 0 {
-		result.TraitOverrides = &r.TraitOverrides
+		spec.TraitOverrides = &r.TraitOverrides
 	}
 
 	if r.WorkloadOverrides != nil {
-		result.WorkloadOverrides = toGenWorkloadOverrides(r.WorkloadOverrides)
+		spec.WorkloadOverrides = toGenWorkloadOverrides(r.WorkloadOverrides)
+	}
+
+	result := gen.ReleaseBinding{
+		Metadata: gen.ObjectMeta{
+			Name:              r.Name,
+			Namespace:         &r.NamespaceName,
+			CreationTimestamp: &r.CreatedAt,
+		},
+		Spec: spec,
+	}
+
+	if r.Status != "" {
+		conditionStatus := gen.ConditionStatus("Unknown")
+		if r.Status == "Ready" {
+			conditionStatus = "True"
+		} else if r.Status == "Error" {
+			conditionStatus = "False"
+		}
+		result.Status = &gen.ReleaseBindingStatus{
+			Conditions: &[]gen.Condition{
+				{
+					Type:               "Ready",
+					Status:             conditionStatus,
+					Reason:             r.Status,
+					LastTransitionTime: r.CreatedAt,
+				},
+			},
+		}
 	}
 
 	return result

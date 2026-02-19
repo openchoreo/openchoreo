@@ -16,4 +16,5 @@ var (
 	ErrInvalidPromotionPath     = errors.New("invalid promotion path")
 	ErrWorkloadNotFound         = errors.New("workload not found")
 	ErrTraitNameCollision       = errors.New("trait name collision across kinds")
+	ErrValidation               = errors.New("validation error")
 )

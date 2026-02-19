@@ -5692,31 +5692,41 @@ components:
 
     ReleaseBinding:
       type: object
-      description: Environment-specific release binding
+      description: |
+        ReleaseBinding resource (Kubernetes object without kind/apiVersion).
+        Binds a ComponentRelease to a specific environment.
       required:
-        - name
-        - componentName
-        - projectName
-        - namespaceName
-        - environment
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: Binding name
-          example: api-service-dev
-        componentName:
-          type: string
-          description: Parent component name
-          example: api-service
-        projectName:
-          type: string
-          description: Parent project name
-          example: my-project
-        namespaceName:
-          type: string
-          description: Parent namespace name
-          example: my-namespace
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ReleaseBindingSpec'
+        status:
+          $ref: '#/components/schemas/ReleaseBindingStatus'
+
+    ReleaseBindingSpec:
+      type: object
+      description: Desired state of a ReleaseBinding
+      required:
+        - owner
+        - environment
+      properties:
+        owner:
+          type: object
+          description: Owner identifies the component and project this ReleaseBinding belongs to
+          required:
+            - projectName
+            - componentName
+          properties:
+            projectName:
+              type: string
+              description: Name of the project
+              example: my-project
+            componentName:
+              type: string
+              description: Name of the component
+              example: api-service
         environment:
           type: string
           description: Target environment name
@@ -5735,15 +5745,39 @@ components:
           additionalProperties: true
         workloadOverrides:
           $ref: '#/components/schemas/WorkloadOverrides'
-        createdAt:
+        state:
           type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: Binding status
-          example: Ready
+          description: Controls the state of the Release created by this binding
+          enum: [Active, Undeploy]
+          default: Active
+          example: Active
+
+    ReleaseBindingStatus:
+      type: object
+      description: Observed state of a ReleaseBinding
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the ReleaseBinding's current state
+          items:
+            $ref: '#/components/schemas/Condition'
+        endpoints:
+          type: array
+          description: Resolved invoke URLs for each named workload endpoint
+          items:
+            type: object
+            required:
+              - name
+              - invokeURL
+            properties:
+              name:
+                type: string
+                description: Endpoint name as defined in the Workload spec
+                example: http
+              invokeURL:
+                type: string
+                description: Resolved public URL for this endpoint
+                example: https://api-service-dev-default.example.com
 
     PatchReleaseBindingRequest:
       type: object

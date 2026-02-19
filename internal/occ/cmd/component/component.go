@@ -99,11 +99,15 @@ func (d *CompImpl) DeployComponent(params api.DeployComponentParams) error {
 		}
 	}
 
-	fmt.Printf("Successfully deployed component '%s' to environment '%s'\n", params.ComponentName, binding.Environment)
-	if binding.ReleaseName != nil {
-		fmt.Printf("  Release: %s\n", *binding.ReleaseName)
+	environment := ""
+	if binding.Spec != nil {
+		environment = binding.Spec.Environment
 	}
-	fmt.Printf("  Binding: %s\n", binding.Name)
+	fmt.Printf("Successfully deployed component '%s' to environment '%s'\n", params.ComponentName, environment)
+	if binding.Spec != nil && binding.Spec.ReleaseName != nil {
+		fmt.Printf("  Release: %s\n", *binding.Spec.ReleaseName)
+	}
+	fmt.Printf("  Binding: %s\n", binding.Metadata.Name)
 
 	return nil
 }
@@ -129,7 +133,7 @@ func (d *CompImpl) deployComponent(ctx context.Context, c *client.Client, params
 		return nil, "", fmt.Errorf("failed to deploy release: %w", err)
 	}
 
-	return binding, binding.Name, nil
+	return binding, binding.Metadata.Name, nil
 }
 
 // promoteComponent promotes a component to the target environment
@@ -161,7 +165,7 @@ func (d *CompImpl) promoteComponent(ctx context.Context, c *client.Client, param
 		return nil, "", fmt.Errorf("failed to promote component: %w", err)
 	}
 
-	return binding, binding.Name, nil
+	return binding, binding.Metadata.Name, nil
 }
 
 // findSourceEnvironment finds the source environment for a given target environment in the pipeline

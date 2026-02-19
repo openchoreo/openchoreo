@@ -130,6 +130,12 @@ const (
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
 )
 
+// Defines values for ReleaseBindingSpecState.
+const (
+	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
+	ReleaseBindingSpecStateUndeploy ReleaseBindingSpecState = "Undeploy"
+)
+
 // Defines values for RoleEntitlementMappingEffect.
 const (
 	RoleEntitlementMappingEffectAllow RoleEntitlementMappingEffect = "allow"
@@ -144,9 +150,9 @@ const (
 
 // Defines values for UpdateBindingRequestReleaseState.
 const (
-	UpdateBindingRequestReleaseStateActive   UpdateBindingRequestReleaseState = "Active"
-	UpdateBindingRequestReleaseStateSuspend  UpdateBindingRequestReleaseState = "Suspend"
-	UpdateBindingRequestReleaseStateUndeploy UpdateBindingRequestReleaseState = "Undeploy"
+	Active   UpdateBindingRequestReleaseState = "Active"
+	Suspend  UpdateBindingRequestReleaseState = "Suspend"
+	Undeploy UpdateBindingRequestReleaseState = "Undeploy"
 )
 
 // Defines values for UpdateClusterRoleBindingRequestEffect.
@@ -1889,40 +1895,18 @@ type Release struct {
 	Status *map[string]interface{} `json:"status,omitempty"`
 }
 
-// ReleaseBinding Environment-specific release binding
+// ReleaseBinding ReleaseBinding resource (Kubernetes object without kind/apiVersion).
+// Binds a ComponentRelease to a specific environment.
 type ReleaseBinding struct {
-	// ComponentName Parent component name
-	ComponentName string `json:"componentName"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// ComponentTypeEnvOverrides Environment-specific ComponentType overrides
-	ComponentTypeEnvOverrides *map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+	// Spec Desired state of a ReleaseBinding
+	Spec *ReleaseBindingSpec `json:"spec,omitempty"`
 
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Environment Target environment name
-	Environment string `json:"environment"`
-
-	// Name Binding name
-	Name string `json:"name"`
-
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
-	// ProjectName Parent project name
-	ProjectName string `json:"projectName"`
-
-	// ReleaseName Reference to component release
-	ReleaseName *string `json:"releaseName,omitempty"`
-
-	// Status Binding status
-	Status *string `json:"status,omitempty"`
-
-	// TraitOverrides Environment-specific trait overrides
-	TraitOverrides *map[string]interface{} `json:"traitOverrides,omitempty"`
-
-	// WorkloadOverrides Environment-specific workload overrides
-	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
+	// Status Observed state of a ReleaseBinding
+	Status *ReleaseBindingStatus `json:"status,omitempty"`
 }
 
 // ReleaseBindingList Paginated list of release bindings
@@ -1932,6 +1916,54 @@ type ReleaseBindingList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// ReleaseBindingSpec Desired state of a ReleaseBinding
+type ReleaseBindingSpec struct {
+	// ComponentTypeEnvOverrides Environment-specific ComponentType overrides
+	ComponentTypeEnvOverrides *map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
+
+	// Environment Target environment name
+	Environment string `json:"environment"`
+
+	// Owner Owner identifies the component and project this ReleaseBinding belongs to
+	Owner struct {
+		// ComponentName Name of the component
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Name of the project
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// ReleaseName Reference to component release
+	ReleaseName *string `json:"releaseName,omitempty"`
+
+	// State Controls the state of the Release created by this binding
+	State *ReleaseBindingSpecState `json:"state,omitempty"`
+
+	// TraitOverrides Environment-specific trait overrides
+	TraitOverrides *map[string]interface{} `json:"traitOverrides,omitempty"`
+
+	// WorkloadOverrides Environment-specific workload overrides
+	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
+}
+
+// ReleaseBindingSpecState Controls the state of the Release created by this binding
+type ReleaseBindingSpecState string
+
+// ReleaseBindingStatus Observed state of a ReleaseBinding
+type ReleaseBindingStatus struct {
+	// Conditions Latest available observations of the ReleaseBinding's current state
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Endpoints Resolved invoke URLs for each named workload endpoint
+	Endpoints *[]struct {
+		// InvokeURL Resolved public URL for this endpoint
+		InvokeURL string `json:"invokeURL"`
+
+		// Name Endpoint name as defined in the Workload spec
+		Name string `json:"name"`
+	} `json:"endpoints,omitempty"`
 }
 
 // RemoteReference Remote secret reference

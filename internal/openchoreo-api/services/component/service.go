@@ -19,8 +19,6 @@ import (
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
-const defaultPipelineName = "default"
-
 // componentService handles component-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type componentService struct {
@@ -232,7 +230,7 @@ func (s *componentService) DeleteComponent(ctx context.Context, namespaceName, c
 
 func (s *componentService) DeployRelease(ctx context.Context, namespaceName, componentName string, req *DeployReleaseRequest) (*openchoreov1alpha1.ReleaseBinding, error) {
 	if strings.TrimSpace(req.ReleaseName) == "" {
-		return nil, fmt.Errorf("releaseName is required")
+		return nil, fmt.Errorf("releaseName is required: %w", ErrValidation)
 	}
 	req.ReleaseName = strings.TrimSpace(req.ReleaseName)
 
@@ -328,7 +326,7 @@ func (s *componentService) PromoteComponent(ctx context.Context, namespaceName, 
 	req.SourceEnvironment = strings.TrimSpace(req.SourceEnvironment)
 	req.TargetEnvironment = strings.TrimSpace(req.TargetEnvironment)
 	if req.SourceEnvironment == "" || req.TargetEnvironment == "" {
-		return nil, fmt.Errorf("sourceEnv and targetEnv are required")
+		return nil, fmt.Errorf("sourceEnv and targetEnv are required: %w", ErrValidation)
 	}
 
 	s.logger.Debug("Promoting component", "namespace", namespaceName, "component", componentName,
@@ -403,7 +401,7 @@ func (s *componentService) validatePromotionPath(ctx context.Context, namespaceN
 
 	pipelineName := project.Spec.DeploymentPipelineRef
 	if pipelineName == "" {
-		pipelineName = defaultPipelineName
+		return ErrPipelineNotConfigured
 	}
 
 	var pipeline openchoreov1alpha1.DeploymentPipeline
@@ -729,7 +727,7 @@ func (s *componentService) fetchTraitSpec(ctx context.Context, kind openchoreov1
 // Format: {workloadType}/{componentTypeName}, e.g., "deployment/web-app" → "web-app"
 func parseComponentTypeName(componentType string) (string, error) {
 	parts := strings.Split(componentType, "/")
-	if len(parts) != 2 {
+	if len(parts) != 2 || parts[1] == "" {
 		return "", fmt.Errorf("invalid component type format: %s", componentType)
 	}
 	return parts[1], nil
