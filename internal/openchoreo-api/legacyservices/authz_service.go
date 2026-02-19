@@ -37,6 +37,7 @@ func (s *AuthzService) ListRoles(ctx context.Context) ([]*authz.Role, error) {
 		return nil, err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{IncludeAll: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
@@ -55,6 +56,7 @@ func (s *AuthzService) ListClusterRoles(ctx context.Context) ([]*authz.Role, err
 		return nil, err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{Namespace: ""})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster roles: %w", err)
@@ -73,6 +75,7 @@ func (s *AuthzService) ListNamespaceRoles(ctx context.Context, namespace string)
 		return nil, err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	roles, err := s.pap.ListRoles(ctx, &authz.RoleFilter{Namespace: namespace})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespace roles: %w", err)
@@ -96,6 +99,7 @@ func (s *AuthzService) GetRoleByRef(ctx context.Context, roleRef *authz.RoleRef)
 		return nil, err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	role, err := s.pap.GetRole(ctx, roleRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
@@ -118,6 +122,7 @@ func (s *AuthzService) AddRole(ctx context.Context, role *authz.Role) error {
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.AddRole(ctx, role); err != nil {
 		return fmt.Errorf("failed to add role: %w", err)
 	}
@@ -140,6 +145,7 @@ func (s *AuthzService) RemoveRoleByRef(ctx context.Context, roleRef *authz.RoleR
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.RemoveRole(ctx, roleRef); err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
@@ -162,6 +168,7 @@ func (s *AuthzService) UpdateRole(ctx context.Context, role *authz.Role) error {
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.UpdateRole(ctx, role); err != nil {
 		return fmt.Errorf("failed to update role: %w", err)
 	}
@@ -203,6 +210,7 @@ func (s *AuthzService) ListClusterRoleMappings(ctx context.Context, roleName, cl
 		}
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
@@ -252,6 +260,7 @@ func (s *AuthzService) ListNamespacedRoleMappings(ctx context.Context, namespace
 		}
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	mappings, err := s.pap.ListRoleEntitlementMappings(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role mappings: %w", err)
@@ -277,6 +286,7 @@ func (s *AuthzService) GetRoleMapping(ctx context.Context, mappingRef *authz.Map
 		}); err != nil {
 		return nil, err
 	}
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	mapping, err := s.pap.GetRoleEntitlementMapping(ctx, mappingRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role mapping: %w", err)
@@ -301,6 +311,7 @@ func (s *AuthzService) AddRoleMapping(ctx context.Context, mapping *authz.RoleEn
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.AddRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to add policy: %w", err)
 	}
@@ -323,6 +334,7 @@ func (s *AuthzService) UpdateRoleMapping(ctx context.Context, mapping *authz.Rol
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.UpdateRoleEntitlementMapping(ctx, mapping); err != nil {
 		return fmt.Errorf("failed to update role mapping: %w", err)
 	}
@@ -341,6 +353,7 @@ func (s *AuthzService) RemoveRoleMapping(ctx context.Context, mappingRef *authz.
 		return err
 	}
 
+	//nolint:staticcheck // deprecated PAP methods are used here intentionally; will be removed along with the legacy service
 	if err := s.pap.RemoveRoleEntitlementMapping(ctx, mappingRef); err != nil {
 		return fmt.Errorf("failed to remove role mapping: %w", err)
 	}
