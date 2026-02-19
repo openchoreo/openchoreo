@@ -64,6 +64,132 @@ func decodeCursor(s string) (paginationCursor, error) {
 // ListResource fetches a single page of items from the underlying data source.
 type ListResource[T any] func(ctx context.Context, opts ListOptions) (*ListResult[T], error)
 
+// ItemFilter is a predicate that returns true if the item should be included.
+type ItemFilter[T any] func(item T) bool
+
+// PreFilteredList wraps a ListResource with in-memory predicate filters.
+// It returns a new ListResource that over-fetches and filters items while maintaining
+// correct pagination using an internal cursor. This can be composed with FilteredList
+// for layered filtering (e.g., project filter + authz filter).
+// When no filters are provided, the original listResource is returned unchanged.
+func PreFilteredList[T any](
+	listResource ListResource[T],
+	filters ...ItemFilter[T],
+) ListResource[T] {
+	if len(filters) == 0 {
+		return listResource
+	}
+
+	return func(ctx context.Context, opts ListOptions) (*ListResult[T], error) {
+		cur, err := decodeInternalCursor(opts.Cursor)
+		if err != nil {
+			return nil, err
+		}
+
+		filtered := make([]T, 0, opts.Limit)
+		k8sContinue := cur.Continue
+		skip := cur.InternalSkip
+
+		for len(filtered) < opts.Limit {
+			page, err := listResource(ctx, ListOptions{
+				Limit:  opts.Limit,
+				Cursor: k8sContinue,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			items := page.Items
+
+			// Skip items already processed in the previous call.
+			if skip > 0 {
+				if skip >= len(items) {
+					skip -= len(items)
+					if page.NextCursor == "" {
+						break
+					}
+					k8sContinue = page.NextCursor
+					continue
+				}
+				items = items[skip:]
+				skip = 0
+			}
+
+			for i, item := range items {
+				if !matchesAll(item, filters) {
+					continue
+				}
+
+				filtered = append(filtered, item)
+
+				if len(filtered) == opts.Limit {
+					// Page is full. Build cursor pointing to the next unprocessed item.
+					consumed := (len(page.Items) - len(items)) + i + 1
+					nextCur := internalCursor{
+						Continue:     k8sContinue,
+						InternalSkip: consumed,
+					}
+					if consumed >= len(page.Items) {
+						nextCur.Continue = page.NextCursor
+						nextCur.InternalSkip = 0
+						if page.NextCursor == "" {
+							return &ListResult[T]{Items: filtered}, nil
+						}
+					}
+					return &ListResult[T]{
+						Items:      filtered,
+						NextCursor: encodeInternalCursor(nextCur),
+					}, nil
+				}
+			}
+
+			if page.NextCursor == "" {
+				break
+			}
+			k8sContinue = page.NextCursor
+		}
+
+		return &ListResult[T]{Items: filtered}, nil
+	}
+}
+
+func matchesAll[T any](item T, filters []ItemFilter[T]) bool {
+	for _, f := range filters {
+		if !f(item) {
+			return false
+		}
+	}
+	return true
+}
+
+// internalCursor tracks position within pages when in-memory filtering is applied.
+type internalCursor struct {
+	// Continue is the upstream continuation token for the current page.
+	Continue string `json:"c,omitempty"`
+	// InternalSkip is the number of items to skip within the page (already processed).
+	InternalSkip int `json:"is,omitempty"`
+}
+
+func encodeInternalCursor(c internalCursor) string {
+	b, _ := json.Marshal(c)
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func decodeInternalCursor(s string) (internalCursor, error) {
+	var c internalCursor
+	if s == "" {
+		return c, nil
+	}
+	b, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return c, fmt.Errorf("invalid cursor: %w", err)
+	}
+	if err := json.Unmarshal(b, &c); err != nil {
+		return c, fmt.Errorf("invalid cursor: %w", err)
+	}
+	return c, nil
+}
+
 // GenerateAuthzCheckRequest builds a CheckRequest for an individual item.
 type GenerateAuthzCheckRequest[T any] func(item T) CheckRequest
 

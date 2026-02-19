@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package component
@@ -110,44 +110,50 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 func (s *componentService) ListComponents(ctx context.Context, namespaceName, projectName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Component], error) {
 	s.logger.Debug("Listing components", "namespace", namespaceName, "project", projectName, "limit", opts.Limit, "cursor", opts.Cursor)
 
-	listOpts := []client.ListOption{
-		client.InNamespace(namespaceName),
-	}
-	if opts.Limit > 0 {
-		listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
-	}
-	if opts.Cursor != "" {
-		listOpts = append(listOpts, client.Continue(opts.Cursor))
-	}
+	listResource := s.listComponentsResource(namespaceName)
 
-	var componentList openchoreov1alpha1.ComponentList
-	if err := s.k8sClient.List(ctx, &componentList, listOpts...); err != nil {
-		s.logger.Error("Failed to list components", "error", err)
-		return nil, fmt.Errorf("failed to list components: %w", err)
-	}
-
-	items := componentList.Items
+	// Apply project filter if specified. PreFilteredList handles over-fetching
+	// and cursor tracking so pagination remains correct.
+	var filters []services.ItemFilter[openchoreov1alpha1.Component]
 	if projectName != "" {
-		filtered := make([]openchoreov1alpha1.Component, 0, len(items))
-		for _, c := range items {
-			if c.Spec.Owner.ProjectName == projectName {
-				filtered = append(filtered, c)
-			}
+		filters = append(filters, func(c openchoreov1alpha1.Component) bool {
+			return c.Spec.Owner.ProjectName == projectName
+		})
+	}
+
+	return services.PreFilteredList(listResource, filters...)(ctx, opts)
+}
+
+// listComponentsResource returns a ListResource that fetches components from K8s for the given namespace.
+func (s *componentService) listComponentsResource(namespaceName string) services.ListResource[openchoreov1alpha1.Component] {
+	return func(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Component], error) {
+		listOpts := []client.ListOption{
+			client.InNamespace(namespaceName),
 		}
-		items = filtered
-	}
+		if opts.Limit > 0 {
+			listOpts = append(listOpts, client.Limit(int64(opts.Limit)))
+		}
+		if opts.Cursor != "" {
+			listOpts = append(listOpts, client.Continue(opts.Cursor))
+		}
 
-	result := &services.ListResult[openchoreov1alpha1.Component]{
-		Items:      items,
-		NextCursor: componentList.Continue,
-	}
-	if componentList.RemainingItemCount != nil {
-		remaining := *componentList.RemainingItemCount
-		result.RemainingCount = &remaining
-	}
+		var componentList openchoreov1alpha1.ComponentList
+		if err := s.k8sClient.List(ctx, &componentList, listOpts...); err != nil {
+			s.logger.Error("Failed to list components", "error", err)
+			return nil, fmt.Errorf("failed to list components: %w", err)
+		}
 
-	s.logger.Debug("Listed components", "namespace", namespaceName, "count", len(items))
-	return result, nil
+		result := &services.ListResult[openchoreov1alpha1.Component]{
+			Items:      componentList.Items,
+			NextCursor: componentList.Continue,
+		}
+		if componentList.RemainingItemCount != nil {
+			remaining := *componentList.RemainingItemCount
+			result.RemainingCount = &remaining
+		}
+
+		return result, nil
+	}
 }
 
 func (s *componentService) GetComponent(ctx context.Context, namespaceName, componentName string) (*openchoreov1alpha1.Component, error) {
