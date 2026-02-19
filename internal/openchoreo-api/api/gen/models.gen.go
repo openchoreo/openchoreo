@@ -971,7 +971,7 @@ type ComponentTypeList struct {
 
 // ComponentTypeSpec Desired state of a ComponentType
 type ComponentTypeSpec struct {
-	// AllowedTraits Restrict which Trait or ClusterTrait CRs developers can attach. Format: "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind.
+	// AllowedTraits Restricts which Trait or ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (Trait or ClusterTrait, defaults to Trait) and "name". For example: {"kind": "Trait", "name": "my-trait"} or {"kind": "ClusterTrait", "name": "my-cluster-trait"}. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
 		// Kind Kind of trait reference
 		Kind *ComponentTypeSpecAllowedTraitsKind `json:"kind,omitempty"`
