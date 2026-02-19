@@ -10,6 +10,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
@@ -21,6 +22,7 @@ var errNotImplemented = errors.New("not implemented")
 // Handler implements gen.StrictServerInterface
 type Handler struct {
 	services         *services.Services
+	authzService     authzsvc.Service
 	projectService   projectsvc.Service
 	componentService componentsvc.Service
 	logger           *slog.Logger
@@ -31,9 +33,10 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, projectService projectsvc.Service, componentService componentsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, componentService componentsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:         services,
+		authzService:     authzService,
 		projectService:   projectService,
 		componentService: componentService,
 		logger:           logger,

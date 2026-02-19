@@ -22,6 +22,24 @@ const (
 	Updated   ApplyResourceResponseOperation = "updated"
 )
 
+// Defines values for AuthzClusterRoleBindingSpecEffect.
+const (
+	AuthzClusterRoleBindingSpecEffectAllow AuthzClusterRoleBindingSpecEffect = "allow"
+	AuthzClusterRoleBindingSpecEffectDeny  AuthzClusterRoleBindingSpecEffect = "deny"
+)
+
+// Defines values for AuthzRoleBindingSpecEffect.
+const (
+	AuthzRoleBindingSpecEffectAllow AuthzRoleBindingSpecEffect = "allow"
+	AuthzRoleBindingSpecEffectDeny  AuthzRoleBindingSpecEffect = "deny"
+)
+
+// Defines values for AuthzRoleRefKind.
+const (
+	AuthzRoleRefKindAuthzClusterRole AuthzRoleRefKind = "AuthzClusterRole"
+	AuthzRoleRefKindAuthzRole        AuthzRoleRefKind = "AuthzRole"
+)
+
 // Defines values for BindingStatusStatus.
 const (
 	BindingStatusStatusActive     BindingStatusStatus = "Active"
@@ -177,18 +195,6 @@ const (
 	Succeeded WorkflowStepStatusPhase = "Succeeded"
 )
 
-// Defines values for ListClusterRoleBindingsParamsEffect.
-const (
-	ListClusterRoleBindingsParamsEffectAllow ListClusterRoleBindingsParamsEffect = "allow"
-	ListClusterRoleBindingsParamsEffectDeny  ListClusterRoleBindingsParamsEffect = "deny"
-)
-
-// Defines values for ListNamespaceRoleBindingsParamsEffect.
-const (
-	ListNamespaceRoleBindingsParamsEffectAllow ListNamespaceRoleBindingsParamsEffect = "allow"
-	ListNamespaceRoleBindingsParamsEffectDeny  ListNamespaceRoleBindingsParamsEffect = "deny"
-)
-
 // ActionCapability Capabilities for a specific action
 type ActionCapability struct {
 	// Allowed Resources where action is allowed
@@ -228,8 +234,153 @@ type AuthMechanismConfig struct {
 	Type string `json:"type"`
 }
 
+// AuthzClusterRole Cluster-scoped authorization role (Kubernetes CRD).
+// Defines a set of actions that can be assigned to subjects via role bindings.
+type AuthzClusterRole struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a cluster-scoped authorization role
+	Spec *AuthzClusterRoleSpec `json:"spec,omitempty"`
+}
+
+// AuthzClusterRoleBinding Cluster-scoped role binding (Kubernetes CRD).
+// Binds a cluster role to a subject identified by an entitlement claim.
+type AuthzClusterRoleBinding struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a cluster-scoped role binding
+	Spec *AuthzClusterRoleBindingSpec `json:"spec,omitempty"`
+}
+
+// AuthzClusterRoleBindingList List of cluster-scoped role bindings
+type AuthzClusterRoleBindingList struct {
+	Items []AuthzClusterRoleBinding `json:"items"`
+}
+
+// AuthzClusterRoleBindingSpec Specification for a cluster-scoped role binding
+type AuthzClusterRoleBindingSpec struct {
+	// Effect Policy effect (allow or deny)
+	Effect *AuthzClusterRoleBindingSpecEffect `json:"effect,omitempty"`
+
+	// Entitlement Entitlement claim-value pair for subject identification
+	Entitlement AuthzEntitlementClaim `json:"entitlement"`
+
+	// RoleRef Reference to an AuthzRole or AuthzClusterRole
+	RoleRef AuthzRoleRef `json:"roleRef"`
+}
+
+// AuthzClusterRoleBindingSpecEffect Policy effect (allow or deny)
+type AuthzClusterRoleBindingSpecEffect string
+
+// AuthzClusterRoleList List of cluster-scoped authorization roles
+type AuthzClusterRoleList struct {
+	Items []AuthzClusterRole `json:"items"`
+}
+
+// AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
+type AuthzClusterRoleSpec struct {
+	// Actions List of actions this role permits
+	Actions []string `json:"actions"`
+
+	// Description Human-readable description of the role
+	Description *string `json:"description,omitempty"`
+}
+
 // AuthzContext Additional context for authorization
 type AuthzContext map[string]interface{}
+
+// AuthzEntitlementClaim Entitlement claim-value pair for subject identification
+type AuthzEntitlementClaim struct {
+	// Claim JWT claim name
+	Claim string `json:"claim"`
+
+	// Value Entitlement value
+	Value string `json:"value"`
+}
+
+// AuthzRole Namespace-scoped authorization role (Kubernetes CRD).
+// Defines a set of actions that can be assigned to subjects via role bindings within a namespace.
+type AuthzRole struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a namespace-scoped authorization role
+	Spec *AuthzRoleSpec `json:"spec,omitempty"`
+}
+
+// AuthzRoleBinding Namespace-scoped role binding (Kubernetes CRD).
+// Binds a role to a subject identified by an entitlement claim within a namespace.
+type AuthzRoleBinding struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Specification for a namespace-scoped role binding
+	Spec *AuthzRoleBindingSpec `json:"spec,omitempty"`
+}
+
+// AuthzRoleBindingList List of namespace-scoped role bindings
+type AuthzRoleBindingList struct {
+	Items []AuthzRoleBinding `json:"items"`
+}
+
+// AuthzRoleBindingSpec Specification for a namespace-scoped role binding
+type AuthzRoleBindingSpec struct {
+	// Effect Policy effect (allow or deny)
+	Effect *AuthzRoleBindingSpecEffect `json:"effect,omitempty"`
+
+	// Entitlement Entitlement claim-value pair for subject identification
+	Entitlement AuthzEntitlementClaim `json:"entitlement"`
+
+	// RoleRef Reference to an AuthzRole or AuthzClusterRole
+	RoleRef AuthzRoleRef `json:"roleRef"`
+
+	// TargetPath Target resource path within a namespace (project/component scope)
+	TargetPath *AuthzTargetPath `json:"targetPath,omitempty"`
+}
+
+// AuthzRoleBindingSpecEffect Policy effect (allow or deny)
+type AuthzRoleBindingSpecEffect string
+
+// AuthzRoleList List of namespace-scoped authorization roles
+type AuthzRoleList struct {
+	Items []AuthzRole `json:"items"`
+}
+
+// AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
+type AuthzRoleRef struct {
+	// Kind Kind of role (AuthzRole or AuthzClusterRole)
+	Kind AuthzRoleRefKind `json:"kind"`
+
+	// Name Name of the role
+	Name string `json:"name"`
+}
+
+// AuthzRoleRefKind Kind of role (AuthzRole or AuthzClusterRole)
+type AuthzRoleRefKind string
+
+// AuthzRoleSpec Specification for a namespace-scoped authorization role
+type AuthzRoleSpec struct {
+	// Actions List of actions this role permits
+	Actions []string `json:"actions"`
+
+	// Description Human-readable description of the role
+	Description *string `json:"description,omitempty"`
+}
+
+// AuthzTargetPath Target resource path within a namespace (project/component scope)
+type AuthzTargetPath struct {
+	// Component Component name
+	Component *string `json:"component,omitempty"`
+
+	// Project Project name
+	Project *string `json:"project,omitempty"`
+}
 
 // BatchEvaluateRequest Batch authorization evaluation request
 type BatchEvaluateRequest struct {
@@ -513,7 +664,7 @@ type ClusterObservabilityPlaneRef struct {
 // ClusterObservabilityPlaneRefKind Kind of observability plane (only ClusterObservabilityPlane allowed)
 type ClusterObservabilityPlaneRefKind string
 
-// ClusterRoleRef Reference to a cluster role by name only
+// ClusterRoleRef Reference to a cluster role by name only (legacy)
 type ClusterRoleRef struct {
 	// Name Cluster role name
 	Name string `json:"name"`
@@ -887,7 +1038,7 @@ type CreateClusterDataPlaneRequest struct {
 	PublicVirtualHost string `json:"publicVirtualHost"`
 }
 
-// CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding
+// CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
 type CreateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect *CreateClusterRoleBindingRequestEffect `json:"effect,omitempty"`
@@ -905,7 +1056,7 @@ type CreateClusterRoleBindingRequest struct {
 // CreateClusterRoleBindingRequestEffect Policy effect (allow or deny)
 type CreateClusterRoleBindingRequestEffect string
 
-// CreateClusterRoleRequest Request to create a cluster-scoped role
+// CreateClusterRoleRequest Request to create a cluster-scoped role (legacy)
 type CreateClusterRoleRequest struct {
 	// Actions List of actions this role permits
 	Actions []string `json:"actions"`
@@ -1032,7 +1183,7 @@ type CreateNamespaceRequest struct {
 	Name string `json:"name"`
 }
 
-// CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding
+// CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy)
 type CreateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect *CreateNamespaceRoleBindingRequestEffect `json:"effect,omitempty"`
@@ -1043,17 +1194,17 @@ type CreateNamespaceRoleBindingRequest struct {
 	// Name Unique namespace role binding name
 	Name string `json:"name"`
 
-	// Role Reference to a role by name and namespace
+	// Role Reference to a role by name and namespace (legacy)
 	Role RoleRef `json:"role"`
 
-	// TargetPath Target resource path within a namespace (project/component only)
+	// TargetPath Target resource path within a namespace (project/component only) (legacy)
 	TargetPath *TargetPath `json:"targetPath,omitempty"`
 }
 
 // CreateNamespaceRoleBindingRequestEffect Policy effect (allow or deny)
 type CreateNamespaceRoleBindingRequestEffect string
 
-// CreateNamespaceRoleRequest Request to create a namespace-scoped role
+// CreateNamespaceRoleRequest Request to create a namespace-scoped role (legacy)
 type CreateNamespaceRoleRequest struct {
 	// Actions List of actions this role permits
 	Actions []string `json:"actions"`
@@ -1739,7 +1890,7 @@ type ResourceHierarchy struct {
 	Project *string `json:"project,omitempty"`
 }
 
-// Role Authorization role with permitted actions
+// Role Authorization role with permitted actions (legacy)
 type Role struct {
 	// Actions List of actions this role permits
 	Actions []string `json:"actions"`
@@ -1754,7 +1905,7 @@ type Role struct {
 	Namespace *string `json:"namespace,omitempty"`
 }
 
-// RoleEntitlementMapping Mapping of a role to an entitlement within a scope
+// RoleEntitlementMapping Mapping of a role to an entitlement within a scope (legacy)
 type RoleEntitlementMapping struct {
 	// Context Additional context for authorization
 	Context *AuthzContext `json:"context,omitempty"`
@@ -1771,14 +1922,14 @@ type RoleEntitlementMapping struct {
 	// Name Unique mapping name
 	Name string `json:"name"`
 
-	// Role Reference to a role by name and namespace
+	// Role Reference to a role by name and namespace (legacy)
 	Role RoleRef `json:"role"`
 }
 
 // RoleEntitlementMappingEffect Policy effect (allow or deny)
 type RoleEntitlementMappingEffect string
 
-// RoleRef Reference to a role by name and namespace
+// RoleRef Reference to a role by name and namespace (legacy)
 type RoleRef struct {
 	// Name Role name
 	Name string `json:"name"`
@@ -1901,7 +2052,7 @@ type TargetEnvironmentRef struct {
 	RequiresApproval *bool `json:"requiresApproval,omitempty"`
 }
 
-// TargetPath Target resource path within a namespace (project/component only)
+// TargetPath Target resource path within a namespace (project/component only) (legacy)
 type TargetPath struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
@@ -1943,7 +2094,7 @@ type UpdateBindingRequest struct {
 // UpdateBindingRequestReleaseState Desired release state
 type UpdateBindingRequestReleaseState string
 
-// UpdateClusterRoleBindingRequest Request to update a cluster role binding
+// UpdateClusterRoleBindingRequest Request to update a cluster role binding (legacy)
 type UpdateClusterRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect UpdateClusterRoleBindingRequestEffect `json:"effect"`
@@ -1958,7 +2109,7 @@ type UpdateClusterRoleBindingRequest struct {
 // UpdateClusterRoleBindingRequestEffect Policy effect (allow or deny)
 type UpdateClusterRoleBindingRequestEffect string
 
-// UpdateClusterRoleRequest Request to update a cluster role
+// UpdateClusterRoleRequest Request to update a cluster role (legacy)
 type UpdateClusterRoleRequest struct {
 	// Actions List of actions this role permits
 	Actions []string `json:"actions"`
@@ -1999,7 +2150,7 @@ type UpdateComponentWorkflowRequest struct {
 	WorkflowName *string `json:"workflowName,omitempty"`
 }
 
-// UpdateNamespaceRoleBindingRequest Request to update a namespace role binding
+// UpdateNamespaceRoleBindingRequest Request to update a namespace role binding (legacy)
 type UpdateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
 	Effect UpdateNamespaceRoleBindingRequestEffect `json:"effect"`
@@ -2007,17 +2158,17 @@ type UpdateNamespaceRoleBindingRequest struct {
 	// Entitlement Entitlement with claim and value
 	Entitlement Entitlement `json:"entitlement"`
 
-	// Role Reference to a role by name and namespace
+	// Role Reference to a role by name and namespace (legacy)
 	Role RoleRef `json:"role"`
 
-	// TargetPath Target resource path within a namespace (project/component only)
+	// TargetPath Target resource path within a namespace (project/component only) (legacy)
 	TargetPath TargetPath `json:"targetPath"`
 }
 
 // UpdateNamespaceRoleBindingRequestEffect Policy effect (allow or deny)
 type UpdateNamespaceRoleBindingRequestEffect string
 
-// UpdateNamespaceRoleRequest Request to update a namespace role
+// UpdateNamespaceRoleRequest Request to update a namespace role (legacy)
 type UpdateNamespaceRoleRequest struct {
 	// Actions List of actions this role permits
 	Actions []string `json:"actions"`
@@ -2026,7 +2177,7 @@ type UpdateNamespaceRoleRequest struct {
 	Description *string `json:"description,omitempty"`
 }
 
-// UpdateRoleMappingRequest Request to update a role mapping
+// UpdateRoleMappingRequest Request to update a role mapping (legacy)
 type UpdateRoleMappingRequest struct {
 	// Context Additional context for authorization
 	Context *AuthzContext `json:"context,omitempty"`
@@ -2040,14 +2191,14 @@ type UpdateRoleMappingRequest struct {
 	// Hierarchy Resource hierarchy scope
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
 
-	// Role Reference to a role by name and namespace
+	// Role Reference to a role by name and namespace (legacy)
 	Role RoleRef `json:"role"`
 }
 
 // UpdateRoleMappingRequestEffect Policy effect (allow or deny)
 type UpdateRoleMappingRequestEffect string
 
-// UpdateRoleRequest Request to update a role's actions
+// UpdateRoleRequest Request to update a role's actions (legacy)
 type UpdateRoleRequest struct {
 	// Actions New list of actions for the role
 	Actions []string `json:"actions"`
@@ -2336,24 +2487,6 @@ type ListClusterDataPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
-type ListClusterRoleBindingsParams struct {
-	// RoleName Filter by role name
-	RoleName *string `form:"roleName,omitempty" json:"roleName,omitempty"`
-
-	// Claim Filter by entitlement claim (must be used with value parameter)
-	Claim *string `form:"claim,omitempty" json:"claim,omitempty"`
-
-	// Value Filter by entitlement value (must be used with claim parameter)
-	Value *string `form:"value,omitempty" json:"value,omitempty"`
-
-	// Effect filter by binding effect (allow or deny)
-	Effect *ListClusterRoleBindingsParamsEffect `form:"effect,omitempty" json:"effect,omitempty"`
-}
-
-// ListClusterRoleBindingsParamsEffect defines parameters for ListClusterRoleBindings.
-type ListClusterRoleBindingsParamsEffect string
-
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
 	// Limit Maximum number of items to return per page
@@ -2465,27 +2598,6 @@ type CreateComponentWorkflowRunParams struct {
 	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
 }
 
-// ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
-type ListNamespaceRoleBindingsParams struct {
-	// RoleName Filter by role reference name
-	RoleName *string `form:"roleName,omitempty" json:"roleName,omitempty"`
-
-	// RoleNamespace Filter by role reference namespace (optional, for namespace-scoped roles)
-	RoleNamespace *string `form:"roleNamespace,omitempty" json:"roleNamespace,omitempty"`
-
-	// Claim Filter by entitlement claim (must be used with value parameter)
-	Claim *string `form:"claim,omitempty" json:"claim,omitempty"`
-
-	// Value Filter by entitlement value (must be used with claim parameter)
-	Value *string `form:"value,omitempty" json:"value,omitempty"`
-
-	// Effect filter by binding effect (allow or deny)
-	Effect *ListNamespaceRoleBindingsParamsEffect `form:"effect,omitempty" json:"effect,omitempty"`
-}
-
-// ListNamespaceRoleBindingsParamsEffect defines parameters for ListNamespaceRoleBindings.
-type ListNamespaceRoleBindingsParamsEffect string
-
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
 	// Limit Maximum number of items to return per page
@@ -2538,16 +2650,16 @@ type EvaluateJSONRequestBody = EvaluateRequest
 type CreateClusterDataPlaneJSONRequestBody = CreateClusterDataPlaneRequest
 
 // CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
-type CreateClusterRoleBindingJSONRequestBody = CreateClusterRoleBindingRequest
+type CreateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding
 
 // UpdateClusterRoleBindingJSONRequestBody defines body for UpdateClusterRoleBinding for application/json ContentType.
-type UpdateClusterRoleBindingJSONRequestBody = UpdateClusterRoleBindingRequest
+type UpdateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding
 
 // CreateClusterRoleJSONRequestBody defines body for CreateClusterRole for application/json ContentType.
-type CreateClusterRoleJSONRequestBody = CreateClusterRoleRequest
+type CreateClusterRoleJSONRequestBody = AuthzClusterRole
 
 // UpdateClusterRoleJSONRequestBody defines body for UpdateClusterRole for application/json ContentType.
-type UpdateClusterRoleJSONRequestBody = UpdateClusterRoleRequest
+type UpdateClusterRoleJSONRequestBody = AuthzClusterRole
 
 // DeleteResourceJSONRequestBody defines body for DeleteResource for application/json ContentType.
 type DeleteResourceJSONRequestBody = KubernetesResource
@@ -2598,16 +2710,16 @@ type UpdateComponentWorkflowParametersJSONRequestBody = UpdateComponentWorkflowR
 type CreateWorkloadJSONRequestBody = WorkloadSpec
 
 // CreateNamespaceRoleBindingJSONRequestBody defines body for CreateNamespaceRoleBinding for application/json ContentType.
-type CreateNamespaceRoleBindingJSONRequestBody = CreateNamespaceRoleBindingRequest
+type CreateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
 
 // UpdateNamespaceRoleBindingJSONRequestBody defines body for UpdateNamespaceRoleBinding for application/json ContentType.
-type UpdateNamespaceRoleBindingJSONRequestBody = UpdateNamespaceRoleBindingRequest
+type UpdateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
 
 // CreateNamespaceRoleJSONRequestBody defines body for CreateNamespaceRole for application/json ContentType.
-type CreateNamespaceRoleJSONRequestBody = CreateNamespaceRoleRequest
+type CreateNamespaceRoleJSONRequestBody = AuthzRole
 
 // UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
-type UpdateNamespaceRoleJSONRequestBody = UpdateNamespaceRoleRequest
+type UpdateNamespaceRoleJSONRequestBody = AuthzRole
 
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = CreateWorkflowRunRequest

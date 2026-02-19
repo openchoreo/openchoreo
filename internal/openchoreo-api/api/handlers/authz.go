@@ -7,9 +7,12 @@ import (
 	"context"
 	"errors"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -300,921 +303,643 @@ func (h *Handler) ListUserTypes(
 	return gen.ListUserTypes200JSONResponse(genUserTypes), nil
 }
 
-// ListClusterRoles returns all cluster-scoped roles
+// --- Cluster Roles ---
+
+// ListClusterRoles returns all cluster-scoped roles.
 func (h *Handler) ListClusterRoles(
 	ctx context.Context,
 	request gen.ListClusterRolesRequestObject,
 ) (gen.ListClusterRolesResponseObject, error) {
-	h.logger.Debug("ListClusterRoles handler called")
+	h.logger.Debug("ListClusterRoles called")
 
-	roles, err := h.services.AuthzService.ListClusterRoles(ctx)
+	result, err := h.authzService.ListClusterRoles(ctx)
 	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
+			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list cluster roles", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to API response format
-	apiRoles := make([]gen.Role, len(roles))
-	for i, role := range roles {
-		apiRoles[i] = gen.Role{
-			Actions:     role.Actions,
-			Description: &role.Description,
-			Name:        role.Name,
-			Namespace:   nil,
-		}
+	items, err := convertList[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster roles", "error", err)
+		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Listed cluster roles successfully", "count", len(roles))
-	return gen.ListClusterRoles200JSONResponse(apiRoles), nil
+	return gen.ListClusterRoles200JSONResponse{Items: items}, nil
 }
 
-// CreateClusterRole creates a new cluster-scoped role
+// CreateClusterRole creates a new cluster-scoped role.
 func (h *Handler) CreateClusterRole(
 	ctx context.Context,
 	request gen.CreateClusterRoleRequestObject,
 ) (gen.CreateClusterRoleResponseObject, error) {
-	h.logger.Info("CreateClusterRole handler called", "name", request.Body.Name)
+	h.logger.Info("CreateClusterRole called")
 
-	// Convert request to internal model
-	description := ""
-	if request.Body.Description != nil {
-		description = *request.Body.Description
-	}
-	role := &authz.Role{
-		Name:        request.Body.Name,
-		Actions:     request.Body.Actions,
-		Description: description,
-		Namespace:   "",
+	if request.Body == nil {
+		return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	err := h.services.AuthzService.AddRole(ctx, role)
+	roleCR, err := convert[gen.AuthzClusterRole, openchoreov1alpha1.AuthzClusterRole](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to create cluster role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	created, err := h.authzService.CreateClusterRole(ctx, &roleCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.CreateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleAlreadyExists) {
+		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateClusterRole409JSONResponse{ConflictJSONResponse: conflict("Cluster role already exists")}, nil
 		}
+		h.logger.Error("Failed to create cluster role", "error", err)
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Cluster role created successfully", "role", request.Body.Name)
-	return gen.CreateClusterRole201JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   nil,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created cluster role", "error", err)
+		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster role created successfully", "name", created.Name)
+	return gen.CreateClusterRole201JSONResponse(genRole), nil
 }
 
-// GetClusterRole returns details of a specific cluster role
+// GetClusterRole returns details of a specific cluster role.
 func (h *Handler) GetClusterRole(
 	ctx context.Context,
 	request gen.GetClusterRoleRequestObject,
 ) (gen.GetClusterRoleResponseObject, error) {
-	h.logger.Debug("GetClusterRole handler called", "name", request.Name)
+	h.logger.Debug("GetClusterRole called", "name", request.Name)
 
-	role, err := h.services.AuthzService.GetRoleByRef(ctx, &authz.RoleRef{Name: request.Name})
+	role, err := h.authzService.GetClusterRole(ctx, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to get cluster role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.GetClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.GetClusterRole404JSONResponse{NotFoundJSONResponse: notFound("Cluster role")}, nil
 		}
+		h.logger.Error("Failed to get cluster role", "error", err)
 		return gen.GetClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Retrieved cluster role successfully", "role", request.Name)
-	return gen.GetClusterRole200JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   nil,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*role)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster role", "error", err)
+		return gen.GetClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetClusterRole200JSONResponse(genRole), nil
 }
 
-// UpdateClusterRole updates an existing cluster role
+// UpdateClusterRole updates an existing cluster role.
 func (h *Handler) UpdateClusterRole(
 	ctx context.Context,
 	request gen.UpdateClusterRoleRequestObject,
 ) (gen.UpdateClusterRoleResponseObject, error) {
-	h.logger.Debug("UpdateClusterRole handler called", "name", request.Name)
+	h.logger.Info("UpdateClusterRole called", "name", request.Name)
 
-	// Convert request to internal model
-	description := ""
-	if request.Body.Description != nil {
-		description = *request.Body.Description
-	}
-	role := &authz.Role{
-		Name:        request.Name,
-		Actions:     request.Body.Actions,
-		Description: description,
-		Namespace:   "",
+	if request.Body == nil {
+		return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	err := h.services.AuthzService.UpdateRole(ctx, role)
+	roleCR, err := convert[gen.AuthzClusterRole, openchoreov1alpha1.AuthzClusterRole](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to update cluster role", "error", err)
-		if errors.Is(err, authz.ErrAuthzDisabled) {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	roleCR.Name = request.Name
+
+	updated, err := h.authzService.UpdateClusterRole(ctx, &roleCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.UpdateClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateClusterRole404JSONResponse{NotFoundJSONResponse: notFound("Cluster role")}, nil
 		}
+		h.logger.Error("Failed to update cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Cluster role updated successfully", "role", request.Name)
-	return gen.UpdateClusterRole200JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   nil,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzClusterRole, gen.AuthzClusterRole](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated cluster role", "error", err)
+		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster role updated successfully", "name", updated.Name)
+	return gen.UpdateClusterRole200JSONResponse(genRole), nil
 }
 
-// DeleteClusterRole deletes a cluster role
+// DeleteClusterRole deletes a cluster role.
 func (h *Handler) DeleteClusterRole(
 	ctx context.Context,
 	request gen.DeleteClusterRoleRequestObject,
 ) (gen.DeleteClusterRoleResponseObject, error) {
-	h.logger.Debug("DeleteClusterRole handler called", "name", request.Name)
+	h.logger.Info("DeleteClusterRole called", "name", request.Name)
 
-	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name})
+	err := h.authzService.DeleteClusterRole(ctx, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to delete cluster role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.DeleteClusterRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.DeleteClusterRole404JSONResponse{NotFoundJSONResponse: notFound("Cluster role")}, nil
 		}
-		if errors.Is(err, services.ErrRoleInUse) {
+		if errors.Is(err, authzsvc.ErrRoleInUse) {
 			return gen.DeleteClusterRole409JSONResponse{ConflictJSONResponse: conflict("Cluster role is in use by role bindings")}, nil
 		}
+		h.logger.Error("Failed to delete cluster role", "error", err)
 		return gen.DeleteClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Cluster role deleted successfully", "role", request.Name)
+	h.logger.Info("Cluster role deleted successfully", "name", request.Name)
 	return gen.DeleteClusterRole204Response{}, nil
 }
 
-// ListClusterRoleBindings returns all cluster-scoped role bindings
+// --- Cluster Role Bindings ---
+
+// ListClusterRoleBindings returns all cluster-scoped role bindings.
 func (h *Handler) ListClusterRoleBindings(
 	ctx context.Context,
 	request gen.ListClusterRoleBindingsRequestObject,
 ) (gen.ListClusterRoleBindingsResponseObject, error) {
-	h.logger.Debug("ListClusterRoleBindings handler called")
+	h.logger.Debug("ListClusterRoleBindings called")
 
-	roleName := getStringValue(request.Params.RoleName)
-	claim := getStringValue(request.Params.Claim)
-	claimValue := getStringValue(request.Params.Value)
-	effect := ""
-	if request.Params.Effect != nil {
-		effect = string(*request.Params.Effect)
-	}
-
-	mappings, err := h.services.AuthzService.ListClusterRoleMappings(ctx, roleName, claim, claimValue, effect)
+	result, err := h.authzService.ListClusterRoleBindings(ctx)
 	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
+			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list cluster role bindings", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to API response format
-	apiMappings := make([]gen.RoleEntitlementMapping, len(mappings))
-	for i, mapping := range mappings {
-		apiMappings[i] = gen.RoleEntitlementMapping{
-			Name: mapping.Name,
-			Role: gen.RoleRef{
-				Name:      mapping.RoleRef.Name,
-				Namespace: nil,
-			},
-			Entitlement: gen.Entitlement{
-				Claim: mapping.Entitlement.Claim,
-				Value: mapping.Entitlement.Value,
-			},
-			Hierarchy: gen.ResourceHierarchy{
-				Namespace: nil,
-				Project:   nil,
-				Component: nil,
-			},
-			Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-		}
+	items, err := convertList[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster role bindings", "error", err)
+		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Listed cluster role bindings successfully", "count", len(apiMappings))
-	return gen.ListClusterRoleBindings200JSONResponse(apiMappings), nil
+	return gen.ListClusterRoleBindings200JSONResponse{Items: items}, nil
 }
 
-// CreateClusterRoleBinding creates a new cluster-scoped role binding
+// CreateClusterRoleBinding creates a new cluster-scoped role binding.
 func (h *Handler) CreateClusterRoleBinding(
 	ctx context.Context,
 	request gen.CreateClusterRoleBindingRequestObject,
 ) (gen.CreateClusterRoleBindingResponseObject, error) {
-	h.logger.Debug("CreateClusterRoleBinding handler called", "name", request.Body.Name)
+	h.logger.Info("CreateClusterRoleBinding called")
 
-	effect := authz.PolicyEffectAllow
-	if request.Body.Effect != nil {
-		effect = authz.PolicyEffectType(*request.Body.Effect)
+	if request.Body == nil {
+		return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	mapping := &authz.RoleEntitlementMapping{
-		Name: request.Body.Name,
-		RoleRef: authz.RoleRef{
-			Name:      request.Body.Role,
-			Namespace: "",
-		},
-		Entitlement: authz.Entitlement{
-			Claim: request.Body.Entitlement.Claim,
-			Value: request.Body.Entitlement.Value,
-		},
-		Hierarchy: authz.ResourceHierarchy{},
-		Effect:    effect,
-	}
-
-	err := h.services.AuthzService.AddRoleMapping(ctx, mapping)
+	bindingCR, err := convert[gen.AuthzClusterRoleBinding, openchoreov1alpha1.AuthzClusterRoleBinding](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to create cluster role binding", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	created, err := h.authzService.CreateClusterRoleBinding(ctx, &bindingCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.CreateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingAlreadyExists) {
+		if errors.Is(err, authzsvc.ErrRoleBindingAlreadyExists) {
 			return gen.CreateClusterRoleBinding409JSONResponse{ConflictJSONResponse: conflict("Cluster role binding already exists")}, nil
 		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Referenced role not found")}, nil
 		}
+		h.logger.Error("Failed to create cluster role binding", "error", err)
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Cluster role binding created successfully", "binding", request.Body.Name)
-	return gen.CreateClusterRoleBinding201JSONResponse{
-		Name: mapping.Name,
-		Role: gen.RoleRef{
-			Name:      mapping.RoleRef.Name,
-			Namespace: nil,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mapping.Entitlement.Claim,
-			Value: mapping.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: nil,
-			Project:   nil,
-			Component: nil,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created cluster role binding", "error", err)
+		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster role binding created successfully", "name", created.Name)
+	return gen.CreateClusterRoleBinding201JSONResponse(genBinding), nil
 }
 
-// GetClusterRoleBinding returns details of a specific cluster role binding
+// GetClusterRoleBinding returns details of a specific cluster role binding.
 func (h *Handler) GetClusterRoleBinding(
 	ctx context.Context,
 	request gen.GetClusterRoleBindingRequestObject,
 ) (gen.GetClusterRoleBindingResponseObject, error) {
-	h.logger.Debug("GetClusterRoleBinding handler called", "name", request.Name)
+	h.logger.Debug("GetClusterRoleBinding called", "name", request.Name)
 
-	mapping, err := h.services.AuthzService.GetRoleMapping(ctx, &authz.MappingRef{Name: request.Name})
+	binding, err := h.authzService.GetClusterRoleBinding(ctx, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to get cluster role binding", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.GetClusterRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Cluster role binding")}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.GetClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
+		h.logger.Error("Failed to get cluster role binding", "error", err)
 		return gen.GetClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Retrieved cluster role binding successfully", "binding", request.Name)
-	return gen.GetClusterRoleBinding200JSONResponse{
-		Name: mapping.Name,
-		Role: gen.RoleRef{
-			Name:      mapping.RoleRef.Name,
-			Namespace: nil,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mapping.Entitlement.Claim,
-			Value: mapping.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: nil,
-			Project:   nil,
-			Component: nil,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*binding)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster role binding", "error", err)
+		return gen.GetClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetClusterRoleBinding200JSONResponse(genBinding), nil
 }
 
-// UpdateClusterRoleBinding updates an existing cluster role binding
+// UpdateClusterRoleBinding updates an existing cluster role binding.
 func (h *Handler) UpdateClusterRoleBinding(
 	ctx context.Context,
 	request gen.UpdateClusterRoleBindingRequestObject,
 ) (gen.UpdateClusterRoleBindingResponseObject, error) {
-	h.logger.Debug("UpdateClusterRoleBinding handler called", "name", request.Name)
-	// Convert request to internal model
-	mapping := &authz.RoleEntitlementMapping{
-		Name: request.Name,
-		RoleRef: authz.RoleRef{
-			Name:      request.Body.Role,
-			Namespace: "",
-		},
-		Entitlement: authz.Entitlement{
-			Claim: request.Body.Entitlement.Claim,
-			Value: request.Body.Entitlement.Value,
-		},
-		Hierarchy: authz.ResourceHierarchy{},
-		Effect:    authz.PolicyEffectType(request.Body.Effect),
+	h.logger.Info("UpdateClusterRoleBinding called", "name", request.Name)
+
+	if request.Body == nil {
+		return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	err := h.services.AuthzService.UpdateRoleMapping(ctx, mapping)
+	bindingCR, err := convert[gen.AuthzClusterRoleBinding, openchoreov1alpha1.AuthzClusterRoleBinding](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to update cluster role binding", "error", err)
-		if errors.Is(err, authz.ErrAuthzDisabled) {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	bindingCR.Name = request.Name
+
+	updated, err := h.authzService.UpdateClusterRoleBinding(ctx, &bindingCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.UpdateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateClusterRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Cluster role binding")}, nil
 		}
-		if errors.Is(err, authz.ErrCannotModifySystemMapping) {
-			return gen.UpdateClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
+		h.logger.Error("Failed to update cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Cluster role binding updated successfully", "binding", request.Name)
-	return gen.UpdateClusterRoleBinding200JSONResponse{
-		Name: mapping.Name,
-		Role: gen.RoleRef{
-			Name:      mapping.RoleRef.Name,
-			Namespace: nil,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mapping.Entitlement.Claim,
-			Value: mapping.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: nil,
-			Project:   nil,
-			Component: nil,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzClusterRoleBinding, gen.AuthzClusterRoleBinding](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated cluster role binding", "error", err)
+		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster role binding updated successfully", "name", updated.Name)
+	return gen.UpdateClusterRoleBinding200JSONResponse(genBinding), nil
 }
 
-// DeleteClusterRoleBinding deletes a cluster role binding
+// DeleteClusterRoleBinding deletes a cluster role binding.
 func (h *Handler) DeleteClusterRoleBinding(
 	ctx context.Context,
 	request gen.DeleteClusterRoleBindingRequestObject,
 ) (gen.DeleteClusterRoleBindingResponseObject, error) {
-	h.logger.Debug("DeleteClusterRoleBinding handler called", "name", request.Name)
+	h.logger.Info("DeleteClusterRoleBinding called", "name", request.Name)
 
-	err := h.services.AuthzService.RemoveRoleMapping(ctx, &authz.MappingRef{Name: request.Name, Namespace: ""})
+	err := h.authzService.DeleteClusterRoleBinding(ctx, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to delete cluster role binding", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.DeleteClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.DeleteClusterRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Cluster role binding")}, nil
 		}
-		if errors.Is(err, authz.ErrCannotDeleteSystemMapping) {
-			return gen.DeleteClusterRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
+		h.logger.Error("Failed to delete cluster role binding", "error", err)
 		return gen.DeleteClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Cluster role binding deleted successfully", "binding", request.Name)
+	h.logger.Info("Cluster role binding deleted successfully", "name", request.Name)
 	return gen.DeleteClusterRoleBinding204Response{}, nil
 }
 
-// ListNamespaceRoles returns all namespace-scoped roles
+// --- Namespace Roles ---
+
+// ListNamespaceRoles returns all namespace-scoped roles.
 func (h *Handler) ListNamespaceRoles(
 	ctx context.Context,
 	request gen.ListNamespaceRolesRequestObject,
 ) (gen.ListNamespaceRolesResponseObject, error) {
-	h.logger.Debug("ListNamespaceRoles handler called", "namespace", request.NamespaceName)
+	h.logger.Debug("ListNamespaceRoles called", "namespace", request.NamespaceName)
 
-	roles, err := h.services.AuthzService.ListNamespaceRoles(ctx, request.NamespaceName)
+	result, err := h.authzService.ListNamespaceRoles(ctx, request.NamespaceName)
 	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
+			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list namespace roles", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to API response format
-	apiRoles := make([]gen.Role, len(roles))
-	for i, role := range roles {
-		namespace := role.Namespace
-		apiRoles[i] = gen.Role{
-			Actions:     role.Actions,
-			Description: &role.Description,
-			Name:        role.Name,
-			Namespace:   &namespace,
-		}
+	items, err := convertList[openchoreov1alpha1.AuthzRole, gen.AuthzRole](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert namespace roles", "error", err)
+		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Listed namespace roles successfully", "namespace", request.NamespaceName, "count", len(roles))
-	return gen.ListNamespaceRoles200JSONResponse(apiRoles), nil
+	return gen.ListNamespaceRoles200JSONResponse{Items: items}, nil
 }
 
-// CreateNamespaceRole creates a new namespace-scoped role
+// CreateNamespaceRole creates a new namespace-scoped role.
 func (h *Handler) CreateNamespaceRole(
 	ctx context.Context,
 	request gen.CreateNamespaceRoleRequestObject,
 ) (gen.CreateNamespaceRoleResponseObject, error) {
-	h.logger.Info("CreateNamespaceRole handler called", "name", request.Body.Name, "namespace", request.NamespaceName)
+	h.logger.Info("CreateNamespaceRole called", "namespace", request.NamespaceName)
 
-	// Convert request to internal model
-	description := ""
-	if request.Body.Description != nil {
-		description = *request.Body.Description
-	}
-	role := &authz.Role{
-		Name:        request.Body.Name,
-		Actions:     request.Body.Actions,
-		Description: description,
-		Namespace:   request.NamespaceName,
+	if request.Body == nil {
+		return gen.CreateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	err := h.services.AuthzService.AddRole(ctx, role)
+	roleCR, err := convert[gen.AuthzRole, openchoreov1alpha1.AuthzRole](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to create namespace role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	created, err := h.authzService.CreateNamespaceRole(ctx, request.NamespaceName, &roleCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.CreateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleAlreadyExists) {
+		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateNamespaceRole409JSONResponse{ConflictJSONResponse: conflict("Namespace role already exists")}, nil
 		}
+		h.logger.Error("Failed to create namespace role", "error", err)
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	namespace := role.Namespace
-	h.logger.Debug("Namespace role created successfully", "role", request.Body.Name, "namespace", request.NamespaceName)
-	return gen.CreateNamespaceRole201JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   &namespace,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created namespace role", "error", err)
+		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Namespace role created successfully", "namespace", request.NamespaceName, "name", created.Name)
+	return gen.CreateNamespaceRole201JSONResponse(genRole), nil
 }
 
-// GetNamespaceRole returns details of a specific namespace role
+// GetNamespaceRole returns details of a specific namespace role.
 func (h *Handler) GetNamespaceRole(
 	ctx context.Context,
 	request gen.GetNamespaceRoleRequestObject,
 ) (gen.GetNamespaceRoleResponseObject, error) {
-	h.logger.Debug("GetNamespaceRole handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Debug("GetNamespaceRole called", "namespace", request.NamespaceName, "name", request.Name)
 
-	role, err := h.services.AuthzService.GetRoleByRef(ctx, &authz.RoleRef{Name: request.Name, Namespace: request.NamespaceName})
+	role, err := h.authzService.GetNamespaceRole(ctx, request.NamespaceName, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to get namespace role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.GetNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.GetNamespaceRole404JSONResponse{NotFoundJSONResponse: notFound("Namespace role")}, nil
 		}
+		h.logger.Error("Failed to get namespace role", "error", err)
 		return gen.GetNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	namespace := role.Namespace
-	h.logger.Debug("Retrieved namespace role successfully", "role", request.Name, "namespace", request.NamespaceName)
-	return gen.GetNamespaceRole200JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   &namespace,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*role)
+	if err != nil {
+		h.logger.Error("Failed to convert namespace role", "error", err)
+		return gen.GetNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetNamespaceRole200JSONResponse(genRole), nil
 }
 
-// UpdateNamespaceRole updates an existing namespace role
+// UpdateNamespaceRole updates an existing namespace role.
 func (h *Handler) UpdateNamespaceRole(
 	ctx context.Context,
 	request gen.UpdateNamespaceRoleRequestObject,
 ) (gen.UpdateNamespaceRoleResponseObject, error) {
-	h.logger.Debug("UpdateNamespaceRole handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("UpdateNamespaceRole called", "namespace", request.NamespaceName, "name", request.Name)
 
-	// Convert request to internal model
-	description := ""
-	if request.Body.Description != nil {
-		description = *request.Body.Description
-	}
-	role := &authz.Role{
-		Name:        request.Name,
-		Actions:     request.Body.Actions,
-		Description: description,
-		Namespace:   request.NamespaceName,
+	if request.Body == nil {
+		return gen.UpdateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	err := h.services.AuthzService.UpdateRole(ctx, role)
+	roleCR, err := convert[gen.AuthzRole, openchoreov1alpha1.AuthzRole](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to update namespace role", "error", err)
-		if errors.Is(err, authz.ErrAuthzDisabled) {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	roleCR.Name = request.Name
+
+	updated, err := h.authzService.UpdateNamespaceRole(ctx, request.NamespaceName, &roleCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.UpdateNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateNamespaceRole404JSONResponse{NotFoundJSONResponse: notFound("Namespace role")}, nil
 		}
+		h.logger.Error("Failed to update namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	namespace := role.Namespace
-	h.logger.Info("Namespace role updated successfully", "role", request.Name, "namespace", request.NamespaceName)
-	return gen.UpdateNamespaceRole200JSONResponse{
-		Actions:     role.Actions,
-		Description: &role.Description,
-		Name:        role.Name,
-		Namespace:   &namespace,
-	}, nil
+	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated namespace role", "error", err)
+		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Namespace role updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
+	return gen.UpdateNamespaceRole200JSONResponse(genRole), nil
 }
 
-// DeleteNamespaceRole deletes a namespace role
+// DeleteNamespaceRole deletes a namespace role.
 func (h *Handler) DeleteNamespaceRole(
 	ctx context.Context,
 	request gen.DeleteNamespaceRoleRequestObject,
 ) (gen.DeleteNamespaceRoleResponseObject, error) {
-	h.logger.Debug("DeleteNamespaceRole handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("DeleteNamespaceRole called", "namespace", request.NamespaceName, "name", request.Name)
 
-	err := h.services.AuthzService.RemoveRoleByRef(ctx, &authz.RoleRef{Name: request.Name, Namespace: request.NamespaceName})
+	err := h.authzService.DeleteNamespaceRole(ctx, request.NamespaceName, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to delete namespace role", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.DeleteNamespaceRole403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.DeleteNamespaceRole404JSONResponse{NotFoundJSONResponse: notFound("Namespace role")}, nil
 		}
-		if errors.Is(err, services.ErrRoleInUse) {
+		if errors.Is(err, authzsvc.ErrRoleInUse) {
 			return gen.DeleteNamespaceRole409JSONResponse{ConflictJSONResponse: conflict("Namespace role is in use by role bindings")}, nil
 		}
+		h.logger.Error("Failed to delete namespace role", "error", err)
 		return gen.DeleteNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Namespace role deleted successfully", "role", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("Namespace role deleted successfully", "namespace", request.NamespaceName, "name", request.Name)
 	return gen.DeleteNamespaceRole204Response{}, nil
 }
 
-// ListNamespaceRoleBindings returns all namespace-scoped role bindings
+// --- Namespace Role Bindings ---
+
+// ListNamespaceRoleBindings returns all namespace-scoped role bindings.
 func (h *Handler) ListNamespaceRoleBindings(
 	ctx context.Context,
 	request gen.ListNamespaceRoleBindingsRequestObject,
 ) (gen.ListNamespaceRoleBindingsResponseObject, error) {
-	h.logger.Debug("ListNamespaceRoleBindings handler called", "namespace", request.NamespaceName)
+	h.logger.Debug("ListNamespaceRoleBindings called", "namespace", request.NamespaceName)
 
-	roleName := getStringValue(request.Params.RoleName)
-	roleNs := getStringValue(request.Params.RoleNamespace)
-	claim := getStringValue(request.Params.Claim)
-	claimValue := getStringValue(request.Params.Value)
-	effect := ""
-	if request.Params.Effect != nil {
-		effect = string(*request.Params.Effect)
-	}
-
-	mappings, err := h.services.AuthzService.ListNamespacedRoleMappings(ctx,
-		request.NamespaceName,
-		&authz.RoleRef{
-			Name:      roleName,
-			Namespace: roleNs,
-		}, claim, claimValue, effect)
+	result, err := h.authzService.ListNamespaceRoleBindings(ctx, request.NamespaceName)
 	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
+			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list namespace role bindings", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
 		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to API response format
-	apiMappings := make([]gen.RoleEntitlementMapping, len(mappings))
-	for i, mapping := range mappings {
-		namespace := mapping.Hierarchy.Namespace
-		var roleNamespace *string
-		if mapping.RoleRef.Namespace != "" {
-			roleNamespace = &mapping.RoleRef.Namespace
-		}
-		var project *string
-		if mapping.Hierarchy.Project != "" {
-			project = &mapping.Hierarchy.Project
-		}
-		var component *string
-		if mapping.Hierarchy.Component != "" {
-			component = &mapping.Hierarchy.Component
-		}
-
-		apiMappings[i] = gen.RoleEntitlementMapping{
-			Name: mapping.Name,
-			Role: gen.RoleRef{
-				Name:      mapping.RoleRef.Name,
-				Namespace: roleNamespace,
-			},
-			Entitlement: gen.Entitlement{
-				Claim: mapping.Entitlement.Claim,
-				Value: mapping.Entitlement.Value,
-			},
-			Hierarchy: gen.ResourceHierarchy{
-				Namespace: &namespace,
-				Project:   project,
-				Component: component,
-			},
-			Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-		}
+	items, err := convertList[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert namespace role bindings", "error", err)
+		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Listed namespace role bindings successfully", "namespace", request.NamespaceName, "count", len(apiMappings))
-	return gen.ListNamespaceRoleBindings200JSONResponse(apiMappings), nil
+	return gen.ListNamespaceRoleBindings200JSONResponse{Items: items}, nil
 }
 
-// CreateNamespaceRoleBinding creates a new namespace-scoped role binding
+// CreateNamespaceRoleBinding creates a new namespace-scoped role binding.
 func (h *Handler) CreateNamespaceRoleBinding(
 	ctx context.Context,
 	request gen.CreateNamespaceRoleBindingRequestObject,
 ) (gen.CreateNamespaceRoleBindingResponseObject, error) {
-	h.logger.Info("CreateNamespaceRoleBinding handler called", "name", request.Body.Name, "namespace", request.NamespaceName)
+	h.logger.Info("CreateNamespaceRoleBinding called", "namespace", request.NamespaceName)
 
-	// Default effect is allow if not specified
-	effect := authz.PolicyEffectAllow
-	if request.Body.Effect != nil {
-		effect = authz.PolicyEffectType(*request.Body.Effect)
+	if request.Body == nil {
+		return gen.CreateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	// Build hierarchy from namespace and optional target path
-	targetPathComponent := ""
-	targetPathProject := ""
-	if request.Body.TargetPath != nil {
-		if request.Body.TargetPath.Project != nil {
-			targetPathProject = *request.Body.TargetPath.Project
-		}
-		if request.Body.TargetPath.Component != nil {
-			targetPathComponent = *request.Body.TargetPath.Component
-		}
-	}
-	hierarchy := authz.ResourceHierarchy{
-		Namespace: request.NamespaceName,
-		Project:   targetPathProject,
-		Component: targetPathComponent,
-	}
-
-	// Convert request to internal model
-	mapping := &authz.RoleEntitlementMapping{
-		Name: request.Body.Name,
-		RoleRef: authz.RoleRef{
-			Name:      request.Body.Role.Name,
-			Namespace: getStringValue(request.Body.Role.Namespace),
-		},
-		Entitlement: authz.Entitlement{
-			Claim: request.Body.Entitlement.Claim,
-			Value: request.Body.Entitlement.Value,
-		},
-		Hierarchy: hierarchy,
-		Effect:    effect,
-	}
-
-	err := h.services.AuthzService.AddRoleMapping(ctx, mapping)
+	bindingCR, err := convert[gen.AuthzRoleBinding, openchoreov1alpha1.AuthzRoleBinding](*request.Body)
 	if err != nil {
-		h.logger.Error("Failed to create namespace role binding", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	created, err := h.authzService.CreateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.CreateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.CreateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingAlreadyExists) {
+		if errors.Is(err, authzsvc.ErrRoleBindingAlreadyExists) {
 			return gen.CreateNamespaceRoleBinding409JSONResponse{ConflictJSONResponse: conflict("Namespace role binding already exists")}, nil
 		}
+		h.logger.Error("Failed to create namespace role binding", "error", err)
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Namespace role binding created successfully", "binding", request.Body.Name, "namespace", request.NamespaceName)
-	return gen.CreateNamespaceRoleBinding201JSONResponse{
-		Name: mapping.Name,
-		Role: gen.RoleRef{
-			Name:      mapping.RoleRef.Name,
-			Namespace: &mapping.RoleRef.Namespace,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mapping.Entitlement.Claim,
-			Value: mapping.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: &mapping.Hierarchy.Namespace,
-			Project:   &mapping.Hierarchy.Project,
-			Component: &mapping.Hierarchy.Component,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created namespace role binding", "error", err)
+		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Namespace role binding created successfully", "namespace", request.NamespaceName, "name", created.Name)
+	return gen.CreateNamespaceRoleBinding201JSONResponse(genBinding), nil
 }
 
-// GetNamespaceRoleBinding returns details of a specific namespace role binding
+// GetNamespaceRoleBinding returns details of a specific namespace role binding.
 func (h *Handler) GetNamespaceRoleBinding(
 	ctx context.Context,
 	request gen.GetNamespaceRoleBindingRequestObject,
 ) (gen.GetNamespaceRoleBindingResponseObject, error) {
-	h.logger.Debug("GetNamespaceRoleBinding handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Debug("GetNamespaceRoleBinding called", "namespace", request.NamespaceName, "name", request.Name)
 
-	mappings, err := h.services.AuthzService.GetRoleMapping(ctx,
-		&authz.MappingRef{
-			Name:      request.Name,
-			Namespace: request.NamespaceName,
-		})
+	binding, err := h.authzService.GetNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
 	if err != nil {
-		h.logger.Error("Failed to get namespace role binding", "error", err)
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.GetNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.GetNamespaceRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Namespace role binding")}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.GetNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
+		h.logger.Error("Failed to get namespace role binding", "error", err)
 		return gen.GetNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Debug("Retrieved namespace role binding successfully", "binding", request.Name, "namespace", request.NamespaceName)
-	return gen.GetNamespaceRoleBinding200JSONResponse{
-		Name: mappings.Name,
-		Role: gen.RoleRef{
-			Name:      mappings.RoleRef.Name,
-			Namespace: &mappings.RoleRef.Namespace,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mappings.Entitlement.Claim,
-			Value: mappings.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: &mappings.Hierarchy.Namespace,
-			Project:   &mappings.Hierarchy.Project,
-			Component: &mappings.Hierarchy.Component,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mappings.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*binding)
+	if err != nil {
+		h.logger.Error("Failed to convert namespace role binding", "error", err)
+		return gen.GetNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetNamespaceRoleBinding200JSONResponse(genBinding), nil
 }
 
-// UpdateNamespaceRoleBinding updates an existing namespace role binding
+// UpdateNamespaceRoleBinding updates an existing namespace role binding.
 func (h *Handler) UpdateNamespaceRoleBinding(
 	ctx context.Context,
 	request gen.UpdateNamespaceRoleBindingRequestObject,
 ) (gen.UpdateNamespaceRoleBindingResponseObject, error) {
-	h.logger.Debug("UpdateNamespaceRoleBinding handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("UpdateNamespaceRoleBinding called", "namespace", request.NamespaceName, "name", request.Name)
 
-	targetPathComponent := ""
-	targetPathProject := ""
-	if request.Body.TargetPath.Project != nil {
-		targetPathProject = *request.Body.TargetPath.Project
-	}
-	if request.Body.TargetPath.Component != nil {
-		targetPathComponent = *request.Body.TargetPath.Component
+	if request.Body == nil {
+		return gen.UpdateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	hierarchy := authz.ResourceHierarchy{
-		Namespace: request.NamespaceName,
-		Project:   targetPathProject,
-		Component: targetPathComponent,
-	}
-
-	// Convert request to internal model
-	mapping := &authz.RoleEntitlementMapping{
-		Name: request.Name,
-		RoleRef: authz.RoleRef{
-			Name:      request.Body.Role.Name,
-			Namespace: getStringValue(request.Body.Role.Namespace),
-		},
-		Entitlement: authz.Entitlement{
-			Claim: request.Body.Entitlement.Claim,
-			Value: request.Body.Entitlement.Value,
-		},
-		Hierarchy: hierarchy,
-		Effect:    authz.PolicyEffectType(request.Body.Effect),
-	}
-
-	err := h.services.AuthzService.UpdateRoleMapping(ctx, mapping)
+	bindingCR, err := convert[gen.AuthzRoleBinding, openchoreov1alpha1.AuthzRoleBinding](*request.Body)
 	if err != nil {
-		if errors.Is(err, authz.ErrAuthzDisabled) {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+
+	bindingCR.Name = request.Name
+
+	updated, err := h.authzService.UpdateNamespaceRoleBinding(ctx, request.NamespaceName, &bindingCR)
+	if err != nil {
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.UpdateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to update namespace role binding", "binding", request.Name)
-			return gen.UpdateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
-			h.logger.Warn("Namespace role binding not found", "binding", request.Name)
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateNamespaceRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Namespace role binding")}, nil
-		}
-		if errors.Is(err, authz.ErrCannotModifySystemMapping) {
-			return gen.UpdateNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to update namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Namespace role binding updated successfully", "binding", request.Name, "namespace", request.NamespaceName)
-	return gen.UpdateNamespaceRoleBinding200JSONResponse{
-		Name: mapping.Name,
-		Role: gen.RoleRef{
-			Name:      mapping.RoleRef.Name,
-			Namespace: &mapping.RoleRef.Namespace,
-		},
-		Entitlement: gen.Entitlement{
-			Claim: mapping.Entitlement.Claim,
-			Value: mapping.Entitlement.Value,
-		},
-		Hierarchy: gen.ResourceHierarchy{
-			Namespace: &mapping.Hierarchy.Namespace,
-			Project:   &mapping.Hierarchy.Project,
-			Component: &mapping.Hierarchy.Component,
-		},
-		Effect: gen.RoleEntitlementMappingEffect(mapping.Effect),
-	}, nil
+	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated namespace role binding", "error", err)
+		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Namespace role binding updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
+	return gen.UpdateNamespaceRoleBinding200JSONResponse(genBinding), nil
 }
 
-// DeleteNamespaceRoleBinding deletes a namespace role binding
+// DeleteNamespaceRoleBinding deletes a namespace role binding.
 func (h *Handler) DeleteNamespaceRoleBinding(
 	ctx context.Context,
 	request gen.DeleteNamespaceRoleBindingRequestObject,
 ) (gen.DeleteNamespaceRoleBindingResponseObject, error) {
-	h.logger.Debug("DeleteNamespaceRoleBinding handler called", "name", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("DeleteNamespaceRoleBinding called", "namespace", request.NamespaceName, "name", request.Name)
 
-	// Delete the role mapping
-	err := h.services.AuthzService.RemoveRoleMapping(ctx, &authz.MappingRef{Name: request.Name, Namespace: request.NamespaceName})
+	err := h.authzService.DeleteNamespaceRoleBinding(ctx, request.NamespaceName, request.Name)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
-			h.logger.Warn("Unauthorized to delete namespace role binding", "binding", request.Name)
+		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.DeleteNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, authz.ErrAuthzDisabled) {
-			return gen.DeleteNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		if errors.Is(err, services.ErrRoleBindingNotFound) {
-			h.logger.Warn("Namespace role binding not found", "binding", request.Name)
+		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.DeleteNamespaceRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Namespace role binding")}, nil
-		}
-		if errors.Is(err, authz.ErrCannotDeleteSystemMapping) {
-			return gen.DeleteNamespaceRoleBinding403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
 		h.logger.Error("Failed to delete namespace role binding", "error", err)
 		return gen.DeleteNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Namespace role binding deleted successfully", "binding", request.Name, "namespace", request.NamespaceName)
+	h.logger.Info("Namespace role binding deleted successfully", "namespace", request.NamespaceName, "name", request.Name)
 	return gen.DeleteNamespaceRoleBinding204Response{}, nil
 }

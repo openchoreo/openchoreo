@@ -134,7 +134,7 @@ type ClientInterface interface {
 	ListClusterObservabilityPlanes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListClusterRoleBindings request
-	ListClusterRoleBindings(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListClusterRoleBindings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateClusterRoleBindingWithBody request with any body
 	CreateClusterRoleBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -357,7 +357,7 @@ type ClientInterface interface {
 	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNamespaceRoleBindings request
-	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateNamespaceRoleBindingWithBody request with any body
 	CreateNamespaceRoleBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -646,8 +646,8 @@ func (c *Client) ListClusterObservabilityPlanes(ctx context.Context, reqEditors 
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListClusterRoleBindings(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListClusterRoleBindingsRequest(c.Server, params)
+func (c *Client) ListClusterRoleBindings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterRoleBindingsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1618,8 +1618,8 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNamespaceRoleBindingsRequest(c.Server, namespaceName, params)
+func (c *Client) ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamespaceRoleBindingsRequest(c.Server, namespaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -2514,7 +2514,7 @@ func NewListClusterObservabilityPlanesRequest(server string) (*http.Request, err
 }
 
 // NewListClusterRoleBindingsRequest generates requests for ListClusterRoleBindings
-func NewListClusterRoleBindingsRequest(server string, params *ListClusterRoleBindingsParams) (*http.Request, error) {
+func NewListClusterRoleBindingsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2530,76 +2530,6 @@ func NewListClusterRoleBindingsRequest(server string, params *ListClusterRoleBin
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.RoleName != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleName", runtime.ParamLocationQuery, *params.RoleName); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Claim != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "claim", runtime.ParamLocationQuery, *params.Claim); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Value != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "value", runtime.ParamLocationQuery, *params.Value); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Effect != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "effect", runtime.ParamLocationQuery, *params.Effect); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -5741,7 +5671,7 @@ func NewGetProjectDeploymentPipelineRequest(server string, namespaceName Namespa
 }
 
 // NewListNamespaceRoleBindingsRequest generates requests for ListNamespaceRoleBindings
-func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams) (*http.Request, error) {
+func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -5764,92 +5694,6 @@ func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceN
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.RoleName != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleName", runtime.ParamLocationQuery, *params.RoleName); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.RoleNamespace != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "roleNamespace", runtime.ParamLocationQuery, *params.RoleNamespace); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Claim != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "claim", runtime.ParamLocationQuery, *params.Claim); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Value != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "value", runtime.ParamLocationQuery, *params.Value); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Effect != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "effect", runtime.ParamLocationQuery, *params.Effect); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -7064,7 +6908,7 @@ type ClientWithResponsesInterface interface {
 	ListClusterObservabilityPlanesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
 
 	// ListClusterRoleBindingsWithResponse request
-	ListClusterRoleBindingsWithResponse(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error)
+	ListClusterRoleBindingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error)
 
 	// CreateClusterRoleBindingWithBodyWithResponse request with any body
 	CreateClusterRoleBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterRoleBindingResp, error)
@@ -7287,7 +7131,7 @@ type ClientWithResponsesInterface interface {
 	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
 
 	// ListNamespaceRoleBindingsWithResponse request
-	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
+	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
 
 	// CreateNamespaceRoleBindingWithBodyWithResponse request with any body
 	CreateNamespaceRoleBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateNamespaceRoleBindingResp, error)
@@ -7687,7 +7531,7 @@ func (r ListClusterObservabilityPlanesResp) StatusCode() int {
 type ListClusterRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]RoleEntitlementMapping
+	JSON200      *AuthzClusterRoleBindingList
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -7712,7 +7556,7 @@ func (r ListClusterRoleBindingsResp) StatusCode() int {
 type CreateClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *RoleEntitlementMapping
+	JSON201      *AuthzClusterRoleBinding
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -7764,7 +7608,7 @@ func (r DeleteClusterRoleBindingResp) StatusCode() int {
 type GetClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *RoleEntitlementMapping
+	JSON200      *AuthzClusterRoleBinding
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -7790,7 +7634,7 @@ func (r GetClusterRoleBindingResp) StatusCode() int {
 type UpdateClusterRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *RoleEntitlementMapping
+	JSON200      *AuthzClusterRoleBinding
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -7818,7 +7662,7 @@ func (r UpdateClusterRoleBindingResp) StatusCode() int {
 type ListClusterRolesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]Role
+	JSON200      *AuthzClusterRoleList
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON500      *InternalError
@@ -7843,7 +7687,7 @@ func (r ListClusterRolesResp) StatusCode() int {
 type CreateClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *Role
+	JSON201      *AuthzClusterRole
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -7896,7 +7740,7 @@ func (r DeleteClusterRoleResp) StatusCode() int {
 type GetClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Role
+	JSON200      *AuthzClusterRole
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
@@ -7922,7 +7766,7 @@ func (r GetClusterRoleResp) StatusCode() int {
 type UpdateClusterRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Role
+	JSON200      *AuthzClusterRole
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9284,7 +9128,7 @@ func (r GetProjectDeploymentPipelineResp) StatusCode() int {
 type ListNamespaceRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]RoleEntitlementMapping
+	JSON200      *AuthzRoleBindingList
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9310,7 +9154,7 @@ func (r ListNamespaceRoleBindingsResp) StatusCode() int {
 type CreateNamespaceRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *RoleEntitlementMapping
+	JSON201      *AuthzRoleBinding
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9363,7 +9207,7 @@ func (r DeleteNamespaceRoleBindingResp) StatusCode() int {
 type GetNamespaceRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *RoleEntitlementMapping
+	JSON200      *AuthzRoleBinding
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9390,7 +9234,7 @@ func (r GetNamespaceRoleBindingResp) StatusCode() int {
 type UpdateNamespaceRoleBindingResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *RoleEntitlementMapping
+	JSON200      *AuthzRoleBinding
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9418,7 +9262,7 @@ func (r UpdateNamespaceRoleBindingResp) StatusCode() int {
 type ListNamespaceRolesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]Role
+	JSON200      *AuthzRoleList
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9444,7 +9288,7 @@ func (r ListNamespaceRolesResp) StatusCode() int {
 type CreateNamespaceRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *Role
+	JSON201      *AuthzRole
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9498,7 +9342,7 @@ func (r DeleteNamespaceRoleResp) StatusCode() int {
 type GetNamespaceRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Role
+	JSON200      *AuthzRole
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -9525,7 +9369,7 @@ func (r GetNamespaceRoleResp) StatusCode() int {
 type UpdateNamespaceRoleResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Role
+	JSON200      *AuthzRole
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
@@ -10106,8 +9950,8 @@ func (c *ClientWithResponses) ListClusterObservabilityPlanesWithResponse(ctx con
 }
 
 // ListClusterRoleBindingsWithResponse request returning *ListClusterRoleBindingsResp
-func (c *ClientWithResponses) ListClusterRoleBindingsWithResponse(ctx context.Context, params *ListClusterRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error) {
-	rsp, err := c.ListClusterRoleBindings(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListClusterRoleBindingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error) {
+	rsp, err := c.ListClusterRoleBindings(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -10815,8 +10659,8 @@ func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx conte
 }
 
 // ListNamespaceRoleBindingsWithResponse request returning *ListNamespaceRoleBindingsResp
-func (c *ClientWithResponses) ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListNamespaceRoleBindingsParams, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error) {
-	rsp, err := c.ListNamespaceRoleBindings(ctx, namespaceName, params, reqEditors...)
+func (c *ClientWithResponses) ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error) {
+	rsp, err := c.ListNamespaceRoleBindings(ctx, namespaceName, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -11700,7 +11544,7 @@ func ParseListClusterRoleBindingsResp(rsp *http.Response) (*ListClusterRoleBindi
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []RoleEntitlementMapping
+		var dest AuthzClusterRoleBindingList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11747,7 +11591,7 @@ func ParseCreateClusterRoleBindingResp(rsp *http.Response) (*CreateClusterRoleBi
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest RoleEntitlementMapping
+		var dest AuthzClusterRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11855,7 +11699,7 @@ func ParseGetClusterRoleBindingResp(rsp *http.Response) (*GetClusterRoleBindingR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RoleEntitlementMapping
+		var dest AuthzClusterRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11909,7 +11753,7 @@ func ParseUpdateClusterRoleBindingResp(rsp *http.Response) (*UpdateClusterRoleBi
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RoleEntitlementMapping
+		var dest AuthzClusterRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11977,7 +11821,7 @@ func ParseListClusterRolesResp(rsp *http.Response) (*ListClusterRolesResp, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []Role
+		var dest AuthzClusterRoleList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -12024,7 +11868,7 @@ func ParseCreateClusterRoleResp(rsp *http.Response) (*CreateClusterRoleResp, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest Role
+		var dest AuthzClusterRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -12139,7 +11983,7 @@ func ParseGetClusterRoleResp(rsp *http.Response) (*GetClusterRoleResp, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Role
+		var dest AuthzClusterRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -12193,7 +12037,7 @@ func ParseUpdateClusterRoleResp(rsp *http.Response) (*UpdateClusterRoleResp, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Role
+		var dest AuthzClusterRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15071,7 +14915,7 @@ func ParseListNamespaceRoleBindingsResp(rsp *http.Response) (*ListNamespaceRoleB
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []RoleEntitlementMapping
+		var dest AuthzRoleBindingList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15125,7 +14969,7 @@ func ParseCreateNamespaceRoleBindingResp(rsp *http.Response) (*CreateNamespaceRo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest RoleEntitlementMapping
+		var dest AuthzRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15240,7 +15084,7 @@ func ParseGetNamespaceRoleBindingResp(rsp *http.Response) (*GetNamespaceRoleBind
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RoleEntitlementMapping
+		var dest AuthzRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15301,7 +15145,7 @@ func ParseUpdateNamespaceRoleBindingResp(rsp *http.Response) (*UpdateNamespaceRo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest RoleEntitlementMapping
+		var dest AuthzRoleBinding
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15369,7 +15213,7 @@ func ParseListNamespaceRolesResp(rsp *http.Response) (*ListNamespaceRolesResp, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []Role
+		var dest AuthzRoleList
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15423,7 +15267,7 @@ func ParseCreateNamespaceRoleResp(rsp *http.Response) (*CreateNamespaceRoleResp,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest Role
+		var dest AuthzRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15545,7 +15389,7 @@ func ParseGetNamespaceRoleResp(rsp *http.Response) (*GetNamespaceRoleResp, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Role
+		var dest AuthzRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -15606,7 +15450,7 @@ func ParseUpdateNamespaceRoleResp(rsp *http.Response) (*UpdateNamespaceRoleResp,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Role
+		var dest AuthzRole
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

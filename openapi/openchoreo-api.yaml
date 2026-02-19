@@ -2005,9 +2005,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzClusterRoleList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2025,14 +2023,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateClusterRoleRequest'
+              $ref: '#/components/schemas/AuthzClusterRole'
       responses:
         '201':
           description: Cluster role created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzClusterRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2064,7 +2062,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzClusterRole'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2092,14 +2090,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateClusterRoleRequest'
+              $ref: '#/components/schemas/AuthzClusterRole'
       responses:
         '200':
           description: Cluster role updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzClusterRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2142,46 +2140,15 @@ paths:
     get:
       operationId: listClusterRoleBindings
       summary: List cluster role bindings
-      description: Returns all cluster-scoped role bindings. Supports filtering by role name and/or entitlement.
+      description: Returns all cluster-scoped role bindings.
       tags: [Authorization]
-      parameters:
-        - name: roleName
-          in: query
-          required: false
-          description: Filter by role name
-          schema:
-            type: string
-            example: admin
-        - name: claim
-          in: query
-          required: false
-          description: Filter by entitlement claim (must be used with value parameter)
-          schema:
-            type: string
-            example: group
-        - name: value
-          in: query
-          required: false
-          description: Filter by entitlement value (must be used with claim parameter)
-          schema:
-            type: string
-            example: admins
-        - name: effect
-          in: query
-          required: false
-          description: filter by binding effect (allow or deny)
-          schema:
-            type: string
-            enum: [allow, deny]
       responses:
         '200':
           description: List of cluster role bindings
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzClusterRoleBindingList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2199,14 +2166,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateClusterRoleBindingRequest'
+              $ref: '#/components/schemas/AuthzClusterRoleBinding'
       responses:
         '201':
           description: Cluster role binding created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzClusterRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2238,7 +2205,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzClusterRoleBinding'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2266,14 +2233,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateClusterRoleBindingRequest'
+              $ref: '#/components/schemas/AuthzClusterRoleBinding'
       responses:
         '200':
           description: Cluster role binding updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzClusterRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2326,9 +2293,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzRoleList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2350,14 +2315,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateNamespaceRoleRequest'
+              $ref: '#/components/schemas/AuthzRole'
       responses:
         '201':
           description: Namespace role created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2390,7 +2355,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2421,14 +2386,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateNamespaceRoleRequest'
+              $ref: '#/components/schemas/AuthzRole'
       responses:
         '200':
           description: Namespace role updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Role'
+                $ref: '#/components/schemas/AuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2474,54 +2439,17 @@ paths:
     get:
       operationId: listNamespaceRoleBindings
       summary: List namespace role bindings
-      description: Returns all namespace-scoped role bindings. Supports filtering by role reference and/or entitlement.
+      description: Returns all namespace-scoped role bindings.
       tags: [Authorization]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - name: roleName
-          in: query
-          required: false
-          description: Filter by role reference name
-          schema:
-            type: string
-            example: developer
-        - name: roleNamespace
-          in: query
-          required: false
-          description: Filter by role reference namespace (optional, for namespace-scoped roles)
-          schema:
-            type: string
-            example: acme
-        - name: claim
-          in: query
-          required: false
-          description: Filter by entitlement claim (must be used with value parameter)
-          schema:
-            type: string
-            example: group
-        - name: value
-          in: query
-          required: false
-          description: Filter by entitlement value (must be used with claim parameter)
-          schema:
-            type: string
-            example: developers
-        - name: effect
-          in: query
-          required: false
-          description: filter by binding effect (allow or deny)
-          schema:
-            type: string
-            enum: [allow, deny]
       responses:
         '200':
           description: List of namespace role bindings
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzRoleBindingList'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2543,14 +2471,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateNamespaceRoleBindingRequest'
+              $ref: '#/components/schemas/AuthzRoleBinding'
       responses:
         '201':
           description: Namespace role binding created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2583,7 +2511,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -2614,14 +2542,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateNamespaceRoleBindingRequest'
+              $ref: '#/components/schemas/AuthzRoleBinding'
       responses:
         '200':
           description: Namespace role binding updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoleEntitlementMapping'
+                $ref: '#/components/schemas/AuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -5736,44 +5664,219 @@ components:
           description: Response message
           example: Operation completed successfully
 
-    Role:
+    AuthzClusterRole:
       type: object
-      description: Authorization role with permitted actions
+      description: |
+        Cluster-scoped authorization role (Kubernetes CRD).
+        Defines a set of actions that can be assigned to subjects via role bindings.
       required:
-        - name
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/AuthzClusterRoleSpec'
+
+    AuthzClusterRoleSpec:
+      type: object
+      description: Specification for a cluster-scoped authorization role
+      required:
         - actions
       properties:
-        name:
-          type: string
-          description: Unique role name
-          example: admin
         actions:
           type: array
           description: List of actions this role permits
           items:
             type: string
-          example: ["read", "write", "delete"]
-        namespace:
-          type: string
-          description: Namespace for namespace-scoped roles, empty for cluster roles
-          example: my-namespace
+          example: ["project:create", "project:view", "project:delete"]
         description:
           type: string
           description: Human-readable description of the role
-          example: Full administrative access
+          example: Full cluster administration access
 
-    UpdateRoleRequest:
+    AuthzClusterRoleList:
       type: object
-      description: Request to update a role's actions
+      description: List of cluster-scoped authorization roles
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthzClusterRole'
+
+    AuthzRole:
+      type: object
+      description: |
+        Namespace-scoped authorization role (Kubernetes CRD).
+        Defines a set of actions that can be assigned to subjects via role bindings within a namespace.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/AuthzRoleSpec'
+
+    AuthzRoleSpec:
+      type: object
+      description: Specification for a namespace-scoped authorization role
       required:
         - actions
       properties:
         actions:
           type: array
-          description: New list of actions for the role
+          description: List of actions this role permits
           items:
             type: string
-          example: ["read", "write"]
+          example: ["component:create", "component:view"]
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Developer access within namespace
+
+    AuthzRoleList:
+      type: object
+      description: List of namespace-scoped authorization roles
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthzRole'
+
+    AuthzClusterRoleBinding:
+      type: object
+      description: |
+        Cluster-scoped role binding (Kubernetes CRD).
+        Binds a cluster role to a subject identified by an entitlement claim.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/AuthzClusterRoleBindingSpec'
+
+    AuthzClusterRoleBindingSpec:
+      type: object
+      description: Specification for a cluster-scoped role binding
+      required:
+        - entitlement
+        - roleRef
+      properties:
+        entitlement:
+          $ref: '#/components/schemas/AuthzEntitlementClaim'
+        roleRef:
+          $ref: '#/components/schemas/AuthzRoleRef'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+
+    AuthzClusterRoleBindingList:
+      type: object
+      description: List of cluster-scoped role bindings
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthzClusterRoleBinding'
+
+    AuthzRoleBinding:
+      type: object
+      description: |
+        Namespace-scoped role binding (Kubernetes CRD).
+        Binds a role to a subject identified by an entitlement claim within a namespace.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/AuthzRoleBindingSpec'
+
+    AuthzRoleBindingSpec:
+      type: object
+      description: Specification for a namespace-scoped role binding
+      required:
+        - entitlement
+        - roleRef
+      properties:
+        entitlement:
+          $ref: '#/components/schemas/AuthzEntitlementClaim'
+        roleRef:
+          $ref: '#/components/schemas/AuthzRoleRef'
+        targetPath:
+          $ref: '#/components/schemas/AuthzTargetPath'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+
+    AuthzRoleBindingList:
+      type: object
+      description: List of namespace-scoped role bindings
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthzRoleBinding'
+
+    AuthzEntitlementClaim:
+      type: object
+      description: Entitlement claim-value pair for subject identification
+      required:
+        - claim
+        - value
+      properties:
+        claim:
+          type: string
+          description: JWT claim name
+          example: groups
+        value:
+          type: string
+          description: Entitlement value
+          example: admin-group
+
+    AuthzRoleRef:
+      type: object
+      description: Reference to an AuthzRole or AuthzClusterRole
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of role (AuthzRole or AuthzClusterRole)
+          enum: [AuthzRole, AuthzClusterRole]
+          example: AuthzClusterRole
+        name:
+          type: string
+          description: Name of the role
+          example: admin
+
+    AuthzTargetPath:
+      type: object
+      description: Target resource path within a namespace (project/component scope)
+      properties:
+        project:
+          type: string
+          description: Project name
+          example: my-project
+        component:
+          type: string
+          description: Component name
+          example: api-service
 
     Entitlement:
       type: object
@@ -5808,76 +5911,10 @@ components:
           description: Component name
           example: api-service
 
-    TargetPath:
-      type: object
-      description: Target resource path within a namespace (project/component only)
-      properties:
-        project:
-          type: string
-          description: Project name
-          example: my-project
-        component:
-          type: string
-          description: Component name
-          example: api-service
-
     AuthzContext:
       type: object
       description: Additional context for authorization
       additionalProperties: true
-
-    RoleEntitlementMapping:
-      type: object
-      description: Mapping of a role to an entitlement within a scope
-      required:
-        - name
-        - role
-        - entitlement
-        - hierarchy
-        - effect
-      properties:
-        name:
-          type: string
-          description: Unique mapping name
-          example: admin-binding
-        role:
-          $ref: '#/components/schemas/RoleRef'
-        entitlement:
-          $ref: '#/components/schemas/Entitlement'
-        hierarchy:
-          $ref: '#/components/schemas/ResourceHierarchy'
-        effect:
-          type: string
-          description: Policy effect (allow or deny)
-          enum: [allow, deny]
-          default: allow
-          example: allow
-        context:
-          $ref: '#/components/schemas/AuthzContext'
-
-    UpdateRoleMappingRequest:
-      type: object
-      description: Request to update a role mapping
-      required:
-        - role
-        - entitlement
-        - hierarchy
-        - effect
-      properties:
-        role:
-          $ref: '#/components/schemas/RoleRef'
-        entitlement:
-          $ref: '#/components/schemas/Entitlement'
-        hierarchy:
-          $ref: '#/components/schemas/ResourceHierarchy'
-        effect:
-          type: string
-          description: Policy effect (allow or deny)
-          enum: [allow, deny]
-          default: allow
-          example: allow
-        context:
-          $ref: '#/components/schemas/AuthzContext'
 
     SubjectContext:
       type: object
@@ -6028,9 +6065,119 @@ components:
           description: Time when capabilities were evaluated
           example: "2025-01-06T10:00:00Z"
 
+
+    # -------------------------------------------------------------------------
+    # Legacy Authz Schemas (kept for legacy handler compatibility)
+    # -------------------------------------------------------------------------
+
+    Role:
+      type: object
+      description: Authorization role with permitted actions (legacy)
+      required:
+        - name
+        - actions
+      properties:
+        name:
+          type: string
+          description: Unique role name
+          example: admin
+        actions:
+          type: array
+          description: List of actions this role permits
+          items:
+            type: string
+          example: ["read", "write", "delete"]
+        namespace:
+          type: string
+          description: Namespace for namespace-scoped roles, empty for cluster roles
+          example: my-namespace
+        description:
+          type: string
+          description: Human-readable description of the role
+          example: Full administrative access
+
+    UpdateRoleRequest:
+      type: object
+      description: Request to update a role's actions (legacy)
+      required:
+        - actions
+      properties:
+        actions:
+          type: array
+          description: New list of actions for the role
+          items:
+            type: string
+          example: ["read", "write"]
+
+    TargetPath:
+      type: object
+      description: Target resource path within a namespace (project/component only) (legacy)
+      properties:
+        project:
+          type: string
+          description: Project name
+          example: my-project
+        component:
+          type: string
+          description: Component name
+          example: api-service
+
+    RoleEntitlementMapping:
+      type: object
+      description: Mapping of a role to an entitlement within a scope (legacy)
+      required:
+        - name
+        - role
+        - entitlement
+        - hierarchy
+        - effect
+      properties:
+        name:
+          type: string
+          description: Unique mapping name
+          example: admin-binding
+        role:
+          $ref: '#/components/schemas/RoleRef'
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        hierarchy:
+          $ref: '#/components/schemas/ResourceHierarchy'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+        context:
+          $ref: '#/components/schemas/AuthzContext'
+
+    UpdateRoleMappingRequest:
+      type: object
+      description: Request to update a role mapping (legacy)
+      required:
+        - role
+        - entitlement
+        - hierarchy
+        - effect
+      properties:
+        role:
+          $ref: '#/components/schemas/RoleRef'
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        hierarchy:
+          $ref: '#/components/schemas/ResourceHierarchy'
+        effect:
+          type: string
+          description: Policy effect (allow or deny)
+          enum: [allow, deny]
+          default: allow
+          example: allow
+        context:
+          $ref: '#/components/schemas/AuthzContext'
+
     ClusterRoleRef:
       type: object
-      description: Reference to a cluster role by name only
+      description: Reference to a cluster role by name only (legacy)
       required:
         - name
       properties:
@@ -6041,7 +6188,7 @@ components:
 
     RoleRef:
       type: object
-      description: Reference to a role by name and namespace
+      description: Reference to a role by name and namespace (legacy)
       required:
         - name
       properties:
@@ -6056,7 +6203,7 @@ components:
 
     CreateClusterRoleRequest:
       type: object
-      description: Request to create a cluster-scoped role
+      description: Request to create a cluster-scoped role (legacy)
       required:
         - name
         - actions
@@ -6078,7 +6225,7 @@ components:
 
     UpdateClusterRoleRequest:
       type: object
-      description: Request to update a cluster role
+      description: Request to update a cluster role (legacy)
       required:
         - actions
       properties:
@@ -6095,7 +6242,7 @@ components:
 
     CreateClusterRoleBindingRequest:
       type: object
-      description: Request to create a cluster-scoped role binding
+      description: Request to create a cluster-scoped role binding (legacy)
       required:
         - name
         - entitlement
@@ -6120,7 +6267,7 @@ components:
 
     UpdateClusterRoleBindingRequest:
       type: object
-      description: Request to update a cluster role binding
+      description: Request to update a cluster role binding (legacy)
       required:
         - entitlement
         - role
@@ -6141,7 +6288,7 @@ components:
 
     CreateNamespaceRoleRequest:
       type: object
-      description: Request to create a namespace-scoped role
+      description: Request to create a namespace-scoped role (legacy)
       required:
         - name
         - actions
@@ -6163,7 +6310,7 @@ components:
 
     UpdateNamespaceRoleRequest:
       type: object
-      description: Request to update a namespace role
+      description: Request to update a namespace role (legacy)
       required:
         - actions
       properties:
@@ -6180,7 +6327,7 @@ components:
 
     CreateNamespaceRoleBindingRequest:
       type: object
-      description: Request to create a namespace-scoped role binding
+      description: Request to create a namespace-scoped role binding (legacy)
       required:
         - name
         - entitlement
@@ -6205,7 +6352,7 @@ components:
 
     UpdateNamespaceRoleBindingRequest:
       type: object
-      description: Request to update a namespace role binding
+      description: Request to update a namespace role binding (legacy)
       required:
         - entitlement
         - role

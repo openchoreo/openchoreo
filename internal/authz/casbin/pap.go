@@ -411,7 +411,11 @@ func (ce *CasbinEnforcer) UpdateClusterRole(ctx context.Context, role *openchore
 		return nil, fmt.Errorf("failed to get AuthzClusterRole: %w", err)
 	}
 
+	// Apply incoming spec directly, preserving server-managed ObjectMeta fields
+	existing.Labels = role.Labels
+	existing.Annotations = role.Annotations
 	existing.Spec = role.Spec
+
 	if err := ce.k8sClient.Update(ctx, existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, authzcore.ErrRoleNotFound
@@ -473,7 +477,11 @@ func (ce *CasbinEnforcer) UpdateNamespacedRole(ctx context.Context, role *opench
 		return nil, fmt.Errorf("failed to get AuthzRole: %w", err)
 	}
 
+	// Apply incoming spec directly, preserving server-managed ObjectMeta fields
+	existing.Labels = role.Labels
+	existing.Annotations = role.Annotations
 	existing.Spec = role.Spec
+
 	if err := ce.k8sClient.Update(ctx, existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, authzcore.ErrRoleNotFound
@@ -535,7 +543,11 @@ func (ce *CasbinEnforcer) UpdateClusterRoleBinding(ctx context.Context, binding 
 		return nil, fmt.Errorf("failed to get AuthzClusterRoleBinding: %w", err)
 	}
 
+	// Apply incoming spec directly, preserving server-managed ObjectMeta fields
+	existing.Labels = binding.Labels
+	existing.Annotations = binding.Annotations
 	existing.Spec = binding.Spec
+
 	if err := ce.k8sClient.Update(ctx, existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, authzcore.ErrRoleMappingNotFound
@@ -597,7 +609,11 @@ func (ce *CasbinEnforcer) UpdateNamespacedRoleBinding(ctx context.Context, bindi
 		return nil, fmt.Errorf("failed to get AuthzRoleBinding: %w", err)
 	}
 
+	// Apply incoming spec directly, preserving server-managed ObjectMeta fields
+	existing.Labels = binding.Labels
+	existing.Annotations = binding.Annotations
 	existing.Spec = binding.Spec
+
 	if err := ce.k8sClient.Update(ctx, existing); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, authzcore.ErrRoleMappingNotFound
