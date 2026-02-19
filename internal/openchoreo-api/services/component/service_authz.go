@@ -19,6 +19,7 @@ const (
 	actionUpdateComponent = "component:update"
 	actionViewComponent   = "component:view"
 	actionDeleteComponent = "component:delete"
+	actionDeployComponent = "component:deploy"
 
 	resourceTypeComponent = "component"
 )
@@ -132,4 +133,46 @@ func (s *componentServiceWithAuthz) DeleteComponent(ctx context.Context, namespa
 		return err
 	}
 	return s.internal.DeleteComponent(ctx, namespaceName, componentName)
+}
+
+func (s *componentServiceWithAuthz) DeployRelease(ctx context.Context, namespaceName, componentName string, req *DeployReleaseRequest) (*openchoreov1alpha1.ReleaseBinding, error) {
+	// Fetch first to get the project for authz hierarchy
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeployComponent,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.DeployRelease(ctx, namespaceName, componentName, req)
+}
+
+func (s *componentServiceWithAuthz) PromoteComponent(ctx context.Context, namespaceName, componentName string, req *PromoteComponentRequest) (*openchoreov1alpha1.ReleaseBinding, error) {
+	// Fetch first to get the project for authz hierarchy
+	comp, err := s.internal.GetComponent(ctx, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeployComponent,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   componentName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   comp.Spec.Owner.ProjectName,
+			Component: componentName,
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.PromoteComponent(ctx, namespaceName, componentName, req)
 }

@@ -1727,7 +1727,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy:
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
       summary: Deploy release
@@ -1735,7 +1735,6 @@ paths:
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
         required: true
@@ -1761,7 +1760,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote:
+  /api/v1/namespaces/{namespaceName}/components/{componentName}/promote:
     post:
       operationId: promoteComponent
       summary: Promote component
@@ -1769,7 +1768,6 @@ paths:
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
         required: true

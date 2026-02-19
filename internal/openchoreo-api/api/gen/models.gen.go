@@ -2716,6 +2716,12 @@ type CreateComponentJSONRequestBody = Component
 // UpdateComponentJSONRequestBody defines body for UpdateComponent for application/json ContentType.
 type UpdateComponentJSONRequestBody = Component
 
+// DeployReleaseJSONRequestBody defines body for DeployRelease for application/json ContentType.
+type DeployReleaseJSONRequestBody = DeployReleaseRequest
+
+// PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
+type PromoteComponentJSONRequestBody = PromoteComponentRequest
+
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
 
@@ -2733,12 +2739,6 @@ type UpdateComponentBindingJSONRequestBody = UpdateBindingRequest
 
 // CreateComponentReleaseJSONRequestBody defines body for CreateComponentRelease for application/json ContentType.
 type CreateComponentReleaseJSONRequestBody = CreateComponentReleaseRequest
-
-// DeployReleaseJSONRequestBody defines body for DeployRelease for application/json ContentType.
-type DeployReleaseJSONRequestBody = DeployReleaseRequest
-
-// PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
-type PromoteComponentJSONRequestBody = PromoteComponentRequest
 
 // PatchReleaseBindingJSONRequestBody defines body for PatchReleaseBinding for application/json ContentType.
 type PatchReleaseBindingJSONRequestBody = PatchReleaseBindingRequest

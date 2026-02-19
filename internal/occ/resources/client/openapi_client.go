@@ -302,8 +302,8 @@ func (c *Client) PatchReleaseBinding(ctx context.Context, namespaceName, project
 }
 
 // DeployRelease deploys a component release to the root environment
-func (c *Client) DeployRelease(ctx context.Context, namespaceName, projectName, componentName string, req gen.DeployReleaseRequest) (*gen.ReleaseBinding, error) {
-	resp, err := c.client.DeployReleaseWithResponse(ctx, namespaceName, projectName, componentName, req)
+func (c *Client) DeployRelease(ctx context.Context, namespaceName, componentName string, req gen.DeployReleaseRequest) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.DeployReleaseWithResponse(ctx, namespaceName, componentName, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy release: %w", err)
 	}
@@ -314,8 +314,8 @@ func (c *Client) DeployRelease(ctx context.Context, namespaceName, projectName, 
 }
 
 // PromoteComponent promotes a component from source to target environment
-func (c *Client) PromoteComponent(ctx context.Context, namespaceName, projectName, componentName string, req gen.PromoteComponentRequest) (*gen.ReleaseBinding, error) {
-	resp, err := c.client.PromoteComponentWithResponse(ctx, namespaceName, projectName, componentName, req)
+func (c *Client) PromoteComponent(ctx context.Context, namespaceName, componentName string, req gen.PromoteComponentRequest) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.PromoteComponentWithResponse(ctx, namespaceName, componentName, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to promote component: %w", err)
 	}

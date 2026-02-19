@@ -122,7 +122,7 @@ func (d *CompImpl) deployComponent(ctx context.Context, c *client.Client, params
 		fmt.Printf("Created release: %s\n", releaseName)
 	}
 
-	binding, err := c.DeployRelease(ctx, params.Namespace, params.Project, params.ComponentName, gen.DeployReleaseRequest{
+	binding, err := c.DeployRelease(ctx, params.Namespace, params.ComponentName, gen.DeployReleaseRequest{
 		ReleaseName: releaseName,
 	})
 	if err != nil {
@@ -153,7 +153,7 @@ func (d *CompImpl) promoteComponent(ctx context.Context, c *client.Client, param
 		return nil, "", err
 	}
 
-	binding, err := c.PromoteComponent(ctx, params.Namespace, params.Project, params.ComponentName, gen.PromoteComponentRequest{
+	binding, err := c.PromoteComponent(ctx, params.Namespace, params.ComponentName, gen.PromoteComponentRequest{
 		SourceEnv: sourceEnv,
 		TargetEnv: params.To,
 	})
