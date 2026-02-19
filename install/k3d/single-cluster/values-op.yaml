@@ -2,7 +2,7 @@
 
 # Use standalone OpenSearch (not operator-managed cluster)
 openSearch:
-  enabled: true
+  enabled: false
   service:
     type: LoadBalancer
 
