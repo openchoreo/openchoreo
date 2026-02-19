@@ -241,6 +241,7 @@ spec:
     http:
       type: HTTP
       port: 8080
+      visibility: external
 
   containers:
     main:
