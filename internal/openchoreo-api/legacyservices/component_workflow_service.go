@@ -313,19 +313,19 @@ func getComponentWorkflowStatus(workflowConditions []metav1.Condition) string {
 
 	for _, condition := range workflowConditions {
 		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
-			return "Failed"
+			return WorkflowRunStatusFailed
 		}
 	}
 
 	for _, condition := range workflowConditions {
 		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
-			return "Succeeded"
+			return WorkflowRunStatusSucceeded
 		}
 	}
 
 	for _, condition := range workflowConditions {
 		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
-			return "Running"
+			return WorkflowRunStatusRunning
 		}
 	}
 
@@ -540,47 +540,13 @@ func (s *ComponentWorkflowService) GetComponentWorkflowRunStatus(ctx context.Con
 	// Determine if the workflow run has live observability by checking whether the
 	// Argo Workflow resource still exists on the build plane. If it exists, logs/events
 	// can be fetched live from the build plane; otherwise, they are not available live.
-	hasLiveObservability := s.checkArgoWorkflowExistsOnBuildPlane(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference)
+	hasLiveObservability := s.buildPlaneService.ArgoWorkflowExists(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference)
 
 	return &models.ComponentWorkflowRunStatusResponse{
 		Status:               overallStatus,
 		Steps:                steps,
 		HasLiveObservability: hasLiveObservability,
 	}, nil
-}
-
-// checkArgoWorkflowExistsOnBuildPlane checks whether the Argo Workflow resource
-// referenced by the given RunReference still exists on the build plane.
-// Returns true if the workflow exists, false otherwise
-func (s *ComponentWorkflowService) checkArgoWorkflowExistsOnBuildPlane(
-	ctx context.Context,
-	namespaceName string,
-	gatewayURL string,
-	runReference *openchoreov1alpha1.ResourceReference,
-) bool {
-	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
-		return false
-	}
-
-	bpClient, err := s.buildPlaneService.GetBuildPlaneClient(ctx, namespaceName, gatewayURL)
-	if err != nil {
-		s.logger.Debug("Failed to get build plane client for workflow existence check", "error", err)
-		return false
-	}
-
-	var argoWorkflow argoproj.Workflow
-	if err := bpClient.Get(ctx, types.NamespacedName{
-		Name:      runReference.Name,
-		Namespace: runReference.Namespace,
-	}, &argoWorkflow); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return false
-		}
-		s.logger.Debug("Failed to check argo workflow existence on build plane", "error", err)
-		return false
-	}
-
-	return true
 }
 
 // GetComponentWorkflowRunLogs retrieves logs from a component workflow run

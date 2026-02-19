@@ -411,6 +411,9 @@ type ClientInterface interface {
 	// GetWorkflowRun request
 	GetWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetWorkflowRunStatus request
+	GetWorkflowRunStatus(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListWorkflows request
 	ListWorkflows(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1842,6 +1845,18 @@ func (c *Client) CreateWorkflowRun(ctx context.Context, namespaceName NamespaceN
 
 func (c *Client) GetWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowRunRequest(c.Server, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWorkflowRunStatus(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkflowRunStatusRequest(c.Server, namespaceName, runName)
 	if err != nil {
 		return nil, err
 	}
@@ -6530,6 +6545,47 @@ func NewGetWorkflowRunRequest(server string, namespaceName NamespaceNameParam, r
 	return req, nil
 }
 
+// NewGetWorkflowRunStatusRequest generates requests for GetWorkflowRunStatus
+func NewGetWorkflowRunStatusRequest(server string, namespaceName NamespaceNameParam, runName WorkflowRunNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "runName", runtime.ParamLocationPath, runName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workflow-runs/%s/status", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListWorkflowsRequest generates requests for ListWorkflows
 func NewListWorkflowsRequest(server string, namespaceName NamespaceNameParam, params *ListWorkflowsParams) (*http.Request, error) {
 	var err error
@@ -7262,6 +7318,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowRunWithResponse request
 	GetWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunResp, error)
+
+	// GetWorkflowRunStatusWithResponse request
+	GetWorkflowRunStatusWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunStatusResp, error)
 
 	// ListWorkflowsWithResponse request
 	ListWorkflowsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkflowsParams, reqEditors ...RequestEditorFn) (*ListWorkflowsResp, error)
@@ -9595,6 +9654,31 @@ func (r GetWorkflowRunResp) StatusCode() int {
 	return 0
 }
 
+type GetWorkflowRunStatusResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkflowRunStatusResponse
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkflowRunStatusResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkflowRunStatusResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListWorkflowsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10853,6 +10937,15 @@ func (c *ClientWithResponses) GetWorkflowRunWithResponse(ctx context.Context, na
 		return nil, err
 	}
 	return ParseGetWorkflowRunResp(rsp)
+}
+
+// GetWorkflowRunStatusWithResponse request returning *GetWorkflowRunStatusResp
+func (c *ClientWithResponses) GetWorkflowRunStatusWithResponse(ctx context.Context, namespaceName NamespaceNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowRunStatusResp, error) {
+	rsp, err := c.GetWorkflowRunStatus(ctx, namespaceName, runName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkflowRunStatusResp(rsp)
 }
 
 // ListWorkflowsWithResponse request returning *ListWorkflowsResp
@@ -15743,6 +15836,53 @@ func ParseGetWorkflowRunResp(rsp *http.Response) (*GetWorkflowRunResp, error) {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkflowRunStatusResp parses an HTTP response from a GetWorkflowRunStatusWithResponse call
+func ParseGetWorkflowRunStatusResp(rsp *http.Response) (*GetWorkflowRunStatusResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkflowRunStatusResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkflowRunStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
 		var dest Forbidden

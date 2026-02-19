@@ -10,12 +10,14 @@ import (
 	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	argoproj "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/argoproj.io/workflow/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -173,4 +175,37 @@ func toBuildPlaneResponse(bp *openchoreov1alpha1.BuildPlane) models.BuildPlaneRe
 	}
 
 	return response
+}
+
+// ArgoWorkflowExists checks whether the Argo Workflow resource referenced by the
+// given RunReference still exists on the build plane. Returns true if it exists.
+func (s *BuildPlaneService) ArgoWorkflowExists(
+	ctx context.Context,
+	namespaceName string,
+	gatewayURL string,
+	runReference *openchoreov1alpha1.ResourceReference,
+) bool {
+	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
+		return false
+	}
+
+	bpClient, err := s.GetBuildPlaneClient(ctx, namespaceName, gatewayURL)
+	if err != nil {
+		s.logger.Debug("Failed to get build plane client for workflow existence check", "error", err)
+		return false
+	}
+
+	var argoWorkflow argoproj.Workflow
+	if err := bpClient.Get(ctx, types.NamespacedName{
+		Name:      runReference.Name,
+		Namespace: runReference.Namespace,
+	}, &argoWorkflow); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return false
+		}
+		s.logger.Debug("Failed to check argo workflow existence on build plane", "error", err)
+		return false
+	}
+
+	return true
 }

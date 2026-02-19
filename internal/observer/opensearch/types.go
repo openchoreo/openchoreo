@@ -143,6 +143,7 @@ type GatewayQueryParams struct {
 type WorkflowRunQueryParams struct {
 	QueryParams
 	WorkflowRunID string `json:"workflowRunId"`
+	StepName      string `json:"stepName,omitempty"`
 }
 
 // ComponentWorkflowRunQueryParams holds component workflow run-specific query parameters

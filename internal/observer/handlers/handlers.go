@@ -126,6 +126,7 @@ type WorkflowRunLogsRequest struct {
 	EndTime       string `json:"endTime" validate:"required"`
 	Limit         int    `json:"limit,omitempty"`
 	SortOrder     string `json:"sortOrder,omitempty"`
+	Step          string `json:"step,omitempty"`
 }
 
 // ComponentLogsRequest represents the request body for component logs
@@ -373,6 +374,7 @@ func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
 			NamespaceName: req.NamespaceName,
 		},
 		WorkflowRunID: runID,
+		StepName:      req.Step,
 	}
 
 	// Execute query

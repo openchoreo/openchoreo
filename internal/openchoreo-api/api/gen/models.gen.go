@@ -145,11 +145,30 @@ const (
 
 // Defines values for WorkflowRunStatus.
 const (
-	Error     WorkflowRunStatus = "Error"
-	Failed    WorkflowRunStatus = "Failed"
-	Pending   WorkflowRunStatus = "Pending"
-	Running   WorkflowRunStatus = "Running"
-	Succeeded WorkflowRunStatus = "Succeeded"
+	WorkflowRunStatusError     WorkflowRunStatus = "Error"
+	WorkflowRunStatusFailed    WorkflowRunStatus = "Failed"
+	WorkflowRunStatusPending   WorkflowRunStatus = "Pending"
+	WorkflowRunStatusRunning   WorkflowRunStatus = "Running"
+	WorkflowRunStatusSucceeded WorkflowRunStatus = "Succeeded"
+)
+
+// Defines values for WorkflowRunStatusResponseStatus.
+const (
+	WorkflowRunStatusResponseStatusError     WorkflowRunStatusResponseStatus = "Error"
+	WorkflowRunStatusResponseStatusFailed    WorkflowRunStatusResponseStatus = "Failed"
+	WorkflowRunStatusResponseStatusPending   WorkflowRunStatusResponseStatus = "Pending"
+	WorkflowRunStatusResponseStatusRunning   WorkflowRunStatusResponseStatus = "Running"
+	WorkflowRunStatusResponseStatusSucceeded WorkflowRunStatusResponseStatus = "Succeeded"
+)
+
+// Defines values for WorkflowStepStatusPhase.
+const (
+	Error     WorkflowStepStatusPhase = "Error"
+	Failed    WorkflowStepStatusPhase = "Failed"
+	Pending   WorkflowStepStatusPhase = "Pending"
+	Running   WorkflowStepStatusPhase = "Running"
+	Skipped   WorkflowStepStatusPhase = "Skipped"
+	Succeeded WorkflowStepStatusPhase = "Succeeded"
 )
 
 // Defines values for ListClusterRoleBindingsParamsEffect.
@@ -2144,6 +2163,39 @@ type WorkflowRunList struct {
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
 }
+
+// WorkflowRunStatusResponse Status of a workflow run including per-step details
+type WorkflowRunStatusResponse struct {
+	// HasLiveObservability Whether live logs/events are available from the build plane
+	HasLiveObservability bool `json:"hasLiveObservability"`
+
+	// Status Overall workflow run status
+	Status WorkflowRunStatusResponseStatus `json:"status"`
+
+	// Steps Per-step status details
+	Steps []WorkflowStepStatus `json:"steps"`
+}
+
+// WorkflowRunStatusResponseStatus Overall workflow run status
+type WorkflowRunStatusResponseStatus string
+
+// WorkflowStepStatus Status of an individual workflow step
+type WorkflowStepStatus struct {
+	// FinishedAt When the step finished
+	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+
+	// Name Step name
+	Name string `json:"name"`
+
+	// Phase Step phase
+	Phase WorkflowStepStatusPhase `json:"phase"`
+
+	// StartedAt When the step started
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+}
+
+// WorkflowStepStatusPhase Step phase
+type WorkflowStepStatusPhase string
 
 // WorkloadOverrides Environment-specific workload overrides
 type WorkloadOverrides struct {

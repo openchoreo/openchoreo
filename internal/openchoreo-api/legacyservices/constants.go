@@ -110,5 +110,8 @@ const (
 // Workflow run status constants
 const (
 	WorkflowRunStatusPending   = "Pending"
+	WorkflowRunStatusRunning   = "Running"
+	WorkflowRunStatusSucceeded = "Succeeded"
+	WorkflowRunStatusFailed    = "Failed"
 	WorkflowRunStatusCompleted = "Completed"
 )

@@ -139,6 +139,45 @@ func (h *Handler) GetWorkflowRun(
 	return gen.GetWorkflowRun200JSONResponse(toGenWorkflowRun(workflowRun)), nil
 }
 
+// GetWorkflowRunStatus returns the status and per-step details of a specific workflow run
+func (h *Handler) GetWorkflowRunStatus(
+	ctx context.Context,
+	request gen.GetWorkflowRunStatusRequestObject,
+) (gen.GetWorkflowRunStatusResponseObject, error) {
+	h.logger.Info("GetWorkflowRunStatus called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	status, err := h.services.WorkflowRunService.GetWorkflowRunStatus(ctx, request.NamespaceName, request.RunName, h.Config.ClusterGateway.URL)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			return gen.GetWorkflowRunStatus404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetWorkflowRunStatus403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		h.logger.Error("Failed to get workflow run status", "error", err)
+		return gen.GetWorkflowRunStatus500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	steps := make([]gen.WorkflowStepStatus, 0, len(status.Steps))
+	for _, s := range status.Steps {
+		step := gen.WorkflowStepStatus{
+			Name:       s.Name,
+			Phase:      normalizeStepPhase(s.Phase),
+			StartedAt:  s.StartedAt,
+			FinishedAt: s.FinishedAt,
+		}
+		steps = append(steps, step)
+	}
+
+	return gen.GetWorkflowRunStatus200JSONResponse{
+		Status:               gen.WorkflowRunStatusResponseStatus(status.Status),
+		Steps:                steps,
+		HasLiveObservability: status.HasLiveObservability,
+	}, nil
+}
+
 // toGenWorkflowRun converts models.WorkflowRunResponse to gen.WorkflowRun
 func toGenWorkflowRun(r *models.WorkflowRunResponse) gen.WorkflowRun {
 	if r == nil {
@@ -170,4 +209,18 @@ func toGenWorkflowRun(r *models.WorkflowRunResponse) gen.WorkflowRun {
 	}
 
 	return result
+}
+
+// normalizeStepPhase maps a raw phase string from the WorkflowTask CRD to a
+// valid OpenAPI enum value. Argo's "Omitted" phase is mapped to "Skipped";
+// any other unrecognized value falls back to "Error".
+func normalizeStepPhase(phase string) gen.WorkflowStepStatusPhase {
+	switch phase {
+	case "Pending", "Running", "Succeeded", "Failed", "Skipped", "Error":
+		return gen.WorkflowStepStatusPhase(phase)
+	case "Omitted":
+		return gen.Skipped
+	default:
+		return gen.Error
+	}
 }

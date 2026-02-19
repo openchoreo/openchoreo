@@ -150,10 +150,15 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 
 // BuildWorkflowRunLogsQuery builds a query for workflow run logs with wildcard search
 func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams) map[string]interface{} {
+	podNamePattern := params.WorkflowRunID + "*"
+	if params.StepName != "" {
+		podNamePattern = fmt.Sprintf("%s-%s-*", params.WorkflowRunID, params.StepName)
+	}
+
 	mustConditions := []map[string]interface{}{
 		{
 			"wildcard": map[string]interface{}{
-				labels.KubernetesPodName + ".keyword": params.WorkflowRunID + "*",
+				labels.KubernetesPodName + ".keyword": podNamePattern,
 			},
 		},
 	}

@@ -758,6 +758,10 @@ components:
           enum: [asc, desc]
           default: asc
           example: "asc"
+        step:
+          type: string
+          description: Filter logs by a specific workflow step name. When provided, only logs from pods matching {runId}-{step}-* are returned.
+          example: "build-step"
 
     ComponentLogsRequest:
       type: object

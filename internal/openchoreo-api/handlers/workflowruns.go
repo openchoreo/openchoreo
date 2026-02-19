@@ -75,6 +75,40 @@ func (h *Handler) GetWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	writeSuccessResponse(w, http.StatusOK, wfRun)
 }
 
+func (h *Handler) GetWorkflowRunStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetWorkflowRunStatus handler called")
+
+	namespaceName := r.PathValue("namespaceName")
+	runName := r.PathValue("runName")
+	if namespaceName == "" || runName == "" {
+		logger.Error("Namespace name and run name are required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name and run name are required", services.CodeInvalidInput)
+		return
+	}
+
+	status, err := h.services.WorkflowRunService.GetWorkflowRunStatus(ctx, namespaceName, runName, h.config.ClusterGateway.URL)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view workflow run status", "org", namespaceName, "run", runName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			logger.Warn("WorkflowRun not found", "org", namespaceName, "run", runName)
+			writeErrorResponse(w, http.StatusNotFound, "Workflow run not found", services.CodeWorkflowRunNotFound)
+			return
+		}
+		logger.Error("Failed to get WorkflowRun status", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved WorkflowRun status successfully", "org", namespaceName, "run", runName)
+	writeSuccessResponse(w, http.StatusOK, status)
+}
+
 func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)

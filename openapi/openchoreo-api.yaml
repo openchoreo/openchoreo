@@ -1110,6 +1110,29 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/status:
+    get:
+      operationId: getWorkflowRunStatus
+      summary: Get workflow run status
+      description: Returns the overall status and per-step status of a specific workflow run.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+      responses:
+        '200':
+          description: Workflow run status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowRunStatusResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # ComponentWorkflow Endpoints
   # =============================================================================
@@ -4895,6 +4918,56 @@ components:
           type: string
           description: Detailed execution phase
           example: "Clone completed, build in progress"
+
+    WorkflowRunStatusResponse:
+      type: object
+      description: Status of a workflow run including per-step details
+      required:
+        - status
+        - steps
+        - hasLiveObservability
+      properties:
+        status:
+          type: string
+          enum: [Pending, Running, Succeeded, Failed, Error]
+          description: Overall workflow run status
+          example: Running
+        steps:
+          type: array
+          description: Per-step status details
+          items:
+            $ref: '#/components/schemas/WorkflowStepStatus'
+        hasLiveObservability:
+          type: boolean
+          description: Whether live logs/events are available from the build plane
+          example: true
+
+    WorkflowStepStatus:
+      type: object
+      description: Status of an individual workflow step
+      required:
+        - name
+        - phase
+      properties:
+        name:
+          type: string
+          description: Step name
+          example: clone-step
+        phase:
+          type: string
+          description: Step phase
+          enum: [Pending, Running, Succeeded, Failed, Skipped, Error]
+          example: Succeeded
+        startedAt:
+          type: string
+          format: date-time
+          description: When the step started
+          example: "2025-01-06T10:00:00Z"
+        finishedAt:
+          type: string
+          format: date-time
+          description: When the step finished
+          example: "2025-01-06T10:01:00Z"
 
     CreateWorkflowRunRequest:
       type: object

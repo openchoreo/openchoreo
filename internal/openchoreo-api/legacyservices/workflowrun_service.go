@@ -110,6 +110,57 @@ func (s *WorkflowRunService) GetWorkflowRun(ctx context.Context, namespaceName, 
 	return s.toWorkflowRunResponse(wfRun), nil
 }
 
+// GetWorkflowRunStatus retrieves the status and step information for a specific WorkflowRun
+func (s *WorkflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.ComponentWorkflowRunStatusResponse, error) {
+	logger := s.logger.With("namespace", namespaceName, "run", runName)
+	logger.Debug("Getting workflow run status")
+
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewWorkflowRun, ResourceTypeWorkflowRun, runName,
+		authz.ResourceHierarchy{Namespace: namespaceName}); err != nil {
+		return nil, err
+	}
+
+	wfRun := &openchoreov1alpha1.WorkflowRun{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      runName,
+		Namespace: namespaceName,
+	}, wfRun); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			logger.Warn("WorkflowRun not found")
+			return nil, ErrWorkflowRunNotFound
+		}
+		logger.Error("Failed to get WorkflowRun", "error", err)
+		return nil, fmt.Errorf("failed to get WorkflowRun: %w", err)
+	}
+
+	overallStatus := getWorkflowRunStatus(wfRun.Status.Conditions)
+
+	steps := make([]models.WorkflowStepStatus, 0, len(wfRun.Status.Tasks))
+	for _, task := range wfRun.Status.Tasks {
+		step := models.WorkflowStepStatus{
+			Name:  task.Name,
+			Phase: task.Phase,
+		}
+		if task.StartedAt != nil {
+			startedAt := task.StartedAt.Time
+			step.StartedAt = &startedAt
+		}
+		if task.CompletedAt != nil {
+			completedAt := task.CompletedAt.Time
+			step.FinishedAt = &completedAt
+		}
+		steps = append(steps, step)
+	}
+
+	hasLiveObservability := s.buildPlaneService.ArgoWorkflowExists(ctx, namespaceName, gatewayURL, wfRun.Status.RunReference)
+
+	return &models.ComponentWorkflowRunStatusResponse{
+		Status:               overallStatus,
+		Steps:                steps,
+		HasLiveObservability: hasLiveObservability,
+	}, nil
+}
+
 // CreateWorkflowRun creates a new WorkflowRun
 func (s *WorkflowRunService) CreateWorkflowRun(ctx context.Context, namespaceName string, req *models.CreateWorkflowRunRequest) (*models.WorkflowRunResponse, error) {
 	s.logger.Debug("Creating WorkflowRun", "org", namespaceName, "workflow", req.WorkflowName)
@@ -253,19 +304,19 @@ func getWorkflowRunStatus(conditions []metav1.Condition) string {
 
 	for _, condition := range conditions {
 		if condition.Type == "WorkflowFailed" && condition.Status == metav1.ConditionTrue {
-			return "Failed"
+			return WorkflowRunStatusFailed
 		}
 	}
 
 	for _, condition := range conditions {
 		if condition.Type == "WorkflowSucceeded" && condition.Status == metav1.ConditionTrue {
-			return "Succeeded"
+			return WorkflowRunStatusSucceeded
 		}
 	}
 
 	for _, condition := range conditions {
 		if condition.Type == "WorkflowRunning" && condition.Status == metav1.ConditionTrue {
-			return "Running"
+			return WorkflowRunStatusRunning
 		}
 	}
 
