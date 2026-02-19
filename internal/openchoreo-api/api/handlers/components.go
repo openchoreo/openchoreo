@@ -7,113 +7,124 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
-	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 )
 
-// ListComponents returns a paginated list of components within a project
+// ListComponents returns a paginated list of components within a namespace.
 func (h *Handler) ListComponents(
 	ctx context.Context,
 	request gen.ListComponentsRequestObject,
 ) (gen.ListComponentsResponseObject, error) {
-	h.logger.Debug("ListComponents called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
+	h.logger.Debug("ListComponents called", "namespaceName", request.NamespaceName)
 
-	components, err := h.services.ComponentService.ListComponents(
-		ctx,
-		request.NamespaceName,
-		request.ProjectName,
-	)
+	projectName := ""
+	if request.Params.Project != nil {
+		projectName = *request.Params.Project
+	}
+
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.componentService.ListComponents(ctx, request.NamespaceName, projectName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list components", "error", err)
 		return gen.ListComponents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to generated types
-	items := make([]gen.Component, 0, len(components))
-	for _, c := range components {
-		items = append(items, toGenComponent(c))
+	items, err := convertList[openchoreov1alpha1.Component, gen.Component](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert components", "error", err)
+		return gen.ListComponents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// TODO: Implement proper cursor-based pagination with Kubernetes continuation tokens
 	return gen.ListComponents200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// CreateComponent creates a new component within a project
+// CreateComponent creates a new component within a namespace.
 func (h *Handler) CreateComponent(
 	ctx context.Context,
 	request gen.CreateComponentRequestObject,
 ) (gen.CreateComponentResponseObject, error) {
-	h.logger.Info("CreateComponent called", "namespaceName", request.NamespaceName, "projectName", request.ProjectName)
+	h.logger.Info("CreateComponent called", "namespaceName", request.NamespaceName)
 
 	if request.Body == nil {
 		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
 
-	// Convert to service request
-	req := toModelCreateComponentRequest(request.Body)
-
-	component, err := h.services.ComponentService.CreateComponent(
-		ctx,
-		request.NamespaceName,
-		request.ProjectName,
-		req,
-	)
+	componentCR, err := convert[gen.Component, openchoreov1alpha1.Component](*request.Body)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
+
+	created, err := h.componentService.CreateComponent(ctx, request.NamespaceName, &componentCR)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrProjectNotFound) {
-			return gen.CreateComponent404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
-		}
-		if errors.Is(err, services.ErrComponentAlreadyExists) {
+		if errors.Is(err, componentsvc.ErrComponentAlreadyExists) {
 			return gen.CreateComponent409JSONResponse{ConflictJSONResponse: conflict("Component already exists")}, nil
 		}
 		h.logger.Error("Failed to create component", "error", err)
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	h.logger.Info("Component created successfully",
-		"namespaceName", request.NamespaceName,
-		"projectName", request.ProjectName,
-		"component", component.Name)
+	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created component", "error", err)
+		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
 
-	return gen.CreateComponent201JSONResponse(toGenComponent(component)), nil
+	h.logger.Info("Component created successfully", "namespaceName", request.NamespaceName, "component", created.Name)
+	return gen.CreateComponent201JSONResponse(genComponent), nil
 }
 
-// toGenComponent converts models.ComponentResponse to gen.Component
+// toGenComponent converts models.ComponentResponse to gen.Component (K8s-native shape).
+// Used by legacy sub-resource methods that still call the legacy service layer.
 func toGenComponent(c *models.ComponentResponse) gen.Component {
-	uid, _ := uuid.Parse(c.UID)
-	component := gen.Component{
-		Uid:           uid,
-		Name:          c.Name,
-		Type:          c.Type,
-		ProjectName:   c.ProjectName,
-		NamespaceName: c.NamespaceName,
-		CreatedAt:     c.CreatedAt,
-		DisplayName:   ptr.To(c.DisplayName),
-		Description:   ptr.To(c.Description),
-		Status:        ptr.To(c.Status),
-		AutoDeploy:    ptr.To(c.AutoDeploy),
+	uid := c.UID
+	metadata := gen.ObjectMeta{
+		Name:              c.Name,
+		Namespace:         ptr.To(c.NamespaceName),
+		Uid:               ptr.To(uid),
+		CreationTimestamp: ptr.To(c.CreatedAt),
 	}
 
-	// Convert ComponentWorkflow if present
+	componentTypeName := gen.ComponentSpecComponentTypeKind("ComponentType")
+	spec := &gen.ComponentSpec{
+		Owner: struct {
+			ProjectName string `json:"projectName"`
+		}{ProjectName: c.ProjectName},
+		ComponentType: struct {
+			Kind *gen.ComponentSpecComponentTypeKind `json:"kind,omitempty"`
+			Name string                              `json:"name"`
+		}{
+			Kind: &componentTypeName,
+			Name: c.Type,
+		},
+		AutoDeploy: ptr.To(c.AutoDeploy),
+	}
+
 	if c.ComponentWorkflow != nil {
-		component.ComponentWorkflow = toGenComponentWorkflowConfig(c.ComponentWorkflow)
+		spec.Workflow = toGenComponentWorkflowConfig(c.ComponentWorkflow)
 	}
 
-	// TODO: Convert workload field
-
-	return component
+	return gen.Component{
+		Metadata: metadata,
+		Spec:     spec,
+	}
 }
 
 // toGenComponentWorkflowConfig converts models.ComponentWorkflow to gen.ComponentWorkflowConfig
@@ -252,56 +263,96 @@ func mapToRawExtension(m *map[string]interface{}) *runtime.RawExtension {
 	return &runtime.RawExtension{Raw: data}
 }
 
-// GetComponent returns details of a specific component
+// GetComponent returns details of a specific component.
 func (h *Handler) GetComponent(
 	ctx context.Context,
 	request gen.GetComponentRequestObject,
 ) (gen.GetComponentResponseObject, error) {
-	h.logger.Debug("GetComponent called",
-		"namespace", request.NamespaceName,
-		"project", request.ProjectName,
-		"component", request.ComponentName)
+	h.logger.Debug("GetComponent called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
 
-	// Parse additional resources from query params (comma-separated string)
-	var additionalResources []string
-	if request.Params.Include != nil && *request.Params.Include != "" {
-		// Split comma-separated values
-		parts := strings.Split(*request.Params.Include, ",")
-		for _, part := range parts {
-			trimmed := strings.TrimSpace(part)
-			if trimmed != "" {
-				additionalResources = append(additionalResources, trimmed)
-			}
-		}
-	}
-
-	component, err := h.services.ComponentService.GetComponent(
-		ctx,
-		request.NamespaceName,
-		request.ProjectName,
-		request.ComponentName,
-		additionalResources,
-	)
+	component, err := h.componentService.GetComponent(ctx, request.NamespaceName, request.ComponentName)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
+		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.GetComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		if errors.Is(err, services.ErrComponentNotFound) {
+		if errors.Is(err, componentsvc.ErrComponentNotFound) {
 			return gen.GetComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
 		h.logger.Error("Failed to get component", "error", err)
 		return gen.GetComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.GetComponent200JSONResponse(toGenComponent(component)), nil
+	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*component)
+	if err != nil {
+		h.logger.Error("Failed to convert component", "error", err)
+		return gen.GetComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetComponent200JSONResponse(genComponent), nil
 }
 
-// PatchComponent updates a component with partial data
-func (h *Handler) PatchComponent(
+// UpdateComponent replaces an existing component (full update).
+func (h *Handler) UpdateComponent(
 	ctx context.Context,
-	request gen.PatchComponentRequestObject,
-) (gen.PatchComponentResponseObject, error) {
-	return nil, errNotImplemented
+	request gen.UpdateComponentRequestObject,
+) (gen.UpdateComponentResponseObject, error) {
+	h.logger.Info("UpdateComponent called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
+
+	if request.Body == nil {
+		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	componentCR, err := convert[gen.Component, openchoreov1alpha1.Component](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	componentCR.Status = openchoreov1alpha1.ComponentStatus{}
+	componentCR.Name = request.ComponentName
+
+	updated, err := h.componentService.UpdateComponent(ctx, request.NamespaceName, &componentCR)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.UpdateComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentNotFound) {
+			return gen.UpdateComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		h.logger.Error("Failed to update component", "error", err)
+		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated component", "error", err)
+		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Component updated successfully", "namespaceName", request.NamespaceName, "component", updated.Name)
+	return gen.UpdateComponent200JSONResponse(genComponent), nil
+}
+
+// DeleteComponent deletes a component by name.
+func (h *Handler) DeleteComponent(
+	ctx context.Context,
+	request gen.DeleteComponentRequestObject,
+) (gen.DeleteComponentResponseObject, error) {
+	h.logger.Info("DeleteComponent called", "namespaceName", request.NamespaceName, "componentName", request.ComponentName)
+
+	err := h.componentService.DeleteComponent(ctx, request.NamespaceName, request.ComponentName)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.DeleteComponent403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentsvc.ErrComponentNotFound) {
+			return gen.DeleteComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		h.logger.Error("Failed to delete component", "error", err)
+		return gen.DeleteComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Component deleted successfully", "namespaceName", request.NamespaceName, "component", request.ComponentName)
+	return gen.DeleteComponent204Response{}, nil
 }
 
 // GetComponentSchema returns the combined parameter schema for a component

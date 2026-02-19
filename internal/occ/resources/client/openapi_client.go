@@ -91,9 +91,15 @@ func (c *Client) ListProjects(ctx context.Context, namespaceName string, params 
 	return resp.JSON200, nil
 }
 
-// ListComponents retrieves all components for a namespace and project
+// ListComponents retrieves all components for a namespace, optionally filtered by project
 func (c *Client) ListComponents(ctx context.Context, namespaceName, projectName string, params *gen.ListComponentsParams) (*gen.ComponentList, error) {
-	resp, err := c.client.ListComponentsWithResponse(ctx, namespaceName, projectName, params)
+	if params == nil {
+		params = &gen.ListComponentsParams{}
+	}
+	if projectName != "" {
+		params.Project = &projectName
+	}
+	resp, err := c.client.ListComponentsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list components: %w", err)
 	}
@@ -105,7 +111,7 @@ func (c *Client) ListComponents(ctx context.Context, namespaceName, projectName 
 
 // GetComponent retrieves a specific component
 func (c *Client) GetComponent(ctx context.Context, namespaceName, projectName, componentName string) (*gen.Component, error) {
-	resp, err := c.client.GetComponentWithResponse(ctx, namespaceName, projectName, componentName, &gen.GetComponentParams{})
+	resp, err := c.client.GetComponentWithResponse(ctx, namespaceName, componentName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get component: %w", err)
 	}

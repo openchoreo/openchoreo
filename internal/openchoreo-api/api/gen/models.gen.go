@@ -41,6 +41,12 @@ const (
 	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
 )
 
+// Defines values for ComponentSpecComponentTypeKind.
+const (
+	ComponentSpecComponentTypeKindClusterComponentType ComponentSpecComponentTypeKind = "ClusterComponentType"
+	ComponentSpecComponentTypeKindComponentType        ComponentSpecComponentTypeKind = "ComponentType"
+)
+
 // Defines values for ComponentTraitKind.
 const (
 	ComponentTraitKindClusterTrait ComponentTraitKind = "ClusterTrait"
@@ -513,43 +519,16 @@ type ClusterRoleRef struct {
 	Name string `json:"name"`
 }
 
-// Component Component resource
+// Component Component resource (Kubernetes object without kind/apiVersion).
+// Components group source code and deployment configuration within a project.
 type Component struct {
-	// AutoDeploy Whether to automatically deploy to default environment
-	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// ComponentWorkflow Component workflow configuration
-	ComponentWorkflow *ComponentWorkflowConfig `json:"componentWorkflow,omitempty"`
-
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Description Component description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Component name (unique within project)
-	Name string `json:"name"`
-
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
-	// ProjectName Parent project name
-	ProjectName string `json:"projectName"`
-
-	// Status Component status
-	Status *string `json:"status,omitempty"`
-
-	// Type Component type (from ComponentType)
-	Type string `json:"type"`
-
-	// Uid Unique identifier (Kubernetes UID)
-	Uid openapi_types.UUID `json:"uid"`
-
-	// Workload Workload specification (source code definition)
-	Workload *map[string]interface{} `json:"workload,omitempty"`
+	// Spec Desired state of a Component
+	Spec   *ComponentSpec   `json:"spec,omitempty"`
+	Status *ComponentStatus `json:"status,omitempty"`
 }
 
 // ComponentList Paginated list of components
@@ -558,7 +537,7 @@ type ComponentList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // ComponentRelease Immutable release snapshot for a component
@@ -589,6 +568,60 @@ type ComponentReleaseList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// ComponentSpec Desired state of a Component
+type ComponentSpec struct {
+	// AutoBuild Whether to automatically trigger builds on code push
+	AutoBuild *bool `json:"autoBuild,omitempty"`
+
+	// AutoDeploy Whether to automatically deploy to default environment when created
+	AutoDeploy *bool `json:"autoDeploy,omitempty"`
+
+	// ComponentType Reference to the ComponentType or ClusterComponentType
+	ComponentType struct {
+		// Kind Kind of component type (ComponentType or ClusterComponentType)
+		Kind *ComponentSpecComponentTypeKind `json:"kind,omitempty"`
+
+		// Name Component type reference in format: {workloadType}/{componentTypeName}
+		Name string `json:"name"`
+	} `json:"componentType"`
+
+	// Owner Ownership information for the component
+	Owner struct {
+		// ProjectName Name of the project this component belongs to
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters ComponentType parameter values (schema defined by the referenced ComponentType)
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Traits Trait instances attached to the component
+	Traits *[]ComponentTrait `json:"traits,omitempty"`
+
+	// Workflow Component workflow configuration
+	Workflow *ComponentWorkflowConfig `json:"workflow,omitempty"`
+}
+
+// ComponentSpecComponentTypeKind Kind of component type (ComponentType or ClusterComponentType)
+type ComponentSpecComponentTypeKind string
+
+// ComponentStatus Observed state of a Component
+type ComponentStatus struct {
+	// Conditions Current state conditions of the Component
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LatestRelease Information about the latest ComponentRelease created for this component
+	LatestRelease *struct {
+		// Name Name of the latest ComponentRelease resource
+		Name *string `json:"name,omitempty"`
+
+		// ReleaseHash Hash of the latest ComponentRelease spec
+		ReleaseHash *string `json:"releaseHash,omitempty"`
+	} `json:"latestRelease,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed Component
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ComponentTrait Trait attached to a component
@@ -2245,6 +2278,9 @@ type NamespaceNameParam = string
 // ProjectNameParam defines model for ProjectNameParam.
 type ProjectNameParam = string
 
+// ProjectQueryParam defines model for ProjectQueryParam.
+type ProjectQueryParam = string
+
 // ReleaseNameParam defines model for ReleaseNameParam.
 type ReleaseNameParam = string
 
@@ -2348,6 +2384,19 @@ type ListComponentWorkflowsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListComponentsParams defines parameters for ListComponents.
+type ListComponentsParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListDataPlanesParams defines parameters for ListDataPlanes.
 type ListDataPlanesParams struct {
 	// Limit Maximum number of items to return per page
@@ -2376,22 +2425,6 @@ type ListProjectsParams struct {
 	// Cursor Opaque pagination cursor from a previous response.
 	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListComponentsParams defines parameters for ListComponents.
-type ListComponentsParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// GetComponentParams defines parameters for GetComponent.
-type GetComponentParams struct {
-	// Include Comma-separated list of additional resources to include
-	Include *string `form:"include,omitempty" json:"include,omitempty"`
 }
 
 // ListComponentBindingsParams defines parameters for ListComponentBindings.
@@ -2522,6 +2555,12 @@ type DeleteResourceJSONRequestBody = KubernetesResource
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
 
+// CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
+type CreateComponentJSONRequestBody = Component
+
+// UpdateComponentJSONRequestBody defines body for UpdateComponent for application/json ContentType.
+type UpdateComponentJSONRequestBody = Component
+
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
 
@@ -2533,12 +2572,6 @@ type CreateProjectJSONRequestBody = Project
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = Project
-
-// CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
-type CreateComponentJSONRequestBody = CreateComponentRequest
-
-// PatchComponentJSONRequestBody defines body for PatchComponent for application/json ContentType.
-type PatchComponentJSONRequestBody = PatchComponentRequest
 
 // UpdateComponentBindingJSONRequestBody defines body for UpdateComponentBinding for application/json ContentType.
 type UpdateComponentBindingJSONRequestBody = UpdateBindingRequest

@@ -64,11 +64,21 @@ func PrintComponents(list *gen.ComponentList) error {
 	fmt.Fprintln(w, "NAME\tPROJECT\tTYPE\tAGE")
 
 	for _, comp := range list.Items {
+		projectName := ""
+		componentType := ""
+		if comp.Spec != nil {
+			projectName = comp.Spec.Owner.ProjectName
+			componentType = comp.Spec.ComponentType.Name
+		}
+		age := ""
+		if comp.Metadata.CreationTimestamp != nil {
+			age = formatAge(*comp.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			comp.Name,
-			comp.ProjectName,
-			comp.Type,
-			formatAge(comp.CreatedAt))
+			comp.Metadata.Name,
+			projectName,
+			componentType,
+			age)
 	}
 
 	return w.Flush()

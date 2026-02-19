@@ -87,11 +87,16 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 		return fmt.Errorf("no current credential available")
 	}
 
-	if params.Follow {
-		return c.followLogs(ctx, observerURL, credential.Token, component.Uid.String(), environment.Uid.String(), params, startTime, endTime)
+	componentUID := ""
+	if component.Metadata.Uid != nil {
+		componentUID = *component.Metadata.Uid
 	}
 
-	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, component.Uid.String(), environment.Uid.String(), params, startTime, endTime)
+	if params.Follow {
+		return c.followLogs(ctx, observerURL, credential.Token, componentUID, environment.Uid.String(), params, startTime, endTime)
+	}
+
+	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environment.Uid.String(), params, startTime, endTime)
 }
 
 // fetchAndPrintLogs fetches logs for a given time range and prints them

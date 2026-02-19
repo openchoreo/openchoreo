@@ -61,12 +61,12 @@ func mergeParametersWithComponent(existingComponent *gen.Component, setValues []
 	// Build the request body with both parameters and systemParameters
 	body := &gen.UpdateComponentWorkflowParametersJSONRequestBody{}
 
-	if updatedComponent.ComponentWorkflow != nil {
-		if updatedComponent.ComponentWorkflow.Parameters != nil {
-			body.Parameters = updatedComponent.ComponentWorkflow.Parameters
+	if updatedComponent.Spec != nil && updatedComponent.Spec.Workflow != nil {
+		if updatedComponent.Spec.Workflow.Parameters != nil {
+			body.Parameters = updatedComponent.Spec.Workflow.Parameters
 		}
-		if updatedComponent.ComponentWorkflow.SystemParameters != nil {
-			body.SystemParameters = updatedComponent.ComponentWorkflow.SystemParameters
+		if updatedComponent.Spec.Workflow.SystemParameters != nil {
+			body.SystemParameters = updatedComponent.Spec.Workflow.SystemParameters
 		}
 	}
 

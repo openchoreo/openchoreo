@@ -406,15 +406,15 @@ paths:
   # Component Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components:
+  /api/v1/namespaces/{namespaceName}/components:
     get:
       operationId: listComponents
       summary: List components
-      description: Returns a paginated list of components within a project.
+      description: Returns a paginated list of components within a namespace, optionally filtered by project.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
+        - $ref: '#/components/parameters/ProjectQueryParam'
         - $ref: '#/components/parameters/LimitParam'
         - $ref: '#/components/parameters/CursorParam'
       responses:
@@ -436,17 +436,16 @@ paths:
     post:
       operationId: createComponent
       summary: Create component
-      description: Creates a new component within a project.
+      description: Creates a new component within a namespace.
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateComponentRequest'
+              $ref: '#/components/schemas/Component'
       responses:
         '201':
           description: Component created successfully
@@ -460,8 +459,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '500':
@@ -1186,7 +1183,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}:
+  /api/v1/namespaces/{namespaceName}/components/{componentName}:
     get:
       operationId: getComponent
       summary: Get component
@@ -1194,15 +1191,7 @@ paths:
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
-        - name: include
-          in: query
-          required: false
-          description: Comma-separated list of additional resources to include
-          schema:
-            type: string
-            example: workload,traits
       responses:
         '200':
           description: Component details
@@ -1219,30 +1208,51 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-    patch:
-      operationId: patchComponent
-      summary: Patch component
-      description: Updates a component with partial data.
+    put:
+      operationId: updateComponent
+      summary: Update component
+      description: Replaces an existing component (full update).
       tags: [Components]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
         - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PatchComponentRequest'
+              $ref: '#/components/schemas/Component'
       responses:
         '200':
-          description: Component updated
+          description: Component updated successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Component'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteComponent
+      summary: Delete component
+      description: Deletes a component by name.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+      responses:
+        '204':
+          description: Component deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2987,6 +2997,15 @@ components:
         type: string
         example: my-project
 
+    ProjectQueryParam:
+      name: project
+      in: query
+      required: false
+      description: Filter resources by project name
+      schema:
+        type: string
+        example: my-project
+
     EnvironmentNameParam:
       name: envName
       in: path
@@ -3712,7 +3731,6 @@ components:
       description: Paginated list of components
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -3721,66 +3739,102 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    Component:
+    ComponentSpec:
       type: object
-      description: Component resource
+      description: Desired state of a Component
       required:
-        - uid
-        - name
-        - type
-        - projectName
-        - namespaceName
-        - createdAt
+        - owner
+        - componentType
       properties:
-        uid:
-          type: string
-          format: uuid
-          description: Unique identifier (Kubernetes UID)
-          example: 550e8400-e29b-41d4-a716-446655440001
-        name:
-          type: string
-          description: Component name (unique within project)
-          example: api-service
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: API Service
-        description:
-          type: string
-          description: Component description
-          example: Main REST API service
-        type:
-          type: string
-          description: Component type (from ComponentType)
-          example: service/go-service
+        owner:
+          type: object
+          description: Ownership information for the component
+          required:
+            - projectName
+          properties:
+            projectName:
+              type: string
+              description: Name of the project this component belongs to
+              example: my-project
+        componentType:
+          type: object
+          description: Reference to the ComponentType or ClusterComponentType
+          required:
+            - name
+          properties:
+            kind:
+              type: string
+              description: Kind of component type (ComponentType or ClusterComponentType)
+              enum: [ComponentType, ClusterComponentType]
+              default: ComponentType
+            name:
+              type: string
+              description: "Component type reference in format: {workloadType}/{componentTypeName}"
+              example: deployment/go-service
+              pattern: '^(deployment|statefulset|cronjob|job|proxy)/[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
         autoDeploy:
           type: boolean
-          description: Whether to automatically deploy to default environment
+          description: Whether to automatically deploy to default environment when created
           default: false
           example: true
-        projectName:
-          type: string
-          description: Parent project name
-          example: my-project
-        namespaceName:
-          type: string
-          description: Parent namespace name
-          example: my-namespace
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: Component status
-          example: Ready
-        workload:
+        autoBuild:
+          type: boolean
+          description: Whether to automatically trigger builds on code push
+          example: false
+        parameters:
           type: object
-          description: Workload specification (source code definition)
+          description: ComponentType parameter values (schema defined by the referenced ComponentType)
           additionalProperties: true
-        componentWorkflow:
+        traits:
+          type: array
+          description: Trait instances attached to the component
+          items:
+            $ref: '#/components/schemas/ComponentTrait'
+        workflow:
           $ref: '#/components/schemas/ComponentWorkflowConfig'
+
+    ComponentStatus:
+      type: object
+      description: Observed state of a Component
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed Component
+        conditions:
+          type: array
+          description: Current state conditions of the Component
+          items:
+            $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Information about the latest ComponentRelease created for this component
+          properties:
+            name:
+              type: string
+              description: Name of the latest ComponentRelease resource
+              example: my-component-abc123
+            releaseHash:
+              type: string
+              description: Hash of the latest ComponentRelease spec
+              example: sha256:abc123
+
+    Component:
+      type: object
+      description: |
+        Component resource (Kubernetes object without kind/apiVersion).
+        Components group source code and deployment configuration within a project.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ComponentSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ComponentStatus'
 
     ComponentWorkflowConfig:
       type: object

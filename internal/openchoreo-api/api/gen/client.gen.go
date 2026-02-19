@@ -202,6 +202,25 @@ type ClientInterface interface {
 	// GetComponentWorkflowSchema request
 	GetComponentWorkflowSchema(ctx context.Context, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListComponents request
+	ListComponents(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateComponentWithBody request with any body
+	CreateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateComponent(ctx context.Context, namespaceName NamespaceNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteComponent request
+	DeleteComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetComponent request
+	GetComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateComponentWithBody request with any body
+	UpdateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body UpdateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListDataPlanes request
 	ListDataPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListDataPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -251,22 +270,6 @@ type ClientInterface interface {
 	UpdateProjectWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateProject(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListComponents request
-	ListComponents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateComponentWithBody request with any body
-	CreateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetComponent request
-	GetComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *GetComponentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PatchComponentWithBody request with any body
-	PatchComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PatchComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body PatchComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListComponentBindings request
 	ListComponentBindings(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -943,6 +946,90 @@ func (c *Client) GetComponentWorkflowSchema(ctx context.Context, namespaceName N
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListComponents(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateComponent(ctx context.Context, namespaceName NamespaceNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateComponentRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteComponentRequest(c.Server, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentRequest(c.Server, namespaceName, componentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentRequestWithBody(c.Server, namespaceName, componentName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateComponent(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body UpdateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateComponentRequest(c.Server, namespaceName, componentName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListDataPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListDataPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDataPlanesRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -1149,78 +1236,6 @@ func (c *Client) UpdateProjectWithBody(ctx context.Context, namespaceName Namesp
 
 func (c *Client) UpdateProject(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateProjectRequest(c.Server, namespaceName, projectName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListComponents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentsRequest(c.Server, namespaceName, projectName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateComponentRequestWithBody(c.Server, namespaceName, projectName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateComponentRequest(c.Server, namespaceName, projectName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *GetComponentParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetComponentRequest(c.Server, namespaceName, projectName, componentName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PatchComponentWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchComponentRequestWithBody(c.Server, namespaceName, projectName, componentName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PatchComponent(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body PatchComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchComponentRequest(c.Server, namespaceName, projectName, componentName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3371,6 +3386,277 @@ func NewGetComponentWorkflowSchemaRequest(server string, namespaceName Namespace
 	return req, nil
 }
 
+// NewListComponentsRequest generates requests for ListComponents
+func NewListComponentsRequest(server string, namespaceName NamespaceNameParam, params *ListComponentsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "project", runtime.ParamLocationQuery, *params.Project); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateComponentRequest calls the generic CreateComponent builder with application/json body
+func NewCreateComponentRequest(server string, namespaceName NamespaceNameParam, body CreateComponentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateComponentRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateComponentRequestWithBody generates requests for CreateComponent with any type of body
+func NewCreateComponentRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteComponentRequest generates requests for DeleteComponent
+func NewDeleteComponentRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetComponentRequest generates requests for GetComponent
+func NewGetComponentRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateComponentRequest calls the generic UpdateComponent builder with application/json body
+func NewUpdateComponentRequest(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, body UpdateComponentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateComponentRequestWithBody(server, namespaceName, componentName, "application/json", bodyReader)
+}
+
+// NewUpdateComponentRequestWithBody generates requests for UpdateComponent with any type of body
+func NewUpdateComponentRequestWithBody(server string, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/components/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListDataPlanesRequest generates requests for ListDataPlanes
 func NewListDataPlanesRequest(server string, namespaceName NamespaceNameParam, params *ListDataPlanesParams) (*http.Request, error) {
 	var err error
@@ -4053,270 +4339,6 @@ func NewUpdateProjectRequestWithBody(server string, namespaceName NamespaceNameP
 	}
 
 	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListComponentsRequest generates requests for ListComponents
-func NewListComponentsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, params *ListComponentsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateComponentRequest calls the generic CreateComponent builder with application/json body
-func NewCreateComponentRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, body CreateComponentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateComponentRequestWithBody(server, namespaceName, projectName, "application/json", bodyReader)
-}
-
-// NewCreateComponentRequestWithBody generates requests for CreateComponent with any type of body
-func NewCreateComponentRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetComponentRequest generates requests for GetComponent
-func NewGetComponentRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *GetComponentParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Include != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "include", runtime.ParamLocationQuery, *params.Include); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPatchComponentRequest calls the generic PatchComponent builder with application/json body
-func NewPatchComponentRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body PatchComponentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPatchComponentRequestWithBody(server, namespaceName, projectName, componentName, "application/json", bodyReader)
-}
-
-// NewPatchComponentRequestWithBody generates requests for PatchComponent with any type of body
-func NewPatchComponentRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PATCH", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -7110,6 +7132,25 @@ type ClientWithResponsesInterface interface {
 	// GetComponentWorkflowSchemaWithResponse request
 	GetComponentWorkflowSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetComponentWorkflowSchemaResp, error)
 
+	// ListComponentsWithResponse request
+	ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error)
+
+	// CreateComponentWithBodyWithResponse request with any body
+	CreateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentResp, error)
+
+	CreateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentResp, error)
+
+	// DeleteComponentWithResponse request
+	DeleteComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*DeleteComponentResp, error)
+
+	// GetComponentWithResponse request
+	GetComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentResp, error)
+
+	// UpdateComponentWithBodyWithResponse request with any body
+	UpdateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentResp, error)
+
+	UpdateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body UpdateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentResp, error)
+
 	// ListDataPlanesWithResponse request
 	ListDataPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListDataPlanesParams, reqEditors ...RequestEditorFn) (*ListDataPlanesResp, error)
 
@@ -7159,22 +7200,6 @@ type ClientWithResponsesInterface interface {
 	UpdateProjectWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProjectResp, error)
 
 	UpdateProjectWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResp, error)
-
-	// ListComponentsWithResponse request
-	ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error)
-
-	// CreateComponentWithBodyWithResponse request with any body
-	CreateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentResp, error)
-
-	CreateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentResp, error)
-
-	// GetComponentWithResponse request
-	GetComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *GetComponentParams, reqEditors ...RequestEditorFn) (*GetComponentResp, error)
-
-	// PatchComponentWithBodyWithResponse request with any body
-	PatchComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchComponentResp, error)
-
-	PatchComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body PatchComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchComponentResp, error)
 
 	// ListComponentBindingsWithResponse request
 	ListComponentBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*ListComponentBindingsResp, error)
@@ -8152,6 +8177,138 @@ func (r GetComponentWorkflowSchemaResp) StatusCode() int {
 	return 0
 }
 
+type ListComponentsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ComponentList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateComponentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Component
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateComponentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateComponentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteComponentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteComponentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteComponentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetComponentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Component
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateComponentResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Component
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateComponentResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateComponentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListDataPlanesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8511,113 +8668,6 @@ func (r UpdateProjectResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateProjectResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListComponentsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ComponentList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListComponentsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateComponentResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *Component
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON409      *Conflict
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateComponentResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateComponentResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetComponentResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Component
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetComponentResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetComponentResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PatchComponentResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Component
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r PatchComponentResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PatchComponentResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10274,6 +10324,67 @@ func (c *ClientWithResponses) GetComponentWorkflowSchemaWithResponse(ctx context
 	return ParseGetComponentWorkflowSchemaResp(rsp)
 }
 
+// ListComponentsWithResponse request returning *ListComponentsResp
+func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error) {
+	rsp, err := c.ListComponents(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentsResp(rsp)
+}
+
+// CreateComponentWithBodyWithResponse request with arbitrary body returning *CreateComponentResp
+func (c *ClientWithResponses) CreateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentResp, error) {
+	rsp, err := c.CreateComponentWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentResp, error) {
+	rsp, err := c.CreateComponent(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateComponentResp(rsp)
+}
+
+// DeleteComponentWithResponse request returning *DeleteComponentResp
+func (c *ClientWithResponses) DeleteComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*DeleteComponentResp, error) {
+	rsp, err := c.DeleteComponent(ctx, namespaceName, componentName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteComponentResp(rsp)
+}
+
+// GetComponentWithResponse request returning *GetComponentResp
+func (c *ClientWithResponses) GetComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentResp, error) {
+	rsp, err := c.GetComponent(ctx, namespaceName, componentName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentResp(rsp)
+}
+
+// UpdateComponentWithBodyWithResponse request with arbitrary body returning *UpdateComponentResp
+func (c *ClientWithResponses) UpdateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentResp, error) {
+	rsp, err := c.UpdateComponentWithBody(ctx, namespaceName, componentName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentName ComponentNameParam, body UpdateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentResp, error) {
+	rsp, err := c.UpdateComponent(ctx, namespaceName, componentName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateComponentResp(rsp)
+}
+
 // ListDataPlanesWithResponse request returning *ListDataPlanesResp
 func (c *ClientWithResponses) ListDataPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListDataPlanesParams, reqEditors ...RequestEditorFn) (*ListDataPlanesResp, error) {
 	rsp, err := c.ListDataPlanes(ctx, namespaceName, params, reqEditors...)
@@ -10430,58 +10541,6 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, nam
 		return nil, err
 	}
 	return ParseUpdateProjectResp(rsp)
-}
-
-// ListComponentsWithResponse request returning *ListComponentsResp
-func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error) {
-	rsp, err := c.ListComponents(ctx, namespaceName, projectName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListComponentsResp(rsp)
-}
-
-// CreateComponentWithBodyWithResponse request with arbitrary body returning *CreateComponentResp
-func (c *ClientWithResponses) CreateComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateComponentResp, error) {
-	rsp, err := c.CreateComponentWithBody(ctx, namespaceName, projectName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateComponentResp(rsp)
-}
-
-func (c *ClientWithResponses) CreateComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body CreateComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateComponentResp, error) {
-	rsp, err := c.CreateComponent(ctx, namespaceName, projectName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateComponentResp(rsp)
-}
-
-// GetComponentWithResponse request returning *GetComponentResp
-func (c *ClientWithResponses) GetComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *GetComponentParams, reqEditors ...RequestEditorFn) (*GetComponentResp, error) {
-	rsp, err := c.GetComponent(ctx, namespaceName, projectName, componentName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetComponentResp(rsp)
-}
-
-// PatchComponentWithBodyWithResponse request with arbitrary body returning *PatchComponentResp
-func (c *ClientWithResponses) PatchComponentWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchComponentResp, error) {
-	rsp, err := c.PatchComponentWithBody(ctx, namespaceName, projectName, componentName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePatchComponentResp(rsp)
-}
-
-func (c *ClientWithResponses) PatchComponentWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body PatchComponentJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchComponentResp, error) {
-	rsp, err := c.PatchComponent(ctx, namespaceName, projectName, componentName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePatchComponentResp(rsp)
 }
 
 // ListComponentBindingsWithResponse request returning *ListComponentBindingsResp
@@ -12645,6 +12704,290 @@ func ParseGetComponentWorkflowSchemaResp(rsp *http.Response) (*GetComponentWorkf
 	return response, nil
 }
 
+// ParseListComponentsResp parses an HTTP response from a ListComponentsWithResponse call
+func ParseListComponentsResp(rsp *http.Response) (*ListComponentsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ComponentList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateComponentResp parses an HTTP response from a CreateComponentWithResponse call
+func ParseCreateComponentResp(rsp *http.Response) (*CreateComponentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateComponentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Component
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteComponentResp parses an HTTP response from a DeleteComponentWithResponse call
+func ParseDeleteComponentResp(rsp *http.Response) (*DeleteComponentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteComponentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetComponentResp parses an HTTP response from a GetComponentWithResponse call
+func ParseGetComponentResp(rsp *http.Response) (*GetComponentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Component
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateComponentResp parses an HTTP response from a UpdateComponentWithResponse call
+func ParseUpdateComponentResp(rsp *http.Response) (*UpdateComponentResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateComponentResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Component
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListDataPlanesResp parses an HTTP response from a ListDataPlanesWithResponse call
 func ParseListDataPlanesResp(rsp *http.Response) (*ListDataPlanesResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -13395,243 +13738,6 @@ func ParseUpdateProjectResp(rsp *http.Response) (*UpdateProjectResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListComponentsResp parses an HTTP response from a ListComponentsWithResponse call
-func ParseListComponentsResp(rsp *http.Response) (*ListComponentsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListComponentsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ComponentList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateComponentResp parses an HTTP response from a CreateComponentWithResponse call
-func ParseCreateComponentResp(rsp *http.Response) (*CreateComponentResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateComponentResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest Component
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetComponentResp parses an HTTP response from a GetComponentWithResponse call
-func ParseGetComponentResp(rsp *http.Response) (*GetComponentResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetComponentResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Component
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePatchComponentResp parses an HTTP response from a PatchComponentWithResponse call
-func ParsePatchComponentResp(rsp *http.Response) (*PatchComponentResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PatchComponentResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Component
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
