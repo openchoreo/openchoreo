@@ -44,11 +44,11 @@ var minimalTemplate = &runtime.RawExtension{
 // rbFixture returns a ReleaseBinding.  When withFinalizer is true the
 // finalizer is pre-seeded so that the first Reconcile skips straight to
 // business logic instead of just adding the finalizer and returning early.
-func rbFixture(name, namespace, project, component, envName, releaseName string, withFinalizer bool) *openchoreov1alpha1.ReleaseBinding {
+func rbFixture(name, project, component, envName, releaseName string, withFinalizer bool) *openchoreov1alpha1.ReleaseBinding {
 	rb := &openchoreov1alpha1.ReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 		Spec: openchoreov1alpha1.ReleaseBindingSpec{
 			Owner: openchoreov1alpha1.ReleaseBindingOwner{
@@ -69,11 +69,11 @@ func rbFixture(name, namespace, project, component, envName, releaseName string,
 // project/component.  The ResourceTemplate carries minimalTemplate (required
 // by CRD validation) and the Workload carries a minimal container spec (the
 // XValidation rule requires exactly one of container/containers to be set).
-func crFixture(name, namespace, project, component string) *openchoreov1alpha1.ComponentRelease {
+func crFixture(name, project, component string) *openchoreov1alpha1.ComponentRelease {
 	return &openchoreov1alpha1.ComponentRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 		Spec: openchoreov1alpha1.ComponentReleaseSpec{
 			Owner: openchoreov1alpha1.ComponentReleaseOwner{
@@ -99,11 +99,11 @@ func crFixture(name, namespace, project, component string) *openchoreov1alpha1.C
 // envFixture returns a minimal Environment.  When dpName is non-empty the
 // Environment carries an explicit DataPlaneRef; otherwise the controller
 // defaults to a DataPlane named "default" in the same namespace.
-func envFixture(name, namespace, dpName string) *openchoreov1alpha1.Environment {
+func envFixture(name, dpName string) *openchoreov1alpha1.Environment {
 	env := &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 	}
 	if dpName != "" {
@@ -116,22 +116,22 @@ func envFixture(name, namespace, dpName string) *openchoreov1alpha1.Environment 
 }
 
 // dpFixture returns a minimal DataPlane.
-func dpFixture(name, namespace string) *openchoreov1alpha1.DataPlane {
+func dpFixture(name string) *openchoreov1alpha1.DataPlane {
 	return &openchoreov1alpha1.DataPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 	}
 }
 
 // componentFixture returns a minimal Component.
 // ComponentType.Name must match '^(deployment|statefulset|cronjob|job|proxy)/...' (CRD validation).
-func componentFixture(name, namespace, project string) *openchoreov1alpha1.Component {
+func componentFixture(name, project string) *openchoreov1alpha1.Component {
 	return &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 		Spec: openchoreov1alpha1.ComponentSpec{
 			Owner: openchoreov1alpha1.ComponentOwner{
@@ -145,11 +145,11 @@ func componentFixture(name, namespace, project string) *openchoreov1alpha1.Compo
 }
 
 // projectFixture returns a minimal Project.
-func projectFixture(name, namespace string) *openchoreov1alpha1.Project {
+func projectFixture(name string) *openchoreov1alpha1.Project {
 	return &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: ns,
 		},
 	}
 }
@@ -205,9 +205,9 @@ func testReconcilerWithPipeline() *Reconciler {
 	}
 }
 
-// reconcileRequest builds a reconcile.Request for the given namespace/name.
-func reconcileRequest(namespace, name string) reconcile.Request {
-	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: name}}
+// reconcileRequest builds a reconcile.Request for the given name in the default test namespace.
+func reconcileRequest(name string) reconcile.Request {
+	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: name}}
 }
 
 // mustReconcile calls Reconcile and asserts no error is returned.
@@ -219,10 +219,10 @@ func mustReconcile(r *Reconciler, req reconcile.Request) reconcile.Result {
 }
 
 // fetchRB re-reads a ReleaseBinding from the API server.
-func fetchRB(namespace, name string) *openchoreov1alpha1.ReleaseBinding {
+func fetchRB(name string) *openchoreov1alpha1.ReleaseBinding {
 	GinkgoHelper()
 	rb := &openchoreov1alpha1.ReleaseBinding{}
-	Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, rb)).To(Succeed())
+	Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rb)).To(Succeed())
 	return rb
 }
 
@@ -231,11 +231,11 @@ func conditionFor(rb *openchoreov1alpha1.ReleaseBinding, condType string) *metav
 	return apimeta.FindStatusCondition(rb.Status.Conditions, condType)
 }
 
-// forceDelete strips all finalizers from a ReleaseBinding and then deletes it.
-// Call this in AfterEach to guarantee cleanup even when a finalizer is present.
-func forceDelete(namespace, name string) {
+// forceDelete strips all finalizers from a ReleaseBinding in the default test namespace
+// and then deletes it. Call this in AfterEach to guarantee cleanup even when a finalizer is present.
+func forceDelete(name string) {
 	rb := &openchoreov1alpha1.ReleaseBinding{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, rb); err != nil {
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rb); err != nil {
 		return // already gone
 	}
 	rb.Finalizers = nil
@@ -244,9 +244,9 @@ func forceDelete(namespace, name string) {
 }
 
 // forceDeleteRelease strips all finalizers from a Release and then deletes it.
-func forceDeleteRelease(namespace, name string) {
+func forceDeleteRelease(name string) {
 	rel := &openchoreov1alpha1.Release{}
-	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, rel); err != nil {
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rel); err != nil {
 		return
 	}
 	rel.Finalizers = nil
@@ -271,23 +271,23 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 	Context("Finalizer management", func() {
 		const rbName = "rb-finalizer-test"
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
-		AfterEach(func() { forceDelete(ns, rbName) })
+		AfterEach(func() { forceDelete(rbName) })
 
 		It("adds the finalizer on the first reconcile and returns early", func() {
 			r := testReconciler()
 
 			By("Creating a ReleaseBinding without a finalizer")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "comp", "env", "rel", false),
+				rbFixture(rbName, "proj", "comp", "env", "rel", false),
 			)).To(Succeed())
 
 			By("First reconcile adds the finalizer and returns without error")
 			mustReconcile(r, req)
 
 			By("Verifying the finalizer is present after the first reconcile")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			Expect(rb.Finalizers).To(ContainElement(ReleaseBindingFinalizer))
 		})
 
@@ -296,7 +296,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Creating a ReleaseBinding without a finalizer")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "comp", "env", "rel", false),
+				rbFixture(rbName, "proj", "comp", "env", "rel", false),
 			)).To(Succeed())
 
 			By("First reconcile adds the finalizer")
@@ -306,7 +306,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			mustReconcile(r, req)
 
 			By("Verifying the finalizer appears exactly once")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			count := 0
 			for _, f := range rb.Finalizers {
 				if f == ReleaseBindingFinalizer {
@@ -321,23 +321,23 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 	Context("when the referenced ComponentRelease does not exist", func() {
 		const rbName = "rb-no-cr"
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
-		AfterEach(func() { forceDelete(ns, rbName) })
+		AfterEach(func() { forceDelete(rbName) })
 
 		It("sets ReleaseSynced=False with reason ComponentReleaseNotFound", func() {
 			r := testReconciler()
 
 			By("Creating a ReleaseBinding whose ReleaseName points to a non-existent CR")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "comp", "env", "does-not-exist", true),
+				rbFixture(rbName, "proj", "comp", "env", "does-not-exist", true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing ComponentRelease")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ComponentReleaseNotFound reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil(), "ReleaseSynced condition must be set")
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -352,10 +352,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			rbName = "rb-bad-cr"
 			crName = "cr-bad-cr"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -365,18 +365,18 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating a ComponentRelease owned by 'other-project'")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, "other-project", "comp"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, "other-project", "comp"))).To(Succeed())
 
 			By("Creating a ReleaseBinding owned by 'my-project' that references the above CR")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "my-project", "comp", "env", crName, true),
+				rbFixture(rbName, "my-project", "comp", "env", crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the owner mismatch")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with InvalidReleaseConfiguration reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -391,10 +391,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			rbName = "rb-no-env"
 			crName = "cr-no-env"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -404,18 +404,18 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating a valid ComponentRelease")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, "proj", "comp"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "comp"))).To(Succeed())
 
 			By("Creating a ReleaseBinding that references a non-existent Environment")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "comp", "does-not-exist-env", crName, true),
+				rbFixture(rbName, "proj", "comp", "does-not-exist-env", crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Environment")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with EnvironmentNotFound reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -431,10 +431,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			crName  = "cr-no-dp"
 			envName = "env-no-dp"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -447,21 +447,21 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating a valid ComponentRelease")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, "proj", "comp"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "comp"))).To(Succeed())
 
 			By("Creating an Environment with an explicit DataPlaneRef to a non-existent DataPlane")
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, "does-not-exist-dp"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, "does-not-exist-dp"))).To(Succeed())
 
 			By("Creating the ReleaseBinding")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "comp", envName, crName, true),
+				rbFixture(rbName, "proj", "comp", envName, crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing DataPlane")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with DataPlaneNotFound reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -478,10 +478,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			envName = "env-no-comp"
 			dpName  = "dp-no-comp"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -497,22 +497,22 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating a ComponentRelease for a component that will not be created")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, "proj", "does-not-exist-comp"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "does-not-exist-comp"))).To(Succeed())
 
 			By("Creating DataPlane and Environment")
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
 
 			By("Creating the ReleaseBinding (no matching Component created)")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "proj", "does-not-exist-comp", envName, crName, true),
+				rbFixture(rbName, "proj", "does-not-exist-comp", envName, crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Component")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ComponentNotFound reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -530,10 +530,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			dpName   = "dp-no-proj"
 			compName = "comp-no-proj"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -552,21 +552,21 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating all deps except the Project itself")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, "does-not-exist-proj", compName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, componentFixture(compName, ns, "does-not-exist-proj"))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, "does-not-exist-proj", compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, "does-not-exist-proj"))).To(Succeed())
 
 			By("Creating the ReleaseBinding (no matching Project created)")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, "does-not-exist-proj", compName, envName, crName, true),
+				rbFixture(rbName, "does-not-exist-proj", compName, envName, crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Project")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ProjectNotFound reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
@@ -590,12 +590,12 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			rbName   = "rb-happy"
 			crName   = "cr-happy"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 		expectedReleaseName := compName + "-" + envName // makeDataPlaneReleaseName format
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
-			forceDeleteRelease(ns, expectedReleaseName)
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -617,15 +617,15 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconcilerWithPipeline()
 
 			By("Creating all five dependencies (CR, dp, env, component, project)")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, project, compName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, componentFixture(compName, ns, project))).To(Succeed())
-			Expect(k8sClient.Create(ctx, projectFixture(project, ns))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
 
 			By("Creating the ReleaseBinding with the finalizer pre-set")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, project, compName, envName, crName, true),
+				rbFixture(rbName, project, compName, envName, crName, true),
 			)).To(Succeed())
 
 			By("First reconcile: renders resources and creates the dataplane Release")
@@ -646,7 +646,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(createdRelease.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, envName))
 
 			By("Verifying ReleaseSynced=True with ReasonReleaseCreated after first reconcile")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
@@ -658,7 +658,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				"second reconcile should not request requeue when Release is unchanged")
 
 			By("Verifying ReleaseSynced=True with ReasonReleaseSynced after second reconcile")
-			rb = fetchRB(ns, rbName)
+			rb = fetchRB(rbName)
 			cond = conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
@@ -683,10 +683,10 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			rbName   = "rb-undeploy"
 			crName   = "cr-undeploy"
 		)
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
+			forceDelete(rbName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -708,14 +708,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating all dependencies")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, project, compName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, componentFixture(compName, ns, project))).To(Succeed())
-			Expect(k8sClient.Create(ctx, projectFixture(project, ns))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
 
 			By("Creating the ReleaseBinding with State=Undeploy")
-			rb := rbFixture(rbName, ns, project, compName, envName, crName, true)
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
 			rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
@@ -723,7 +723,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			mustReconcile(r, req)
 
 			By("Verifying all three conditions are False with ResourcesUndeployed reason")
-			updated := fetchRB(ns, rbName)
+			updated := fetchRB(rbName)
 			for _, condType := range []string{
 				string(ConditionReleaseSynced),
 				string(ConditionResourcesReady),
@@ -751,11 +751,11 @@ var _ = Describe("ReleaseBinding Controller", func() {
 		)
 		// makeDataPlaneReleaseName format: {component}-{env}
 		releaseName := compName + "-" + envName
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
-			forceDeleteRelease(ns, releaseName)
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -777,14 +777,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconciler()
 
 			By("Creating all dependencies")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, project, compName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, componentFixture(compName, ns, project))).To(Succeed())
-			Expect(k8sClient.Create(ctx, projectFixture(project, ns))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
 
 			By("Creating the ReleaseBinding with State=Undeploy")
-			rb := rbFixture(rbName, ns, project, compName, envName, crName, true)
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
 			rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
@@ -810,7 +810,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				"Release should be marked for deletion after undeploy reconcile")
 
 			By("Verifying the conditions indicate 'being undeployed'")
-			updated := fetchRB(ns, rbName)
+			updated := fetchRB(rbName)
 			for _, condType := range []string{
 				string(ConditionReleaseSynced),
 				string(ConditionResourcesReady),
@@ -835,7 +835,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			mustReconcile(r, req)
 
 			By("Verifying all conditions are False with ResourcesUndeployed reason")
-			updated = fetchRB(ns, rbName)
+			updated = fetchRB(rbName)
 			for _, condType := range []string{
 				string(ConditionReleaseSynced),
 				string(ConditionResourcesReady),
@@ -853,13 +853,13 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 	Context("Finalization with no owned Releases", func() {
 		const rbName = "rb-finalize-empty"
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		It("sets Finalizing condition then removes the finalizer when no Releases exist", func() {
 			r := testReconciler()
 
 			By("Creating a ReleaseBinding with the finalizer pre-set")
-			rb := rbFixture(rbName, ns, "proj", "comp", "env", "rel", true)
+			rb := rbFixture(rbName, "proj", "comp", "env", "rel", true)
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
 			By("Triggering deletion — DeletionTimestamp is set; the finalizer keeps the object alive")
@@ -878,7 +878,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			mustReconcile(r, req)
 
 			By("Verifying the Finalizing condition is True after the first finalize reconcile")
-			updated := fetchRB(ns, rbName)
+			updated := fetchRB(rbName)
 			cond := conditionFor(updated, string(ConditionFinalizing))
 			Expect(cond).NotTo(BeNil(), "Finalizing condition must be present")
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
@@ -915,18 +915,18 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			rbName         = "rb-finalize-blocked"
 		)
 		releaseName := compName + "-" + envName
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
-			forceDeleteRelease(ns, releaseName)
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
 		})
 
 		It("waits for the blocked Release to finish terminating before removing its finalizer", func() {
 			r := testReconciler()
 
 			By("Creating the ReleaseBinding with the finalizer pre-set")
-			rb := rbFixture(rbName, ns, project, compName, envName, "rel", true)
+			rb := rbFixture(rbName, project, compName, envName, "rel", true)
 			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
 
 			By("Creating an owned Release with matching labels AND a blocking finalizer")
@@ -947,7 +947,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("First finalize reconcile: sets the Finalizing condition and returns early")
 			mustReconcile(r, req)
-			updated := fetchRB(ns, rbName)
+			updated := fetchRB(rbName)
 			cond := conditionFor(updated, string(ConditionFinalizing))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
@@ -971,7 +971,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			}, timeout, interval).Should(Succeed())
 
 			By("Verifying the ReleaseBinding still has its finalizer while the Release is blocked")
-			updated = fetchRB(ns, rbName)
+			updated = fetchRB(rbName)
 			Expect(updated.Finalizers).To(ContainElement(ReleaseBindingFinalizer))
 			Expect(updated.DeletionTimestamp.IsZero()).To(BeFalse())
 
@@ -1031,11 +1031,11 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			crName   = "cr-conflict"
 		)
 		releaseName := compName + "-" + envName
-		req := reconcileRequest(ns, rbName)
+		req := reconcileRequest(rbName)
 
 		AfterEach(func() {
-			forceDelete(ns, rbName)
-			forceDeleteRelease(ns, releaseName)
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
 			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
 				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
 			})
@@ -1057,11 +1057,11 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			r := testReconcilerWithPipeline()
 
 			By("Creating all dependencies")
-			Expect(k8sClient.Create(ctx, crFixture(crName, ns, project, compName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, dpFixture(dpName, ns))).To(Succeed())
-			Expect(k8sClient.Create(ctx, envFixture(envName, ns, dpName))).To(Succeed())
-			Expect(k8sClient.Create(ctx, componentFixture(compName, ns, project))).To(Succeed())
-			Expect(k8sClient.Create(ctx, projectFixture(project, ns))).To(Succeed())
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
 
 			By("Pre-creating a Release with the expected name but NO owner reference")
 			// The Release has no ownerReferences → HasOwnerReference will return false
@@ -1084,14 +1084,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 
 			By("Creating the ReleaseBinding with the finalizer pre-set")
 			Expect(k8sClient.Create(ctx,
-				rbFixture(rbName, ns, project, compName, envName, crName, true),
+				rbFixture(rbName, project, compName, envName, crName, true),
 			)).To(Succeed())
 
 			By("Reconciling — pipeline renders resources; CreateOrUpdate finds existing Release with wrong owner")
 			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ReleaseOwnershipConflict reason")
-			rb := fetchRB(ns, rbName)
+			rb := fetchRB(rbName)
 			cond := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
