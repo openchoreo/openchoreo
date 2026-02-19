@@ -64,10 +64,8 @@ func (h *Handler) Routes() http.Handler {
 	// OAuth Protected Resource Metadata endpoint
 	routes.HandleFunc("GET /.well-known/oauth-protected-resource", h.OAuthProtectedResourceMetadata)
 
-	// Webhook endpoints (public - called by Git providers)
-	routes.HandleFunc("POST "+v1+"/webhooks/github", h.HandleGitHubWebhook)
-	routes.HandleFunc("POST "+v1+"/webhooks/gitlab", h.HandleGitLabWebhook)
-	routes.HandleFunc("POST "+v1+"/webhooks/bitbucket", h.HandleBitbucketWebhook)
+	// Webhook endpoint (public - called by Git providers, provider detected from headers)
+	routes.HandleFunc("POST "+v1+"/webhooks", h.HandleWebhook)
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 

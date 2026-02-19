@@ -24,19 +24,35 @@ const (
 	WebhookSecretNamespace = "openchoreo-control-plane" // #nosec G101 -- This is a namespace name, not a credential
 )
 
-// HandleGitHubWebhook processes incoming GitHub webhook events
-func (h *Handler) HandleGitHubWebhook(w http.ResponseWriter, r *http.Request) {
-	h.handleWebhook(w, r, git.ProviderGitHub, "X-Hub-Signature-256", "github-secret")
+// HandleWebhook processes incoming webhook events from any supported git provider.
+// The provider is detected from the request headers:
+//   - GitHub:    X-Hub-Signature-256
+//   - GitLab:    X-Gitlab-Token
+//   - Bitbucket: X-Event-Key
+func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	providerType, signatureHeader, secretKey, ok := detectGitProvider(r)
+	if !ok {
+		h.logger.Error("Unable to detect git provider from webhook headers")
+		respondJSON(w, http.StatusBadRequest, models.ErrorResponse("Unable to detect git provider from request headers", "UNKNOWN_GIT_PROVIDER"))
+		return
+	}
+	h.handleWebhook(w, r, providerType, signatureHeader, secretKey)
 }
 
-// HandleGitLabWebhook processes incoming GitLab webhook events
-func (h *Handler) HandleGitLabWebhook(w http.ResponseWriter, r *http.Request) {
-	h.handleWebhook(w, r, git.ProviderGitLab, "X-Gitlab-Token", "gitlab-secret")
-}
-
-// HandleBitbucketWebhook processes incoming Bitbucket webhook events
-func (h *Handler) HandleBitbucketWebhook(w http.ResponseWriter, r *http.Request) {
-	h.handleWebhook(w, r, git.ProviderBitbucket, "X-Hook-UUID", "bitbucket-secret")
+// detectGitProvider identifies the git provider from the webhook request headers.
+// Returns the provider type, the header name carrying the signature/token, the
+// Kubernetes secret key for that provider, and whether detection succeeded.
+func detectGitProvider(r *http.Request) (git.ProviderType, string, string, bool) {
+	switch {
+	case r.Header.Get("X-Hub-Signature-256") != "":
+		return git.ProviderGitHub, "X-Hub-Signature-256", "github-secret", true
+	case r.Header.Get("X-Gitlab-Token") != "":
+		return git.ProviderGitLab, "X-Gitlab-Token", "gitlab-secret", true
+	case r.Header.Get("X-Event-Key") != "":
+		return git.ProviderBitbucket, "X-Hook-UUID", "bitbucket-secret", true
+	default:
+		return "", "", "", false
+	}
 }
 
 // handleWebhook is the common handler for all git provider webhooks
