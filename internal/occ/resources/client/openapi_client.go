@@ -171,7 +171,7 @@ func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName stri
 
 // ListComponentTypes retrieves all component types for a namespace
 func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string) (*gen.ComponentTypeList, error) {
-	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName)
+	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName, &gen.ListComponentTypesParams{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list component types: %w", err)
 	}
@@ -179,6 +179,54 @@ func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string) (
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
 	}
 	return resp.JSON200, nil
+}
+
+// GetComponentType retrieves a specific component type
+func (c *Client) GetComponentType(ctx context.Context, namespaceName, ctName string) (*gen.ComponentType, error) {
+	resp, err := c.client.GetComponentTypeWithResponse(ctx, namespaceName, ctName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get component type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// CreateComponentType creates a new component type
+func (c *Client) CreateComponentType(ctx context.Context, namespaceName string, ct gen.ComponentType) (*gen.ComponentType, error) {
+	resp, err := c.client.CreateComponentTypeWithResponse(ctx, namespaceName, ct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create component type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateComponentType updates an existing component type
+func (c *Client) UpdateComponentType(ctx context.Context, namespaceName, ctName string, ct gen.ComponentType) (*gen.ComponentType, error) {
+	resp, err := c.client.UpdateComponentTypeWithResponse(ctx, namespaceName, ctName, ct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update component type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteComponentType deletes a component type
+func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName string) error {
+	resp, err := c.client.DeleteComponentTypeWithResponse(ctx, namespaceName, ctName)
+	if err != nil {
+		return fmt.Errorf("failed to delete component type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
 }
 
 // ListTraits retrieves all traits for a namespace

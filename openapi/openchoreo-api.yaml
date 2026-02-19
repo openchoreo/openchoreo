@@ -972,10 +972,12 @@ paths:
     get:
       operationId: listComponentTypes
       summary: List component types
-      description: Returns a list of component types available in the namespace.
+      description: Returns a paginated list of component types available in the namespace.
       tags: [ComponentTypes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of component types
@@ -987,6 +989,116 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createComponentType
+      summary: Create component type
+      description: Creates a new component type within a namespace.
+      tags: [ComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentType'
+      responses:
+        '201':
+          description: Component type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/component-types/{ctName}:
+    get:
+      operationId: getComponentType
+      summary: Get component type
+      description: Returns details of a specific component type.
+      tags: [ComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentTypeNameParam'
+      responses:
+        '200':
+          description: Component type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateComponentType
+      summary: Update component type
+      description: Replaces an existing component type (full update).
+      tags: [ComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComponentType'
+      responses:
+        '200':
+          description: Component type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteComponentType
+      summary: Delete component type
+      description: Deletes a component type by name.
+      tags: [ComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentTypeNameParam'
+      responses:
+        '204':
+          description: Component type deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -4896,7 +5008,6 @@ components:
       description: Paginated list of component types
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4905,51 +5016,153 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
-    ComponentType:
+    ComponentTypeSpec:
       type: object
-      description: ComponentType resource defining a workload template
+      description: Desired state of a ComponentType
       required:
-        - name
         - workloadType
-        - createdAt
+        - resources
       properties:
-        name:
-          type: string
-          description: ComponentType name (unique within namespace)
-          example: go-service
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Go Service
-        description:
-          type: string
-          description: ComponentType description
-          example: Template for Go-based microservices
         workloadType:
           type: string
-          description: Type of workload (service, web-application, scheduled-task)
-          example: service
+          description: Primary workload resource type for this component type
+          enum: [deployment, statefulset, cronjob, job, proxy]
+          example: deployment
         allowedWorkflows:
           type: array
-          description: List of allowed workflow names for this component type
+          description: List of allowed ComponentWorkflow names for this component type
           items:
             type: string
           example: ["docker-build", "buildpack-build"]
+        schema:
+          type: object
+          description: Developer-configurable schema definition
+          properties:
+            types:
+              type: object
+              description: Reusable type definitions
+              additionalProperties: true
+            parameters:
+              type: object
+              description: Static developer configuration parameters
+              additionalProperties: true
+            envOverrides:
+              type: object
+              description: Environment-specific overrides for platform engineers
+              additionalProperties: true
+        traits:
+          type: array
+          description: Pre-configured trait instances embedded in this component type
+          items:
+            type: object
+            required:
+              - name
+              - instanceName
+            properties:
+              kind:
+                type: string
+                description: Kind of trait (Trait or ClusterTrait)
+                enum: [Trait, ClusterTrait]
+                default: Trait
+              name:
+                type: string
+                description: Name of the Trait resource
+              instanceName:
+                type: string
+                description: Unique instance name for this trait
+              parameters:
+                type: object
+                description: Trait parameter bindings (concrete values or CEL expressions)
+                additionalProperties: true
+              envOverrides:
+                type: object
+                description: Trait environment override bindings
+                additionalProperties: true
         allowedTraits:
           type: array
           description: >-
-            List of allowed trait references that developers can attach to components of this type
-            (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind).
-            If empty or omitted, no additional component-level traits are allowed;
-            only traits embedded in the component type's spec.traits are permitted.
+            Restrict which Trait or ClusterTrait CRs developers can attach.
+            Format: "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind.
           items:
-            type: string
-          example: ["autoscaler", "ClusterTrait:logger"]
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+            type: object
+            required:
+              - name
+            properties:
+              kind:
+                type: string
+                description: Kind of trait reference
+                enum: [Trait, ClusterTrait]
+                default: Trait
+              name:
+                type: string
+                description: Name of the Trait or ClusterTrait resource
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated during rendering
+          items:
+            type: object
+            required:
+              - rule
+              - message
+            properties:
+              rule:
+                type: string
+                description: "CEL expression wrapped in ${...} that must evaluate to true"
+              message:
+                type: string
+                description: Error message shown when the rule evaluates to false
+        resources:
+          type: array
+          description: Templates that generate Kubernetes resources dynamically
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - template
+            properties:
+              id:
+                type: string
+                description: Unique identifier for this resource within the component type
+              targetPlane:
+                type: string
+                description: Target plane for deployment
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created"
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions
+                additionalProperties: true
+
+    ComponentTypeStatus:
+      type: object
+      description: Observed state of a ComponentType
+
+    ComponentType:
+      type: object
+      description: |
+        ComponentType resource (Kubernetes object without kind/apiVersion).
+        Defines workload templates used by platform engineers to govern component behavior.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ComponentTypeSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ComponentTypeStatus'
 
     # -------------------------------------------------------------------------
     # Traits

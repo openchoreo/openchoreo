@@ -12,6 +12,7 @@ import (
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
@@ -21,25 +22,27 @@ var errNotImplemented = errors.New("not implemented")
 
 // Handler implements gen.StrictServerInterface
 type Handler struct {
-	services         *services.Services
-	authzService     authzsvc.Service
-	projectService   projectsvc.Service
-	componentService componentsvc.Service
-	logger           *slog.Logger
-	Config           *config.Config
+	services             *services.Services
+	authzService         authzsvc.Service
+	projectService       projectsvc.Service
+	componentService     componentsvc.Service
+	componentTypeService componenttypesvc.Service
+	logger               *slog.Logger
+	Config               *config.Config
 }
 
 // Compile-time check that Handler implements StrictServerInterface
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, componentService componentsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
-		services:         services,
-		authzService:     authzService,
-		projectService:   projectService,
-		componentService: componentService,
-		logger:           logger,
-		Config:           cfg,
+		services:             services,
+		authzService:         authzService,
+		projectService:       projectService,
+		componentService:     componentService,
+		componentTypeService: componentTypeService,
+		logger:               logger,
+		Config:               cfg,
 	}
 }
