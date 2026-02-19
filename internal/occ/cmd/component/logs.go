@@ -28,7 +28,7 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 	}
 
 	// Get component to resolve UID
-	component, err := apiClient.GetComponent(ctx, params.Namespace, params.Project, params.Component)
+	component, err := apiClient.GetComponent(ctx, params.Namespace, params.Component)
 	if err != nil {
 		return fmt.Errorf("failed to get component: %w", err)
 	}

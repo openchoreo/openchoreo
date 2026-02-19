@@ -40,7 +40,7 @@ func (s *ComponentWorkflowImpl) StartComponentWorkflowRun(params api.StartCompon
 	// If parameters are provided, update the component workflow parameters first
 	if len(params.Parameters) > 0 {
 		// Get existing component to merge with existing workflow parameters
-		component, err := c.GetComponent(ctx, params.Namespace, params.Project, params.Component)
+		component, err := c.GetComponent(ctx, params.Namespace, params.Component)
 		if err != nil {
 			return fmt.Errorf("failed to get component: %w", err)
 		}

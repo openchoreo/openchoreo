@@ -110,7 +110,7 @@ func (c *Client) ListComponents(ctx context.Context, namespaceName, projectName 
 }
 
 // GetComponent retrieves a specific component
-func (c *Client) GetComponent(ctx context.Context, namespaceName, projectName, componentName string) (*gen.Component, error) {
+func (c *Client) GetComponent(ctx context.Context, namespaceName, componentName string) (*gen.Component, error) {
 	resp, err := c.client.GetComponentWithResponse(ctx, namespaceName, componentName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get component: %w", err)
