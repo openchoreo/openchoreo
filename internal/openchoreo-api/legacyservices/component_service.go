@@ -1482,6 +1482,7 @@ func (s *ComponentService) CreateComponent(ctx context.Context, namespaceName, p
 		DisplayName:   req.DisplayName,
 		Description:   req.Description,
 		Type:          req.ComponentType.Name,
+		ComponentType: req.ComponentType,
 		ProjectName:   projectName,
 		NamespaceName: namespaceName,
 		CreatedAt:     component.CreationTimestamp.Time,
@@ -1906,6 +1907,14 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 
 	componentType := component.Spec.ComponentType.Name
 
+	var componentTypeRef *models.ComponentTypeRef
+	if component.Spec.ComponentType.Name != "" {
+		componentTypeRef = &models.ComponentTypeRef{
+			Kind: string(component.Spec.ComponentType.Kind),
+			Name: component.Spec.ComponentType.Name,
+		}
+	}
+
 	// Get deletion timestamp if the component is being deleted
 	var deletionTimestamp *time.Time
 	if component.DeletionTimestamp != nil {
@@ -1919,6 +1928,7 @@ func (s *ComponentService) toComponentResponse(component *openchoreov1alpha1.Com
 		DisplayName:       component.Annotations[controller.AnnotationKeyDisplayName],
 		Description:       component.Annotations[controller.AnnotationKeyDescription],
 		Type:              componentType,
+		ComponentType:     componentTypeRef,
 		AutoDeploy:        component.Spec.AutoDeploy,
 		ProjectName:       projectName,
 		NamespaceName:     component.Namespace,

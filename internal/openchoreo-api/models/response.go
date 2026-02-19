@@ -58,6 +58,7 @@ type ComponentResponse struct {
 	DisplayName       string                           `json:"displayName,omitempty"`
 	Description       string                           `json:"description,omitempty"`
 	Type              string                           `json:"type"`
+	ComponentType     *ComponentTypeRef                `json:"componentType,omitempty"`
 	AutoDeploy        bool                             `json:"autoDeploy"`
 	ProjectName       string                           `json:"projectName"`
 	NamespaceName     string                           `json:"namespaceName"`
