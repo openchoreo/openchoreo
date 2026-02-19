@@ -1135,10 +1135,12 @@ paths:
     get:
       operationId: listTraits
       summary: List traits
-      description: Returns a list of traits available in the namespace.
+      description: Returns a paginated list of traits available in the namespace.
       tags: [Traits]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of traits
@@ -1150,6 +1152,116 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createTrait
+      summary: Create trait
+      description: Creates a new trait within a namespace.
+      tags: [Traits]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trait'
+      responses:
+        '201':
+          description: Trait created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trait'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/traits/{traitName}:
+    get:
+      operationId: getTrait
+      summary: Get trait
+      description: Returns details of a specific trait.
+      tags: [Traits]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/TraitNameParam'
+      responses:
+        '200':
+          description: Trait details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trait'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateTrait
+      summary: Update trait
+      description: Replaces an existing trait (full update).
+      tags: [Traits]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/TraitNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Trait'
+      responses:
+        '200':
+          description: Trait updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trait'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteTrait
+      summary: Delete trait
+      description: Deletes a trait by name.
+      tags: [Traits]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/TraitNameParam'
+      responses:
+        '204':
+          description: Trait deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -5172,7 +5284,6 @@ components:
       description: Paginated list of traits
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5181,30 +5292,147 @@ components:
         pagination:
           $ref: '#/components/schemas/Pagination'
 
+    TraitSpec:
+      type: object
+      description: Desired state of a Trait
+      properties:
+        schema:
+          type: object
+          description: Trait parameter schema definition
+          properties:
+            types:
+              type: object
+              description: Reusable type definitions
+              additionalProperties: true
+            parameters:
+              type: object
+              description: Developer-facing configuration options
+              additionalProperties: true
+            envOverrides:
+              type: object
+              description: Environment-specific overrides
+              additionalProperties: true
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated during rendering
+          items:
+            type: object
+            required:
+              - rule
+              - message
+            properties:
+              rule:
+                type: string
+                description: "CEL expression wrapped in ${...} that must evaluate to true"
+              message:
+                type: string
+                description: Error message shown when the rule evaluates to false
+        creates:
+          type: array
+          description: New Kubernetes resources to create when this trait is applied
+          items:
+            type: object
+            required:
+              - template
+            properties:
+              targetPlane:
+                type: string
+                description: Target plane for deployment
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created"
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions
+                additionalProperties: true
+        patches:
+          type: array
+          description: Modifications to existing resources generated by the ComponentType
+          items:
+            type: object
+            required:
+              - target
+              - operations
+            properties:
+              forEach:
+                type: string
+                description: "CEL expression for repeating this patch"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              target:
+                type: object
+                description: Target resource to patch
+                required:
+                  - group
+                  - version
+                  - kind
+                properties:
+                  group:
+                    type: string
+                    description: API group of the resource
+                  version:
+                    type: string
+                    description: API version of the resource
+                  kind:
+                    type: string
+                    description: Resource type to patch
+                  where:
+                    type: string
+                    description: "CEL expression to filter which resources to patch"
+              targetPlane:
+                type: string
+                description: Target plane for this patch
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              operations:
+                type: array
+                description: JSONPatch operations to apply
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                    - op
+                    - path
+                  properties:
+                    op:
+                      type: string
+                      description: Operation type
+                      enum: [add, replace, remove]
+                    path:
+                      type: string
+                      description: JSON Pointer to the field to modify
+                    value:
+                      description: Value to set (for add/replace operations)
+
+    TraitStatus:
+      type: object
+      description: Observed state of a Trait
+
     Trait:
       type: object
-      description: Trait resource for composable cross-cutting concerns
+      description: |
+        Trait resource (Kubernetes object without kind/apiVersion).
+        Defines composable cross-cutting concerns that can be applied to components.
       required:
-        - name
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: Trait name (unique within namespace)
-          example: autoscaler
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Auto Scaler
-        description:
-          type: string
-          description: Trait description
-          example: Enables horizontal pod autoscaling
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/TraitSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/TraitStatus'
 
     # -------------------------------------------------------------------------
     # Schema Response

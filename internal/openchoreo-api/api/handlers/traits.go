@@ -5,47 +5,173 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 )
 
-// ListTraits returns a list of traits
+// ListTraits returns a paginated list of traits within a namespace.
 func (h *Handler) ListTraits(
 	ctx context.Context,
 	request gen.ListTraitsRequestObject,
 ) (gen.ListTraitsResponseObject, error) {
 	h.logger.Debug("ListTraits called", "namespaceName", request.NamespaceName)
 
-	traits, err := h.services.TraitService.ListTraits(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.traitService.ListTraits(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list traits", "error", err)
 		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to generated types
-	items := make([]gen.Trait, 0, len(traits))
-	for _, t := range traits {
-		items = append(items, toGenTrait(t))
+	items, err := convertList[openchoreov1alpha1.Trait, gen.Trait](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert traits", "error", err)
+		return gen.ListTraits500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// TODO: Implement proper cursor-based pagination with Kubernetes continuation tokens
 	return gen.ListTraits200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// toGenTrait converts models.TraitResponse to gen.Trait
-func toGenTrait(t *models.TraitResponse) gen.Trait {
-	return gen.Trait{
-		Name:        t.Name,
-		DisplayName: ptr.To(t.DisplayName),
-		Description: ptr.To(t.Description),
-		CreatedAt:   t.CreatedAt,
+// CreateTrait creates a new trait within a namespace.
+func (h *Handler) CreateTrait(
+	ctx context.Context,
+	request gen.CreateTraitRequestObject,
+) (gen.CreateTraitResponseObject, error) {
+	h.logger.Info("CreateTrait called", "namespaceName", request.NamespaceName)
+
+	if request.Body == nil {
+		return gen.CreateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
+
+	tCR, err := convert[gen.Trait, openchoreov1alpha1.Trait](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	tCR.Status = openchoreov1alpha1.TraitStatus{}
+
+	created, err := h.traitService.CreateTrait(ctx, request.NamespaceName, &tCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, traitsvc.ErrTraitAlreadyExists) {
+			return gen.CreateTrait409JSONResponse{ConflictJSONResponse: conflict("Trait already exists")}, nil
+		}
+		h.logger.Error("Failed to create trait", "error", err)
+		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created trait", "error", err)
+		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Trait created successfully", "namespaceName", request.NamespaceName, "trait", created.Name)
+	return gen.CreateTrait201JSONResponse(genTrait), nil
+}
+
+// GetTrait returns details of a specific trait.
+func (h *Handler) GetTrait(
+	ctx context.Context,
+	request gen.GetTraitRequestObject,
+) (gen.GetTraitResponseObject, error) {
+	h.logger.Debug("GetTrait called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
+
+	t, err := h.traitService.GetTrait(ctx, request.NamespaceName, request.TraitName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, traitsvc.ErrTraitNotFound) {
+			return gen.GetTrait404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
+		}
+		h.logger.Error("Failed to get trait", "error", err)
+		return gen.GetTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*t)
+	if err != nil {
+		h.logger.Error("Failed to convert trait", "error", err)
+		return gen.GetTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetTrait200JSONResponse(genTrait), nil
+}
+
+// UpdateTrait replaces an existing trait (full update).
+func (h *Handler) UpdateTrait(
+	ctx context.Context,
+	request gen.UpdateTraitRequestObject,
+) (gen.UpdateTraitResponseObject, error) {
+	h.logger.Info("UpdateTrait called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
+
+	if request.Body == nil {
+		return gen.UpdateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	tCR, err := convert[gen.Trait, openchoreov1alpha1.Trait](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateTrait400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	tCR.Status = openchoreov1alpha1.TraitStatus{}
+
+	// Ensure the name from the URL path is used
+	tCR.Name = request.TraitName
+
+	updated, err := h.traitService.UpdateTrait(ctx, request.NamespaceName, &tCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, traitsvc.ErrTraitNotFound) {
+			return gen.UpdateTrait404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
+		}
+		h.logger.Error("Failed to update trait", "error", err)
+		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated trait", "error", err)
+		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Trait updated successfully", "namespaceName", request.NamespaceName, "trait", updated.Name)
+	return gen.UpdateTrait200JSONResponse(genTrait), nil
+}
+
+// DeleteTrait deletes a trait by name.
+func (h *Handler) DeleteTrait(
+	ctx context.Context,
+	request gen.DeleteTraitRequestObject,
+) (gen.DeleteTraitResponseObject, error) {
+	h.logger.Info("DeleteTrait called", "namespaceName", request.NamespaceName, "traitName", request.TraitName)
+
+	err := h.traitService.DeleteTrait(ctx, request.NamespaceName, request.TraitName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteTrait403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, traitsvc.ErrTraitNotFound) {
+			return gen.DeleteTrait404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
+		}
+		h.logger.Error("Failed to delete trait", "error", err)
+		return gen.DeleteTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Trait deleted successfully", "namespaceName", request.NamespaceName, "trait", request.TraitName)
+	return gen.DeleteTrait204Response{}, nil
 }
 
 // GetTraitSchema returns the parameter schema for a trait

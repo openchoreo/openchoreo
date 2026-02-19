@@ -209,9 +209,13 @@ func PrintTraits(list *gen.TraitList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, trait := range list.Items {
+		age := ""
+		if trait.Metadata.CreationTimestamp != nil {
+			age = formatAge(*trait.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			trait.Name,
-			formatAge(trait.CreatedAt))
+			trait.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()

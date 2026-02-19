@@ -231,7 +231,7 @@ func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName 
 
 // ListTraits retrieves all traits for a namespace
 func (c *Client) ListTraits(ctx context.Context, namespaceName string) (*gen.TraitList, error) {
-	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName)
+	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName, &gen.ListTraitsParams{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traits: %w", err)
 	}
@@ -239,6 +239,54 @@ func (c *Client) ListTraits(ctx context.Context, namespaceName string) (*gen.Tra
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
 	}
 	return resp.JSON200, nil
+}
+
+// GetTrait retrieves a specific trait
+func (c *Client) GetTrait(ctx context.Context, namespaceName, traitName string) (*gen.Trait, error) {
+	resp, err := c.client.GetTraitWithResponse(ctx, namespaceName, traitName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trait: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// CreateTrait creates a new trait
+func (c *Client) CreateTrait(ctx context.Context, namespaceName string, t gen.Trait) (*gen.Trait, error) {
+	resp, err := c.client.CreateTraitWithResponse(ctx, namespaceName, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create trait: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateTrait updates an existing trait
+func (c *Client) UpdateTrait(ctx context.Context, namespaceName, traitName string, t gen.Trait) (*gen.Trait, error) {
+	resp, err := c.client.UpdateTraitWithResponse(ctx, namespaceName, traitName, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update trait: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteTrait deletes a trait
+func (c *Client) DeleteTrait(ctx context.Context, namespaceName, traitName string) error {
+	resp, err := c.client.DeleteTraitWithResponse(ctx, namespaceName, traitName)
+	if err != nil {
+		return fmt.Errorf("failed to delete trait: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return nil
 }
 
 // ListWorkflows retrieves all workflows for a namespace

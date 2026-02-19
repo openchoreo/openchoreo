@@ -36,6 +36,7 @@ import (
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
+	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
@@ -167,11 +168,14 @@ func main() {
 	// Initialize component type service for the new K8s-native API design
 	componentTypeService := componenttypesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componenttype-service"))
 
+	// Initialize trait service for the new K8s-native API design
+	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
+
 	// Initialize authz service with authz
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, componentService, componentTypeService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, componentService, componentTypeService, traitService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler
