@@ -420,20 +420,10 @@ type ClientInterface interface {
 	// ListUserTypes request
 	ListUserTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// HandleBitbucketWebhookWithBody request with any body
-	HandleBitbucketWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// HandleWebhookWithBody request with any body
+	HandleWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	HandleBitbucketWebhook(ctx context.Context, body HandleBitbucketWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// HandleGitHubWebhookWithBody request with any body
-	HandleGitHubWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	HandleGitHubWebhook(ctx context.Context, body HandleGitHubWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// HandleGitLabWebhookWithBody request with any body
-	HandleGitLabWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	HandleGitLabWebhook(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	HandleWebhook(ctx context.Context, body HandleWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1888,8 +1878,8 @@ func (c *Client) ListUserTypes(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-func (c *Client) HandleBitbucketWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleBitbucketWebhookRequestWithBody(c.Server, contentType, body)
+func (c *Client) HandleWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHandleWebhookRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1900,56 +1890,8 @@ func (c *Client) HandleBitbucketWebhookWithBody(ctx context.Context, contentType
 	return c.Client.Do(req)
 }
 
-func (c *Client) HandleBitbucketWebhook(ctx context.Context, body HandleBitbucketWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleBitbucketWebhookRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) HandleGitHubWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleGitHubWebhookRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) HandleGitHubWebhook(ctx context.Context, body HandleGitHubWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleGitHubWebhookRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) HandleGitLabWebhookWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleGitLabWebhookRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) HandleGitLabWebhook(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewHandleGitLabWebhookRequest(c.Server, body)
+func (c *Client) HandleWebhook(ctx context.Context, body HandleWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewHandleWebhookRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6670,19 +6612,19 @@ func NewListUserTypesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewHandleBitbucketWebhookRequest calls the generic HandleBitbucketWebhook builder with application/json body
-func NewHandleBitbucketWebhookRequest(server string, body HandleBitbucketWebhookJSONRequestBody) (*http.Request, error) {
+// NewHandleWebhookRequest calls the generic HandleWebhook builder with application/json body
+func NewHandleWebhookRequest(server string, body HandleWebhookJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewHandleBitbucketWebhookRequestWithBody(server, "application/json", bodyReader)
+	return NewHandleWebhookRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewHandleBitbucketWebhookRequestWithBody generates requests for HandleBitbucketWebhook with any type of body
-func NewHandleBitbucketWebhookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewHandleWebhookRequestWithBody generates requests for HandleWebhook with any type of body
+func NewHandleWebhookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -6690,87 +6632,7 @@ func NewHandleBitbucketWebhookRequestWithBody(server string, contentType string,
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/webhooks/bitbucket")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewHandleGitHubWebhookRequest calls the generic HandleGitHubWebhook builder with application/json body
-func NewHandleGitHubWebhookRequest(server string, body HandleGitHubWebhookJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewHandleGitHubWebhookRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewHandleGitHubWebhookRequestWithBody generates requests for HandleGitHubWebhook with any type of body
-func NewHandleGitHubWebhookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/webhooks/github")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewHandleGitLabWebhookRequest calls the generic HandleGitLabWebhook builder with application/json body
-func NewHandleGitLabWebhookRequest(server string, body HandleGitLabWebhookJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewHandleGitLabWebhookRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewHandleGitLabWebhookRequestWithBody generates requests for HandleGitLabWebhook with any type of body
-func NewHandleGitLabWebhookRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/webhooks/gitlab")
+	operationPath := fmt.Sprintf("/api/v1/webhooks")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7272,20 +7134,10 @@ type ClientWithResponsesInterface interface {
 	// ListUserTypesWithResponse request
 	ListUserTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUserTypesResp, error)
 
-	// HandleBitbucketWebhookWithBodyWithResponse request with any body
-	HandleBitbucketWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleBitbucketWebhookResp, error)
+	// HandleWebhookWithBodyWithResponse request with any body
+	HandleWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleWebhookResp, error)
 
-	HandleBitbucketWebhookWithResponse(ctx context.Context, body HandleBitbucketWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleBitbucketWebhookResp, error)
-
-	// HandleGitHubWebhookWithBodyWithResponse request with any body
-	HandleGitHubWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleGitHubWebhookResp, error)
-
-	HandleGitHubWebhookWithResponse(ctx context.Context, body HandleGitHubWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleGitHubWebhookResp, error)
-
-	// HandleGitLabWebhookWithBodyWithResponse request with any body
-	HandleGitLabWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error)
-
-	HandleGitLabWebhookWithResponse(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error)
+	HandleWebhookWithResponse(ctx context.Context, body HandleWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleWebhookResp, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error)
@@ -9670,7 +9522,7 @@ func (r ListUserTypesResp) StatusCode() int {
 	return 0
 }
 
-type HandleBitbucketWebhookResp struct {
+type HandleWebhookResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *WebhookEventResponse
@@ -9680,7 +9532,7 @@ type HandleBitbucketWebhookResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r HandleBitbucketWebhookResp) Status() string {
+func (r HandleWebhookResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -9688,57 +9540,7 @@ func (r HandleBitbucketWebhookResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r HandleBitbucketWebhookResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type HandleGitHubWebhookResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *WebhookEventResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r HandleGitHubWebhookResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r HandleGitHubWebhookResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type HandleGitLabWebhookResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *WebhookEventResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r HandleGitLabWebhookResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r HandleGitLabWebhookResp) StatusCode() int {
+func (r HandleWebhookResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10882,55 +10684,21 @@ func (c *ClientWithResponses) ListUserTypesWithResponse(ctx context.Context, req
 	return ParseListUserTypesResp(rsp)
 }
 
-// HandleBitbucketWebhookWithBodyWithResponse request with arbitrary body returning *HandleBitbucketWebhookResp
-func (c *ClientWithResponses) HandleBitbucketWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleBitbucketWebhookResp, error) {
-	rsp, err := c.HandleBitbucketWebhookWithBody(ctx, contentType, body, reqEditors...)
+// HandleWebhookWithBodyWithResponse request with arbitrary body returning *HandleWebhookResp
+func (c *ClientWithResponses) HandleWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleWebhookResp, error) {
+	rsp, err := c.HandleWebhookWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHandleBitbucketWebhookResp(rsp)
+	return ParseHandleWebhookResp(rsp)
 }
 
-func (c *ClientWithResponses) HandleBitbucketWebhookWithResponse(ctx context.Context, body HandleBitbucketWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleBitbucketWebhookResp, error) {
-	rsp, err := c.HandleBitbucketWebhook(ctx, body, reqEditors...)
+func (c *ClientWithResponses) HandleWebhookWithResponse(ctx context.Context, body HandleWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleWebhookResp, error) {
+	rsp, err := c.HandleWebhook(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseHandleBitbucketWebhookResp(rsp)
-}
-
-// HandleGitHubWebhookWithBodyWithResponse request with arbitrary body returning *HandleGitHubWebhookResp
-func (c *ClientWithResponses) HandleGitHubWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleGitHubWebhookResp, error) {
-	rsp, err := c.HandleGitHubWebhookWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHandleGitHubWebhookResp(rsp)
-}
-
-func (c *ClientWithResponses) HandleGitHubWebhookWithResponse(ctx context.Context, body HandleGitHubWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleGitHubWebhookResp, error) {
-	rsp, err := c.HandleGitHubWebhook(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHandleGitHubWebhookResp(rsp)
-}
-
-// HandleGitLabWebhookWithBodyWithResponse request with arbitrary body returning *HandleGitLabWebhookResp
-func (c *ClientWithResponses) HandleGitLabWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error) {
-	rsp, err := c.HandleGitLabWebhookWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHandleGitLabWebhookResp(rsp)
-}
-
-func (c *ClientWithResponses) HandleGitLabWebhookWithResponse(ctx context.Context, body HandleGitLabWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleGitLabWebhookResp, error) {
-	rsp, err := c.HandleGitLabWebhook(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseHandleGitLabWebhookResp(rsp)
+	return ParseHandleWebhookResp(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthResp
@@ -15911,109 +15679,15 @@ func ParseListUserTypesResp(rsp *http.Response) (*ListUserTypesResp, error) {
 	return response, nil
 }
 
-// ParseHandleBitbucketWebhookResp parses an HTTP response from a HandleBitbucketWebhookWithResponse call
-func ParseHandleBitbucketWebhookResp(rsp *http.Response) (*HandleBitbucketWebhookResp, error) {
+// ParseHandleWebhookResp parses an HTTP response from a HandleWebhookWithResponse call
+func ParseHandleWebhookResp(rsp *http.Response) (*HandleWebhookResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &HandleBitbucketWebhookResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest WebhookEventResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseHandleGitHubWebhookResp parses an HTTP response from a HandleGitHubWebhookWithResponse call
-func ParseHandleGitHubWebhookResp(rsp *http.Response) (*HandleGitHubWebhookResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &HandleGitHubWebhookResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest WebhookEventResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseHandleGitLabWebhookResp parses an HTTP response from a HandleGitLabWebhookWithResponse call
-func ParseHandleGitLabWebhookResp(rsp *http.Response) (*HandleGitLabWebhookResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &HandleGitLabWebhookResp{
+	response := &HandleWebhookResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

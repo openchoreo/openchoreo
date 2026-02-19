@@ -9,26 +9,17 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// HandleGitHubWebhook processes incoming GitHub webhook events
-func (h *Handler) HandleGitHubWebhook(
+// HandleWebhook processes incoming webhook events from any supported git provider.
+// The provider is detected from the request headers (X-Hub-Signature-256, X-Gitlab-Token, X-Event-Key).
+//
+// NOTE: Webhook handling is currently served by the legacy HTTP handler at
+// internal/openchoreo-api/handlers/webhook_handler.go, which is registered
+// directly on the legacy mux. This stub exists to satisfy the StrictServerInterface
+// contract during the incremental migration to the OpenAPI-generated server.
+// It will be fully implemented once the migration is complete.
+func (h *Handler) HandleWebhook(
 	ctx context.Context,
-	request gen.HandleGitHubWebhookRequestObject,
-) (gen.HandleGitHubWebhookResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// HandleGitLabWebhook processes incoming GitLab webhook events
-func (h *Handler) HandleGitLabWebhook(
-	ctx context.Context,
-	request gen.HandleGitLabWebhookRequestObject,
-) (gen.HandleGitLabWebhookResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// HandleBitbucketWebhook processes incoming Bitbucket webhook events
-func (h *Handler) HandleBitbucketWebhook(
-	ctx context.Context,
-	request gen.HandleBitbucketWebhookRequestObject,
-) (gen.HandleBitbucketWebhookResponseObject, error) {
+	request gen.HandleWebhookRequestObject,
+) (gen.HandleWebhookResponseObject, error) {
 	return nil, errNotImplemented
 }

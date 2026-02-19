@@ -2431,14 +2431,8 @@ type ListWorkflowsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// HandleBitbucketWebhookJSONBody defines parameters for HandleBitbucketWebhook.
-type HandleBitbucketWebhookJSONBody map[string]interface{}
-
-// HandleGitHubWebhookJSONBody defines parameters for HandleGitHubWebhook.
-type HandleGitHubWebhookJSONBody map[string]interface{}
-
-// HandleGitLabWebhookJSONBody defines parameters for HandleGitLabWebhook.
-type HandleGitLabWebhookJSONBody map[string]interface{}
+// HandleWebhookJSONBody defines parameters for HandleWebhook.
+type HandleWebhookJSONBody map[string]interface{}
 
 // ApplyResourceJSONRequestBody defines body for ApplyResource for application/json ContentType.
 type ApplyResourceJSONRequestBody = KubernetesResource
@@ -2527,14 +2521,8 @@ type UpdateNamespaceRoleJSONRequestBody = UpdateNamespaceRoleRequest
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = CreateWorkflowRunRequest
 
-// HandleBitbucketWebhookJSONRequestBody defines body for HandleBitbucketWebhook for application/json ContentType.
-type HandleBitbucketWebhookJSONRequestBody HandleBitbucketWebhookJSONBody
-
-// HandleGitHubWebhookJSONRequestBody defines body for HandleGitHubWebhook for application/json ContentType.
-type HandleGitHubWebhookJSONRequestBody HandleGitHubWebhookJSONBody
-
-// HandleGitLabWebhookJSONRequestBody defines body for HandleGitLabWebhook for application/json ContentType.
-type HandleGitLabWebhookJSONRequestBody HandleGitLabWebhookJSONBody
+// HandleWebhookJSONRequestBody defines body for HandleWebhook for application/json ContentType.
+type HandleWebhookJSONRequestBody HandleWebhookJSONBody
 
 // Getter for additional properties for KubernetesResource_Metadata. Returns the specified
 // element and whether it was found

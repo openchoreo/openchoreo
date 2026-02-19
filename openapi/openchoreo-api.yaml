@@ -2658,11 +2658,16 @@ paths:
   # Webhook Endpoints
   # =============================================================================
 
-  /api/v1/webhooks/github:
+  /api/v1/webhooks:
     post:
-      operationId: handleGitHubWebhook
-      summary: Handle GitHub webhook
-      description: Processes incoming GitHub webhook events to trigger builds.
+      operationId: handleWebhook
+      summary: Handle git provider webhook
+      description: |
+        Processes incoming webhook events from any supported git provider.
+        The provider is automatically detected from the request headers:
+        - GitHub: `X-Hub-Signature-256`
+        - GitLab: `X-Gitlab-Token`
+        - Bitbucket: `X-Event-Key`
       tags: [Webhooks]
       security: []
       requestBody:
@@ -2671,65 +2676,7 @@ paths:
           application/json:
             schema:
               type: object
-              description: GitHub webhook payload
-              additionalProperties: true
-      responses:
-        '200':
-          description: Webhook processed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebhookEventResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/webhooks/gitlab:
-    post:
-      operationId: handleGitLabWebhook
-      summary: Handle GitLab webhook
-      description: Processes incoming GitLab webhook events to trigger builds.
-      tags: [Webhooks]
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: GitLab webhook payload
-              additionalProperties: true
-      responses:
-        '200':
-          description: Webhook processed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebhookEventResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/webhooks/bitbucket:
-    post:
-      operationId: handleBitbucketWebhook
-      summary: Handle Bitbucket webhook
-      description: Processes incoming Bitbucket webhook events to trigger builds.
-      tags: [Webhooks]
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Bitbucket webhook payload
+              description: Git provider webhook payload
               additionalProperties: true
       responses:
         '200':
