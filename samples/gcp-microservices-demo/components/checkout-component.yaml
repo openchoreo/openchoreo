@@ -26,6 +26,67 @@ spec:
       type: gRPC
       port: 5050
       visibility: project
+  connections:
+    productcatalog:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: productcatalog
+        endpoint: grpc
+      inject:
+        env:
+          - name: PRODUCT_CATALOG_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    shipping:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: shipping
+        endpoint: grpc
+      inject:
+        env:
+          - name: SHIPPING_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    payment:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: payment
+        endpoint: grpc
+      inject:
+        env:
+          - name: PAYMENT_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    email:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: email
+        endpoint: grpc
+      inject:
+        env:
+          - name: EMAIL_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    currency:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: currency
+        endpoint: grpc
+      inject:
+        env:
+          - name: CURRENCY_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
+    cart:
+      type: api
+      params:
+        projectName: gcp-microservice-demo
+        componentName: cart
+        endpoint: grpc
+      inject:
+        env:
+          - name: CART_SERVICE_ADDR
+            value: "{{ .host }}:{{ .port }}"
   containers:
     main:
       image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.3
