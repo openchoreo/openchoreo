@@ -36,6 +36,8 @@ type Services struct {
 	ClusterDataPlaneService          *ClusterDataPlaneService
 	ClusterBuildPlaneService         *ClusterBuildPlaneService
 	ClusterObservabilityPlaneService *ClusterObservabilityPlaneService
+	ClusterComponentTypeService      *ClusterComponentTypeService
+	ClusterTraitService              *ClusterTraitService
 	GatewayClient                    *gatewayClient.Client
 	k8sClient                        client.Client // Direct access to K8s client for apply operations
 }
@@ -105,6 +107,12 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 	// Create ClusterObservabilityPlane service
 	clusterObservabilityPlaneService := NewClusterObservabilityPlaneService(k8sClient, logger.With("service", "clusterobservabilityplane"), authzPDP)
 
+	// Create ClusterComponentType service
+	clusterComponentTypeService := NewClusterComponentTypeService(k8sClient, logger.With("service", "clustercomponenttype"), authzPDP)
+
+	// Create ClusterTrait service
+	clusterTraitService := NewClusterTraitService(k8sClient, logger.With("service", "clustertrait"), authzPDP)
+
 	return &Services{
 		ProjectService:                   projectService,
 		ComponentService:                 componentService,
@@ -127,6 +135,8 @@ func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMul
 		ClusterDataPlaneService:          clusterDataPlaneService,
 		ClusterBuildPlaneService:         clusterBuildPlaneService,
 		ClusterObservabilityPlaneService: clusterObservabilityPlaneService,
+		ClusterComponentTypeService:      clusterComponentTypeService,
+		ClusterTraitService:              clusterTraitService,
 		GatewayClient:                    gwClient,
 		k8sClient:                        k8sClient,
 	}

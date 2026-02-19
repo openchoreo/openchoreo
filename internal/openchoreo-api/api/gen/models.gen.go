@@ -559,6 +559,39 @@ type ClusterBuildPlaneList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// ClusterComponentType Cluster-scoped ComponentType resource defining a workload template
+type ClusterComponentType struct {
+	// AllowedTraits List of allowed trait references that developers can attach to components of this type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind). If empty or omitted, no additional component-level traits are allowed; only traits embedded in the component type's spec.traits are permitted.
+	AllowedTraits *[]string `json:"allowedTraits,omitempty"`
+
+	// AllowedWorkflows List of allowed workflow names for this component type
+	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description ComponentType description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name ClusterComponentType name (unique across the cluster)
+	Name string `json:"name"`
+
+	// WorkloadType Type of workload (service, web-application, scheduled-task)
+	WorkloadType string `json:"workloadType"`
+}
+
+// ClusterComponentTypeList Paginated list of cluster-scoped component types
+type ClusterComponentTypeList struct {
+	Items []ClusterComponentType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // ClusterDataPlane Cluster-scoped DataPlane resource for workload deployment
 type ClusterDataPlane struct {
 	// CreatedAt Creation timestamp
@@ -668,6 +701,30 @@ type ClusterObservabilityPlaneRefKind string
 type ClusterRoleRef struct {
 	// Name Cluster role name
 	Name string `json:"name"`
+}
+
+// ClusterTrait Cluster-scoped Trait resource for composable cross-cutting concerns
+type ClusterTrait struct {
+	// CreatedAt Creation timestamp
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Description Trait description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name ClusterTrait name (unique across the cluster)
+	Name string `json:"name"`
+}
+
+// ClusterTraitList Paginated list of cluster-scoped traits
+type ClusterTraitList struct {
+	Items []ClusterTrait `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
 }
 
 // Component Component resource (Kubernetes object without kind/apiVersion).
@@ -818,7 +875,7 @@ type ComponentTraitList struct {
 
 // ComponentType ComponentType resource defining a workload template
 type ComponentType struct {
-	// AllowedTraits List of allowed trait references for this component type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind)
+	// AllowedTraits List of allowed trait references that developers can attach to components of this type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind). If empty or omitted, no additional component-level traits are allowed; only traits embedded in the component type's spec.traits are permitted.
 	AllowedTraits *[]string `json:"allowedTraits,omitempty"`
 
 	// AllowedWorkflows List of allowed workflow names for this component type
@@ -2393,8 +2450,14 @@ type WorkloadSpec map[string]interface{}
 // BindingNameParam defines model for BindingNameParam.
 type BindingNameParam = string
 
+// ClusterComponentTypeNameParam defines model for ClusterComponentTypeNameParam.
+type ClusterComponentTypeNameParam = string
+
 // ClusterDataPlaneNameParam defines model for ClusterDataPlaneNameParam.
 type ClusterDataPlaneNameParam = string
+
+// ClusterTraitNameParam defines model for ClusterTraitNameParam.
+type ClusterTraitNameParam = string
 
 // ComponentEnvironmentNameParam defines model for ComponentEnvironmentNameParam.
 type ComponentEnvironmentNameParam = string
@@ -2497,16 +2560,6 @@ type ListNamespacesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListComponentTypesParams defines parameters for ListComponentTypes.
-type ListComponentTypesParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListComponentWorkflowsParams defines parameters for ListComponentWorkflows.
 type ListComponentWorkflowsParams struct {
 	// Limit Maximum number of items to return per page
@@ -2596,16 +2649,6 @@ type ListComponentWorkflowRunsParams struct {
 type CreateComponentWorkflowRunParams struct {
 	// Commit Specific git commit SHA to build (optional)
 	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
-}
-
-// ListTraitsParams defines parameters for ListTraits.
-type ListTraitsParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListWorkflowRunsParams defines parameters for ListWorkflowRuns.

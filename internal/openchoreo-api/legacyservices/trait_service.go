@@ -5,7 +5,6 @@ package legacyservices
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -146,7 +145,7 @@ func (s *TraitService) GetTraitSchema(ctx context.Context, namespaceName, traitN
 	// Extract parameters schema from RawExtension
 	if trait.Spec.Schema.Parameters != nil && trait.Spec.Schema.Parameters.Raw != nil {
 		var params map[string]any
-		if err := json.Unmarshal(trait.Spec.Schema.Parameters.Raw, &params); err != nil {
+		if err := yaml.Unmarshal(trait.Spec.Schema.Parameters.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 		def.Schemas = []map[string]any{params}

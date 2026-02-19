@@ -53,6 +53,9 @@ const (
 	SystemActionViewClusterBuildPlane         systemAction = "clusterbuildplane:view"
 	SystemActionViewClusterObservabilityPlane systemAction = "clusterobservabilityplane:view"
 
+	SystemActionViewClusterComponentType systemAction = "clustercomponenttype:view"
+	SystemActionViewClusterTrait         systemAction = "clustertrait:view"
+
 	SystemActionCreateEnvironment systemAction = "environment:create"
 	SystemActionViewEnvironment   systemAction = "environment:view"
 
@@ -95,6 +98,8 @@ const (
 	ResourceTypeClusterDataPlane           ResourceType = "clusterDataPlane"
 	ResourceTypeClusterBuildPlane          ResourceType = "clusterBuildPlane"
 	ResourceTypeClusterObservabilityPlane  ResourceType = "clusterObservabilityPlane"
+	ResourceTypeClusterComponentType       ResourceType = "clusterComponentType"
+	ResourceTypeClusterTrait               ResourceType = "clusterTrait"
 	ResourceTypeEnvironment                ResourceType = "environment"
 	ResourceTypeDeploymentPipeline         ResourceType = "deploymentPipeline"
 	ResourceTypeWorkflow                   ResourceType = "workflow"

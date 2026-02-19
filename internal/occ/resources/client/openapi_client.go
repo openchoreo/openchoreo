@@ -170,8 +170,8 @@ func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName stri
 }
 
 // ListComponentTypes retrieves all component types for a namespace
-func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string, params *gen.ListComponentTypesParams) (*gen.ComponentTypeList, error) {
-	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName, params)
+func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string) (*gen.ComponentTypeList, error) {
+	resp, err := c.client.ListComponentTypesWithResponse(ctx, namespaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list component types: %w", err)
 	}
@@ -182,8 +182,8 @@ func (c *Client) ListComponentTypes(ctx context.Context, namespaceName string, p
 }
 
 // ListTraits retrieves all traits for a namespace
-func (c *Client) ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error) {
-	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName, params)
+func (c *Client) ListTraits(ctx context.Context, namespaceName string) (*gen.TraitList, error) {
+	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list traits: %w", err)
 	}

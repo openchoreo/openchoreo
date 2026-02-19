@@ -5,7 +5,6 @@ package legacyservices
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -146,7 +145,7 @@ func (s *ComponentTypeService) GetComponentTypeSchema(ctx context.Context, names
 	// Extract parameters schema from RawExtension
 	if ct.Spec.Schema.Parameters != nil && ct.Spec.Schema.Parameters.Raw != nil {
 		var params map[string]any
-		if err := json.Unmarshal(ct.Spec.Schema.Parameters.Raw, &params); err != nil {
+		if err := yaml.Unmarshal(ct.Spec.Schema.Parameters.Raw, &params); err != nil {
 			return nil, fmt.Errorf("failed to extract parameters: %w", err)
 		}
 		def.Schemas = []map[string]any{params}

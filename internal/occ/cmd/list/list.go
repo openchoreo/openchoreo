@@ -157,7 +157,7 @@ func (l *ListImpl) ListComponentTypes(params api.ListComponentTypesParams) error
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListComponentTypes(ctx, params.Namespace, &gen.ListComponentTypesParams{})
+	result, err := c.ListComponentTypes(ctx, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to list component types: %w", err)
 	}
@@ -178,7 +178,7 @@ func (l *ListImpl) ListTraits(params api.ListTraitsParams) error {
 		return fmt.Errorf("failed to create API client: %w", err)
 	}
 
-	result, err := c.ListTraits(ctx, params.Namespace, &gen.ListTraitsParams{})
+	result, err := c.ListTraits(ctx, params.Namespace)
 	if err != nil {
 		return fmt.Errorf("failed to list traits: %w", err)
 	}

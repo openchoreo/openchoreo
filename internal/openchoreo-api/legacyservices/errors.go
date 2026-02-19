@@ -46,6 +46,8 @@ var (
 	ErrBuildPlaneNotFound            = errors.New("build plane not found")
 	ErrClusterDataPlaneNotFound      = errors.New("cluster dataplane not found")
 	ErrClusterDataPlaneAlreadyExists = errors.New("cluster dataplane already exists")
+	ErrClusterComponentTypeNotFound  = errors.New("cluster component type not found")
+	ErrClusterTraitNotFound          = errors.New("cluster trait not found")
 	ErrGitSecretAlreadyExists        = errors.New("git secret already exists")
 	ErrGitSecretNotFound             = errors.New("git secret not found")
 	ErrSecretStoreNotConfigured      = errors.New("secret store not configured")
@@ -104,6 +106,8 @@ const (
 	CodeBuildPlaneNotFound           = "BUILDPLANE_NOT_FOUND"
 	CodeClusterDataPlaneNotFound     = "CLUSTER_DATAPLANE_NOT_FOUND"
 	CodeClusterDataPlaneExists       = "CLUSTER_DATAPLANE_EXISTS"
+	CodeClusterComponentTypeNotFound = "CLUSTER_COMPONENT_TYPE_NOT_FOUND"
+	CodeClusterTraitNotFound         = "CLUSTER_TRAIT_NOT_FOUND"
 	CodeGitSecretExists              = "GIT_SECRET_EXISTS"
 	CodeGitSecretNotFound            = "GIT_SECRET_NOT_FOUND"
 	CodeSecretStoreNotConfigured     = "SECRET_STORE_NOT_CONFIGURED"

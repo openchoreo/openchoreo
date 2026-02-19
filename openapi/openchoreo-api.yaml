@@ -49,6 +49,10 @@ tags:
     description: Cluster-scoped BuildPlane management
   - name: ClusterObservabilityPlanes
     description: Cluster-scoped ObservabilityPlane management
+  - name: ClusterComponentTypes
+    description: Cluster-scoped ComponentType templates defined by platform engineers
+  - name: ClusterTraits
+    description: Cluster-scoped Trait templates for composable cross-cutting concerns
   - name: ComponentTypes
     description: ComponentType templates defined by platform engineers
   - name: Traits
@@ -865,6 +869,102 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterComponentType Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clustercomponenttypes:
+    get:
+      operationId: listClusterComponentTypes
+      summary: List cluster component types
+      description: Returns a list of cluster-scoped component types.
+      tags: [ClusterComponentTypes]
+      responses:
+        '200':
+          description: List of cluster component types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterComponentTypeList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clustercomponenttypes/{cctName}/schema:
+    get:
+      operationId: getClusterComponentTypeSchema
+      summary: Get cluster component type schema
+      description: Returns the parameter schema for a specific cluster-scoped component type.
+      tags: [ClusterComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterComponentTypeNameParam'
+      responses:
+        '200':
+          description: Cluster component type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # ClusterTrait Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clustertraits:
+    get:
+      operationId: listClusterTraits
+      summary: List cluster traits
+      description: Returns a list of cluster-scoped traits.
+      tags: [ClusterTraits]
+      responses:
+        '200':
+          description: List of cluster traits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterTraitList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clustertraits/{clusterTraitName}/schema:
+    get:
+      operationId: getClusterTraitSchema
+      summary: Get cluster trait schema
+      description: Returns the parameter schema for a specific cluster-scoped trait.
+      tags: [ClusterTraits]
+      parameters:
+        - $ref: '#/components/parameters/ClusterTraitNameParam'
+      responses:
+        '200':
+          description: Cluster trait schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ComponentType Endpoints
   # =============================================================================
 
@@ -876,8 +976,6 @@ paths:
       tags: [ComponentTypes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of component types
@@ -929,8 +1027,6 @@ paths:
       tags: [Traits]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of traits
@@ -2979,6 +3075,24 @@ components:
         type: string
         example: go-service
 
+    ClusterComponentTypeNameParam:
+      name: cctName
+      in: path
+      required: true
+      description: ClusterComponentType name
+      schema:
+        type: string
+        example: go-service
+
+    ClusterTraitNameParam:
+      name: clusterTraitName
+      in: path
+      required: true
+      description: ClusterTrait name
+      schema:
+        type: string
+        example: autoscaler
+
     TraitNameParam:
       name: traitName
       in: path
@@ -4672,6 +4786,111 @@ components:
           example: Ready
 
     # -------------------------------------------------------------------------
+    # ClusterComponentTypes
+    # -------------------------------------------------------------------------
+    ClusterComponentTypeList:
+      type: object
+      description: Paginated list of cluster-scoped component types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterComponentType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterComponentType:
+      type: object
+      description: Cluster-scoped ComponentType resource defining a workload template
+      required:
+        - name
+        - workloadType
+        - createdAt
+      properties:
+        name:
+          type: string
+          description: ClusterComponentType name (unique across the cluster)
+          example: go-service
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Go Service
+        description:
+          type: string
+          description: ComponentType description
+          example: Template for Go-based microservices
+        workloadType:
+          type: string
+          description: Type of workload (service, web-application, scheduled-task)
+          example: service
+        allowedWorkflows:
+          type: array
+          description: List of allowed workflow names for this component type
+          items:
+            type: string
+          example: ["docker-build", "buildpack-build"]
+        allowedTraits:
+          type: array
+          description: >-
+            List of allowed trait references that developers can attach to components of this type
+            (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind).
+            If empty or omitted, no additional component-level traits are allowed;
+            only traits embedded in the component type's spec.traits are permitted.
+          items:
+            type: string
+          example: ["autoscaler", "ClusterTrait:logger"]
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+
+    # -------------------------------------------------------------------------
+    # ClusterTraits
+    # -------------------------------------------------------------------------
+    ClusterTraitList:
+      type: object
+      description: Paginated list of cluster-scoped traits
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterTrait'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterTrait:
+      type: object
+      description: Cluster-scoped Trait resource for composable cross-cutting concerns
+      required:
+        - name
+        - createdAt
+      properties:
+        name:
+          type: string
+          description: ClusterTrait name (unique across the cluster)
+          example: autoscaler
+        displayName:
+          type: string
+          description: Human-readable display name
+          example: Auto Scaler
+        description:
+          type: string
+          description: Trait description
+          example: Enables horizontal pod autoscaling
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-01-06T10:00:00Z"
+
+    # -------------------------------------------------------------------------
     # ComponentTypes
     # -------------------------------------------------------------------------
     ComponentTypeList:
@@ -4720,7 +4939,11 @@ components:
           example: ["docker-build", "buildpack-build"]
         allowedTraits:
           type: array
-          description: List of allowed trait references for this component type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind)
+          description: >-
+            List of allowed trait references that developers can attach to components of this type
+            (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind).
+            If empty or omitted, no additional component-level traits are allowed;
+            only traits embedded in the component type's spec.traits are permitted.
           items:
             type: string
           example: ["autoscaler", "ClusterTrait:logger"]
