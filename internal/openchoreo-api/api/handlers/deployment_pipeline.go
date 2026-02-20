@@ -49,26 +49,15 @@ func toGenDeploymentPipeline(p *models.DeploymentPipelineResponse) gen.Deploymen
 		return gen.DeploymentPipeline{}
 	}
 
-	result := gen.DeploymentPipeline{
-		Name:          p.Name,
-		NamespaceName: p.NamespaceName,
-		CreatedAt:     p.CreatedAt,
+	metadata := gen.ObjectMeta{
+		Name:              p.Name,
+		Namespace:         &p.NamespaceName,
+		CreationTimestamp: &p.CreatedAt,
 	}
 
-	if p.DisplayName != "" {
-		result.DisplayName = &p.DisplayName
-	}
-
-	if p.Description != "" {
-		result.Description = &p.Description
-	}
-
-	if p.Status != "" {
-		result.Status = &p.Status
-	}
-
+	var promotionPaths *[]gen.PromotionPath
 	if len(p.PromotionPaths) > 0 {
-		promotionPaths := make([]gen.PromotionPath, 0, len(p.PromotionPaths))
+		paths := make([]gen.PromotionPath, 0, len(p.PromotionPaths))
 		for _, path := range p.PromotionPaths {
 			genPath := gen.PromotionPath{
 				SourceEnvironmentRef: path.SourceEnvironmentRef,
@@ -86,10 +75,17 @@ func toGenDeploymentPipeline(p *models.DeploymentPipelineResponse) gen.Deploymen
 				genPath.TargetEnvironmentRefs = targetRefs
 			}
 
-			promotionPaths = append(promotionPaths, genPath)
+			paths = append(paths, genPath)
 		}
-		result.PromotionPaths = &promotionPaths
+		promotionPaths = &paths
 	}
 
-	return result
+	spec := &gen.DeploymentPipelineSpec{
+		PromotionPaths: promotionPaths,
+	}
+
+	return gen.DeploymentPipeline{
+		Metadata: metadata,
+		Spec:     spec,
+	}
 }

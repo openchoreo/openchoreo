@@ -3590,11 +3590,143 @@ paths:
   # Deployment Pipeline Endpoints
   # =============================================================================
 
+  /api/v1/namespaces/{namespaceName}/deployment-pipelines:
+    get:
+      operationId: listDeploymentPipelines
+      summary: List deployment pipelines
+      description: Returns a paginated list of deployment pipelines within a namespace.
+      tags: [DeploymentPipelines]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of deployment pipelines
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentPipelineList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createDeploymentPipeline
+      summary: Create deployment pipeline
+      description: Creates a new deployment pipeline within a namespace.
+      tags: [DeploymentPipelines]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentPipeline'
+      responses:
+        '201':
+          description: Deployment pipeline created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentPipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/deployment-pipelines/{deploymentPipelineName}:
+    get:
+      operationId: getDeploymentPipeline
+      summary: Get deployment pipeline
+      description: Returns details of a specific deployment pipeline.
+      tags: [DeploymentPipelines]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/DeploymentPipelineNameParam'
+      responses:
+        '200':
+          description: Deployment pipeline details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentPipeline'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateDeploymentPipeline
+      summary: Update deployment pipeline
+      description: Replaces an existing deployment pipeline (full update).
+      tags: [DeploymentPipelines]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/DeploymentPipelineNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeploymentPipeline'
+      responses:
+        '200':
+          description: Deployment pipeline updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentPipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteDeploymentPipeline
+      summary: Delete deployment pipeline
+      description: Deletes a deployment pipeline by name.
+      tags: [DeploymentPipelines]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/DeploymentPipelineNameParam'
+      responses:
+        '204':
+          description: Deployment pipeline deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline:
     get:
       operationId: getProjectDeploymentPipeline
       summary: Get project deployment pipeline
-      description: Returns the deployment pipeline for a project.
+      description: Returns the deployment pipeline associated with a project.
       tags: [DeploymentPipelines]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -3933,6 +4065,15 @@ components:
       schema:
         type: string
         example: my-secret
+
+    DeploymentPipelineNameParam:
+      name: deploymentPipelineName
+      in: path
+      required: true
+      description: Deployment pipeline name
+      schema:
+        type: string
+        example: default-pipeline
 
     ObservabilityAlertsNotificationChannelNameParam:
       name: observabilityAlertsNotificationChannelName
@@ -8290,44 +8431,55 @@ components:
     # -------------------------------------------------------------------------
     # Deployment Pipeline Schemas
     # -------------------------------------------------------------------------
+    DeploymentPipelineList:
+      type: object
+      description: Paginated list of deployment pipelines
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeploymentPipeline'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
     DeploymentPipeline:
       type: object
-      description: Deployment pipeline resource
+      description: |
+        DeploymentPipeline resource (Kubernetes object without kind/apiVersion).
+        Defines promotion paths between environments for component deployments.
       required:
-        - name
-        - namespaceName
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: Pipeline name
-          example: default-pipeline
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Default Pipeline
-        description:
-          type: string
-          description: Pipeline description
-          example: Standard deployment pipeline with dev, staging, and prod
-        namespaceName:
-          type: string
-          description: Parent namespace name
-          example: my-namespace
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/DeploymentPipelineSpec'
         status:
-          type: string
-          description: Pipeline status
-          example: Ready
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/DeploymentPipelineStatus'
+
+    DeploymentPipelineSpec:
+      type: object
+      description: Desired state of a DeploymentPipeline
+      properties:
         promotionPaths:
           type: array
           description: Promotion paths between environments
           items:
             $ref: '#/components/schemas/PromotionPath'
+
+    DeploymentPipelineStatus:
+      type: object
+      description: Observed state of a DeploymentPipeline
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the deployment pipeline state
+          items:
+            $ref: '#/components/schemas/Condition'
 
     PromotionPath:
       type: object

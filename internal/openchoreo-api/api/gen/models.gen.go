@@ -1612,28 +1612,37 @@ type DeployReleaseRequest struct {
 	ReleaseName string `json:"releaseName"`
 }
 
-// DeploymentPipeline Deployment pipeline resource
+// DeploymentPipeline DeploymentPipeline resource (Kubernetes object without kind/apiVersion).
+// Defines promotion paths between environments for component deployments.
 type DeploymentPipeline struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description Pipeline description
-	Description *string `json:"description,omitempty"`
+	// Spec Desired state of a DeploymentPipeline
+	Spec   *DeploymentPipelineSpec   `json:"spec,omitempty"`
+	Status *DeploymentPipelineStatus `json:"status,omitempty"`
+}
 
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
+// DeploymentPipelineList Paginated list of deployment pipelines
+type DeploymentPipelineList struct {
+	Items []DeploymentPipeline `json:"items"`
 
-	// Name Pipeline name
-	Name string `json:"name"`
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
 
-	// NamespaceName Parent namespace name
-	NamespaceName string `json:"namespaceName"`
-
+// DeploymentPipelineSpec Desired state of a DeploymentPipeline
+type DeploymentPipelineSpec struct {
 	// PromotionPaths Promotion paths between environments
 	PromotionPaths *[]PromotionPath `json:"promotionPaths,omitempty"`
+}
 
-	// Status Pipeline status
-	Status *string `json:"status,omitempty"`
+// DeploymentPipelineStatus Observed state of a DeploymentPipeline
+type DeploymentPipelineStatus struct {
+	// Conditions Latest available observations of the deployment pipeline state
+	Conditions *[]Condition `json:"conditions,omitempty"`
 }
 
 // Entitlement Entitlement with claim and value
@@ -3268,6 +3277,9 @@ type CursorParam = string
 // DataPlaneNameParam defines model for DataPlaneNameParam.
 type DataPlaneNameParam = string
 
+// DeploymentPipelineNameParam defines model for DeploymentPipelineNameParam.
+type DeploymentPipelineNameParam = string
+
 // EnvironmentNameParam defines model for EnvironmentNameParam.
 type EnvironmentNameParam = string
 
@@ -3467,6 +3479,16 @@ type ListComponentTypesParams struct {
 
 // ListDataPlanesParams defines parameters for ListDataPlanes.
 type ListDataPlanesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListDeploymentPipelinesParams defines parameters for ListDeploymentPipelines.
+type ListDeploymentPipelinesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3696,6 +3718,12 @@ type UpdateComponentTypeJSONRequestBody = ComponentType
 
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = DataPlane
+
+// CreateDeploymentPipelineJSONRequestBody defines body for CreateDeploymentPipeline for application/json ContentType.
+type CreateDeploymentPipelineJSONRequestBody = DeploymentPipeline
+
+// UpdateDeploymentPipelineJSONRequestBody defines body for UpdateDeploymentPipeline for application/json ContentType.
+type UpdateDeploymentPipelineJSONRequestBody = DeploymentPipeline
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = Environment

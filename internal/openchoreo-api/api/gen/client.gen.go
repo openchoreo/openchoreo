@@ -306,6 +306,25 @@ type ClientInterface interface {
 	// GetDataPlane request
 	GetDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListDeploymentPipelines request
+	ListDeploymentPipelines(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDeploymentPipelineWithBody request with any body
+	CreateDeploymentPipelineWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, body CreateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDeploymentPipeline request
+	DeleteDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDeploymentPipeline request
+	GetDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDeploymentPipelineWithBody request with any body
+	UpdateDeploymentPipelineWithBody(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListEnvironments request
 	ListEnvironments(ctx context.Context, namespaceName NamespaceNameParam, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1508,6 +1527,90 @@ func (c *Client) CreateDataPlane(ctx context.Context, namespaceName NamespaceNam
 
 func (c *Client) GetDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDataPlaneRequest(c.Server, namespaceName, dpName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListDeploymentPipelines(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeploymentPipelinesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeploymentPipelineWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeploymentPipelineRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, body CreateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDeploymentPipelineRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDeploymentPipelineRequest(c.Server, namespaceName, deploymentPipelineName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDeploymentPipelineRequest(c.Server, namespaceName, deploymentPipelineName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDeploymentPipelineWithBody(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDeploymentPipelineRequestWithBody(c.Server, namespaceName, deploymentPipelineName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDeploymentPipelineRequest(c.Server, namespaceName, deploymentPipelineName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5420,6 +5523,261 @@ func NewGetDataPlaneRequest(server string, namespaceName NamespaceNameParam, dpN
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewListDeploymentPipelinesRequest generates requests for ListDeploymentPipelines
+func NewListDeploymentPipelinesRequest(server string, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDeploymentPipelineRequest calls the generic CreateDeploymentPipeline builder with application/json body
+func NewCreateDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, body CreateDeploymentPipelineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDeploymentPipelineRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateDeploymentPipelineRequestWithBody generates requests for CreateDeploymentPipeline with any type of body
+func NewCreateDeploymentPipelineRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDeploymentPipelineRequest generates requests for DeleteDeploymentPipeline
+func NewDeleteDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "deploymentPipelineName", runtime.ParamLocationPath, deploymentPipelineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDeploymentPipelineRequest generates requests for GetDeploymentPipeline
+func NewGetDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "deploymentPipelineName", runtime.ParamLocationPath, deploymentPipelineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateDeploymentPipelineRequest calls the generic UpdateDeploymentPipeline builder with application/json body
+func NewUpdateDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDeploymentPipelineRequestWithBody(server, namespaceName, deploymentPipelineName, "application/json", bodyReader)
+}
+
+// NewUpdateDeploymentPipelineRequestWithBody generates requests for UpdateDeploymentPipeline with any type of body
+func NewUpdateDeploymentPipelineRequestWithBody(server string, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "deploymentPipelineName", runtime.ParamLocationPath, deploymentPipelineName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/deployment-pipelines/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9348,6 +9706,25 @@ type ClientWithResponsesInterface interface {
 	// GetDataPlaneWithResponse request
 	GetDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetDataPlaneResp, error)
 
+	// ListDeploymentPipelinesWithResponse request
+	ListDeploymentPipelinesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*ListDeploymentPipelinesResp, error)
+
+	// CreateDeploymentPipelineWithBodyWithResponse request with any body
+	CreateDeploymentPipelineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeploymentPipelineResp, error)
+
+	CreateDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeploymentPipelineResp, error)
+
+	// DeleteDeploymentPipelineWithResponse request
+	DeleteDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*DeleteDeploymentPipelineResp, error)
+
+	// GetDeploymentPipelineWithResponse request
+	GetDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*GetDeploymentPipelineResp, error)
+
+	// UpdateDeploymentPipelineWithBodyWithResponse request with any body
+	UpdateDeploymentPipelineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error)
+
+	UpdateDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error)
+
 	// ListEnvironmentsWithResponse request
 	ListEnvironmentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEnvironmentsParams, reqEditors ...RequestEditorFn) (*ListEnvironmentsResp, error)
 
@@ -11138,6 +11515,136 @@ func (r GetDataPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListDeploymentPipelinesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeploymentPipelineList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListDeploymentPipelinesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListDeploymentPipelinesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateDeploymentPipelineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *DeploymentPipeline
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDeploymentPipelineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDeploymentPipelineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteDeploymentPipelineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDeploymentPipelineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDeploymentPipelineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDeploymentPipelineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeploymentPipeline
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDeploymentPipelineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDeploymentPipelineResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateDeploymentPipelineResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeploymentPipeline
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDeploymentPipelineResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDeploymentPipelineResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13720,6 +14227,67 @@ func (c *ClientWithResponses) GetDataPlaneWithResponse(ctx context.Context, name
 		return nil, err
 	}
 	return ParseGetDataPlaneResp(rsp)
+}
+
+// ListDeploymentPipelinesWithResponse request returning *ListDeploymentPipelinesResp
+func (c *ClientWithResponses) ListDeploymentPipelinesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*ListDeploymentPipelinesResp, error) {
+	rsp, err := c.ListDeploymentPipelines(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListDeploymentPipelinesResp(rsp)
+}
+
+// CreateDeploymentPipelineWithBodyWithResponse request with arbitrary body returning *CreateDeploymentPipelineResp
+func (c *ClientWithResponses) CreateDeploymentPipelineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDeploymentPipelineResp, error) {
+	rsp, err := c.CreateDeploymentPipelineWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeploymentPipelineResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDeploymentPipelineResp, error) {
+	rsp, err := c.CreateDeploymentPipeline(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDeploymentPipelineResp(rsp)
+}
+
+// DeleteDeploymentPipelineWithResponse request returning *DeleteDeploymentPipelineResp
+func (c *ClientWithResponses) DeleteDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*DeleteDeploymentPipelineResp, error) {
+	rsp, err := c.DeleteDeploymentPipeline(ctx, namespaceName, deploymentPipelineName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDeploymentPipelineResp(rsp)
+}
+
+// GetDeploymentPipelineWithResponse request returning *GetDeploymentPipelineResp
+func (c *ClientWithResponses) GetDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, reqEditors ...RequestEditorFn) (*GetDeploymentPipelineResp, error) {
+	rsp, err := c.GetDeploymentPipeline(ctx, namespaceName, deploymentPipelineName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDeploymentPipelineResp(rsp)
+}
+
+// UpdateDeploymentPipelineWithBodyWithResponse request with arbitrary body returning *UpdateDeploymentPipelineResp
+func (c *ClientWithResponses) UpdateDeploymentPipelineWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error) {
+	rsp, err := c.UpdateDeploymentPipelineWithBody(ctx, namespaceName, deploymentPipelineName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDeploymentPipelineResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, deploymentPipelineName DeploymentPipelineNameParam, body UpdateDeploymentPipelineJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDeploymentPipelineResp, error) {
+	rsp, err := c.UpdateDeploymentPipeline(ctx, namespaceName, deploymentPipelineName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDeploymentPipelineResp(rsp)
 }
 
 // ListEnvironmentsWithResponse request returning *ListEnvironmentsResp
@@ -17693,6 +18261,276 @@ func ParseGetDataPlaneResp(rsp *http.Response) (*GetDataPlaneResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListDeploymentPipelinesResp parses an HTTP response from a ListDeploymentPipelinesWithResponse call
+func ParseListDeploymentPipelinesResp(rsp *http.Response) (*ListDeploymentPipelinesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListDeploymentPipelinesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeploymentPipelineList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDeploymentPipelineResp parses an HTTP response from a CreateDeploymentPipelineWithResponse call
+func ParseCreateDeploymentPipelineResp(rsp *http.Response) (*CreateDeploymentPipelineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDeploymentPipelineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest DeploymentPipeline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDeploymentPipelineResp parses an HTTP response from a DeleteDeploymentPipelineWithResponse call
+func ParseDeleteDeploymentPipelineResp(rsp *http.Response) (*DeleteDeploymentPipelineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDeploymentPipelineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDeploymentPipelineResp parses an HTTP response from a GetDeploymentPipelineWithResponse call
+func ParseGetDeploymentPipelineResp(rsp *http.Response) (*GetDeploymentPipelineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDeploymentPipelineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeploymentPipeline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDeploymentPipelineResp parses an HTTP response from a UpdateDeploymentPipelineWithResponse call
+func ParseUpdateDeploymentPipelineResp(rsp *http.Response) (*UpdateDeploymentPipelineResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDeploymentPipelineResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeploymentPipeline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
