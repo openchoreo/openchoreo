@@ -71,6 +71,10 @@ tags:
     description: Secret reference management
   - name: Workloads
     description: Workload source code definitions
+  - name: ComponentReleases
+    description: Component release management
+  - name: Releases
+    description: Release management
   - name: ReleaseBindings
     description: Release binding management
   - name: DeploymentPipelines
@@ -1927,186 +1931,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases:
-    get:
-      operationId: listComponentReleases
-      summary: List component releases
-      description: Returns immutable release snapshots for a component.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/LimitParam'
-        - $ref: '#/components/parameters/CursorParam'
-      responses:
-        '200':
-          description: List of component releases
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComponentReleaseList'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}:
-    get:
-      operationId: getComponentRelease
-      summary: Get component release
-      description: Returns details of a specific component release.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ReleaseNameParam'
-      responses:
-        '200':
-          description: Component release details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ComponentRelease'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases/{releaseName}/schema:
-    get:
-      operationId: getComponentReleaseSchema
-      summary: Get component release schema
-      description: Returns the parameter schema for a component release.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ReleaseNameParam'
-      responses:
-        '200':
-          description: Component release schema
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SchemaResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings:
-    get:
-      operationId: listReleaseBindings
-      summary: List release bindings
-      description: Returns environment-specific release bindings for a component.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - name: environment
-          in: query
-          required: false
-          description: Filter by environment names
-          schema:
-            type: array
-            items:
-              type: string
-          style: form
-          explode: true
-      responses:
-        '200':
-          description: List of release bindings
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBindingList'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/release-bindings/{bindingName}:
-    patch:
-      operationId: patchReleaseBinding
-      summary: Patch release binding
-      description: Updates a release binding with environment-specific overrides.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/BindingNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchReleaseBindingRequest'
-      responses:
-        '200':
-          description: Release binding updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReleaseBinding'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release:
-    get:
-      operationId: getEnvironmentRelease
-      summary: Get environment release
-      description: Returns the deployed release for a component in an environment.
-      tags: [Components]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
-        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
-      responses:
-        '200':
-          description: Release details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Release'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources:
     get:
       operationId: getReleaseResourceTree
@@ -3468,12 +3292,125 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # Component Release Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/componentreleases:
+    get:
+      operationId: listComponentReleases
+      summary: List component releases
+      description: Returns a paginated list of component releases within a namespace, optionally filtered by component.
+      tags: [ComponentReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of component releases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentReleaseList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/componentreleases/{componentReleaseName}:
+    get:
+      operationId: getComponentRelease
+      summary: Get component release
+      description: Returns details of a specific component release.
+      tags: [ComponentReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentReleaseNameParam'
+      responses:
+        '200':
+          description: Component release details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentRelease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
+  # Release Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/releases:
+    get:
+      operationId: listReleases
+      summary: List releases
+      description: Returns a paginated list of releases within a namespace, optionally filtered by component and environment.
+      tags: [Releases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/EnvironmentQueryParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of releases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/releases/{releaseName}:
+    get:
+      operationId: getRelease
+      summary: Get release
+      description: Returns details of a specific release.
+      tags: [Releases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseNameParam'
+      responses:
+        '200':
+          description: Release details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Release Binding Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/release-bindings:
+  /api/v1/namespaces/{namespaceName}/releasebindings:
     get:
-      operationId: listReleaseBindingsFlat
+      operationId: listReleaseBindings
       summary: List release bindings
       description: Returns a paginated list of release bindings within a namespace, optionally filtered by component.
       tags: [ReleaseBindings]
@@ -3529,7 +3466,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/release-bindings/{releaseBindingName}:
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}:
     get:
       operationId: getReleaseBinding
       summary: Get release binding
@@ -3701,6 +3638,15 @@ components:
         type: string
         example: api-service
 
+    EnvironmentQueryParam:
+      name: environment
+      in: query
+      required: false
+      description: Filter resources by environment name
+      schema:
+        type: string
+        example: dev
+
     WorkloadNameParam:
       name: workloadName
       in: path
@@ -3853,6 +3799,15 @@ components:
       schema:
         type: string
         example: api-service-dev
+
+    ComponentReleaseNameParam:
+      name: componentReleaseName
+      in: path
+      required: true
+      description: Component release name
+      schema:
+        type: string
+        example: api-service-v1.0.0
 
     ReleaseNameParam:
       name: releaseName
@@ -6699,25 +6654,6 @@ components:
                 description: Resolved public URL for this endpoint
                 example: https://api-service-dev-default.example.com
 
-    PatchReleaseBindingRequest:
-      type: object
-      description: Request to patch a release binding
-      properties:
-        releaseName:
-          type: string
-          description: Component release name to deploy
-          example: v1.0.0
-        componentTypeEnvOverrides:
-          type: object
-          description: Environment-specific ComponentType overrides
-          additionalProperties: true
-        traitOverrides:
-          type: object
-          description: Environment-specific trait overrides
-          additionalProperties: true
-        workloadOverrides:
-          $ref: '#/components/schemas/WorkloadOverrides'
-
     WorkloadOverrides:
       type: object
       description: Environment-specific workload overrides
@@ -6797,24 +6733,134 @@ components:
     # -------------------------------------------------------------------------
     # Release
     # -------------------------------------------------------------------------
+    ReleaseList:
+      type: object
+      description: Paginated list of releases
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Release'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
     Release:
       type: object
-      description: Deployed release with Kubernetes resources
+      description: |
+        Release resource (Kubernetes object without kind/apiVersion).
+        Contains the final Kubernetes manifests deployed to data plane clusters.
+      required:
+        - metadata
       properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
         spec:
-          type: object
-          description: Release specification
-          properties:
-            resources:
-              type: array
-              description: Kubernetes resources in this release
-              items:
-                type: object
-                additionalProperties: true
+          $ref: '#/components/schemas/ReleaseSpec'
         status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ReleaseStatus'
+
+    ReleaseSpec:
+      type: object
+      description: Desired state of a Release
+      required:
+        - owner
+        - environmentName
+      properties:
+        owner:
           type: object
-          description: Release status
-          additionalProperties: true
+          description: Owner identifies the component and project this Release belongs to
+          required:
+            - projectName
+            - componentName
+          properties:
+            projectName:
+              type: string
+              description: Name of the project
+              example: my-project
+            componentName:
+              type: string
+              description: Name of the component
+              example: api-service
+        environmentName:
+          type: string
+          description: Target environment for this release
+          example: dev
+        resources:
+          type: array
+          description: Kubernetes resource templates to apply to the data plane
+          items:
+            type: object
+            required:
+              - id
+              - object
+            properties:
+              id:
+                type: string
+                description: Unique identifier for the resource
+              object:
+                type: object
+                description: Complete Kubernetes resource definition
+                additionalProperties: true
+        targetPlane:
+          type: string
+          description: Target plane for deployment
+          enum: [dataplane, observabilityplane]
+          default: dataplane
+          example: dataplane
+        interval:
+          type: string
+          description: Watch interval for stable release resources (e.g. 5m, 30s)
+          example: 5m
+        progressingInterval:
+          type: string
+          description: Watch interval for transitioning release resources (e.g. 10s)
+          example: 10s
+
+    ReleaseStatus:
+      type: object
+      description: Observed state of a Release
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the Release's current state
+          items:
+            $ref: '#/components/schemas/Condition'
+        resources:
+          type: array
+          description: Resources applied to the data plane with their observed status
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Resource identifier matching spec.resources
+              group:
+                type: string
+                description: API group of the resource
+              version:
+                type: string
+                description: API version of the resource
+              kind:
+                type: string
+                description: Kind of the resource
+              name:
+                type: string
+                description: Name of the resource in the data plane
+              namespace:
+                type: string
+                description: Namespace of the resource in the data plane
+              healthStatus:
+                type: string
+                description: Health status of the resource
+                enum: [Unknown, Progressing, Healthy, Suspended, Degraded]
+              status:
+                type: object
+                description: Full status of the resource from the data plane
+                additionalProperties: true
 
     # -------------------------------------------------------------------------
     # Resource Tree

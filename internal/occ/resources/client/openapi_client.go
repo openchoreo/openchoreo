@@ -339,7 +339,11 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName, componentNa
 
 // ListReleaseBindings retrieves all release bindings for a component
 func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ReleaseBindingList, error) {
-	resp, err := c.client.ListReleaseBindingsWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListReleaseBindingsParams{})
+	params := &gen.ListReleaseBindingsParams{}
+	if componentName != "" {
+		params.Component = &componentName
+	}
+	resp, err := c.client.ListReleaseBindingsWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list release bindings: %w", err)
 	}
@@ -351,7 +355,11 @@ func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, project
 
 // ListComponentReleases retrieves all component releases for a component
 func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentReleaseList, error) {
-	resp, err := c.client.ListComponentReleasesWithResponse(ctx, namespaceName, projectName, componentName, &gen.ListComponentReleasesParams{})
+	params := &gen.ListComponentReleasesParams{}
+	if componentName != "" {
+		params.Component = &componentName
+	}
+	resp, err := c.client.ListComponentReleasesWithResponse(ctx, namespaceName, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list component releases: %w", err)
 	}
@@ -385,11 +393,11 @@ func (c *Client) ListComponentWorkflowRuns(ctx context.Context, namespaceName, p
 	return resp.JSON200, nil
 }
 
-// PatchReleaseBinding updates a release binding
-func (c *Client) PatchReleaseBinding(ctx context.Context, namespaceName, projectName, componentName, bindingName string, req gen.PatchReleaseBindingRequest) (*gen.ReleaseBinding, error) {
-	resp, err := c.client.PatchReleaseBindingWithResponse(ctx, namespaceName, projectName, componentName, bindingName, req)
+// UpdateReleaseBinding updates a release binding
+func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
+	resp, err := c.client.UpdateReleaseBindingWithResponse(ctx, namespaceName, bindingName, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to patch release binding: %w", err)
+		return nil, fmt.Errorf("failed to update release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())

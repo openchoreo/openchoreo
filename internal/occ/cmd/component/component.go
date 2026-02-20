@@ -194,10 +194,10 @@ func (d *CompImpl) applyOverrides(ctx context.Context, c *client.Client, params 
 		return nil, fmt.Errorf("failed to merge overrides: %w", err)
 	}
 
-	// Apply patch
-	binding, err := c.PatchReleaseBinding(ctx, params.Namespace, params.Project, params.ComponentName, bindingName, *merged)
+	// Apply update
+	binding, err := c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *merged)
 	if err != nil {
-		return nil, fmt.Errorf("failed to patch release binding: %w", err)
+		return nil, fmt.Errorf("failed to update release binding: %w", err)
 	}
 
 	return binding, nil

@@ -13,12 +13,12 @@ import (
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 )
 
-// ListReleaseBindingsFlat returns a paginated list of release bindings within a namespace.
-func (h *Handler) ListReleaseBindingsFlat(
+// ListReleaseBindings returns a paginated list of release bindings within a namespace.
+func (h *Handler) ListReleaseBindings(
 	ctx context.Context,
-	request gen.ListReleaseBindingsFlatRequestObject,
-) (gen.ListReleaseBindingsFlatResponseObject, error) {
-	h.logger.Debug("ListReleaseBindingsFlat called", "namespaceName", request.NamespaceName)
+	request gen.ListReleaseBindingsRequestObject,
+) (gen.ListReleaseBindingsResponseObject, error) {
+	h.logger.Debug("ListReleaseBindings called", "namespaceName", request.NamespaceName)
 
 	componentName := ""
 	if request.Params.Component != nil {
@@ -30,16 +30,16 @@ func (h *Handler) ListReleaseBindingsFlat(
 	result, err := h.releaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list release bindings", "error", err)
-		return gen.ListReleaseBindingsFlat500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	items, err := convertList[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](result.Items)
 	if err != nil {
 		h.logger.Error("Failed to convert release bindings", "error", err)
-		return gen.ListReleaseBindingsFlat500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	resp := gen.ListReleaseBindingsFlat200JSONResponse{
+	resp := gen.ListReleaseBindings200JSONResponse{
 		Items: items,
 	}
 	if p := ToPaginationPtr(result); p != nil {

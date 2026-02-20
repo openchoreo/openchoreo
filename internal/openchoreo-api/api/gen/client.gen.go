@@ -217,6 +217,12 @@ type ClientInterface interface {
 	// GetComponentWorkflowSchema request
 	GetComponentWorkflowSchema(ctx context.Context, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListComponentReleases request
+	ListComponentReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetComponentRelease request
+	GetComponentRelease(ctx context.Context, namespaceName NamespaceNameParam, componentReleaseName ComponentReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListComponents request
 	ListComponents(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -334,34 +340,14 @@ type ClientInterface interface {
 
 	UpdateComponentBinding(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListComponentReleases request
-	ListComponentReleases(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetComponentRelease request
-	GetComponentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetComponentReleaseSchema request
-	GetComponentReleaseSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetComponentObserverURL request
 	GetComponentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetEnvironmentRelease request
-	GetEnvironmentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetReleaseResourceTree request
 	GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetBuildObserverURL request
 	GetBuildObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListReleaseBindings request
-	ListReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// PatchReleaseBindingWithBody request with any body
-	PatchReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	PatchReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body PatchReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetComponentSchema request
 	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -391,8 +377,8 @@ type ClientInterface interface {
 	// GetProjectDeploymentPipeline request
 	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListReleaseBindingsFlat request
-	ListReleaseBindingsFlat(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListReleaseBindings request
+	ListReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateReleaseBindingWithBody request with any body
 	CreateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -409,6 +395,12 @@ type ClientInterface interface {
 	UpdateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListReleases request
+	ListReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRelease request
+	GetRelease(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNamespaceRoleBindings request
 	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1101,6 +1093,30 @@ func (c *Client) GetComponentWorkflowSchema(ctx context.Context, namespaceName N
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListComponentReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListComponentReleasesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetComponentRelease(ctx context.Context, namespaceName NamespaceNameParam, componentReleaseName ComponentReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentReleaseRequest(c.Server, namespaceName, componentReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListComponents(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListComponentsRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -1617,56 +1633,8 @@ func (c *Client) UpdateComponentBinding(ctx context.Context, namespaceName Names
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListComponentReleases(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentReleasesRequest(c.Server, namespaceName, projectName, componentName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetComponentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetComponentReleaseRequest(c.Server, namespaceName, projectName, componentName, releaseName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetComponentReleaseSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetComponentReleaseSchemaRequest(c.Server, namespaceName, projectName, componentName, releaseName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetComponentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetComponentObserverURLRequest(c.Server, namespaceName, projectName, componentName, environmentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetEnvironmentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetEnvironmentReleaseRequest(c.Server, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		return nil, err
 	}
@@ -1691,42 +1659,6 @@ func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName Names
 
 func (c *Client) GetBuildObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetBuildObserverURLRequest(c.Server, namespaceName, projectName, componentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListReleaseBindingsRequest(c.Server, namespaceName, projectName, componentName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PatchReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchReleaseBindingRequestWithBody(c.Server, namespaceName, projectName, componentName, bindingName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) PatchReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body PatchReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPatchReleaseBindingRequest(c.Server, namespaceName, projectName, componentName, bindingName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1857,8 +1789,8 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListReleaseBindingsFlat(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListReleaseBindingsFlatRequest(c.Server, namespaceName, params)
+func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleaseBindingsRequest(c.Server, namespaceName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1931,6 +1863,30 @@ func (c *Client) UpdateReleaseBindingWithBody(ctx context.Context, namespaceName
 
 func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateReleaseBindingRequest(c.Server, namespaceName, releaseBindingName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleasesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRelease(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseRequest(c.Server, namespaceName, releaseName)
 	if err != nil {
 		return nil, err
 	}
@@ -4051,6 +4007,135 @@ func NewGetComponentWorkflowSchemaRequest(server string, namespaceName Namespace
 	return req, nil
 }
 
+// NewListComponentReleasesRequest generates requests for ListComponentReleases
+func NewListComponentReleasesRequest(server string, namespaceName NamespaceNameParam, params *ListComponentReleasesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/componentreleases", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetComponentReleaseRequest generates requests for GetComponentRelease
+func NewGetComponentReleaseRequest(server string, namespaceName NamespaceNameParam, componentReleaseName ComponentReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "componentReleaseName", runtime.ParamLocationPath, componentReleaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/componentreleases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListComponentsRequest generates requests for ListComponents
 func NewListComponentsRequest(server string, namespaceName NamespaceNameParam, params *ListComponentsParams) (*http.Request, error) {
 	var err error
@@ -5688,202 +5773,6 @@ func NewUpdateComponentBindingRequestWithBody(server string, namespaceName Names
 	return req, nil
 }
 
-// NewListComponentReleasesRequest generates requests for ListComponentReleases
-func NewListComponentReleasesRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentReleasesParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/component-releases", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Cursor != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetComponentReleaseRequest generates requests for GetComponentRelease
-func NewGetComponentReleaseRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "releaseName", runtime.ParamLocationPath, releaseName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/component-releases/%s", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetComponentReleaseSchemaRequest generates requests for GetComponentReleaseSchema
-func NewGetComponentReleaseSchemaRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "releaseName", runtime.ParamLocationPath, releaseName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/component-releases/%s/schema", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetComponentObserverURLRequest generates requests for GetComponentObserverURL
 func NewGetComponentObserverURLRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) (*http.Request, error) {
 	var err error
@@ -5922,61 +5811,6 @@ func NewGetComponentObserverURLRequest(server string, namespaceName NamespaceNam
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/observer-url", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetEnvironmentReleaseRequest generates requests for GetEnvironmentRelease
-func NewGetEnvironmentReleaseRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/release", pathParam0, pathParam1, pathParam2, pathParam3)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6093,144 +5927,6 @@ func NewGetBuildObserverURLRequest(server string, namespaceName NamespaceNamePar
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewListReleaseBindingsRequest generates requests for ListReleaseBindings
-func NewListReleaseBindingsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListReleaseBindingsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/release-bindings", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Environment != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "environment", runtime.ParamLocationQuery, *params.Environment); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewPatchReleaseBindingRequest calls the generic PatchReleaseBinding builder with application/json body
-func NewPatchReleaseBindingRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body PatchReleaseBindingJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewPatchReleaseBindingRequestWithBody(server, namespaceName, projectName, componentName, bindingName, "application/json", bodyReader)
-}
-
-// NewPatchReleaseBindingRequestWithBody generates requests for PatchReleaseBinding with any type of body
-func NewPatchReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "bindingName", runtime.ParamLocationPath, bindingName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/release-bindings/%s", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PATCH", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6705,8 +6401,8 @@ func NewGetProjectDeploymentPipelineRequest(server string, namespaceName Namespa
 	return req, nil
 }
 
-// NewListReleaseBindingsFlatRequest generates requests for ListReleaseBindingsFlat
-func NewListReleaseBindingsFlatRequest(server string, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams) (*http.Request, error) {
+// NewListReleaseBindingsRequest generates requests for ListReleaseBindings
+func NewListReleaseBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -6721,7 +6417,7 @@ func NewListReleaseBindingsFlatRequest(server string, namespaceName NamespaceNam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6820,7 +6516,7 @@ func NewCreateReleaseBindingRequestWithBody(server string, namespaceName Namespa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6863,7 +6559,7 @@ func NewDeleteReleaseBindingRequest(server string, namespaceName NamespaceNamePa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6904,7 +6600,7 @@ func NewGetReleaseBindingRequest(server string, namespaceName NamespaceNameParam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6956,7 +6652,7 @@ func NewUpdateReleaseBindingRequestWithBody(server string, namespaceName Namespa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releasebindings/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6972,6 +6668,151 @@ func NewUpdateReleaseBindingRequestWithBody(server string, namespaceName Namespa
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListReleasesRequest generates requests for ListReleases
+func NewListReleasesRequest(server string, namespaceName NamespaceNameParam, params *ListReleasesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releases", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Environment != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "environment", runtime.ParamLocationQuery, *params.Environment); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseRequest generates requests for GetRelease
+func NewGetReleaseRequest(server string, namespaceName NamespaceNameParam, releaseName ReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseName", runtime.ParamLocationPath, releaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/releases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -8893,6 +8734,12 @@ type ClientWithResponsesInterface interface {
 	// GetComponentWorkflowSchemaWithResponse request
 	GetComponentWorkflowSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, cwName ComponentWorkflowNameParam, reqEditors ...RequestEditorFn) (*GetComponentWorkflowSchemaResp, error)
 
+	// ListComponentReleasesWithResponse request
+	ListComponentReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*ListComponentReleasesResp, error)
+
+	// GetComponentReleaseWithResponse request
+	GetComponentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentReleaseName ComponentReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseResp, error)
+
 	// ListComponentsWithResponse request
 	ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error)
 
@@ -9010,34 +8857,14 @@ type ClientWithResponsesInterface interface {
 
 	UpdateComponentBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentBindingResp, error)
 
-	// ListComponentReleasesWithResponse request
-	ListComponentReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*ListComponentReleasesResp, error)
-
-	// GetComponentReleaseWithResponse request
-	GetComponentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseResp, error)
-
-	// GetComponentReleaseSchemaWithResponse request
-	GetComponentReleaseSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseSchemaResp, error)
-
 	// GetComponentObserverURLWithResponse request
 	GetComponentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetComponentObserverURLResp, error)
-
-	// GetEnvironmentReleaseWithResponse request
-	GetEnvironmentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentReleaseResp, error)
 
 	// GetReleaseResourceTreeWithResponse request
 	GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error)
 
 	// GetBuildObserverURLWithResponse request
 	GetBuildObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetBuildObserverURLResp, error)
-
-	// ListReleaseBindingsWithResponse request
-	ListReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsResp, error)
-
-	// PatchReleaseBindingWithBodyWithResponse request with any body
-	PatchReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchReleaseBindingResp, error)
-
-	PatchReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body PatchReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchReleaseBindingResp, error)
 
 	// GetComponentSchemaWithResponse request
 	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
@@ -9067,8 +8894,8 @@ type ClientWithResponsesInterface interface {
 	// GetProjectDeploymentPipelineWithResponse request
 	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
 
-	// ListReleaseBindingsFlatWithResponse request
-	ListReleaseBindingsFlatWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsFlatResp, error)
+	// ListReleaseBindingsWithResponse request
+	ListReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsResp, error)
 
 	// CreateReleaseBindingWithBodyWithResponse request with any body
 	CreateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateReleaseBindingResp, error)
@@ -9085,6 +8912,12 @@ type ClientWithResponsesInterface interface {
 	UpdateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
 
 	UpdateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
+
+	// ListReleasesWithResponse request
+	ListReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResp, error)
+
+	// GetReleaseWithResponse request
+	GetReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResp, error)
 
 	// ListNamespaceRoleBindingsWithResponse request
 	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
@@ -10147,6 +9980,58 @@ func (r GetComponentWorkflowSchemaResp) StatusCode() int {
 	return 0
 }
 
+type ListComponentReleasesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ComponentReleaseList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListComponentReleasesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListComponentReleasesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetComponentReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ComponentRelease
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListComponentsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10961,84 +10846,6 @@ func (r UpdateComponentBindingResp) StatusCode() int {
 	return 0
 }
 
-type ListComponentReleasesResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ComponentReleaseList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListComponentReleasesResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentReleasesResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetComponentReleaseResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ComponentRelease
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetComponentReleaseResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetComponentReleaseResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetComponentReleaseSchemaResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SchemaResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetComponentReleaseSchemaResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetComponentReleaseSchemaResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetComponentObserverURLResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11059,32 +10866,6 @@ func (r GetComponentObserverURLResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetComponentObserverURLResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetEnvironmentReleaseResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Release
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetEnvironmentReleaseResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetEnvironmentReleaseResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11137,59 +10918,6 @@ func (r GetBuildObserverURLResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetBuildObserverURLResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListReleaseBindingsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ReleaseBindingList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListReleaseBindingsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListReleaseBindingsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type PatchReleaseBindingResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ReleaseBinding
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r PatchReleaseBindingResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r PatchReleaseBindingResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11407,7 +11135,7 @@ func (r GetProjectDeploymentPipelineResp) StatusCode() int {
 	return 0
 }
 
-type ListReleaseBindingsFlatResp struct {
+type ListReleaseBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *ReleaseBindingList
@@ -11418,7 +11146,7 @@ type ListReleaseBindingsFlatResp struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r ListReleaseBindingsFlatResp) Status() string {
+func (r ListReleaseBindingsResp) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -11426,7 +11154,7 @@ func (r ListReleaseBindingsFlatResp) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListReleaseBindingsFlatResp) StatusCode() int {
+func (r ListReleaseBindingsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11532,6 +11260,58 @@ func (r UpdateReleaseBindingResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListReleasesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleasesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleasesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Release
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12915,6 +12695,24 @@ func (c *ClientWithResponses) GetComponentWorkflowSchemaWithResponse(ctx context
 	return ParseGetComponentWorkflowSchemaResp(rsp)
 }
 
+// ListComponentReleasesWithResponse request returning *ListComponentReleasesResp
+func (c *ClientWithResponses) ListComponentReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*ListComponentReleasesResp, error) {
+	rsp, err := c.ListComponentReleases(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListComponentReleasesResp(rsp)
+}
+
+// GetComponentReleaseWithResponse request returning *GetComponentReleaseResp
+func (c *ClientWithResponses) GetComponentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, componentReleaseName ComponentReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseResp, error) {
+	rsp, err := c.GetComponentRelease(ctx, namespaceName, componentReleaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentReleaseResp(rsp)
+}
+
 // ListComponentsWithResponse request returning *ListComponentsResp
 func (c *ClientWithResponses) ListComponentsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentsParams, reqEditors ...RequestEditorFn) (*ListComponentsResp, error) {
 	rsp, err := c.ListComponents(ctx, namespaceName, params, reqEditors...)
@@ -13290,33 +13088,6 @@ func (c *ClientWithResponses) UpdateComponentBindingWithResponse(ctx context.Con
 	return ParseUpdateComponentBindingResp(rsp)
 }
 
-// ListComponentReleasesWithResponse request returning *ListComponentReleasesResp
-func (c *ClientWithResponses) ListComponentReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentReleasesParams, reqEditors ...RequestEditorFn) (*ListComponentReleasesResp, error) {
-	rsp, err := c.ListComponentReleases(ctx, namespaceName, projectName, componentName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListComponentReleasesResp(rsp)
-}
-
-// GetComponentReleaseWithResponse request returning *GetComponentReleaseResp
-func (c *ClientWithResponses) GetComponentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseResp, error) {
-	rsp, err := c.GetComponentRelease(ctx, namespaceName, projectName, componentName, releaseName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetComponentReleaseResp(rsp)
-}
-
-// GetComponentReleaseSchemaWithResponse request returning *GetComponentReleaseSchemaResp
-func (c *ClientWithResponses) GetComponentReleaseSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetComponentReleaseSchemaResp, error) {
-	rsp, err := c.GetComponentReleaseSchema(ctx, namespaceName, projectName, componentName, releaseName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetComponentReleaseSchemaResp(rsp)
-}
-
 // GetComponentObserverURLWithResponse request returning *GetComponentObserverURLResp
 func (c *ClientWithResponses) GetComponentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetComponentObserverURLResp, error) {
 	rsp, err := c.GetComponentObserverURL(ctx, namespaceName, projectName, componentName, environmentName, reqEditors...)
@@ -13324,15 +13095,6 @@ func (c *ClientWithResponses) GetComponentObserverURLWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetComponentObserverURLResp(rsp)
-}
-
-// GetEnvironmentReleaseWithResponse request returning *GetEnvironmentReleaseResp
-func (c *ClientWithResponses) GetEnvironmentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentReleaseResp, error) {
-	rsp, err := c.GetEnvironmentRelease(ctx, namespaceName, projectName, componentName, environmentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetEnvironmentReleaseResp(rsp)
 }
 
 // GetReleaseResourceTreeWithResponse request returning *GetReleaseResourceTreeResp
@@ -13351,32 +13113,6 @@ func (c *ClientWithResponses) GetBuildObserverURLWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetBuildObserverURLResp(rsp)
-}
-
-// ListReleaseBindingsWithResponse request returning *ListReleaseBindingsResp
-func (c *ClientWithResponses) ListReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsResp, error) {
-	rsp, err := c.ListReleaseBindings(ctx, namespaceName, projectName, componentName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListReleaseBindingsResp(rsp)
-}
-
-// PatchReleaseBindingWithBodyWithResponse request with arbitrary body returning *PatchReleaseBindingResp
-func (c *ClientWithResponses) PatchReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchReleaseBindingResp, error) {
-	rsp, err := c.PatchReleaseBindingWithBody(ctx, namespaceName, projectName, componentName, bindingName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePatchReleaseBindingResp(rsp)
-}
-
-func (c *ClientWithResponses) PatchReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body PatchReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchReleaseBindingResp, error) {
-	rsp, err := c.PatchReleaseBinding(ctx, namespaceName, projectName, componentName, bindingName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParsePatchReleaseBindingResp(rsp)
 }
 
 // GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
@@ -13467,13 +13203,13 @@ func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx conte
 	return ParseGetProjectDeploymentPipelineResp(rsp)
 }
 
-// ListReleaseBindingsFlatWithResponse request returning *ListReleaseBindingsFlatResp
-func (c *ClientWithResponses) ListReleaseBindingsFlatWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsFlatResp, error) {
-	rsp, err := c.ListReleaseBindingsFlat(ctx, namespaceName, params, reqEditors...)
+// ListReleaseBindingsWithResponse request returning *ListReleaseBindingsResp
+func (c *ClientWithResponses) ListReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsResp, error) {
+	rsp, err := c.ListReleaseBindings(ctx, namespaceName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListReleaseBindingsFlatResp(rsp)
+	return ParseListReleaseBindingsResp(rsp)
 }
 
 // CreateReleaseBindingWithBodyWithResponse request with arbitrary body returning *CreateReleaseBindingResp
@@ -13526,6 +13262,24 @@ func (c *ClientWithResponses) UpdateReleaseBindingWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseUpdateReleaseBindingResp(rsp)
+}
+
+// ListReleasesWithResponse request returning *ListReleasesResp
+func (c *ClientWithResponses) ListReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleasesParams, reqEditors ...RequestEditorFn) (*ListReleasesResp, error) {
+	rsp, err := c.ListReleases(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleasesResp(rsp)
+}
+
+// GetReleaseWithResponse request returning *GetReleaseResp
+func (c *ClientWithResponses) GetReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseName ReleaseNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResp, error) {
+	rsp, err := c.GetRelease(ctx, namespaceName, releaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseResp(rsp)
 }
 
 // ListNamespaceRoleBindingsWithResponse request returning *ListNamespaceRoleBindingsResp
@@ -15812,6 +15566,114 @@ func ParseGetComponentWorkflowSchemaResp(rsp *http.Response) (*GetComponentWorkf
 	return response, nil
 }
 
+// ParseListComponentReleasesResp parses an HTTP response from a ListComponentReleasesWithResponse call
+func ParseListComponentReleasesResp(rsp *http.Response) (*ListComponentReleasesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListComponentReleasesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ComponentReleaseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetComponentReleaseResp parses an HTTP response from a GetComponentReleaseWithResponse call
+func ParseGetComponentReleaseResp(rsp *http.Response) (*GetComponentReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ComponentRelease
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListComponentsResp parses an HTTP response from a ListComponentsWithResponse call
 func ParseListComponentsResp(rsp *http.Response) (*ListComponentsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17542,168 +17404,6 @@ func ParseUpdateComponentBindingResp(rsp *http.Response) (*UpdateComponentBindin
 	return response, nil
 }
 
-// ParseListComponentReleasesResp parses an HTTP response from a ListComponentReleasesWithResponse call
-func ParseListComponentReleasesResp(rsp *http.Response) (*ListComponentReleasesResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListComponentReleasesResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ComponentReleaseList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetComponentReleaseResp parses an HTTP response from a GetComponentReleaseWithResponse call
-func ParseGetComponentReleaseResp(rsp *http.Response) (*GetComponentReleaseResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetComponentReleaseResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ComponentRelease
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetComponentReleaseSchemaResp parses an HTTP response from a GetComponentReleaseSchemaWithResponse call
-func ParseGetComponentReleaseSchemaResp(rsp *http.Response) (*GetComponentReleaseSchemaResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetComponentReleaseSchemaResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SchemaResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetComponentObserverURLResp parses an HTTP response from a GetComponentObserverURLWithResponse call
 func ParseGetComponentObserverURLResp(rsp *http.Response) (*GetComponentObserverURLResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17720,60 +17420,6 @@ func ParseGetComponentObserverURLResp(rsp *http.Response) (*GetComponentObserver
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ObserverURLResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetEnvironmentReleaseResp parses an HTTP response from a GetEnvironmentReleaseWithResponse call
-func ParseGetEnvironmentReleaseResp(rsp *http.Response) (*GetEnvironmentReleaseResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetEnvironmentReleaseResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Release
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -17886,121 +17532,6 @@ func ParseGetBuildObserverURLResp(rsp *http.Response) (*GetBuildObserverURLResp,
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListReleaseBindingsResp parses an HTTP response from a ListReleaseBindingsWithResponse call
-func ParseListReleaseBindingsResp(rsp *http.Response) (*ListReleaseBindingsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListReleaseBindingsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ReleaseBindingList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParsePatchReleaseBindingResp parses an HTTP response from a PatchReleaseBindingWithResponse call
-func ParsePatchReleaseBindingResp(rsp *http.Response) (*PatchReleaseBindingResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &PatchReleaseBindingResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ReleaseBinding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -18488,15 +18019,15 @@ func ParseGetProjectDeploymentPipelineResp(rsp *http.Response) (*GetProjectDeplo
 	return response, nil
 }
 
-// ParseListReleaseBindingsFlatResp parses an HTTP response from a ListReleaseBindingsFlatWithResponse call
-func ParseListReleaseBindingsFlatResp(rsp *http.Response) (*ListReleaseBindingsFlatResp, error) {
+// ParseListReleaseBindingsResp parses an HTTP response from a ListReleaseBindingsWithResponse call
+func ParseListReleaseBindingsResp(rsp *http.Response) (*ListReleaseBindingsResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListReleaseBindingsFlatResp{
+	response := &ListReleaseBindingsResp{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -18731,6 +18262,114 @@ func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReleasesResp parses an HTTP response from a ListReleasesWithResponse call
+func ParseListReleasesResp(rsp *http.Response) (*ListReleasesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleasesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseResp parses an HTTP response from a GetReleaseWithResponse call
+func ParseGetReleaseResp(rsp *http.Response) (*GetReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Release
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

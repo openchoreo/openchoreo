@@ -15,7 +15,7 @@ import (
 
 // mergeOverridesWithBinding merges --set override values with existing ReleaseBinding
 // This uses sjson to generically update JSON paths in the existing binding
-func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []string) (*gen.PatchReleaseBindingRequest, error) {
+func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []string) (*gen.ReleaseBinding, error) {
 	// Marshal existing binding to JSON
 	existingJSON, err := json.Marshal(existingBinding)
 	if err != nil {
@@ -45,11 +45,11 @@ func mergeOverridesWithBinding(existingBinding *gen.ReleaseBinding, setValues []
 		}
 	}
 
-	// Unmarshal back to PatchReleaseBindingRequest
-	var patchReq gen.PatchReleaseBindingRequest
-	if err := json.Unmarshal([]byte(jsonStr), &patchReq); err != nil {
+	// Unmarshal back to ReleaseBinding
+	var rb gen.ReleaseBinding
+	if err := json.Unmarshal([]byte(jsonStr), &rb); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal merged result: %w", err)
 	}
 
-	return &patchReq, nil
+	return &rb, nil
 }

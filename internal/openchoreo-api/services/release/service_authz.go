@@ -38,10 +38,10 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 	}
 }
 
-func (s *releaseServiceWithAuthz) ListReleases(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+func (s *releaseServiceWithAuthz) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
 	return services.FilteredList(ctx, opts, s.authz,
 		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
-			return s.internal.ListReleases(ctx, namespaceName, componentName, pageOpts)
+			return s.internal.ListReleases(ctx, namespaceName, componentName, environmentName, pageOpts)
 		},
 		func(r openchoreov1alpha1.Release) services.CheckRequest {
 			return services.CheckRequest{

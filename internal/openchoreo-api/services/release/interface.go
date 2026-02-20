@@ -12,6 +12,6 @@ import (
 
 // Service defines the release service interface.
 type Service interface {
-	ListReleases(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error)
+	ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error)
 	GetRelease(ctx context.Context, namespaceName, releaseName string) (*openchoreov1alpha1.Release, error)
 }

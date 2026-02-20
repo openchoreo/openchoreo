@@ -31,8 +31,8 @@ func NewService(k8sClient client.Client, logger *slog.Logger) Service {
 	}
 }
 
-func (s *releaseService) ListReleases(ctx context.Context, namespaceName, componentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
-	s.logger.Debug("Listing releases", "namespace", namespaceName, "component", componentName, "limit", opts.Limit, "cursor", opts.Cursor)
+func (s *releaseService) ListReleases(ctx context.Context, namespaceName, componentName, environmentName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
+	s.logger.Debug("Listing releases", "namespace", namespaceName, "component", componentName, "environment", environmentName, "limit", opts.Limit, "cursor", opts.Cursor)
 
 	listFn := func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Release], error) {
 		listOpts := []client.ListOption{
@@ -62,12 +62,19 @@ func (s *releaseService) ListReleases(ctx context.Context, namespaceName, compon
 		return result, nil
 	}
 
-	// Apply component filter if specified
-	if componentName != "" {
+	// Apply filters if specified
+	needsFilter := componentName != "" || environmentName != ""
+	if needsFilter {
 		filteredFn := services.PreFilteredList(
 			listFn,
 			func(r openchoreov1alpha1.Release) bool {
-				return r.Spec.Owner.ComponentName == componentName
+				if componentName != "" && r.Spec.Owner.ComponentName != componentName {
+					return false
+				}
+				if environmentName != "" && r.Spec.EnvironmentName != environmentName {
+					return false
+				}
+				return true
 			},
 		)
 		return filteredFn(ctx, opts)

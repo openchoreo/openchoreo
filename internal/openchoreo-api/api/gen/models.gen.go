@@ -104,9 +104,9 @@ const (
 
 // Defines values for ConditionStatus.
 const (
-	False   ConditionStatus = "False"
-	True    ConditionStatus = "True"
-	Unknown ConditionStatus = "Unknown"
+	ConditionStatusFalse   ConditionStatus = "False"
+	ConditionStatusTrue    ConditionStatus = "True"
+	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
 // Defines values for CreateClusterRoleBindingRequestEffect.
@@ -155,6 +155,21 @@ const (
 	ReleaseBindingSpecStateUndeploy ReleaseBindingSpecState = "Undeploy"
 )
 
+// Defines values for ReleaseSpecTargetPlane.
+const (
+	ReleaseSpecTargetPlaneDataplane          ReleaseSpecTargetPlane = "dataplane"
+	ReleaseSpecTargetPlaneObservabilityplane ReleaseSpecTargetPlane = "observabilityplane"
+)
+
+// Defines values for ReleaseStatusResourcesHealthStatus.
+const (
+	ReleaseStatusResourcesHealthStatusDegraded    ReleaseStatusResourcesHealthStatus = "Degraded"
+	ReleaseStatusResourcesHealthStatusHealthy     ReleaseStatusResourcesHealthStatus = "Healthy"
+	ReleaseStatusResourcesHealthStatusProgressing ReleaseStatusResourcesHealthStatus = "Progressing"
+	ReleaseStatusResourcesHealthStatusSuspended   ReleaseStatusResourcesHealthStatus = "Suspended"
+	ReleaseStatusResourcesHealthStatusUnknown     ReleaseStatusResourcesHealthStatus = "Unknown"
+)
+
 // Defines values for RoleEntitlementMappingEffect.
 const (
 	RoleEntitlementMappingEffectAllow RoleEntitlementMappingEffect = "allow"
@@ -182,8 +197,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for UpdateBindingRequestReleaseState.
@@ -1976,21 +1991,6 @@ type PatchComponentRequest struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
-// PatchReleaseBindingRequest Request to patch a release binding
-type PatchReleaseBindingRequest struct {
-	// ComponentTypeEnvOverrides Environment-specific ComponentType overrides
-	ComponentTypeEnvOverrides *map[string]interface{} `json:"componentTypeEnvOverrides,omitempty"`
-
-	// ReleaseName Component release name to deploy
-	ReleaseName *string `json:"releaseName,omitempty"`
-
-	// TraitOverrides Environment-specific trait overrides
-	TraitOverrides *map[string]interface{} `json:"traitOverrides,omitempty"`
-
-	// WorkloadOverrides Environment-specific workload overrides
-	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
-}
-
 // Project Project resource (Kubernetes object without kind/apiVersion).
 // Projects group components within a namespace and reference a deployment pipeline.
 type Project struct {
@@ -2058,16 +2058,16 @@ type RCAAgentURLResponse struct {
 	RcaAgentUrl *string `json:"rcaAgentUrl,omitempty"`
 }
 
-// Release Deployed release with Kubernetes resources
+// Release Release resource (Kubernetes object without kind/apiVersion).
+// Contains the final Kubernetes manifests deployed to data plane clusters.
 type Release struct {
-	// Spec Release specification
-	Spec *struct {
-		// Resources Kubernetes resources in this release
-		Resources *[]map[string]interface{} `json:"resources,omitempty"`
-	} `json:"spec,omitempty"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Status Release status
-	Status *map[string]interface{} `json:"status,omitempty"`
+	// Spec Desired state of a Release
+	Spec   *ReleaseSpec   `json:"spec,omitempty"`
+	Status *ReleaseStatus `json:"status,omitempty"`
 }
 
 // ReleaseBinding ReleaseBinding resource (Kubernetes object without kind/apiVersion).
@@ -2140,6 +2140,87 @@ type ReleaseBindingStatus struct {
 		Name string `json:"name"`
 	} `json:"endpoints,omitempty"`
 }
+
+// ReleaseList Paginated list of releases
+type ReleaseList struct {
+	Items []Release `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// ReleaseSpec Desired state of a Release
+type ReleaseSpec struct {
+	// EnvironmentName Target environment for this release
+	EnvironmentName string `json:"environmentName"`
+
+	// Interval Watch interval for stable release resources (e.g. 5m, 30s)
+	Interval *string `json:"interval,omitempty"`
+
+	// Owner Owner identifies the component and project this Release belongs to
+	Owner struct {
+		// ComponentName Name of the component
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Name of the project
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// ProgressingInterval Watch interval for transitioning release resources (e.g. 10s)
+	ProgressingInterval *string `json:"progressingInterval,omitempty"`
+
+	// Resources Kubernetes resource templates to apply to the data plane
+	Resources *[]struct {
+		// Id Unique identifier for the resource
+		Id string `json:"id"`
+
+		// Object Complete Kubernetes resource definition
+		Object map[string]interface{} `json:"object"`
+	} `json:"resources,omitempty"`
+
+	// TargetPlane Target plane for deployment
+	TargetPlane *ReleaseSpecTargetPlane `json:"targetPlane,omitempty"`
+}
+
+// ReleaseSpecTargetPlane Target plane for deployment
+type ReleaseSpecTargetPlane string
+
+// ReleaseStatus Observed state of a Release
+type ReleaseStatus struct {
+	// Conditions Latest available observations of the Release's current state
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Resources Resources applied to the data plane with their observed status
+	Resources *[]struct {
+		// Group API group of the resource
+		Group *string `json:"group,omitempty"`
+
+		// HealthStatus Health status of the resource
+		HealthStatus *ReleaseStatusResourcesHealthStatus `json:"healthStatus,omitempty"`
+
+		// Id Resource identifier matching spec.resources
+		Id *string `json:"id,omitempty"`
+
+		// Kind Kind of the resource
+		Kind *string `json:"kind,omitempty"`
+
+		// Name Name of the resource in the data plane
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace of the resource in the data plane
+		Namespace *string `json:"namespace,omitempty"`
+
+		// Status Full status of the resource from the data plane
+		Status *map[string]interface{} `json:"status,omitempty"`
+
+		// Version API version of the resource
+		Version *string `json:"version,omitempty"`
+	} `json:"resources,omitempty"`
+}
+
+// ReleaseStatusResourcesHealthStatus Health status of the resource
+type ReleaseStatusResourcesHealthStatus string
 
 // RemoteReference Remote secret reference
 type RemoteReference struct {
@@ -3028,6 +3109,9 @@ type ComponentNameParam = string
 // ComponentQueryParam defines model for ComponentQueryParam.
 type ComponentQueryParam = string
 
+// ComponentReleaseNameParam defines model for ComponentReleaseNameParam.
+type ComponentReleaseNameParam = string
+
 // ComponentTypeNameParam defines model for ComponentTypeNameParam.
 type ComponentTypeNameParam = string
 
@@ -3042,6 +3126,9 @@ type DataPlaneNameParam = string
 
 // EnvironmentNameParam defines model for EnvironmentNameParam.
 type EnvironmentNameParam = string
+
+// EnvironmentQueryParam defines model for EnvironmentQueryParam.
+type EnvironmentQueryParam = string
 
 // LimitParam defines model for LimitParam.
 type LimitParam = int
@@ -3172,6 +3259,19 @@ type ListComponentWorkflowsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListComponentReleasesParams defines parameters for ListComponentReleases.
+type ListComponentReleasesParams struct {
+	// Component Filter resources by component name
+	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListComponentsParams defines parameters for ListComponents.
 type ListComponentsParams struct {
 	// Project Filter resources by project name
@@ -3241,22 +3341,6 @@ type ListComponentBindingsParams struct {
 	Environment *[]string `form:"environment,omitempty" json:"environment,omitempty"`
 }
 
-// ListComponentReleasesParams defines parameters for ListComponentReleases.
-type ListComponentReleasesParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
-// ListReleaseBindingsParams defines parameters for ListReleaseBindings.
-type ListReleaseBindingsParams struct {
-	// Environment Filter by environment names
-	Environment *[]string `form:"environment,omitempty" json:"environment,omitempty"`
-}
-
 // ListComponentWorkflowRunsParams defines parameters for ListComponentWorkflowRuns.
 type ListComponentWorkflowRunsParams struct {
 	// Limit Maximum number of items to return per page
@@ -3273,10 +3357,26 @@ type CreateComponentWorkflowRunParams struct {
 	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
 }
 
-// ListReleaseBindingsFlatParams defines parameters for ListReleaseBindingsFlat.
-type ListReleaseBindingsFlatParams struct {
+// ListReleaseBindingsParams defines parameters for ListReleaseBindings.
+type ListReleaseBindingsParams struct {
 	// Component Filter resources by component name
 	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListReleasesParams defines parameters for ListReleases.
+type ListReleasesParams struct {
+	// Component Filter resources by component name
+	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// Environment Filter resources by environment name
+	Environment *EnvironmentQueryParam `form:"environment,omitempty" json:"environment,omitempty"`
 
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3418,9 +3518,6 @@ type UpdateProjectJSONRequestBody = Project
 
 // UpdateComponentBindingJSONRequestBody defines body for UpdateComponentBinding for application/json ContentType.
 type UpdateComponentBindingJSONRequestBody = UpdateBindingRequest
-
-// PatchReleaseBindingJSONRequestBody defines body for PatchReleaseBinding for application/json ContentType.
-type PatchReleaseBindingJSONRequestBody = PatchReleaseBindingRequest
 
 // UpdateComponentTraitsJSONRequestBody defines body for UpdateComponentTraits for application/json ContentType.
 type UpdateComponentTraitsJSONRequestBody = UpdateComponentTraitsRequest
