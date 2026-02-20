@@ -64,7 +64,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
-	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane)
+	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
 
 	return ctx, nil
 }
@@ -190,19 +190,21 @@ func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 // If the Environment has gateway configuration, it uses those values.
 // Otherwise, it falls back to the DataPlane gateway configuration.
 // Gateway name and namespace default to "gateway-default" and "openchoreo-data-plane" if not set.
-func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane) EnvironmentData {
+func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane, defaultNotificationChannel string) EnvironmentData {
 	// If environment has gateway configuration, use it
 	if env.Spec.Gateway.PublicVirtualHost != "" {
 		return EnvironmentData{
-			PublicVirtualHost:       env.Spec.Gateway.PublicVirtualHost,
-			OrganizationVirtualHost: env.Spec.Gateway.OrganizationVirtualHost,
+			PublicVirtualHost:          env.Spec.Gateway.PublicVirtualHost,
+			OrganizationVirtualHost:    env.Spec.Gateway.OrganizationVirtualHost,
+			DefaultNotificationChannel: defaultNotificationChannel,
 		}
 	}
 
 	// Fallback to DataPlane gateway configuration
 	return EnvironmentData{
-		PublicVirtualHost:       dp.Spec.Gateway.PublicVirtualHost,
-		OrganizationVirtualHost: dp.Spec.Gateway.OrganizationVirtualHost,
+		PublicVirtualHost:          dp.Spec.Gateway.PublicVirtualHost,
+		OrganizationVirtualHost:    dp.Spec.Gateway.OrganizationVirtualHost,
+		DefaultNotificationChannel: defaultNotificationChannel,
 	}
 }
 

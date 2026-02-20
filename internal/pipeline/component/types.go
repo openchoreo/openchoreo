@@ -54,6 +54,10 @@ type RenderInput struct {
 	// Metadata provides structured naming information.
 	// Required - controller must compute and provide this.
 	Metadata pipelinecontext.MetadataContext `validate:"required"`
+
+	// DefaultNotificationChannel is the default notification channel name for the environment.
+	// Optional - if not provided, traits won't have access to a default notification channel.
+	DefaultNotificationChannel string
 }
 
 // ApplyTargetPlaneDefaults normalizes empty targetPlane fields to "dataplane".

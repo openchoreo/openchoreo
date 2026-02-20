@@ -25,7 +25,11 @@ spec:
       # Platform engineers can override per environment
       enabled: "boolean | default=true | description=\"Controls whether this alert rule is active. When disabled, the rule will not trigger alerts.\""
       enableAiRootCauseAnalysis: "boolean | default=false | description=\"Enables AI-powered root cause analysis for alerts triggered by this rule. When enabled, provides automated reports of root causes for alert conditions.\""
-      notificationChannel: "string | description=\"The notification channel identifier where alerts should be delivered. Configured per environment by platform engineers.\""
+      notificationChannel: "string | default=\"\" | description=\"The notification channel identifier where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel.\""
+
+  validations:
+    - rule: "${(has(envOverrides.notificationChannel) && envOverrides.notificationChannel != '') || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
+      message: "A notification channel must be provided either in envOverrides or as the environment default."
 
   creates:
     - targetPlane: observabilityplane
@@ -47,7 +51,10 @@ spec:
           severity: ${parameters.severity}
           enabled: ${envOverrides.enabled}
           enableAiRootCauseAnalysis: ${envOverrides.enableAiRootCauseAnalysis}
-          notificationChannel: ${envOverrides.notificationChannel}
+          notificationChannel: >-
+            ${has(envOverrides.notificationChannel) && envOverrides.notificationChannel != ""
+              ? envOverrides.notificationChannel
+              : environment.defaultNotificationChannel}
           source:
             type: ${parameters.source.type}
             query: ${parameters.source.query}

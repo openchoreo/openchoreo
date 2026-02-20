@@ -108,6 +108,10 @@ type ComponentContextInput struct {
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
+
+	// DefaultNotificationChannel is the default notification channel name for the environment.
+	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
+	DefaultNotificationChannel string
 }
 
 // TraitContextInput contains all inputs needed to build a trait rendering context.
@@ -151,6 +155,10 @@ type TraitContextInput struct {
 	// Environment contains the environment configuration.
 	// Required - controller must provide this.
 	Environment *v1alpha1.Environment `validate:"required"`
+
+	// DefaultNotificationChannel is the default notification channel name for the environment.
+	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
+	DefaultNotificationChannel string
 }
 
 // SchemaInput contains schema information for building structural and JSON schemas.
@@ -216,8 +224,9 @@ type ObservabilityPlaneRefData struct {
 // EnvironmentData provides environment-specific gateway configuration in templates.
 // If the environment does not have gateway configuration, values fallback to DataPlane gateway.
 type EnvironmentData struct {
-	PublicVirtualHost       string `json:"publicVirtualHost,omitempty"`
-	OrganizationVirtualHost string `json:"organizationVirtualHost,omitempty"`
+	PublicVirtualHost          string `json:"publicVirtualHost,omitempty"`
+	OrganizationVirtualHost    string `json:"organizationVirtualHost,omitempty"`
+	DefaultNotificationChannel string `json:"defaultNotificationChannel,omitempty"`
 }
 
 // WorkloadData contains workload information for templates.

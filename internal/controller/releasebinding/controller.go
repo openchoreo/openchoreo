@@ -380,14 +380,17 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Build MetadataContext with computed names
 	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
 
-	// Prepare a render-time copy of the ReleaseBinding with defaults injected (e.g., alert notification channel).
-	renderBinding := releaseBinding.DeepCopy()
-	if err := r.applyDefaultNotificationChannel(ctx, renderBinding, componentRelease); err != nil {
-		msg := fmt.Sprintf("Failed to apply default notification channel: %v", err)
-		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
-			ReasonRenderingFailed, msg)
-		logger.Error(err, "Failed to apply default notification channel")
-		return ctrl.Result{}, fmt.Errorf("failed to apply default notification channel: %w", err)
+	// Fetch default notification channel for the environment if available
+	// This will be passed to the rendering pipeline and made available in the trait CEL context
+	defaultNotificationChannel, err := r.getDefaultNotificationChannelName(ctx, releaseBinding.Namespace, releaseBinding.Spec.Environment)
+	if err != nil {
+		if strings.Contains(err.Error(), "no default ObservabilityAlertsNotificationChannel found for environment") {
+			logger.V(1).Info("Default notification channel not configured", "environment", releaseBinding.Spec.Environment)
+			defaultNotificationChannel = ""
+		} else {
+			logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
+			return ctrl.Result{}, err
+		}
 	}
 
 	// Build Component from ComponentRelease for rendering
@@ -409,15 +412,16 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
-		ComponentType:    snapshotComponentType,
-		Component:        snapshotComponent,
-		Traits:           snapshotTraits,
-		Workload:         snapshotWorkload,
-		Environment:      environment,
-		ReleaseBinding:   renderBinding,
-		DataPlane:        dataPlane,
-		SecretReferences: secretReferences,
-		Metadata:         metadataContext,
+		ComponentType:              snapshotComponentType,
+		Component:                  snapshotComponent,
+		Traits:                     snapshotTraits,
+		Workload:                   snapshotWorkload,
+		Environment:                environment,
+		ReleaseBinding:             releaseBinding,
+		DataPlane:                  dataPlane,
+		SecretReferences:           secretReferences,
+		Metadata:                   metadataContext,
+		DefaultNotificationChannel: defaultNotificationChannel,
 	}
 
 	// Render resources using the shared pipeline instance
@@ -1189,74 +1193,6 @@ func resolveGatewayPort(name, namespace string, env *openchoreov1alpha1.Environm
 		return standardHTTPSPort
 	}
 	return 0
-}
-
-// applyDefaultNotificationChannel injects a default notificationChannel override for
-// observability alert rule traits when none is provided for the environment.
-func (r *Reconciler) applyDefaultNotificationChannel(
-	ctx context.Context,
-	rb *openchoreov1alpha1.ReleaseBinding,
-	componentRelease *openchoreov1alpha1.ComponentRelease,
-) error {
-	// Check if ComponentProfile exists
-	if componentRelease.Spec.ComponentProfile == nil {
-		return nil
-	}
-
-	// Identify observability-alert-rule trait instances in the release.
-	alertRuleInstances := make([]openchoreov1alpha1.ComponentTrait, 0)
-	for _, trait := range componentRelease.Spec.ComponentProfile.Traits {
-		if trait.Name == "observability-alert-rule" {
-			alertRuleInstances = append(alertRuleInstances, trait)
-		}
-	}
-
-	if len(alertRuleInstances) == 0 {
-		return nil
-	}
-
-	defaultChannel, err := r.getDefaultNotificationChannelName(ctx, rb.Namespace, rb.Spec.Environment)
-	if err != nil {
-		return err
-	}
-
-	if rb.Spec.TraitOverrides == nil {
-		rb.Spec.TraitOverrides = make(map[string]runtime.RawExtension)
-	}
-
-	for _, trait := range alertRuleInstances {
-		override, ok := rb.Spec.TraitOverrides[trait.InstanceName]
-		if ok {
-			// Check if notificationChannel already set
-			var existing map[string]any
-			if len(override.Raw) > 0 {
-				if err := json.Unmarshal(override.Raw, &existing); err != nil {
-					return fmt.Errorf("failed to unmarshal trait override for %s: %w", trait.InstanceName, err)
-				}
-				if val, ok := existing["notificationChannel"]; ok && fmt.Sprintf("%v", val) != "" {
-					continue
-				}
-				// inject and re-marshal
-				existing["notificationChannel"] = defaultChannel
-				updated, err := json.Marshal(existing)
-				if err != nil {
-					return fmt.Errorf("failed to marshal trait override for %s: %w", trait.InstanceName, err)
-				}
-				rb.Spec.TraitOverrides[trait.InstanceName] = runtime.RawExtension{Raw: updated}
-				continue
-			}
-		}
-
-		// No override or empty override; create one with default notificationChannel
-		payload := map[string]any{"notificationChannel": defaultChannel}
-		raw, err := json.Marshal(payload)
-		if err != nil {
-			return fmt.Errorf("failed to marshal default notificationChannel override for %s: %w", trait.InstanceName, err)
-		}
-		rb.Spec.TraitOverrides[trait.InstanceName] = runtime.RawExtension{Raw: raw}
-	}
-
-	return nil
 }
 
 // getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.

@@ -90,14 +90,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Build component context
 	componentContext, err := context.BuildComponentContext(&context.ComponentContextInput{
-		Component:      input.Component,
-		ComponentType:  input.ComponentType,
-		ReleaseBinding: input.ReleaseBinding,
-		DataPlane:      input.DataPlane,
-		Environment:    input.Environment,
-		WorkloadData:   workloadData,
-		Configurations: configurations,
-		Metadata:       input.Metadata,
+		Component:                  input.Component,
+		ComponentType:              input.ComponentType,
+		ReleaseBinding:             input.ReleaseBinding,
+		DataPlane:                  input.DataPlane,
+		Environment:                input.Environment,
+		WorkloadData:               workloadData,
+		Configurations:             configurations,
+		Metadata:                   input.Metadata,
+		DefaultNotificationChannel: input.DefaultNotificationChannel,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
@@ -158,17 +159,18 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 		// Build embedded trait context
 		traitContext, err := context.BuildEmbeddedTraitContext(&context.EmbeddedTraitContextInput{
-			Trait:                t,
-			InstanceName:         embeddedTrait.InstanceName,
-			ResolvedParameters:   resolvedParams,
-			ResolvedEnvOverrides: resolvedEnvOverrides,
-			Component:            input.Component,
-			WorkloadData:         workloadData,
-			Configurations:       configurations,
-			Metadata:             input.Metadata,
-			SchemaCache:          schemaCache,
-			DataPlane:            input.DataPlane,
-			Environment:          input.Environment,
+			Trait:                      t,
+			InstanceName:               embeddedTrait.InstanceName,
+			ResolvedParameters:         resolvedParams,
+			ResolvedEnvOverrides:       resolvedEnvOverrides,
+			Component:                  input.Component,
+			WorkloadData:               workloadData,
+			Configurations:             configurations,
+			Metadata:                   input.Metadata,
+			SchemaCache:                schemaCache,
+			DataPlane:                  input.DataPlane,
+			Environment:                input.Environment,
+			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
@@ -206,16 +208,17 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
-			Trait:          t,
-			Instance:       traitInstance,
-			Component:      input.Component,
-			ReleaseBinding: input.ReleaseBinding,
-			WorkloadData:   workloadData,
-			Configurations: configurations,
-			Metadata:       input.Metadata,
-			SchemaCache:    schemaCache,
-			DataPlane:      input.DataPlane,
-			Environment:    input.Environment,
+			Trait:                      t,
+			Instance:                   traitInstance,
+			Component:                  input.Component,
+			ReleaseBinding:             input.ReleaseBinding,
+			WorkloadData:               workloadData,
+			Configurations:             configurations,
+			Metadata:                   input.Metadata,
+			SchemaCache:                schemaCache,
+			DataPlane:                  input.DataPlane,
+			Environment:                input.Environment,
+			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",

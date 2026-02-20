@@ -51,6 +51,10 @@ type EmbeddedTraitContextInput struct {
 
 	// Environment contains the environment configuration.
 	Environment *v1alpha1.Environment `validate:"required"`
+
+	// DefaultNotificationChannel is the default notification channel name for the environment.
+	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
+	DefaultNotificationChannel string
 }
 
 // ResolveEmbeddedTraitBindings resolves CEL expressions in an embedded trait's parameter
@@ -147,7 +151,7 @@ func BuildEmbeddedTraitContext(input *EmbeddedTraitContextInput) (*TraitContext,
 	}
 
 	ctx.DataPlane = extractDataPlaneData(input.DataPlane)
-	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane)
+	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
 	ctx.Workload = input.WorkloadData
 	ctx.Configurations = input.Configurations
 
