@@ -38,6 +38,7 @@ rules:
   - environments
   - gitcommitrequests
   - gitrepositorywebhooks
+  - observabilityalertsnotificationchannels
   - observabilityplanes
   - projects
   - releasebindings
@@ -103,6 +104,7 @@ rules:
   - environments/status
   - gitcommitrequests/status
   - gitrepositorywebhooks/status
+  - observabilityalertsnotificationchannels/status
   - observabilityplanes/status
   - projects/status
   - releasebindings/status

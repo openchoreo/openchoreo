@@ -4,7 +4,11 @@
 package gen
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
+
+	"github.com/oapi-codegen/runtime"
 )
 
 const (
@@ -162,6 +166,12 @@ const (
 	INTERNALERROR ErrorResponseCode = "INTERNAL_ERROR"
 	NOTFOUND      ErrorResponseCode = "NOT_FOUND"
 	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
+)
+
+// Defines values for ObservabilityAlertsNotificationChannelSpecType.
+const (
+	Email   ObservabilityAlertsNotificationChannelSpecType = "email"
+	Webhook ObservabilityAlertsNotificationChannelSpecType = "webhook"
 )
 
 // Defines values for ObservabilityPlaneRefKind.
@@ -1876,6 +1886,96 @@ type NamespaceList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// NotificationEmailConfig Configuration for email notification channels
+type NotificationEmailConfig struct {
+	// From Sender email address
+	From string `json:"from"`
+
+	// Smtp SMTP server configuration
+	Smtp NotificationSMTPConfig `json:"smtp"`
+
+	// Template Email template with CEL expressions
+	Template NotificationEmailTemplate `json:"template"`
+
+	// To List of recipient email addresses
+	To []string `json:"to"`
+}
+
+// NotificationEmailTemplate Email template with CEL expressions
+type NotificationEmailTemplate struct {
+	// Body Email body template using CEL expressions
+	Body string `json:"body"`
+
+	// Subject Email subject line template using CEL expressions
+	Subject string `json:"subject"`
+}
+
+// NotificationSMTPAuth SMTP authentication configuration
+type NotificationSMTPAuth struct {
+	// Password How to obtain a secret value
+	Password NotificationSecretValueFrom `json:"password"`
+
+	// Username How to obtain a secret value
+	Username NotificationSecretValueFrom `json:"username"`
+}
+
+// NotificationSMTPConfig SMTP server configuration
+type NotificationSMTPConfig struct {
+	// Auth SMTP authentication configuration
+	Auth NotificationSMTPAuth `json:"auth"`
+
+	// Host SMTP server hostname
+	Host string `json:"host"`
+
+	// Port SMTP server port
+	Port int `json:"port"`
+
+	// Tls TLS configuration for SMTP
+	Tls NotificationSMTPTLSConfig `json:"tls"`
+}
+
+// NotificationSMTPTLSConfig TLS configuration for SMTP
+type NotificationSMTPTLSConfig struct {
+	// InsecureSkipVerify Skip TLS certificate verification (not recommended for production)
+	InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+}
+
+// NotificationSecretKeyRef Reference to a specific key in a Kubernetes secret
+type NotificationSecretKeyRef struct {
+	// Key Key within the secret
+	Key *string `json:"key,omitempty"`
+
+	// Name Name of the Kubernetes secret
+	Name *string `json:"name,omitempty"`
+}
+
+// NotificationSecretValueFrom How to obtain a secret value
+type NotificationSecretValueFrom struct {
+	// SecretKeyRef Reference to a specific key in a Kubernetes secret
+	SecretKeyRef *NotificationSecretKeyRef `json:"secretKeyRef,omitempty"`
+}
+
+// NotificationWebhookConfig Configuration for webhook notification channels
+type NotificationWebhookConfig struct {
+	// Headers Optional HTTP headers to include in the webhook request
+	Headers *map[string]NotificationWebhookHeaderValue `json:"headers,omitempty"`
+
+	// PayloadTemplate Optional JSON payload template using CEL expressions
+	PayloadTemplate *string `json:"payloadTemplate,omitempty"`
+
+	// Url Webhook endpoint URL where alerts will be sent
+	Url string `json:"url"`
+}
+
+// NotificationWebhookHeaderValue Header value that can be provided inline or via secret reference
+type NotificationWebhookHeaderValue struct {
+	// Value Inline header value
+	Value *string `json:"value,omitempty"`
+
+	// ValueFrom How to obtain a secret value
+	ValueFrom *NotificationSecretValueFrom `json:"valueFrom,omitempty"`
+}
+
 // OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728
 type OAuthProtectedResourceMetadata struct {
 	// AuthorizationServers List of authorization server URLs
@@ -1915,6 +2015,62 @@ type ObjectMeta struct {
 	// Uid Unique identifier (Kubernetes UID)
 	Uid *string `json:"uid,omitempty"`
 }
+
+// ObservabilityAlertsNotificationChannel ObservabilityAlertsNotificationChannel resource (Kubernetes object without kind/apiVersion).
+// Defines a channel for sending alert notifications. Currently email and webhook notifications are supported.
+type ObservabilityAlertsNotificationChannel struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of an ObservabilityAlertsNotificationChannel
+	Spec   *ObservabilityAlertsNotificationChannelSpec   `json:"spec,omitempty"`
+	Status *ObservabilityAlertsNotificationChannelStatus `json:"status,omitempty"`
+}
+
+// ObservabilityAlertsNotificationChannelList Paginated list of observability alerts notification channels
+type ObservabilityAlertsNotificationChannelList struct {
+	Items []ObservabilityAlertsNotificationChannel `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// ObservabilityAlertsNotificationChannelSpec Desired state of an ObservabilityAlertsNotificationChannel
+type ObservabilityAlertsNotificationChannelSpec struct {
+	// EmailConfig Configuration for email notification channels
+	EmailConfig *NotificationEmailConfig `json:"emailConfig,omitempty"`
+
+	// Environment Name of the openchoreo environment this notification channel belongs to
+	Environment string `json:"environment"`
+
+	// IsEnvDefault Whether this is the default notification channel for the environment
+	IsEnvDefault *bool `json:"isEnvDefault,omitempty"`
+
+	// Type Type of notification channel
+	Type ObservabilityAlertsNotificationChannelSpecType `json:"type"`
+
+	// WebhookConfig Configuration for webhook notification channels
+	WebhookConfig *NotificationWebhookConfig `json:"webhookConfig,omitempty"`
+	union         json.RawMessage
+}
+
+// ObservabilityAlertsNotificationChannelSpecType Type of notification channel
+type ObservabilityAlertsNotificationChannelSpecType string
+
+// ObservabilityAlertsNotificationChannelSpec0 defines model for .
+type ObservabilityAlertsNotificationChannelSpec0 struct {
+	Type interface{} `json:"type"`
+}
+
+// ObservabilityAlertsNotificationChannelSpec1 defines model for .
+type ObservabilityAlertsNotificationChannelSpec1 struct {
+	Type interface{} `json:"type"`
+}
+
+// ObservabilityAlertsNotificationChannelStatus Observed state of an ObservabilityAlertsNotificationChannel
+type ObservabilityAlertsNotificationChannelStatus = map[string]interface{}
 
 // ObservabilityPlane ObservabilityPlane resource (Kubernetes object without kind/apiVersion).
 // Represents monitoring and logging infrastructure within a namespace.
@@ -3127,6 +3283,9 @@ type MappingIdParam = int64
 // NamespaceNameParam defines model for NamespaceNameParam.
 type NamespaceNameParam = string
 
+// ObservabilityAlertsNotificationChannelNameParam defines model for ObservabilityAlertsNotificationChannelNameParam.
+type ObservabilityAlertsNotificationChannelNameParam = string
+
 // ObservabilityPlaneNameParam defines model for ObservabilityPlaneNameParam.
 type ObservabilityPlaneNameParam = string
 
@@ -3318,6 +3477,16 @@ type ListDataPlanesParams struct {
 
 // ListEnvironmentsParams defines parameters for ListEnvironments.
 type ListEnvironmentsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListObservabilityAlertsNotificationChannelsParams defines parameters for ListObservabilityAlertsNotificationChannels.
+type ListObservabilityAlertsNotificationChannelsParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3531,6 +3700,12 @@ type CreateDataPlaneJSONRequestBody = DataPlane
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = Environment
 
+// CreateObservabilityAlertsNotificationChannelJSONRequestBody defines body for CreateObservabilityAlertsNotificationChannel for application/json ContentType.
+type CreateObservabilityAlertsNotificationChannelJSONRequestBody = ObservabilityAlertsNotificationChannel
+
+// UpdateObservabilityAlertsNotificationChannelJSONRequestBody defines body for UpdateObservabilityAlertsNotificationChannel for application/json ContentType.
+type UpdateObservabilityAlertsNotificationChannelJSONRequestBody = ObservabilityAlertsNotificationChannel
+
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = Project
 
@@ -3587,3 +3762,151 @@ type HandleGitHubWebhookJSONRequestBody HandleGitHubWebhookJSONBody
 
 // HandleGitLabWebhookJSONRequestBody defines body for HandleGitLabWebhook for application/json ContentType.
 type HandleGitLabWebhookJSONRequestBody HandleGitLabWebhookJSONBody
+
+// AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
+func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {
+	var body ObservabilityAlertsNotificationChannelSpec0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromObservabilityAlertsNotificationChannelSpec0 overwrites any union data inside the ObservabilityAlertsNotificationChannelSpec as the provided ObservabilityAlertsNotificationChannelSpec0
+func (t *ObservabilityAlertsNotificationChannelSpec) FromObservabilityAlertsNotificationChannelSpec0(v ObservabilityAlertsNotificationChannelSpec0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeObservabilityAlertsNotificationChannelSpec0 performs a merge with any union data inside the ObservabilityAlertsNotificationChannelSpec, using the provided ObservabilityAlertsNotificationChannelSpec0
+func (t *ObservabilityAlertsNotificationChannelSpec) MergeObservabilityAlertsNotificationChannelSpec0(v ObservabilityAlertsNotificationChannelSpec0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsObservabilityAlertsNotificationChannelSpec1 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec1
+func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec1() (ObservabilityAlertsNotificationChannelSpec1, error) {
+	var body ObservabilityAlertsNotificationChannelSpec1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromObservabilityAlertsNotificationChannelSpec1 overwrites any union data inside the ObservabilityAlertsNotificationChannelSpec as the provided ObservabilityAlertsNotificationChannelSpec1
+func (t *ObservabilityAlertsNotificationChannelSpec) FromObservabilityAlertsNotificationChannelSpec1(v ObservabilityAlertsNotificationChannelSpec1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeObservabilityAlertsNotificationChannelSpec1 performs a merge with any union data inside the ObservabilityAlertsNotificationChannelSpec, using the provided ObservabilityAlertsNotificationChannelSpec1
+func (t *ObservabilityAlertsNotificationChannelSpec) MergeObservabilityAlertsNotificationChannelSpec1(v ObservabilityAlertsNotificationChannelSpec1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ObservabilityAlertsNotificationChannelSpec) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.EmailConfig != nil {
+		object["emailConfig"], err = json.Marshal(t.EmailConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'emailConfig': %w", err)
+		}
+	}
+
+	object["environment"], err = json.Marshal(t.Environment)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'environment': %w", err)
+	}
+
+	if t.IsEnvDefault != nil {
+		object["isEnvDefault"], err = json.Marshal(t.IsEnvDefault)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'isEnvDefault': %w", err)
+		}
+	}
+
+	object["type"], err = json.Marshal(t.Type)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling 'type': %w", err)
+	}
+
+	if t.WebhookConfig != nil {
+		object["webhookConfig"], err = json.Marshal(t.WebhookConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'webhookConfig': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *ObservabilityAlertsNotificationChannelSpec) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["emailConfig"]; found {
+		err = json.Unmarshal(raw, &t.EmailConfig)
+		if err != nil {
+			return fmt.Errorf("error reading 'emailConfig': %w", err)
+		}
+	}
+
+	if raw, found := object["environment"]; found {
+		err = json.Unmarshal(raw, &t.Environment)
+		if err != nil {
+			return fmt.Errorf("error reading 'environment': %w", err)
+		}
+	}
+
+	if raw, found := object["isEnvDefault"]; found {
+		err = json.Unmarshal(raw, &t.IsEnvDefault)
+		if err != nil {
+			return fmt.Errorf("error reading 'isEnvDefault': %w", err)
+		}
+	}
+
+	if raw, found := object["type"]; found {
+		err = json.Unmarshal(raw, &t.Type)
+		if err != nil {
+			return fmt.Errorf("error reading 'type': %w", err)
+		}
+	}
+
+	if raw, found := object["webhookConfig"]; found {
+		err = json.Unmarshal(raw, &t.WebhookConfig)
+		if err != nil {
+			return fmt.Errorf("error reading 'webhookConfig': %w", err)
+		}
+	}
+
+	return err
+}

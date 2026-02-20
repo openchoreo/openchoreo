@@ -323,6 +323,25 @@ type ClientInterface interface {
 	// GetRCAAgentURL request
 	GetRCAAgentURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListObservabilityAlertsNotificationChannels request
+	ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateObservabilityAlertsNotificationChannelWithBody request with any body
+	CreateObservabilityAlertsNotificationChannelWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, body CreateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteObservabilityAlertsNotificationChannel request
+	DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetObservabilityAlertsNotificationChannel request
+	GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateObservabilityAlertsNotificationChannelWithBody request with any body
+	UpdateObservabilityAlertsNotificationChannelWithBody(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, body UpdateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListObservabilityPlanes request
 	ListObservabilityPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1561,6 +1580,90 @@ func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName Na
 
 func (c *Client) GetRCAAgentURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRCAAgentURLRequest(c.Server, namespaceName, envName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListObservabilityAlertsNotificationChannelsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateObservabilityAlertsNotificationChannelWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateObservabilityAlertsNotificationChannelRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, body CreateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateObservabilityAlertsNotificationChannelRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteObservabilityAlertsNotificationChannelRequest(c.Server, namespaceName, observabilityAlertsNotificationChannelName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetObservabilityAlertsNotificationChannelRequest(c.Server, namespaceName, observabilityAlertsNotificationChannelName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateObservabilityAlertsNotificationChannelWithBody(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateObservabilityAlertsNotificationChannelRequestWithBody(c.Server, namespaceName, observabilityAlertsNotificationChannelName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, body UpdateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateObservabilityAlertsNotificationChannelRequest(c.Server, namespaceName, observabilityAlertsNotificationChannelName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5563,6 +5666,261 @@ func NewGetRCAAgentURLRequest(server string, namespaceName NamespaceNameParam, e
 	return req, nil
 }
 
+// NewListObservabilityAlertsNotificationChannelsRequest generates requests for ListObservabilityAlertsNotificationChannels
+func NewListObservabilityAlertsNotificationChannelsRequest(server string, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateObservabilityAlertsNotificationChannelRequest calls the generic CreateObservabilityAlertsNotificationChannel builder with application/json body
+func NewCreateObservabilityAlertsNotificationChannelRequest(server string, namespaceName NamespaceNameParam, body CreateObservabilityAlertsNotificationChannelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateObservabilityAlertsNotificationChannelRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateObservabilityAlertsNotificationChannelRequestWithBody generates requests for CreateObservabilityAlertsNotificationChannel with any type of body
+func NewCreateObservabilityAlertsNotificationChannelRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteObservabilityAlertsNotificationChannelRequest generates requests for DeleteObservabilityAlertsNotificationChannel
+func NewDeleteObservabilityAlertsNotificationChannelRequest(server string, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "observabilityAlertsNotificationChannelName", runtime.ParamLocationPath, observabilityAlertsNotificationChannelName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetObservabilityAlertsNotificationChannelRequest generates requests for GetObservabilityAlertsNotificationChannel
+func NewGetObservabilityAlertsNotificationChannelRequest(server string, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "observabilityAlertsNotificationChannelName", runtime.ParamLocationPath, observabilityAlertsNotificationChannelName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateObservabilityAlertsNotificationChannelRequest calls the generic UpdateObservabilityAlertsNotificationChannel builder with application/json body
+func NewUpdateObservabilityAlertsNotificationChannelRequest(server string, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, body UpdateObservabilityAlertsNotificationChannelJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateObservabilityAlertsNotificationChannelRequestWithBody(server, namespaceName, observabilityAlertsNotificationChannelName, "application/json", bodyReader)
+}
+
+// NewUpdateObservabilityAlertsNotificationChannelRequestWithBody generates requests for UpdateObservabilityAlertsNotificationChannel with any type of body
+func NewUpdateObservabilityAlertsNotificationChannelRequestWithBody(server string, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "observabilityAlertsNotificationChannelName", runtime.ParamLocationPath, observabilityAlertsNotificationChannelName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observability-alerts-notification-channels/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListObservabilityPlanesRequest generates requests for ListObservabilityPlanes
 func NewListObservabilityPlanesRequest(server string, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams) (*http.Request, error) {
 	var err error
@@ -9007,6 +9365,25 @@ type ClientWithResponsesInterface interface {
 	// GetRCAAgentURLWithResponse request
 	GetRCAAgentURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetRCAAgentURLResp, error)
 
+	// ListObservabilityAlertsNotificationChannelsWithResponse request
+	ListObservabilityAlertsNotificationChannelsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*ListObservabilityAlertsNotificationChannelsResp, error)
+
+	// CreateObservabilityAlertsNotificationChannelWithBodyWithResponse request with any body
+	CreateObservabilityAlertsNotificationChannelWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateObservabilityAlertsNotificationChannelResp, error)
+
+	CreateObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateObservabilityAlertsNotificationChannelResp, error)
+
+	// DeleteObservabilityAlertsNotificationChannelWithResponse request
+	DeleteObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*DeleteObservabilityAlertsNotificationChannelResp, error)
+
+	// GetObservabilityAlertsNotificationChannelWithResponse request
+	GetObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*GetObservabilityAlertsNotificationChannelResp, error)
+
+	// UpdateObservabilityAlertsNotificationChannelWithBodyWithResponse request with any body
+	UpdateObservabilityAlertsNotificationChannelWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateObservabilityAlertsNotificationChannelResp, error)
+
+	UpdateObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, body UpdateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateObservabilityAlertsNotificationChannelResp, error)
+
 	// ListObservabilityPlanesWithResponse request
 	ListObservabilityPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListObservabilityPlanesResp, error)
 
@@ -10891,6 +11268,136 @@ func (r GetRCAAgentURLResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetRCAAgentURLResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListObservabilityAlertsNotificationChannelsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ObservabilityAlertsNotificationChannelList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListObservabilityAlertsNotificationChannelsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListObservabilityAlertsNotificationChannelsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateObservabilityAlertsNotificationChannelResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ObservabilityAlertsNotificationChannel
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateObservabilityAlertsNotificationChannelResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateObservabilityAlertsNotificationChannelResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteObservabilityAlertsNotificationChannelResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteObservabilityAlertsNotificationChannelResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteObservabilityAlertsNotificationChannelResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetObservabilityAlertsNotificationChannelResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ObservabilityAlertsNotificationChannel
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetObservabilityAlertsNotificationChannelResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetObservabilityAlertsNotificationChannelResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateObservabilityAlertsNotificationChannelResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ObservabilityAlertsNotificationChannel
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateObservabilityAlertsNotificationChannelResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateObservabilityAlertsNotificationChannelResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13266,6 +13773,67 @@ func (c *ClientWithResponses) GetRCAAgentURLWithResponse(ctx context.Context, na
 		return nil, err
 	}
 	return ParseGetRCAAgentURLResp(rsp)
+}
+
+// ListObservabilityAlertsNotificationChannelsWithResponse request returning *ListObservabilityAlertsNotificationChannelsResp
+func (c *ClientWithResponses) ListObservabilityAlertsNotificationChannelsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityAlertsNotificationChannelsParams, reqEditors ...RequestEditorFn) (*ListObservabilityAlertsNotificationChannelsResp, error) {
+	rsp, err := c.ListObservabilityAlertsNotificationChannels(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListObservabilityAlertsNotificationChannelsResp(rsp)
+}
+
+// CreateObservabilityAlertsNotificationChannelWithBodyWithResponse request with arbitrary body returning *CreateObservabilityAlertsNotificationChannelResp
+func (c *ClientWithResponses) CreateObservabilityAlertsNotificationChannelWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.CreateObservabilityAlertsNotificationChannelWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateObservabilityAlertsNotificationChannelResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.CreateObservabilityAlertsNotificationChannel(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateObservabilityAlertsNotificationChannelResp(rsp)
+}
+
+// DeleteObservabilityAlertsNotificationChannelWithResponse request returning *DeleteObservabilityAlertsNotificationChannelResp
+func (c *ClientWithResponses) DeleteObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*DeleteObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.DeleteObservabilityAlertsNotificationChannel(ctx, namespaceName, observabilityAlertsNotificationChannelName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteObservabilityAlertsNotificationChannelResp(rsp)
+}
+
+// GetObservabilityAlertsNotificationChannelWithResponse request returning *GetObservabilityAlertsNotificationChannelResp
+func (c *ClientWithResponses) GetObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, reqEditors ...RequestEditorFn) (*GetObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.GetObservabilityAlertsNotificationChannel(ctx, namespaceName, observabilityAlertsNotificationChannelName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetObservabilityAlertsNotificationChannelResp(rsp)
+}
+
+// UpdateObservabilityAlertsNotificationChannelWithBodyWithResponse request with arbitrary body returning *UpdateObservabilityAlertsNotificationChannelResp
+func (c *ClientWithResponses) UpdateObservabilityAlertsNotificationChannelWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.UpdateObservabilityAlertsNotificationChannelWithBody(ctx, namespaceName, observabilityAlertsNotificationChannelName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateObservabilityAlertsNotificationChannelResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateObservabilityAlertsNotificationChannelWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityAlertsNotificationChannelName ObservabilityAlertsNotificationChannelNameParam, body UpdateObservabilityAlertsNotificationChannelJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateObservabilityAlertsNotificationChannelResp, error) {
+	rsp, err := c.UpdateObservabilityAlertsNotificationChannel(ctx, namespaceName, observabilityAlertsNotificationChannelName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateObservabilityAlertsNotificationChannelResp(rsp)
 }
 
 // ListObservabilityPlanesWithResponse request returning *ListObservabilityPlanesResp
@@ -17395,6 +17963,276 @@ func ParseGetRCAAgentURLResp(rsp *http.Response) (*GetRCAAgentURLResp, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListObservabilityAlertsNotificationChannelsResp parses an HTTP response from a ListObservabilityAlertsNotificationChannelsWithResponse call
+func ParseListObservabilityAlertsNotificationChannelsResp(rsp *http.Response) (*ListObservabilityAlertsNotificationChannelsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListObservabilityAlertsNotificationChannelsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ObservabilityAlertsNotificationChannelList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateObservabilityAlertsNotificationChannelResp parses an HTTP response from a CreateObservabilityAlertsNotificationChannelWithResponse call
+func ParseCreateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (*CreateObservabilityAlertsNotificationChannelResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateObservabilityAlertsNotificationChannelResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ObservabilityAlertsNotificationChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteObservabilityAlertsNotificationChannelResp parses an HTTP response from a DeleteObservabilityAlertsNotificationChannelWithResponse call
+func ParseDeleteObservabilityAlertsNotificationChannelResp(rsp *http.Response) (*DeleteObservabilityAlertsNotificationChannelResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteObservabilityAlertsNotificationChannelResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetObservabilityAlertsNotificationChannelResp parses an HTTP response from a GetObservabilityAlertsNotificationChannelWithResponse call
+func ParseGetObservabilityAlertsNotificationChannelResp(rsp *http.Response) (*GetObservabilityAlertsNotificationChannelResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetObservabilityAlertsNotificationChannelResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ObservabilityAlertsNotificationChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateObservabilityAlertsNotificationChannelResp parses an HTTP response from a UpdateObservabilityAlertsNotificationChannelWithResponse call
+func ParseUpdateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (*UpdateObservabilityAlertsNotificationChannelResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateObservabilityAlertsNotificationChannelResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ObservabilityAlertsNotificationChannel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

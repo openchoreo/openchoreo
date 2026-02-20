@@ -77,6 +77,8 @@ tags:
     description: Release binding management
   - name: DeploymentPipelines
     description: Deployment pipeline management
+  - name: ObservabilityAlertsNotificationChannels
+    description: Observability alerts notification channel management
 
 paths:
   # =============================================================================
@@ -3613,6 +3615,142 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # =============================================================================
+  # Observability Alerts Notification Channel Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/observability-alerts-notification-channels:
+    get:
+      operationId: listObservabilityAlertsNotificationChannels
+      summary: List observability alerts notification channels
+      description: Returns a paginated list of observability alerts notification channels within a namespace.
+      tags: [ObservabilityAlertsNotificationChannels]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of observability alerts notification channels
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityAlertsNotificationChannelList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createObservabilityAlertsNotificationChannel
+      summary: Create observability alerts notification channel
+      description: Creates a new observability alerts notification channel within a namespace.
+      tags: [ObservabilityAlertsNotificationChannels]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+      responses:
+        '201':
+          description: Observability alerts notification channel created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/observability-alerts-notification-channels/{observabilityAlertsNotificationChannelName}:
+    get:
+      operationId: getObservabilityAlertsNotificationChannel
+      summary: Get observability alerts notification channel
+      description: Returns details of a specific observability alerts notification channel.
+      tags: [ObservabilityAlertsNotificationChannels]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityAlertsNotificationChannelNameParam'
+      responses:
+        '200':
+          description: Observability alerts notification channel details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateObservabilityAlertsNotificationChannel
+      summary: Update observability alerts notification channel
+      description: Replaces an existing observability alerts notification channel (full update).
+      tags: [ObservabilityAlertsNotificationChannels]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityAlertsNotificationChannelNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+      responses:
+        '200':
+          description: Observability alerts notification channel updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteObservabilityAlertsNotificationChannel
+      summary: Delete observability alerts notification channel
+      description: Deletes an observability alerts notification channel by name.
+      tags: [ObservabilityAlertsNotificationChannels]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityAlertsNotificationChannelNameParam'
+      responses:
+        '204':
+          description: Observability alerts notification channel deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   # ===========================================================================
   # Security Schemes
@@ -3795,6 +3933,15 @@ components:
       schema:
         type: string
         example: my-secret
+
+    ObservabilityAlertsNotificationChannelNameParam:
+      name: observabilityAlertsNotificationChannelName
+      in: path
+      required: true
+      description: Observability alerts notification channel name
+      schema:
+        type: string
+        example: my-email-channel
 
     WorkflowNameParam:
       name: workflowName
@@ -8217,3 +8364,219 @@ components:
           type: boolean
           description: Whether manual approval is required
           example: true
+
+    # -------------------------------------------------------------------------
+    # Observability Alerts Notification Channel Schemas
+    # -------------------------------------------------------------------------
+    ObservabilityAlertsNotificationChannelList:
+      type: object
+      description: Paginated list of observability alerts notification channels
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ObservabilityAlertsNotificationChannel:
+      type: object
+      description: |
+        ObservabilityAlertsNotificationChannel resource (Kubernetes object without kind/apiVersion).
+        Defines a channel for sending alert notifications. Currently email and webhook notifications are supported.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ObservabilityAlertsNotificationChannelSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ObservabilityAlertsNotificationChannelStatus'
+
+    ObservabilityAlertsNotificationChannelSpec:
+      type: object
+      description: Desired state of an ObservabilityAlertsNotificationChannel
+      required:
+        - environment
+        - type
+      properties:
+        environment:
+          type: string
+          description: Name of the openchoreo environment this notification channel belongs to
+          example: dev
+        isEnvDefault:
+          type: boolean
+          description: Whether this is the default notification channel for the environment
+          default: false
+        type:
+          type: string
+          description: Type of notification channel
+          enum:
+            - email
+            - webhook
+          example: email
+        emailConfig:
+          $ref: '#/components/schemas/NotificationEmailConfig'
+        webhookConfig:
+          $ref: '#/components/schemas/NotificationWebhookConfig'
+      oneOf:
+        - properties:
+            type:
+              enum:
+                - email
+          required:
+            - type
+            - emailConfig
+        - properties:
+            type:
+              enum:
+                - webhook
+          required:
+            - type
+            - webhookConfig
+
+    ObservabilityAlertsNotificationChannelStatus:
+      type: object
+      description: Observed state of an ObservabilityAlertsNotificationChannel
+
+    NotificationEmailConfig:
+      type: object
+      description: Configuration for email notification channels
+      required:
+        - from
+        - to
+        - smtp
+        - template
+      properties:
+        from:
+          type: string
+          description: Sender email address
+          example: alerts@example.com
+        to:
+          type: array
+          description: List of recipient email addresses
+          minItems: 1
+          items:
+            type: string
+          example:
+            - team@example.com
+        smtp:
+          $ref: '#/components/schemas/NotificationSMTPConfig'
+        template:
+          $ref: '#/components/schemas/NotificationEmailTemplate'
+
+    NotificationSMTPConfig:
+      type: object
+      description: SMTP server configuration
+      required:
+        - host
+        - port
+        - auth
+        - tls
+      properties:
+        host:
+          type: string
+          description: SMTP server hostname
+          example: smtp.example.com
+        port:
+          type: integer
+          description: SMTP server port
+          minimum: 1
+          maximum: 65535
+          example: 587
+        auth:
+          $ref: '#/components/schemas/NotificationSMTPAuth'
+        tls:
+          $ref: '#/components/schemas/NotificationSMTPTLSConfig'
+
+    NotificationSMTPAuth:
+      type: object
+      description: SMTP authentication configuration
+      required:
+        - username
+        - password
+      properties:
+        username:
+          $ref: '#/components/schemas/NotificationSecretValueFrom'
+        password:
+          $ref: '#/components/schemas/NotificationSecretValueFrom'
+
+    NotificationSMTPTLSConfig:
+      type: object
+      description: TLS configuration for SMTP
+      properties:
+        insecureSkipVerify:
+          type: boolean
+          description: Skip TLS certificate verification (not recommended for production)
+          default: false
+
+    NotificationEmailTemplate:
+      type: object
+      description: Email template with CEL expressions
+      required:
+        - subject
+        - body
+      properties:
+        subject:
+          type: string
+          description: Email subject line template using CEL expressions
+          example: "[${alert.severity}] - ${alert.name} Triggered"
+        body:
+          type: string
+          description: Email body template using CEL expressions
+          example: "Alert: ${alert.name} triggered at ${alert.startsAt}."
+
+    NotificationWebhookConfig:
+      type: object
+      description: Configuration for webhook notification channels
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Webhook endpoint URL where alerts will be sent
+          example: https://hooks.slack.com/services/example
+        headers:
+          type: object
+          description: Optional HTTP headers to include in the webhook request
+          additionalProperties:
+            $ref: '#/components/schemas/NotificationWebhookHeaderValue'
+        payloadTemplate:
+          type: string
+          description: Optional JSON payload template using CEL expressions
+
+    NotificationWebhookHeaderValue:
+      type: object
+      description: Header value that can be provided inline or via secret reference
+      properties:
+        value:
+          type: string
+          description: Inline header value
+        valueFrom:
+          $ref: '#/components/schemas/NotificationSecretValueFrom'
+
+    NotificationSecretValueFrom:
+      type: object
+      description: How to obtain a secret value
+      properties:
+        secretKeyRef:
+          $ref: '#/components/schemas/NotificationSecretKeyRef'
+
+    NotificationSecretKeyRef:
+      type: object
+      description: Reference to a specific key in a Kubernetes secret
+      properties:
+        name:
+          type: string
+          description: Name of the Kubernetes secret
+          example: smtp-credentials
+        key:
+          type: string
+          description: Key within the secret
+          example: password

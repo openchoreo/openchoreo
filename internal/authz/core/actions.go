@@ -92,6 +92,12 @@ var systemActions = []Action{
 	// DeploymentPipeline
 	{Name: "deploymentpipeline:view", IsInternal: false},
 
+	// ObservabilityAlertsNotificationChannel
+	{Name: "observabilityalertsnotificationchannel:view", IsInternal: false},
+	{Name: "observabilityalertsnotificationchannel:create", IsInternal: false},
+	{Name: "observabilityalertsnotificationchannel:update", IsInternal: false},
+	{Name: "observabilityalertsnotificationchannel:delete", IsInternal: false},
+
 	// SecretReference
 	{Name: "secretreference:create", IsInternal: false},
 	{Name: "secretreference:view", IsInternal: false},
