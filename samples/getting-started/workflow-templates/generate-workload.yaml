@@ -1,0 +1,75 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: generate-workload
+spec:
+  templates:
+    - name: generate-workload-cr
+      inputs:
+        parameters:
+          - name: image
+      outputs:
+        parameters:
+          - name: workload-cr
+            valueFrom:
+              path: /mnt/vol/workload-cr.yaml
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            IMAGE={{inputs.parameters.image}}
+            PROJECT_NAME={{workflow.parameters.project-name}}
+            COMPONENT_NAME={{workflow.parameters.component-name}}
+            APP_PATH="{{workflow.parameters.app-path}}"
+
+            DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
+
+            OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
+
+            echo "Creating workload with image: ${IMAGE}"
+            echo "Using descriptor in: ${DESCRIPTOR_PATH}"
+
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              echo "Found workload.yaml descriptor, using it for workload creation"
+              podman run --rm --network=none \
+              -v $DESCRIPTOR_PATH:/app:rw -w /app \
+              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+                workload create \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                --descriptor "workload.yaml" \
+                -o "workload-cr.yaml"
+            else
+              echo "No workload.yaml descriptor found, creating workload without descriptor"
+              podman run --rm --network=none \
+              -v $DESCRIPTOR_PATH:/app:rw -w /app \
+              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+                workload create \
+                --project "${PROJECT_NAME}" \
+                --component "${COMPONENT_NAME}" \
+                --image "${IMAGE}" \
+                -o "workload-cr.yaml"
+            fi
+
+            cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
+        volumeMounts:
+          - name: workspace
+            mountPath: /mnt/vol
+        securityContext:
+          privileged: true

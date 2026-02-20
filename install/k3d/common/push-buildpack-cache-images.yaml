@@ -1,0 +1,106 @@
+# Buildpack Cache Job for k3d Local Development
+#
+# Pre-populates the local k3d container registry with buildpack images
+# so that buildpack-based workflows (Ballerina, Google Cloud Buildpacks)
+# don't need to pull from remote registries on every build.
+#
+# Only needed for local k3d setups. Run once after the build plane registry is ready:
+#   kubectl apply -f install/k3d/common/push-buildpack-cache-images.yaml
+#
+# The job is idempotent and skips images that already exist in the registry.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: push-buildpack-cache-images
+  namespace: openchoreo-build-plane
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      name: push-buildpack-cache-images
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: push-images
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+
+          REGISTRY_ENDPOINT="host.k3d.internal:10082"
+
+          echo "Target registry: ${REGISTRY_ENDPOINT}"
+          echo ""
+
+          # Wait for registry to be ready
+          echo "Waiting for local registry to be ready..."
+          MAX_RETRIES=60
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if curl -f --silent --show-error --max-time 5 "http://${REGISTRY_ENDPOINT}/v2/_catalog" >/dev/null 2>&1; then
+              echo "Registry is ready!"
+              break
+            fi
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Registry not ready yet (attempt $RETRY_COUNT/$MAX_RETRIES), retrying in 5s..."
+            sleep 5
+          done
+
+          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+            echo "ERROR: Registry did not become ready after $MAX_RETRIES attempts"
+            exit 1
+          fi
+          echo ""
+
+          # Podman storage configuration
+          mkdir -p /etc/containers
+          cat <<EOF > /etc/containers/storage.conf
+          [storage]
+          driver = "overlay"
+          runroot = "/run/containers/storage"
+          graphroot = "/var/lib/containers/storage"
+          [storage.options.overlay]
+          mount_program = "/usr/bin/fuse-overlayfs"
+          EOF
+
+          push_image() {
+            local source_image="$1"
+            local cache_name="$2"
+            local cached_image="${REGISTRY_ENDPOINT}/${cache_name}"
+
+            echo "Processing: ${source_image}"
+            echo "Cache target: ${cached_image}"
+
+            # Skip if image already exists in registry
+            if curl -f --silent --show-error "http://${REGISTRY_ENDPOINT}/v2/${cache_name%:*}/tags/list" 2>/dev/null | grep -q "${cache_name##*:}"; then
+              echo "Image already exists in registry, skipping"
+              echo ""
+              return 0
+            fi
+
+            echo "Pulling source image: ${source_image}"
+            podman pull "${source_image}"
+
+            IMAGE_ID=$(podman images "${source_image}" --format "{{.ID}}" | head -1)
+
+            podman tag "${IMAGE_ID}" "${cached_image}"
+            podman push --tls-verify=false "${cached_image}"
+
+            echo "Successfully cached: ${cache_name}"
+            echo ""
+          }
+
+          push_image "docker.io/buildpacksio/lifecycle:0.20.5" "buildpacks-cache/lifecycle:0.20.5"
+          push_image "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1" "buildpacks-cache/google-builder:latest"
+          push_image "gcr.io/buildpacks/google-22/run:latest" "buildpacks-cache/google-run:latest"
+          push_image "ghcr.io/openchoreo/buildpack/ballerina:18" "buildpacks-cache/ballerina-builder:18"
+          push_image "ghcr.io/openchoreo/buildpack/ballerina:18-run" "buildpacks-cache/ballerina-run:18"
+
+          echo "All buildpack images cached successfully"

@@ -1,0 +1,149 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: checkout-source
+spec:
+  templates:
+    - name: checkout
+      outputs:
+        parameters:
+          - name: git-revision
+            valueFrom:
+              path: /tmp/git-revision.txt
+      volumes:
+        - name: git-secret
+          secret:
+            secretName: '{{workflow.parameters.git-secret}}'
+            optional: true
+      container:
+        image: alpine/git
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            BRANCH={{workflow.parameters.branch}}
+            REPO={{workflow.parameters.git-repo}}
+            COMMIT={{workflow.parameters.commit}}
+            GIT_SECRET_PATH="/etc/secrets/git-secret"
+
+            # Check if git secret exists (for private repositories)
+            if [ -d "$GIT_SECRET_PATH" ] && [ "$(ls -A $GIT_SECRET_PATH)" ]; then
+                echo "Git secret found, configuring authentication..."
+
+                # SSH key auth (kubernetes.io/ssh-auth)
+                if [ -f "$GIT_SECRET_PATH/ssh-privatekey" ]; then
+                    echo "Using SSH key authentication"
+                    mkdir -p ~/.ssh
+                    chmod 700 ~/.ssh
+
+                    # Normalize line endings and copy key
+                    tr -d '\r' < "$GIT_SECRET_PATH/ssh-privatekey" > ~/.ssh/id_rsa
+                    [ -n "$(tail -c 1 ~/.ssh/id_rsa)" ] && echo >> ~/.ssh/id_rsa
+                    chmod 600 ~/.ssh/id_rsa
+
+                    if ! grep -q "BEGIN.*PRIVATE KEY" ~/.ssh/id_rsa; then
+                        echo "Error: SSH key does not appear to be valid (missing BEGIN PRIVATE KEY header)"
+                        head -n 1 ~/.ssh/id_rsa
+                        exit 1
+                    fi
+
+                    echo "SSH key format detected:"
+                    head -n 1 ~/.ssh/id_rsa
+
+                    if ! ssh-keygen -l -f ~/.ssh/id_rsa > /dev/null 2>&1; then
+                        echo "Warning: SSH key validation failed with ssh-keygen"
+                        echo "This might indicate key format issues, but attempting to proceed..."
+                    else
+                        echo "SSH key validated successfully"
+                    fi
+
+                    # AWS CodeCommit SSH Key ID
+                    SSH_KEY_ID=""
+                    if [ -f "$GIT_SECRET_PATH/ssh-key-id" ]; then
+                        SSH_KEY_ID=$(cat "$GIT_SECRET_PATH/ssh-key-id")
+                    fi
+
+                    cat > ~/.ssh/config <<EOF
+            Host github.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host gitlab.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host bitbucket.org
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            Host git-codecommit.*.amazonaws.com
+                StrictHostKeyChecking no
+                UserKnownHostsFile /dev/null
+            EOF
+                    chmod 600 ~/.ssh/config
+
+                    if echo "$REPO" | grep -q "^ssh://.*git-codecommit"; then
+                        if [ -n "$SSH_KEY_ID" ] && ! echo "$REPO" | grep -q "@"; then
+                            REPO=$(echo "$REPO" | sed "s|ssh://|ssh://${SSH_KEY_ID}@|")
+                            echo "Added SSH Key ID to AWS CodeCommit SSH URL"
+                        fi
+                    elif echo "$REPO" | grep -q "^https://" && ! echo "$REPO" | grep -q "git-codecommit"; then
+                        REPO=$(echo "$REPO" | sed -E 's|https://([^/]+)/(.+)\.git|git@\1:\2.git|')
+                        echo "Converted HTTPS to SSH format: $REPO"
+                    fi
+
+                # Basic auth (kubernetes.io/basic-auth)
+                elif [ -f "$GIT_SECRET_PATH/password" ]; then
+                    echo "Using basic authentication (username/password)"
+                    PASSWORD=$(cat "$GIT_SECRET_PATH/password")
+
+                    if [ -f "$GIT_SECRET_PATH/username" ]; then
+                        USERNAME=$(cat "$GIT_SECRET_PATH/username")
+                        echo "Username found: $USERNAME"
+                    else
+                        USERNAME="git"
+                    fi
+
+                    if echo "$REPO" | grep -q "^https://"; then
+                        PROTOCOL=$(echo "$REPO" | cut -d: -f1)
+                        DOMAIN_PATH=$(echo "$REPO" | cut -d/ -f3-)
+
+                        USERNAME_ENCODED=$(echo -n "$USERNAME" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/\//%2F/g; s/:/%3A/g; s/;/%3B/g; s/=/%3D/g; s/?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\]/%5D/g')
+                        PASSWORD_ENCODED=$(echo -n "$PASSWORD" | sed 's/%/%25/g; s/ /%20/g; s/!/%21/g; s/"/%22/g; s/#/%23/g; s/\$/%24/g; s/&/%26/g; s/'\''/%27/g; s/(/%28/g; s/)/%29/g; s/\*/%2A/g; s/+/%2B/g; s/,/%2C/g; s/\//%2F/g; s/:/%3A/g; s/;/%3B/g; s/=/%3D/g; s/?/%3F/g; s/@/%40/g; s/\[/%5B/g; s/\]/%5D/g')
+
+                        REPO="$PROTOCOL://${USERNAME_ENCODED}:${PASSWORD_ENCODED}@${DOMAIN_PATH}"
+                    else
+                        echo "Warning: REPO is not an HTTPS URL, basic auth may not work"
+                    fi
+
+                    git config --global credential.helper store
+                else
+                    echo "Warning: Git secret exists but no recognized credentials found"
+                fi
+            else
+                echo "No git secret found, assuming public repository"
+            fi
+
+            if [ -n "$COMMIT" ]; then
+                echo "Cloning specific commit: $COMMIT"
+                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                git config --global advice.detachedHead false
+                git fetch --depth 1 origin "$COMMIT"
+                git checkout "$COMMIT"
+                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+            else
+                echo "Cloning branch: $BRANCH with latest commit"
+                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                cd /mnt/vol/source
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
+            fi
+
+            echo "Repository cloned successfully"
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /etc/secrets/git-secret
+            name: git-secret
+            readOnly: true

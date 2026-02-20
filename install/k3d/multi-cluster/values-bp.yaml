@@ -13,11 +13,6 @@ argo-workflows:
     authModes:
       - server
 
-defaultResources:
-  enabled: true
-  registry:
-    host: "host.k3d.internal:10082"
-
 fluent-bit:
   enabled: true
   envFrom: []

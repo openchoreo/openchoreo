@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: google-cloud-buildpacks
+spec:
+  templates:
+    - name: build-image
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            WORKDIR=/mnt/vol/source
+
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman system service --time=0 &
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+
+            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+            RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
+
+            /usr/local/bin/pack build "$IMAGE" \
+              --builder "$BUILDER" \
+              --run-image "$RUN_IMG" \
+              --docker-host inherit \
+              --path "$WORKDIR/$APP_PATH" \
+              --pull-policy if-not-present
+
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace

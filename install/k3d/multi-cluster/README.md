@@ -347,6 +347,26 @@ helm upgrade --install openchoreo-build-plane install/helm/openchoreo-build-plan
   --values install/k3d/multi-cluster/values-bp.yaml
 ```
 
+### Workflow Templates
+
+The build pipeline is composed of shared ClusterWorkflowTemplates that each handle one step (checkout, build, publish, generate workload). The checkout and publish templates are applied separately so you can replace them to use your own git auth or container registry.
+
+```bash
+kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates/checkout-source.yaml
+kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates.yaml
+kubectl --context k3d-openchoreo-bp apply -f samples/getting-started/workflow-templates/publish-image-k3d.yaml
+```
+
+`publish-image-k3d.yaml` pushes images to the local k3d registry at `host.k3d.internal:10082`. To use a different registry, replace this with your own `publish-image` ClusterWorkflowTemplate.
+
+### Buildpack Cache (Optional)
+
+Pre-populates the local registry with buildpack images so Ballerina and Google Cloud Buildpacks workflows don't pull from remote registries on every build. Skip this if you only use Docker or React builds.
+
+```bash
+kubectl --context k3d-openchoreo-bp apply -f install/k3d/common/push-buildpack-cache-images.yaml
+```
+
 ### Register Build Plane
 
 ```bash

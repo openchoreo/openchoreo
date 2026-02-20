@@ -49,9 +49,51 @@ spec:
           - name: registry-push-secret
             value: ${metadata.workflowRunName}-registry-push-secret
       serviceAccountName: workflow-sa
-      workflowTemplateRef:
-        clusterScope: true
-        name: google-cloud-buildpacks
+      entrypoint: build-workflow
+      templates:
+        - name: build-workflow
+          steps:
+            - - name: checkout-source
+                templateRef:
+                  name: checkout-source
+                  clusterScope: true
+                  template: checkout
+            - - name: build-image
+                templateRef:
+                  name: google-cloud-buildpacks
+                  clusterScope: true
+                  template: build-image
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+            - - name: publish-image
+                templateRef:
+                  name: publish-image
+                  clusterScope: true
+                  template: publish-image
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+            - - name: generate-workload-cr
+                templateRef:
+                  name: generate-workload
+                  clusterScope: true
+                  template: generate-workload-cr
+                arguments:
+                  parameters:
+                    - name: image
+                      value: '{{steps.publish-image.outputs.parameters.image}}'
+      volumeClaimTemplates:
+        - metadata:
+            name: workspace
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 2Gi
   resources:
     - id: git-secret
       includeWhen: ${has(systemParameters.repository.secretRef)}

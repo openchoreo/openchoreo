@@ -1,0 +1,66 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: publish-image
+spec:
+  templates:
+    - name: publish-image
+      inputs:
+        parameters:
+          - name: git-revision
+      outputs:
+        parameters:
+          - name: image
+            valueFrom:
+              path: /tmp/image.txt
+      volumes:
+        - name: registry-push-secret
+          secret:
+            optional: true
+            secretName: '{{workflow.parameters.registry-push-secret}}'
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            GIT_REVISION={{inputs.parameters.git-revision}}
+            IMAGE_NAME={{workflow.parameters.image-name}}
+            IMAGE_TAG={{workflow.parameters.image-tag}}
+            SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
+
+            REGISTRY_ENDPOINT="host.k3d.internal:10082"
+            AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
+
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman load -i /mnt/vol/app-image.tar
+
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+
+            if [ -f "$AUTH_FILE" ]; then
+              podman push --tls-verify=false --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+            else
+              podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+            fi
+
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /etc/secrets/registry-push-secret
+            name: registry-push-secret
+            readOnly: true

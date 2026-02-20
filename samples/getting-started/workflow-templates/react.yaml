@@ -1,0 +1,71 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: react
+spec:
+  templates:
+    - name: build-image
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            WORKDIR="/mnt/vol/source"
+
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+            NODE_VERSION="{{workflow.parameters.node-version}}"
+
+            cd "${WORKDIR}"
+
+            APP_PATH_CLEAN=$(echo "$APP_PATH" | sed 's|^/||')
+
+            if [ -n "$APP_PATH_CLEAN" ] && [ -d "$APP_PATH_CLEAN" ]; then
+                SOURCE_DIR="$APP_PATH_CLEAN"
+            else
+                SOURCE_DIR="."
+            fi
+
+            echo "Building from source directory: $SOURCE_DIR"
+
+            cat > "${SOURCE_DIR}/Dockerfile" <<EOF
+            FROM node:${NODE_VERSION}-alpine AS builder
+            RUN npm install -g pnpm
+            WORKDIR /app
+            COPY . .
+            RUN if [ -f "package-lock.json" ]; then npm ci; \\
+                elif [ -f "yarn.lock" ]; then yarn install --frozen-lockfile; \\
+                elif [ -f "pnpm-lock.yaml" ]; then pnpm install --frozen-lockfile; \\
+                else echo "No lock file found" && exit 1; fi
+            RUN npm run build || yarn run build || pnpm run build
+
+            FROM nginx:alpine
+            COPY --from=builder /app/default.conf /etc/nginx/conf.d/default.conf
+            COPY --from=builder /app/build /usr/share/nginx/html/
+            EOF
+
+            cat > "${SOURCE_DIR}/default.conf" <<'EOF'
+            server {
+              listen 80;
+              location / {
+                root   /usr/share/nginx/html;
+                index  index.html;
+                try_files $uri /index.html;
+              }
+            }
+            EOF
+
+            podman build -t "$IMAGE" -f "${SOURCE_DIR}/Dockerfile" "$SOURCE_DIR"
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace

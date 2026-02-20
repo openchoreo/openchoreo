@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: docker
+spec:
+  templates:
+    - name: build-image
+      inputs:
+        parameters:
+          - name: git-revision
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.0
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            WORKDIR="/mnt/vol/source"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
+            DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
+
+            mkdir -p /etc/containers
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $WORKDIR/$DOCKER_CONTEXT
+            podman save -o /mnt/vol/app-image.tar $IMAGE
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace

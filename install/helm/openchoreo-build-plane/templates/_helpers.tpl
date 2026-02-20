@@ -123,61 +123,6 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
-Validate that placeholder .invalid hostnames have been replaced when defaultResources is enabled.
-*/}}
-{{- define "openchoreo-build-plane.validateConfig" -}}
-{{- if .Values.defaultResources.enabled -}}
-  {{- $host := .Values.defaultResources.registry.host | default "" -}}
-  {{- if or (contains ".invalid" $host) (eq $host "") -}}
-    {{- fail "defaultResources.registry.host contains placeholder domain (.invalid). Set a real registry host when defaultResources.enabled is true." -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get the registry endpoint for workflow templates.
-Returns placeholder if host is empty (for lint/template).
-*/}}
-{{- define "openchoreo-build-plane.registryEndpoint" -}}
-{{- $host := .Values.defaultResources.registry.host -}}
-{{- $repoPath := .Values.defaultResources.registry.repoPath -}}
-{{- if $repoPath -}}
-  {{- printf "%s/%s" $host $repoPath -}}
-{{- else -}}
-  {{- $host -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
-Get buildpack image by ID
-Returns the appropriate image reference based on buildpackCache.enabled setting.
-When caching is enabled, returns the cached image path prefixed with registry endpoint.
-When caching is disabled, returns the remote image reference directly.
-
-Usage:
-  {{ include "openchoreo-build-plane.buildpackImage" (dict "id" "google-builder" "context" .) }}
-
-Parameters:
-  - id: The unique identifier of the buildpack image (e.g., "google-builder", "ballerina-run")
-  - context: The Helm context (usually .)
-*/}}
-{{- define "openchoreo-build-plane.buildpackImage" -}}
-{{- $id := .id -}}
-{{- $ctx := .context -}}
-{{- $cacheEnabled := $ctx.Values.defaultResources.buildpackCache.enabled -}}
-{{- $registryEndpoint := include "openchoreo-build-plane.registryEndpoint" $ctx -}}
-{{- range $ctx.Values.defaultResources.buildpackCache.images -}}
-  {{- if eq .id $id -}}
-    {{- if $cacheEnabled -}}
-      {{- printf "%s/%s" $registryEndpoint .cachedImage -}}
-    {{- else -}}
-      {{- .remoteImage -}}
-    {{- end -}}
-  {{- end -}}
-{{- end -}}
-{{- end -}}
-
-{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-build-plane.clusterAgent.name" -}}

@@ -853,7 +853,7 @@ func (r *Reconciler) findWorkflowRunsForClusterComponentType(ctx context.Context
 // extractWorkloadCRFromRunResource extracts workload CR from run resource outputs
 func extractWorkloadCRFromRunResource(runResource *argoproj.Workflow) string {
 	for _, node := range runResource.Status.Nodes {
-		if node.TemplateName == "generate-workload-cr" && node.Phase == argoproj.NodeSucceeded {
+		if resolveNodeTemplateName(node) == "generate-workload-cr" && node.Phase == argoproj.NodeSucceeded {
 			if node.Outputs != nil {
 				for _, param := range node.Outputs.Parameters {
 					if param.Name == "workload-cr" && param.Value != nil {
@@ -965,7 +965,7 @@ func convertToString(value any) string {
 // getStepByTemplateName finds a node in the workflow by its template name
 func getStepByTemplateName(nodes argoproj.Nodes, step string) *argoproj.NodeStatus {
 	for _, node := range nodes {
-		if node.TemplateName == step {
+		if resolveNodeTemplateName(node) == step {
 			return &node
 		}
 	}
@@ -1018,6 +1018,19 @@ type taskWithOrder struct {
 	order int
 }
 
+// resolveNodeTemplateName returns the effective template name for a workflow node.
+// Argo populates TemplateName for inline templates, but uses TemplateRef for
+// ClusterWorkflowTemplate references, leaving TemplateName empty.
+func resolveNodeTemplateName(node argoproj.NodeStatus) string {
+	if node.TemplateName != "" {
+		return node.TemplateName
+	}
+	if node.TemplateRef != nil && node.TemplateRef.Template != "" {
+		return node.TemplateRef.Template
+	}
+	return node.DisplayName
+}
+
 // extractArgoTasksFromWorkflowNodes extracts workflow tasks from Argo Workflow nodes.
 // It filters nodes by type "Pod" (actual step executions) and orders them by their
 // step index extracted from the node name (e.g., "workflow-name[0].step-name").
@@ -1039,7 +1052,7 @@ func extractArgoTasksFromWorkflowNodes(nodes argoproj.Nodes) []openchoreodevv1al
 		order := extractArgoStepOrderFromNodeName(node.Name)
 
 		task := openchoreodevv1alpha1.WorkflowTask{
-			Name:    node.TemplateName,
+			Name:    resolveNodeTemplateName(node),
 			Phase:   string(node.Phase),
 			Message: node.Message,
 		}
