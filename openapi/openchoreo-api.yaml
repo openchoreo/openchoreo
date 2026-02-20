@@ -1509,6 +1509,80 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/logs:
+    get:
+      operationId: getWorkflowRunLogs
+      summary: Get workflow run logs
+      description: Returns logs for a specific workflow run from the build plane. Logs are fetched live from the build plane; no archived logs are returned for completed runs.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+        - name: step
+          in: query
+          required: false
+          description: Filter logs by step name
+          schema:
+            type: string
+        - name: sinceSeconds
+          in: query
+          required: false
+          description: Return logs newer than a relative duration in seconds
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+      responses:
+        '200':
+          description: Workflow run logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowRunLogEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/workflow-runs/{runName}/events:
+    get:
+      operationId: getWorkflowRunEvents
+      summary: Get workflow run events
+      description: Returns Kubernetes events for a specific workflow run.
+      tags: [Workflows]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkflowRunNameParam'
+        - name: step
+          in: query
+          required: false
+          description: Filter events by step name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow run events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkflowRunEventEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # ComponentWorkflow Endpoints
   # =============================================================================
@@ -5601,6 +5675,49 @@ components:
           format: date-time
           description: When the step finished
           example: "2025-01-06T10:01:00Z"
+
+    WorkflowRunLogEntry:
+      type: object
+      description: A single log entry from a workflow run
+      required:
+        - log
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Log entry timestamp
+          example: "2025-01-06T10:00:00Z"
+        log:
+          type: string
+          description: Log message
+          example: "Step 1: Cloning repository..."
+
+    WorkflowRunEventEntry:
+      type: object
+      description: A single Kubernetes event from a workflow run
+      required:
+        - timestamp
+        - type
+        - reason
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+          example: "2025-01-06T10:00:00Z"
+        type:
+          type: string
+          description: Event type
+          example: Normal
+        reason:
+          type: string
+          description: Short machine-understandable reason for the event
+          example: Started
+        message:
+          type: string
+          description: Human-readable description of the event
+          example: "Container main started"
 
     CreateWorkflowRunRequest:
       type: object

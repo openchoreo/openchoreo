@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"time"
 
 	"k8s.io/utils/ptr"
 
@@ -176,6 +177,100 @@ func (h *Handler) GetWorkflowRunStatus(
 		Steps:                steps,
 		HasLiveObservability: status.HasLiveObservability,
 	}, nil
+}
+
+// GetWorkflowRunLogs returns logs for a specific workflow run
+func (h *Handler) GetWorkflowRunLogs(
+	ctx context.Context,
+	request gen.GetWorkflowRunLogsRequestObject,
+) (gen.GetWorkflowRunLogsResponseObject, error) {
+	h.logger.Info("GetWorkflowRunLogs called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	step := ""
+	if request.Params.Step != nil {
+		step = *request.Params.Step
+	}
+
+	logs, err := h.services.WorkflowRunService.GetWorkflowRunLogs(ctx, request.NamespaceName, request.RunName,
+		step, h.Config.ClusterGateway.URL, request.Params.SinceSeconds)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetWorkflowRunLogs403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+			return gen.GetWorkflowRunLogs404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		h.logger.Error("Failed to get workflow run logs", "error", err)
+		return gen.GetWorkflowRunLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result := make(gen.GetWorkflowRunLogs200JSONResponse, 0, len(logs))
+	for _, entry := range logs {
+		logEntry := gen.WorkflowRunLogEntry{Log: entry.Log}
+		if entry.Timestamp != "" {
+			if ts, err := time.Parse(time.RFC3339, entry.Timestamp); err == nil {
+				logEntry.Timestamp = &ts
+			} else if ts, err := time.Parse(time.RFC3339Nano, entry.Timestamp); err == nil {
+				logEntry.Timestamp = &ts
+			}
+		}
+		result = append(result, logEntry)
+	}
+	return result, nil
+}
+
+// GetWorkflowRunEvents returns Kubernetes events for a specific workflow run
+func (h *Handler) GetWorkflowRunEvents(
+	ctx context.Context,
+	request gen.GetWorkflowRunEventsRequestObject,
+) (gen.GetWorkflowRunEventsResponseObject, error) {
+	h.logger.Info("GetWorkflowRunEvents called",
+		"namespace", request.NamespaceName,
+		"runName", request.RunName)
+
+	step := ""
+	if request.Params.Step != nil {
+		step = *request.Params.Step
+	}
+
+	events, err := h.services.WorkflowRunService.GetWorkflowRunEvents(ctx, request.NamespaceName, request.RunName,
+		step, h.Config.ClusterGateway.URL)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetWorkflowRunEvents403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+			return gen.GetWorkflowRunEvents404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRunReference")}, nil
+		}
+		h.logger.Error("Failed to get workflow run events", "error", err)
+		return gen.GetWorkflowRunEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result := make(gen.GetWorkflowRunEvents200JSONResponse, 0, len(events))
+	for _, entry := range events {
+		ts, err := time.Parse(time.RFC3339, entry.Timestamp)
+		if err != nil {
+			ts, err = time.Parse(time.RFC3339Nano, entry.Timestamp)
+			if err != nil {
+				h.logger.Warn("Failed to parse event timestamp", "timestamp", entry.Timestamp, "error", err)
+			}
+		}
+		result = append(result, gen.WorkflowRunEventEntry{
+			Timestamp: ts,
+			Type:      entry.Type,
+			Reason:    entry.Reason,
+			Message:   entry.Message,
+		})
+	}
+	return result, nil
 }
 
 // toGenWorkflowRun converts models.WorkflowRunResponse to gen.WorkflowRun

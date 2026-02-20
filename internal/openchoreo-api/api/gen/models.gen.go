@@ -2678,6 +2678,21 @@ type WorkflowRun struct {
 // WorkflowRunStatus Current execution status
 type WorkflowRunStatus string
 
+// WorkflowRunEventEntry A single Kubernetes event from a workflow run
+type WorkflowRunEventEntry struct {
+	// Message Human-readable description of the event
+	Message string `json:"message"`
+
+	// Reason Short machine-understandable reason for the event
+	Reason string `json:"reason"`
+
+	// Timestamp Event timestamp
+	Timestamp time.Time `json:"timestamp"`
+
+	// Type Event type
+	Type string `json:"type"`
+}
+
 // WorkflowRunList Paginated list of workflow runs
 type WorkflowRunList struct {
 	Items []WorkflowRun `json:"items"`
@@ -2685,6 +2700,15 @@ type WorkflowRunList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// WorkflowRunLogEntry A single log entry from a workflow run
+type WorkflowRunLogEntry struct {
+	// Log Log message
+	Log string `json:"log"`
+
+	// Timestamp Log entry timestamp
+	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details
@@ -2984,6 +3008,21 @@ type ListWorkflowRunsParams struct {
 	// Cursor Opaque pagination cursor from a previous response.
 	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetWorkflowRunEventsParams defines parameters for GetWorkflowRunEvents.
+type GetWorkflowRunEventsParams struct {
+	// Step Filter events by step name
+	Step *string `form:"step,omitempty" json:"step,omitempty"`
+}
+
+// GetWorkflowRunLogsParams defines parameters for GetWorkflowRunLogs.
+type GetWorkflowRunLogsParams struct {
+	// Step Filter logs by step name
+	Step *string `form:"step,omitempty" json:"step,omitempty"`
+
+	// SinceSeconds Return logs newer than a relative duration in seconds
+	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
 // ListWorkflowsParams defines parameters for ListWorkflows.

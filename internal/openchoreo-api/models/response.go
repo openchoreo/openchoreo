@@ -539,7 +539,7 @@ type WorkflowStepStatus struct {
 
 // ComponentWorkflowRunLogEntry represents a log entry from a component workflow run
 type ComponentWorkflowRunLogEntry struct {
-	Timestamp string `json:"timestamp"`
+	Timestamp string `json:"timestamp,omitempty"`
 	Log       string `json:"log"`
 }
 

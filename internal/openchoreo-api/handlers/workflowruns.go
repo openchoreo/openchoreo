@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
@@ -160,6 +161,71 @@ func (h *Handler) CreateWorkflowRun(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug("Created WorkflowRun successfully", "org", namespaceName, "run", wfRun.Name, "workflow", req.WorkflowName)
 	writeSuccessResponse(w, http.StatusCreated, wfRun)
+}
+
+func (h *Handler) GetWorkflowRunLogs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	log := logger.GetLogger(ctx)
+	log.Debug("GetWorkflowRunLogs handler called")
+
+	namespaceName := r.PathValue("namespaceName")
+	runName := r.PathValue("runName")
+	stepName := r.URL.Query().Get("step")
+
+	// Parse sinceSeconds parameter (optional, in seconds)
+	var sinceSeconds *int64
+	if sinceSecondsStr := r.URL.Query().Get("sinceSeconds"); sinceSecondsStr != "" {
+		parsed, err := strconv.ParseInt(sinceSecondsStr, 10, 64)
+		if err != nil || parsed < 0 {
+			log.Error("Invalid sinceSeconds parameter", "sinceSeconds", sinceSecondsStr, "error", err)
+			writeErrorResponse(w, http.StatusBadRequest, "Invalid sinceSeconds parameter: must be a non-negative integer", services.CodeInvalidInput)
+			return
+		}
+		sinceSeconds = &parsed
+	}
+
+	if namespaceName == "" {
+		log.Error("Namespace name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Namespace name is required", services.CodeInvalidInput)
+		return
+	}
+
+	if runName == "" {
+		log.Error("Workflow run name is required")
+		writeErrorResponse(w, http.StatusBadRequest, "Workflow run name is required", services.CodeInvalidInput)
+		return
+	}
+
+	log = log.With("namespace", namespaceName, "run", runName, "step", stepName, "sinceSeconds", sinceSeconds)
+
+	logs, err := h.services.WorkflowRunService.GetWorkflowRunLogs(ctx, namespaceName, runName, stepName, h.config.ClusterGateway.URL, sinceSeconds)
+	if err != nil {
+		if errors.Is(err, services.ErrWorkflowRunNotFound) {
+			log.Warn("Workflow run not found")
+			writeErrorResponse(w, http.StatusNotFound, "Workflow run not found", services.CodeWorkflowRunNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrForbidden) {
+			log.Warn("Unauthorized to view workflow run logs")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrWorkflowRunReferenceNotFound) {
+			log.Warn("Workflow run reference not ready")
+			writeErrorResponse(w, http.StatusNotFound, "Workflow run reference not ready", services.CodeWorkflowRunReferenceNotFound)
+			return
+		}
+		log.Error("Failed to get workflow run logs", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Failed to get workflow run logs", services.CodeInternalError)
+		return
+	}
+
+	// Return logs as JSON array
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(logs); err != nil {
+		log.Error("Failed to encode logs response", "error", err)
+	}
 }
 
 func (h *Handler) GetWorkflowRunEvents(w http.ResponseWriter, r *http.Request) {
