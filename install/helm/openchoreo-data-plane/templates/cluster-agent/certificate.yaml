@@ -22,10 +22,10 @@ spec:
     - client auth
   issuerRef:
     kind: Issuer
-    {{- if .Values.clusterAgent.tls.caSecretName }}
-    name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-ca-issuer
-    {{- else }}
+    {{- if .Values.clusterAgent.tls.generateCerts }}
     name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-selfsigned-issuer
+    {{- else }}
+    name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}-ca-issuer
     {{- end }}
   {{- with .Values.clusterAgent.tls.duration }}
   duration: {{ . }}
