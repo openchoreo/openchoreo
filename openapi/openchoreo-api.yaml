@@ -2500,6 +2500,59 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources/events:
+    get:
+      operationId: getReleaseResourceEvents
+      summary: Get resource events
+      description: Returns Kubernetes events for a specific resource in the release resource tree.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
+        - name: kind
+          in: query
+          required: true
+          description: Kind of the resource
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          description: Name of the resource
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: false
+          description: Namespace of the resource
+          schema:
+            type: string
+        - name: uid
+          in: query
+          required: false
+          description: UID of the resource for precise event matching
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Events for the specified resource
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
@@ -7727,6 +7780,55 @@ components:
           description: All resource nodes in the tree
           items:
             $ref: '#/components/schemas/ResourceNode'
+
+    ResourceEvent:
+      type: object
+      description: A Kubernetes event associated with a resource
+      required:
+        - type
+        - reason
+        - message
+      properties:
+        type:
+          type: string
+          description: Type of the event (Normal or Warning)
+          example: Normal
+        reason:
+          type: string
+          description: Short machine-readable reason for the event
+          example: Scheduled
+        message:
+          type: string
+          description: Human-readable description of the event
+          example: Successfully assigned default/my-pod to node-1
+        count:
+          type: integer
+          description: Number of times this event has occurred
+          example: 3
+        firstTimestamp:
+          type: string
+          format: date-time
+          description: First time this event was recorded
+        lastTimestamp:
+          type: string
+          format: date-time
+          description: Most recent time this event was recorded
+        source:
+          type: string
+          description: Component that generated the event
+          example: default-scheduler
+
+    ResourceEventsResponse:
+      type: object
+      description: Response containing events for a specific resource
+      required:
+        - events
+      properties:
+        events:
+          type: array
+          description: Kubernetes events for the resource
+          items:
+            $ref: '#/components/schemas/ResourceEvent'
 
     # -------------------------------------------------------------------------
     # Deploy/Promote Requests

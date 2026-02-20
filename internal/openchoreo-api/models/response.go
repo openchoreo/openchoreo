@@ -435,6 +435,22 @@ type ResourceTreeResponse struct {
 	Nodes []ResourceNode `json:"nodes"`
 }
 
+// ResourceEvent represents a Kubernetes event associated with a resource
+type ResourceEvent struct {
+	Type           string     `json:"type"`
+	Reason         string     `json:"reason"`
+	Message        string     `json:"message"`
+	Count          *int32     `json:"count,omitempty"`
+	FirstTimestamp *time.Time `json:"firstTimestamp,omitempty"`
+	LastTimestamp  *time.Time `json:"lastTimestamp,omitempty"`
+	Source         string     `json:"source,omitempty"`
+}
+
+// ResourceEventsResponse is the response for the resource events endpoint
+type ResourceEventsResponse struct {
+	Events []ResourceEvent `json:"events"`
+}
+
 // SecretReferenceResponse represents a SecretReference in API responses
 type SecretReferenceResponse struct {
 	Name            string                 `json:"name"`

@@ -144,6 +144,199 @@ func (s *ComponentService) GetReleaseResourceTree(ctx context.Context, namespace
 	return &models.ResourceTreeResponse{Nodes: allNodes}, nil
 }
 
+// GetResourceEvents returns Kubernetes events for a specific resource in the release resource tree.
+func (s *ComponentService) GetResourceEvents(ctx context.Context, namespaceName, projectName, componentName,
+	environmentName, kind, resourceName, resourceNamespace, resourceUID string) (*models.ResourceEventsResponse, error) {
+	s.logger.Debug("Getting resource events", "namespace", namespaceName, "project", projectName,
+		"component", componentName, "environment", environmentName, "kind", kind, "resourceName", resourceName)
+
+	// Authorization check
+	if err := checkAuthorization(ctx, s.logger, s.authzPDP, SystemActionViewComponent, ResourceTypeComponent, componentName,
+		authz.ResourceHierarchy{Namespace: namespaceName, Project: projectName, Component: componentName}); err != nil {
+		return nil, err
+	}
+
+	if s.gatewayClient == nil {
+		return nil, fmt.Errorf("gateway client is not configured")
+	}
+
+	// Fetch the component and validate ownership
+	componentKey := client.ObjectKey{
+		Namespace: namespaceName,
+		Name:      componentName,
+	}
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, componentKey, &component); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrComponentNotFound
+		}
+		return nil, fmt.Errorf("failed to get component: %w", err)
+	}
+
+	if component.Spec.Owner.ProjectName != projectName {
+		return nil, ErrComponentNotFound
+	}
+
+	// Fetch the active release for this component/environment
+	var releaseList openchoreov1alpha1.ReleaseList
+	listOpts := []client.ListOption{
+		client.InNamespace(namespaceName),
+		client.MatchingLabels{
+			labels.LabelKeyNamespaceName:   namespaceName,
+			labels.LabelKeyProjectName:     projectName,
+			labels.LabelKeyComponentName:   componentName,
+			labels.LabelKeyEnvironmentName: environmentName,
+		},
+	}
+
+	if err := s.k8sClient.List(ctx, &releaseList, listOpts...); err != nil {
+		return nil, fmt.Errorf("failed to list releases: %w", err)
+	}
+
+	if len(releaseList.Items) == 0 {
+		return nil, ErrReleaseNotFound
+	}
+
+	if len(releaseList.Items) > 1 {
+		return nil, fmt.Errorf("expected 1 release for component/environment, found %d", len(releaseList.Items))
+	}
+
+	release := &releaseList.Items[0]
+
+	// Validate that the requested resource belongs to the release's resource tree.
+	// Resources can be either direct entries in release.Status.Resources or child
+	// resources (Pods, Jobs, ReplicaSets) that are dynamically discovered via owner
+	// references from a parent resource in the release.
+	if isChildResourceKind(kind) {
+		// For child resource kinds, verify that at least one plausible parent
+		// resource exists in the release (e.g., a Deployment for a Pod).
+		if !hasParentResourceInRelease(kind, release.Status.Resources) {
+			return nil, ErrResourceNotFound
+		}
+	} else {
+		// For direct resources, match exactly by Kind and Name.
+		var matchedResource *openchoreov1alpha1.ResourceStatus
+		for i := range release.Status.Resources {
+			rs := &release.Status.Resources[i]
+			if rs.Kind == kind && rs.Name == resourceName {
+				matchedResource = rs
+				break
+			}
+		}
+
+		if matchedResource == nil {
+			return nil, ErrResourceNotFound
+		}
+
+		// Validate provided namespace, or default from the matched release resource entry
+		if resourceNamespace != "" && resourceNamespace != matchedResource.Namespace {
+			return nil, ErrResourceNotFound
+		}
+		if resourceNamespace == "" {
+			resourceNamespace = matchedResource.Namespace
+		}
+	}
+
+	// Resolve data plane info via the Environment
+	env := &openchoreov1alpha1.Environment{}
+	envKey := client.ObjectKey{
+		Name:      environmentName,
+		Namespace: namespaceName,
+	}
+	if err := s.k8sClient.Get(ctx, envKey, env); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrEnvironmentNotFound
+		}
+		return nil, fmt.Errorf("failed to get environment: %w", err)
+	}
+
+	dpResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, s.k8sClient, env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve data plane: %w", err)
+	}
+
+	planeID, crNamespace, crName := resolveDataPlaneInfo(dpResult)
+
+	// Build field selector to filter events by involved object.
+	// This matches the kubectl describe behavior which filters on
+	// involvedObject.name, involvedObject.namespace, involvedObject.kind, and involvedObject.uid.
+	fieldSelector := fmt.Sprintf("involvedObject.kind=%s,involvedObject.name=%s", kind, resourceName)
+	if resourceNamespace != "" {
+		fieldSelector += ",involvedObject.namespace=" + resourceNamespace
+	}
+	if resourceUID != "" {
+		fieldSelector += ",involvedObject.uid=" + resourceUID
+	}
+
+	// Scope the events list call to the resource's namespace when available
+	eventsPath := "api/v1/events"
+	if resourceNamespace != "" {
+		eventsPath = fmt.Sprintf("api/v1/namespaces/%s/events", resourceNamespace)
+	}
+
+	rawQuery := "fieldSelector=" + fieldSelector
+
+	items, err := s.fetchK8sList(ctx, planeID, crNamespace, crName, eventsPath, rawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch events: %w", err)
+	}
+
+	events := make([]models.ResourceEvent, 0, len(items))
+	for _, item := range items {
+		event := mapEventItem(item)
+		events = append(events, event)
+	}
+
+	return &models.ResourceEventsResponse{Events: events}, nil
+}
+
+// mapEventItem converts a raw K8s event object to a ResourceEvent model.
+// It handles both the legacy event format (firstTimestamp/lastTimestamp, source.component, count)
+// and the newer format used by components like the scheduler (eventTime, reportingComponent).
+func mapEventItem(item map[string]any) models.ResourceEvent {
+	event := models.ResourceEvent{
+		Type:    getNestedString(item, "type"),
+		Reason:  getNestedString(item, "reason"),
+		Message: getNestedString(item, "message"),
+	}
+
+	if countVal, ok := item["count"]; ok {
+		if v, ok := countVal.(float64); ok {
+			c := int32(v) //nolint:gosec // event count will not overflow int32
+			event.Count = &c
+		}
+	}
+
+	// Try legacy firstTimestamp, fall back to eventTime (used by newer components like the scheduler)
+	if ts := getNestedString(item, "firstTimestamp"); ts != "" {
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			event.FirstTimestamp = &t
+		}
+	} else if ts := getNestedString(item, "eventTime"); ts != "" {
+		if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+			event.FirstTimestamp = &t
+		}
+	}
+
+	if ts := getNestedString(item, "lastTimestamp"); ts != "" {
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			event.LastTimestamp = &t
+		}
+	} else if event.FirstTimestamp != nil {
+		// For newer-format events, lastTimestamp is null; use firstTimestamp as fallback
+		event.LastTimestamp = event.FirstTimestamp
+	}
+
+	// Try legacy source.component, fall back to reportingComponent (used by newer components)
+	if src := getNestedString(item, "source", "component"); src != "" {
+		event.Source = src
+	} else {
+		event.Source = getNestedString(item, "reportingComponent")
+	}
+
+	return event
+}
+
 // resolveDataPlaneInfo extracts planeID, crNamespace, crName from a DataPlaneResult.
 func resolveDataPlaneInfo(dpResult *controller.DataPlaneResult) (planeID, crNamespace, crName string) {
 	if dpResult.DataPlane != nil {
@@ -521,6 +714,37 @@ func getStringField(obj map[string]any, key string) string {
 		return v
 	}
 	return ""
+}
+
+// childResourceParentKinds maps child resource kinds to the set of parent kinds
+// that can own them in the release resource tree. This mirrors the logic in
+// fetchChildResources which discovers these children via owner references.
+var childResourceParentKinds = map[string][]string{
+	"Pod":        {"Deployment", "Job", "CronJob"},
+	"ReplicaSet": {"Deployment"},
+	"Job":        {"CronJob"},
+}
+
+// isChildResourceKind returns true if the given kind is a child resource that is
+// dynamically discovered via owner references rather than listed directly in
+// release.Status.Resources.
+func isChildResourceKind(kind string) bool {
+	_, ok := childResourceParentKinds[kind]
+	return ok
+}
+
+// hasParentResourceInRelease checks whether at least one valid parent resource
+// for the given child kind exists in the release's resource list.
+func hasParentResourceInRelease(childKind string, resources []openchoreov1alpha1.ResourceStatus) bool {
+	parentKinds := childResourceParentKinds[childKind]
+	for i := range resources {
+		for _, pk := range parentKinds {
+			if resources[i].Kind == pk {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // getAPIGroup extracts the API group from apiVersion field (e.g., "apps/v1" -> "apps", "v1" -> "").

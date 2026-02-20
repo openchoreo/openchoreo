@@ -39,6 +39,7 @@ var (
 	ErrReleaseBindingNotFound        = errors.New("release binding not found")
 	ErrWorkflowSchemaInvalid         = errors.New("workflow schema is invalid")
 	ErrReleaseNotFound               = errors.New("release not found")
+	ErrResourceNotFound              = errors.New("resource not found in release")
 	ErrInvalidCommitSHA              = errors.New("invalid commit SHA format")
 	ErrForbidden                     = errors.New("insufficient permissions to perform this action")
 	ErrDuplicateTraitInstanceName    = errors.New("duplicate trait instance name")
@@ -93,6 +94,7 @@ const (
 	CodeComponentReleaseNotFound     = "COMPONENT_RELEASE_NOT_FOUND"
 	CodeReleaseBindingNotFound       = "RELEASE_BINDING_NOT_FOUND"
 	CodeReleaseNotFound              = "RELEASE_NOT_FOUND"
+	CodeResourceNotFound             = "RESOURCE_NOT_FOUND"
 	CodeInvalidInput                 = "INVALID_INPUT"
 	CodeConflict                     = "CONFLICT"
 	CodeInternalError                = "INTERNAL_ERROR"

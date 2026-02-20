@@ -465,6 +465,9 @@ type ClientInterface interface {
 	// GetReleaseResourceTree request
 	GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetReleaseResourceEvents request
+	GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetComponentSchema request
 	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2308,6 +2311,18 @@ func (c *Client) UpdateProject(ctx context.Context, namespaceName NamespaceNameP
 
 func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReleaseResourceTreeRequest(c.Server, namespaceName, projectName, componentName, environmentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetReleaseResourceEvents(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseResourceEventsRequest(c.Server, namespaceName, projectName, componentName, environmentName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -7894,6 +7909,123 @@ func NewGetReleaseResourceTreeRequest(server string, namespaceName NamespaceName
 	return req, nil
 }
 
+// NewGetReleaseResourceEventsRequest generates requests for GetReleaseResourceEvents
+func NewGetReleaseResourceEventsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/release/resources/events", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "kind", runtime.ParamLocationQuery, params.Kind); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "name", runtime.ParamLocationQuery, params.Name); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Namespace != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "namespace", runtime.ParamLocationQuery, *params.Namespace); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Uid != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "uid", runtime.ParamLocationQuery, *params.Uid); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetComponentSchemaRequest generates requests for GetComponentSchema
 func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
 	var err error
@@ -11016,6 +11148,9 @@ type ClientWithResponsesInterface interface {
 	// GetReleaseResourceTreeWithResponse request
 	GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error)
 
+	// GetReleaseResourceEventsWithResponse request
+	GetReleaseResourceEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourceEventsResp, error)
+
 	// GetComponentSchemaWithResponse request
 	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
 
@@ -13822,6 +13957,33 @@ func (r GetReleaseResourceTreeResp) StatusCode() int {
 	return 0
 }
 
+type GetReleaseResourceEventsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceEventsResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseResourceEventsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseResourceEventsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetComponentSchemaResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -16416,6 +16578,15 @@ func (c *ClientWithResponses) GetReleaseResourceTreeWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseGetReleaseResourceTreeResp(rsp)
+}
+
+// GetReleaseResourceEventsWithResponse request returning *GetReleaseResourceEventsResp
+func (c *ClientWithResponses) GetReleaseResourceEventsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, params *GetReleaseResourceEventsParams, reqEditors ...RequestEditorFn) (*GetReleaseResourceEventsResp, error) {
+	rsp, err := c.GetReleaseResourceEvents(ctx, namespaceName, projectName, componentName, environmentName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseResourceEventsResp(rsp)
 }
 
 // GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
@@ -22469,6 +22640,67 @@ func ParseGetReleaseResourceTreeResp(rsp *http.Response) (*GetReleaseResourceTre
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseResourceEventsResp parses an HTTP response from a GetReleaseResourceEventsWithResponse call
+func ParseGetReleaseResourceEventsResp(rsp *http.Response) (*GetReleaseResourceEventsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseResourceEventsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceEventsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

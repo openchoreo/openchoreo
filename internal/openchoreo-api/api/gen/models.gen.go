@@ -2418,6 +2418,36 @@ type Resource struct {
 	Type string `json:"type"`
 }
 
+// ResourceEvent A Kubernetes event associated with a resource
+type ResourceEvent struct {
+	// Count Number of times this event has occurred
+	Count *int `json:"count,omitempty"`
+
+	// FirstTimestamp First time this event was recorded
+	FirstTimestamp *time.Time `json:"firstTimestamp,omitempty"`
+
+	// LastTimestamp Most recent time this event was recorded
+	LastTimestamp *time.Time `json:"lastTimestamp,omitempty"`
+
+	// Message Human-readable description of the event
+	Message string `json:"message"`
+
+	// Reason Short machine-readable reason for the event
+	Reason string `json:"reason"`
+
+	// Source Component that generated the event
+	Source *string `json:"source,omitempty"`
+
+	// Type Type of the event (Normal or Warning)
+	Type string `json:"type"`
+}
+
+// ResourceEventsResponse Response containing events for a specific resource
+type ResourceEventsResponse struct {
+	// Events Kubernetes events for the resource
+	Events []ResourceEvent `json:"events"`
+}
+
 // ResourceHierarchy Resource hierarchy scope
 type ResourceHierarchy struct {
 	// Component Component name
@@ -3525,6 +3555,21 @@ type ListProjectsParams struct {
 	// Cursor Opaque pagination cursor from a previous response.
 	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// GetReleaseResourceEventsParams defines parameters for GetReleaseResourceEvents.
+type GetReleaseResourceEventsParams struct {
+	// Kind Kind of the resource
+	Kind string `form:"kind" json:"kind"`
+
+	// Name Name of the resource
+	Name string `form:"name" json:"name"`
+
+	// Namespace Namespace of the resource
+	Namespace *string `form:"namespace,omitempty" json:"namespace,omitempty"`
+
+	// Uid UID of the resource for precise event matching
+	Uid *string `form:"uid,omitempty" json:"uid,omitempty"`
 }
 
 // ListComponentWorkflowRunsParams defines parameters for ListComponentWorkflowRuns.

@@ -397,13 +397,13 @@ func (h *Handler) GetComponentBinding(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := logger.GetLogger(ctx)
-	logger.Debug("PromoteComponent handler called")
-
 	// Extract path parameters
 	namespaceName := r.PathValue("namespaceName")
 	projectName := r.PathValue("projectName")
 	componentName := r.PathValue("componentName")
+
+	logger := logger.GetLogger(ctx).With("namespace", namespaceName, "project", projectName, "component", componentName)
+	logger.Debug("PromoteComponent handler called")
 	if namespaceName == "" || projectName == "" || componentName == "" {
 		logger.Warn("Namespace name, project name, and component name are required")
 		writeErrorResponse(w, http.StatusBadRequest, "Namespace name, project name, and component name are required", "INVALID_PARAMS")
@@ -440,22 +440,22 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	targetReleaseBinding, err := h.services.ComponentService.PromoteComponent(ctx, promoteReq)
 	if err != nil {
 		if errors.Is(err, services.ErrForbidden) {
-			logger.Warn("Unauthorized to promote component", "namespace", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Unauthorized to promote component")
 			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
 			return
 		}
 		if errors.Is(err, services.ErrProjectNotFound) {
-			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
+			logger.Warn("Project not found")
 			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrComponentNotFound) {
-			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
+			logger.Warn("Component not found")
 			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
 			return
 		}
 		if errors.Is(err, services.ErrDeploymentPipelineNotFound) {
-			logger.Warn("Deployment pipeline not found", "namespace", namespaceName, "project", projectName)
+			logger.Warn("Deployment pipeline not found")
 			writeErrorResponse(w, http.StatusNotFound, "Deployment pipeline not found", services.CodeDeploymentPipelineNotFound)
 			return
 		}
@@ -465,7 +465,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, services.ErrReleaseBindingNotFound) {
-			logger.Warn("Source release binding not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", req.SourceEnvironment)
+			logger.Warn("Source release binding not found", "environment", req.SourceEnvironment)
 			writeErrorResponse(w, http.StatusNotFound, "Source release binding not found", services.CodeReleaseBindingNotFound)
 			return
 		}
@@ -475,8 +475,7 @@ func (h *Handler) PromoteComponent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Success response
-	logger.Debug("Component promoted successfully", "namespace", namespaceName, "project", projectName, "component", componentName,
-		"source", req.SourceEnvironment, "target", req.TargetEnvironment)
+	logger.Debug("Component promoted successfully", "source", req.SourceEnvironment, "target", req.TargetEnvironment)
 	writeSuccessResponse(w, http.StatusOK, targetReleaseBinding)
 }
 
@@ -910,6 +909,78 @@ func (h *Handler) GetReleaseResourceTree(w http.ResponseWriter, r *http.Request)
 
 	logger.Debug("Retrieved release resource tree successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "nodeCount", len(tree.Nodes))
 	writeSuccessResponse(w, http.StatusOK, tree)
+}
+
+func (h *Handler) GetResourceEvents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+
+	logger := logger.GetLogger(ctx).With(
+		"namespace", namespaceName,
+		"project", projectName,
+		"component", componentName,
+		"environment", environmentName,
+	)
+	logger.Debug("GetResourceEvents handler called")
+
+	if namespaceName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Namespace name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Namespace name, project name, component name, and environment name are required", services.CodeInvalidInput)
+		return
+	}
+
+	kind := r.URL.Query().Get("kind")
+	name := r.URL.Query().Get("name")
+	if kind == "" || name == "" {
+		logger.Warn("Query parameters kind and name are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Query parameters kind and name are required", services.CodeInvalidInput)
+		return
+	}
+
+	namespace := r.URL.Query().Get("namespace")
+	uid := r.URL.Query().Get("uid")
+
+	resp, err := h.services.ComponentService.GetResourceEvents(ctx, namespaceName, projectName,
+		componentName, environmentName, kind, name, namespace, uid)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view resource events")
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found")
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			logger.Warn("Release not found")
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrResourceNotFound) {
+			logger.Warn("Resource not found in release", "kind", kind, "name", name)
+			writeErrorResponse(w, http.StatusNotFound, "Resource not found in release", services.CodeResourceNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			logger.Warn("Environment not found")
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		logger.Error("Failed to get resource events", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved resource events successfully", "eventCount", len(resp.Events))
+	writeSuccessResponse(w, http.StatusOK, resp)
 }
 
 func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {

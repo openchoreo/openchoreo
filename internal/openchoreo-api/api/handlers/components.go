@@ -423,6 +423,57 @@ func (h *Handler) GetReleaseResourceTree(
 	return gen.GetReleaseResourceTree200JSONResponse(result), nil
 }
 
+// GetReleaseResourceEvents returns Kubernetes events for a specific resource in the release resource tree
+func (h *Handler) GetReleaseResourceEvents(
+	ctx context.Context,
+	request gen.GetReleaseResourceEventsRequestObject,
+) (gen.GetReleaseResourceEventsResponseObject, error) {
+	h.logger.Debug("GetReleaseResourceEvents called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName,
+		"environment", request.EnvironmentName)
+
+	namespace := ""
+	if request.Params.Namespace != nil {
+		namespace = *request.Params.Namespace
+	}
+	uid := ""
+	if request.Params.Uid != nil {
+		uid = *request.Params.Uid
+	}
+
+	resp, err := h.services.ComponentService.GetResourceEvents(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		request.EnvironmentName,
+		request.Params.Kind,
+		request.Params.Name,
+		namespace,
+		uid,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetReleaseResourceEvents403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			return gen.GetReleaseResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
+		h.logger.Error("Failed to get resource events", "error", err)
+		return gen.GetReleaseResourceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result, err := convert[models.ResourceEventsResponse, gen.ResourceEventsResponse](*resp)
+	if err != nil {
+		h.logger.Error("Failed to convert resource events response", "error", err)
+		return gen.GetReleaseResourceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetReleaseResourceEvents200JSONResponse(result), nil
+}
+
 // DeployRelease deploys a component release to an environment
 func (h *Handler) DeployRelease(
 	ctx context.Context,
