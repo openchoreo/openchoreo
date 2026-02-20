@@ -857,6 +857,9 @@ paths:
       summary: List cluster build planes
       description: Returns a list of cluster-scoped build planes.
       tags: [ClusterBuildPlanes]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster build planes
@@ -868,6 +871,35 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterbuildplanes/{clusterBuildPlaneName}:
+    get:
+      operationId: getClusterBuildPlane
+      summary: Get a cluster build plane
+      description: Returns details of a specific cluster-scoped build plane.
+      tags: [ClusterBuildPlanes]
+      parameters:
+        - name: clusterBuildPlaneName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the cluster build plane
+      responses:
+        '200':
+          description: Cluster build plane details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterBuildPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -4994,7 +5026,6 @@ components:
       description: List of cluster-scoped build planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5005,39 +5036,53 @@ components:
 
     ClusterBuildPlane:
       type: object
-      description: Cluster-scoped BuildPlane resource for CI/CD build infrastructure
+      description: |
+        ClusterBuildPlane resource (Kubernetes object without kind/apiVersion).
+        Represents cluster-scoped CI/CD build infrastructure.
       required:
-        - name
-        - planeID
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ClusterBuildPlane name (unique cluster-wide)
-          example: shared-buildplane
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterBuildPlaneSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterBuildPlaneStatus'
+
+    ClusterBuildPlaneSpec:
+      type: object
+      description: Desired state of a ClusterBuildPlane
+      properties:
         planeID:
           type: string
-          description: Logical plane identifier for the physical cluster
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple ClusterBuildPlane CRs can share the same planeID.
           example: ci-cluster
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Shared Build Plane
-        description:
-          type: string
-          description: ClusterBuildPlane description
-          example: Shared build plane for CI/CD workflows
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
         observabilityPlaneRef:
           $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: ClusterBuildPlane status
-          example: Ready
+
+    ClusterBuildPlaneStatus:
+      type: object
+      description: Observed state of a ClusterBuildPlane
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed ClusterBuildPlane
+        conditions:
+          type: array
+          description: Current state conditions of the ClusterBuildPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
 
     # -------------------------------------------------------------------------
     # ClusterObservabilityPlaneRef (Cluster-Scoped Only)

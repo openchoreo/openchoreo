@@ -12,6 +12,7 @@ import (
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
+	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
@@ -24,31 +25,33 @@ var errNotImplemented = errors.New("not implemented")
 
 // Handler implements gen.StrictServerInterface
 type Handler struct {
-	services             *services.Services
-	authzService         authzsvc.Service
-	projectService       projectsvc.Service
-	buildPlaneService    buildplanesvc.Service
-	componentService     componentsvc.Service
-	componentTypeService componenttypesvc.Service
-	traitService         traitsvc.Service
-	logger               *slog.Logger
-	Config               *config.Config
+	services                 *services.Services
+	authzService             authzsvc.Service
+	projectService           projectsvc.Service
+	buildPlaneService        buildplanesvc.Service
+	clusterBuildPlaneService clusterbuildplanesvc.Service
+	componentService         componentsvc.Service
+	componentTypeService     componenttypesvc.Service
+	traitService             traitsvc.Service
+	logger                   *slog.Logger
+	Config                   *config.Config
 }
 
 // Compile-time check that Handler implements StrictServerInterface
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
-		services:             services,
-		authzService:         authzService,
-		projectService:       projectService,
-		buildPlaneService:    buildPlaneService,
-		componentService:     componentService,
-		componentTypeService: componentTypeService,
-		traitService:         traitService,
-		logger:               logger,
-		Config:               cfg,
+		services:                 services,
+		authzService:             authzService,
+		projectService:           projectService,
+		buildPlaneService:        buildPlaneService,
+		clusterBuildPlaneService: clusterBuildPlaneService,
+		componentService:         componentService,
+		componentTypeService:     componentTypeService,
+		traitService:             traitService,
+		logger:                   logger,
+		Config:                   cfg,
 	}
 }

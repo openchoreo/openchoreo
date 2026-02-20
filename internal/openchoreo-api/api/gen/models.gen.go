@@ -621,28 +621,16 @@ type ClusterAgentConfig struct {
 	ClientCA *ValueFrom `json:"clientCA,omitempty"`
 }
 
-// ClusterBuildPlane Cluster-scoped BuildPlane resource for CI/CD build infrastructure
+// ClusterBuildPlane ClusterBuildPlane resource (Kubernetes object without kind/apiVersion).
+// Represents cluster-scoped CI/CD build infrastructure.
 type ClusterBuildPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description ClusterBuildPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ClusterBuildPlane name (unique cluster-wide)
-	Name string `json:"name"`
-
-	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
-	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// PlaneID Logical plane identifier for the physical cluster
-	PlaneID string `json:"planeID"`
-
-	// Status ClusterBuildPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a ClusterBuildPlane
+	Spec   *ClusterBuildPlaneSpec   `json:"spec,omitempty"`
+	Status *ClusterBuildPlaneStatus `json:"status,omitempty"`
 }
 
 // ClusterBuildPlaneList List of cluster-scoped build planes
@@ -651,7 +639,35 @@ type ClusterBuildPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// ClusterBuildPlaneSpec Desired state of a ClusterBuildPlane
+type ClusterBuildPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple ClusterBuildPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// ClusterBuildPlaneStatus Observed state of a ClusterBuildPlane
+type ClusterBuildPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the ClusterBuildPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ClusterBuildPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ClusterComponentType Cluster-scoped ComponentType resource defining a workload template
@@ -2883,6 +2899,16 @@ type GetSubjectProfileParams struct {
 
 	// Component Component scope
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+}
+
+// ListClusterBuildPlanesParams defines parameters for ListClusterBuildPlanes.
+type ListClusterBuildPlanesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListClusterDataPlanesParams defines parameters for ListClusterDataPlanes.

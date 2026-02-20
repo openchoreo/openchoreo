@@ -34,6 +34,7 @@ import (
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
+	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
@@ -166,6 +167,9 @@ func main() {
 	// Initialize build plane service for the new K8s-native API design
 	buildPlaneService := buildplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "buildplane-service"))
 
+	// Initialize cluster build plane service for the new K8s-native API design
+	clusterBuildPlaneService := clusterbuildplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterbuildplane-service"))
+
 	// Initialize component service for the new K8s-native API design
 	componentService := componentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "component-service"))
 
@@ -179,7 +183,7 @@ func main() {
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, componentService, componentTypeService, traitService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, componentService, componentTypeService, traitService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

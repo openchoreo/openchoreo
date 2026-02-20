@@ -5,52 +5,65 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 )
 
-// ListClusterBuildPlanes returns a list of cluster-scoped build planes
+// ListClusterBuildPlanes returns a paginated list of cluster-scoped build planes.
 func (h *Handler) ListClusterBuildPlanes(
 	ctx context.Context,
 	request gen.ListClusterBuildPlanesRequestObject,
 ) (gen.ListClusterBuildPlanesResponseObject, error) {
 	h.logger.Debug("ListClusterBuildPlanes called")
 
-	buildplanes, err := h.services.ClusterBuildPlaneService.ListClusterBuildPlanes(ctx)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.clusterBuildPlaneService.ListClusterBuildPlanes(ctx, opts)
 	if err != nil {
-		h.logger.Error("Failed to list cluster buildplanes", "error", err)
+		h.logger.Error("Failed to list cluster build planes", "error", err)
 		return gen.ListClusterBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items := make([]gen.ClusterBuildPlane, 0, len(buildplanes))
-	for _, bp := range buildplanes {
-		items = append(items, toGenClusterBuildPlane(&bp))
+	items, err := convertList[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster build planes", "error", err)
+		return gen.ListClusterBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	return gen.ListClusterBuildPlanes200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// toGenClusterBuildPlane converts models.ClusterBuildPlaneResponse to gen.ClusterBuildPlane
-func toGenClusterBuildPlane(bp *models.ClusterBuildPlaneResponse) gen.ClusterBuildPlane {
-	result := gen.ClusterBuildPlane{
-		Name:        bp.Name,
-		PlaneID:     bp.PlaneID,
-		DisplayName: ptr.To(bp.DisplayName),
-		Description: ptr.To(bp.Description),
-		CreatedAt:   bp.CreatedAt,
-		Status:      ptr.To(bp.Status),
-	}
-	if bp.ObservabilityPlaneRef != nil {
-		result.ObservabilityPlaneRef = &gen.ClusterObservabilityPlaneRef{
-			Kind: gen.ClusterObservabilityPlaneRefKind(bp.ObservabilityPlaneRef.Kind),
-			Name: bp.ObservabilityPlaneRef.Name,
+// GetClusterBuildPlane returns details of a specific cluster-scoped build plane.
+func (h *Handler) GetClusterBuildPlane(
+	ctx context.Context,
+	request gen.GetClusterBuildPlaneRequestObject,
+) (gen.GetClusterBuildPlaneResponseObject, error) {
+	h.logger.Debug("GetClusterBuildPlane called", "clusterBuildPlaneName", request.ClusterBuildPlaneName)
+
+	cbp, err := h.clusterBuildPlaneService.GetClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		if errors.Is(err, clusterbuildplanesvc.ErrClusterBuildPlaneNotFound) {
+			return gen.GetClusterBuildPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterBuildPlane")}, nil
+		}
+		h.logger.Error("Failed to get cluster build plane", "error", err)
+		return gen.GetClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	return result
+
+	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*cbp)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster build plane", "error", err)
+		return gen.GetClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetClusterBuildPlane200JSONResponse(genCBP), nil
 }
