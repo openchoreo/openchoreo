@@ -100,6 +100,11 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 		return nil, fmt.Errorf("failed to get workload: %w", err)
 	}
 
+	// Validate that the referenced component exists
+	if err := s.validateComponentExists(ctx, namespaceName, w.Spec.Owner.ComponentName); err != nil {
+		return nil, err
+	}
+
 	// Apply incoming spec directly from the request body, preserving server-managed fields
 	w.ResourceVersion = existing.ResourceVersion
 	w.Namespace = namespaceName
@@ -198,6 +203,10 @@ func (s *workloadService) DeleteWorkload(ctx context.Context, namespaceName, wor
 	}
 
 	if err := s.k8sClient.Delete(ctx, w); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Workload not found during delete", "namespace", namespaceName, "workload", workloadName)
+			return ErrWorkloadNotFound
+		}
 		s.logger.Error("Failed to delete workload CR", "error", err)
 		return fmt.Errorf("failed to delete workload: %w", err)
 	}
