@@ -38,11 +38,14 @@ import (
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
+	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
+	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 	"github.com/openchoreo/openchoreo/internal/server"
@@ -187,6 +190,9 @@ func main() {
 	// Initialize component service for the new K8s-native API design
 	componentService := componentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "component-service"))
 
+	// Initialize component release service for the new K8s-native API design
+	componentReleaseService := componentreleasesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componentrelease-service"))
+
 	// Initialize component type service for the new K8s-native API design
 	componentTypeService := componenttypesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componenttype-service"))
 
@@ -195,6 +201,12 @@ func main() {
 
 	// Initialize observability plane service for the new K8s-native API design
 	observabilityPlaneService := observabilityplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "observabilityplane-service"))
+
+	// Initialize release service for the new K8s-native API design
+	releaseService := releasesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "release-service"))
+
+	// Initialize release binding service for the new K8s-native API design
+	releaseBindingService := releasebindingsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "releasebinding-service"))
 
 	// Initialize trait service for the new K8s-native API design
 	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
@@ -206,7 +218,7 @@ func main() {
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterDataPlaneService, clusterObservabilityPlaneService, dataPlaneService, componentService, componentTypeService, environmentService, observabilityPlaneService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterDataPlaneService, clusterObservabilityPlaneService, dataPlaneService, componentService, componentReleaseService, componentTypeService, environmentService, observabilityPlaneService, releaseService, releaseBindingService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler
