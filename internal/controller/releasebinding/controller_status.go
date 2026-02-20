@@ -40,6 +40,13 @@ const (
 	appsAPIGroup = "apps"
 	// batchAPIGroup is the API group for Kubernetes batch workload resources
 	batchAPIGroup = "batch"
+
+	// Kubernetes resource kind constants
+	kindDeployment  = "Deployment"
+	kindStatefulSet = "StatefulSet"
+	kindDaemonSet   = "DaemonSet"
+	kindJob         = "Job"
+	kindCronJob     = "CronJob"
 )
 
 // ResourceStatusSummary aggregates health status counts for resources
@@ -183,9 +190,9 @@ func categorizeResource(gvk schema.GroupVersionKind, workloadType WorkloadType) 
 	// Categorize based on GVK
 	switch {
 	// Workload resources (if not primary, these are secondary workloads)
-	case gvk.Group == appsAPIGroup && (gvk.Kind == "Deployment" || gvk.Kind == "StatefulSet" || gvk.Kind == "DaemonSet"):
+	case gvk.Group == appsAPIGroup && (gvk.Kind == kindDeployment || gvk.Kind == kindStatefulSet || gvk.Kind == kindDaemonSet):
 		return CategoryPrimaryWorkload
-	case gvk.Group == batchAPIGroup && (gvk.Kind == "Job" || gvk.Kind == "CronJob"):
+	case gvk.Group == batchAPIGroup && (gvk.Kind == kindJob || gvk.Kind == kindCronJob):
 		return CategoryPrimaryWorkload
 	case gvk.Group == "" && gvk.Kind == "Pod":
 		return CategoryOperational
@@ -232,13 +239,13 @@ func categorizeResource(gvk schema.GroupVersionKind, workloadType WorkloadType) 
 func isPrimaryWorkload(gvk schema.GroupVersionKind, workloadType WorkloadType) bool {
 	switch workloadType {
 	case WorkloadTypeDeployment:
-		return gvk.Group == appsAPIGroup && gvk.Kind == "Deployment"
+		return gvk.Group == appsAPIGroup && gvk.Kind == kindDeployment
 	case WorkloadTypeStatefulSet:
-		return gvk.Group == appsAPIGroup && gvk.Kind == "StatefulSet"
+		return gvk.Group == appsAPIGroup && gvk.Kind == kindStatefulSet
 	case WorkloadTypeCronJob:
-		return gvk.Group == batchAPIGroup && gvk.Kind == "CronJob"
+		return gvk.Group == batchAPIGroup && gvk.Kind == kindCronJob
 	case WorkloadTypeJob:
-		return gvk.Group == batchAPIGroup && gvk.Kind == "Job"
+		return gvk.Group == batchAPIGroup && gvk.Kind == kindJob
 	default:
 		return false
 	}
