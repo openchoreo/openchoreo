@@ -32,7 +32,7 @@ var _ Service = (*buildPlaneServiceWithAuthz)(nil)
 // NewServiceWithAuthz creates a build plane service with authorization checks.
 func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &buildPlaneServiceWithAuthz{
-		internal: NewService(k8sClient, logger),
+		internal: NewService(k8sClient, nil, logger),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
 }
@@ -63,4 +63,14 @@ func (s *buildPlaneServiceWithAuthz) GetBuildPlane(ctx context.Context, namespac
 		return nil, err
 	}
 	return s.internal.GetBuildPlane(ctx, namespaceName, buildPlaneName)
+}
+
+// GetBuildPlaneClient is not implemented on the authz-wrapped service as it is not exposed externally.
+func (s *buildPlaneServiceWithAuthz) GetBuildPlaneClient(_ context.Context, _, _ string) (client.Client, error) {
+	return nil, errNotImplemented
+}
+
+// ArgoWorkflowExists is not implemented on the authz-wrapped service as it is not exposed externally.
+func (s *buildPlaneServiceWithAuthz) ArgoWorkflowExists(_ context.Context, _, _ string, _ *openchoreov1alpha1.ResourceReference) bool {
+	return false
 }
