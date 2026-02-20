@@ -282,11 +282,17 @@ _e2e.install-op:
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-op.yaml \
-		--set openSearch.enabled=true \
-		--set openSearchCluster.enabled=false \
-		--set fluent-bit.enabled=true \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_OP_NS))
+	@$(call log_info, Installing observability modules)
+	$(E2E_HELM) upgrade --install observability-logs-opensearch \
+		oci://ghcr.io/openchoreo/charts/observability-logs-opensearch \
+		--namespace $(E2E_OP_NS) \
+		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	$(E2E_HELM) upgrade --install observability-metrics-prometheus \
+		oci://ghcr.io/openchoreo/charts/observability-metrics-prometheus \
+		--namespace $(E2E_OP_NS) \
+		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
 

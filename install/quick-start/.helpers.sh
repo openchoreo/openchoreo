@@ -944,7 +944,13 @@ setup_observability_plane_ca() {
 create_opensearch_secret() {
     local namespace="$1"
     local secret_name="${2:-observer-opensearch-credentials}"
-    log_info "Creating OpenSearch credentials secret..."
+    log_info "Creating OpenSearch credentials secrets..."
+
+    kubectl create secret generic "opensearch-admin-credentials" \
+        --namespace "$namespace" \
+        --from-literal=username="admin" \
+        --from-literal=password="ThisIsTheOpenSearchPassword1" \
+        -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
     kubectl create secret generic "$secret_name" \
         --namespace "$namespace" \
@@ -952,7 +958,7 @@ create_opensearch_secret() {
         --from-literal=password="ThisIsTheOpenSearchPassword1" \
         -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1
 
-    log_success "OpenSearch credentials secret created"
+    log_success "OpenSearch credentials secrets created"
 }
 
 # Install OpenChoreo Observability Plane (optional)
@@ -973,7 +979,13 @@ install_observability_plane() {
 
     log_info "Installing observability modules..."
 
-    install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600"
+    install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials"
+
+    # Enable fluent-bit after opensearch is installed and ready
+    log_info "Enabling fluent-bit for log collection..."
+    install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--reuse-values" "--set" "fluent-bit.enabled=true"
 
     install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600"
 }
