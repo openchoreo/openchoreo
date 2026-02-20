@@ -20,15 +20,30 @@ RUN apk add --no-cache \
   wget ca-certificates ncurses && \
   mkdir -p /etc/bash_completion.d
 
-# Install kubectl, helm, and k3d with completions
+# Install kubectl with checksum verification
 RUN curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" > /tmp/kubectl && \
+  curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" > /tmp/kubectl.sha256 && \
+  echo "$(cat /tmp/kubectl.sha256)  /tmp/kubectl" | sha256sum -c - && \
   install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl && \
   kubectl completion bash > /etc/bash_completion.d/kubectl && \
-  rm /tmp/kubectl && \
-  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | DESIRED_VERSION=${HELM_VERSION} bash && \
+  rm /tmp/kubectl /tmp/kubectl.sha256
+
+# Install helm and k3d with checksum verification
+RUN curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" > /tmp/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz && \
+  curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz.sha256sum" > /tmp/helm.sha256sum && \
+  cd /tmp && sha256sum -c helm.sha256sum && \
+  tar -zxf /tmp/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz -C /tmp && \
+  install -o root -g root -m 0755 /tmp/linux-${TARGETARCH}/helm /usr/local/bin/helm && \
   helm completion bash > /etc/bash_completion.d/helm && \
-  curl -fsSL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | TAG=${K3D_VERSION} bash && \
-  k3d completion bash > /etc/bash_completion.d/k3d
+  rm -rf /tmp/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz /tmp/helm.sha256sum /tmp/linux-${TARGETARCH} && \
+  curl -fsSL "https://github.com/k3d-io/k3d/releases/download/${K3D_VERSION}/k3d-linux-${TARGETARCH}" > /tmp/k3d && \
+  curl -fsSL "https://github.com/k3d-io/k3d/releases/download/${K3D_VERSION}/checksums.txt" > /tmp/k3d.checksums && \
+  K3D_HASH=$(grep "k3d-linux-${TARGETARCH}" /tmp/k3d.checksums | awk '{print $1}') && \
+  test -n "${K3D_HASH}" || { echo "k3d checksum not found for k3d-linux-${TARGETARCH}"; exit 1; } && \
+  echo "${K3D_HASH}  /tmp/k3d" | sha256sum -c - && \
+  install -o root -g root -m 0755 /tmp/k3d /usr/local/bin/k3d && \
+  k3d completion bash > /etc/bash_completion.d/k3d && \
+  rm /tmp/k3d /tmp/k3d.checksums
 
 # Copy occ binary
 COPY bin/dist/${TARGETOS}/${TARGETARCH}/occ /usr/local/bin/occ
