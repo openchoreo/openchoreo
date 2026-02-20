@@ -52,6 +52,26 @@ const (
 	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
 )
 
+// Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
+const (
+	ClusterComponentTypeSpecResourcesTargetPlaneDataplane          ClusterComponentTypeSpecResourcesTargetPlane = "dataplane"
+	ClusterComponentTypeSpecResourcesTargetPlaneObservabilityplane ClusterComponentTypeSpecResourcesTargetPlane = "observabilityplane"
+)
+
+// Defines values for ClusterComponentTypeSpecTraitsKind.
+const (
+	ClusterComponentTypeSpecTraitsKindClusterTrait ClusterComponentTypeSpecTraitsKind = "ClusterTrait"
+)
+
+// Defines values for ClusterComponentTypeSpecWorkloadType.
+const (
+	ClusterComponentTypeSpecWorkloadTypeCronjob     ClusterComponentTypeSpecWorkloadType = "cronjob"
+	ClusterComponentTypeSpecWorkloadTypeDeployment  ClusterComponentTypeSpecWorkloadType = "deployment"
+	ClusterComponentTypeSpecWorkloadTypeJob         ClusterComponentTypeSpecWorkloadType = "job"
+	ClusterComponentTypeSpecWorkloadTypeProxy       ClusterComponentTypeSpecWorkloadType = "proxy"
+	ClusterComponentTypeSpecWorkloadTypeStatefulset ClusterComponentTypeSpecWorkloadType = "statefulset"
+)
+
 // Defines values for ClusterObservabilityPlaneRefKind.
 const (
 	ClusterObservabilityPlaneRefKindClusterObservabilityPlane ClusterObservabilityPlaneRefKind = "ClusterObservabilityPlane"
@@ -95,11 +115,11 @@ const (
 
 // Defines values for ComponentTypeSpecWorkloadType.
 const (
-	Cronjob     ComponentTypeSpecWorkloadType = "cronjob"
-	Deployment  ComponentTypeSpecWorkloadType = "deployment"
-	Job         ComponentTypeSpecWorkloadType = "job"
-	Proxy       ComponentTypeSpecWorkloadType = "proxy"
-	Statefulset ComponentTypeSpecWorkloadType = "statefulset"
+	ComponentTypeSpecWorkloadTypeCronjob     ComponentTypeSpecWorkloadType = "cronjob"
+	ComponentTypeSpecWorkloadTypeDeployment  ComponentTypeSpecWorkloadType = "deployment"
+	ComponentTypeSpecWorkloadTypeJob         ComponentTypeSpecWorkloadType = "job"
+	ComponentTypeSpecWorkloadTypeProxy       ComponentTypeSpecWorkloadType = "proxy"
+	ComponentTypeSpecWorkloadTypeStatefulset ComponentTypeSpecWorkloadType = "statefulset"
 )
 
 // Defines values for ConditionStatus.
@@ -197,8 +217,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for UpdateBindingRequestReleaseState.
@@ -701,28 +721,16 @@ type ClusterBuildPlaneStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// ClusterComponentType Cluster-scoped ComponentType resource defining a workload template
+// ClusterComponentType ClusterComponentType resource (Kubernetes object without kind/apiVersion).
+// Cluster-scoped version of ComponentType.
 type ClusterComponentType struct {
-	// AllowedTraits List of allowed trait references that developers can attach to components of this type (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind). If empty or omitted, no additional component-level traits are allowed; only traits embedded in the component type's spec.traits are permitted.
-	AllowedTraits *[]string `json:"allowedTraits,omitempty"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// AllowedWorkflows List of allowed workflow names for this component type
-	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
-
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Description ComponentType description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ClusterComponentType name (unique across the cluster)
-	Name string `json:"name"`
-
-	// WorkloadType Type of workload (service, web-application, scheduled-task)
-	WorkloadType string `json:"workloadType"`
+	// Spec Desired state of a ClusterComponentType
+	Spec   *ClusterComponentTypeSpec   `json:"spec,omitempty"`
+	Status *ClusterComponentTypeStatus `json:"status,omitempty"`
 }
 
 // ClusterComponentTypeList Paginated list of cluster-scoped component types
@@ -731,8 +739,95 @@ type ClusterComponentTypeList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
+
+// ClusterComponentTypeSpec Desired state of a ClusterComponentType
+type ClusterComponentTypeSpec struct {
+	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
+	AllowedTraits *[]struct {
+		// Name Name of the ClusterTrait resource
+		Name string `json:"name"`
+	} `json:"allowedTraits,omitempty"`
+
+	// AllowedWorkflows List of allowed ComponentWorkflow names for this component type
+	AllowedWorkflows *[]string `json:"allowedWorkflows,omitempty"`
+
+	// Resources Templates that generate Kubernetes resources dynamically
+	Resources []struct {
+		// ForEach CEL expression for generating multiple resources from a list
+		ForEach *string `json:"forEach,omitempty"`
+
+		// Id Unique identifier for this resource within the component type
+		Id string `json:"id"`
+
+		// IncludeWhen CEL expression determining if this resource should be created
+		IncludeWhen *string `json:"includeWhen,omitempty"`
+
+		// TargetPlane Target plane for deployment
+		TargetPlane *ClusterComponentTypeSpecResourcesTargetPlane `json:"targetPlane,omitempty"`
+
+		// Template Kubernetes resource template with CEL expressions
+		Template map[string]interface{} `json:"template"`
+
+		// Var Loop variable name when using forEach
+		Var *string `json:"var,omitempty"`
+	} `json:"resources"`
+
+	// Schema Developer-configurable schema definition
+	Schema *struct {
+		// EnvOverrides Environment-specific overrides for platform engineers
+		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+
+		// Parameters Static developer configuration parameters
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// Types Reusable type definitions
+		Types *map[string]interface{} `json:"types,omitempty"`
+	} `json:"schema,omitempty"`
+
+	// Traits Pre-configured trait instances embedded in this component type
+	Traits *[]struct {
+		// EnvOverrides Trait environment override bindings
+		EnvOverrides *map[string]interface{} `json:"envOverrides,omitempty"`
+
+		// InstanceName Unique instance name for this trait
+		InstanceName string `json:"instanceName"`
+
+		// Kind Kind of trait (only ClusterTrait allowed for cluster-scoped)
+		Kind *ClusterComponentTypeSpecTraitsKind `json:"kind,omitempty"`
+
+		// Name Name of the ClusterTrait resource
+		Name string `json:"name"`
+
+		// Parameters Trait parameter bindings (concrete values or CEL expressions)
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	} `json:"traits,omitempty"`
+
+	// Validations CEL-based validation rules evaluated during rendering
+	Validations *[]struct {
+		// Message Error message shown when the rule evaluates to false
+		Message string `json:"message"`
+
+		// Rule CEL expression wrapped in ${...} that must evaluate to true
+		Rule string `json:"rule"`
+	} `json:"validations,omitempty"`
+
+	// WorkloadType Primary workload resource type for this component type
+	WorkloadType ClusterComponentTypeSpecWorkloadType `json:"workloadType"`
+}
+
+// ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
+type ClusterComponentTypeSpecResourcesTargetPlane string
+
+// ClusterComponentTypeSpecTraitsKind Kind of trait (only ClusterTrait allowed for cluster-scoped)
+type ClusterComponentTypeSpecTraitsKind string
+
+// ClusterComponentTypeSpecWorkloadType Primary workload resource type for this component type
+type ClusterComponentTypeSpecWorkloadType string
+
+// ClusterComponentTypeStatus Observed state of a ClusterComponentType
+type ClusterComponentTypeStatus = map[string]interface{}
 
 // ClusterDataPlane ClusterDataPlane resource (Kubernetes object without kind/apiVersion).
 // Represents a cluster-scoped data plane for workload deployment.
@@ -3199,6 +3294,16 @@ type GetSubjectProfileParams struct {
 
 // ListClusterBuildPlanesParams defines parameters for ListClusterBuildPlanes.
 type ListClusterBuildPlanesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterComponentTypesParams defines parameters for ListClusterComponentTypes.
+type ListClusterComponentTypesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 

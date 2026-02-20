@@ -997,6 +997,9 @@ paths:
       summary: List cluster component types
       description: Returns a list of cluster-scoped component types.
       tags: [ClusterComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster component types
@@ -1008,6 +1011,30 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clustercomponenttypes/{cctName}:
+    get:
+      operationId: getClusterComponentType
+      summary: Get a cluster component type
+      description: Returns details of a specific cluster-scoped component type.
+      tags: [ClusterComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterComponentTypeNameParam'
+      responses:
+        '200':
+          description: Cluster component type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterComponentType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -5403,7 +5430,6 @@ components:
       description: Paginated list of cluster-scoped component types
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5414,49 +5440,148 @@ components:
 
     ClusterComponentType:
       type: object
-      description: Cluster-scoped ComponentType resource defining a workload template
+      description: |
+        ClusterComponentType resource (Kubernetes object without kind/apiVersion).
+        Cluster-scoped version of ComponentType.
       required:
-        - name
-        - workloadType
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ClusterComponentType name (unique across the cluster)
-          example: go-service
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Go Service
-        description:
-          type: string
-          description: ComponentType description
-          example: Template for Go-based microservices
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterComponentTypeSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterComponentTypeStatus'
+
+    ClusterComponentTypeSpec:
+      type: object
+      description: Desired state of a ClusterComponentType
+      required:
+        - workloadType
+        - resources
+      properties:
         workloadType:
           type: string
-          description: Type of workload (service, web-application, scheduled-task)
-          example: service
+          description: Primary workload resource type for this component type
+          enum: [deployment, statefulset, cronjob, job, proxy]
+          example: deployment
         allowedWorkflows:
           type: array
-          description: List of allowed workflow names for this component type
+          description: List of allowed ComponentWorkflow names for this component type
           items:
             type: string
           example: ["docker-build", "buildpack-build"]
+        schema:
+          type: object
+          description: Developer-configurable schema definition
+          properties:
+            types:
+              type: object
+              description: Reusable type definitions
+              additionalProperties: true
+            parameters:
+              type: object
+              description: Static developer configuration parameters
+              additionalProperties: true
+            envOverrides:
+              type: object
+              description: Environment-specific overrides for platform engineers
+              additionalProperties: true
+        traits:
+          type: array
+          description: Pre-configured trait instances embedded in this component type
+          items:
+            type: object
+            required:
+              - name
+              - instanceName
+            properties:
+              kind:
+                type: string
+                description: Kind of trait (only ClusterTrait allowed for cluster-scoped)
+                enum: [ClusterTrait]
+                default: ClusterTrait
+              name:
+                type: string
+                description: Name of the ClusterTrait resource
+              instanceName:
+                type: string
+                description: Unique instance name for this trait
+              parameters:
+                type: object
+                description: Trait parameter bindings (concrete values or CEL expressions)
+                additionalProperties: true
+              envOverrides:
+                type: object
+                description: Trait environment override bindings
+                additionalProperties: true
         allowedTraits:
           type: array
           description: >-
-            List of allowed trait references that developers can attach to components of this type
-            (format "name" for Trait kind, "ClusterTrait:name" for ClusterTrait kind).
-            If empty or omitted, no additional component-level traits are allowed;
-            only traits embedded in the component type's spec.traits are permitted.
+            Restricts which ClusterTrait CRs developers can attach to Components of this type.
+            Each entry is an object with "name" referencing a ClusterTrait.
+            If empty or omitted, no additional component-level traits are permitted
+            (only embedded traits defined in spec.traits are allowed).
           items:
-            type: string
-          example: ["autoscaler", "ClusterTrait:logger"]
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+                description: Name of the ClusterTrait resource
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated during rendering
+          items:
+            type: object
+            required:
+              - rule
+              - message
+            properties:
+              rule:
+                type: string
+                description: "CEL expression wrapped in ${...} that must evaluate to true"
+              message:
+                type: string
+                description: Error message shown when the rule evaluates to false
+        resources:
+          type: array
+          description: Templates that generate Kubernetes resources dynamically
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - template
+            properties:
+              id:
+                type: string
+                description: Unique identifier for this resource within the component type
+              targetPlane:
+                type: string
+                description: Target plane for deployment
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created"
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions
+                additionalProperties: true
+
+    ClusterComponentTypeStatus:
+      type: object
+      description: Observed state of a ClusterComponentType
 
     # -------------------------------------------------------------------------
     # ClusterTraits

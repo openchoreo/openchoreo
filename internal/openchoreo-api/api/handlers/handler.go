@@ -13,6 +13,7 @@ import (
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
+	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
@@ -39,6 +40,7 @@ type Handler struct {
 	projectService                   projectsvc.Service
 	buildPlaneService                buildplanesvc.Service
 	clusterBuildPlaneService         clusterbuildplanesvc.Service
+	clusterComponentTypeService      clustercomponenttypesvc.Service
 	clusterDataPlaneService          clusterdataplanesvc.Service
 	clusterObservabilityPlaneService clusterobservabilityplanesvc.Service
 	dataPlaneService                 dataplanesvc.Service
@@ -59,13 +61,14 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterComponentTypeService clustercomponenttypesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                         services,
 		authzService:                     authzService,
 		projectService:                   projectService,
 		buildPlaneService:                buildPlaneService,
 		clusterBuildPlaneService:         clusterBuildPlaneService,
+		clusterComponentTypeService:      clusterComponentTypeService,
 		clusterDataPlaneService:          clusterDataPlaneService,
 		clusterObservabilityPlaneService: clusterObservabilityPlaneService,
 		dataPlaneService:                 dataPlaneService,

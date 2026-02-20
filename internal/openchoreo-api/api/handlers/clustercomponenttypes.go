@@ -8,48 +8,78 @@ import (
 	"encoding/json"
 	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 )
 
-// ListClusterComponentTypes returns a list of cluster-scoped component types
+// ListClusterComponentTypes returns a paginated list of cluster-scoped component types.
 func (h *Handler) ListClusterComponentTypes(
 	ctx context.Context,
 	request gen.ListClusterComponentTypesRequestObject,
 ) (gen.ListClusterComponentTypesResponseObject, error) {
 	h.logger.Debug("ListClusterComponentTypes called")
 
-	componentTypes, err := h.services.ClusterComponentTypeService.ListClusterComponentTypes(ctx)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.clusterComponentTypeService.ListClusterComponentTypes(ctx, opts)
 	if err != nil {
 		h.logger.Error("Failed to list cluster component types", "error", err)
 		return gen.ListClusterComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items := make([]gen.ClusterComponentType, 0, len(componentTypes))
-	for _, ct := range componentTypes {
-		items = append(items, toGenClusterComponentType(ct))
+	items, err := convertList[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster component types", "error", err)
+		return gen.ListClusterComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	return gen.ListClusterComponentTypes200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// GetClusterComponentTypeSchema returns the parameter schema for a cluster-scoped component type
+// GetClusterComponentType returns details of a specific cluster-scoped component type.
+func (h *Handler) GetClusterComponentType(
+	ctx context.Context,
+	request gen.GetClusterComponentTypeRequestObject,
+) (gen.GetClusterComponentTypeResponseObject, error) {
+	h.logger.Debug("GetClusterComponentType called", "cctName", request.CctName)
+
+	cct, err := h.clusterComponentTypeService.GetClusterComponentType(ctx, request.CctName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
+			return gen.GetClusterComponentType404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
+		}
+		h.logger.Error("Failed to get cluster component type", "error", err)
+		return gen.GetClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*cct)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster component type", "error", err)
+		return gen.GetClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetClusterComponentType200JSONResponse(genCCT), nil
+}
+
+// GetClusterComponentTypeSchema returns the parameter schema for a cluster-scoped component type.
 func (h *Handler) GetClusterComponentTypeSchema(
 	ctx context.Context,
 	request gen.GetClusterComponentTypeSchemaRequestObject,
 ) (gen.GetClusterComponentTypeSchemaResponseObject, error) {
 	h.logger.Debug("GetClusterComponentTypeSchema called", "name", request.CctName)
 
-	jsonSchema, err := h.services.ClusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
+	jsonSchema, err := h.clusterComponentTypeService.GetClusterComponentTypeSchema(ctx, request.CctName)
 	if err != nil {
-		if errors.Is(err, services.ErrClusterComponentTypeNotFound) {
-			return gen.GetClusterComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("cluster component type")}, nil
+		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
+			return gen.GetClusterComponentTypeSchema404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
 		}
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.GetClusterComponentTypeSchema403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -72,28 +102,4 @@ func (h *Handler) GetClusterComponentTypeSchema(
 	}
 
 	return gen.GetClusterComponentTypeSchema200JSONResponse(schemaResp), nil
-}
-
-func toGenClusterComponentType(ct *models.ComponentTypeResponse) gen.ClusterComponentType {
-	result := gen.ClusterComponentType{
-		Name:         ct.Name,
-		DisplayName:  ptr.To(ct.DisplayName),
-		Description:  ptr.To(ct.Description),
-		WorkloadType: ct.WorkloadType,
-		CreatedAt:    ct.CreatedAt,
-	}
-	if len(ct.AllowedWorkflows) > 0 {
-		result.AllowedWorkflows = ptr.To(ct.AllowedWorkflows)
-	}
-	if len(ct.AllowedTraits) > 0 {
-		traitStrings := make([]string, len(ct.AllowedTraits))
-		for i, t := range ct.AllowedTraits {
-			traitStrings[i] = t.Name
-			if t.Kind != "" && t.Kind != "Trait" {
-				traitStrings[i] = t.Kind + ":" + t.Name
-			}
-		}
-		result.AllowedTraits = ptr.To(traitStrings)
-	}
-	return result
 }
