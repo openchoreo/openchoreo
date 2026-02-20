@@ -1071,7 +1071,7 @@ func TestCasbinEnforcer_ListClusterRoles(t *testing.T) {
 		}
 	}
 
-	list, err := enforcer.ListClusterRoles(ctx)
+	list, err := enforcer.ListClusterRoles(ctx, 0, "")
 	if err != nil {
 		t.Fatalf("ListClusterRoles() error = %v", err)
 	}
@@ -1240,7 +1240,7 @@ func TestCasbinEnforcer_ListNamespacedRoles(t *testing.T) {
 	}
 
 	t.Run("list roles in specific namespace", func(t *testing.T) {
-		list, err := enforcer.ListNamespacedRoles(ctx, testNs)
+		list, err := enforcer.ListNamespacedRoles(ctx, testNs, 0, "")
 		if err != nil {
 			t.Fatalf("ListNamespacedRoles() error = %v", err)
 		}
@@ -1255,7 +1255,7 @@ func TestCasbinEnforcer_ListNamespacedRoles(t *testing.T) {
 	})
 
 	t.Run("list roles in empty namespace", func(t *testing.T) {
-		list, err := enforcer.ListNamespacedRoles(ctx, "empty-ns")
+		list, err := enforcer.ListNamespacedRoles(ctx, "empty-ns", 0, "")
 		if err != nil {
 			t.Fatalf("ListNamespacedRoles() error = %v", err)
 		}
@@ -1426,7 +1426,7 @@ func TestCasbinEnforcer_ListClusterRoleBindings(t *testing.T) {
 		}
 	}
 
-	list, err := enforcer.ListClusterRoleBindings(ctx)
+	list, err := enforcer.ListClusterRoleBindings(ctx, 0, "")
 	if err != nil {
 		t.Fatalf("ListClusterRoleBindings() error = %v", err)
 	}
@@ -1630,7 +1630,7 @@ func TestCasbinEnforcer_ListNamespacedRoleBindings(t *testing.T) {
 	}
 
 	t.Run("list bindings in specific namespace", func(t *testing.T) {
-		list, err := enforcer.ListNamespacedRoleBindings(ctx, testNs)
+		list, err := enforcer.ListNamespacedRoleBindings(ctx, testNs, 0, "")
 		if err != nil {
 			t.Fatalf("ListNamespacedRoleBindings() error = %v", err)
 		}
@@ -1645,7 +1645,7 @@ func TestCasbinEnforcer_ListNamespacedRoleBindings(t *testing.T) {
 	})
 
 	t.Run("list bindings in empty namespace", func(t *testing.T) {
-		list, err := enforcer.ListNamespacedRoleBindings(ctx, "empty-ns")
+		list, err := enforcer.ListNamespacedRoleBindings(ctx, "empty-ns", 0, "")
 		if err != nil {
 			t.Fatalf("ListNamespacedRoleBindings() error = %v", err)
 		}

@@ -311,6 +311,10 @@ type AuthzClusterRoleBinding struct {
 // AuthzClusterRoleBindingList List of cluster-scoped role bindings
 type AuthzClusterRoleBindingList struct {
 	Items []AuthzClusterRoleBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // AuthzClusterRoleBindingSpec Specification for a cluster-scoped role binding
@@ -331,6 +335,10 @@ type AuthzClusterRoleBindingSpecEffect string
 // AuthzClusterRoleList List of cluster-scoped authorization roles
 type AuthzClusterRoleList struct {
 	Items []AuthzClusterRole `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // AuthzClusterRoleSpec Specification for a cluster-scoped authorization role
@@ -379,6 +387,10 @@ type AuthzRoleBinding struct {
 // AuthzRoleBindingList List of namespace-scoped role bindings
 type AuthzRoleBindingList struct {
 	Items []AuthzRoleBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // AuthzRoleBindingSpec Specification for a namespace-scoped role binding
@@ -402,6 +414,10 @@ type AuthzRoleBindingSpecEffect string
 // AuthzRoleList List of namespace-scoped authorization roles
 type AuthzRoleList struct {
 	Items []AuthzRole `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // AuthzRoleRef Reference to an AuthzRole or AuthzClusterRole
@@ -2822,6 +2838,26 @@ type ListClusterDataPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
+type ListClusterRoleBindingsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterRolesParams defines parameters for ListClusterRoles.
+type ListClusterRolesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
 	// Limit Maximum number of items to return per page
@@ -2931,6 +2967,26 @@ type ListComponentWorkflowRunsParams struct {
 type CreateComponentWorkflowRunParams struct {
 	// Commit Specific git commit SHA to build (optional)
 	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
+}
+
+// ListNamespaceRoleBindingsParams defines parameters for ListNamespaceRoleBindings.
+type ListNamespaceRoleBindingsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
+type ListNamespaceRolesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // ListTraitsParams defines parameters for ListTraits.

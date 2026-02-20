@@ -9,6 +9,13 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
+// PaginatedList holds a page of items along with pagination metadata.
+// This type is used by the PAP layer to return paginated results
+type PaginatedList[T any] struct {
+	Items      []T
+	NextCursor string
+}
+
 // PDP (Policy Decision Point) interface defines the contract for authorization evaluation
 type PDP interface {
 	// Evaluate evaluates a single authorization request and returns a decision
@@ -63,7 +70,7 @@ type PAP interface {
 	// GetClusterRole retrieves a cluster-scoped role by name
 	GetClusterRole(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRole, error)
 	// ListClusterRoles lists all cluster-scoped roles
-	ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error)
+	ListClusterRoles(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzClusterRole], error)
 	// UpdateClusterRole updates a cluster-scoped role and returns the updated CRD object
 	UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error)
 
@@ -74,7 +81,7 @@ type PAP interface {
 	// GetNamespacedRole retrieves a namespace-scoped role by name and namespace
 	GetNamespacedRole(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRole, error)
 	// ListNamespacedRoles lists namespace-scoped roles in the given namespace
-	ListNamespacedRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error)
+	ListNamespacedRoles(ctx context.Context, namespace string, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzRole], error)
 	// UpdateNamespacedRole updates a namespace-scoped role and returns the updated CRD object
 	UpdateNamespacedRole(ctx context.Context, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error)
 
@@ -85,7 +92,7 @@ type PAP interface {
 	// GetClusterRoleBinding retrieves a cluster-scoped role binding by name
 	GetClusterRoleBinding(ctx context.Context, name string) (*openchoreov1alpha1.AuthzClusterRoleBinding, error)
 	// ListClusterRoleBindings lists all cluster-scoped role bindings
-	ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error)
+	ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding], error)
 	// UpdateClusterRoleBinding updates a cluster-scoped role binding and returns the updated CRD object
 	UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error)
 
@@ -96,7 +103,7 @@ type PAP interface {
 	// GetNamespacedRoleBinding retrieves a namespace-scoped role binding by name and namespace
 	GetNamespacedRoleBinding(ctx context.Context, name string, namespace string) (*openchoreov1alpha1.AuthzRoleBinding, error)
 	// ListNamespacedRoleBindings lists namespace-scoped role bindings in the given namespace
-	ListNamespacedRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error)
+	ListNamespacedRoleBindings(ctx context.Context, namespace string, limit int, cursor string) (*PaginatedList[openchoreov1alpha1.AuthzRoleBinding], error)
 	// UpdateNamespacedRoleBinding updates a namespace-scoped role binding and returns the updated CRD object
 	UpdateNamespacedRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error)
 }
