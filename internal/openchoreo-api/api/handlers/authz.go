@@ -312,7 +312,8 @@ func (h *Handler) ListClusterRoles(
 ) (gen.ListClusterRolesResponseObject, error) {
 	h.logger.Debug("ListClusterRoles called")
 
-	result, err := h.authzService.ListClusterRoles(ctx)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	result, err := h.authzService.ListClusterRoles(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -327,7 +328,7 @@ func (h *Handler) ListClusterRoles(
 		return gen.ListClusterRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListClusterRoles200JSONResponse{Items: items}, nil
+	return gen.ListClusterRoles200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
 }
 
 // CreateClusterRole creates a new cluster-scoped role.
@@ -473,7 +474,8 @@ func (h *Handler) ListClusterRoleBindings(
 ) (gen.ListClusterRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListClusterRoleBindings called")
 
-	result, err := h.authzService.ListClusterRoleBindings(ctx)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	result, err := h.authzService.ListClusterRoleBindings(ctx, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -488,7 +490,7 @@ func (h *Handler) ListClusterRoleBindings(
 		return gen.ListClusterRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListClusterRoleBindings200JSONResponse{Items: items}, nil
+	return gen.ListClusterRoleBindings200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
 }
 
 // CreateClusterRoleBinding creates a new cluster-scoped role binding.
@@ -634,7 +636,8 @@ func (h *Handler) ListNamespaceRoles(
 ) (gen.ListNamespaceRolesResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoles called", "namespace", request.NamespaceName)
 
-	result, err := h.authzService.ListNamespaceRoles(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	result, err := h.authzService.ListNamespaceRoles(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -649,7 +652,7 @@ func (h *Handler) ListNamespaceRoles(
 		return gen.ListNamespaceRoles500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListNamespaceRoles200JSONResponse{Items: items}, nil
+	return gen.ListNamespaceRoles200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
 }
 
 // CreateNamespaceRole creates a new namespace-scoped role.
@@ -795,7 +798,8 @@ func (h *Handler) ListNamespaceRoleBindings(
 ) (gen.ListNamespaceRoleBindingsResponseObject, error) {
 	h.logger.Debug("ListNamespaceRoleBindings called", "namespace", request.NamespaceName)
 
-	result, err := h.authzService.ListNamespaceRoleBindings(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+	result, err := h.authzService.ListNamespaceRoleBindings(ctx, request.NamespaceName, opts)
 	if err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
@@ -810,7 +814,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 		return gen.ListNamespaceRoleBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	return gen.ListNamespaceRoleBindings200JSONResponse{Items: items}, nil
+	return gen.ListNamespaceRoleBindings200JSONResponse{Items: items, Pagination: ToPaginationPtr(result)}, nil
 }
 
 // CreateNamespaceRoleBinding creates a new namespace-scoped role binding.

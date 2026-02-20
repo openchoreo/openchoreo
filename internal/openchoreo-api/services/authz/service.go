@@ -13,6 +13,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
 // authzService handles authz CRUD operations without authorization checks.
@@ -48,9 +49,16 @@ func (s *authzService) GetClusterRole(ctx context.Context, name string) (*opench
 	return s.pap.GetClusterRole(ctx, name)
 }
 
-func (s *authzService) ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error) {
-	s.logger.Debug("Listing cluster roles")
-	return s.pap.ListClusterRoles(ctx)
+func (s *authzService) ListClusterRoles(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRole], error) {
+	s.logger.Debug("Listing cluster roles", "limit", opts.Limit, "cursor", opts.Cursor)
+	paged, err := s.pap.ListClusterRoles(ctx, opts.Limit, opts.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	return &services.ListResult[openchoreov1alpha1.AuthzClusterRole]{
+		Items:      paged.Items,
+		NextCursor: paged.NextCursor,
+	}, nil
 }
 
 func (s *authzService) UpdateClusterRole(ctx context.Context, role *openchoreov1alpha1.AuthzClusterRole) (*openchoreov1alpha1.AuthzClusterRole, error) {
@@ -91,9 +99,16 @@ func (s *authzService) GetNamespaceRole(ctx context.Context, namespace, name str
 	return s.pap.GetNamespacedRole(ctx, name, namespace)
 }
 
-func (s *authzService) ListNamespaceRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error) {
-	s.logger.Debug("Listing namespace roles", "namespace", namespace)
-	return s.pap.ListNamespacedRoles(ctx, namespace)
+func (s *authzService) ListNamespaceRoles(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRole], error) {
+	s.logger.Debug("Listing namespace roles", "namespace", namespace, "limit", opts.Limit, "cursor", opts.Cursor)
+	paged, err := s.pap.ListNamespacedRoles(ctx, namespace, opts.Limit, opts.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	return &services.ListResult[openchoreov1alpha1.AuthzRole]{
+		Items:      paged.Items,
+		NextCursor: paged.NextCursor,
+	}, nil
 }
 
 func (s *authzService) UpdateNamespaceRole(ctx context.Context, namespace string, role *openchoreov1alpha1.AuthzRole) (*openchoreov1alpha1.AuthzRole, error) {
@@ -134,9 +149,16 @@ func (s *authzService) GetClusterRoleBinding(ctx context.Context, name string) (
 	return s.pap.GetClusterRoleBinding(ctx, name)
 }
 
-func (s *authzService) ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error) {
-	s.logger.Debug("Listing cluster role bindings")
-	return s.pap.ListClusterRoleBindings(ctx)
+func (s *authzService) ListClusterRoleBindings(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
+	s.logger.Debug("Listing cluster role bindings", "limit", opts.Limit, "cursor", opts.Cursor)
+	paged, err := s.pap.ListClusterRoleBindings(ctx, opts.Limit, opts.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	return &services.ListResult[openchoreov1alpha1.AuthzClusterRoleBinding]{
+		Items:      paged.Items,
+		NextCursor: paged.NextCursor,
+	}, nil
 }
 
 func (s *authzService) UpdateClusterRoleBinding(ctx context.Context, binding *openchoreov1alpha1.AuthzClusterRoleBinding) (*openchoreov1alpha1.AuthzClusterRoleBinding, error) {
@@ -177,9 +199,16 @@ func (s *authzService) GetNamespaceRoleBinding(ctx context.Context, namespace, n
 	return s.pap.GetNamespacedRoleBinding(ctx, name, namespace)
 }
 
-func (s *authzService) ListNamespaceRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error) {
-	s.logger.Debug("Listing namespace role bindings", "namespace", namespace)
-	return s.pap.ListNamespacedRoleBindings(ctx, namespace)
+func (s *authzService) ListNamespaceRoleBindings(ctx context.Context, namespace string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.AuthzRoleBinding], error) {
+	s.logger.Debug("Listing namespace role bindings", "namespace", namespace, "limit", opts.Limit, "cursor", opts.Cursor)
+	paged, err := s.pap.ListNamespacedRoleBindings(ctx, namespace, opts.Limit, opts.Cursor)
+	if err != nil {
+		return nil, err
+	}
+	return &services.ListResult[openchoreov1alpha1.AuthzRoleBinding]{
+		Items:      paged.Items,
+		NextCursor: paged.NextCursor,
+	}, nil
 }
 
 func (s *authzService) UpdateNamespaceRoleBinding(ctx context.Context, namespace string, binding *openchoreov1alpha1.AuthzRoleBinding) (*openchoreov1alpha1.AuthzRoleBinding, error) {

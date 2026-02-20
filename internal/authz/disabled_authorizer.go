@@ -151,7 +151,7 @@ func (da *DisabledAuthorizer) GetClusterRole(ctx context.Context, name string) (
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListClusterRoles(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleList, error) {
+func (da *DisabledAuthorizer) ListClusterRoles(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzClusterRole], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
@@ -167,7 +167,7 @@ func (da *DisabledAuthorizer) GetNamespacedRole(ctx context.Context, name string
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListNamespacedRoles(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleList, error) {
+func (da *DisabledAuthorizer) ListNamespacedRoles(ctx context.Context, namespace string, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzRole], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
@@ -183,7 +183,7 @@ func (da *DisabledAuthorizer) GetClusterRoleBinding(ctx context.Context, name st
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListClusterRoleBindings(ctx context.Context) (*openchoreov1alpha1.AuthzClusterRoleBindingList, error) {
+func (da *DisabledAuthorizer) ListClusterRoleBindings(ctx context.Context, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzClusterRoleBinding], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
@@ -199,7 +199,7 @@ func (da *DisabledAuthorizer) GetNamespacedRoleBinding(ctx context.Context, name
 	return nil, authz.ErrAuthzDisabled
 }
 
-func (da *DisabledAuthorizer) ListNamespacedRoleBindings(ctx context.Context, namespace string) (*openchoreov1alpha1.AuthzRoleBindingList, error) {
+func (da *DisabledAuthorizer) ListNamespacedRoleBindings(ctx context.Context, namespace string, limit int, cursor string) (*authz.PaginatedList[openchoreov1alpha1.AuthzRoleBinding], error) {
 	return nil, authz.ErrAuthzDisabled
 }
 
