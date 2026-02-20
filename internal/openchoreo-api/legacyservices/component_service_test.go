@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -760,4 +761,384 @@ func TestDetermineReleaseBindingStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetComponentObserverURL tests the GetComponentObserverURL method
+// covering both DataPlane and ClusterDataPlane resolution paths.
+func TestGetComponentObserverURL(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add v1alpha1 to scheme: %v", err)
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+
+	const (
+		namespaceName   = "test-ns"
+		projectName     = "test-project"
+		componentName   = "test-component"
+		environmentName = "development"
+		observerURL     = "http://observer.test:8080"
+	)
+
+	// Base objects needed for every test case: Project and Component
+	baseProject := &v1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      projectName,
+			Namespace: namespaceName,
+		},
+	}
+	baseComponent := &v1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentName,
+			Namespace: namespaceName,
+		},
+		Spec: v1alpha1.ComponentSpec{
+			Owner: v1alpha1.ComponentOwner{
+				ProjectName: projectName,
+			},
+			ComponentType: v1alpha1.ComponentTypeRef{
+				Kind: v1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/web-app",
+			},
+		},
+	}
+
+	tests := []struct {
+		name            string
+		objects         []client.Object
+		wantObserverURL string
+		wantMessage     string
+		wantErr         bool
+	}{
+		{
+			name: "ClusterDataPlane path - success with ClusterObservabilityPlane",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: "shared-dp",
+						},
+					},
+				},
+				&v1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-dp",
+					},
+					Spec: v1alpha1.ClusterDataPlaneSpec{
+						ObservabilityPlaneRef: &v1alpha1.ClusterObservabilityPlaneRef{
+							Kind: v1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+							Name: "shared-obs",
+						},
+					},
+				},
+				&v1alpha1.ClusterObservabilityPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-obs",
+					},
+					Spec: v1alpha1.ClusterObservabilityPlaneSpec{
+						ObserverURL: observerURL,
+					},
+				},
+			},
+			wantObserverURL: observerURL,
+		},
+		{
+			name: "ClusterDataPlane path - ClusterObservabilityPlane not found",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: "shared-dp",
+						},
+					},
+				},
+				&v1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-dp",
+					},
+					Spec: v1alpha1.ClusterDataPlaneSpec{
+						ObservabilityPlaneRef: &v1alpha1.ClusterObservabilityPlaneRef{
+							Kind: v1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+							Name: "nonexistent-obs",
+						},
+					},
+				},
+				// No ClusterObservabilityPlane object => NotFound
+			},
+			wantMessage: "observability-logs have not been configured",
+		},
+		{
+			name: "DataPlane path - success with ObservabilityPlane",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindDataPlane,
+							Name: "local-dp",
+						},
+					},
+				},
+				&v1alpha1.DataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "local-dp",
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.DataPlaneSpec{
+						ObservabilityPlaneRef: &v1alpha1.ObservabilityPlaneRef{
+							Kind: v1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+							Name: "local-obs",
+						},
+					},
+				},
+				&v1alpha1.ObservabilityPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "local-obs",
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.ObservabilityPlaneSpec{
+						ObserverURL: observerURL,
+					},
+				},
+			},
+			wantObserverURL: observerURL,
+		},
+		{
+			name: "DataPlane path - ObservabilityPlane not found",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindDataPlane,
+							Name: "local-dp",
+						},
+					},
+				},
+				&v1alpha1.DataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "local-dp",
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.DataPlaneSpec{
+						ObservabilityPlaneRef: &v1alpha1.ObservabilityPlaneRef{
+							Kind: v1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+							Name: "nonexistent-obs",
+						},
+					},
+				},
+				// No ObservabilityPlane object => NotFound
+			},
+			wantMessage: "observability-logs have not been configured",
+		},
+		{
+			name: "ClusterDataPlane not found returns error",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: "missing-dp",
+						},
+					},
+				},
+				// No ClusterDataPlane object
+			},
+			wantErr: true,
+		},
+		{
+			name: "DataPlane not found returns error",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindDataPlane,
+							Name: "missing-dp",
+						},
+					},
+				},
+				// No DataPlane object
+			},
+			wantErr: true,
+		},
+		{
+			name: "No dataplane reference returns error",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						// No DataPlaneRef
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "ClusterDataPlane path - empty ObserverURL",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: v1alpha1.DataPlaneRefKindClusterDataPlane,
+							Name: "shared-dp",
+						},
+					},
+				},
+				&v1alpha1.ClusterDataPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-dp",
+					},
+					Spec: v1alpha1.ClusterDataPlaneSpec{
+						ObservabilityPlaneRef: &v1alpha1.ClusterObservabilityPlaneRef{
+							Kind: v1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+							Name: "shared-obs",
+						},
+					},
+				},
+				&v1alpha1.ClusterObservabilityPlane{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "shared-obs",
+					},
+					Spec: v1alpha1.ClusterObservabilityPlaneSpec{
+						ObserverURL: "", // empty
+					},
+				},
+			},
+			wantMessage: "observability-logs have not been configured",
+		},
+		{
+			name: "Unsupported DataPlaneRef kind returns error",
+			objects: []client.Object{
+				baseProject,
+				baseComponent,
+				&v1alpha1.Environment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      environmentName,
+						Namespace: namespaceName,
+					},
+					Spec: v1alpha1.EnvironmentSpec{
+						DataPlaneRef: &v1alpha1.DataPlaneRef{
+							Kind: "UnknownKind",
+							Name: "some-dp",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.objects...).
+				Build()
+
+			projectService := &ProjectService{
+				k8sClient: fakeClient,
+				logger:    logger,
+				authzPDP:  &componentTestAllowAllPDP{},
+			}
+
+			service := &ComponentService{
+				k8sClient:      fakeClient,
+				projectService: projectService,
+				logger:         logger,
+				authzPDP:       &componentTestAllowAllPDP{},
+			}
+
+			resp, err := service.GetComponentObserverURL(context.Background(), namespaceName, projectName, componentName, environmentName)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("GetComponentObserverURL() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("GetComponentObserverURL() unexpected error: %v", err)
+			}
+
+			if resp == nil {
+				t.Fatal("GetComponentObserverURL() returned nil response")
+			}
+
+			if tt.wantObserverURL != "" {
+				if resp.ObserverURL != tt.wantObserverURL {
+					t.Errorf("GetComponentObserverURL() ObserverURL = %q, want %q", resp.ObserverURL, tt.wantObserverURL)
+				}
+			}
+
+			if tt.wantMessage != "" {
+				if resp.Message != tt.wantMessage {
+					t.Errorf("GetComponentObserverURL() Message = %q, want %q", resp.Message, tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
+// componentTestAllowAllPDP is a PDP stub that always allows authorization for component tests.
+type componentTestAllowAllPDP struct{}
+
+func (a *componentTestAllowAllPDP) Evaluate(_ context.Context, _ *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	return &authzcore.Decision{Decision: true, Context: &authzcore.DecisionContext{}}, nil
+}
+
+func (a *componentTestAllowAllPDP) BatchEvaluate(_ context.Context, _ *authzcore.BatchEvaluateRequest) (*authzcore.BatchEvaluateResponse, error) {
+	return nil, nil
+}
+
+func (a *componentTestAllowAllPDP) GetSubjectProfile(_ context.Context, _ *authzcore.ProfileRequest) (*authzcore.UserCapabilitiesResponse, error) {
+	return nil, nil
 }

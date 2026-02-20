@@ -286,41 +286,69 @@ func (s *EnvironmentService) GetEnvironmentObserverURL(ctx context.Context, name
 		return nil, ErrDataPlaneNotFound
 	}
 
-	// Currently only supporting DataPlane (not ClusterDataPlane) for observer URL
-	if env.DataPlaneRef.Kind == string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane) {
-		s.logger.Debug("ClusterDataPlane observer URL not yet supported", "environment", envName)
-		return &EnvironmentObserverResponse{
-			Message: "observability-logs for ClusterDataPlane not yet supported",
-		}, nil
-	}
+	var observabilityResult *controller.ObservabilityPlaneResult
 
-	// Get the DataPlane configuration for the environment
-	dp := &openchoreov1alpha1.DataPlane{}
-	dpKey := client.ObjectKey{
-		Name:      env.DataPlaneRef.Name,
-		Namespace: namespaceName,
-	}
+	switch env.DataPlaneRef.Kind {
+	case string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane):
+		// Get the ClusterDataPlane configuration (cluster-scoped)
+		cdp := &openchoreov1alpha1.ClusterDataPlane{}
+		cdpKey := client.ObjectKey{Name: env.DataPlaneRef.Name}
 
-	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
-			return nil, ErrDataPlaneNotFound
+		if err := s.k8sClient.Get(ctx, cdpKey, cdp); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Error("ClusterDataPlane not found", "clusterDataPlane", env.DataPlaneRef.Name)
+				return nil, ErrDataPlaneNotFound
+			}
+			s.logger.Error("Failed to get ClusterDataPlane", "error", err, "clusterDataPlane", env.DataPlaneRef.Name)
+			return nil, fmt.Errorf("failed to get ClusterDataPlane: %w", err)
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
-		return nil, fmt.Errorf("failed to get dataplane: %w", err)
-	}
 
-	// Get ObservabilityPlane via the reference helper
-	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			s.logger.Debug("Observability plane not found", "error", err, "dataplane", dp.Name)
-			return &EnvironmentObserverResponse{
-				Message: "observability-logs have not been configured",
-			}, nil
+		cop, err := controller.GetClusterObservabilityPlaneOfClusterDataPlane(ctx, s.k8sClient, cdp)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				s.logger.Debug("ClusterObservabilityPlane not found", "error", err, "clusterDataPlane", cdp.Name)
+				return &EnvironmentObserverResponse{
+					Message: "observability-logs have not been configured",
+				}, nil
+			}
+			s.logger.Error("Failed to get ClusterObservabilityPlane", "error", err, "clusterDataPlane", cdp.Name)
+			return nil, fmt.Errorf("failed to get ClusterObservabilityPlane: %w", err)
 		}
-		s.logger.Error("Failed to get observability plane", "error", err, "dataplane", dp.Name)
-		return nil, fmt.Errorf("failed to get observability plane: %w", err)
+		observabilityResult = &controller.ObservabilityPlaneResult{ClusterObservabilityPlane: cop}
+
+	case "", string(openchoreov1alpha1.DataPlaneRefKindDataPlane):
+		// Get the DataPlane configuration for the environment
+		dp := &openchoreov1alpha1.DataPlane{}
+		dpKey := client.ObjectKey{
+			Name:      env.DataPlaneRef.Name,
+			Namespace: namespaceName,
+		}
+
+		if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
+				return nil, ErrDataPlaneNotFound
+			}
+			s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
+			return nil, fmt.Errorf("failed to get dataplane: %w", err)
+		}
+
+		var resolveErr error
+		observabilityResult, resolveErr = controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
+		if resolveErr != nil {
+			if k8serrors.IsNotFound(resolveErr) {
+				s.logger.Debug("Observability plane not found", "error", resolveErr, "dataplane", dp.Name)
+				return &EnvironmentObserverResponse{
+					Message: "observability-logs have not been configured",
+				}, nil
+			}
+			s.logger.Error("Failed to get observability plane", "error", resolveErr, "dataplane", dp.Name)
+			return nil, fmt.Errorf("failed to get observability plane: %w", resolveErr)
+		}
+
+	default:
+		s.logger.Error("Unsupported DataPlaneRef kind", "kind", env.DataPlaneRef.Kind, "environment", envName)
+		return nil, fmt.Errorf("unsupported DataPlaneRef.Kind: %q", env.DataPlaneRef.Kind)
 	}
 
 	observerURL := observabilityResult.GetObserverURL()
@@ -358,41 +386,69 @@ func (s *EnvironmentService) GetRCAAgentURL(ctx context.Context, namespaceName, 
 		return nil, ErrDataPlaneNotFound
 	}
 
-	// Currently only supporting DataPlane (not ClusterDataPlane) for RCA agent URL
-	if env.DataPlaneRef.Kind == string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane) {
-		s.logger.Debug("ClusterDataPlane RCA agent URL not yet supported", "environment", envName)
-		return &RCAAgentURLResponse{
-			Message: "RCA agent for ClusterDataPlane not yet supported",
-		}, nil
-	}
+	var observabilityResult *controller.ObservabilityPlaneResult
 
-	// Get the DataPlane configuration for the environment
-	dp := &openchoreov1alpha1.DataPlane{}
-	dpKey := client.ObjectKey{
-		Name:      env.DataPlaneRef.Name,
-		Namespace: namespaceName,
-	}
+	switch env.DataPlaneRef.Kind {
+	case string(openchoreov1alpha1.DataPlaneRefKindClusterDataPlane):
+		// Get the ClusterDataPlane configuration (cluster-scoped)
+		cdp := &openchoreov1alpha1.ClusterDataPlane{}
+		cdpKey := client.ObjectKey{Name: env.DataPlaneRef.Name}
 
-	if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
-			return nil, ErrDataPlaneNotFound
+		if err := s.k8sClient.Get(ctx, cdpKey, cdp); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Error("ClusterDataPlane not found", "clusterDataPlane", env.DataPlaneRef.Name)
+				return nil, ErrDataPlaneNotFound
+			}
+			s.logger.Error("Failed to get ClusterDataPlane", "error", err, "clusterDataPlane", env.DataPlaneRef.Name)
+			return nil, fmt.Errorf("failed to get ClusterDataPlane: %w", err)
 		}
-		s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
-		return nil, fmt.Errorf("failed to get dataplane: %w", err)
-	}
 
-	// Get ObservabilityPlane via the reference helper
-	observabilityResult, err := controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			s.logger.Debug("Observability plane not found", "error", err, "dataplane", dp.Name)
-			return &RCAAgentURLResponse{
-				Message: "ObservabilityPlaneRef has not been configured",
-			}, nil
+		cop, err := controller.GetClusterObservabilityPlaneOfClusterDataPlane(ctx, s.k8sClient, cdp)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				s.logger.Debug("ClusterObservabilityPlane not found", "error", err, "clusterDataPlane", cdp.Name)
+				return &RCAAgentURLResponse{
+					Message: "ObservabilityPlaneRef has not been configured",
+				}, nil
+			}
+			s.logger.Error("Failed to get ClusterObservabilityPlane", "error", err, "clusterDataPlane", cdp.Name)
+			return nil, fmt.Errorf("failed to get ClusterObservabilityPlane: %w", err)
 		}
-		s.logger.Error("Failed to get observability plane", "error", err, "dataplane", dp.Name)
-		return nil, fmt.Errorf("failed to get observability plane: %w", err)
+		observabilityResult = &controller.ObservabilityPlaneResult{ClusterObservabilityPlane: cop}
+
+	case "", string(openchoreov1alpha1.DataPlaneRefKindDataPlane):
+		// Get the DataPlane configuration for the environment
+		dp := &openchoreov1alpha1.DataPlane{}
+		dpKey := client.ObjectKey{
+			Name:      env.DataPlaneRef.Name,
+			Namespace: namespaceName,
+		}
+
+		if err := s.k8sClient.Get(ctx, dpKey, dp); err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				s.logger.Error("DataPlane not found", "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
+				return nil, ErrDataPlaneNotFound
+			}
+			s.logger.Error("Failed to get dataplane", "error", err, "namespace", namespaceName, "dataplane", env.DataPlaneRef.Name)
+			return nil, fmt.Errorf("failed to get dataplane: %w", err)
+		}
+
+		var resolveErr error
+		observabilityResult, resolveErr = controller.GetObservabilityPlaneOrClusterObservabilityPlaneOfDataPlane(ctx, s.k8sClient, dp)
+		if resolveErr != nil {
+			if k8serrors.IsNotFound(resolveErr) {
+				s.logger.Debug("Observability plane not found", "error", resolveErr, "dataplane", dp.Name)
+				return &RCAAgentURLResponse{
+					Message: "ObservabilityPlaneRef has not been configured",
+				}, nil
+			}
+			s.logger.Error("Failed to get observability plane", "error", resolveErr, "dataplane", dp.Name)
+			return nil, fmt.Errorf("failed to get observability plane: %w", resolveErr)
+		}
+
+	default:
+		s.logger.Error("Unsupported DataPlaneRef kind", "kind", env.DataPlaneRef.Kind, "environment", envName)
+		return nil, fmt.Errorf("unsupported DataPlaneRef.Kind: %q", env.DataPlaneRef.Kind)
 	}
 
 	// Get RCAAgentURL from ObservabilityPlane or ClusterObservabilityPlane
