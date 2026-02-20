@@ -3061,6 +3061,9 @@ type ProjectNameParam = string
 // ProjectQueryParam defines model for ProjectQueryParam.
 type ProjectQueryParam = string
 
+// ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
+type ReleaseBindingNameParam = string
+
 // ReleaseNameParam defines model for ReleaseNameParam.
 type ReleaseNameParam = string
 
@@ -3270,6 +3273,19 @@ type CreateComponentWorkflowRunParams struct {
 	Commit *string `form:"commit,omitempty" json:"commit,omitempty"`
 }
 
+// ListReleaseBindingsFlatParams defines parameters for ListReleaseBindingsFlat.
+type ListReleaseBindingsFlatParams struct {
+	// Component Filter resources by component name
+	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
 	// Limit Maximum number of items to return per page
@@ -3411,6 +3427,12 @@ type UpdateComponentTraitsJSONRequestBody = UpdateComponentTraitsRequest
 
 // UpdateComponentWorkflowParametersJSONRequestBody defines body for UpdateComponentWorkflowParameters for application/json ContentType.
 type UpdateComponentWorkflowParametersJSONRequestBody = UpdateComponentWorkflowRequest
+
+// CreateReleaseBindingJSONRequestBody defines body for CreateReleaseBinding for application/json ContentType.
+type CreateReleaseBindingJSONRequestBody = ReleaseBinding
+
+// UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
+type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // CreateNamespaceRoleBindingJSONRequestBody defines body for CreateNamespaceRoleBinding for application/json ContentType.
 type CreateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding

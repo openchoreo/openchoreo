@@ -71,6 +71,8 @@ tags:
     description: Secret reference management
   - name: Workloads
     description: Workload source code definitions
+  - name: ReleaseBindings
+    description: Release binding management
   - name: DeploymentPipelines
     description: Deployment pipeline management
 
@@ -3466,6 +3468,145 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # Release Binding Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/release-bindings:
+    get:
+      operationId: listReleaseBindingsFlat
+      summary: List release bindings
+      description: Returns a paginated list of release bindings within a namespace, optionally filtered by component.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of release bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBindingList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createReleaseBinding
+      summary: Create release binding
+      description: Creates a new release binding within a namespace.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseBinding'
+      responses:
+        '201':
+          description: Release binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/release-bindings/{releaseBindingName}:
+    get:
+      operationId: getReleaseBinding
+      summary: Get release binding
+      description: Returns details of a specific release binding.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      responses:
+        '200':
+          description: Release binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBinding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateReleaseBinding
+      summary: Update release binding
+      description: Replaces an existing release binding (full update).
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReleaseBinding'
+      responses:
+        '200':
+          description: Release binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteReleaseBinding
+      summary: Delete release binding
+      description: Deletes a release binding by name.
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      responses:
+        '204':
+          description: Release binding deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -3700,6 +3841,15 @@ components:
       in: path
       required: true
       description: Binding name
+      schema:
+        type: string
+        example: api-service-dev
+
+    ReleaseBindingNameParam:
+      name: releaseBindingName
+      in: path
+      required: true
+      description: Release binding name
       schema:
         type: string
         example: api-service-dev

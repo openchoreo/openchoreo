@@ -391,6 +391,25 @@ type ClientInterface interface {
 	// GetProjectDeploymentPipeline request
 	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListReleaseBindingsFlat request
+	ListReleaseBindingsFlat(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateReleaseBindingWithBody request with any body
+	CreateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteReleaseBinding request
+	DeleteReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetReleaseBinding request
+	GetReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateReleaseBindingWithBody request with any body
+	UpdateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListNamespaceRoleBindings request
 	ListNamespaceRoleBindings(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1828,6 +1847,90 @@ func (c *Client) GetComponentWorkflowRun(ctx context.Context, namespaceName Name
 
 func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectDeploymentPipelineRequest(c.Server, namespaceName, projectName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListReleaseBindingsFlat(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListReleaseBindingsFlatRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateReleaseBindingRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateReleaseBindingRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteReleaseBindingRequest(c.Server, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseBindingRequest(c.Server, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateReleaseBindingRequestWithBody(c.Server, namespaceName, releaseBindingName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateReleaseBindingRequest(c.Server, namespaceName, releaseBindingName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6602,6 +6705,277 @@ func NewGetProjectDeploymentPipelineRequest(server string, namespaceName Namespa
 	return req, nil
 }
 
+// NewListReleaseBindingsFlatRequest generates requests for ListReleaseBindingsFlat
+func NewListReleaseBindingsFlatRequest(server string, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateReleaseBindingRequest calls the generic CreateReleaseBinding builder with application/json body
+func NewCreateReleaseBindingRequest(server string, namespaceName NamespaceNameParam, body CreateReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateReleaseBindingRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateReleaseBindingRequestWithBody generates requests for CreateReleaseBinding with any type of body
+func NewCreateReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteReleaseBindingRequest generates requests for DeleteReleaseBinding
+func NewDeleteReleaseBindingRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetReleaseBindingRequest generates requests for GetReleaseBinding
+func NewGetReleaseBindingRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateReleaseBindingRequest calls the generic UpdateReleaseBinding builder with application/json body
+func NewUpdateReleaseBindingRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateReleaseBindingRequestWithBody(server, namespaceName, releaseBindingName, "application/json", bodyReader)
+}
+
+// NewUpdateReleaseBindingRequestWithBody generates requests for UpdateReleaseBinding with any type of body
+func NewUpdateReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/release-bindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListNamespaceRoleBindingsRequest generates requests for ListNamespaceRoleBindings
 func NewListNamespaceRoleBindingsRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
 	var err error
@@ -8692,6 +9066,25 @@ type ClientWithResponsesInterface interface {
 
 	// GetProjectDeploymentPipelineWithResponse request
 	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
+
+	// ListReleaseBindingsFlatWithResponse request
+	ListReleaseBindingsFlatWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsFlatResp, error)
+
+	// CreateReleaseBindingWithBodyWithResponse request with any body
+	CreateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateReleaseBindingResp, error)
+
+	CreateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateReleaseBindingResp, error)
+
+	// DeleteReleaseBindingWithResponse request
+	DeleteReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteReleaseBindingResp, error)
+
+	// GetReleaseBindingWithResponse request
+	GetReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetReleaseBindingResp, error)
+
+	// UpdateReleaseBindingWithBodyWithResponse request with any body
+	UpdateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
+
+	UpdateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error)
 
 	// ListNamespaceRoleBindingsWithResponse request
 	ListNamespaceRoleBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListNamespaceRoleBindingsResp, error)
@@ -11014,6 +11407,137 @@ func (r GetProjectDeploymentPipelineResp) StatusCode() int {
 	return 0
 }
 
+type ListReleaseBindingsFlatResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseBindingList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListReleaseBindingsFlatResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListReleaseBindingsFlatResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseBinding
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListNamespaceRoleBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12941,6 +13465,67 @@ func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx conte
 		return nil, err
 	}
 	return ParseGetProjectDeploymentPipelineResp(rsp)
+}
+
+// ListReleaseBindingsFlatWithResponse request returning *ListReleaseBindingsFlatResp
+func (c *ClientWithResponses) ListReleaseBindingsFlatWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsFlatParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsFlatResp, error) {
+	rsp, err := c.ListReleaseBindingsFlat(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListReleaseBindingsFlatResp(rsp)
+}
+
+// CreateReleaseBindingWithBodyWithResponse request with arbitrary body returning *CreateReleaseBindingResp
+func (c *ClientWithResponses) CreateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateReleaseBindingResp, error) {
+	rsp, err := c.CreateReleaseBindingWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateReleaseBindingResp, error) {
+	rsp, err := c.CreateReleaseBinding(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateReleaseBindingResp(rsp)
+}
+
+// DeleteReleaseBindingWithResponse request returning *DeleteReleaseBindingResp
+func (c *ClientWithResponses) DeleteReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteReleaseBindingResp, error) {
+	rsp, err := c.DeleteReleaseBinding(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteReleaseBindingResp(rsp)
+}
+
+// GetReleaseBindingWithResponse request returning *GetReleaseBindingResp
+func (c *ClientWithResponses) GetReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetReleaseBindingResp, error) {
+	rsp, err := c.GetReleaseBinding(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseBindingResp(rsp)
+}
+
+// UpdateReleaseBindingWithBodyWithResponse request with arbitrary body returning *UpdateReleaseBindingResp
+func (c *ClientWithResponses) UpdateReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error) {
+	rsp, err := c.UpdateReleaseBindingWithBody(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body UpdateReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateReleaseBindingResp, error) {
+	rsp, err := c.UpdateReleaseBinding(ctx, namespaceName, releaseBindingName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateReleaseBindingResp(rsp)
 }
 
 // ListNamespaceRoleBindingsWithResponse request returning *ListNamespaceRoleBindingsResp
@@ -17869,6 +18454,283 @@ func ParseGetProjectDeploymentPipelineResp(rsp *http.Response) (*GetProjectDeplo
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListReleaseBindingsFlatResp parses an HTTP response from a ListReleaseBindingsFlatWithResponse call
+func ParseListReleaseBindingsFlatResp(rsp *http.Response) (*ListReleaseBindingsFlatResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListReleaseBindingsFlatResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseBindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateReleaseBindingResp parses an HTTP response from a CreateReleaseBindingWithResponse call
+func ParseCreateReleaseBindingResp(rsp *http.Response) (*CreateReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteReleaseBindingResp parses an HTTP response from a DeleteReleaseBindingWithResponse call
+func ParseDeleteReleaseBindingResp(rsp *http.Response) (*DeleteReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseBindingResp parses an HTTP response from a GetReleaseBindingWithResponse call
+func ParseGetReleaseBindingResp(rsp *http.Response) (*GetReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateReleaseBindingResp parses an HTTP response from a UpdateReleaseBindingWithResponse call
+func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
