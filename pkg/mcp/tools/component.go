@@ -350,14 +350,6 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		}
 		if args.ConfigurationOverrides != nil {
 			// Convert map to WorkloadOverrides struct
-			workloadOverrides := &models.WorkloadOverrides{
-				Containers: make(map[string]models.ContainerOverride),
-			}
-			// Default container name if not specified
-			containerName := "default"
-			if name, ok := args.ConfigurationOverrides["container_name"].(string); ok && name != "" {
-				containerName = name
-			}
 			containerOverride := models.ContainerOverride{}
 			if envVars, ok := args.ConfigurationOverrides["env"].([]interface{}); ok {
 				for _, ev := range envVars {
@@ -381,8 +373,9 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 				}
 			}
 			if len(containerOverride.Env) > 0 || len(containerOverride.Files) > 0 {
-				workloadOverrides.Containers[containerName] = containerOverride
-				patchReq.WorkloadOverrides = workloadOverrides
+				patchReq.WorkloadOverrides = &models.WorkloadOverrides{
+					Container: &containerOverride,
+				}
 			}
 		}
 		result, err := t.ComponentToolset.PatchReleaseBinding(

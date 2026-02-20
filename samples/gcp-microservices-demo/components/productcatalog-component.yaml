@@ -27,11 +27,10 @@ spec:
     grpc:
       type: gRPC
       port: 3550
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/productcatalogservice:v0.10.3
-      env:
-        - key: DISABLE_PROFILER
-          value: "1"
-        - key: PORT
-          value: "3550"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/productcatalogservice:v0.10.3
+    env:
+      - key: DISABLE_PROFILER
+        value: "1"
+      - key: PORT
+        value: "3550"

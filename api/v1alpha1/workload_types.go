@@ -213,21 +213,10 @@ type WorkloadConnectionEnvVar struct {
 }
 
 // WorkloadTemplateSpec defines the desired state of Workload.
-// +kubebuilder:validation:XValidation:rule="has(self.container) != has(self.containers)",message="exactly one of container or containers must be set"
 type WorkloadTemplateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Container defines the single container specification for this workload.
-	// Mutually exclusive with containers.
-	// +optional
-	Container *Container `json:"container,omitempty"`
-
-	// Containers define the container specifications for this workload.
-	// The key is the container name, and the value is the container specification.
-	// Mutually exclusive with container.
-	// +optional
-	Containers map[string]Container `json:"containers,omitempty"`
+	// Container defines the container specification for this workload.
+	// +kubebuilder:validation:Required
+	Container Container `json:"container"`
 
 	// Endpoints define simple network endpoints for basic port exposure.
 	// The key is the endpoint name, and the value is the endpoint specification.

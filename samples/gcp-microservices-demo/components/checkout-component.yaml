@@ -27,23 +27,22 @@ spec:
     grpc:
       type: gRPC
       port: 5050
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.3
-      env:
-        - key: DISABLE_PROFILER
-          value: "1"
-        - key: PORT
-          value: "5050"
-        - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog:3550"
-        - key: SHIPPING_SERVICE_ADDR
-          value: "shipping:50055"
-        - key: PAYMENT_SERVICE_ADDR
-          value: "payment:50051"
-        - key: EMAIL_SERVICE_ADDR
-          value: "email:5000"
-        - key: CURRENCY_SERVICE_ADDR
-          value: "currency:7000"
-        - key: CART_SERVICE_ADDR
-          value: "cart:7070"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/checkoutservice:v0.10.3
+    env:
+      - key: DISABLE_PROFILER
+        value: "1"
+      - key: PORT
+        value: "5050"
+      - key: PRODUCT_CATALOG_SERVICE_ADDR
+        value: "productcatalog:3550"
+      - key: SHIPPING_SERVICE_ADDR
+        value: "shipping:50055"
+      - key: PAYMENT_SERVICE_ADDR
+        value: "payment:50051"
+      - key: EMAIL_SERVICE_ADDR
+        value: "email:5000"
+      - key: CURRENCY_SERVICE_ADDR
+        value: "currency:7000"
+      - key: CART_SERVICE_ADDR
+        value: "cart:7070"

@@ -64,19 +64,18 @@ func (r *Reconciler) setupSecretReferencesIndex(ctx context.Context, mgr ctrl.Ma
 
 			// Extract SecretReferences from the merged workload
 			var secretRefNames []string
-			for _, container := range mergedWorkload.Spec.Containers {
-				// Extract from Env variables
-				for _, env := range container.Env {
-					if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil && env.ValueFrom.SecretRef.Name != "" {
-						secretRefNames = append(secretRefNames, env.ValueFrom.SecretRef.Name)
-					}
+			container := mergedWorkload.Spec.Container
+			// Extract from Env variables
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil && env.ValueFrom.SecretRef.Name != "" {
+					secretRefNames = append(secretRefNames, env.ValueFrom.SecretRef.Name)
 				}
+			}
 
-				// Extract from Files
-				for _, file := range container.Files {
-					if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil && file.ValueFrom.SecretRef.Name != "" {
-						secretRefNames = append(secretRefNames, file.ValueFrom.SecretRef.Name)
-					}
+			// Extract from Files
+			for _, file := range container.Files {
+				if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil && file.ValueFrom.SecretRef.Name != "" {
+					secretRefNames = append(secretRefNames, file.ValueFrom.SecretRef.Name)
 				}
 			}
 

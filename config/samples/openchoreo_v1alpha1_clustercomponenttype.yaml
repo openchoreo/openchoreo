@@ -47,7 +47,7 @@ spec:
             spec:
               containers:
                 - name: app
-                  image: ${workload.containers["app"].image}
+                  image: ${workload.container.image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
                   ports:
                     - containerPort: ${parameters.port}

@@ -221,11 +221,7 @@ func (r *Reconciler) updateWorkloadWithBuiltImage(
 
 	oldWorkload := workload.DeepCopy()
 
-	for name, c := range workload.Spec.Containers {
-		c.Image = build.Status.ImageStatus.Image
-		workload.Spec.Containers[name] = c
-		break
-	}
+	workload.Spec.Container.Image = build.Status.ImageStatus.Image
 
 	return r.Patch(ctx, workload, client.MergeFrom(oldWorkload))
 }

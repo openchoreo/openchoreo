@@ -160,7 +160,7 @@ func TestPatchReleaseBinding_RequestParsing(t *testing.T) {
 		},
 		{
 			name:        "Valid request with workload overrides",
-			requestBody: `{"workloadOverrides": {"containers": {"main": {"env": [{"key": "ENV", "value": "prod"}]}}}}`,
+			requestBody: `{"workloadOverrides": {"container": {"env": [{"key": "ENV", "value": "prod"}]}}}`,
 			wantErr:     false,
 			checkFunc: func(t *testing.T, req *models.PatchReleaseBindingRequest) {
 				if req.WorkloadOverrides == nil {

@@ -29,9 +29,8 @@ spec:
       type: Websocket
       port: 8080
       visibility: [external]
-  containers:
-    main:
-      image: "jmalloc/echo-server:latest"
-      env:
-        - key: PORT
-          value: "8080"
+  container:
+    image: "jmalloc/echo-server:latest"
+    env:
+      - key: PORT
+        value: "8080"

@@ -211,20 +211,17 @@ func extractEnvironmentData(env *v1alpha1.Environment, dp *v1alpha1.DataPlane) E
 // it across multiple context builds (ComponentContext and TraitContexts).
 func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 	data := WorkloadData{
-		Containers: make(map[string]ContainerData),
-		Endpoints:  make(map[string]EndpointData),
+		Endpoints: make(map[string]EndpointData),
 	}
 
 	if workload == nil {
 		return data
 	}
 
-	for name, container := range workload.Spec.Containers {
-		data.Containers[name] = ContainerData{
-			Image:   container.Image,
-			Command: container.Command,
-			Args:    container.Args,
-		}
+	data.Container = ContainerData{
+		Image:   workload.Spec.Container.Image,
+		Command: workload.Spec.Container.Command,
+		Args:    workload.Spec.Container.Args,
 	}
 
 	for name, endpoint := range workload.Spec.Endpoints {

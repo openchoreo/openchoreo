@@ -252,9 +252,9 @@ func TestCELValidator_TraitResource_AllVariables(t *testing.T) {
 		"trait.instanceName",
 		"metadata.name",
 		"dataplane.secretStore",
-		"workload.containers",
+		"workload.container",
 		"workload.endpoints",
-		"configurations.app",
+		"configurations.configs",
 	}
 
 	for _, expr := range validExprs {
@@ -274,9 +274,9 @@ func TestCELValidator_ComponentTypeResource_AllVariables(t *testing.T) {
 	validExprs := []string{
 		"metadata.name",
 		"metadata.namespace",
-		"workload.containers",
+		"workload.container",
 		"workload.endpoints",
-		"configurations.app",
+		"configurations.configs",
 		"dataplane.secretStore",
 	}
 

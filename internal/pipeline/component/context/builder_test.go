@@ -87,10 +87,19 @@ metadata:
 					},
 				},
 				"workload": map[string]any{
-					"containers": map[string]any{},
-					"endpoints":  map[string]any{},
+					"container": map[string]any{},
+					"endpoints": map[string]any{},
 				},
-				"configurations": map[string]any{},
+				"configurations": map[string]any{
+					"configs": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -161,10 +170,19 @@ spec:
 					},
 				},
 				"workload": map[string]any{
-					"containers": map[string]any{},
-					"endpoints":  map[string]any{},
+					"container": map[string]any{},
+					"endpoints": map[string]any{},
 				},
-				"configurations": map[string]any{},
+				"configurations": map[string]any{
+					"configs": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -194,9 +212,8 @@ kind: Workload
 metadata:
   name: test-workload
 spec:
-  containers:
-    app:
-      image: myapp:latest
+  container:
+    image: myapp:latest
 `,
 			envSettingsYAML: `
 apiVersion: choreo.dev/v1alpha1
@@ -209,23 +226,19 @@ metadata:
 				"parameters":   map[string]any{},
 				"envOverrides": map[string]any{}, // No envOverrides schema defined
 				"workload": map[string]any{
-					"containers": map[string]any{
-						"app": map[string]any{
-							"image": "myapp:latest",
-						},
+					"container": map[string]any{
+						"image": "myapp:latest",
 					},
 					"endpoints": map[string]any{},
 				},
 				"configurations": map[string]any{
-					"app": map[string]any{
-						"configs": map[string]any{
-							"envs":  []any{},
-							"files": []any{},
-						},
-						"secrets": map[string]any{
-							"envs":  []any{},
-							"files": []any{},
-						},
+					"configs": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
 					},
 				},
 				"dataplane": map[string]any{
@@ -441,10 +454,19 @@ metadata:
 					},
 				},
 				"workload": map[string]any{
-					"containers": map[string]any{},
-					"endpoints":  map[string]any{},
+					"container": map[string]any{},
+					"endpoints": map[string]any{},
 				},
-				"configurations": map[string]any{},
+				"configurations": map[string]any{
+					"configs": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -525,10 +547,19 @@ spec:
 					},
 				},
 				"workload": map[string]any{
-					"containers": map[string]any{},
-					"endpoints":  map[string]any{},
+					"container": map[string]any{},
+					"endpoints": map[string]any{},
 				},
-				"configurations": map[string]any{},
+				"configurations": map[string]any{
+					"configs": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+					"secrets": map[string]any{
+						"envs":  []any{},
+						"files": []any{},
+					},
+				},
 			},
 			wantErr: false,
 		},

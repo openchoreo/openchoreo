@@ -27,8 +27,8 @@ spec:
                   containers:
                     - name: main
                       image: myapp:latest
-                      envFrom: ${configurations.toContainerEnvFrom("main")}
-                      volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+                      envFrom: ${configurations.toContainerEnvFrom()}
+                      volumeMounts: ${configurations.toContainerVolumeMounts()}
                   volumes: ${configurations.toVolumes()}
         - id: env-config
           forEach: ${configurations.toConfigEnvsByContainer()}
@@ -101,48 +101,47 @@ spec:
                     property: ${file.remoteRef.property}
   workload:
     spec:
-      containers:
-        main:
-          image: myapp:latest
-          env:
-            - key: LOG_LEVEL
-              value: info
-            - key: DEBUG_MODE
-              value: "true"
-            - key: DB_PASSWORD
-              valueFrom:
-                secretRef:
-                  name: db-secret
-                  key: password
-            - key: API_KEY
-              valueFrom:
-                secretRef:
-                  name: api-secret
-                  key: api_key
-          files:
-            - key: config.json
-              value: |
-                {
-                  "database": {
-                    "host": "localhost",
-                    "port": 5432
-                  }
+      container:
+        image: myapp:latest
+        env:
+          - key: LOG_LEVEL
+            value: info
+          - key: DEBUG_MODE
+            value: "true"
+          - key: DB_PASSWORD
+            valueFrom:
+              secretRef:
+                name: db-secret
+                key: password
+          - key: API_KEY
+            valueFrom:
+              secretRef:
+                name: api-secret
+                key: api_key
+        files:
+          - key: config.json
+            value: |
+              {
+                "database": {
+                  "host": "localhost",
+                  "port": 5432
                 }
-              mountPath: /etc/config
-            - key: app.properties
-              value: |
-                app.name=myapp
-                app.version=1.0.0
-              mountPath: /etc/config
-            - key: tls.crt
-              mountPath: /etc/tls
-              valueFrom:
-                secretRef:
-                  name: tls-secret
-                  key: tls.crt
-            - key: application.yaml
-              mountPath: /etc/config
-              valueFrom:
-                secretRef:
-                  name: app-config-secret
-                  key: application.yaml
+              }
+            mountPath: /etc/config
+          - key: app.properties
+            value: |
+              app.name=myapp
+              app.version=1.0.0
+            mountPath: /etc/config
+          - key: tls.crt
+            mountPath: /etc/tls
+            valueFrom:
+              secretRef:
+                name: tls-secret
+                key: tls.crt
+          - key: application.yaml
+            mountPath: /etc/config
+            valueFrom:
+              secretRef:
+                name: app-config-secret
+                key: application.yaml

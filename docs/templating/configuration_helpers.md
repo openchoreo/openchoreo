@@ -10,12 +10,11 @@ Configuration helpers are CEL extension functions that provide convenient method
 
 ### Environment Variable Helpers
 
-#### configurations.toContainerEnvFrom(containerName)
+#### configurations.toContainerEnvFrom()
 
-Helper method that generates an `envFrom` array for a single container configuration. This simplifies the creation of `configMapRef` and `secretRef` entries based on what environment variables are available.
+Helper method that generates an `envFrom` array for the container configuration. This simplifies the creation of `configMapRef` and `secretRef` entries based on what environment variables are available.
 
-**Parameters:**
-- `containerName` - Name of the container to generate envFrom entries for
+**Parameters:** None
 
 **Returns:** List of envFrom entries, each containing either:
 
@@ -34,17 +33,17 @@ spec:
       containers:
         - name: main
           image: myapp:latest
-          envFrom: ${configurations.toContainerEnvFrom("main")}
+          envFrom: ${configurations.toContainerEnvFrom()}
 
 # Before - verbose manual logic:
 envFrom: |
-  ${(has(configurations["main"].configs.envs) && configurations["main"].configs.envs.size() > 0 ?
+  ${(has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
     [{
       "configMapRef": {
         "name": oc_generate_name(metadata.name, "env-configs")
       }
     }] : []) +
-  (has(configurations["main"].secrets.envs) && configurations["main"].secrets.envs.size() > 0 ?
+  (has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
     [{
       "secretRef": {
         "name": oc_generate_name(metadata.name, "env-secrets")
@@ -52,24 +51,21 @@ envFrom: |
     }] : [])}
 
 # After - clean helper usage:
-envFrom: ${configurations.toContainerEnvFrom("main")}
+envFrom: ${configurations.toContainerEnvFrom()}
 ```
 
-**Dynamic container names:**
+**Combining with additional entries:**
 
 ```yaml
-# Works with dynamic container names from parameters
-envFrom: ${configurations.toContainerEnvFrom(parameters.containerName)}
-
 # Can be combined with CEL operations
 envFrom: |
-  ${configurations.toContainerEnvFrom("main") + 
+  ${configurations.toContainerEnvFrom() +
     [{"configMapRef": {"name": "additional-config"}}]}
 ```
 
 #### configurations.toConfigEnvsByContainer()
 
-Helper method that generates a list of objects for creating ConfigMaps from environment variables. Each object contains the container name, generated resource name, and the list of environment variables for that container. This is useful for `forEach` iteration when creating ConfigMaps for each container's config envs.
+Helper method that generates a list of objects for creating ConfigMaps from environment variables. Each object contains the generated resource name and the list of environment variables for the container. This is useful for `forEach` iteration when creating ConfigMaps for the container's config envs.
 
 **Parameters:** None
 
@@ -77,14 +73,13 @@ Helper method that generates a list of objects for creating ConfigMaps from envi
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `container` | string | Name of the container |
-| `resourceName` | string | Generated ConfigMap name (componentName-environmentName-containerName-env-configs-hash) |
+| `resourceName` | string | Generated ConfigMap name (componentName-environmentName-env-configs-hash) |
 | `envs` | array | List of environment variable objects with `name` and `value` |
 
 **Example usage:**
 
 ```yaml
-# Generate ConfigMaps for each container's config envs
+# Generate ConfigMaps for the container's config envs
 - id: env-config
   forEach: ${configurations.toConfigEnvsByContainer()}
   var: envConfig
@@ -97,28 +92,26 @@ Helper method that generates a list of objects for creating ConfigMaps from envi
     data: |
       ${envConfig.envs.transformMapEntry(index, env, {env.name: env.value})}
 
-# Before - verbose manual logic with transformList:
+# Before - verbose manual logic:
 forEach: |
-  ${configurations.transformList(containerName, cfg, 
-    {
-      "container": containerName,
-      "resourceName": oc_generate_name(metadata.name, containerName, "env-configs"),
-      "envs": cfg.configs.envs
-    }
-  )}
+  ${has(configurations.configs.envs) && configurations.configs.envs.size() > 0 ?
+    [{
+      "resourceName": oc_generate_name(metadata.name, "env-configs"),
+      "envs": configurations.configs.envs
+    }] : []}
 
 # After - clean helper usage:
 forEach: ${configurations.toConfigEnvsByContainer()}
 ```
 
 **Notes:**
-- Only returns entries for containers that have config environment variables
-- Skips containers with no config envs or only secret envs
-- Generated resource names include container name and a hash for uniqueness
+- Only returns an entry if the container has config environment variables
+- Returns empty list if there are no config envs or only secret envs
+- Generated resource names follow the format: `componentName-environmentName-env-configs-hash`
 
 #### configurations.toSecretEnvsByContainer()
 
-Helper method that generates a list of objects for creating ExternalSecrets from secret environment variables. Each object contains the container name, generated resource name, and the list of secret environment variables for that container. This is useful for `forEach` iteration when creating ExternalSecrets for each container's secret envs.
+Helper method that generates a list of objects for creating ExternalSecrets from secret environment variables. Each object contains the generated resource name and the list of secret environment variables for the container. This is useful for `forEach` iteration when creating ExternalSecrets for the container's secret envs.
 
 The resource names are automatically generated using `metadata.componentName + "-" + metadata.environmentName` as the prefix.
 
@@ -128,14 +121,13 @@ The resource names are automatically generated using `metadata.componentName + "
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `container` | string | Name of the container |
-| `resourceName` | string | Generated ExternalSecret name (componentName-environmentName-containerName-env-secrets-hash) |
+| `resourceName` | string | Generated ExternalSecret name (componentName-environmentName-env-secrets-hash) |
 | `envs` | array | List of secret environment variable objects with `name` and `remoteRef` |
 
 **Example usage:**
 
 ```yaml
-# Generate ExternalSecrets for each container's secret envs
+# Generate ExternalSecrets for the container's secret envs
 - id: secret-env-external
   forEach: ${configurations.toSecretEnvsByContainer()}
   var: secretEnv
@@ -162,30 +154,28 @@ The resource names are automatically generated using `metadata.componentName + "
           }
         })}
 
-# Before - verbose manual logic with transformList:
+# Before - verbose manual logic:
 forEach: |
-  ${configurations.transformList(containerName, cfg, 
-    {
-      "container": containerName,
-      "resourceName": oc_generate_name(metadata.name, containerName, "env-secrets"),
-      "envs": cfg.secrets.envs
-    }
-  )}
+  ${has(configurations.secrets.envs) && configurations.secrets.envs.size() > 0 ?
+    [{
+      "resourceName": oc_generate_name(metadata.name, "env-secrets"),
+      "envs": configurations.secrets.envs
+    }] : []}
 
 # After - clean helper usage:
 forEach: ${configurations.toSecretEnvsByContainer()}
 ```
 
 **Notes:**
-- Only returns entries for containers that have secret environment variables
-- Skips containers with no secret envs or only config envs
-- Generated resource names include container name and a hash for uniqueness
+- Only returns an entry if the container has secret environment variables
+- Returns empty list if there are no secret envs or only config envs
+- Generated resource names follow the format: `componentName-environmentName-env-secrets-hash`
 
 ### File Configuration Helpers
 
 #### configurations.toConfigFileList()
 
-Helper method that flattens `configs.files` from all containers in the `configurations` object into a single list, useful for `forEach` iteration. This aggregates config files across all workload containers.
+Helper method that extracts `configs.files` from the `configurations` object into a list, useful for `forEach` iteration. This provides config files from the workload container.
 
 **Parameters:** None
 
@@ -196,13 +186,13 @@ Helper method that flattens `configs.files` from all containers in the `configur
 | `name` | string | File name |
 | `mountPath` | string | Mount path |
 | `value` | string | File content (empty string if using remoteRef) |
-| `resourceName` | string | Generated Kubernetes-compliant resource name (componentName-environmentName-containerName-config-fileName) |
+| `resourceName` | string | Generated Kubernetes-compliant resource name (componentName-environmentName-config-fileName) |
 | `remoteRef` | map | Remote reference (only present if the file uses a secret reference) |
 
 **Example usage:**
 
 ```yaml
-# Generate a ConfigMap for each config file across all containers
+# Generate a ConfigMap for each config file
 resources:
   - id: file-configs
     forEach: ${configurations.toConfigFileList()}
@@ -234,7 +224,7 @@ forEach: |
 
 #### configurations.toSecretFileList()
 
-Helper method that flattens `secrets.files` from all containers in the `configurations` object into a single list, useful for `forEach` iteration. This aggregates secret files across all workload containers.
+Helper method that extracts `secrets.files` from the `configurations` object into a list, useful for `forEach` iteration. This provides secret files from the workload container.
 
 The resource names are automatically generated using `metadata.componentName + "-" + metadata.environmentName` as the prefix.
 
@@ -247,13 +237,13 @@ The resource names are automatically generated using `metadata.componentName + "
 | `name` | string | File name |
 | `mountPath` | string | Mount path |
 | `value` | string | File content (empty string if using remoteRef) |
-| `resourceName` | string | Generated Kubernetes-compliant resource name (componentName-environmentName-containerName-secret-fileName) |
+| `resourceName` | string | Generated Kubernetes-compliant resource name (componentName-environmentName-secret-fileName) |
 | `remoteRef` | map | Remote reference (only present if the file uses a secret reference) |
 
 **Example usage:**
 
 ```yaml
-# Generate an ExternalSecret for each secret file across all containers
+# Generate an ExternalSecret for each secret file
 resources:
   - id: file-secrets
     forEach: ${configurations.toSecretFileList()}
@@ -309,18 +299,17 @@ forEach: |
 
 ### Volume Mount Helpers
 
-#### configurations.toContainerVolumeMounts(containerName)
+#### configurations.toContainerVolumeMounts()
 
-Helper method that generates a `volumeMounts` array for a single container configuration. This simplifies the creation of volume mount entries based on the container's config and secret files.
+Helper method that generates a `volumeMounts` array for the default container configuration. This simplifies the creation of volume mount entries based on the container's config and secret files. The helper automatically selects the `"default"` container from configurations.
 
-**Parameters:**
-- `containerName` - String name of the container to generate volume mounts for
+**Parameters:** None
 
 **Returns:** List of volumeMount entries, each containing:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | string | Volume name (containerName-file-mount-hash format) |
+| `name` | string | Volume name (file-mount-hash format) |
 | `mountPath` | string | Full mount path (mountPath + "/" + filename) |
 | `subPath` | string | Filename to mount as subPath |
 
@@ -334,44 +323,41 @@ spec:
       containers:
         - name: main
           image: myapp:latest
-          volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+          volumeMounts: ${configurations.toContainerVolumeMounts()}
 
 # Before - verbose manual logic:
 volumeMounts: |
-  ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 || has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
-    (has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 ?
-      configurations["main"].configs.files.map(f, {
-        "name": "main-file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+  ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+    (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+      configurations.configs.files.map(f, {
+        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
         "mountPath": f.mountPath+"/"+f.name ,
         "subPath": f.name
       }) : []) +
-    (has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
-      configurations["main"].secrets.files.map(f, {
-        "name": "main-file-mount-"+oc_hash(f.mountPath+"/"+f.name),
+    (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+      configurations.secrets.files.map(f, {
+        "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
         "mountPath": f.mountPath+"/"+f.name,
         "subPath": f.name
       }) : [])
   : oc_omit()}
 
 # After - clean helper usage:
-volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+volumeMounts: ${configurations.toContainerVolumeMounts()}
 ```
 
-**Dynamic container names:**
+**Combining with additional mounts:**
 
 ```yaml
-# Works with dynamic container names from parameters
-volumeMounts: ${configurations.toContainerVolumeMounts(parameters.containerName)}
-
 # Can be combined with CEL operations
 volumeMounts: |
-  ${configurations.toContainerVolumeMounts("main") + 
+  ${configurations.toContainerVolumeMounts() +
     [{"name": "extra-mount", "mountPath": "/extra", "subPath": "extra.txt"}]}
 ```
 
-#### configurations.toVolumes(resourceNamePrefix)
+#### configurations.toVolumes()
 
-Helper method that generates a `volumes` array for all containers' files. This simplifies the creation of volume definitions based on all config and secret files across the workload containers.
+Helper method that generates a `volumes` array for all files in the configurations. This simplifies the creation of volume definitions based on all config and secret files.
 
 The resource names are automatically generated using `metadata.componentName + "-" + metadata.environmentName` as the prefix.
 
@@ -395,21 +381,21 @@ spec:
       containers:
         - name: main
           image: myapp:latest
-          volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+          volumeMounts: ${configurations.toContainerVolumeMounts()}
       volumes: ${configurations.toVolumes()}
 
 # Before - verbose manual logic:
 volumes: |
-  ${has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 || has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
-    (has(configurations["main"].configs.files) && configurations["main"].configs.files.size() > 0 ?
-      configurations["main"].configs.files.map(f, {
+  ${has(configurations.configs.files) && configurations.configs.files.size() > 0 || has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+    (has(configurations.configs.files) && configurations.configs.files.size() > 0 ?
+      configurations.configs.files.map(f, {
         "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
         "configMap": {
           "name": oc_generate_name(metadata.name, "config", f.name).replace(".", "-")
         }
       }) : []) +
-    (has(configurations["main"].secrets.files) && configurations["main"].secrets.files.size() > 0 ?
-      configurations["main"].secrets.files.map(f, {
+    (has(configurations.secrets.files) && configurations.secrets.files.size() > 0 ?
+      configurations.secrets.files.map(f, {
         "name": "file-mount-"+oc_hash(f.mountPath+"/"+f.name),
         "secret": {
           "secretName": oc_generate_name(metadata.name, "secret", f.name).replace(".", "-")
@@ -421,17 +407,12 @@ volumes: |
 volumes: ${configurations.toVolumes()}
 ```
 
-**Multi-container support:**
+**Combining with additional volumes:**
 
 ```yaml
-# Works across all containers automatically
-# If you have configurations for "main", "sidecar", etc., 
-# this will generate volumes for all their files
-volumes: ${configurations.toVolumes()}
-
 # Can be combined with inline volumes
 volumes: |
-  ${configurations.toVolumes() + 
+  ${configurations.toVolumes() +
     [{"name": "extra-volume", "emptyDir": {}}]}
 ```
 

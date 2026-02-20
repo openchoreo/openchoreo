@@ -27,11 +27,10 @@ spec:
     grpc:
       type: gRPC
       port: 7070
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.3
-      env:
-        - key: PORT
-          value: "7070"
-        - key: REDIS_ADDR
-          value: "redis:6379"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/cartservice:v0.10.3
+    env:
+      - key: PORT
+        value: "7070"
+      - key: REDIS_ADDR
+        value: "redis:6379"

@@ -712,14 +712,12 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 			name: "With workload overrides",
 			req: &PatchReleaseBindingRequest{
 				WorkloadOverrides: &WorkloadOverrides{
-					Containers: map[string]ContainerOverride{
-						"main": {
-							Env: []EnvVar{
-								{Key: "ENV", Value: "production"},
-							},
-							Files: []FileVar{
-								{Key: "config", MountPath: "/etc/config", Value: "data"},
-							},
+					Container: &ContainerOverride{
+						Env: []EnvVar{
+							{Key: "ENV", Value: "production"},
+						},
+						Files: []FileVar{
+							{Key: "config", MountPath: "/etc/config", Value: "data"},
 						},
 					},
 				},
@@ -756,8 +754,8 @@ func TestPatchReleaseBindingRequest(t *testing.T) {
 
 			// For workload overrides
 			if tt.req.WorkloadOverrides != nil {
-				if len(tt.req.WorkloadOverrides.Containers) == 0 {
-					t.Error("WorkloadOverrides should have at least one container")
+				if tt.req.WorkloadOverrides.Container == nil {
+					t.Error("WorkloadOverrides should have a container override")
 				}
 			}
 		})

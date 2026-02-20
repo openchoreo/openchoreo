@@ -17,7 +17,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 		name             string
 		secretReferences map[string]*v1alpha1.SecretReference
 		workload         *v1alpha1.Workload
-		want             map[string]any
+		want             ContainerConfigurations
 	}{
 		{
 			name:             "workload with no configurations",
@@ -25,24 +25,20 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-							},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
 						},
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
 				},
 			},
 		},
@@ -52,31 +48,27 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Env: []v1alpha1.EnvVar{
-									{Key: "DATABASE_URL", Value: "postgres://localhost:5432"},
-									{Key: "LOG_LEVEL", Value: "debug"},
-								},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{Key: "DATABASE_URL", Value: "postgres://localhost:5432"},
+								{Key: "LOG_LEVEL", Value: "debug"},
 							},
 						},
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs": []any{
-							map[string]any{"name": "DATABASE_URL", "value": "postgres://localhost:5432"},
-							map[string]any{"name": "LOG_LEVEL", "value": "debug"},
-						},
-						"files": []any{},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{Name: "DATABASE_URL", Value: "postgres://localhost:5432"},
+						{Name: "LOG_LEVEL", Value: "debug"},
 					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
 				},
 			},
 		},
@@ -100,17 +92,15 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Env: []v1alpha1.EnvVar{
-									{
-										Key: "DB_PASSWORD",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "db-credentials",
-												Key:  "password",
-											},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{
+									Key: "DB_PASSWORD",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "db-credentials",
+											Key:  "password",
 										},
 									},
 								},
@@ -119,24 +109,22 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs": []any{
-							map[string]any{
-								"name": "DB_PASSWORD",
-								"remoteRef": map[string]any{
-									"key":      "secret/data/db",
-									"property": "password",
-								},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{
+							Name: "DB_PASSWORD",
+							RemoteRef: &RemoteRefData{
+								Key:      "secret/data/db",
+								Property: "password",
 							},
 						},
-						"files": []any{},
 					},
+					Files: []FileConfiguration{},
 				},
 			},
 		},
@@ -146,37 +134,33 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Files: []v1alpha1.FileVar{
-									{
-										Key:       "app-config",
-										MountPath: "/etc/app/config.yaml",
-										Value:     "key: value",
-									},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Files: []v1alpha1.FileVar{
+								{
+									Key:       "app-config",
+									MountPath: "/etc/app/config.yaml",
+									Value:     "key: value",
 								},
 							},
 						},
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs": []any{},
-						"files": []any{
-							map[string]any{
-								"name":      "app-config",
-								"mountPath": "/etc/app/config.yaml",
-								"value":     "key: value",
-							},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{},
+					Files: []FileConfiguration{
+						{
+							Name:      "app-config",
+							MountPath: "/etc/app/config.yaml",
+							Value:     "key: value",
 						},
 					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
 				},
 			},
 		},
@@ -199,18 +183,16 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Files: []v1alpha1.FileVar{
-									{
-										Key:       "tls-certificate",
-										MountPath: "/etc/tls/tls.crt",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "tls-cert",
-												Key:  "tls.crt",
-											},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Files: []v1alpha1.FileVar{
+								{
+									Key:       "tls-certificate",
+									MountPath: "/etc/tls/tls.crt",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "tls-cert",
+											Key:  "tls.crt",
 										},
 									},
 								},
@@ -219,21 +201,19 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs": []any{},
-						"files": []any{
-							map[string]any{
-								"name":      "tls-certificate",
-								"mountPath": "/etc/tls/tls.crt",
-								"remoteRef": map[string]any{
-									"key": "secret/data/tls/cert",
-								},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs: []EnvConfiguration{},
+					Files: []FileConfiguration{
+						{
+							Name:      "tls-certificate",
+							MountPath: "/etc/tls/tls.crt",
+							RemoteRef: &RemoteRefData{
+								Key: "secret/data/tls/cert",
 							},
 						},
 					},
@@ -279,43 +259,41 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Env: []v1alpha1.EnvVar{
-									{Key: "LOG_LEVEL", Value: "info"},
-									{Key: "APP_NAME", Value: "my-app"},
-									{Key: "PORT", Value: "8080"},
-									{
-										Key: "API_KEY",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "api-credentials",
-												Key:  "api-key",
-											},
-										},
-									},
-									{
-										Key: "API_TOKEN",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "api-credentials",
-												Key:  "api-token",
-											},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{Key: "LOG_LEVEL", Value: "info"},
+								{Key: "APP_NAME", Value: "my-app"},
+								{Key: "PORT", Value: "8080"},
+								{
+									Key: "API_KEY",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "api-credentials",
+											Key:  "api-key",
 										},
 									},
 								},
-								Files: []v1alpha1.FileVar{
-									{Key: "app-config", MountPath: "/etc/app/config.yaml", Value: "server:\n  port: 8080"},
-									{Key: "logging-config", MountPath: "/etc/app/logging.yaml", Value: "level: info"},
-									{
-										Key:       "tls-certificate",
-										MountPath: "/etc/tls/tls.crt",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "tls-cert",
-												Key:  "cert",
-											},
+								{
+									Key: "API_TOKEN",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "api-credentials",
+											Key:  "api-token",
+										},
+									},
+								},
+							},
+							Files: []v1alpha1.FileVar{
+								{Key: "app-config", MountPath: "/etc/app/config.yaml", Value: "server:\n  port: 8080"},
+								{Key: "logging-config", MountPath: "/etc/app/logging.yaml", Value: "level: info"},
+								{
+									Key:       "tls-certificate",
+									MountPath: "/etc/tls/tls.crt",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "tls-cert",
+											Key:  "cert",
 										},
 									},
 								},
@@ -324,43 +302,41 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs": []any{
-							map[string]any{"name": "APP_NAME", "value": "my-app"},
-							map[string]any{"name": "LOG_LEVEL", "value": "info"},
-							map[string]any{"name": "PORT", "value": "8080"},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{Name: "APP_NAME", Value: "my-app"},
+						{Name: "LOG_LEVEL", Value: "info"},
+						{Name: "PORT", Value: "8080"},
+					},
+					Files: []FileConfiguration{
+						{Name: "app-config", MountPath: "/etc/app/config.yaml", Value: "server:\n  port: 8080"},
+						{Name: "logging-config", MountPath: "/etc/app/logging.yaml", Value: "level: info"},
+					},
+				},
+				Secrets: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{
+							Name: "API_KEY",
+							RemoteRef: &RemoteRefData{
+								Key:      "secret/data/api",
+								Property: "key",
+							},
 						},
-						"files": []any{
-							map[string]any{"name": "app-config", "mountPath": "/etc/app/config.yaml", "value": "server:\n  port: 8080"},
-							map[string]any{"name": "logging-config", "mountPath": "/etc/app/logging.yaml", "value": "level: info"},
+						{
+							Name: "API_TOKEN",
+							RemoteRef: &RemoteRefData{
+								Key:      "secret/data/api",
+								Property: "token",
+							},
 						},
 					},
-					"secrets": map[string]any{
-						"envs": []any{
-							map[string]any{
-								"name": "API_KEY",
-								"remoteRef": map[string]any{
-									"key":      "secret/data/api",
-									"property": "key",
-								},
-							},
-							map[string]any{
-								"name": "API_TOKEN",
-								"remoteRef": map[string]any{
-									"key":      "secret/data/api",
-									"property": "token",
-								},
-							},
-						},
-						"files": []any{
-							map[string]any{
-								"name":      "tls-certificate",
-								"mountPath": "/etc/tls/tls.crt",
-								"remoteRef": map[string]any{
-									"key": "secret/data/tls/certificate",
-								},
+					Files: []FileConfiguration{
+						{
+							Name:      "tls-certificate",
+							MountPath: "/etc/tls/tls.crt",
+							RemoteRef: &RemoteRefData{
+								Key: "secret/data/tls/certificate",
 							},
 						},
 					},
@@ -386,17 +362,15 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 			workload: &v1alpha1.Workload{
 				Spec: v1alpha1.WorkloadSpec{
 					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"main": {
-								Image: "test:latest",
-								Env: []v1alpha1.EnvVar{
-									{
-										Key: "MISSING_SECRET",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "non-existent-secret",
-												Key:  "key",
-											},
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{
+									Key: "MISSING_SECRET",
+									ValueFrom: &v1alpha1.EnvVarValueFrom{
+										SecretRef: &v1alpha1.SecretKeyRef{
+											Name: "non-existent-secret",
+											Key:  "key",
 										},
 									},
 								},
@@ -405,139 +379,14 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 					},
 				},
 			},
-			want: map[string]any{
-				"main": map[string]any{
-					"configs": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
-					"secrets": map[string]any{
-						"envs":  []any{},
-						"files": []any{},
-					},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
 				},
-			},
-		},
-		{
-			name: "workload with multiple containers",
-			secretReferences: map[string]*v1alpha1.SecretReference{
-				"db-credentials": {
-					Spec: v1alpha1.SecretReferenceSpec{
-						Data: []v1alpha1.SecretDataSource{
-							{
-								SecretKey: "password",
-								RemoteRef: v1alpha1.RemoteReference{
-									Key:      "secret/data/db",
-									Property: "password",
-								},
-							},
-						},
-					},
-				},
-				"cache-credentials": {
-					Spec: v1alpha1.SecretReferenceSpec{
-						Data: []v1alpha1.SecretDataSource{
-							{
-								SecretKey: "password",
-								RemoteRef: v1alpha1.RemoteReference{
-									Key:      "secret/data/cache",
-									Property: "password",
-								},
-							},
-						},
-					},
-				},
-			},
-			workload: &v1alpha1.Workload{
-				Spec: v1alpha1.WorkloadSpec{
-					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]v1alpha1.Container{
-							"app": {
-								Image: "app:latest",
-								Env: []v1alpha1.EnvVar{
-									{Key: "APP_NAME", Value: "my-app"},
-									{Key: "PORT", Value: "8080"},
-									{
-										Key: "DB_PASSWORD",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "db-credentials",
-												Key:  "password",
-											},
-										},
-									},
-								},
-								Files: []v1alpha1.FileVar{
-									{Key: "app-config", MountPath: "/etc/app/config.yaml", Value: "server:\n  port: 8080"},
-								},
-							},
-							"sidecar": {
-								Image: "sidecar:latest",
-								Env: []v1alpha1.EnvVar{
-									{Key: "CACHE_HOST", Value: "localhost"},
-									{
-										Key: "CACHE_PASSWORD",
-										ValueFrom: &v1alpha1.EnvVarValueFrom{
-											SecretRef: &v1alpha1.SecretKeyRef{
-												Name: "cache-credentials",
-												Key:  "password",
-											},
-										},
-									},
-								},
-								Files: []v1alpha1.FileVar{
-									{Key: "sidecar-config", MountPath: "/etc/sidecar/config.yaml", Value: "cache:\n  enabled: true"},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: map[string]any{
-				"app": map[string]any{
-					"configs": map[string]any{
-						"envs": []any{
-							map[string]any{"name": "APP_NAME", "value": "my-app"},
-							map[string]any{"name": "PORT", "value": "8080"},
-						},
-						"files": []any{
-							map[string]any{"name": "app-config", "mountPath": "/etc/app/config.yaml", "value": "server:\n  port: 8080"},
-						},
-					},
-					"secrets": map[string]any{
-						"envs": []any{
-							map[string]any{
-								"name": "DB_PASSWORD",
-								"remoteRef": map[string]any{
-									"key":      "secret/data/db",
-									"property": "password",
-								},
-							},
-						},
-						"files": []any{},
-					},
-				},
-				"sidecar": map[string]any{
-					"configs": map[string]any{
-						"envs": []any{
-							map[string]any{"name": "CACHE_HOST", "value": "localhost"},
-						},
-						"files": []any{
-							map[string]any{"name": "sidecar-config", "mountPath": "/etc/sidecar/config.yaml", "value": "cache:\n  enabled: true"},
-						},
-					},
-					"secrets": map[string]any{
-						"envs": []any{
-							map[string]any{
-								"name": "CACHE_PASSWORD",
-								"remoteRef": map[string]any{
-									"key":      "secret/data/cache",
-									"property": "password",
-								},
-							},
-						},
-						"files": []any{},
-					},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
 				},
 			},
 		},
@@ -547,13 +396,7 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractConfigurationsFromWorkload(tt.secretReferences, tt.workload)
 
-			// Convert to map[string]any for comparison with expected values
-			gotAny, err := structToMap(got)
-			if err != nil {
-				t.Fatalf("failed to convert result to map: %v", err)
-			}
-
-			if diff := cmp.Diff(tt.want, gotAny, sortSliceByName()); diff != "" {
+			if diff := cmp.Diff(tt.want, got, sortSliceByName()); diff != "" {
 				t.Errorf("ExtractConfigurationsFromWorkload() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -562,17 +405,12 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 
 // sortSliceByName is used to sort slices for comparison, ignoring order
 func sortSliceByName() cmp.Option {
-	return cmpopts.SortSlices(func(a, b any) bool {
-		aMap, aOk := a.(map[string]any)
-		bMap, bOk := b.(map[string]any)
-		if !aOk || !bOk {
-			return false
-		}
-		aName, aOk := aMap["name"].(string)
-		bName, bOk := bMap["name"].(string)
-		if !aOk || !bOk {
-			return false
-		}
-		return aName < bName
-	})
+	return cmp.Options{
+		cmpopts.SortSlices(func(a, b EnvConfiguration) bool {
+			return a.Name < b.Name
+		}),
+		cmpopts.SortSlices(func(a, b FileConfiguration) bool {
+			return a.Name < b.Name
+		}),
+	}
 }

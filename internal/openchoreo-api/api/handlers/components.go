@@ -830,64 +830,62 @@ func toGenWorkloadOverrides(w *models.WorkloadOverrides) *gen.WorkloadOverrides 
 
 	result := &gen.WorkloadOverrides{}
 
-	if len(w.Containers) > 0 {
-		containers := make(map[string]gen.ContainerOverride, len(w.Containers))
-		for name, c := range w.Containers {
-			container := gen.ContainerOverride{}
+	if w.Container != nil {
+		c := w.Container
+		container := gen.ContainerOverride{}
 
-			if len(c.Env) > 0 {
-				envVars := make([]gen.EnvVar, 0, len(c.Env))
-				for _, e := range c.Env {
-					envVar := gen.EnvVar{
-						Key: e.Key,
-					}
-					if e.Value != "" {
-						envVar.Value = &e.Value
-					}
-					if e.ValueFrom != nil && e.ValueFrom.SecretRef != nil {
-						envVar.ValueFrom = &gen.EnvVarValueFrom{
-							SecretRef: &struct {
-								Key  *string `json:"key,omitempty"`
-								Name *string `json:"name,omitempty"`
-							}{
-								Key:  ptr.To(e.ValueFrom.SecretRef.Key),
-								Name: ptr.To(e.ValueFrom.SecretRef.Name),
-							},
-						}
-					}
-					envVars = append(envVars, envVar)
+		if len(c.Env) > 0 {
+			envVars := make([]gen.EnvVar, 0, len(c.Env))
+			for _, e := range c.Env {
+				envVar := gen.EnvVar{
+					Key: e.Key,
 				}
-				container.Env = &envVars
-			}
-
-			if len(c.Files) > 0 {
-				fileVars := make([]gen.FileVar, 0, len(c.Files))
-				for _, f := range c.Files {
-					fileVar := gen.FileVar{
-						Key:       f.Key,
-						MountPath: f.MountPath,
-					}
-					if f.Value != "" {
-						fileVar.Value = &f.Value
-					}
-					if f.ValueFrom != nil && f.ValueFrom.SecretRef != nil {
-						fileVar.ValueFrom = &gen.EnvVarValueFrom{
-							SecretRef: &struct {
-								Key  *string `json:"key,omitempty"`
-								Name *string `json:"name,omitempty"`
-							}{
-								Key:  ptr.To(f.ValueFrom.SecretRef.Key),
-								Name: ptr.To(f.ValueFrom.SecretRef.Name),
-							},
-						}
-					}
-					fileVars = append(fileVars, fileVar)
+				if e.Value != "" {
+					envVar.Value = &e.Value
 				}
-				container.Files = &fileVars
+				if e.ValueFrom != nil && e.ValueFrom.SecretRef != nil {
+					envVar.ValueFrom = &gen.EnvVarValueFrom{
+						SecretRef: &struct {
+							Key  *string `json:"key,omitempty"`
+							Name *string `json:"name,omitempty"`
+						}{
+							Key:  ptr.To(e.ValueFrom.SecretRef.Key),
+							Name: ptr.To(e.ValueFrom.SecretRef.Name),
+						},
+					}
+				}
+				envVars = append(envVars, envVar)
 			}
-
-			containers[name] = container
+			container.Env = &envVars
 		}
+
+		if len(c.Files) > 0 {
+			fileVars := make([]gen.FileVar, 0, len(c.Files))
+			for _, f := range c.Files {
+				fileVar := gen.FileVar{
+					Key:       f.Key,
+					MountPath: f.MountPath,
+				}
+				if f.Value != "" {
+					fileVar.Value = &f.Value
+				}
+				if f.ValueFrom != nil && f.ValueFrom.SecretRef != nil {
+					fileVar.ValueFrom = &gen.EnvVarValueFrom{
+						SecretRef: &struct {
+							Key  *string `json:"key,omitempty"`
+							Name *string `json:"name,omitempty"`
+						}{
+							Key:  ptr.To(f.ValueFrom.SecretRef.Key),
+							Name: ptr.To(f.ValueFrom.SecretRef.Name),
+						},
+					}
+				}
+				fileVars = append(fileVars, fileVar)
+			}
+			container.Files = &fileVars
+		}
+
+		containers := map[string]gen.ContainerOverride{"default": container}
 		result.Containers = &containers
 	}
 
@@ -929,6 +927,8 @@ func toModelPatchReleaseBindingRequest(req *gen.PatchReleaseBindingRequest) *mod
 }
 
 // toModelWorkloadOverrides converts gen.WorkloadOverrides to models.WorkloadOverrides
+// The gen type uses a map of containers (from the OpenAPI spec), but the model uses a singular Container.
+// We take the first container from the map (if any) as the singular container.
 func toModelWorkloadOverrides(w *gen.WorkloadOverrides) *models.WorkloadOverrides {
 	if w == nil {
 		return nil
@@ -937,8 +937,8 @@ func toModelWorkloadOverrides(w *gen.WorkloadOverrides) *models.WorkloadOverride
 	result := &models.WorkloadOverrides{}
 
 	if w.Containers != nil && len(*w.Containers) > 0 {
-		containers := make(map[string]models.ContainerOverride, len(*w.Containers))
-		for name, c := range *w.Containers {
+		// Take the first container from the map as the singular container
+		for _, c := range *w.Containers {
 			container := models.ContainerOverride{}
 
 			if c.Env != nil && len(*c.Env) > 0 {
@@ -986,9 +986,9 @@ func toModelWorkloadOverrides(w *gen.WorkloadOverrides) *models.WorkloadOverride
 				container.Files = fileVars
 			}
 
-			containers[name] = container
+			result.Container = &container
+			break // only use the first container entry
 		}
-		result.Containers = containers
 	}
 
 	return result

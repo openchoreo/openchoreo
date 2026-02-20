@@ -78,7 +78,7 @@ CEL expressions (enclosed in `${...}`) can be used in the following patch fields
 
   Standalone CEL expression:
   ```yaml
-  value: ${configurations.toContainerEnvFrom(container.key)}
+  value: ${configurations.toContainerEnvFrom()}
   ```
 
 ## Supported Operations

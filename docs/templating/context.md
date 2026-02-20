@@ -229,20 +229,13 @@ spec:
 Workload specification containing container and endpoint information from the build process.
 
 ```yaml
-# Access patterns (both work):
-#   ${workload.containers.app.image}        - dot notation
-#   ${workload.containers["app"].image}     - bracket notation
+# Access pattern: ${workload.container.<field>}
 
 workload:
-  containers:
-    app:                                # ${workload.containers.app}
-      image: "myregistry/myapp:v1.0"    # ${workload.containers.app.image}
-      command: ["./start.sh"]           # ${workload.containers.app.command}
-      args: ["--port", "8080"]          # ${workload.containers.app.args}
-    sidecar:
-      image: "envoy:latest"
-      command: []
-      args: []
+  container:                              # ${workload.container}
+    image: "myregistry/myapp:v1.0"        # ${workload.container.image}
+    command: ["./start.sh"]               # ${workload.container.command}
+    args: ["--port", "8080"]              # ${workload.container.args}
   endpoints:
     http:                               # ${workload.endpoints.http}
       type: "HTTP"                      # ${workload.endpoints.http.type}
@@ -265,22 +258,9 @@ spec:
     spec:
       containers:
         - name: app
-          image: ${workload.containers.app.image}
-          command: ${workload.containers.app.command}
-          args: ${workload.containers.app.args}
-```
-
-**Iterating over containers:**
-
-```yaml
-# Using transformList to convert map to list
-containers: |
-  ${workload.containers.transformList(name, container, {
-    "name": name,
-    "image": container.image,
-    "command": size(container.command) > 0 ? container.command : oc_omit(),
-    "args": size(container.args) > 0 ? container.args : oc_omit()
-  })}
+          image: ${workload.container.image}
+          command: ${workload.container.command}
+          args: ${workload.container.args}
 ```
 
 **Iterating over endpoints:**
@@ -318,48 +298,44 @@ For detailed documentation and examples, see [Configuration Helpers - Workload E
 
 ### configurations
 
-Configuration items (environment variables and files) extracted from workload, organized by container.
+Configuration items (environment variables and files) extracted from workload.
 
 ```yaml
-# Access patterns (both work):
-#   ${configurations.app.configs.envs}       - dot notation
-#   ${configurations["app"].configs.envs}    - bracket notation
-# Use bracket notation for dynamic keys: ${configurations[parameters.containerName].configs.envs}
+# Access pattern: ${configurations.<field>}
 
-configurations:
-  app:                                  # ${configurations.app}
-    configs:                            # ${configurations.app.configs}
-      envs:                             # ${configurations.app.configs.envs}
-        - name: "DATABASE_URL"
-          value: "postgres://..."
-        - name: "LOG_LEVEL"
-          value: "info"
-      files:                            # ${configurations.app.configs.files}
-        - name: "config.yaml"
-          mountPath: "/etc/app/config.yaml"
-          value: "key: value\n..."
-    secrets:                            # ${configurations.app.secrets}
-      envs:                             # ${configurations.app.secrets.envs}
-        - name: "API_KEY"
-          remoteRef:
-            key: "my-secret"
-            property: "api-key"
-      files:                            # ${configurations.app.secrets.files}
-        - name: "credentials.json"
-          mountPath: "/etc/app/credentials.json"
-          remoteRef:
-            key: "my-secret"
-            property: "credentials"
+configurations:                           # ${configurations}
+  configs:                                # ${configurations.configs}
+    envs:                                 # ${configurations.configs.envs}
+      - name: "DATABASE_URL"
+        value: "postgres://..."
+      - name: "LOG_LEVEL"
+        value: "info"
+    files:                                # ${configurations.configs.files}
+      - name: "config.yaml"
+        mountPath: "/etc/app/config.yaml"
+        value: "key: value\n..."
+  secrets:                                # ${configurations.secrets}
+    envs:                                 # ${configurations.secrets.envs}
+      - name: "API_KEY"
+        remoteRef:
+          key: "my-secret"
+          property: "api-key"
+    files:                                # ${configurations.secrets.files}
+      - name: "credentials.json"
+        mountPath: "/etc/app/credentials.json"
+        remoteRef:
+          key: "my-secret"
+          property: "credentials"
 ```
 
 **Structure details:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `configurations.<container>.configs.envs` | `[]EnvConfiguration` | Plain config environment variables |
-| `configurations.<container>.configs.files` | `[]FileConfiguration` | Plain config files |
-| `configurations.<container>.secrets.envs` | `[]EnvConfiguration` | Secret environment variables |
-| `configurations.<container>.secrets.files` | `[]FileConfiguration` | Secret files |
+| `configurations.configs.envs` | `[]EnvConfiguration` | Plain config environment variables |
+| `configurations.configs.files` | `[]FileConfiguration` | Plain config files |
+| `configurations.secrets.envs` | `[]EnvConfiguration` | Secret environment variables |
+| `configurations.secrets.files` | `[]FileConfiguration` | Secret files |
 
 **EnvConfiguration structure:**
 
@@ -386,21 +362,21 @@ configurations:
 **Example usage:**
 
 ```yaml
-# Inject environment variables from configurations (dot notation)
+# Inject environment variables from configurations
 env: |
-  ${configurations.app.configs.envs.map(e, {
+  ${configurations.configs.envs.map(e, {
     "name": e.name,
     "value": e.value
   })}
 
 # Create ConfigMap from config files
 data: |
-  ${configurations.app.configs.files.transformMapEntry(i, f, {f.name: f.value})}
+  ${configurations.configs.files.transformMapEntry(i, f, {f.name: f.value})}
 
-# Using dynamic container name from parameters (bracket notation required)
+# Check for config envs before creating configMapRef
 envFrom: |
-  ${has(configurations[parameters.containerName].configs.envs) &&
-   configurations[parameters.containerName].configs.envs.size() > 0 ?
+  ${has(configurations.configs.envs) &&
+   configurations.configs.envs.size() > 0 ?
     [{"configMapRef": {"name": metadata.name + "-config"}}] : []}
 ```
 
@@ -412,13 +388,13 @@ The `configurations` object provides several helper methods to simplify working 
 
 | Helper Method | Description |
 |---------------|-------------|
-| `configurations.toContainerEnvFrom(containerName)` | Generates `envFrom` array with configMapRef and secretRef for a container |
-| `configurations.toConfigEnvsByContainer()` | Returns list of config environment variable list groups by container |
-| `configurations.toSecretEnvsByContainer()` | Returns list of secret environment variable list groups by container |
-| `configurations.toConfigFileList()` | Flattens all config files from all containers into a single list |
-| `configurations.toSecretFileList()` | Flattens all secret files from all containers into a single list |
-| `configurations.toContainerVolumeMounts(containerName)` | Generates volumeMounts array for a container's files |
-| `configurations.toVolumes()` | Generates volumes array for all containers' files |
+| `configurations.toContainerEnvFrom()` | Generates `envFrom` array with configMapRef and secretRef |
+| `configurations.toConfigEnvsByContainer()` | Returns list of config environment variables |
+| `configurations.toSecretEnvsByContainer()` | Returns list of secret environment variables |
+| `configurations.toConfigFileList()` | Flattens all config files into a single list |
+| `configurations.toSecretFileList()` | Flattens all secret files into a single list |
+| `configurations.toContainerVolumeMounts()` | Generates volumeMounts array for the container's files |
+| `configurations.toVolumes()` | Generates volumes array for all files |
 
 For detailed documentation, examples, and usage patterns for each helper method, see [Configuration Helpers](./configuration_helpers.md).
 
@@ -432,8 +408,8 @@ spec:
       containers:
         - name: main
           image: myapp:latest
-          envFrom: ${configurations.toContainerEnvFrom("main")}
-          volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+          envFrom: ${configurations.toContainerEnvFrom()}
+          volumeMounts: ${configurations.toContainerVolumeMounts()}
       volumes: ${configurations.toVolumes()}
 ```
 
@@ -573,11 +549,10 @@ Workload specification containing container and endpoint information. Same struc
 # Access pattern: ${workload.<field>}
 
 workload:
-  containers:
-    app:
-      image: "myregistry/myapp:v1.0"
-      command: ["./start.sh"]
-      args: ["--port", "8080"]
+  container:
+    image: "myregistry/myapp:v1.0"
+    command: ["./start.sh"]
+    args: ["--port", "8080"]
   endpoints:
     http:
       type: "HTTP"
@@ -589,25 +564,24 @@ workload:
 Configuration items (environment variables and files) extracted from workload. Same structure as ComponentContext configurations. See [configurations](#configurations) section above for full details and helper methods.
 
 ```yaml
-# Access pattern: ${configurations.<containerName>.<field>}
+# Access pattern: ${configurations.<field>}
 
-configurations:
-  app:
-    configs:
-      envs: [...]
-      files: [...]
-    secrets:
-      envs: [...]
-      files: [...]
+configurations:                           # ${configurations}
+  configs:                                # ${configurations.configs}
+    envs: [...]                           # ${configurations.configs.envs}
+    files: [...]                          # ${configurations.configs.files}
+  secrets:                                # ${configurations.secrets}
+    envs: [...]                           # ${configurations.secrets.envs}
+    files: [...]                          # ${configurations.secrets.files}
 ```
 
 **Available helper methods** (same as ComponentContext):
-- `configurations.toContainerEnvFrom(containerName)`
+- `configurations.toContainerEnvFrom()`
 - `configurations.toConfigEnvsByContainer()`
 - `configurations.toSecretEnvsByContainer()`
 - `configurations.toConfigFileList()`
 - `configurations.toSecretFileList()`
-- `configurations.toContainerVolumeMounts(containerName)`
+- `configurations.toContainerVolumeMounts()`
 - `configurations.toVolumes()`
 
 ## Special Variables

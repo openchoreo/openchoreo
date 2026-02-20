@@ -98,12 +98,7 @@ func (i *WorkloadImpl) createWorkloadFileSystemMode(params api.CreateWorkloadPar
 				return fmt.Errorf("failed to read existing workload: %w", err)
 			}
 			existing := typedWorkload.Workload
-			mainContainer, exists := existing.Spec.Containers["main"]
-			if !exists {
-				return fmt.Errorf("workload has no containers defined: existing.Spec.Containers is nil or empty")
-			}
-			mainContainer.Image = params.ImageURL
-			existing.Spec.Containers["main"] = mainContainer
+			existing.Spec.Container.Image = params.ImageURL
 			workloadCR = existing
 		}
 	}

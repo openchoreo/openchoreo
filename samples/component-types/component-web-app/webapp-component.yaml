@@ -37,14 +37,13 @@ spec:
       port: 8080
       visibility: [external]
 
-  containers:
-    main:
-      image: "choreoanonymouspullable.azurecr.io/react-spa:v0.9"
-      env:
-        - key: NODE_ENV
-          value: production
-        - key: PORT
-          value: "8080"
+  container:
+    image: "choreoanonymouspullable.azurecr.io/react-spa:v0.9"
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

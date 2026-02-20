@@ -426,10 +426,9 @@ type PatchReleaseBindingRequest struct {
 
 // WorkloadOverrides represents environment-specific workload overrides
 type WorkloadOverrides struct {
-	// Containers define the container-specific overrides
-	// The key is the container name, and the value contains env and file overrides for that container
+	// Container defines the container-specific overrides for env and file configurations
 	// +optional
-	Containers map[string]ContainerOverride `json:"containers,omitempty"`
+	Container *ContainerOverride `json:"container,omitempty"`
 }
 
 // ContainerOverride represents overrides for a specific container

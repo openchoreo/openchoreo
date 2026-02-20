@@ -114,115 +114,108 @@ spec:
                   WorkloadOverrides provides environment-specific overrides for the entire workload spec
                   These values override the workload specification for this specific environment
                 properties:
-                  containers:
-                    additionalProperties:
-                      description: ContainerOverride represents a single container
-                        in the workload.
-                      properties:
-                        env:
-                          description: Explicit environment variables.
-                          items:
-                            description: EnvVar represents an environment variable
-                              present in the container.
-                            properties:
-                              key:
-                                description: The environment variable key.
-                                type: string
-                              value:
-                                description: |-
-                                  The literal value of the environment variable.
-                                  Mutually exclusive with valueFrom.
-                                type: string
-                              valueFrom:
-                                description: |-
-                                  Extract the environment variable value from another resource.
-                                  Mutually exclusive with value.
-                                properties:
-                                  configurationGroupRef:
-                                    description: Reference to a configuration group.
-                                    properties:
-                                      key:
-                                        type: string
-                                      name:
-                                        type: string
-                                    required:
-                                    - key
-                                    - name
-                                    type: object
-                                  secretRef:
-                                    description: Reference to a secret resource.
-                                    properties:
-                                      key:
-                                        type: string
-                                      name:
-                                        type: string
-                                    required:
-                                    - key
-                                    - name
-                                    type: object
-                                type: object
-                            required:
-                            - key
-                            type: object
-                          type: array
-                        files:
-                          description: File configurations.
-                          items:
-                            description: FileVar represents a file configuration in
-                              a container.
-                            properties:
-                              key:
-                                description: The file key/name.
-                                type: string
-                              mountPath:
-                                description: The mount path where the file will be
-                                  mounted.
-                                type: string
-                              value:
-                                description: |-
-                                  The literal content of the file.
-                                  Mutually exclusive with valueFrom.
-                                type: string
-                              valueFrom:
-                                description: |-
-                                  Extract the environment variable value from another resource.
-                                  Mutually exclusive with value.
-                                properties:
-                                  configurationGroupRef:
-                                    description: Reference to a configuration group.
-                                    properties:
-                                      key:
-                                        type: string
-                                      name:
-                                        type: string
-                                    required:
-                                    - key
-                                    - name
-                                    type: object
-                                  secretRef:
-                                    description: Reference to a secret resource.
-                                    properties:
-                                      key:
-                                        type: string
-                                      name:
-                                        type: string
-                                    required:
-                                    - key
-                                    - name
-                                    type: object
-                                type: object
-                            required:
-                            - key
-                            - mountPath
-                            type: object
-                            x-kubernetes-validations:
-                            - message: exactly one of value or valueFrom must be set
-                              rule: has(self.value) != has(self.valueFrom)
-                          type: array
-                      type: object
-                    description: |-
-                      Containers define the container specifications for this workload.
-                      The key is the container name, and the value is the container specification.
+                  container:
+                    description: Container override for env and file configurations.
+                    properties:
+                      env:
+                        description: Explicit environment variables.
+                        items:
+                          description: EnvVar represents an environment variable present
+                            in the container.
+                          properties:
+                            key:
+                              description: The environment variable key.
+                              type: string
+                            value:
+                              description: |-
+                                The literal value of the environment variable.
+                                Mutually exclusive with valueFrom.
+                              type: string
+                            valueFrom:
+                              description: |-
+                                Extract the environment variable value from another resource.
+                                Mutually exclusive with value.
+                              properties:
+                                configurationGroupRef:
+                                  description: Reference to a configuration group.
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                secretRef:
+                                  description: Reference to a secret resource.
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                              type: object
+                          required:
+                          - key
+                          type: object
+                        type: array
+                      files:
+                        description: File configurations.
+                        items:
+                          description: FileVar represents a file configuration in
+                            a container.
+                          properties:
+                            key:
+                              description: The file key/name.
+                              type: string
+                            mountPath:
+                              description: The mount path where the file will be mounted.
+                              type: string
+                            value:
+                              description: |-
+                                The literal content of the file.
+                                Mutually exclusive with valueFrom.
+                              type: string
+                            valueFrom:
+                              description: |-
+                                Extract the environment variable value from another resource.
+                                Mutually exclusive with value.
+                              properties:
+                                configurationGroupRef:
+                                  description: Reference to a configuration group.
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                secretRef:
+                                  description: Reference to a secret resource.
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                              type: object
+                          required:
+                          - key
+                          - mountPath
+                          type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of value or valueFrom must be set
+                            rule: has(self.value) != has(self.valueFrom)
+                        type: array
                     type: object
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

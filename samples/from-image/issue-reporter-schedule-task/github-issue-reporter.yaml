@@ -39,37 +39,36 @@ spec:
   owner:
     componentName: github-issue-reporter
     projectName: default
-  containers:
-    main:
-      image: "ghcr.io/openchoreo/samples/github-issue-reporter:latest"
-      env:
-        # GitHub Configuration (hardcoded values)
-        - key: GITHUB_REPOSITORY
-          value: "https://github.com/openchoreo/openchoreo"
-        - key: GITHUB_TOKEN
-          value: "your-github-token-here"
-        # MySQL Configuration (hardcoded values)
-        - key: MYSQL_HOST
-          value: "mysql.internal"
-        - key: MYSQL_PORT
-          value: "3306"
-        - key: MYSQL_USER
-          value: "github-reporter-user"
-        - key: MYSQL_PASSWORD
-          value: "secure-password-here"
-        - key: MYSQL_DATABASE
-          value: "github-issue-reporter"
-        # Email Configuration (hardcoded values)
-        - key: EMAIL_HOST
-          value: "smtp.internal"
-        - key: EMAIL_PORT
-          value: "587"
-        - key: EMAIL_SENDER
-          value: "no-reply@example.com"
-        - key: EMAIL_PASSWORD
-          value: "email-password-here"
-        - key: EMAIL_TO
-          value: "admin@example.com"
+  container:
+    image: "ghcr.io/openchoreo/samples/github-issue-reporter:latest"
+    env:
+      # GitHub Configuration (hardcoded values)
+      - key: GITHUB_REPOSITORY
+        value: "https://github.com/openchoreo/openchoreo"
+      - key: GITHUB_TOKEN
+        value: "your-github-token-here"
+      # MySQL Configuration (hardcoded values)
+      - key: MYSQL_HOST
+        value: "mysql.internal"
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_USER
+        value: "github-reporter-user"
+      - key: MYSQL_PASSWORD
+        value: "secure-password-here"
+      - key: MYSQL_DATABASE
+        value: "github-issue-reporter"
+      # Email Configuration (hardcoded values)
+      - key: EMAIL_HOST
+        value: "smtp.internal"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_SENDER
+        value: "no-reply@example.com"
+      - key: EMAIL_PASSWORD
+        value: "email-password-here"
+      - key: EMAIL_TO
+        value: "admin@example.com"
 
 ---
 

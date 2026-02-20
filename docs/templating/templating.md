@@ -97,14 +97,14 @@ Both dot notation and bracket notation work for accessing map fields:
 
 ```yaml
 # These are equivalent for static keys:
-${workload.containers.app.image}
-${workload.containers["app"].image}
+${workload.container.image}
+${configurations.configs.envs}
 ```
 
 Bracket notation is **required** for:
-- **Dynamic keys** (variables): `${configurations[parameters.containerName].configs.envs}`
+- **Dynamic keys** (variables): `${workload.endpoints[parameters.endpointName].port}`
 - **Keys with special characters**: `${resource.metadata.labels["app.kubernetes.io/name"]}`
-- **Optional dynamic keys**: `${configurations[?containerName].?configs.orValue({})}`
+- **Optional dynamic keys**: `${workload.endpoints[?parameters.endpointName].?port.orValue(8080)}`
 
 ### Membership and Existence Checks
 
@@ -169,7 +169,7 @@ resources: |
 customValue: ${parameters.?custom.?value.orValue("default")}
 
 # Optional index access with dynamic keys
-containerConfig: ${configurations[?containerName].?configs.?envs.orValue([])}
+endpointConfig: ${workload.endpoints[?parameters.endpointName].?port.orValue(8080)}
 
 # Map with optional keys (entire map must be inside CEL expression)
 config: |
@@ -221,10 +221,10 @@ allFiles: |
 
 ```yaml
 # Transform map to list using transformList
-containerList: |
-  ${workload.containers.transformList(name, container, {
+endpointList: |
+  ${workload.endpoints.transformList(name, ep, {
     "name": name,
-    "image": container.image
+    "port": ep.port
   })}
 
 # Transform list to map with dynamic keys

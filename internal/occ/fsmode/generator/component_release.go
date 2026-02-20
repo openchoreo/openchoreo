@@ -150,7 +150,7 @@ func (g *ReleaseGenerator) buildRelease(
 			"resources":    ct.GetResources(),
 		},
 		"workload": map[string]interface{}{
-			"containers": wl.GetContainers(),
+			"container": wl.GetContainer(),
 		},
 	}
 

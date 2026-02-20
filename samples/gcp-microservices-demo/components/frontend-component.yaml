@@ -28,35 +28,34 @@ spec:
       type: HTTP
       port: 8080
       visibility: [external]
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
-      env:
-        - key: DISABLE_PROFILER
-          value: "1"
-        - key: PORT
-          value: "8080"
-        - key: SHOPPING_ASSISTANT_SERVICE_ADDR
-          value: "-" # We don't deploy this service. See https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/helm-chart/values.yaml#L218
-        - key: CYMBAL_BRANDING
-          value: "false"
-        - key: FRONTEND_MESSAGE
-          value: "Welcome to the Microservices Demo!"
-        - key: ENABLE_ASSISTANT
-          value: "false"
-        - key: AD_SERVICE_ADDR
-          value: "ad:9555"
-        - key: CART_SERVICE_ADDR
-          value: "cart:7070"
-        - key: CHECKOUT_SERVICE_ADDR
-          value: "checkout:5050"
-        - key: CURRENCY_SERVICE_ADDR
-          value: "currency:7000"
-        - key: PAYMENT_SERVICE_ADDR
-          value: "payment:50051"
-        - key: RECOMMENDATION_SERVICE_ADDR
-          value: "recommendation:8080"
-        - key: SHIPPING_SERVICE_ADDR
-          value: "shipping:50055"
-        - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog:3550"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/frontend:v0.10.3
+    env:
+      - key: DISABLE_PROFILER
+        value: "1"
+      - key: PORT
+        value: "8080"
+      - key: SHOPPING_ASSISTANT_SERVICE_ADDR
+        value: "-" # We don't deploy this service. See https://github.com/GoogleCloudPlatform/microservices-demo/blob/main/helm-chart/values.yaml#L218
+      - key: CYMBAL_BRANDING
+        value: "false"
+      - key: FRONTEND_MESSAGE
+        value: "Welcome to the Microservices Demo!"
+      - key: ENABLE_ASSISTANT
+        value: "false"
+      - key: AD_SERVICE_ADDR
+        value: "ad:9555"
+      - key: CART_SERVICE_ADDR
+        value: "cart:7070"
+      - key: CHECKOUT_SERVICE_ADDR
+        value: "checkout:5050"
+      - key: CURRENCY_SERVICE_ADDR
+        value: "currency:7000"
+      - key: PAYMENT_SERVICE_ADDR
+        value: "payment:50051"
+      - key: RECOMMENDATION_SERVICE_ADDR
+        value: "recommendation:8080"
+      - key: SHIPPING_SERVICE_ADDR
+        value: "shipping:50055"
+      - key: PRODUCT_CATALOG_SERVICE_ADDR
+        value: "productcatalog:3550"

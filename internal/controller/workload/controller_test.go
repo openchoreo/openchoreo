@@ -43,8 +43,8 @@ var _ = Describe("Workload Controller", func() {
 							ComponentName: "test-component",
 						},
 						WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
-							Containers: map[string]openchoreov1alpha1.Container{
-								"main": {Image: "nginx:latest"},
+							Container: openchoreov1alpha1.Container{
+								Image: "nginx:latest",
 							},
 						},
 					},
@@ -101,7 +101,7 @@ var _ = Describe("Workload Controller", func() {
 							ComponentName: "test-component",
 						},
 						WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
-							Container: &openchoreov1alpha1.Container{
+							Container: openchoreov1alpha1.Container{
 								Image: "nginx:latest",
 							},
 						},

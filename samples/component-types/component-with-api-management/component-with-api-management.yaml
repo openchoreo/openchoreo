@@ -126,12 +126,11 @@ spec:
       port: 9090
       visibility: [external]
 
-  containers:
-    main:
-      image: "ghcr.io/openchoreo/samples/greeter-service:latest"
-      args:
-        - --port
-        - "9090"
+  container:
+    image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+    args:
+      - --port
+      - "9090"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

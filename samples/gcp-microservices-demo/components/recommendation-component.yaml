@@ -27,13 +27,12 @@ spec:
     grpc:
       type: gRPC
       port: 8080
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3
-      env:
-        - key: DISABLE_PROFILER
-          value: "1"
-        - key: PORT
-          value: "8080"
-        - key: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalog:3550"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/recommendationservice:v0.10.3
+    env:
+      - key: DISABLE_PROFILER
+        value: "1"
+      - key: PORT
+        value: "8080"
+      - key: PRODUCT_CATALOG_SERVICE_ADDR
+        value: "productcatalog:3550"

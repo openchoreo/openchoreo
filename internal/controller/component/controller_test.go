@@ -403,8 +403,8 @@ var _ = Describe("Component Controller Finalization", func() {
 					},
 					ComponentProfile: nil,
 					Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]openchoreov1alpha1.Container{
-							"app": {Image: "nginx:latest"},
+						Container: openchoreov1alpha1.Container{
+							Image: "nginx:latest",
 						},
 					},
 				},
@@ -439,8 +439,8 @@ var _ = Describe("Component Controller Finalization", func() {
 						ComponentName: compName,
 					},
 					WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]openchoreov1alpha1.Container{
-							"app": {Image: "nginx:latest"},
+						Container: openchoreov1alpha1.Container{
+							Image: "nginx:latest",
 						},
 					},
 				},
@@ -592,8 +592,8 @@ var _ = Describe("Component Controller Finalization", func() {
 					},
 					ComponentProfile: nil,
 					Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-						Containers: map[string]openchoreov1alpha1.Container{
-							"app": {Image: "nginx:latest"},
+						Container: openchoreov1alpha1.Container{
+							Image: "nginx:latest",
 						},
 					},
 				},

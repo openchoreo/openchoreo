@@ -41,7 +41,7 @@ spec:
             spec:
               containers:
                 - name: app
-                  image: ${workload.containers["app"].image}
+                  image: ${workload.container.image}
                   imagePullPolicy: ${parameters.imagePullPolicy}
                   ports:
                     - name: http
@@ -240,9 +240,8 @@ spec:
     projectName: default
     componentName: demo-app
 
-  containers:
-    app:
-      image: "nginx:1.25-alpine"
+  container:
+    image: "nginx:1.25-alpine"
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

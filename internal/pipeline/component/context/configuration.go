@@ -7,71 +7,67 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// ExtractConfigurationsFromWorkload extracts env and file configurations from all containers
-// and organizes them by container name with configs vs secrets separation.
-// Returns a map where each key is a container name, and the value contains configs and secrets.
+// ExtractConfigurationsFromWorkload extracts env and file configurations from the workload container
+// and organizes them with configs vs secrets separation.
+// Returns the container's configs and secrets.
 // Always initializes empty slices for envs and files to ensure they're never nil.
-// Example structure: {"app": {"configs": {"envs": [...], "files": [...]}, "secrets": {"envs": [...], "files": [...]}}}
-func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) ContainerConfigurationsMap {
-	result := make(ContainerConfigurationsMap)
+// Example structure: {"configs": {"envs": [...], "files": [...]}, "secrets": {"envs": [...], "files": [...]}}
+func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.SecretReference, workload *v1alpha1.Workload) ContainerConfigurations {
+	result := ContainerConfigurations{
+		Configs: ConfigurationItems{
+			Envs:  []EnvConfiguration{},
+			Files: []FileConfiguration{},
+		},
+		Secrets: ConfigurationItems{
+			Envs:  []EnvConfiguration{},
+			Files: []FileConfiguration{},
+		},
+	}
 
-	// Process all containers in the workload
 	if workload == nil {
 		return result
 	}
-	for containerName, container := range workload.Spec.Containers {
-		containerConfig := ContainerConfigurations{
-			Configs: ConfigurationItems{
-				Envs:  []EnvConfiguration{},
-				Files: []FileConfiguration{},
-			},
-			Secrets: ConfigurationItems{
-				Envs:  []EnvConfiguration{},
-				Files: []FileConfiguration{},
-			},
-		}
 
-		// Process environment variables from container
-		for _, env := range container.Env {
-			if env.Value != "" {
-				// Direct value - goes to configs
-				containerConfig.Configs.Envs = append(containerConfig.Configs.Envs, EnvConfiguration{
-					Name:  env.Key,
-					Value: env.Value,
+	container := workload.Spec.Container
+
+	// Process environment variables from container
+	for _, env := range container.Env {
+		if env.Value != "" {
+			// Direct value - goes to configs
+			result.Configs.Envs = append(result.Configs.Envs, EnvConfiguration{
+				Name:  env.Key,
+				Value: env.Value,
+			})
+		} else if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
+			// Resolve secret reference and add to secrets
+			if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretRef); remoteRef != nil {
+				result.Secrets.Envs = append(result.Secrets.Envs, EnvConfiguration{
+					Name:      env.Key,
+					RemoteRef: remoteRef,
 				})
-			} else if env.ValueFrom != nil && env.ValueFrom.SecretRef != nil {
-				// Resolve secret reference and add to secrets
-				if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretRef); remoteRef != nil {
-					containerConfig.Secrets.Envs = append(containerConfig.Secrets.Envs, EnvConfiguration{
-						Name:      env.Key,
-						RemoteRef: remoteRef,
-					})
-				}
 			}
 		}
+	}
 
-		// Process file configurations from container
-		for _, file := range container.Files {
-			if file.Value != "" {
-				// Direct content - goes to configs
-				containerConfig.Configs.Files = append(containerConfig.Configs.Files, FileConfiguration{
+	// Process file configurations from container
+	for _, file := range container.Files {
+		if file.Value != "" {
+			// Direct content - goes to configs
+			result.Configs.Files = append(result.Configs.Files, FileConfiguration{
+				Name:      file.Key,
+				MountPath: file.MountPath,
+				Value:     file.Value,
+			})
+		} else if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
+			// Resolve secret reference and add to secrets
+			if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretRef); remoteRef != nil {
+				result.Secrets.Files = append(result.Secrets.Files, FileConfiguration{
 					Name:      file.Key,
 					MountPath: file.MountPath,
-					Value:     file.Value,
+					RemoteRef: remoteRef,
 				})
-			} else if file.ValueFrom != nil && file.ValueFrom.SecretRef != nil {
-				// Resolve secret reference and add to secrets
-				if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretRef); remoteRef != nil {
-					containerConfig.Secrets.Files = append(containerConfig.Secrets.Files, FileConfiguration{
-						Name:      file.Key,
-						MountPath: file.MountPath,
-						RemoteRef: remoteRef,
-					})
-				}
 			}
 		}
-
-		result[containerName] = containerConfig
 	}
 
 	return result

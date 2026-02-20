@@ -27,6 +27,5 @@ spec:
     redis:
       type: TCP
       port: 6379
-  containers:
-    main:
-      image: redis:7.2-alpine
+  container:
+    image: redis:7.2-alpine

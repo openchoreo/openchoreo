@@ -27,11 +27,10 @@ spec:
     grpc:
       type: gRPC
       port: 50055
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/shippingservice:v0.10.3
-      env:
-        - key: DISABLE_PROFILER
-          value: "1"
-        - key: PORT
-          value: "50055"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/shippingservice:v0.10.3
+    env:
+      - key: DISABLE_PROFILER
+        value: "1"
+      - key: PORT
+        value: "50055"

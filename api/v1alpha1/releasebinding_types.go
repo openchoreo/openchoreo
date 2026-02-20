@@ -19,12 +19,11 @@ type ContainerOverride struct {
 	Files []FileVar `json:"files,omitempty"`
 }
 
-// WorkloadOverrideTemplateSpec defines the desired state of Workload.
+// WorkloadOverrideTemplateSpec defines overrides for workload configuration.
 type WorkloadOverrideTemplateSpec struct {
-	// Containers define the container specifications for this workload.
-	// The key is the container name, and the value is the container specification.
+	// Container override for env and file configurations.
 	// +optional
-	Containers map[string]ContainerOverride `json:"containers,omitempty"`
+	Container *ContainerOverride `json:"container,omitempty"`
 }
 
 // ReleaseBindingSpec defines the desired state of ReleaseBinding.

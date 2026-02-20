@@ -100,10 +100,10 @@ type ComponentContextInput struct {
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
 
-	// Configurations is the pre-computed configurations map from workload.
+	// Configurations is the pre-computed configurations from workload.
 	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
 	// and shared across ComponentContext and all TraitContexts.
-	Configurations ContainerConfigurationsMap
+	Configurations ContainerConfigurations
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
@@ -129,10 +129,10 @@ type TraitContextInput struct {
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
 
-	// Configurations is the pre-computed configurations map from workload.
+	// Configurations is the pre-computed configurations from workload.
 	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
 	// and shared across ComponentContext and all TraitContexts.
-	Configurations ContainerConfigurationsMap
+	Configurations ContainerConfigurations
 
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
@@ -189,14 +189,14 @@ type ComponentContext struct {
 	// Accessed via ${envOverrides.*}
 	EnvOverrides map[string]any `json:"envOverrides"`
 
-	// Workload contains workload specification (containers, endpoints, connections).
-	// Accessed via ${workload.name}, ${workload.containers}, etc.
+	// Workload contains workload specification (container, endpoints, connections).
+	// Accessed via ${workload.container}, ${workload.endpoints}, etc.
 	Workload WorkloadData `json:"workload"`
 
 	// Configurations are extracted configuration items from workload.
-	// Keyed by container name, contains configs and secrets.
-	// Accessed via ${configurations["containerName"].configs.envs}, etc.
-	Configurations ContainerConfigurationsMap `json:"configurations"`
+	// Contains configs and secrets for the single container.
+	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
+	Configurations ContainerConfigurations `json:"configurations"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -222,8 +222,8 @@ type EnvironmentData struct {
 
 // WorkloadData contains workload information for templates.
 type WorkloadData struct {
-	Containers map[string]ContainerData `json:"containers"`
-	Endpoints  map[string]EndpointData  `json:"endpoints"`
+	Container ContainerData           `json:"container"`
+	Endpoints map[string]EndpointData `json:"endpoints"`
 }
 
 // ContainerData contains container information.
@@ -249,9 +249,6 @@ type SchemaData struct {
 	Type    string `json:"type,omitempty"`
 	Content string `json:"content,omitempty"`
 }
-
-// ContainerConfigurationsMap maps container names to their configuration collections.
-type ContainerConfigurationsMap map[string]ContainerConfigurations
 
 // ContainerConfigurations contains configs and secrets for a container.
 type ContainerConfigurations struct {
@@ -315,14 +312,14 @@ type TraitContext struct {
 	// Falls back to DataPlane gateway values if Environment.Gateway is not configured.
 	Environment EnvironmentData `json:"environment"`
 
-	// Workload contains workload specification (containers, endpoints).
-	// Accessed via ${workload.containers}, ${workload.endpoints}
+	// Workload contains workload specification (container, endpoints).
+	// Accessed via ${workload.container}, ${workload.endpoints}
 	Workload WorkloadData `json:"workload"`
 
 	// Configurations are extracted configuration items from workload.
-	// Keyed by container name, contains configs and secrets.
-	// Accessed via ${configurations["containerName"].configs.envs}, etc.
-	Configurations ContainerConfigurationsMap `json:"configurations"`
+	// Contains configs and secrets for the single container.
+	// Accessed via ${configurations.configs.envs}, ${configurations.secrets.files}, etc.
+	Configurations ContainerConfigurations `json:"configurations"`
 }
 
 // TraitMetadata contains trait-specific metadata.

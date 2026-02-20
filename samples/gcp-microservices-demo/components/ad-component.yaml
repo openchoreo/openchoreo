@@ -27,9 +27,8 @@ spec:
     grpc:
       type: gRPC
       port: 9555
-  containers:
-    main:
-      image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3
-      env:
-        - key: PORT
-          value: "9555"
+  container:
+    image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.3
+    env:
+      - key: PORT
+        value: "9555"

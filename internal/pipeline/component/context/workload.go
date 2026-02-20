@@ -8,25 +8,19 @@ import (
 )
 
 // MergeWorkloadOverrides merges workload overrides into the base workload.
-// Currently, supports merging container env and file configurations.
+// Supports merging container env and file configurations.
 func MergeWorkloadOverrides(baseWorkload *openchoreov1alpha1.Workload, overrides *openchoreov1alpha1.WorkloadOverrideTemplateSpec) *openchoreov1alpha1.Workload {
 	if baseWorkload == nil {
 		return nil
 	}
 
-	if overrides == nil || len(overrides.Containers) == 0 {
+	if overrides == nil || overrides.Container == nil {
 		return baseWorkload
 	}
 
 	merged := baseWorkload.DeepCopy()
-
-	for containerName, overrideContainer := range overrides.Containers {
-		if baseContainer, exists := merged.Spec.Containers[containerName]; exists {
-			baseContainer.Env = mergeEnvConfigs(baseContainer.Env, overrideContainer.Env)
-			baseContainer.Files = mergeFileConfigs(baseContainer.Files, overrideContainer.Files)
-			merged.Spec.Containers[containerName] = baseContainer
-		}
-	}
+	merged.Spec.Container.Env = mergeEnvConfigs(merged.Spec.Container.Env, overrides.Container.Env)
+	merged.Spec.Container.Files = mergeFileConfigs(merged.Spec.Container.Files, overrides.Container.Files)
 
 	return merged
 }

@@ -37,8 +37,8 @@ type EmbeddedTraitContextInput struct {
 	// WorkloadData is the pre-computed workload data.
 	WorkloadData WorkloadData
 
-	// Configurations is the pre-computed configurations map from workload.
-	Configurations ContainerConfigurationsMap
+	// Configurations is the pre-computed configurations from workload.
+	Configurations ContainerConfigurations
 
 	// Metadata provides structured naming and labeling information.
 	Metadata MetadataContext `validate:"required"`

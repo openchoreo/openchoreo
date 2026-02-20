@@ -69,10 +69,8 @@ var _ = Describe("ComponentRelease Webhook", func() {
 				},
 				ComponentProfile: &openchoreodevv1alpha1.ComponentProfile{},
 				Workload: openchoreodevv1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreodevv1alpha1.Container{
-						"app": {
-							Image: "nginx:latest",
-						},
+					Container: openchoreodevv1alpha1.Container{
+						Image: "nginx:latest",
 					},
 				},
 			},
@@ -621,22 +619,13 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("must have exactly one resource with kind matching workloadType"))
 		})
 
-		It("should reject when workload has no containers", func() {
+		It("should reject when workload container has no image", func() {
 			obj = validComponentRelease()
-			obj.Spec.Workload.Containers = nil
+			obj.Spec.Workload.Container.Image = ""
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("workload must have at least one container"))
-		})
-
-		It("should reject when workload has empty containers map", func() {
-			obj = validComponentRelease()
-			obj.Spec.Workload.Containers = map[string]openchoreodevv1alpha1.Container{}
-
-			_, err := validator.ValidateCreate(ctx, obj)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("workload must have at least one container"))
+			Expect(err.Error()).To(ContainSubstring("workload container must have an image"))
 		})
 	})
 

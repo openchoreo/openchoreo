@@ -30,10 +30,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -48,10 +46,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -63,10 +59,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -81,10 +75,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -96,10 +88,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.22", // Different image version
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.22", // Different image version
 					},
 				},
 			},
@@ -111,10 +101,8 @@ func TestComputeReleaseHash(t *testing.T) {
 					WorkloadType: "deployment",
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -162,10 +150,8 @@ func TestComputeReleaseHashWithCollision(t *testing.T) {
 			WorkloadType: "deployment",
 		},
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-			Containers: map[string]openchoreov1alpha1.Container{
-				"app": {
-					Image: "nginx:1.21",
-				},
+			Container: openchoreov1alpha1.Container{
+				Image: "nginx:1.21",
 			},
 		},
 	}
@@ -201,10 +187,8 @@ func TestEqualReleaseTemplate(t *testing.T) {
 			WorkloadType: "deployment",
 		},
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-			Containers: map[string]openchoreov1alpha1.Container{
-				"app": {
-					Image: "nginx:1.21",
-				},
+			Container: openchoreov1alpha1.Container{
+				Image: "nginx:1.21",
 			},
 		},
 	}
@@ -214,10 +198,8 @@ func TestEqualReleaseTemplate(t *testing.T) {
 			WorkloadType: "deployment",
 		},
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-			Containers: map[string]openchoreov1alpha1.Container{
-				"app": {
-					Image: "nginx:1.21",
-				},
+			Container: openchoreov1alpha1.Container{
+				Image: "nginx:1.21",
 			},
 		},
 	}
@@ -227,10 +209,8 @@ func TestEqualReleaseTemplate(t *testing.T) {
 			WorkloadType: "deployment",
 		},
 		Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-			Containers: map[string]openchoreov1alpha1.Container{
-				"app": {
-					Image: "nginx:1.22", // Different image
-				},
+			Container: openchoreov1alpha1.Container{
+				Image: "nginx:1.22", // Different image
 			},
 		},
 	}
@@ -297,10 +277,8 @@ func TestHashOutputExamples(t *testing.T) {
 					WorkloadType: "deployment",
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -315,10 +293,8 @@ func TestHashOutputExamples(t *testing.T) {
 					Parameters: &runtime.RawExtension{Raw: []byte(`{"replicas": 3, "port": 8080}`)},
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.21",
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.21",
 					},
 				},
 			},
@@ -330,10 +306,8 @@ func TestHashOutputExamples(t *testing.T) {
 					WorkloadType: "deployment",
 				},
 				Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-					Containers: map[string]openchoreov1alpha1.Container{
-						"app": {
-							Image: "nginx:1.22", // Different version
-						},
+					Container: openchoreov1alpha1.Container{
+						Image: "nginx:1.22", // Different version
 					},
 				},
 			},

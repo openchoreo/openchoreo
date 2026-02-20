@@ -101,8 +101,8 @@ func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 	testCases := []string{
 		"metadata.name",
 		"metadata.namespace",
-		"workload.containers",
-		"configurations.app",
+		"workload.container",
+		"configurations.configs",
 		"dataplane.secretStore",
 	}
 
@@ -175,9 +175,9 @@ func TestBuildTraitCELEnv_AllVariables(t *testing.T) {
 		"trait.instanceName",
 		"metadata.name",
 		"dataplane.secretStore",
-		"workload.containers",
+		"workload.container",
 		"workload.endpoints",
-		"configurations.app",
+		"configurations.configs",
 	}
 
 	for _, expr := range validExprs {
@@ -236,18 +236,19 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 		{"invalid dataplane.notExists", "dataplane.notExists", true, "undefined field"},
 
 		// Valid workload field access
-		{"valid workload.containers", "workload.containers", false, ""},
+		{"valid workload.container", "workload.container", false, ""},
 
 		// Invalid workload field access
 		{"invalid workload.badField", "workload.badField", true, "undefined field"},
 
-		// Valid configurations access (map type allows dynamic keys)
-		{"valid configurations access", `configurations["app"]`, false, ""},
-		{"valid configurations map access", `configurations["anyContainerName"]`, false, ""},
+		// Valid configurations access (struct type with fixed fields)
+		{"valid configurations.configs access", `configurations.configs`, false, ""},
+		{"valid configurations.secrets access", `configurations.secrets`, false, ""},
 
-		// Nested access through map
-		{"valid nested workload", `workload.containers["app"].image`, false, ""},
-		{"invalid nested workload", `workload.containers["app"].invalidField`, true, "undefined field"},
+		// Nested access through struct
+		{"valid nested workload", `workload.container.image`, false, ""},
+		{"invalid nested workload", `workload.container.invalidField`, true, "undefined field"},
+		{"invalid configurations field", `configurations.invalidField`, true, "undefined field"},
 	}
 
 	for _, tt := range tests {
@@ -296,12 +297,12 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 		{"invalid dataplane.badField", "dataplane.badField", true, "undefined field"},
 
 		// Trait has access to workload
-		{"valid workload.containers", "workload.containers", false, ""},
+		{"valid workload.container", "workload.container", false, ""},
 		{"valid workload.endpoints", "workload.endpoints", false, ""},
 
 		// Trait has access to configurations
 		{"valid configurations", "configurations", false, ""},
-		{"valid configurations.app", "configurations.app", false, ""},
+		{"valid configurations.configs", "configurations.configs", false, ""},
 	}
 
 	for _, tt := range tests {

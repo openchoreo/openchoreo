@@ -185,10 +185,8 @@ func createBaseWorkload(workloadName string, params api.CreateWorkloadParams) *o
 				ComponentName: params.ComponentName,
 			},
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]openchoreov1alpha1.Container{
-					"main": {
-						Image: params.ImageURL,
-					},
+				Container: openchoreov1alpha1.Container{
+					Image: params.ImageURL,
 				},
 			},
 		},
@@ -299,15 +297,9 @@ func addConnectionsFromDescriptor(workload *openchoreov1alpha1.Workload, descrip
 
 // addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload
 func addConfigurationsFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor, descriptorPath string) error {
-	// Get the main container
-	mainContainer, exists := workload.Spec.Containers["main"]
-	if !exists {
-		return fmt.Errorf("main container not found in workload")
-	}
-
 	// Add environment variables
 	if len(descriptor.Configurations.Env) > 0 {
-		mainContainer.Env = make([]openchoreov1alpha1.EnvVar, len(descriptor.Configurations.Env))
+		workload.Spec.Container.Env = make([]openchoreov1alpha1.EnvVar, len(descriptor.Configurations.Env))
 		for i, envVar := range descriptor.Configurations.Env {
 			crEnvVar := openchoreov1alpha1.EnvVar{
 				Key: envVar.Name,
@@ -319,13 +311,13 @@ func addConfigurationsFromDescriptor(workload *openchoreov1alpha1.Workload, desc
 				crEnvVar.Value = envVar.Value
 			}
 
-			mainContainer.Env[i] = crEnvVar
+			workload.Spec.Container.Env[i] = crEnvVar
 		}
 	}
 
 	// Add file configurations
 	if len(descriptor.Configurations.Files) > 0 {
-		mainContainer.Files = make([]openchoreov1alpha1.FileVar, 0, len(descriptor.Configurations.Files))
+		workload.Spec.Container.Files = make([]openchoreov1alpha1.FileVar, 0, len(descriptor.Configurations.Files))
 		baseDir := filepath.Dir(descriptorPath)
 
 		for _, fileVar := range descriptor.Configurations.Files {
@@ -352,12 +344,9 @@ func addConfigurationsFromDescriptor(workload *openchoreov1alpha1.Workload, desc
 				crFileVar.Value = fileVar.Value
 			}
 
-			mainContainer.Files = append(mainContainer.Files, crFileVar)
+			workload.Spec.Container.Files = append(workload.Spec.Container.Files, crFileVar)
 		}
 	}
-
-	// Update the container in the workload
-	workload.Spec.Containers["main"] = mainContainer
 
 	return nil
 }
@@ -409,7 +398,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 		} `json:"metadata" yaml:"metadata"`
 		Spec struct {
 			Owner       openchoreov1alpha1.WorkloadOwner                 `json:"owner" yaml:"owner"`
-			Containers  map[string]openchoreov1alpha1.Container          `json:"containers,omitempty" yaml:"containers,omitempty"`
+			Container   openchoreov1alpha1.Container                     `json:"container" yaml:"container"`
 			Endpoints   map[string]openchoreov1alpha1.WorkloadEndpoint   `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
 			Connections map[string]openchoreov1alpha1.WorkloadConnection `json:"connections,omitempty" yaml:"connections,omitempty"`
 		} `json:"spec" yaml:"spec"`
@@ -423,7 +412,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 	ordered.Metadata.Name = workload.Name
 	ordered.Metadata.Namespace = workload.Namespace
 	ordered.Spec.Owner = workload.Spec.Owner
-	ordered.Spec.Containers = workload.Spec.Containers
+	ordered.Spec.Container = workload.Spec.Container
 	ordered.Spec.Endpoints = workload.Spec.Endpoints
 	ordered.Spec.Connections = workload.Spec.Connections
 

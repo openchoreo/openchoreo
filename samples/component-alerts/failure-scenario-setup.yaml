@@ -12,11 +12,10 @@ spec:
   environment: development
   # override env variable PRODUCT_CATALOG_SERVICE_ADDR to http://localhost:8080 instead productcatalog:80
   workloadOverrides:
-    containers:
-      main:
-        env:
-          - key: PRODUCT_CATALOG_SERVICE_ADDR
-            value: "http://localhost:8080"
+    container:
+      env:
+        - key: PRODUCT_CATALOG_SERVICE_ADDR
+          value: "http://localhost:8080"
   componentTypeEnvOverrides:                                       # Added to rollout restart the frontend service (Due to https://github.com/openchoreo/openchoreo/issues/1634)
     resources:
       requests:

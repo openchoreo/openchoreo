@@ -55,12 +55,12 @@ spec:
             spec:
               containers:
                 - name: main
-                  image: ${workload.containers["main"].image}
+                  image: ${workload.container.image}
                   imagePullPolicy: ${envOverrides.imagePullPolicy}
                   command: |
-                    ${has(workload.containers["main"].command) ? workload.containers["main"].command : oc_omit()}
+                    ${has(workload.container.command) ? workload.container.command : oc_omit()}
                   args: |
-                    ${has(workload.containers["main"].args) ? workload.containers["main"].args : oc_omit()}
+                    ${has(workload.container.args) ? workload.container.args : oc_omit()}
                   resources:
                     requests:
                       cpu: ${envOverrides.resources.requests.cpu}
@@ -68,8 +68,8 @@ spec:
                     limits:
                       cpu: ${envOverrides.resources.limits.cpu}
                       memory: ${envOverrides.resources.limits.memory}
-                  envFrom: ${configurations.toContainerEnvFrom("main")}
-                  volumeMounts: ${configurations.toContainerVolumeMounts("main")}
+                  envFrom: ${configurations.toContainerEnvFrom()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts()}
               volumes: ${configurations.toVolumes()}
 
     - id: service

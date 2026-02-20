@@ -30,24 +30,23 @@ spec:
       type: HTTP
       port: 9090
       visibility: [external]
-  containers:
-    main:
-      image: "ghcr.io/openchoreo/samples/greeter-service:latest"
-      command:
-        - ./go-greeter
-      args:
-        - --port
-        - "9090"
-      env:
-        - key: LOG_LEVEL
-          value: "info"
-        - key: GITHUB_REPOSITORY
-          value: "https://github.com/openchoreo/openchoreo"
-        - key: GITHUB_TOKEN
-          valueFrom:
-            secretRef:
-              key: token
-              name: github-credentials
+  container:
+    image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+    command:
+      - ./go-greeter
+    args:
+      - --port
+      - "9090"
+    env:
+      - key: LOG_LEVEL
+        value: "info"
+      - key: GITHUB_REPOSITORY
+        value: "https://github.com/openchoreo/openchoreo"
+      - key: GITHUB_TOKEN
+        valueFrom:
+          secretRef:
+            key: token
+            name: github-credentials
 
 ---
 

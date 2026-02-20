@@ -85,12 +85,10 @@ var _ = Describe("ComponentRelease Controller", func() {
 							},
 						},
 						Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-							Containers: map[string]openchoreov1alpha1.Container{
-								"app": {
-									Image:   "nginx:latest",
-									Command: []string{"/bin/sh"},
-									Args:    []string{"-c", "nginx -g 'daemon off;'"},
-								},
+							Container: openchoreov1alpha1.Container{
+								Image:   "nginx:latest",
+								Command: []string{"/bin/sh"},
+								Args:    []string{"-c", "nginx -g 'daemon off;'"},
 							},
 							Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 								"http": {
