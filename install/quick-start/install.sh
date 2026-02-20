@@ -138,7 +138,8 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
 
     # Install kgateway in the observability namespace
     install_helm_chart "kgateway-op" "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway" "$OBSERVABILITY_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION"
+        "--version" "$KGATEWAY_VERSION" \
+        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
 
     install_observability_plane
     patch_gateway_tmp_volume "$OBSERVABILITY_NS"

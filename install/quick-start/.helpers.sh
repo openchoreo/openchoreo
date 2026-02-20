@@ -561,14 +561,16 @@ install_kgateway() {
 
     local chart_ref="oci://cr.kgateway.dev/kgateway-dev/charts"
 
-    install_helm_chart "kgateway-crds" "$chart_ref/kgateway-crds" "default" "false" "false" "false" "300" \
+    install_helm_chart "kgateway-crds" "$chart_ref/kgateway-crds" "$CONTROL_PLANE_NS" "true" "false" "false" "300" \
         "--version" "$KGATEWAY_VERSION"
 
     install_helm_chart "kgateway" "$chart_ref/kgateway" "$CONTROL_PLANE_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION"
+        "--version" "$KGATEWAY_VERSION" \
+        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
 
     install_helm_chart "kgateway-dp" "$chart_ref/kgateway" "$DATA_PLANE_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION"
+        "--version" "$KGATEWAY_VERSION" \
+        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
 
     log_success "kgateway installed"
 }
@@ -693,26 +695,6 @@ spec:
 CSSEOF
 
     log_success "ClusterSecretStore created"
-}
-
-# Patch kgateway envoy deployment to mount /tmp as emptyDir
-# Ref: https://github.com/kgateway-dev/kgateway/issues/9800
-patch_gateway_tmp_volume() {
-    local namespace="$1"
-    log_info "Patching gateway /tmp volume in $namespace..."
-
-    local patch_file="$SCRIPT_DIR/../k3d/common/gateway-tmp-volume-patch.json"
-    if [[ ! -f "$patch_file" ]]; then
-        patch_file="/home/openchoreo/install/k3d/common/gateway-tmp-volume-patch.json"
-    fi
-
-    if [[ -f "$patch_file" ]]; then
-        if kubectl patch deployment gateway-default -n "$namespace" \
-            --type='json' -p="$(cat "$patch_file")" >/dev/null 2>&1; then
-            log_info "Waiting for gateway rollout in $namespace..."
-            kubectl rollout status deployment/gateway-default -n "$namespace" --timeout=120s >/dev/null 2>&1 || true
-        fi
-    fi
 }
 
 # Extract cluster-agent CA and create DataPlane CR
