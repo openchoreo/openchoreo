@@ -694,10 +694,12 @@ paths:
     get:
       operationId: listBuildPlanes
       summary: List build planes
-      description: Returns a list of build planes within an namespace. Typically one per namespace.
+      description: Returns a paginated list of build planes within a namespace. Typically one per namespace.
       tags: [BuildPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of build planes
@@ -709,6 +711,31 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/buildplanes/{buildPlaneName}:
+    get:
+      operationId: getBuildPlane
+      summary: Get build plane
+      description: Returns details of a specific build plane.
+      tags: [BuildPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/BuildPlaneNameParam'
+      responses:
+        '200':
+          description: Build plane details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -3243,6 +3270,15 @@ components:
         type: string
         example: my-project
 
+    BuildPlaneNameParam:
+      name: buildPlaneName
+      in: path
+      required: true
+      description: Build plane name
+      schema:
+        type: string
+        example: default-buildplane
+
     ProjectQueryParam:
       name: project
       in: query
@@ -4587,7 +4623,6 @@ components:
       description: Paginated list of build planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4598,39 +4633,118 @@ components:
 
     BuildPlane:
       type: object
-      description: BuildPlane resource for CI/CD build infrastructure
+      description: |
+        BuildPlane resource (Kubernetes object without kind/apiVersion).
+        Represents CI/CD build infrastructure within a namespace.
       required:
-        - name
-        - namespace
-        - createdAt
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/BuildPlaneSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/BuildPlaneStatus'
+
+    BuildPlaneSpec:
+      type: object
+      description: Desired state of a BuildPlane
+      properties:
+        planeID:
+          type: string
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple BuildPlane CRs can share the same planeID.
+          example: ci-cluster
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
+        secretStoreRef:
+          $ref: '#/components/schemas/SecretStoreRef'
+        observabilityPlaneRef:
+          $ref: '#/components/schemas/ObservabilityPlaneRef'
+
+    BuildPlaneStatus:
+      type: object
+      description: Observed state of a BuildPlane
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed BuildPlane
+        conditions:
+          type: array
+          description: Current state conditions of the BuildPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
+
+    ClusterAgentConfig:
+      type: object
+      description: Configuration for cluster agent-based communication
+      properties:
+        clientCA:
+          $ref: '#/components/schemas/ValueFrom'
+
+    ValueFrom:
+      type: object
+      description: Reference to a secret or inline value
+      properties:
+        secretRef:
+          $ref: '#/components/schemas/SecretKeyReference'
+        value:
+          type: string
+          description: Inline value (optional fallback)
+
+    SecretKeyReference:
+      type: object
+      description: Reference to a specific key in a Kubernetes secret
       properties:
         name:
           type: string
-          description: BuildPlane name (unique within namespace)
-          example: default-buildplane
+          description: Name of the secret
         namespace:
           type: string
-          description: Kubernetes namespace for the build plane
-          example: my-namespace
-        displayName:
+          description: Namespace of the secret
+        key:
           type: string
-          description: Human-readable display name
-          example: Default Build Plane
-        description:
+          description: Key within the secret
+
+    SecretStoreRef:
+      type: object
+      description: Reference to an External Secrets Operator ClusterSecretStore
+      properties:
+        name:
           type: string
-          description: BuildPlane description
-          example: Primary build plane for CI/CD workflows
-        observabilityPlaneRef:
-          $ref: '#/components/schemas/ObservabilityPlaneRef'
-        createdAt:
+          description: Name of the ClusterSecretStore resource
+
+    AgentConnectionStatus:
+      type: object
+      description: Status of cluster agent connections
+      properties:
+        connected:
+          type: boolean
+          description: Whether any cluster agent is currently connected
+        connectedAgents:
+          type: integer
+          description: Number of cluster agents currently connected
+        lastConnectedTime:
           type: string
           format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
+          description: When an agent last successfully connected
+        lastDisconnectedTime:
           type: string
-          description: BuildPlane status
-          example: Ready
+          format: date-time
+          description: When the last agent disconnected
+        lastHeartbeatTime:
+          type: string
+          format: date-time
+          description: When control plane last received communication from an agent
+        message:
+          type: string
+          description: Additional information about agent connection status
 
     # -------------------------------------------------------------------------
     # ObservabilityPlaneRef

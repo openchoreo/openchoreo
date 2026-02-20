@@ -5,54 +5,65 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 )
 
-// ListBuildPlanes returns a list of build planes
+// ListBuildPlanes returns a paginated list of build planes within a namespace.
 func (h *Handler) ListBuildPlanes(
 	ctx context.Context,
 	request gen.ListBuildPlanesRequestObject,
 ) (gen.ListBuildPlanesResponseObject, error) {
 	h.logger.Debug("ListBuildPlanes called", "namespaceName", request.NamespaceName)
 
-	buildplanes, err := h.services.BuildPlaneService.ListBuildPlanes(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.buildPlaneService.ListBuildPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
-		h.logger.Error("Failed to list buildplanes", "error", err)
+		h.logger.Error("Failed to list build planes", "error", err)
 		return gen.ListBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to generated types
-	items := make([]gen.BuildPlane, 0, len(buildplanes))
-	for _, bp := range buildplanes {
-		items = append(items, toGenBuildPlane(&bp))
+	items, err := convertList[openchoreov1alpha1.BuildPlane, gen.BuildPlane](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert build planes", "error", err)
+		return gen.ListBuildPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// TODO: Implement proper cursor-based pagination with Kubernetes continuation tokens
 	return gen.ListBuildPlanes200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// toGenBuildPlane converts models.BuildPlaneResponse to gen.BuildPlane
-func toGenBuildPlane(bp *models.BuildPlaneResponse) gen.BuildPlane {
-	result := gen.BuildPlane{
-		Name:        bp.Name,
-		Namespace:   bp.Namespace,
-		DisplayName: ptr.To(bp.DisplayName),
-		Description: ptr.To(bp.Description),
-		CreatedAt:   bp.CreatedAt,
-		Status:      ptr.To(bp.Status),
-	}
-	if bp.ObservabilityPlaneRef != nil {
-		result.ObservabilityPlaneRef = &gen.ObservabilityPlaneRef{
-			Kind: gen.ObservabilityPlaneRefKind(bp.ObservabilityPlaneRef.Kind),
-			Name: bp.ObservabilityPlaneRef.Name,
+// GetBuildPlane returns details of a specific build plane.
+func (h *Handler) GetBuildPlane(
+	ctx context.Context,
+	request gen.GetBuildPlaneRequestObject,
+) (gen.GetBuildPlaneResponseObject, error) {
+	h.logger.Debug("GetBuildPlane called", "namespaceName", request.NamespaceName, "buildPlaneName", request.BuildPlaneName)
+
+	buildPlane, err := h.buildPlaneService.GetBuildPlane(ctx, request.NamespaceName, request.BuildPlaneName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
+		if errors.Is(err, buildplanesvc.ErrBuildPlaneNotFound) {
+			return gen.GetBuildPlane404JSONResponse{NotFoundJSONResponse: notFound("BuildPlane")}, nil
+		}
+		h.logger.Error("Failed to get build plane", "error", err)
+		return gen.GetBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	return result
+
+	genBuildPlane, err := convert[openchoreov1alpha1.BuildPlane, gen.BuildPlane](*buildPlane)
+	if err != nil {
+		h.logger.Error("Failed to convert build plane", "error", err)
+		return gen.GetBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetBuildPlane200JSONResponse(genBuildPlane), nil
 }

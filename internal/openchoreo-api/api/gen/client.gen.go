@@ -200,7 +200,10 @@ type ClientInterface interface {
 	GetNamespace(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListBuildPlanes request
-	ListBuildPlanes(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListBuildPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListBuildPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBuildPlane request
+	GetBuildPlane(ctx context.Context, namespaceName NamespaceNameParam, buildPlaneName BuildPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListComponentTypes request
 	ListComponentTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -978,8 +981,20 @@ func (c *Client) GetNamespace(ctx context.Context, namespaceName NamespaceNamePa
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListBuildPlanesRequest(c.Server, namespaceName)
+func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListBuildPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListBuildPlanesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetBuildPlane(ctx context.Context, namespaceName NamespaceNameParam, buildPlaneName BuildPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBuildPlaneRequest(c.Server, namespaceName, buildPlaneName)
 	if err != nil {
 		return nil, err
 	}
@@ -3415,7 +3430,7 @@ func NewGetNamespaceRequest(server string, namespaceName NamespaceNameParam) (*h
 }
 
 // NewListBuildPlanesRequest generates requests for ListBuildPlanes
-func NewListBuildPlanesRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
+func NewListBuildPlanesRequest(server string, namespaceName NamespaceNameParam, params *ListBuildPlanesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3431,6 +3446,85 @@ func NewListBuildPlanesRequest(server string, namespaceName NamespaceNameParam) 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/buildplanes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBuildPlaneRequest generates requests for GetBuildPlane
+func NewGetBuildPlaneRequest(server string, namespaceName NamespaceNameParam, buildPlaneName BuildPlaneNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "buildPlaneName", runtime.ParamLocationPath, buildPlaneName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/buildplanes/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -7677,7 +7771,10 @@ type ClientWithResponsesInterface interface {
 	GetNamespaceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*GetNamespaceResp, error)
 
 	// ListBuildPlanesWithResponse request
-	ListBuildPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListBuildPlanesResp, error)
+	ListBuildPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListBuildPlanesParams, reqEditors ...RequestEditorFn) (*ListBuildPlanesResp, error)
+
+	// GetBuildPlaneWithResponse request
+	GetBuildPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, buildPlaneName BuildPlaneNameParam, reqEditors ...RequestEditorFn) (*GetBuildPlaneResp, error)
 
 	// ListComponentTypesWithResponse request
 	ListComponentTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListComponentTypesParams, reqEditors ...RequestEditorFn) (*ListComponentTypesResp, error)
@@ -8762,6 +8859,32 @@ func (r ListBuildPlanesResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListBuildPlanesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetBuildPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BuildPlane
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBuildPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBuildPlaneResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11221,12 +11344,21 @@ func (c *ClientWithResponses) GetNamespaceWithResponse(ctx context.Context, name
 }
 
 // ListBuildPlanesWithResponse request returning *ListBuildPlanesResp
-func (c *ClientWithResponses) ListBuildPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListBuildPlanesResp, error) {
-	rsp, err := c.ListBuildPlanes(ctx, namespaceName, reqEditors...)
+func (c *ClientWithResponses) ListBuildPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListBuildPlanesParams, reqEditors ...RequestEditorFn) (*ListBuildPlanesResp, error) {
+	rsp, err := c.ListBuildPlanes(ctx, namespaceName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListBuildPlanesResp(rsp)
+}
+
+// GetBuildPlaneWithResponse request returning *GetBuildPlaneResp
+func (c *ClientWithResponses) GetBuildPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, buildPlaneName BuildPlaneNameParam, reqEditors ...RequestEditorFn) (*GetBuildPlaneResp, error) {
+	rsp, err := c.GetBuildPlane(ctx, namespaceName, buildPlaneName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBuildPlaneResp(rsp)
 }
 
 // ListComponentTypesWithResponse request returning *ListComponentTypesResp
@@ -13736,6 +13868,60 @@ func ParseListBuildPlanesResp(rsp *http.Response) (*ListBuildPlanesResp, error) 
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBuildPlaneResp parses an HTTP response from a GetBuildPlaneWithResponse call
+func ParseGetBuildPlaneResp(rsp *http.Response) (*GetBuildPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBuildPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BuildPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

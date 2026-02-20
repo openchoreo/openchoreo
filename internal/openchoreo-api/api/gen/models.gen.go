@@ -256,6 +256,27 @@ type ActionCapability struct {
 	Denied *[]CapabilityResource `json:"denied,omitempty"`
 }
 
+// AgentConnectionStatus Status of cluster agent connections
+type AgentConnectionStatus struct {
+	// Connected Whether any cluster agent is currently connected
+	Connected *bool `json:"connected,omitempty"`
+
+	// ConnectedAgents Number of cluster agents currently connected
+	ConnectedAgents *int `json:"connectedAgents,omitempty"`
+
+	// LastConnectedTime When an agent last successfully connected
+	LastConnectedTime *time.Time `json:"lastConnectedTime,omitempty"`
+
+	// LastDisconnectedTime When the last agent disconnected
+	LastDisconnectedTime *time.Time `json:"lastDisconnectedTime,omitempty"`
+
+	// LastHeartbeatTime When control plane last received communication from an agent
+	LastHeartbeatTime *time.Time `json:"lastHeartbeatTime,omitempty"`
+
+	// Message Additional information about agent connection status
+	Message *string `json:"message,omitempty"`
+}
+
 // ApplyResourceResponse Response from applying a resource
 type ApplyResourceResponse struct {
 	// ApiVersion Applied resource API version
@@ -506,28 +527,16 @@ type BindingStatus struct {
 // BindingStatusStatus Status type
 type BindingStatusStatus string
 
-// BuildPlane BuildPlane resource for CI/CD build infrastructure
+// BuildPlane BuildPlane resource (Kubernetes object without kind/apiVersion).
+// Represents CI/CD build infrastructure within a namespace.
 type BuildPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description BuildPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name BuildPlane name (unique within namespace)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the build plane
-	Namespace string `json:"namespace"`
-
-	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
-	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// Status BuildPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a BuildPlane
+	Spec   *BuildPlaneSpec   `json:"spec,omitempty"`
+	Status *BuildPlaneStatus `json:"status,omitempty"`
 }
 
 // BuildPlaneList Paginated list of build planes
@@ -536,7 +545,7 @@ type BuildPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // BuildPlaneRef Reference to a BuildPlane or ClusterBuildPlane
@@ -550,6 +559,34 @@ type BuildPlaneRef struct {
 
 // BuildPlaneRefKind Kind of build plane
 type BuildPlaneRefKind string
+
+// BuildPlaneSpec Desired state of a BuildPlane
+type BuildPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple BuildPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// BuildPlaneStatus Observed state of a BuildPlane
+type BuildPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the BuildPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed BuildPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
 
 // CapabilityResource Resource with permission details
 type CapabilityResource struct {
@@ -576,6 +613,12 @@ type ClientConfigList struct {
 
 	// TokenEndpoint OAuth2 token endpoint URL
 	TokenEndpoint string `json:"token_endpoint"`
+}
+
+// ClusterAgentConfig Configuration for cluster agent-based communication
+type ClusterAgentConfig struct {
+	// ClientCA Reference to a secret or inline value
+	ClientCA *ValueFrom `json:"clientCA,omitempty"`
 }
 
 // ClusterBuildPlane Cluster-scoped BuildPlane resource for CI/CD build infrastructure
@@ -2198,6 +2241,18 @@ type SecretDataSource struct {
 	SecretKey string `json:"secretKey"`
 }
 
+// SecretKeyReference Reference to a specific key in a Kubernetes secret
+type SecretKeyReference struct {
+	// Key Key within the secret
+	Key *string `json:"key,omitempty"`
+
+	// Name Name of the secret
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the secret
+	Namespace *string `json:"namespace,omitempty"`
+}
+
 // SecretReference Secret reference resource
 type SecretReference struct {
 	// CreatedAt Creation timestamp
@@ -2238,6 +2293,12 @@ type SecretReferenceList struct {
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
 	Pagination Pagination `json:"pagination"`
+}
+
+// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+type SecretStoreRef struct {
+	// Name Name of the ClusterSecretStore resource
+	Name *string `json:"name,omitempty"`
 }
 
 // SecretStoreReference Reference to a secret store
@@ -2560,6 +2621,15 @@ type UserTypeConfig struct {
 	Type string `json:"type"`
 }
 
+// ValueFrom Reference to a secret or inline value
+type ValueFrom struct {
+	// SecretRef Reference to a specific key in a Kubernetes secret
+	SecretRef *SecretKeyReference `json:"secretRef,omitempty"`
+
+	// Value Inline value (optional fallback)
+	Value *string `json:"value,omitempty"`
+}
+
 // VersionResponse Server version information
 type VersionResponse struct {
 	// BuildTime Build timestamp
@@ -2722,6 +2792,9 @@ type WorkloadSpec map[string]interface{}
 // BindingNameParam defines model for BindingNameParam.
 type BindingNameParam = string
 
+// BuildPlaneNameParam defines model for BuildPlaneNameParam.
+type BuildPlaneNameParam = string
+
 // ClusterComponentTypeNameParam defines model for ClusterComponentTypeNameParam.
 type ClusterComponentTypeNameParam = string
 
@@ -2824,6 +2897,16 @@ type ListClusterDataPlanesParams struct {
 
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListBuildPlanesParams defines parameters for ListBuildPlanes.
+type ListBuildPlanesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
