@@ -178,6 +178,12 @@ func addValue(container map[string]any, arrayKey string, segment string, value a
 			return fmt.Errorf("array index %d out of bounds for add (length %d)", index, len(arr))
 		}
 
+		// Guard against integer overflow on large arrays before allocating
+		const maxJSONArraySize = 1 << 24 // 16 million elements
+		if len(arr) >= maxJSONArraySize {
+			return fmt.Errorf("array too large to process: %d elements", len(arr))
+		}
+
 		// Insert at index (RFC 6902 allows index == len to append)
 		newArr := make([]any, len(arr)+1)
 		copy(newArr[:index], arr[:index])

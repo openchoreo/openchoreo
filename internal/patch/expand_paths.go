@@ -62,6 +62,11 @@ func expandPaths(root map[string]any, rawPath string) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Guard against exponential state explosion from deeply nested filter expressions
+			const maxPathStates = 1 << 16 // 65536 states
+			if len(nextStates)+len(expanded) > maxPathStates {
+				return nil, fmt.Errorf("path expansion exceeded maximum states (%d)", maxPathStates)
+			}
 			nextStates = append(nextStates, expanded...)
 		}
 		states = nextStates
