@@ -43,12 +43,14 @@ type Services struct {
 }
 
 // NewServices creates and initializes all services
-func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP, authzPDP authz.PDP, logger *slog.Logger, gatewayURL string, gwClient *gatewayClient.Client) *Services {
+func NewServices(k8sClient client.Client, k8sClientMgr *kubernetesClient.KubeMultiClientManager, authzPAP authz.PAP,
+	authzPDP authz.PDP, logger *slog.Logger, gatewayURL string, gwClient *gatewayClient.Client) *Services {
 	// Create project service
 	projectService := NewProjectService(k8sClient, logger.With("service", "project"), authzPDP)
 
 	// Create component service (depends on project service)
-	componentService := NewComponentService(k8sClient, projectService, logger.With("service", "component"), authzPDP)
+	componentService := NewComponentService(k8sClient, projectService,
+		logger.With("service", "component"), authzPDP, gwClient)
 
 	// Create namespace service
 	namespaceService := NewNamespaceService(k8sClient, logger.With("service", "namespace"), authzPDP)

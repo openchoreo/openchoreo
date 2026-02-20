@@ -2105,6 +2105,33 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/environments/{environmentName}/release/resources:
+    get:
+      operationId: getReleaseResourceTree
+      summary: Get release resource tree
+      description: Returns all live Kubernetes resources deployed by the active release for a component in an environment, including child resources like Pods.
+      tags: [Components]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectNameParam'
+        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ComponentEnvironmentNameParam'
+      responses:
+        '200':
+          description: Resource tree for the active release
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceTreeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/components/{componentName}/deploy:
     post:
       operationId: deployRelease
@@ -6638,6 +6665,109 @@ components:
           type: object
           description: Release status
           additionalProperties: true
+
+    # -------------------------------------------------------------------------
+    # Resource Tree
+    # -------------------------------------------------------------------------
+    ResourceRef:
+      type: object
+      description: Reference to a parent resource in the resource tree
+      required:
+        - version
+        - kind
+        - name
+        - uid
+      properties:
+        group:
+          type: string
+          description: API group of the resource
+        version:
+          type: string
+          description: API version of the resource
+        kind:
+          type: string
+          description: Kind of the resource
+        namespace:
+          type: string
+          description: Namespace of the resource
+        name:
+          type: string
+          description: Name of the resource
+        uid:
+          type: string
+          description: UID of the resource
+
+    HealthInfo:
+      type: object
+      description: Health status for a resource node
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Health status (Healthy, Degraded, Progressing, Unknown, etc.)
+        message:
+          type: string
+          description: Optional human-readable message explaining the health status
+
+    ResourceNode:
+      type: object
+      description: A single resource in the resource tree
+      required:
+        - version
+        - kind
+        - name
+        - uid
+        - object
+      properties:
+        group:
+          type: string
+          description: API group of the resource
+        version:
+          type: string
+          description: API version of the resource
+        kind:
+          type: string
+          description: Kind of the resource
+        namespace:
+          type: string
+          description: Namespace of the resource
+        name:
+          type: string
+          description: Name of the resource
+        uid:
+          type: string
+          description: UID of the resource
+        resourceVersion:
+          type: string
+          description: Resource version from Kubernetes
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp of the resource
+        parentRefs:
+          type: array
+          description: References to parent resources
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        object:
+          type: object
+          additionalProperties: true
+          description: Full Kubernetes resource object
+        health:
+          $ref: '#/components/schemas/HealthInfo'
+
+    ResourceTreeResponse:
+      type: object
+      description: Response containing the resource tree for a release
+      required:
+        - nodes
+      properties:
+        nodes:
+          type: array
+          description: All resource nodes in the tree
+          items:
+            $ref: '#/components/schemas/ResourceNode'
 
     # -------------------------------------------------------------------------
     # Deploy/Promote Requests

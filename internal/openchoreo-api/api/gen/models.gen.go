@@ -1770,6 +1770,15 @@ type GenerateReleaseRequest struct {
 	ReleaseName *string `json:"releaseName,omitempty"`
 }
 
+// HealthInfo Health status for a resource node
+type HealthInfo struct {
+	// Message Optional human-readable message explaining the health status
+	Message *string `json:"message,omitempty"`
+
+	// Status Health status (Healthy, Degraded, Progressing, Unknown, etc.)
+	Status string `json:"status"`
+}
+
 // KubernetesResource Kubernetes resource with OpenChoreo API group
 type KubernetesResource struct {
 	// ApiVersion API version (must be openchoreo.dev/v1alpha1)
@@ -2166,6 +2175,69 @@ type ResourceHierarchy struct {
 
 	// Project Project name
 	Project *string `json:"project,omitempty"`
+}
+
+// ResourceNode A single resource in the resource tree
+type ResourceNode struct {
+	// CreatedAt Creation timestamp of the resource
+	CreatedAt *time.Time `json:"createdAt,omitempty"`
+
+	// Group API group of the resource
+	Group *string `json:"group,omitempty"`
+
+	// Health Health status for a resource node
+	Health *HealthInfo `json:"health,omitempty"`
+
+	// Kind Kind of the resource
+	Kind string `json:"kind"`
+
+	// Name Name of the resource
+	Name string `json:"name"`
+
+	// Namespace Namespace of the resource
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Object Full Kubernetes resource object
+	Object map[string]interface{} `json:"object"`
+
+	// ParentRefs References to parent resources
+	ParentRefs *[]ResourceRef `json:"parentRefs,omitempty"`
+
+	// ResourceVersion Resource version from Kubernetes
+	ResourceVersion *string `json:"resourceVersion,omitempty"`
+
+	// Uid UID of the resource
+	Uid string `json:"uid"`
+
+	// Version API version of the resource
+	Version string `json:"version"`
+}
+
+// ResourceRef Reference to a parent resource in the resource tree
+type ResourceRef struct {
+	// Group API group of the resource
+	Group *string `json:"group,omitempty"`
+
+	// Kind Kind of the resource
+	Kind string `json:"kind"`
+
+	// Name Name of the resource
+	Name string `json:"name"`
+
+	// Namespace Namespace of the resource
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Uid UID of the resource
+	Uid string `json:"uid"`
+
+	// Version API version of the resource
+	Version string `json:"version"`
+}
+
+// ResourceTreeResponse Response containing the resource tree for a release
+type ResourceTreeResponse struct {
+	// Nodes All resource nodes in the tree
+	Nodes []ResourceNode `json:"nodes"`
 }
 
 // Role Authorization role with permitted actions (legacy)

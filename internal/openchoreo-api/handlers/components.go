@@ -859,6 +859,59 @@ func (h *Handler) GetEnvironmentRelease(w http.ResponseWriter, r *http.Request) 
 	writeSuccessResponse(w, http.StatusOK, release)
 }
 
+func (h *Handler) GetReleaseResourceTree(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := logger.GetLogger(ctx)
+	logger.Debug("GetReleaseResourceTree handler called")
+
+	namespaceName := r.PathValue("namespaceName")
+	projectName := r.PathValue("projectName")
+	componentName := r.PathValue("componentName")
+	environmentName := r.PathValue("environmentName")
+	if namespaceName == "" || projectName == "" || componentName == "" || environmentName == "" {
+		logger.Warn("Namespace name, project name, component name, and environment name are required")
+		writeErrorResponse(w, http.StatusBadRequest,
+			"Namespace name, project name, component name, and environment name are required", services.CodeInvalidInput)
+		return
+	}
+
+	tree, err := h.services.ComponentService.GetReleaseResourceTree(ctx, namespaceName, projectName,
+		componentName, environmentName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			logger.Warn("Unauthorized to view release resource tree", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusForbidden, services.ErrForbidden.Error(), services.CodeForbidden)
+			return
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			logger.Warn("Project not found", "namespace", namespaceName, "project", projectName)
+			writeErrorResponse(w, http.StatusNotFound, "Project not found", services.CodeProjectNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			logger.Warn("Component not found", "namespace", namespaceName, "project", projectName, "component", componentName)
+			writeErrorResponse(w, http.StatusNotFound, "Component not found", services.CodeComponentNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			logger.Warn("Release not found", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Release not found", services.CodeReleaseNotFound)
+			return
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			logger.Warn("Environment not found", "namespace", namespaceName, "environment", environmentName)
+			writeErrorResponse(w, http.StatusNotFound, "Environment not found", services.CodeEnvironmentNotFound)
+			return
+		}
+		logger.Error("Failed to get release resource tree", "error", err)
+		writeErrorResponse(w, http.StatusInternalServerError, "Internal server error", services.CodeInternalError)
+		return
+	}
+
+	logger.Debug("Retrieved release resource tree successfully", "namespace", namespaceName, "project", projectName, "component", componentName, "environment", environmentName, "nodeCount", len(tree.Nodes))
+	writeSuccessResponse(w, http.StatusOK, tree)
+}
+
 func (h *Handler) PatchReleaseBinding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := logger.GetLogger(ctx)

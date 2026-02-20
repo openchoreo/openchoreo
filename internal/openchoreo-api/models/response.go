@@ -399,6 +399,42 @@ type ReleaseResponse struct {
 	Status openchoreov1alpha1.ReleaseStatus `json:"status"`
 }
 
+// ResourceRef identifies a parent resource in the resource tree
+type ResourceRef struct {
+	Group     string `json:"group,omitempty"`
+	Version   string `json:"version"`
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
+	UID       string `json:"uid"`
+}
+
+// ResourceNode represents a single resource in the resource tree
+type ResourceNode struct {
+	Group           string         `json:"group,omitempty"`
+	Version         string         `json:"version"`
+	Kind            string         `json:"kind"`
+	Namespace       string         `json:"namespace,omitempty"`
+	Name            string         `json:"name"`
+	UID             string         `json:"uid"`
+	ResourceVersion string         `json:"resourceVersion,omitempty"`
+	CreatedAt       *time.Time     `json:"createdAt,omitempty"`
+	ParentRefs      []ResourceRef  `json:"parentRefs,omitempty"`
+	Object          map[string]any `json:"object"`
+	Health          *HealthInfo    `json:"health,omitempty"`
+}
+
+// HealthInfo carries health status for a resource node
+type HealthInfo struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+// ResourceTreeResponse is the response for the resource tree endpoint
+type ResourceTreeResponse struct {
+	Nodes []ResourceNode `json:"nodes"`
+}
+
 // SecretReferenceResponse represents a SecretReference in API responses
 type SecretReferenceResponse struct {
 	Name            string                 `json:"name"`

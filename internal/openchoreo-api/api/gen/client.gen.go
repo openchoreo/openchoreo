@@ -349,6 +349,9 @@ type ClientInterface interface {
 	// GetEnvironmentRelease request
 	GetEnvironmentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetReleaseResourceTree request
+	GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetBuildObserverURL request
 	GetBuildObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1645,6 +1648,18 @@ func (c *Client) GetComponentObserverURL(ctx context.Context, namespaceName Name
 
 func (c *Client) GetEnvironmentRelease(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetEnvironmentReleaseRequest(c.Server, namespaceName, projectName, componentName, environmentName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetReleaseResourceTreeRequest(c.Server, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
 		return nil, err
 	}
@@ -5876,6 +5891,61 @@ func NewGetEnvironmentReleaseRequest(server string, namespaceName NamespaceNameP
 	return req, nil
 }
 
+// NewGetReleaseResourceTreeRequest generates requests for GetReleaseResourceTree
+func NewGetReleaseResourceTreeRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/release/resources", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetBuildObserverURLRequest generates requests for GetBuildObserverURL
 func NewGetBuildObserverURLRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
 	var err error
@@ -8581,6 +8651,9 @@ type ClientWithResponsesInterface interface {
 	// GetEnvironmentReleaseWithResponse request
 	GetEnvironmentReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetEnvironmentReleaseResp, error)
 
+	// GetReleaseResourceTreeWithResponse request
+	GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error)
+
 	// GetBuildObserverURLWithResponse request
 	GetBuildObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetBuildObserverURLResp, error)
 
@@ -10619,6 +10692,32 @@ func (r GetEnvironmentReleaseResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetEnvironmentReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetReleaseResourceTreeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceTreeResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetReleaseResourceTreeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetReleaseResourceTreeResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12710,6 +12809,15 @@ func (c *ClientWithResponses) GetEnvironmentReleaseWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseGetEnvironmentReleaseResp(rsp)
+}
+
+// GetReleaseResourceTreeWithResponse request returning *GetReleaseResourceTreeResp
+func (c *ClientWithResponses) GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error) {
+	rsp, err := c.GetReleaseResourceTree(ctx, namespaceName, projectName, componentName, environmentName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetReleaseResourceTreeResp(rsp)
 }
 
 // GetBuildObserverURLWithResponse request returning *GetBuildObserverURLResp
@@ -17081,6 +17189,60 @@ func ParseGetEnvironmentReleaseResp(rsp *http.Response) (*GetEnvironmentReleaseR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest Release
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetReleaseResourceTreeResp parses an HTTP response from a GetReleaseResourceTreeWithResponse call
+func ParseGetReleaseResourceTreeResp(rsp *http.Response) (*GetReleaseResourceTreeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetReleaseResourceTreeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceTreeResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -23,6 +23,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -45,6 +46,7 @@ type ComponentService struct {
 	specFetcherRegistry *ComponentSpecFetcherRegistry
 	logger              *slog.Logger
 	authzPDP            authz.PDP
+	gatewayClient       *gatewayClient.Client
 }
 
 // parseComponentTypeName extracts the ComponentType name from the ComponentType string
@@ -194,13 +196,14 @@ type PromoteComponentPayload struct {
 }
 
 // NewComponentService creates a new component service
-func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger, authzPDP authz.PDP) *ComponentService {
+func NewComponentService(k8sClient client.Client, projectService *ProjectService, logger *slog.Logger, authzPDP authz.PDP, gwClient *gatewayClient.Client) *ComponentService {
 	return &ComponentService{
 		k8sClient:           k8sClient,
 		projectService:      projectService,
 		specFetcherRegistry: NewComponentSpecFetcherRegistry(),
 		logger:              logger,
 		authzPDP:            authzPDP,
+		gatewayClient:       gwClient,
 	}
 }
 

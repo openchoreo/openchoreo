@@ -564,6 +564,53 @@ func (h *Handler) GetEnvironmentRelease(
 	return nil, errNotImplemented
 }
 
+// GetReleaseResourceTree returns all live Kubernetes resources deployed by the active release
+func (h *Handler) GetReleaseResourceTree(
+	ctx context.Context,
+	request gen.GetReleaseResourceTreeRequestObject,
+) (gen.GetReleaseResourceTreeResponseObject, error) {
+	h.logger.Debug("GetReleaseResourceTree called",
+		"namespace", request.NamespaceName,
+		"project", request.ProjectName,
+		"component", request.ComponentName,
+		"environment", request.EnvironmentName)
+
+	tree, err := h.services.ComponentService.GetReleaseResourceTree(
+		ctx,
+		request.NamespaceName,
+		request.ProjectName,
+		request.ComponentName,
+		request.EnvironmentName,
+	)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetReleaseResourceTree403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, services.ErrProjectNotFound) {
+			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
+		}
+		if errors.Is(err, services.ErrComponentNotFound) {
+			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
+		if errors.Is(err, services.ErrReleaseNotFound) {
+			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Release")}, nil
+		}
+		if errors.Is(err, services.ErrEnvironmentNotFound) {
+			return gen.GetReleaseResourceTree404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+		}
+		h.logger.Error("Failed to get release resource tree", "error", err)
+		return gen.GetReleaseResourceTree500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	result, err := convert[models.ResourceTreeResponse, gen.ResourceTreeResponse](*tree)
+	if err != nil {
+		h.logger.Error("Failed to convert resource tree response", "error", err)
+		return gen.GetReleaseResourceTree500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetReleaseResourceTree200JSONResponse(result), nil
+}
+
 // DeployRelease deploys a component release to an environment
 func (h *Handler) DeployRelease(
 	ctx context.Context,
