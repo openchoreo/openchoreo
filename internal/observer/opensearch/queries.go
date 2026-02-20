@@ -116,10 +116,11 @@ func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []stri
 
 // BuildBuildLogsQuery builds a query for build logs with wildcard search
 func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]interface{} {
+	sanitizedBuildID := sanitizeWildcardValue(params.BuildID)
 	mustConditions := []map[string]interface{}{
 		{
 			"wildcard": map[string]interface{}{
-				labels.KubernetesPodName + ".keyword": params.BuildID + "*",
+				labels.KubernetesPodName + ".keyword": sanitizedBuildID + "*",
 			},
 		},
 	}
@@ -160,9 +161,10 @@ func (qb *QueryBuilder) BuildBuildLogsQuery(params BuildQueryParams) map[string]
 
 // BuildWorkflowRunLogsQuery builds a query for workflow run logs with wildcard search
 func (qb *QueryBuilder) BuildWorkflowRunLogsQuery(params WorkflowRunQueryParams) map[string]interface{} {
-	podNamePattern := params.WorkflowRunID + "*"
+	sanitizedWorkflowRunID := sanitizeWildcardValue(params.WorkflowRunID)
+	podNamePattern := sanitizedWorkflowRunID + "*"
 	if params.StepName != "" {
-		podNamePattern = fmt.Sprintf("%s-%s-*", params.WorkflowRunID, params.StepName)
+		podNamePattern = fmt.Sprintf("%s-%s-*", sanitizedWorkflowRunID, sanitizeWildcardValue(params.StepName))
 	}
 
 	mustConditions := []map[string]interface{}{
@@ -665,7 +667,7 @@ func (qb *QueryBuilder) BuildTracesQuery(params TracesRequestParams) map[string]
 	if params.TraceID != "" {
 		filterConditions = append(filterConditions, map[string]interface{}{
 			"wildcard": map[string]interface{}{
-				"traceId": params.TraceID,
+				"traceId": sanitizeWildcardValue(params.TraceID),
 			},
 		})
 	}
