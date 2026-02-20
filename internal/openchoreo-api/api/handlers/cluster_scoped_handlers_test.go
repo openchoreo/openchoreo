@@ -18,6 +18,8 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
+	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
 // denyAllPDP is a PDP stub that always denies authorization.
@@ -59,13 +61,13 @@ func newTestScheme(t *testing.T) *runtime.Scheme {
 	return scheme
 }
 
-func newClusterComponentTypeService(t *testing.T, objects []client.Object, pdp authzcore.PDP) *services.ClusterComponentTypeService {
+func newClusterComponentTypeService(t *testing.T, objects []client.Object, pdp authzcore.PDP) clustercomponenttypesvc.Service {
 	t.Helper()
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(objects...).
 		Build()
-	return services.NewClusterComponentTypeService(fakeClient, slog.Default(), pdp)
+	return clustercomponenttypesvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
 }
 
 func newClusterTraitService(t *testing.T, objects []client.Object, pdp authzcore.PDP) *services.ClusterTraitService {
@@ -84,8 +86,23 @@ func newHandlerWithServices(svcs *services.Services) *Handler {
 	}
 }
 
+func newHandlerWithClusterComponentTypeService(svc clustercomponenttypesvc.Service) *Handler {
+	return &Handler{
+		clusterComponentTypeService: svc,
+		logger:                      slog.Default(),
+	}
+}
+
+// testContext returns a context with a dummy authenticated subject for authz checks.
+func testContext() context.Context {
+	return auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+		ID:   "test-user",
+		Type: "user",
+	})
+}
+
 func TestListClusterComponentTypesHandler(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	cct := &openchoreov1alpha1.ClusterComponentType{
 		ObjectMeta: metav1.ObjectMeta{Name: "go-service"},
 		Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
@@ -96,7 +113,7 @@ func TestListClusterComponentTypesHandler(t *testing.T) {
 
 	t.Run("returns items when authorized", func(t *testing.T) {
 		svc := newClusterComponentTypeService(t, []client.Object{cct}, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterComponentTypeService: svc})
+		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.ListClusterComponentTypes(ctx, gen.ListClusterComponentTypesRequestObject{})
 		if err != nil {
@@ -114,7 +131,7 @@ func TestListClusterComponentTypesHandler(t *testing.T) {
 
 	t.Run("filters unauthorized items", func(t *testing.T) {
 		svc := newClusterComponentTypeService(t, []client.Object{cct}, &denyAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterComponentTypeService: svc})
+		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.ListClusterComponentTypes(ctx, gen.ListClusterComponentTypesRequestObject{})
 		if err != nil {
@@ -132,7 +149,7 @@ func TestListClusterComponentTypesHandler(t *testing.T) {
 }
 
 func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	paramsRaw, _ := json.Marshal(map[string]any{
 		"replicas": "integer",
 	})
@@ -150,7 +167,7 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 
 	t.Run("returns schema when authorized", func(t *testing.T) {
 		svc := newClusterComponentTypeService(t, []client.Object{cct}, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterComponentTypeService: svc})
+		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "go-service"})
 		if err != nil {
@@ -168,7 +185,7 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
 		svc := newClusterComponentTypeService(t, nil, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterComponentTypeService: svc})
+		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "missing"})
 		if err != nil {
@@ -181,7 +198,7 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
 		svc := newClusterComponentTypeService(t, []client.Object{cct}, &denyAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterComponentTypeService: svc})
+		h := newHandlerWithClusterComponentTypeService(svc)
 
 		resp, err := h.GetClusterComponentTypeSchema(ctx, gen.GetClusterComponentTypeSchemaRequestObject{CctName: "go-service"})
 		if err != nil {
