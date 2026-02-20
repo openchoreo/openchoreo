@@ -172,7 +172,7 @@ spec:
 
             cat > "${SOURCE_DIR}/Dockerfile" <<EOF
             FROM node:${NODE_VERSION}-alpine AS builder
-            RUN npm install -g pnpm
+            RUN npm install -g yarn pnpm
             WORKDIR /app
             COPY . .
             RUN if [ -f "package-lock.json" ]; then npm ci; \\
