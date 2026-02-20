@@ -995,7 +995,7 @@ paths:
   # ComponentType Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/component-types:
+  /api/v1/namespaces/{namespaceName}/componenttypes:
     get:
       operationId: listComponentTypes
       summary: List component types
@@ -1050,7 +1050,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/component-types/{ctName}:
+  /api/v1/namespaces/{namespaceName}/componenttypes/{ctName}:
     get:
       operationId: getComponentType
       summary: Get component type
@@ -1129,7 +1129,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/component-types/{ctName}/schema:
+  /api/v1/namespaces/{namespaceName}/componenttypes/{ctName}/schema:
     get:
       operationId: getComponentTypeSchema
       summary: Get component type schema

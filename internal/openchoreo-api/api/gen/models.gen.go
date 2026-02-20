@@ -2915,16 +2915,6 @@ type ListBuildPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
-// ListComponentTypesParams defines parameters for ListComponentTypes.
-type ListComponentTypesParams struct {
-	// Limit Maximum number of items to return per page
-	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Cursor Opaque pagination cursor from a previous response.
-	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
-	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
-}
-
 // ListComponentWorkflowsParams defines parameters for ListComponentWorkflows.
 type ListComponentWorkflowsParams struct {
 	// Limit Maximum number of items to return per page
@@ -2940,6 +2930,16 @@ type ListComponentsParams struct {
 	// Project Filter resources by project name
 	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
 
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListComponentTypesParams defines parameters for ListComponentTypes.
+type ListComponentTypesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 
@@ -3085,12 +3085,6 @@ type DeleteResourceJSONRequestBody = KubernetesResource
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
 
-// CreateComponentTypeJSONRequestBody defines body for CreateComponentType for application/json ContentType.
-type CreateComponentTypeJSONRequestBody = ComponentType
-
-// UpdateComponentTypeJSONRequestBody defines body for UpdateComponentType for application/json ContentType.
-type UpdateComponentTypeJSONRequestBody = ComponentType
-
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = Component
 
@@ -3105,6 +3099,12 @@ type GenerateReleaseJSONRequestBody = GenerateReleaseRequest
 
 // PromoteComponentJSONRequestBody defines body for PromoteComponent for application/json ContentType.
 type PromoteComponentJSONRequestBody = PromoteComponentRequest
+
+// CreateComponentTypeJSONRequestBody defines body for CreateComponentType for application/json ContentType.
+type CreateComponentTypeJSONRequestBody = ComponentType
+
+// UpdateComponentTypeJSONRequestBody defines body for UpdateComponentType for application/json ContentType.
+type UpdateComponentTypeJSONRequestBody = ComponentType
 
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
