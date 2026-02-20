@@ -24,6 +24,9 @@ func (h *Handler) ListDataPlanes(
 
 	result, err := h.dataPlaneService.ListDataPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list data planes", "error", err)
 		return gen.ListDataPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}

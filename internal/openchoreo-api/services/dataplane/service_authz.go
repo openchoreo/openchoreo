@@ -67,6 +67,9 @@ func (s *dataPlaneServiceWithAuthz) GetDataPlane(ctx context.Context, namespaceN
 }
 
 func (s *dataPlaneServiceWithAuthz) CreateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error) {
+	if dp == nil {
+		return nil, ErrDataPlaneNil
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       actionCreateDataPlane,
 		ResourceType: resourceTypeDataPlane,

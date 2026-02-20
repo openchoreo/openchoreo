@@ -45,7 +45,7 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, dataPlaneService dataplanesvc.Service,componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                 services,
 		authzService:             authzService,
