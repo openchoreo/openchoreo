@@ -128,9 +128,13 @@ func PrintDataPlanes(list *gen.DataPlaneList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, dp := range list.Items {
+		age := ""
+		if dp.Metadata.CreationTimestamp != nil {
+			age = formatAge(*dp.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			dp.Name,
-			formatAge(dp.CreatedAt))
+			dp.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()

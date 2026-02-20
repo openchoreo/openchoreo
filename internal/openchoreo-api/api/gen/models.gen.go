@@ -1363,42 +1363,6 @@ type CreateComponentRequest struct {
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }
 
-// CreateDataPlaneRequest Request to create a new data plane
-type CreateDataPlaneRequest struct {
-	// ClusterAgentClientCA CA certificate for cluster agent client authentication (PEM format)
-	ClusterAgentClientCA string `json:"clusterAgentClientCA"`
-
-	// Description DataPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name DataPlane name (must be unique within namespace)
-	Name string `json:"name"`
-
-	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
-	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// OrganizationHTTPPort Organization HTTP port (defaults to 8080)
-	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
-
-	// OrganizationHTTPSPort Organization HTTPS port (defaults to 8443)
-	OrganizationHTTPSPort *int32 `json:"organizationHTTPSPort,omitempty"`
-
-	// OrganizationVirtualHost Organization virtual host for internal traffic
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-
-	// PublicHTTPPort Public HTTP port (defaults to 80)
-	PublicHTTPPort *int32 `json:"publicHTTPPort,omitempty"`
-
-	// PublicHTTPSPort Public HTTPS port (defaults to 443)
-	PublicHTTPSPort *int32 `json:"publicHTTPSPort,omitempty"`
-
-	// PublicVirtualHost Public virtual host for external traffic
-	PublicVirtualHost string `json:"publicVirtualHost"`
-}
-
 // CreateNamespaceRequest Request body for creating a new control plane namespace
 type CreateNamespaceRequest struct {
 	// Description Namespace description
@@ -1453,52 +1417,16 @@ type CreateWorkflowRunRequest struct {
 	WorkflowName string `json:"workflowName"`
 }
 
-// DataPlane DataPlane resource representing a Kubernetes cluster for workload deployment
+// DataPlane DataPlane resource (Kubernetes object without kind/apiVersion).
+// Represents a Kubernetes cluster for workload deployment.
 type DataPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description DataPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// ImagePullSecretRefs References to image pull secrets
-	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
-
-	// Name DataPlane name (unique within namespace)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the data plane
-	Namespace string `json:"namespace"`
-
-	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
-	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// OrganizationHTTPPort Organization HTTP port
-	OrganizationHTTPPort int32 `json:"organizationHTTPPort"`
-
-	// OrganizationHTTPSPort Organization HTTPS port
-	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort"`
-
-	// OrganizationVirtualHost Namespace virtual host for internal traffic
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-
-	// PublicHTTPPort Public HTTP port
-	PublicHTTPPort int32 `json:"publicHTTPPort"`
-
-	// PublicHTTPSPort Public HTTPS port
-	PublicHTTPSPort int32 `json:"publicHTTPSPort"`
-
-	// PublicVirtualHost Public virtual host for external traffic
-	PublicVirtualHost string `json:"publicVirtualHost"`
-
-	// SecretStoreRef Reference to the secret store for external secrets
-	SecretStoreRef *string `json:"secretStoreRef,omitempty"`
-
-	// Status DataPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a DataPlane
+	Spec   *DataPlaneSpec   `json:"spec,omitempty"`
+	Status *DataPlaneStatus `json:"status,omitempty"`
 }
 
 // DataPlaneList Paginated list of data planes
@@ -1507,7 +1435,41 @@ type DataPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// DataPlaneSpec Desired state of a DataPlane
+type DataPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// Gateway Gateway configuration for a data plane
+	Gateway *GatewaySpec `json:"gateway,omitempty"`
+
+	// ImagePullSecretRefs References to SecretReference resources for image pulling
+	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
+
+	// ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
+	ObservabilityPlaneRef *ObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple DataPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// DataPlaneStatus Observed state of a DataPlane
+type DataPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the DataPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed DataPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // Decision Authorization decision
@@ -1771,6 +1733,39 @@ type FileVar struct {
 
 	// ValueFrom Value source reference
 	ValueFrom *EnvVarValueFrom `json:"valueFrom,omitempty"`
+}
+
+// GatewaySpec Gateway configuration for a data plane
+type GatewaySpec struct {
+	// OrganizationGatewayName Name of the organization Gateway resource
+	OrganizationGatewayName *string `json:"organizationGatewayName,omitempty"`
+
+	// OrganizationGatewayNamespace Namespace of the organization Gateway resource
+	OrganizationGatewayNamespace *string `json:"organizationGatewayNamespace,omitempty"`
+
+	// OrganizationHTTPPort Organization HTTP port
+	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
+
+	// OrganizationHTTPSPort Organization HTTPS port
+	OrganizationHTTPSPort *int32 `json:"organizationHTTPSPort,omitempty"`
+
+	// OrganizationVirtualHost Organization-specific virtual host
+	OrganizationVirtualHost *string `json:"organizationVirtualHost,omitempty"`
+
+	// PublicGatewayName Name of the public Gateway resource
+	PublicGatewayName *string `json:"publicGatewayName,omitempty"`
+
+	// PublicGatewayNamespace Namespace of the public Gateway resource
+	PublicGatewayNamespace *string `json:"publicGatewayNamespace,omitempty"`
+
+	// PublicHTTPPort Public HTTP port
+	PublicHTTPPort *int32 `json:"publicHTTPPort,omitempty"`
+
+	// PublicHTTPSPort Public HTTPS port
+	PublicHTTPSPort *int32 `json:"publicHTTPSPort,omitempty"`
+
+	// PublicVirtualHost Public virtual host for external traffic
+	PublicVirtualHost *string `json:"publicVirtualHost,omitempty"`
 }
 
 // GenerateReleaseRequest Request to generate an immutable release snapshot from the current component state
@@ -3103,7 +3098,7 @@ type CreateComponentTypeJSONRequestBody = ComponentType
 type UpdateComponentTypeJSONRequestBody = ComponentType
 
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
-type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
+type CreateDataPlaneJSONRequestBody = DataPlane
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = Environment

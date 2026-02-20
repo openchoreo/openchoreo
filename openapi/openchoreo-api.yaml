@@ -642,7 +642,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateDataPlaneRequest'
+              $ref: '#/components/schemas/DataPlane'
       responses:
         '201':
           description: DataPlane created successfully
@@ -4451,7 +4451,6 @@ components:
       description: Paginated list of data planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4462,144 +4461,110 @@ components:
 
     DataPlane:
       type: object
-      description: DataPlane resource representing a Kubernetes cluster for workload deployment
+      description: |
+        DataPlane resource (Kubernetes object without kind/apiVersion).
+        Represents a Kubernetes cluster for workload deployment.
       required:
-        - name
-        - namespace
-        - publicVirtualHost
-        - organizationVirtualHost
-        - publicHTTPPort
-        - publicHTTPSPort
-        - organizationHTTPPort
-        - organizationHTTPSPort
-        - createdAt
+        - metadata
       properties:
-        name:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/DataPlaneSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/DataPlaneStatus'
+
+    DataPlaneSpec:
+      type: object
+      description: Desired state of a DataPlane
+      properties:
+        planeID:
           type: string
-          description: DataPlane name (unique within namespace)
-          example: default-dataplane
-        namespace:
-          type: string
-          description: Kubernetes namespace for the data plane
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Default Data Plane
-        description:
-          type: string
-          description: DataPlane description
-          example: Primary data plane for production workloads
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple DataPlane CRs can share the same planeID.
+          example: prod-cluster
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
+        gateway:
+          $ref: '#/components/schemas/GatewaySpec'
         imagePullSecretRefs:
           type: array
-          description: References to image pull secrets
+          description: References to SecretReference resources for image pulling
           items:
             type: string
           example: ["docker-registry-secret"]
         secretStoreRef:
-          type: string
-          description: Reference to the secret store for external secrets
-          example: vault-secret-store
+          $ref: '#/components/schemas/SecretStoreRef'
+        observabilityPlaneRef:
+          $ref: '#/components/schemas/ObservabilityPlaneRef'
+
+    DataPlaneStatus:
+      type: object
+      description: Observed state of a DataPlane
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed DataPlane
+        conditions:
+          type: array
+          description: Current state conditions of the DataPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
+
+    GatewaySpec:
+      type: object
+      description: Gateway configuration for a data plane
+      properties:
         publicVirtualHost:
           type: string
           description: Public virtual host for external traffic
           example: apps.example.com
         organizationVirtualHost:
           type: string
-          description: Namespace virtual host for internal traffic
+          description: Organization-specific virtual host
           example: internal.example.com
         publicHTTPPort:
           type: integer
           format: int32
           description: Public HTTP port
-          example: 80
+          example: 19080
         publicHTTPSPort:
           type: integer
           format: int32
           description: Public HTTPS port
-          example: 443
+          example: 19443
         organizationHTTPPort:
           type: integer
           format: int32
           description: Organization HTTP port
-          example: 8080
+          example: 19081
         organizationHTTPSPort:
           type: integer
           format: int32
           description: Organization HTTPS port
-          example: 8443
-        observabilityPlaneRef:
-          $ref: '#/components/schemas/ObservabilityPlaneRef'
-        createdAt:
+          example: 19444
+        publicGatewayName:
           type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
+          description: Name of the public Gateway resource
+          example: gateway-default
+        publicGatewayNamespace:
           type: string
-          description: DataPlane status
-          example: Ready
-
-    CreateDataPlaneRequest:
-      type: object
-      description: Request to create a new data plane
-      required:
-        - name
-        - clusterAgentClientCA
-        - publicVirtualHost
-        - organizationVirtualHost
-      properties:
-        name:
+          description: Namespace of the public Gateway resource
+          example: openchoreo-data-plane
+        organizationGatewayName:
           type: string
-          description: DataPlane name (must be unique within namespace)
-          example: production-dataplane
-          minLength: 1
-          maxLength: 63
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        displayName:
+          description: Name of the organization Gateway resource
+          example: gateway-default
+        organizationGatewayNamespace:
           type: string
-          description: Human-readable display name
-          example: Production Data Plane
-          maxLength: 256
-        description:
-          type: string
-          description: DataPlane description
-          example: Data plane for production workloads
-          maxLength: 1024
-        clusterAgentClientCA:
-          type: string
-          description: CA certificate for cluster agent client authentication (PEM format)
-          example: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
-        publicVirtualHost:
-          type: string
-          description: Public virtual host for external traffic
-          example: apps.example.com
-        organizationVirtualHost:
-          type: string
-          description: Organization virtual host for internal traffic
-          example: internal.example.com
-        publicHTTPPort:
-          type: integer
-          format: int32
-          description: Public HTTP port (defaults to 80)
-          example: 80
-        publicHTTPSPort:
-          type: integer
-          format: int32
-          description: Public HTTPS port (defaults to 443)
-          example: 443
-        organizationHTTPPort:
-          type: integer
-          format: int32
-          description: Organization HTTP port (defaults to 8080)
-          example: 8080
-        organizationHTTPSPort:
-          type: integer
-          format: int32
-          description: Organization HTTPS port (defaults to 8443)
-          example: 8443
-        observabilityPlaneRef:
-          $ref: '#/components/schemas/ObservabilityPlaneRef'
+          description: Namespace of the organization Gateway resource
+          example: openchoreo-data-plane
 
     # -------------------------------------------------------------------------
     # BuildPlanes
