@@ -239,6 +239,30 @@ const (
 	Succeeded WorkflowStepStatusPhase = "Succeeded"
 )
 
+// Defines values for WorkloadConnectionType.
+const (
+	Api WorkloadConnectionType = "api"
+)
+
+// Defines values for WorkloadEndpointType.
+const (
+	GRPC      WorkloadEndpointType = "gRPC"
+	GraphQL   WorkloadEndpointType = "GraphQL"
+	HTTP      WorkloadEndpointType = "HTTP"
+	REST      WorkloadEndpointType = "REST"
+	TCP       WorkloadEndpointType = "TCP"
+	UDP       WorkloadEndpointType = "UDP"
+	Websocket WorkloadEndpointType = "Websocket"
+)
+
+// Defines values for WorkloadEndpointVisibility.
+const (
+	WorkloadEndpointVisibilityExternal  WorkloadEndpointVisibility = "external"
+	WorkloadEndpointVisibilityInternal  WorkloadEndpointVisibility = "internal"
+	WorkloadEndpointVisibilityNamespace WorkloadEndpointVisibility = "namespace"
+	WorkloadEndpointVisibilityProject   WorkloadEndpointVisibility = "project"
+)
+
 // ActionCapability Capabilities for a specific action
 type ActionCapability struct {
 	// Allowed Resources where action is allowed
@@ -2744,14 +2768,134 @@ type WorkflowStepStatus struct {
 // WorkflowStepStatusPhase Step phase
 type WorkflowStepStatusPhase string
 
+// Workload Workload resource (Kubernetes object without kind/apiVersion).
+// Defines the source code, containers, endpoints and connections for a component.
+type Workload struct {
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Workload
+	Spec   *WorkloadSpec   `json:"spec,omitempty"`
+	Status *WorkloadStatus `json:"status,omitempty"`
+}
+
+// WorkloadConnection Internal API connection specification
+type WorkloadConnection struct {
+	// Inject How connection details are injected into the workload
+	Inject struct {
+		// Env Environment variables to inject
+		Env []struct {
+			// Name Environment variable name
+			Name string `json:"name"`
+
+			// Value Template value using connection properties
+			Value string `json:"value"`
+		} `json:"env"`
+	} `json:"inject"`
+
+	// Params Connection configuration parameters
+	Params *map[string]string `json:"params,omitempty"`
+
+	// Type Connection type
+	Type WorkloadConnectionType `json:"type"`
+}
+
+// WorkloadConnectionType Connection type
+type WorkloadConnectionType string
+
+// WorkloadContainer Container specification
+type WorkloadContainer struct {
+	// Args Container arguments
+	Args *[]string `json:"args,omitempty"`
+
+	// Command Container entrypoint
+	Command *[]string `json:"command,omitempty"`
+
+	// Env Environment variables
+	Env *[]EnvVar `json:"env,omitempty"`
+
+	// Files File configurations
+	Files *[]FileVar `json:"files,omitempty"`
+
+	// Image OCI image to run (digest or tag)
+	Image string `json:"image"`
+}
+
+// WorkloadEndpoint Network endpoint specification
+type WorkloadEndpoint struct {
+	// BasePath Base path of the API exposed via the endpoint
+	BasePath *string `json:"basePath,omitempty"`
+
+	// DisplayName Human-readable name for the endpoint
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Port Port exposed by the endpoint
+	Port int `json:"port"`
+
+	// Schema API definition schema
+	Schema *struct {
+		Content *string `json:"content,omitempty"`
+		Type    *string `json:"type,omitempty"`
+	} `json:"schema,omitempty"`
+
+	// TargetPort Container listening port (defaults to port)
+	TargetPort *int `json:"targetPort,omitempty"`
+
+	// Type Protocol/technology of the endpoint
+	Type WorkloadEndpointType `json:"type"`
+
+	// Visibility Additional endpoint visibilities beyond implicit project visibility
+	Visibility *[]WorkloadEndpointVisibility `json:"visibility,omitempty"`
+}
+
+// WorkloadEndpointType Protocol/technology of the endpoint
+type WorkloadEndpointType string
+
+// WorkloadEndpointVisibility defines model for WorkloadEndpoint.Visibility.
+type WorkloadEndpointVisibility string
+
+// WorkloadList Paginated list of workloads
+type WorkloadList struct {
+	Items []Workload `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
 // WorkloadOverrides Environment-specific workload overrides
 type WorkloadOverrides struct {
 	// Containers Container overrides keyed by container name
 	Containers *map[string]ContainerOverride `json:"containers,omitempty"`
 }
 
-// WorkloadSpec Workload specification (source code definition)
-type WorkloadSpec map[string]interface{}
+// WorkloadSpec Desired state of a Workload
+type WorkloadSpec struct {
+	// Connections Named connection specifications
+	Connections *map[string]WorkloadConnection `json:"connections,omitempty"`
+
+	// Container Container specification
+	Container *WorkloadContainer `json:"container,omitempty"`
+
+	// Containers Named container specifications (mutually exclusive with container)
+	Containers *map[string]WorkloadContainer `json:"containers,omitempty"`
+
+	// Endpoints Named endpoint specifications
+	Endpoints *map[string]WorkloadEndpoint `json:"endpoints,omitempty"`
+
+	// Owner Owner reference for the workload
+	Owner *struct {
+		// ComponentName Name of the owning component
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Name of the owning project
+		ProjectName string `json:"projectName"`
+	} `json:"owner,omitempty"`
+}
+
+// WorkloadStatus Observed state of a Workload
+type WorkloadStatus = map[string]interface{}
 
 // BindingNameParam defines model for BindingNameParam.
 type BindingNameParam = string
@@ -2773,6 +2917,9 @@ type ComponentEnvironmentNameParam = string
 
 // ComponentNameParam defines model for ComponentNameParam.
 type ComponentNameParam = string
+
+// ComponentQueryParam defines model for ComponentQueryParam.
+type ComponentQueryParam = string
 
 // ComponentTypeNameParam defines model for ComponentTypeNameParam.
 type ComponentTypeNameParam = string
@@ -2818,6 +2965,9 @@ type WorkflowNameParam = string
 
 // WorkflowRunNameParam defines model for WorkflowRunNameParam.
 type WorkflowRunNameParam = string
+
+// WorkloadNameParam defines model for WorkloadNameParam.
+type WorkloadNameParam = string
 
 // BadRequest Standard error response format
 type BadRequest = ErrorResponse
@@ -3035,6 +3185,19 @@ type ListWorkflowsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListWorkloadsParams defines parameters for ListWorkloads.
+type ListWorkloadsParams struct {
+	// Component Filter resources by component name
+	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // HandleBitbucketWebhookJSONBody defines parameters for HandleBitbucketWebhook.
 type HandleBitbucketWebhookJSONBody map[string]interface{}
 
@@ -3119,9 +3282,6 @@ type UpdateComponentTraitsJSONRequestBody = UpdateComponentTraitsRequest
 // UpdateComponentWorkflowParametersJSONRequestBody defines body for UpdateComponentWorkflowParameters for application/json ContentType.
 type UpdateComponentWorkflowParametersJSONRequestBody = UpdateComponentWorkflowRequest
 
-// CreateWorkloadJSONRequestBody defines body for CreateWorkload for application/json ContentType.
-type CreateWorkloadJSONRequestBody = WorkloadSpec
-
 // CreateNamespaceRoleBindingJSONRequestBody defines body for CreateNamespaceRoleBinding for application/json ContentType.
 type CreateNamespaceRoleBindingJSONRequestBody = AuthzRoleBinding
 
@@ -3142,6 +3302,12 @@ type UpdateTraitJSONRequestBody = Trait
 
 // CreateWorkflowRunJSONRequestBody defines body for CreateWorkflowRun for application/json ContentType.
 type CreateWorkflowRunJSONRequestBody = CreateWorkflowRunRequest
+
+// CreateWorkloadJSONRequestBody defines body for CreateWorkload for application/json ContentType.
+type CreateWorkloadJSONRequestBody = Workload
+
+// UpdateWorkloadJSONRequestBody defines body for UpdateWorkload for application/json ContentType.
+type UpdateWorkloadJSONRequestBody = Workload
 
 // HandleBitbucketWebhookJSONRequestBody defines body for HandleBitbucketWebhook for application/json ContentType.
 type HandleBitbucketWebhookJSONRequestBody HandleBitbucketWebhookJSONBody

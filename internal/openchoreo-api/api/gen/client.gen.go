@@ -379,14 +379,6 @@ type ClientInterface interface {
 	// GetComponentWorkflowRun request
 	GetComponentWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetWorkloads request
-	GetWorkloads(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateWorkloadWithBody request with any body
-	CreateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateWorkload(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetProjectDeploymentPipeline request
 	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -478,6 +470,25 @@ type ClientInterface interface {
 
 	// GetWorkflowSchema request
 	GetWorkflowSchema(ctx context.Context, namespaceName NamespaceNameParam, workflowName WorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListWorkloads request
+	ListWorkloads(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkloadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateWorkloadWithBody request with any body
+	CreateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateWorkload(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteWorkload request
+	DeleteWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetWorkload request
+	GetWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateWorkloadWithBody request with any body
+	UpdateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, body UpdateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUserTypes request
 	ListUserTypes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1770,42 +1781,6 @@ func (c *Client) GetComponentWorkflowRun(ctx context.Context, namespaceName Name
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetWorkloads(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetWorkloadsRequest(c.Server, namespaceName, projectName, componentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWorkloadRequestWithBody(c.Server, namespaceName, projectName, componentName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateWorkload(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateWorkloadRequest(c.Server, namespaceName, projectName, componentName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetProjectDeploymentPipelineRequest(c.Server, namespaceName, projectName)
 	if err != nil {
@@ -2192,6 +2167,90 @@ func (c *Client) ListWorkflows(ctx context.Context, namespaceName NamespaceNameP
 
 func (c *Client) GetWorkflowSchema(ctx context.Context, namespaceName NamespaceNameParam, workflowName WorkflowNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWorkflowSchemaRequest(c.Server, namespaceName, workflowName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListWorkloads(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkloadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListWorkloadsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkloadRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateWorkload(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateWorkloadRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteWorkloadRequest(c.Server, namespaceName, workloadName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetWorkloadRequest(c.Server, namespaceName, workloadName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateWorkloadWithBody(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWorkloadRequestWithBody(c.Server, namespaceName, workloadName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateWorkload(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, body UpdateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateWorkloadRequest(c.Server, namespaceName, workloadName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6251,115 +6310,6 @@ func NewGetComponentWorkflowRunRequest(server string, namespaceName NamespaceNam
 	return req, nil
 }
 
-// NewGetWorkloadsRequest generates requests for GetWorkloads
-func NewGetWorkloadsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/workloads", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateWorkloadRequest calls the generic CreateWorkload builder with application/json body
-func NewCreateWorkloadRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body CreateWorkloadJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateWorkloadRequestWithBody(server, namespaceName, projectName, componentName, "application/json", bodyReader)
-}
-
-// NewCreateWorkloadRequestWithBody generates requests for CreateWorkload with any type of body
-func NewCreateWorkloadRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/workloads", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetProjectDeploymentPipelineRequest generates requests for GetProjectDeploymentPipeline
 func NewGetProjectDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam) (*http.Request, error) {
 	var err error
@@ -7621,6 +7571,277 @@ func NewGetWorkflowSchemaRequest(server string, namespaceName NamespaceNameParam
 	return req, nil
 }
 
+// NewListWorkloadsRequest generates requests for ListWorkloads
+func NewListWorkloadsRequest(server string, namespaceName NamespaceNameParam, params *ListWorkloadsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workloads", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateWorkloadRequest calls the generic CreateWorkload builder with application/json body
+func NewCreateWorkloadRequest(server string, namespaceName NamespaceNameParam, body CreateWorkloadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateWorkloadRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateWorkloadRequestWithBody generates requests for CreateWorkload with any type of body
+func NewCreateWorkloadRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workloads", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteWorkloadRequest generates requests for DeleteWorkload
+func NewDeleteWorkloadRequest(server string, namespaceName NamespaceNameParam, workloadName WorkloadNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "workloadName", runtime.ParamLocationPath, workloadName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workloads/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetWorkloadRequest generates requests for GetWorkload
+func NewGetWorkloadRequest(server string, namespaceName NamespaceNameParam, workloadName WorkloadNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "workloadName", runtime.ParamLocationPath, workloadName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workloads/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateWorkloadRequest calls the generic UpdateWorkload builder with application/json body
+func NewUpdateWorkloadRequest(server string, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, body UpdateWorkloadJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateWorkloadRequestWithBody(server, namespaceName, workloadName, "application/json", bodyReader)
+}
+
+// NewUpdateWorkloadRequestWithBody generates requests for UpdateWorkload with any type of body
+func NewUpdateWorkloadRequestWithBody(server string, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "workloadName", runtime.ParamLocationPath, workloadName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/workloads/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListUserTypesRequest generates requests for ListUserTypes
 func NewListUserTypesRequest(server string) (*http.Request, error) {
 	var err error
@@ -8209,14 +8430,6 @@ type ClientWithResponsesInterface interface {
 	// GetComponentWorkflowRunWithResponse request
 	GetComponentWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetComponentWorkflowRunResp, error)
 
-	// GetWorkloadsWithResponse request
-	GetWorkloadsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetWorkloadsResp, error)
-
-	// CreateWorkloadWithBodyWithResponse request with any body
-	CreateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error)
-
-	CreateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error)
-
 	// GetProjectDeploymentPipelineWithResponse request
 	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
 
@@ -8308,6 +8521,25 @@ type ClientWithResponsesInterface interface {
 
 	// GetWorkflowSchemaWithResponse request
 	GetWorkflowSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workflowName WorkflowNameParam, reqEditors ...RequestEditorFn) (*GetWorkflowSchemaResp, error)
+
+	// ListWorkloadsWithResponse request
+	ListWorkloadsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkloadsParams, reqEditors ...RequestEditorFn) (*ListWorkloadsResp, error)
+
+	// CreateWorkloadWithBodyWithResponse request with any body
+	CreateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error)
+
+	CreateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error)
+
+	// DeleteWorkloadWithResponse request
+	DeleteWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*DeleteWorkloadResp, error)
+
+	// GetWorkloadWithResponse request
+	GetWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*GetWorkloadResp, error)
+
+	// UpdateWorkloadWithBodyWithResponse request with any body
+	UpdateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWorkloadResp, error)
+
+	UpdateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, body UpdateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWorkloadResp, error)
 
 	// ListUserTypesWithResponse request
 	ListUserTypesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUserTypesResp, error)
@@ -10418,59 +10650,6 @@ func (r GetComponentWorkflowRunResp) StatusCode() int {
 	return 0
 }
 
-type GetWorkloadsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *WorkloadSpec
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetWorkloadsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetWorkloadsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateWorkloadResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *WorkloadSpec
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateWorkloadResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateWorkloadResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetProjectDeploymentPipelineResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11148,6 +11327,137 @@ func (r GetWorkflowSchemaResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWorkflowSchemaResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListWorkloadsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WorkloadList
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListWorkloadsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListWorkloadsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateWorkloadResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Workload
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateWorkloadResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateWorkloadResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteWorkloadResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteWorkloadResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteWorkloadResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetWorkloadResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Workload
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetWorkloadResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetWorkloadResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateWorkloadResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Workload
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateWorkloadResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateWorkloadResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12259,32 +12569,6 @@ func (c *ClientWithResponses) GetComponentWorkflowRunWithResponse(ctx context.Co
 	return ParseGetComponentWorkflowRunResp(rsp)
 }
 
-// GetWorkloadsWithResponse request returning *GetWorkloadsResp
-func (c *ClientWithResponses) GetWorkloadsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetWorkloadsResp, error) {
-	rsp, err := c.GetWorkloads(ctx, namespaceName, projectName, componentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetWorkloadsResp(rsp)
-}
-
-// CreateWorkloadWithBodyWithResponse request with arbitrary body returning *CreateWorkloadResp
-func (c *ClientWithResponses) CreateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error) {
-	rsp, err := c.CreateWorkloadWithBody(ctx, namespaceName, projectName, componentName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateWorkloadResp(rsp)
-}
-
-func (c *ClientWithResponses) CreateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error) {
-	rsp, err := c.CreateWorkload(ctx, namespaceName, projectName, componentName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateWorkloadResp(rsp)
-}
-
 // GetProjectDeploymentPipelineWithResponse request returning *GetProjectDeploymentPipelineResp
 func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error) {
 	rsp, err := c.GetProjectDeploymentPipeline(ctx, namespaceName, projectName, reqEditors...)
@@ -12573,6 +12857,67 @@ func (c *ClientWithResponses) GetWorkflowSchemaWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetWorkflowSchemaResp(rsp)
+}
+
+// ListWorkloadsWithResponse request returning *ListWorkloadsResp
+func (c *ClientWithResponses) ListWorkloadsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListWorkloadsParams, reqEditors ...RequestEditorFn) (*ListWorkloadsResp, error) {
+	rsp, err := c.ListWorkloads(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListWorkloadsResp(rsp)
+}
+
+// CreateWorkloadWithBodyWithResponse request with arbitrary body returning *CreateWorkloadResp
+func (c *ClientWithResponses) CreateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error) {
+	rsp, err := c.CreateWorkloadWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkloadResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWorkloadResp, error) {
+	rsp, err := c.CreateWorkload(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateWorkloadResp(rsp)
+}
+
+// DeleteWorkloadWithResponse request returning *DeleteWorkloadResp
+func (c *ClientWithResponses) DeleteWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*DeleteWorkloadResp, error) {
+	rsp, err := c.DeleteWorkload(ctx, namespaceName, workloadName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteWorkloadResp(rsp)
+}
+
+// GetWorkloadWithResponse request returning *GetWorkloadResp
+func (c *ClientWithResponses) GetWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, reqEditors ...RequestEditorFn) (*GetWorkloadResp, error) {
+	rsp, err := c.GetWorkload(ctx, namespaceName, workloadName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetWorkloadResp(rsp)
+}
+
+// UpdateWorkloadWithBodyWithResponse request with arbitrary body returning *UpdateWorkloadResp
+func (c *ClientWithResponses) UpdateWorkloadWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateWorkloadResp, error) {
+	rsp, err := c.UpdateWorkloadWithBody(ctx, namespaceName, workloadName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWorkloadResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateWorkloadWithResponse(ctx context.Context, namespaceName NamespaceNameParam, workloadName WorkloadNameParam, body UpdateWorkloadJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateWorkloadResp, error) {
+	rsp, err := c.UpdateWorkload(ctx, namespaceName, workloadName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateWorkloadResp(rsp)
 }
 
 // ListUserTypesWithResponse request returning *ListUserTypesResp
@@ -16977,121 +17322,6 @@ func ParseGetComponentWorkflowRunResp(rsp *http.Response) (*GetComponentWorkflow
 	return response, nil
 }
 
-// ParseGetWorkloadsResp parses an HTTP response from a GetWorkloadsWithResponse call
-func ParseGetWorkloadsResp(rsp *http.Response) (*GetWorkloadsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetWorkloadsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest WorkloadSpec
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateWorkloadResp parses an HTTP response from a CreateWorkloadWithResponse call
-func ParseCreateWorkloadResp(rsp *http.Response) (*CreateWorkloadResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateWorkloadResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest WorkloadSpec
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetProjectDeploymentPipelineResp parses an HTTP response from a GetProjectDeploymentPipelineWithResponse call
 func ParseGetProjectDeploymentPipelineResp(rsp *http.Response) (*GetProjectDeploymentPipelineResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18511,6 +18741,283 @@ func ParseGetWorkflowSchemaResp(rsp *http.Response) (*GetWorkflowSchemaResp, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListWorkloadsResp parses an HTTP response from a ListWorkloadsWithResponse call
+func ParseListWorkloadsResp(rsp *http.Response) (*ListWorkloadsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListWorkloadsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WorkloadList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateWorkloadResp parses an HTTP response from a CreateWorkloadWithResponse call
+func ParseCreateWorkloadResp(rsp *http.Response) (*CreateWorkloadResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateWorkloadResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Workload
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteWorkloadResp parses an HTTP response from a DeleteWorkloadWithResponse call
+func ParseDeleteWorkloadResp(rsp *http.Response) (*DeleteWorkloadResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteWorkloadResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetWorkloadResp parses an HTTP response from a GetWorkloadWithResponse call
+func ParseGetWorkloadResp(rsp *http.Response) (*GetWorkloadResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetWorkloadResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Workload
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateWorkloadResp parses an HTTP response from a UpdateWorkloadWithResponse call
+func ParseUpdateWorkloadResp(rsp *http.Response) (*UpdateWorkloadResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateWorkloadResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Workload
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized

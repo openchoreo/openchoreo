@@ -3249,23 +3249,24 @@ paths:
   # Workload Endpoints
   # =============================================================================
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads:
+  /api/v1/namespaces/{namespaceName}/workloads:
     get:
-      operationId: getWorkloads
-      summary: Get component workloads
-      description: Returns the workload definition for a component.
+      operationId: listWorkloads
+      summary: List workloads
+      description: Returns a paginated list of workloads within a namespace, optionally filtered by component.
       tags: [Workloads]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
+        - $ref: '#/components/parameters/ComponentQueryParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
-          description: Workload specification
+          description: List of workloads
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkloadSpec'
+                $ref: '#/components/schemas/WorkloadList'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3277,28 +3278,103 @@ paths:
 
     post:
       operationId: createWorkload
-      summary: Create or update workload
-      description: Creates or updates the workload definition for a component.
+      summary: Create workload
+      description: Creates a new workload within a namespace.
       tags: [Workloads]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-        - $ref: '#/components/parameters/ComponentNameParam'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WorkloadSpec'
+              $ref: '#/components/schemas/Workload'
       responses:
         '201':
-          description: Workload created/updated successfully
+          description: Workload created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkloadSpec'
+                $ref: '#/components/schemas/Workload'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/workloads/{workloadName}:
+    get:
+      operationId: getWorkload
+      summary: Get workload
+      description: Returns details of a specific workload.
+      tags: [Workloads]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkloadNameParam'
+      responses:
+        '200':
+          description: Workload details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateWorkload
+      summary: Update workload
+      description: Replaces an existing workload (full update).
+      tags: [Workloads]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkloadNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Workload'
+      responses:
+        '200':
+          description: Workload updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workload'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteWorkload
+      summary: Delete workload
+      description: Deletes a workload by name.
+      tags: [Workloads]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/WorkloadNameParam'
+      responses:
+        '204':
+          description: Workload deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3393,6 +3469,24 @@ components:
       schema:
         type: string
         example: my-project
+
+    ComponentQueryParam:
+      name: component
+      in: query
+      required: false
+      description: Filter resources by component name
+      schema:
+        type: string
+        example: api-service
+
+    WorkloadNameParam:
+      name: workloadName
+      in: path
+      required: true
+      description: Workload name
+      schema:
+        type: string
+        example: api-service-workload
 
     EnvironmentNameParam:
       name: envName
@@ -7461,19 +7555,187 @@ components:
     # -------------------------------------------------------------------------
     # Workload Schemas
     # -------------------------------------------------------------------------
+    WorkloadList:
+      type: object
+      description: Paginated list of workloads
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workload'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Workload:
+      type: object
+      description: |
+        Workload resource (Kubernetes object without kind/apiVersion).
+        Defines the source code, containers, endpoints and connections for a component.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/WorkloadSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/WorkloadStatus'
+
     WorkloadSpec:
       type: object
-      description: Workload specification (source code definition)
-      additionalProperties: true
-      example:
+      description: Desired state of a Workload
+      properties:
+        owner:
+          type: object
+          description: Owner reference for the workload
+          required:
+            - projectName
+            - componentName
+          properties:
+            projectName:
+              type: string
+              description: Name of the owning project
+              example: my-project
+            componentName:
+              type: string
+              description: Name of the owning component
+              example: api-service
+        container:
+          $ref: '#/components/schemas/WorkloadContainer'
         containers:
-          main:
-            image: registry.example.com/my-namespace/api:v1.0.0
-            ports:
-              - containerPort: 8080
+          type: object
+          description: Named container specifications (mutually exclusive with container)
+          additionalProperties:
+            $ref: '#/components/schemas/WorkloadContainer'
         endpoints:
-          - name: http
-            port: 8080
+          type: object
+          description: Named endpoint specifications
+          additionalProperties:
+            $ref: '#/components/schemas/WorkloadEndpoint'
+        connections:
+          type: object
+          description: Named connection specifications
+          additionalProperties:
+            $ref: '#/components/schemas/WorkloadConnection'
+
+    WorkloadStatus:
+      type: object
+      description: Observed state of a Workload
+
+    WorkloadContainer:
+      type: object
+      description: Container specification
+      required:
+        - image
+      properties:
+        image:
+          type: string
+          description: OCI image to run (digest or tag)
+          example: registry.example.com/my-namespace/api:v1.0.0
+        command:
+          type: array
+          description: Container entrypoint
+          items:
+            type: string
+        args:
+          type: array
+          description: Container arguments
+          items:
+            type: string
+        env:
+          type: array
+          description: Environment variables
+          items:
+            $ref: '#/components/schemas/EnvVar'
+        files:
+          type: array
+          description: File configurations
+          items:
+            $ref: '#/components/schemas/FileVar'
+
+    WorkloadEndpoint:
+      type: object
+      description: Network endpoint specification
+      required:
+        - type
+        - port
+      properties:
+        visibility:
+          type: array
+          description: Additional endpoint visibilities beyond implicit project visibility
+          items:
+            type: string
+            enum: [project, namespace, internal, external]
+        type:
+          type: string
+          description: Protocol/technology of the endpoint
+          enum: [HTTP, REST, gRPC, GraphQL, Websocket, TCP, UDP]
+        port:
+          type: integer
+          description: Port exposed by the endpoint
+          minimum: 1
+          maximum: 65535
+        targetPort:
+          type: integer
+          description: Container listening port (defaults to port)
+          minimum: 1
+          maximum: 65535
+        displayName:
+          type: string
+          description: Human-readable name for the endpoint
+        basePath:
+          type: string
+          description: Base path of the API exposed via the endpoint
+        schema:
+          type: object
+          description: API definition schema
+          properties:
+            type:
+              type: string
+            content:
+              type: string
+
+    WorkloadConnection:
+      type: object
+      description: Internal API connection specification
+      required:
+        - type
+        - inject
+      properties:
+        type:
+          type: string
+          description: Connection type
+          enum: [api]
+        params:
+          type: object
+          description: Connection configuration parameters
+          additionalProperties:
+            type: string
+        inject:
+          type: object
+          description: How connection details are injected into the workload
+          required:
+            - env
+          properties:
+            env:
+              type: array
+              description: Environment variables to inject
+              items:
+                type: object
+                required:
+                  - name
+                  - value
+                properties:
+                  name:
+                    type: string
+                    description: Environment variable name
+                  value:
+                    type: string
+                    description: Template value using connection properties
 
     # -------------------------------------------------------------------------
     # Deployment Pipeline Schemas

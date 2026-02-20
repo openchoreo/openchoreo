@@ -20,6 +20,7 @@ import (
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
+	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
 
 // errNotImplemented is returned for stub methods that are not yet implemented.
@@ -39,6 +40,7 @@ type Handler struct {
 	componentTypeService     componenttypesvc.Service
 	environmentService       environmentsvc.Service
 	traitService             traitsvc.Service
+	workloadService          workloadsvc.Service
 	logger                   *slog.Logger
 	Config                   *config.Config
 }
@@ -47,7 +49,7 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                 services,
 		authzService:             authzService,
@@ -60,6 +62,7 @@ func New(services *services.Services, authzService authzsvc.Service, projectServ
 		componentTypeService:     componentTypeService,
 		environmentService:       environmentService,
 		traitService:             traitService,
+		workloadService:          workloadService,
 		logger:                   logger,
 		Config:                   cfg,
 	}
