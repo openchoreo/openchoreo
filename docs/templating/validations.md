@@ -90,7 +90,7 @@ metadata:
 spec:
   schema:
     parameters:
-      endpointName: "string | required=true"
+      endpointName: "string"
     envOverrides:
       maxConnectionsPerPod: "integer | default=1000"
   validations:

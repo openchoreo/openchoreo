@@ -209,7 +209,7 @@ spec:
                       Parameters are developer-facing configuration options.
                       This is a nested map structure where keys are field names and values
                       are either nested maps or type definition strings.
-                      Type definition format: "type | default=value | required=true | enum=val1,val2"
+                      Type definition format: "type | default=value | enum=val1,val2"
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                   types:

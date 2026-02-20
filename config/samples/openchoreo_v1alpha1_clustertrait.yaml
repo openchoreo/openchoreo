@@ -8,8 +8,8 @@ metadata:
 spec:
   schema:
     parameters:
-      volumeName: "string | required=true"
-      mountPath: "string | required=true"
+      volumeName: "string"
+      mountPath: "string"
       containerName: "string | default=app"
 
     envOverrides:

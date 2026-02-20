@@ -102,7 +102,7 @@ type ComponentTypeSchema struct {
 	// Parameters are static across environments and exposed as inputs to developers
 	// when creating a Component of this type. This is a nested map structure where
 	// keys are field names and values are either nested maps or type definition strings.
-	// Type definition format: "type | default=value | required=true | enum=val1,val2"
+	// Type definition format: "type | default=value | enum=val1,val2"
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Type=object
