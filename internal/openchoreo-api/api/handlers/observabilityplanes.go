@@ -24,6 +24,9 @@ func (h *Handler) ListObservabilityPlanes(
 
 	result, err := h.observabilityPlaneService.ListObservabilityPlanes(ctx, request.NamespaceName, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListObservabilityPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list observability planes", "error", err)
 		return gen.ListObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
