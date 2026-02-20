@@ -340,12 +340,10 @@ func splitRawPath(path string) []string {
 }
 
 // appendPointer creates a new pointer slice with an additional segment.
-// This preserves immutability of the original pointer.
+// This preserves immutability of the original pointer by using a three-index
+// slice expression to force a new backing array allocation.
 func appendPointer(base []string, segment string) []string {
-	next := make([]string, len(base)+1)
-	copy(next, base)
-	next[len(base)] = segment
-	return next
+	return append(base[:len(base):len(base)], segment)
 }
 
 // buildJSONPointer converts pointer segments into a proper RFC 6901 JSON Pointer string.
