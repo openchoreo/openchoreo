@@ -2,7 +2,7 @@
 # Uses k3d image import for loading locally-built images
 
 # Configuration
-K3D_CLUSTER_NAME ?= openchoreo-dev
+K3D_CLUSTER_NAME ?= openchoreo
 OPENCHOREO_IMAGE_TAG := latest-dev
 
 # Namespaces for each plane
