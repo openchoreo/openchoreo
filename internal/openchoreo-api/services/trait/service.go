@@ -8,13 +8,17 @@ import (
 	"fmt"
 	"log/slog"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/schema"
+	"github.com/openchoreo/openchoreo/internal/schema/extractor"
 )
 
 // traitService handles trait business logic without authorization checks.
@@ -184,6 +188,49 @@ func (s *traitService) DeleteTrait(ctx context.Context, namespaceName, traitName
 
 	s.logger.Debug("Trait deleted successfully", "namespace", namespaceName, "trait", traitName)
 	return nil
+}
+
+func (s *traitService) GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*extv1.JSONSchemaProps, error) {
+	s.logger.Debug("Getting trait schema", "namespace", namespaceName, "trait", traitName)
+
+	t, err := s.GetTrait(ctx, namespaceName, traitName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract types from RawExtension
+	var types map[string]any
+	if t.Spec.Schema.Types != nil && t.Spec.Schema.Types.Raw != nil {
+		if err := yaml.Unmarshal(t.Spec.Schema.Types.Raw, &types); err != nil {
+			return nil, fmt.Errorf("failed to extract types: %w", err)
+		}
+	}
+
+	// Build schema definition
+	def := schema.Definition{
+		Types: types,
+		Options: extractor.Options{
+			SkipDefaultValidation: true,
+		},
+	}
+
+	// Extract parameters schema from RawExtension
+	if t.Spec.Schema.Parameters != nil && t.Spec.Schema.Parameters.Raw != nil {
+		var params map[string]any
+		if err := yaml.Unmarshal(t.Spec.Schema.Parameters.Raw, &params); err != nil {
+			return nil, fmt.Errorf("failed to extract parameters: %w", err)
+		}
+		def.Schemas = []map[string]any{params}
+	}
+
+	// Convert to JSON Schema
+	jsonSchema, err := schema.ToJSONSchema(def)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to JSON schema: %w", err)
+	}
+
+	s.logger.Debug("Retrieved trait schema successfully", "namespace", namespaceName, "trait", traitName)
+	return jsonSchema, nil
 }
 
 func (s *traitService) traitExists(ctx context.Context, namespaceName, traitName string) (bool, error) {

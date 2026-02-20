@@ -6,6 +6,8 @@ package trait
 import (
 	"context"
 
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -17,4 +19,5 @@ type Service interface {
 	ListTraits(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.Trait], error)
 	GetTrait(ctx context.Context, namespaceName, traitName string) (*openchoreov1alpha1.Trait, error)
 	DeleteTrait(ctx context.Context, namespaceName, traitName string) error
+	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*extv1.JSONSchemaProps, error)
 }
