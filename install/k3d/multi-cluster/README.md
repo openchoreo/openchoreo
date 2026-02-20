@@ -52,14 +52,13 @@ kubectl --context k3d-openchoreo-cp wait --for=condition=Available deployment/ce
 
 # kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-  --kube-context k3d-openchoreo-cp \
-  --version v2.1.1
+  --create-namespace --namespace openchoreo-control-plane --kube-context k3d-openchoreo-cp \
+  --version v2.2.1
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo-cp \
-  --namespace openchoreo-control-plane \
-  --create-namespace \
-  --version v2.1.1
+  --namespace openchoreo-control-plane --create-namespace --kube-context k3d-openchoreo-cp \
+  --version v2.2.1 \
+  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 ```
 
 ### Thunder (Identity Provider)
@@ -104,16 +103,6 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
 ```bash
 kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
-```
-
-### Gateway Patch
-
-Workaround for envoy `/tmp` crash ([kgateway#9800](https://github.com/kgateway-dev/kgateway/issues/9800)).
-
-```bash
-kubectl --context k3d-openchoreo-cp patch deployment gateway-default \
-  -n openchoreo-control-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 ## 2. Install Default Resources
@@ -163,14 +152,13 @@ kubectl --context k3d-openchoreo-dp wait --for=condition=Available deployment/ex
 
 # kgateway
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-  --kube-context k3d-openchoreo-dp \
-  --version v2.1.1
+  --create-namespace --namespace openchoreo-data-plane --kube-context k3d-openchoreo-dp \
+  --version v2.2.1
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --kube-context k3d-openchoreo-dp \
-  --namespace openchoreo-data-plane \
-  --create-namespace \
-  --version v2.1.1
+  --namespace openchoreo-data-plane --create-namespace --kube-context k3d-openchoreo-dp \
+  --version v2.2.1 \
+  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 ```
 
 ### CoreDNS Rewrite and Certificates
@@ -233,14 +221,6 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
 ```bash
 kubectl --context k3d-openchoreo-dp wait -n openchoreo-data-plane \
   --for=condition=available --timeout=300s deployment --all
-```
-
-### Gateway Patch
-
-```bash
-kubectl --context k3d-openchoreo-dp patch deployment gateway-default \
-  -n openchoreo-data-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 ### Register Data Plane
@@ -406,6 +386,17 @@ docker exec k3d-openchoreo-op-server-0 sh -c \
 kubectl apply --context k3d-openchoreo-op --server-side \
   -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
 
+# Install kgateway
+helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+  --create-namespace --namespace openchoreo-observability-plane --kube-context k3d-openchoreo-op \
+  --version v2.2.1
+
+helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+  --namespace openchoreo-observability-plane --create-namespace --kube-context k3d-openchoreo-op \
+  --version v2.2.1 \
+  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
+
+# Install Cert Manager (required for TLS certificates)
 # cert-manager
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
   --kube-context k3d-openchoreo-op \
@@ -494,14 +485,6 @@ Install the required logs, metrics and tracing modules. Refer https://openchoreo
 ```bash
 kubectl --context k3d-openchoreo-op wait -n openchoreo-observability-plane \
   --for=condition=available --timeout=600s deployment --all
-```
-
-### Gateway Patch
-
-```bash
-kubectl --context k3d-openchoreo-op patch deployment gateway-default \
-  -n openchoreo-observability-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 ### Register Observability Plane
