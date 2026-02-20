@@ -695,52 +695,16 @@ type ClusterComponentTypeList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ClusterDataPlane Cluster-scoped DataPlane resource for workload deployment
+// ClusterDataPlane ClusterDataPlane resource (Kubernetes object without kind/apiVersion).
+// Represents a cluster-scoped data plane for workload deployment.
 type ClusterDataPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description ClusterDataPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// ImagePullSecretRefs References to image pull secrets
-	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
-
-	// Name ClusterDataPlane name (unique cluster-wide)
-	Name string `json:"name"`
-
-	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
-	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// OrganizationHTTPPort Organization HTTP port
-	OrganizationHTTPPort int32 `json:"organizationHTTPPort"`
-
-	// OrganizationHTTPSPort Organization HTTPS port
-	OrganizationHTTPSPort int32 `json:"organizationHTTPSPort"`
-
-	// OrganizationVirtualHost Organization virtual host for internal traffic
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-
-	// PlaneID Logical plane identifier for the physical cluster
-	PlaneID string `json:"planeID"`
-
-	// PublicHTTPPort Public HTTP port
-	PublicHTTPPort int32 `json:"publicHTTPPort"`
-
-	// PublicHTTPSPort Public HTTPS port
-	PublicHTTPSPort int32 `json:"publicHTTPSPort"`
-
-	// PublicVirtualHost Public virtual host for external traffic
-	PublicVirtualHost string `json:"publicVirtualHost"`
-
-	// SecretStoreRef Reference to the secret store for external secrets
-	SecretStoreRef *string `json:"secretStoreRef,omitempty"`
-
-	// Status ClusterDataPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a ClusterDataPlane
+	Spec   *ClusterDataPlaneSpec   `json:"spec,omitempty"`
+	Status *ClusterDataPlaneStatus `json:"status,omitempty"`
 }
 
 // ClusterDataPlaneList Paginated list of cluster-scoped data planes
@@ -749,7 +713,41 @@ type ClusterDataPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// ClusterDataPlaneSpec Desired state of a ClusterDataPlane
+type ClusterDataPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// Gateway Gateway configuration for a data plane
+	Gateway *GatewaySpec `json:"gateway,omitempty"`
+
+	// ImagePullSecretRefs References to SecretReference resources for image pulling
+	ImagePullSecretRefs *[]string `json:"imagePullSecretRefs,omitempty"`
+
+	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
+	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple ClusterDataPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
+	SecretStoreRef *SecretStoreRef `json:"secretStoreRef,omitempty"`
+}
+
+// ClusterDataPlaneStatus Observed state of a ClusterDataPlane
+type ClusterDataPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the ClusterDataPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ClusterDataPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ClusterObservabilityPlane Cluster-scoped ObservabilityPlane resource for monitoring and logging
@@ -1261,45 +1259,6 @@ type ConditionStatus string
 type ContainerOverride struct {
 	Env   *[]EnvVar  `json:"env,omitempty"`
 	Files *[]FileVar `json:"files,omitempty"`
-}
-
-// CreateClusterDataPlaneRequest Request to create a new cluster-scoped data plane
-type CreateClusterDataPlaneRequest struct {
-	// ClusterAgentClientCA CA certificate for cluster agent client authentication (PEM format)
-	ClusterAgentClientCA string `json:"clusterAgentClientCA"`
-
-	// Description ClusterDataPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ClusterDataPlane name (must be unique cluster-wide)
-	Name string `json:"name"`
-
-	// ObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
-	ObservabilityPlaneRef *ClusterObservabilityPlaneRef `json:"observabilityPlaneRef,omitempty"`
-
-	// OrganizationHTTPPort Organization HTTP port (defaults to 8080)
-	OrganizationHTTPPort *int32 `json:"organizationHTTPPort,omitempty"`
-
-	// OrganizationHTTPSPort Organization HTTPS port (defaults to 8443)
-	OrganizationHTTPSPort *int32 `json:"organizationHTTPSPort,omitempty"`
-
-	// OrganizationVirtualHost Organization virtual host for internal traffic
-	OrganizationVirtualHost string `json:"organizationVirtualHost"`
-
-	// PlaneID Logical plane identifier for the physical cluster
-	PlaneID string `json:"planeID"`
-
-	// PublicHTTPPort Public HTTP port (defaults to 80)
-	PublicHTTPPort *int32 `json:"publicHTTPPort,omitempty"`
-
-	// PublicHTTPSPort Public HTTPS port (defaults to 443)
-	PublicHTTPSPort *int32 `json:"publicHTTPSPort,omitempty"`
-
-	// PublicVirtualHost Public virtual host for external traffic
-	PublicVirtualHost string `json:"publicVirtualHost"`
 }
 
 // CreateClusterRoleBindingRequest Request to create a cluster-scoped role binding (legacy)
@@ -3056,7 +3015,7 @@ type BatchEvaluateJSONRequestBody = BatchEvaluateRequest
 type EvaluateJSONRequestBody = EvaluateRequest
 
 // CreateClusterDataPlaneJSONRequestBody defines body for CreateClusterDataPlane for application/json ContentType.
-type CreateClusterDataPlaneJSONRequestBody = CreateClusterDataPlaneRequest
+type CreateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 
 // CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
 type CreateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding

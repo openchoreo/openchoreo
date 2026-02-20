@@ -804,7 +804,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateClusterDataPlaneRequest'
+              $ref: '#/components/schemas/ClusterDataPlane'
       responses:
         '201':
           description: ClusterDataPlane created successfully
@@ -4779,7 +4779,6 @@ components:
       description: Paginated list of cluster-scoped data planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4790,152 +4789,61 @@ components:
 
     ClusterDataPlane:
       type: object
-      description: Cluster-scoped DataPlane resource for workload deployment
+      description: |
+        ClusterDataPlane resource (Kubernetes object without kind/apiVersion).
+        Represents a cluster-scoped data plane for workload deployment.
       required:
-        - name
-        - planeID
-        - publicVirtualHost
-        - organizationVirtualHost
-        - publicHTTPPort
-        - publicHTTPSPort
-        - organizationHTTPPort
-        - organizationHTTPSPort
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ClusterDataPlane name (unique cluster-wide)
-          example: shared-dataplane
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterDataPlaneSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterDataPlaneStatus'
+
+    ClusterDataPlaneSpec:
+      type: object
+      description: Desired state of a ClusterDataPlane
+      properties:
         planeID:
           type: string
-          description: Logical plane identifier for the physical cluster
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple ClusterDataPlane CRs can share the same planeID.
           example: us-west-prod-cluster
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Shared Data Plane
-        description:
-          type: string
-          description: ClusterDataPlane description
-          example: Shared data plane for production workloads
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
+        gateway:
+          $ref: '#/components/schemas/GatewaySpec'
         imagePullSecretRefs:
           type: array
-          description: References to image pull secrets
+          description: References to SecretReference resources for image pulling
           items:
             type: string
           example: ["docker-registry-secret"]
         secretStoreRef:
-          type: string
-          description: Reference to the secret store for external secrets
-          example: vault-secret-store
-        publicVirtualHost:
-          type: string
-          description: Public virtual host for external traffic
-          example: apps.example.com
-        organizationVirtualHost:
-          type: string
-          description: Organization virtual host for internal traffic
-          example: internal.example.com
-        publicHTTPPort:
-          type: integer
-          format: int32
-          description: Public HTTP port
-          example: 80
-        publicHTTPSPort:
-          type: integer
-          format: int32
-          description: Public HTTPS port
-          example: 443
-        organizationHTTPPort:
-          type: integer
-          format: int32
-          description: Organization HTTP port
-          example: 8080
-        organizationHTTPSPort:
-          type: integer
-          format: int32
-          description: Organization HTTPS port
-          example: 8443
+          $ref: '#/components/schemas/SecretStoreRef'
         observabilityPlaneRef:
           $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: ClusterDataPlane status
-          example: Ready
 
-    CreateClusterDataPlaneRequest:
+    ClusterDataPlaneStatus:
       type: object
-      description: Request to create a new cluster-scoped data plane
-      required:
-        - name
-        - planeID
-        - clusterAgentClientCA
-        - publicVirtualHost
-        - organizationVirtualHost
+      description: Observed state of a ClusterDataPlane
       properties:
-        name:
-          type: string
-          description: ClusterDataPlane name (must be unique cluster-wide)
-          example: shared-dataplane
-          minLength: 1
-          maxLength: 63
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        planeID:
-          type: string
-          description: Logical plane identifier for the physical cluster
-          example: us-west-prod-cluster
-          minLength: 1
-          maxLength: 63
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Shared Data Plane
-          maxLength: 256
-        description:
-          type: string
-          description: ClusterDataPlane description
-          example: Shared data plane for production workloads
-          maxLength: 1024
-        clusterAgentClientCA:
-          type: string
-          description: CA certificate for cluster agent client authentication (PEM format)
-          example: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
-        publicVirtualHost:
-          type: string
-          description: Public virtual host for external traffic
-          example: apps.example.com
-        organizationVirtualHost:
-          type: string
-          description: Organization virtual host for internal traffic
-          example: internal.example.com
-        publicHTTPPort:
+        observedGeneration:
           type: integer
-          format: int32
-          description: Public HTTP port (defaults to 80)
-          example: 80
-        publicHTTPSPort:
-          type: integer
-          format: int32
-          description: Public HTTPS port (defaults to 443)
-          example: 443
-        organizationHTTPPort:
-          type: integer
-          format: int32
-          description: Organization HTTP port (defaults to 8080)
-          example: 8080
-        organizationHTTPSPort:
-          type: integer
-          format: int32
-          description: Organization HTTPS port (defaults to 8443)
-          example: 8443
-        observabilityPlaneRef:
-          $ref: '#/components/schemas/ClusterObservabilityPlaneRef'
+          format: int64
+          description: Generation of the most recently observed ClusterDataPlane
+        conditions:
+          type: array
+          description: Current state conditions of the ClusterDataPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
 
     # -------------------------------------------------------------------------
     # ClusterBuildPlanes (Cluster-Scoped)
