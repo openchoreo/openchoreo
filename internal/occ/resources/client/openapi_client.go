@@ -557,21 +557,3 @@ func (c *Client) GetEnvironmentObserverURL(ctx context.Context, namespaceName, e
 	}
 	return *resp.JSON200.ObserverUrl, nil
 }
-
-// GetComponentObserverURL retrieves the observer URL for a component in an environment
-func (c *Client) GetComponentObserverURL(ctx context.Context, namespaceName, projectName, componentName, envName string) (string, error) {
-	resp, err := c.client.GetComponentObserverURLWithResponse(ctx, namespaceName, projectName, componentName, envName)
-	if err != nil {
-		return "", fmt.Errorf("failed to get component observer URL for component %s/%s/%s in environment %s: %w",
-			namespaceName, projectName, componentName, envName, err)
-	}
-	if resp.JSON200 == nil {
-		return "", fmt.Errorf("unexpected response status %d for component %s/%s/%s in environment %s",
-			resp.StatusCode(), namespaceName, projectName, componentName, envName)
-	}
-	if resp.JSON200.ObserverUrl == nil {
-		return "", fmt.Errorf("observer URL not configured for component %s/%s/%s in environment %s",
-			namespaceName, projectName, componentName, envName)
-	}
-	return *resp.JSON200.ObserverUrl, nil
-}

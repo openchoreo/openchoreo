@@ -95,11 +95,6 @@ type ClientInterface interface {
 	// GetOpenIDConfiguration request
 	GetOpenIDConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ApplyResourceWithBody request with any body
-	ApplyResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ApplyResource(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListActions request
 	ListActions(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -214,11 +209,6 @@ type ClientInterface interface {
 
 	// GetClusterTraitSchema request
 	GetClusterTraitSchema(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteResourceWithBody request with any body
-	DeleteResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeleteResource(ctx context.Context, body DeleteResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNamespaces request
 	ListNamespaces(ctx context.Context, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -358,33 +348,11 @@ type ClientInterface interface {
 
 	UpdateProject(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListComponentBindings request
-	ListComponentBindings(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateComponentBindingWithBody request with any body
-	UpdateComponentBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateComponentBinding(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetComponentObserverURL request
-	GetComponentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetReleaseResourceTree request
 	GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetBuildObserverURL request
-	GetBuildObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetComponentSchema request
 	GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListComponentTraits request
-	ListComponentTraits(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateComponentTraitsWithBody request with any body
-	UpdateComponentTraitsWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateComponentTraits(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentTraitsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateComponentWorkflowParametersWithBody request with any body
 	UpdateComponentWorkflowParametersWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -597,30 +565,6 @@ func (c *Client) GetOAuthProtectedResourceMetadata(ctx context.Context, reqEdito
 
 func (c *Client) GetOpenIDConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOpenIDConfigurationRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ApplyResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplyResourceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ApplyResource(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewApplyResourceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1125,30 +1069,6 @@ func (c *Client) UpdateClusterTrait(ctx context.Context, clusterTraitName Cluste
 
 func (c *Client) GetClusterTraitSchema(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetClusterTraitSchemaRequest(c.Server, clusterTraitName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteResourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteResourceRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) DeleteResource(ctx context.Context, body DeleteResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteResourceRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1759,54 +1679,6 @@ func (c *Client) UpdateProject(ctx context.Context, namespaceName NamespaceNameP
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListComponentBindings(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentBindingsRequest(c.Server, namespaceName, projectName, componentName, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateComponentBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateComponentBindingRequestWithBody(c.Server, namespaceName, projectName, componentName, bindingName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateComponentBinding(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateComponentBindingRequest(c.Server, namespaceName, projectName, componentName, bindingName, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetComponentObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetComponentObserverURLRequest(c.Server, namespaceName, projectName, componentName, environmentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReleaseResourceTreeRequest(c.Server, namespaceName, projectName, componentName, environmentName)
 	if err != nil {
@@ -1819,56 +1691,8 @@ func (c *Client) GetReleaseResourceTree(ctx context.Context, namespaceName Names
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetBuildObserverURL(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetBuildObserverURLRequest(c.Server, namespaceName, projectName, componentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *Client) GetComponentSchema(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetComponentSchemaRequest(c.Server, namespaceName, projectName, componentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListComponentTraits(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListComponentTraitsRequest(c.Server, namespaceName, projectName, componentName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateComponentTraitsWithBody(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateComponentTraitsRequestWithBody(c.Server, namespaceName, projectName, componentName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateComponentTraits(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentTraitsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateComponentTraitsRequest(c.Server, namespaceName, projectName, componentName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2781,46 +2605,6 @@ func NewGetOpenIDConfigurationRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewApplyResourceRequest calls the generic ApplyResource builder with application/json body
-func NewApplyResourceRequest(server string, body ApplyResourceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewApplyResourceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewApplyResourceRequestWithBody generates requests for ApplyResource with any type of body
-func NewApplyResourceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/apply")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4150,46 +3934,6 @@ func NewGetClusterTraitSchemaRequest(server string, clusterTraitName ClusterTrai
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewDeleteResourceRequest calls the generic DeleteResource builder with application/json body
-func NewDeleteResourceRequest(server string, body DeleteResourceJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeleteResourceRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeleteResourceRequestWithBody generates requests for DeleteResource with any type of body
-func NewDeleteResourceRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/delete")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6187,199 +5931,6 @@ func NewUpdateProjectRequestWithBody(server string, namespaceName NamespaceNameP
 	return req, nil
 }
 
-// NewListComponentBindingsRequest generates requests for ListComponentBindings
-func NewListComponentBindingsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/bindings", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Environment != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "environment", runtime.ParamLocationQuery, *params.Environment); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateComponentBindingRequest calls the generic UpdateComponentBinding builder with application/json body
-func NewUpdateComponentBindingRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateComponentBindingRequestWithBody(server, namespaceName, projectName, componentName, bindingName, "application/json", bodyReader)
-}
-
-// NewUpdateComponentBindingRequestWithBody generates requests for UpdateComponentBinding with any type of body
-func NewUpdateComponentBindingRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "bindingName", runtime.ParamLocationPath, bindingName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/bindings/%s", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PATCH", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetComponentObserverURLRequest generates requests for GetComponentObserverURL
-func NewGetComponentObserverURLRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam3 string
-
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "environmentName", runtime.ParamLocationPath, environmentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/observer-url", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewGetReleaseResourceTreeRequest generates requests for GetReleaseResourceTree
 func NewGetReleaseResourceTreeRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam) (*http.Request, error) {
 	var err error
@@ -6418,54 +5969,6 @@ func NewGetReleaseResourceTreeRequest(server string, namespaceName NamespaceName
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/environments/%s/release/resources", pathParam0, pathParam1, pathParam2, pathParam3)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetBuildObserverURLRequest generates requests for GetBuildObserverURL
-func NewGetBuildObserverURLRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/observer-url", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -6527,115 +6030,6 @@ func NewGetComponentSchemaRequest(server string, namespaceName NamespaceNamePara
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewListComponentTraitsRequest generates requests for ListComponentTraits
-func NewListComponentTraitsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/traits", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewUpdateComponentTraitsRequest calls the generic UpdateComponentTraits builder with application/json body
-func NewUpdateComponentTraitsRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentTraitsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateComponentTraitsRequestWithBody(server, namespaceName, projectName, componentName, "application/json", bodyReader)
-}
-
-// NewUpdateComponentTraitsRequestWithBody generates requests for UpdateComponentTraits with any type of body
-func NewUpdateComponentTraitsRequestWithBody(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam2 string
-
-	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "componentName", runtime.ParamLocationPath, componentName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/components/%s/traits", pathParam0, pathParam1, pathParam2)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9385,11 +8779,6 @@ type ClientWithResponsesInterface interface {
 	// GetOpenIDConfigurationWithResponse request
 	GetOpenIDConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOpenIDConfigurationResp, error)
 
-	// ApplyResourceWithBodyWithResponse request with any body
-	ApplyResourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyResourceResp, error)
-
-	ApplyResourceWithResponse(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyResourceResp, error)
-
 	// ListActionsWithResponse request
 	ListActionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListActionsResp, error)
 
@@ -9504,11 +8893,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetClusterTraitSchemaWithResponse request
 	GetClusterTraitSchemaWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitSchemaResp, error)
-
-	// DeleteResourceWithBodyWithResponse request with any body
-	DeleteResourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error)
-
-	DeleteResourceWithResponse(ctx context.Context, body DeleteResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error)
 
 	// ListNamespacesWithResponse request
 	ListNamespacesWithResponse(ctx context.Context, params *ListNamespacesParams, reqEditors ...RequestEditorFn) (*ListNamespacesResp, error)
@@ -9648,33 +9032,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateProjectWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, body UpdateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProjectResp, error)
 
-	// ListComponentBindingsWithResponse request
-	ListComponentBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*ListComponentBindingsResp, error)
-
-	// UpdateComponentBindingWithBodyWithResponse request with any body
-	UpdateComponentBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentBindingResp, error)
-
-	UpdateComponentBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentBindingResp, error)
-
-	// GetComponentObserverURLWithResponse request
-	GetComponentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetComponentObserverURLResp, error)
-
 	// GetReleaseResourceTreeWithResponse request
 	GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error)
 
-	// GetBuildObserverURLWithResponse request
-	GetBuildObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetBuildObserverURLResp, error)
-
 	// GetComponentSchemaWithResponse request
 	GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error)
-
-	// ListComponentTraitsWithResponse request
-	ListComponentTraitsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*ListComponentTraitsResp, error)
-
-	// UpdateComponentTraitsWithBodyWithResponse request with any body
-	UpdateComponentTraitsWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentTraitsResp, error)
-
-	UpdateComponentTraitsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentTraitsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentTraitsResp, error)
 
 	// UpdateComponentWorkflowParametersWithBodyWithResponse request with any body
 	UpdateComponentWorkflowParametersWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentWorkflowParametersResp, error)
@@ -9911,32 +9273,6 @@ func (r GetOpenIDConfigurationResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetOpenIDConfigurationResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ApplyResourceResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ApplyResourceResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ApplyResourceResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ApplyResourceResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10745,32 +10081,6 @@ func (r GetClusterTraitSchemaResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetClusterTraitSchemaResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteResourceResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeleteResourceResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteResourceResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteResourceResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11770,85 +11080,6 @@ func (r UpdateProjectResp) StatusCode() int {
 	return 0
 }
 
-type ListComponentBindingsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *BindingList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListComponentBindingsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentBindingsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateComponentBindingResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Binding
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateComponentBindingResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateComponentBindingResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetComponentObserverURLResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ObserverURLResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetComponentObserverURLResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetComponentObserverURLResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetReleaseResourceTreeResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11875,32 +11106,6 @@ func (r GetReleaseResourceTreeResp) StatusCode() int {
 	return 0
 }
 
-type GetBuildObserverURLResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ObserverURLResponse
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetBuildObserverURLResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetBuildObserverURLResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetComponentSchemaResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11921,59 +11126,6 @@ func (r GetComponentSchemaResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetComponentSchemaResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListComponentTraitsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ComponentTraitList
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r ListComponentTraitsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListComponentTraitsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateComponentTraitsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ComponentTraitList
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateComponentTraitsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateComponentTraitsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12674,7 +11826,6 @@ type UpdateSecretReferenceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
-	JSON409      *Conflict
 	JSON500      *InternalError
 }
 
@@ -13391,23 +12542,6 @@ func (c *ClientWithResponses) GetOpenIDConfigurationWithResponse(ctx context.Con
 	return ParseGetOpenIDConfigurationResp(rsp)
 }
 
-// ApplyResourceWithBodyWithResponse request with arbitrary body returning *ApplyResourceResp
-func (c *ClientWithResponses) ApplyResourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyResourceResp, error) {
-	rsp, err := c.ApplyResourceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseApplyResourceResp(rsp)
-}
-
-func (c *ClientWithResponses) ApplyResourceWithResponse(ctx context.Context, body ApplyResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyResourceResp, error) {
-	rsp, err := c.ApplyResource(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseApplyResourceResp(rsp)
-}
-
 // ListActionsWithResponse request returning *ListActionsResp
 func (c *ClientWithResponses) ListActionsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListActionsResp, error) {
 	rsp, err := c.ListActions(ctx, reqEditors...)
@@ -13773,23 +12907,6 @@ func (c *ClientWithResponses) GetClusterTraitSchemaWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseGetClusterTraitSchemaResp(rsp)
-}
-
-// DeleteResourceWithBodyWithResponse request with arbitrary body returning *DeleteResourceResp
-func (c *ClientWithResponses) DeleteResourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error) {
-	rsp, err := c.DeleteResourceWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteResourceResp(rsp)
-}
-
-func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, body DeleteResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error) {
-	rsp, err := c.DeleteResource(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteResourceResp(rsp)
 }
 
 // ListNamespacesWithResponse request returning *ListNamespacesResp
@@ -14230,41 +13347,6 @@ func (c *ClientWithResponses) UpdateProjectWithResponse(ctx context.Context, nam
 	return ParseUpdateProjectResp(rsp)
 }
 
-// ListComponentBindingsWithResponse request returning *ListComponentBindingsResp
-func (c *ClientWithResponses) ListComponentBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, params *ListComponentBindingsParams, reqEditors ...RequestEditorFn) (*ListComponentBindingsResp, error) {
-	rsp, err := c.ListComponentBindings(ctx, namespaceName, projectName, componentName, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListComponentBindingsResp(rsp)
-}
-
-// UpdateComponentBindingWithBodyWithResponse request with arbitrary body returning *UpdateComponentBindingResp
-func (c *ClientWithResponses) UpdateComponentBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentBindingResp, error) {
-	rsp, err := c.UpdateComponentBindingWithBody(ctx, namespaceName, projectName, componentName, bindingName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateComponentBindingResp(rsp)
-}
-
-func (c *ClientWithResponses) UpdateComponentBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, bindingName BindingNameParam, body UpdateComponentBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentBindingResp, error) {
-	rsp, err := c.UpdateComponentBinding(ctx, namespaceName, projectName, componentName, bindingName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateComponentBindingResp(rsp)
-}
-
-// GetComponentObserverURLWithResponse request returning *GetComponentObserverURLResp
-func (c *ClientWithResponses) GetComponentObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetComponentObserverURLResp, error) {
-	rsp, err := c.GetComponentObserverURL(ctx, namespaceName, projectName, componentName, environmentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetComponentObserverURLResp(rsp)
-}
-
 // GetReleaseResourceTreeWithResponse request returning *GetReleaseResourceTreeResp
 func (c *ClientWithResponses) GetReleaseResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, environmentName ComponentEnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetReleaseResourceTreeResp, error) {
 	rsp, err := c.GetReleaseResourceTree(ctx, namespaceName, projectName, componentName, environmentName, reqEditors...)
@@ -14274,15 +13356,6 @@ func (c *ClientWithResponses) GetReleaseResourceTreeWithResponse(ctx context.Con
 	return ParseGetReleaseResourceTreeResp(rsp)
 }
 
-// GetBuildObserverURLWithResponse request returning *GetBuildObserverURLResp
-func (c *ClientWithResponses) GetBuildObserverURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetBuildObserverURLResp, error) {
-	rsp, err := c.GetBuildObserverURL(ctx, namespaceName, projectName, componentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetBuildObserverURLResp(rsp)
-}
-
 // GetComponentSchemaWithResponse request returning *GetComponentSchemaResp
 func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*GetComponentSchemaResp, error) {
 	rsp, err := c.GetComponentSchema(ctx, namespaceName, projectName, componentName, reqEditors...)
@@ -14290,32 +13363,6 @@ func (c *ClientWithResponses) GetComponentSchemaWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseGetComponentSchemaResp(rsp)
-}
-
-// ListComponentTraitsWithResponse request returning *ListComponentTraitsResp
-func (c *ClientWithResponses) ListComponentTraitsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, reqEditors ...RequestEditorFn) (*ListComponentTraitsResp, error) {
-	rsp, err := c.ListComponentTraits(ctx, namespaceName, projectName, componentName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListComponentTraitsResp(rsp)
-}
-
-// UpdateComponentTraitsWithBodyWithResponse request with arbitrary body returning *UpdateComponentTraitsResp
-func (c *ClientWithResponses) UpdateComponentTraitsWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateComponentTraitsResp, error) {
-	rsp, err := c.UpdateComponentTraitsWithBody(ctx, namespaceName, projectName, componentName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateComponentTraitsResp(rsp)
-}
-
-func (c *ClientWithResponses) UpdateComponentTraitsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, body UpdateComponentTraitsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateComponentTraitsResp, error) {
-	rsp, err := c.UpdateComponentTraits(ctx, namespaceName, projectName, componentName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateComponentTraitsResp(rsp)
 }
 
 // UpdateComponentWorkflowParametersWithBodyWithResponse request with arbitrary body returning *UpdateComponentWorkflowParametersResp
@@ -14986,60 +14033,6 @@ func ParseGetOpenIDConfigurationResp(rsp *http.Response) (*GetOpenIDConfiguratio
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseApplyResourceResp parses an HTTP response from a ApplyResourceWithResponse call
-func ParseApplyResourceResp(rsp *http.Response) (*ApplyResourceResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ApplyResourceResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ApplyResourceResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 
@@ -16721,60 +15714,6 @@ func ParseGetClusterTraitSchemaResp(rsp *http.Response) (*GetClusterTraitSchemaR
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteResourceResp parses an HTTP response from a DeleteResourceWithResponse call
-func ParseDeleteResourceResp(rsp *http.Response) (*DeleteResourceResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteResourceResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeleteResourceResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -18875,175 +17814,6 @@ func ParseUpdateProjectResp(rsp *http.Response) (*UpdateProjectResp, error) {
 	return response, nil
 }
 
-// ParseListComponentBindingsResp parses an HTTP response from a ListComponentBindingsWithResponse call
-func ParseListComponentBindingsResp(rsp *http.Response) (*ListComponentBindingsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListComponentBindingsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest BindingList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateComponentBindingResp parses an HTTP response from a UpdateComponentBindingWithResponse call
-func ParseUpdateComponentBindingResp(rsp *http.Response) (*UpdateComponentBindingResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateComponentBindingResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Binding
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetComponentObserverURLResp parses an HTTP response from a GetComponentObserverURLWithResponse call
-func ParseGetComponentObserverURLResp(rsp *http.Response) (*GetComponentObserverURLResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetComponentObserverURLResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ObserverURLResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetReleaseResourceTreeResp parses an HTTP response from a GetReleaseResourceTreeWithResponse call
 func ParseGetReleaseResourceTreeResp(rsp *http.Response) (*GetReleaseResourceTreeResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -19060,60 +17830,6 @@ func ParseGetReleaseResourceTreeResp(rsp *http.Response) (*GetReleaseResourceTre
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ResourceTreeResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetBuildObserverURLResp parses an HTTP response from a GetBuildObserverURLWithResponse call
-func ParseGetBuildObserverURLResp(rsp *http.Response) (*GetBuildObserverURLResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetBuildObserverURLResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ObserverURLResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -19172,121 +17888,6 @@ func ParseGetComponentSchemaResp(rsp *http.Response) (*GetComponentSchemaResp, e
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListComponentTraitsResp parses an HTTP response from a ListComponentTraitsWithResponse call
-func ParseListComponentTraitsResp(rsp *http.Response) (*ListComponentTraitsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListComponentTraitsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ComponentTraitList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateComponentTraitsResp parses an HTTP response from a UpdateComponentTraitsWithResponse call
-func ParseUpdateComponentTraitsResp(rsp *http.Response) (*UpdateComponentTraitsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateComponentTraitsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ComponentTraitList
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
@@ -20843,13 +19444,6 @@ func ParseUpdateSecretReferenceResp(rsp *http.Response) (*UpdateSecretReferenceR
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest Conflict
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

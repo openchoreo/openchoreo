@@ -376,38 +376,6 @@ func (h *Handler) GetComponentSchema(
 	return nil, errNotImplemented
 }
 
-// ListComponentTraits returns the traits attached to a component
-func (h *Handler) ListComponentTraits(
-	ctx context.Context,
-	request gen.ListComponentTraitsRequestObject,
-) (gen.ListComponentTraitsResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// UpdateComponentTraits replaces the traits attached to a component
-func (h *Handler) UpdateComponentTraits(
-	ctx context.Context,
-	request gen.UpdateComponentTraitsRequestObject,
-) (gen.UpdateComponentTraitsResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// ListComponentBindings returns deployment bindings for a component
-func (h *Handler) ListComponentBindings(
-	ctx context.Context,
-	request gen.ListComponentBindingsRequestObject,
-) (gen.ListComponentBindingsResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// UpdateComponentBinding updates a component's deployment binding
-func (h *Handler) UpdateComponentBinding(
-	ctx context.Context,
-	request gen.UpdateComponentBindingRequestObject,
-) (gen.UpdateComponentBindingResponseObject, error) {
-	return nil, errNotImplemented
-}
-
 // GetReleaseResourceTree returns all live Kubernetes resources deployed by the active release
 func (h *Handler) GetReleaseResourceTree(
 	ctx context.Context,
@@ -605,22 +573,6 @@ func (h *Handler) GenerateRelease(
 	}
 
 	return gen.GenerateRelease201JSONResponse(genRelease), nil
-}
-
-// GetComponentObserverURL returns the observer URL for component logs and metrics
-func (h *Handler) GetComponentObserverURL(
-	ctx context.Context,
-	request gen.GetComponentObserverURLRequestObject,
-) (gen.GetComponentObserverURLResponseObject, error) {
-	return nil, errNotImplemented
-}
-
-// GetBuildObserverURL returns the observer URL for component build logs
-func (h *Handler) GetBuildObserverURL(
-	ctx context.Context,
-	request gen.GetBuildObserverURLRequestObject,
-) (gen.GetBuildObserverURLResponseObject, error) {
-	return nil, errNotImplemented
 }
 
 // Converter functions
