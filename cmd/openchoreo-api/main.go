@@ -36,10 +36,12 @@ import (
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
+	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
+	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
@@ -176,6 +178,9 @@ func main() {
 	// Initialize cluster data plane service for the new K8s-native API design
 	clusterDataPlaneService := clusterdataplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterdataplane-service"))
 
+	// Initialize cluster observability plane service for the new K8s-native API design
+	clusterObservabilityPlaneService := clusterobservabilityplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "clusterobservabilityplane-service"))
+
 	// Initialize data plane service for the new K8s-native API design
 	dataPlaneService := dataplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "dataplane-service"))
 
@@ -188,6 +193,9 @@ func main() {
 	// Initialize environment service for the new K8s-native API design
 	environmentService := environmentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "environment-service"))
 
+	// Initialize observability plane service for the new K8s-native API design
+	observabilityPlaneService := observabilityplanesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "observabilityplane-service"))
+
 	// Initialize trait service for the new K8s-native API design
 	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
 
@@ -198,7 +206,7 @@ func main() {
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterDataPlaneService, dataPlaneService, componentService, componentTypeService, environmentService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterDataPlaneService, clusterObservabilityPlaneService, dataPlaneService, componentService, componentTypeService, environmentService, observabilityPlaneService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

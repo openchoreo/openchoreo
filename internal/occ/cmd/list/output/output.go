@@ -174,9 +174,13 @@ func PrintObservabilityPlanes(list *gen.ObservabilityPlaneList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, op := range list.Items {
+		age := ""
+		if op.Metadata.CreationTimestamp != nil {
+			age = formatAge(*op.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			op.Name,
-			formatAge(op.CreatedAt))
+			op.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()

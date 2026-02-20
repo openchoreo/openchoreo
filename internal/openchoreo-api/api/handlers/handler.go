@@ -14,10 +14,12 @@ import (
 	buildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/buildplane"
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
+	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
+	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
@@ -29,41 +31,45 @@ var errNotImplemented = errors.New("not implemented")
 
 // Handler implements gen.StrictServerInterface
 type Handler struct {
-	services                 *services.Services
-	authzService             authzsvc.Service
-	projectService           projectsvc.Service
-	buildPlaneService        buildplanesvc.Service
-	clusterBuildPlaneService clusterbuildplanesvc.Service
-	clusterDataPlaneService  clusterdataplanesvc.Service
-	dataPlaneService         dataplanesvc.Service
-	componentService         componentsvc.Service
-	componentTypeService     componenttypesvc.Service
-	environmentService       environmentsvc.Service
-	traitService             traitsvc.Service
-	workloadService          workloadsvc.Service
-	logger                   *slog.Logger
-	Config                   *config.Config
+	services                         *services.Services
+	authzService                     authzsvc.Service
+	projectService                   projectsvc.Service
+	buildPlaneService                buildplanesvc.Service
+	clusterBuildPlaneService         clusterbuildplanesvc.Service
+	clusterDataPlaneService          clusterdataplanesvc.Service
+	clusterObservabilityPlaneService clusterobservabilityplanesvc.Service
+	dataPlaneService                 dataplanesvc.Service
+	componentService                 componentsvc.Service
+	componentTypeService             componenttypesvc.Service
+	environmentService               environmentsvc.Service
+	observabilityPlaneService        observabilityplanesvc.Service
+	traitService                     traitsvc.Service
+	workloadService                  workloadsvc.Service
+	logger                           *slog.Logger
+	Config                           *config.Config
 }
 
 // Compile-time check that Handler implements StrictServerInterface
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityPlaneService observabilityplanesvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
-		services:                 services,
-		authzService:             authzService,
-		projectService:           projectService,
-		buildPlaneService:        buildPlaneService,
-		clusterBuildPlaneService: clusterBuildPlaneService,
-		clusterDataPlaneService:  clusterDataPlaneService,
-		dataPlaneService:         dataPlaneService,
-		componentService:         componentService,
-		componentTypeService:     componentTypeService,
-		environmentService:       environmentService,
-		traitService:             traitService,
-		workloadService:          workloadService,
-		logger:                   logger,
-		Config:                   cfg,
+		services:                         services,
+		authzService:                     authzService,
+		projectService:                   projectService,
+		buildPlaneService:                buildPlaneService,
+		clusterBuildPlaneService:         clusterBuildPlaneService,
+		clusterDataPlaneService:          clusterDataPlaneService,
+		clusterObservabilityPlaneService: clusterObservabilityPlaneService,
+		dataPlaneService:                 dataPlaneService,
+		componentService:                 componentService,
+		componentTypeService:             componentTypeService,
+		environmentService:               environmentService,
+		observabilityPlaneService:        observabilityPlaneService,
+		traitService:                     traitService,
+		workloadService:                  workloadService,
+		logger:                           logger,
+		Config:                           cfg,
 	}
 }

@@ -774,31 +774,16 @@ type ClusterDataPlaneStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
-// ClusterObservabilityPlane Cluster-scoped ObservabilityPlane resource for monitoring and logging
+// ClusterObservabilityPlane ClusterObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+// Represents cluster-scoped monitoring and logging infrastructure.
 type ClusterObservabilityPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description ClusterObservabilityPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ClusterObservabilityPlane name (unique cluster-wide)
-	Name string `json:"name"`
-
-	// ObserverURL Base URL of the Observer API
-	ObserverURL *string `json:"observerURL,omitempty"`
-
-	// PlaneID Logical plane identifier for the physical cluster
-	PlaneID string `json:"planeID"`
-
-	// RcaAgentURL Base URL of the RCA Agent API
-	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
-
-	// Status ClusterObservabilityPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a ClusterObservabilityPlane
+	Spec   *ClusterObservabilityPlaneSpec   `json:"spec,omitempty"`
+	Status *ClusterObservabilityPlaneStatus `json:"status,omitempty"`
 }
 
 // ClusterObservabilityPlaneList List of cluster-scoped observability planes
@@ -807,7 +792,7 @@ type ClusterObservabilityPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // ClusterObservabilityPlaneRef Reference to a ClusterObservabilityPlane (cluster-scoped only)
@@ -821,6 +806,34 @@ type ClusterObservabilityPlaneRef struct {
 
 // ClusterObservabilityPlaneRefKind Kind of observability plane (only ClusterObservabilityPlane allowed)
 type ClusterObservabilityPlaneRefKind string
+
+// ClusterObservabilityPlaneSpec Desired state of a ClusterObservabilityPlane
+type ClusterObservabilityPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObserverURL Base URL of the Observer API in the observability plane cluster
+	ObserverURL *string `json:"observerURL,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple ClusterObservabilityPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
+	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+}
+
+// ClusterObservabilityPlaneStatus Observed state of a ClusterObservabilityPlane
+type ClusterObservabilityPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the ClusterObservabilityPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ClusterObservabilityPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
 
 // ClusterRoleRef Reference to a cluster role by name only (legacy)
 type ClusterRoleRef struct {
@@ -1860,25 +1873,16 @@ type ObjectMeta struct {
 	Uid *string `json:"uid,omitempty"`
 }
 
-// ObservabilityPlane ObservabilityPlane resource for monitoring and logging infrastructure
+// ObservabilityPlane ObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+// Represents monitoring and logging infrastructure within a namespace.
 type ObservabilityPlane struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Description ObservabilityPlane description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name ObservabilityPlane name (unique within namespace)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the observability plane
-	Namespace string `json:"namespace"`
-
-	// Status ObservabilityPlane status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of an ObservabilityPlane
+	Spec   *ObservabilityPlaneSpec   `json:"spec,omitempty"`
+	Status *ObservabilityPlaneStatus `json:"status,omitempty"`
 }
 
 // ObservabilityPlaneList Paginated list of observability planes
@@ -1887,7 +1891,7 @@ type ObservabilityPlaneList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
 // ObservabilityPlaneRef Reference to an ObservabilityPlane or ClusterObservabilityPlane
@@ -1901,6 +1905,34 @@ type ObservabilityPlaneRef struct {
 
 // ObservabilityPlaneRefKind Kind of observability plane (ObservabilityPlane or ClusterObservabilityPlane)
 type ObservabilityPlaneRefKind string
+
+// ObservabilityPlaneSpec Desired state of an ObservabilityPlane
+type ObservabilityPlaneSpec struct {
+	// ClusterAgent Configuration for cluster agent-based communication
+	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// ObserverURL Base URL of the Observer API in the observability plane cluster
+	ObserverURL *string `json:"observerURL,omitempty"`
+
+	// PlaneID Logical plane identifier for the physical cluster.
+	// Multiple ObservabilityPlane CRs can share the same planeID.
+	PlaneID *string `json:"planeID,omitempty"`
+
+	// RcaAgentURL Base URL of the RCA Agent API in the observability plane cluster
+	RcaAgentURL *string `json:"rcaAgentURL,omitempty"`
+}
+
+// ObservabilityPlaneStatus Observed state of an ObservabilityPlane
+type ObservabilityPlaneStatus struct {
+	// AgentConnection Status of cluster agent connections
+	AgentConnection *AgentConnectionStatus `json:"agentConnection,omitempty"`
+
+	// Conditions Current state conditions of the ObservabilityPlane
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed ObservabilityPlane
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
 
 // ObserverURLResponse Observer URL response for accessing logs and metrics
 type ObserverURLResponse struct {
@@ -2909,6 +2941,9 @@ type ClusterComponentTypeNameParam = string
 // ClusterDataPlaneNameParam defines model for ClusterDataPlaneNameParam.
 type ClusterDataPlaneNameParam = string
 
+// ClusterObservabilityPlaneNameParam defines model for ClusterObservabilityPlaneNameParam.
+type ClusterObservabilityPlaneNameParam = string
+
 // ClusterTraitNameParam defines model for ClusterTraitNameParam.
 type ClusterTraitNameParam = string
 
@@ -2944,6 +2979,9 @@ type MappingIdParam = int64
 
 // NamespaceNameParam defines model for NamespaceNameParam.
 type NamespaceNameParam = string
+
+// ObservabilityPlaneNameParam defines model for ObservabilityPlaneNameParam.
+type ObservabilityPlaneNameParam = string
 
 // ProjectNameParam defines model for ProjectNameParam.
 type ProjectNameParam = string
@@ -3019,6 +3057,16 @@ type ListClusterDataPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
+type ListClusterObservabilityPlanesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListNamespacesParams defines parameters for ListNamespaces.
 type ListNamespacesParams struct {
 	// Limit Maximum number of items to return per page
@@ -3084,6 +3132,16 @@ type ListDataPlanesParams struct {
 
 // ListEnvironmentsParams defines parameters for ListEnvironments.
 type ListEnvironmentsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListObservabilityPlanesParams defines parameters for ListObservabilityPlanes.
+type ListObservabilityPlanesParams struct {
 	// Limit Maximum number of items to return per page
 	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
 

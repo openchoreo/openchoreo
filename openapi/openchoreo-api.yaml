@@ -747,10 +747,12 @@ paths:
     get:
       operationId: listObservabilityPlanes
       summary: List observability planes
-      description: Returns a list of observability planes within an namespace.
+      description: Returns a paginated list of observability planes within a namespace.
       tags: [ObservabilityPlanes]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of observability planes
@@ -762,6 +764,31 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/observabilityplanes/{observabilityPlaneName}:
+    get:
+      operationId: getObservabilityPlane
+      summary: Get observability plane
+      description: Returns details of a specific observability plane.
+      tags: [ObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityPlaneNameParam'
+      responses:
+        '200':
+          description: Observability plane details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -911,8 +938,11 @@ paths:
     get:
       operationId: listClusterObservabilityPlanes
       summary: List cluster observability planes
-      description: Returns a list of cluster-scoped observability planes.
+      description: Returns a paginated list of cluster-scoped observability planes.
       tags: [ClusterObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster observability planes
@@ -924,6 +954,30 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterobservabilityplanes/{clusterObservabilityPlaneName}:
+    get:
+      operationId: getClusterObservabilityPlane
+      summary: Get a cluster observability plane
+      description: Returns details of a specific cluster-scoped observability plane.
+      tags: [ClusterObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterObservabilityPlaneNameParam'
+      responses:
+        '200':
+          description: Cluster observability plane details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterObservabilityPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -3524,6 +3578,24 @@ components:
         type: string
         example: shared-dataplane
 
+    ObservabilityPlaneNameParam:
+      name: observabilityPlaneName
+      in: path
+      required: true
+      description: ObservabilityPlane name
+      schema:
+        type: string
+        example: default-observability
+
+    ClusterObservabilityPlaneNameParam:
+      name: clusterObservabilityPlaneName
+      in: path
+      required: true
+      description: ClusterObservabilityPlane name
+      schema:
+        type: string
+        example: shared-observability
+
     ComponentTypeNameParam:
       name: ctName
       in: path
@@ -4896,7 +4968,6 @@ components:
       description: Paginated list of observability planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4907,37 +4978,57 @@ components:
 
     ObservabilityPlane:
       type: object
-      description: ObservabilityPlane resource for monitoring and logging infrastructure
+      description: |
+        ObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+        Represents monitoring and logging infrastructure within a namespace.
       required:
-        - name
-        - namespace
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ObservabilityPlane name (unique within namespace)
-          example: default-observability
-        namespace:
-          type: string
-          description: Kubernetes namespace for the observability plane
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Default Observability Plane
-        description:
-          type: string
-          description: ObservabilityPlane description
-          example: Central observability plane for logs and metrics
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ObservabilityPlaneSpec'
         status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ObservabilityPlaneStatus'
+
+    ObservabilityPlaneSpec:
+      type: object
+      description: Desired state of an ObservabilityPlane
+      properties:
+        planeID:
           type: string
-          description: ObservabilityPlane status
-          example: Ready
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple ObservabilityPlane CRs can share the same planeID.
+          example: shared-obs
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
+        observerURL:
+          type: string
+          description: Base URL of the Observer API in the observability plane cluster
+          example: http://observer.observability-plane.svc:8080
+        rcaAgentURL:
+          type: string
+          description: Base URL of the RCA Agent API in the observability plane cluster
+          example: http://rca-agent.observability-plane.svc:8080
+
+    ObservabilityPlaneStatus:
+      type: object
+      description: Observed state of an ObservabilityPlane
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed ObservabilityPlane
+        conditions:
+          type: array
+          description: Current state conditions of the ObservabilityPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
 
     # -------------------------------------------------------------------------
     # ClusterDataPlanes (Cluster-Scoped)
@@ -5110,7 +5201,6 @@ components:
       description: List of cluster-scoped observability planes
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5121,45 +5211,57 @@ components:
 
     ClusterObservabilityPlane:
       type: object
-      description: Cluster-scoped ObservabilityPlane resource for monitoring and logging
+      description: |
+        ClusterObservabilityPlane resource (Kubernetes object without kind/apiVersion).
+        Represents cluster-scoped monitoring and logging infrastructure.
       required:
-        - name
-        - planeID
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ClusterObservabilityPlane name (unique cluster-wide)
-          example: shared-observability
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterObservabilityPlaneSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterObservabilityPlaneStatus'
+
+    ClusterObservabilityPlaneSpec:
+      type: object
+      description: Desired state of a ClusterObservabilityPlane
+      properties:
         planeID:
           type: string
-          description: Logical plane identifier for the physical cluster
+          description: |
+            Logical plane identifier for the physical cluster.
+            Multiple ClusterObservabilityPlane CRs can share the same planeID.
           example: monitoring-cluster
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Shared Observability Plane
-        description:
-          type: string
-          description: ClusterObservabilityPlane description
-          example: Central observability plane for logs and metrics
+        clusterAgent:
+          $ref: '#/components/schemas/ClusterAgentConfig'
         observerURL:
           type: string
-          description: Base URL of the Observer API
+          description: Base URL of the Observer API in the observability plane cluster
           example: http://observer.observability-plane.svc:8080
         rcaAgentURL:
           type: string
-          description: Base URL of the RCA Agent API
+          description: Base URL of the RCA Agent API in the observability plane cluster
           example: http://rca-agent.observability-plane.svc:8080
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: ClusterObservabilityPlane status
-          example: Ready
+
+    ClusterObservabilityPlaneStatus:
+      type: object
+      description: Observed state of a ClusterObservabilityPlane
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed ClusterObservabilityPlane
+        conditions:
+          type: array
+          description: Current state conditions of the ClusterObservabilityPlane
+          items:
+            $ref: '#/components/schemas/Condition'
+        agentConnection:
+          $ref: '#/components/schemas/AgentConnectionStatus'
 
     # -------------------------------------------------------------------------
     # ClusterComponentTypes

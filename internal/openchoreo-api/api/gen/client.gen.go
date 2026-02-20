@@ -140,7 +140,10 @@ type ClientInterface interface {
 	GetClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListClusterObservabilityPlanes request
-	ListClusterObservabilityPlanes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListClusterObservabilityPlanes(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterObservabilityPlane request
+	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListClusterRoleBindings request
 	ListClusterRoleBindings(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -299,7 +302,10 @@ type ClientInterface interface {
 	GetRCAAgentURL(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListObservabilityPlanes request
-	ListObservabilityPlanes(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListObservabilityPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetObservabilityPlane request
+	GetObservabilityPlane(ctx context.Context, namespaceName NamespaceNameParam, observabilityPlaneName ObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
 	ListProjects(ctx context.Context, namespaceName NamespaceNameParam, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -737,8 +743,20 @@ func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName ClusterDataPla
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListClusterObservabilityPlanes(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListClusterObservabilityPlanesRequest(c.Server)
+func (c *Client) ListClusterObservabilityPlanes(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterObservabilityPlanesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterObservabilityPlaneRequest(c.Server, clusterObservabilityPlaneName)
 	if err != nil {
 		return nil, err
 	}
@@ -1433,8 +1451,20 @@ func (c *Client) GetRCAAgentURL(ctx context.Context, namespaceName NamespaceName
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListObservabilityPlanesRequest(c.Server, namespaceName)
+func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListObservabilityPlanesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetObservabilityPlane(ctx context.Context, namespaceName NamespaceNameParam, observabilityPlaneName ObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetObservabilityPlaneRequest(c.Server, namespaceName, observabilityPlaneName)
 	if err != nil {
 		return nil, err
 	}
@@ -2975,7 +3005,7 @@ func NewGetClusterDataPlaneRequest(server string, cdpName ClusterDataPlaneNamePa
 }
 
 // NewListClusterObservabilityPlanesRequest generates requests for ListClusterObservabilityPlanes
-func NewListClusterObservabilityPlanesRequest(server string) (*http.Request, error) {
+func NewListClusterObservabilityPlanesRequest(server string, params *ListClusterObservabilityPlanesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2984,6 +3014,78 @@ func NewListClusterObservabilityPlanesRequest(server string) (*http.Request, err
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/clusterobservabilityplanes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterObservabilityPlaneRequest generates requests for GetClusterObservabilityPlane
+func NewGetClusterObservabilityPlaneRequest(server string, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterObservabilityPlaneName", runtime.ParamLocationPath, clusterObservabilityPlaneName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterobservabilityplanes/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -4963,7 +5065,7 @@ func NewGetRCAAgentURLRequest(server string, namespaceName NamespaceNameParam, e
 }
 
 // NewListObservabilityPlanesRequest generates requests for ListObservabilityPlanes
-func NewListObservabilityPlanesRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
+func NewListObservabilityPlanesRequest(server string, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4979,6 +5081,85 @@ func NewListObservabilityPlanesRequest(server string, namespaceName NamespaceNam
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityplanes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetObservabilityPlaneRequest generates requests for GetObservabilityPlane
+func NewGetObservabilityPlaneRequest(server string, namespaceName NamespaceNameParam, observabilityPlaneName ObservabilityPlaneNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "observabilityPlaneName", runtime.ParamLocationPath, observabilityPlaneName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/observabilityplanes/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -8191,7 +8372,10 @@ type ClientWithResponsesInterface interface {
 	GetClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetClusterDataPlaneResp, error)
 
 	// ListClusterObservabilityPlanesWithResponse request
-	ListClusterObservabilityPlanesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
+	ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
+
+	// GetClusterObservabilityPlaneWithResponse request
+	GetClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*GetClusterObservabilityPlaneResp, error)
 
 	// ListClusterRoleBindingsWithResponse request
 	ListClusterRoleBindingsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterRoleBindingsResp, error)
@@ -8350,7 +8534,10 @@ type ClientWithResponsesInterface interface {
 	GetRCAAgentURLWithResponse(ctx context.Context, namespaceName NamespaceNameParam, envName EnvironmentNameParam, reqEditors ...RequestEditorFn) (*GetRCAAgentURLResp, error)
 
 	// ListObservabilityPlanesWithResponse request
-	ListObservabilityPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListObservabilityPlanesResp, error)
+	ListObservabilityPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListObservabilityPlanesResp, error)
+
+	// GetObservabilityPlaneWithResponse request
+	GetObservabilityPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityPlaneName ObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*GetObservabilityPlaneResp, error)
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListProjectsParams, reqEditors ...RequestEditorFn) (*ListProjectsResp, error)
@@ -8943,6 +9130,32 @@ func (r ListClusterObservabilityPlanesResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListClusterObservabilityPlanesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterObservabilityPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterObservabilityPlane
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterObservabilityPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterObservabilityPlaneResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -10065,6 +10278,32 @@ func (r ListObservabilityPlanesResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListObservabilityPlanesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetObservabilityPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ObservabilityPlane
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetObservabilityPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetObservabilityPlaneResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11808,12 +12047,21 @@ func (c *ClientWithResponses) GetClusterDataPlaneWithResponse(ctx context.Contex
 }
 
 // ListClusterObservabilityPlanesWithResponse request returning *ListClusterObservabilityPlanesResp
-func (c *ClientWithResponses) ListClusterObservabilityPlanesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error) {
-	rsp, err := c.ListClusterObservabilityPlanes(ctx, reqEditors...)
+func (c *ClientWithResponses) ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error) {
+	rsp, err := c.ListClusterObservabilityPlanes(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListClusterObservabilityPlanesResp(rsp)
+}
+
+// GetClusterObservabilityPlaneWithResponse request returning *GetClusterObservabilityPlaneResp
+func (c *ClientWithResponses) GetClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*GetClusterObservabilityPlaneResp, error) {
+	rsp, err := c.GetClusterObservabilityPlane(ctx, clusterObservabilityPlaneName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterObservabilityPlaneResp(rsp)
 }
 
 // ListClusterRoleBindingsWithResponse request returning *ListClusterRoleBindingsResp
@@ -12315,12 +12563,21 @@ func (c *ClientWithResponses) GetRCAAgentURLWithResponse(ctx context.Context, na
 }
 
 // ListObservabilityPlanesWithResponse request returning *ListObservabilityPlanesResp
-func (c *ClientWithResponses) ListObservabilityPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListObservabilityPlanesResp, error) {
-	rsp, err := c.ListObservabilityPlanes(ctx, namespaceName, reqEditors...)
+func (c *ClientWithResponses) ListObservabilityPlanesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListObservabilityPlanesResp, error) {
+	rsp, err := c.ListObservabilityPlanes(ctx, namespaceName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListObservabilityPlanesResp(rsp)
+}
+
+// GetObservabilityPlaneWithResponse request returning *GetObservabilityPlaneResp
+func (c *ClientWithResponses) GetObservabilityPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, observabilityPlaneName ObservabilityPlaneNameParam, reqEditors ...RequestEditorFn) (*GetObservabilityPlaneResp, error) {
+	rsp, err := c.GetObservabilityPlane(ctx, namespaceName, observabilityPlaneName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetObservabilityPlaneResp(rsp)
 }
 
 // ListProjectsWithResponse request returning *ListProjectsResp
@@ -13722,6 +13979,60 @@ func ParseListClusterObservabilityPlanesResp(rsp *http.Response) (*ListClusterOb
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterObservabilityPlaneResp parses an HTTP response from a GetClusterObservabilityPlaneWithResponse call
+func ParseGetClusterObservabilityPlaneResp(rsp *http.Response) (*GetClusterObservabilityPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterObservabilityPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterObservabilityPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -16072,6 +16383,60 @@ func ParseListObservabilityPlanesResp(rsp *http.Response) (*ListObservabilityPla
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetObservabilityPlaneResp parses an HTTP response from a GetObservabilityPlaneWithResponse call
+func ParseGetObservabilityPlaneResp(rsp *http.Response) (*GetObservabilityPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetObservabilityPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ObservabilityPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

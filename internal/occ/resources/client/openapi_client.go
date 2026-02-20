@@ -159,7 +159,7 @@ func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string) (*ge
 
 // ListObservabilityPlanes retrieves all observability planes for a namespace
 func (c *Client) ListObservabilityPlanes(ctx context.Context, namespaceName string) (*gen.ObservabilityPlaneList, error) {
-	resp, err := c.client.ListObservabilityPlanesWithResponse(ctx, namespaceName)
+	resp, err := c.client.ListObservabilityPlanesWithResponse(ctx, namespaceName, &gen.ListObservabilityPlanesParams{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list observability planes: %w", err)
 	}

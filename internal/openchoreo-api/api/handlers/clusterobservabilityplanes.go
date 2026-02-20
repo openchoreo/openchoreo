@@ -5,52 +5,65 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
 )
 
-// ListClusterObservabilityPlanes returns a list of cluster-scoped observability planes
+// ListClusterObservabilityPlanes returns a paginated list of cluster-scoped observability planes.
 func (h *Handler) ListClusterObservabilityPlanes(
 	ctx context.Context,
 	request gen.ListClusterObservabilityPlanesRequestObject,
 ) (gen.ListClusterObservabilityPlanesResponseObject, error) {
 	h.logger.Debug("ListClusterObservabilityPlanes called")
 
-	observabilityPlanes, err := h.services.ClusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.clusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
 	if err != nil {
 		h.logger.Error("Failed to list cluster observability planes", "error", err)
 		return gen.ListClusterObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	items := make([]gen.ClusterObservabilityPlane, 0, len(observabilityPlanes))
-	for _, op := range observabilityPlanes {
-		items = append(items, toGenClusterObservabilityPlane(&op))
+	items, err := convertList[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster observability planes", "error", err)
+		return gen.ListClusterObservabilityPlanes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
 	return gen.ListClusterObservabilityPlanes200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// toGenClusterObservabilityPlane converts models.ClusterObservabilityPlaneResponse to gen.ClusterObservabilityPlane
-func toGenClusterObservabilityPlane(op *models.ClusterObservabilityPlaneResponse) gen.ClusterObservabilityPlane {
-	result := gen.ClusterObservabilityPlane{
-		Name:        op.Name,
-		PlaneID:     op.PlaneID,
-		DisplayName: ptr.To(op.DisplayName),
-		Description: ptr.To(op.Description),
-		CreatedAt:   op.CreatedAt,
-		Status:      ptr.To(op.Status),
+// GetClusterObservabilityPlane returns details of a specific cluster-scoped observability plane.
+func (h *Handler) GetClusterObservabilityPlane(
+	ctx context.Context,
+	request gen.GetClusterObservabilityPlaneRequestObject,
+) (gen.GetClusterObservabilityPlaneResponseObject, error) {
+	h.logger.Debug("GetClusterObservabilityPlane called", "clusterObservabilityPlaneName", request.ClusterObservabilityPlaneName)
+
+	cop, err := h.clusterObservabilityPlaneService.GetClusterObservabilityPlane(ctx, request.ClusterObservabilityPlaneName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetClusterObservabilityPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterobservabilityplanesvc.ErrClusterObservabilityPlaneNotFound) {
+			return gen.GetClusterObservabilityPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterObservabilityPlane")}, nil
+		}
+		h.logger.Error("Failed to get cluster observability plane", "error", err)
+		return gen.GetClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	if op.ObserverURL != "" {
-		result.ObserverURL = ptr.To(op.ObserverURL)
+
+	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*cop)
+	if err != nil {
+		h.logger.Error("Failed to convert cluster observability plane", "error", err)
+		return gen.GetClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	if op.RCAAgentURL != "" {
-		result.RcaAgentURL = ptr.To(op.RCAAgentURL)
-	}
-	return result
+
+	return gen.GetClusterObservabilityPlane200JSONResponse(genCOP), nil
 }
