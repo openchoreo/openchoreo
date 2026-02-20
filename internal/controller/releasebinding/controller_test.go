@@ -88,9 +88,7 @@ func crFixture(name, project, component string) *openchoreov1alpha1.ComponentRel
 			},
 			// WorkloadTemplateSpec requires exactly one of container or containers.
 			Workload: openchoreov1alpha1.WorkloadTemplateSpec{
-				Containers: map[string]openchoreov1alpha1.Container{
-					"app": {Image: "nginx:latest"},
-				},
+				Container: openchoreov1alpha1.Container{Image: "nginx:latest"},
 			},
 		},
 	}
