@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -117,12 +115,6 @@ const (
 	CreateClusterRoleBindingRequestEffectDeny  CreateClusterRoleBindingRequestEffect = "deny"
 )
 
-// Defines values for CreateEnvironmentRequestDataPlaneRefKind.
-const (
-	CreateEnvironmentRequestDataPlaneRefKindClusterDataPlane CreateEnvironmentRequestDataPlaneRefKind = "ClusterDataPlane"
-	CreateEnvironmentRequestDataPlaneRefKindDataPlane        CreateEnvironmentRequestDataPlaneRefKind = "DataPlane"
-)
-
 // Defines values for CreateNamespaceRoleBindingRequestEffect.
 const (
 	CreateNamespaceRoleBindingRequestEffectAllow CreateNamespaceRoleBindingRequestEffect = "allow"
@@ -135,10 +127,10 @@ const (
 	DeleteResourceResponseOperationNotFound DeleteResourceResponseOperation = "not_found"
 )
 
-// Defines values for EnvironmentDataPlaneRefKind.
+// Defines values for EnvironmentSpecDataPlaneRefKind.
 const (
-	EnvironmentDataPlaneRefKindClusterDataPlane EnvironmentDataPlaneRefKind = "ClusterDataPlane"
-	EnvironmentDataPlaneRefKindDataPlane        EnvironmentDataPlaneRefKind = "DataPlane"
+	EnvironmentSpecDataPlaneRefKindClusterDataPlane EnvironmentSpecDataPlaneRefKind = "ClusterDataPlane"
+	EnvironmentSpecDataPlaneRefKindDataPlane        EnvironmentSpecDataPlaneRefKind = "DataPlane"
 )
 
 // Defines values for ErrorResponseCode.
@@ -1407,36 +1399,6 @@ type CreateDataPlaneRequest struct {
 	PublicVirtualHost string `json:"publicVirtualHost"`
 }
 
-// CreateEnvironmentRequest Request to create a new environment
-type CreateEnvironmentRequest struct {
-	// DataPlaneRef Reference to the DataPlane or ClusterDataPlane for workload deployment
-	DataPlaneRef *struct {
-		// Kind Kind of data plane (DataPlane or ClusterDataPlane)
-		Kind CreateEnvironmentRequestDataPlaneRefKind `json:"kind"`
-
-		// Name Name of the data plane resource
-		Name string `json:"name"`
-	} `json:"dataPlaneRef,omitempty"`
-
-	// Description Environment description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// DnsPrefix DNS prefix for environment-specific routing
-	DnsPrefix *string `json:"dnsPrefix,omitempty"`
-
-	// IsProduction Whether this is a production environment
-	IsProduction *bool `json:"isProduction,omitempty"`
-
-	// Name Environment name (must be unique within namespace)
-	Name string `json:"name"`
-}
-
-// CreateEnvironmentRequestDataPlaneRefKind Kind of data plane (DataPlane or ClusterDataPlane)
-type CreateEnvironmentRequestDataPlaneRefKind string
-
 // CreateNamespaceRequest Request body for creating a new control plane namespace
 type CreateNamespaceRequest struct {
 	// Description Namespace description
@@ -1671,47 +1633,17 @@ type EnvVarValueFrom struct {
 	} `json:"secretRef,omitempty"`
 }
 
-// Environment Environment resource representing a deployment target
+// Environment Environment resource (Kubernetes object without kind/apiVersion).
+// Environments represent deployment targets within a namespace.
 type Environment struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// DataPlaneRef Reference to the DataPlane or ClusterDataPlane for this environment
-	DataPlaneRef *struct {
-		// Kind Kind of data plane (DataPlane or ClusterDataPlane)
-		Kind EnvironmentDataPlaneRefKind `json:"kind"`
-
-		// Name Name of the data plane resource
-		Name string `json:"name"`
-	} `json:"dataPlaneRef,omitempty"`
-
-	// Description Environment description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// DnsPrefix DNS prefix for environment-specific routing
-	DnsPrefix *string `json:"dnsPrefix,omitempty"`
-
-	// IsProduction Whether this is a production environment
-	IsProduction bool `json:"isProduction"`
-
-	// Name Environment name (unique within namespace)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the environment
-	Namespace string `json:"namespace"`
-
-	// Status Environment status
-	Status *string `json:"status,omitempty"`
-
-	// Uid Unique identifier (Kubernetes UID)
-	Uid openapi_types.UUID `json:"uid"`
+	// Spec Desired state of an Environment
+	Spec   *EnvironmentSpec   `json:"spec,omitempty"`
+	Status *EnvironmentStatus `json:"status,omitempty"`
 }
-
-// EnvironmentDataPlaneRefKind Kind of data plane (DataPlane or ClusterDataPlane)
-type EnvironmentDataPlaneRefKind string
 
 // EnvironmentList Paginated list of environments
 type EnvironmentList struct {
@@ -1719,7 +1651,45 @@ type EnvironmentList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// EnvironmentSpec Desired state of an Environment
+type EnvironmentSpec struct {
+	// DataPlaneRef Reference to the DataPlane or ClusterDataPlane for this environment.
+	// If not specified, defaults to a DataPlane named "default" in the same namespace.
+	// Immutable once set.
+	DataPlaneRef *struct {
+		// Kind Kind of data plane (DataPlane or ClusterDataPlane)
+		Kind EnvironmentSpecDataPlaneRefKind `json:"kind"`
+
+		// Name Name of the data plane resource
+		Name string `json:"name"`
+	} `json:"dataPlaneRef,omitempty"`
+
+	// Gateway Gateway configuration for the environment
+	Gateway *struct {
+		// OrganizationVirtualHost Organization-specific virtual host for the gateway
+		OrganizationVirtualHost *string `json:"organizationVirtualHost,omitempty"`
+
+		// PublicVirtualHost Public virtual host for the gateway
+		PublicVirtualHost *string `json:"publicVirtualHost,omitempty"`
+	} `json:"gateway,omitempty"`
+
+	// IsProduction Whether this is a production environment
+	IsProduction *bool `json:"isProduction,omitempty"`
+}
+
+// EnvironmentSpecDataPlaneRefKind Kind of data plane (DataPlane or ClusterDataPlane)
+type EnvironmentSpecDataPlaneRefKind string
+
+// EnvironmentStatus Observed state of an Environment
+type EnvironmentStatus struct {
+	// Conditions Current state conditions of the Environment
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration Generation of the most recently observed Environment
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ErrorResponse Standard error response format
@@ -3136,7 +3106,7 @@ type UpdateComponentTypeJSONRequestBody = ComponentType
 type CreateDataPlaneJSONRequestBody = CreateDataPlaneRequest
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
-type CreateEnvironmentJSONRequestBody = CreateEnvironmentRequest
+type CreateEnvironmentJSONRequestBody = Environment
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = Project

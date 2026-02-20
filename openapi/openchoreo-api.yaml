@@ -508,7 +508,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateEnvironmentRequest'
+              $ref: '#/components/schemas/Environment'
       responses:
         '201':
           description: Environment created successfully
@@ -4335,12 +4335,80 @@ components:
     # -------------------------------------------------------------------------
     # Environments
     # -------------------------------------------------------------------------
+    EnvironmentSpec:
+      type: object
+      description: Desired state of an Environment
+      properties:
+        dataPlaneRef:
+          type: object
+          description: |
+            Reference to the DataPlane or ClusterDataPlane for this environment.
+            If not specified, defaults to a DataPlane named "default" in the same namespace.
+            Immutable once set.
+          properties:
+            kind:
+              type: string
+              description: Kind of data plane (DataPlane or ClusterDataPlane)
+              enum: [DataPlane, ClusterDataPlane]
+              example: DataPlane
+            name:
+              type: string
+              description: Name of the data plane resource
+              example: default
+          required:
+            - kind
+            - name
+        isProduction:
+          type: boolean
+          description: Whether this is a production environment
+          example: false
+        gateway:
+          type: object
+          description: Gateway configuration for the environment
+          properties:
+            publicVirtualHost:
+              type: string
+              description: Public virtual host for the gateway
+            organizationVirtualHost:
+              type: string
+              description: Organization-specific virtual host for the gateway
+
+    EnvironmentStatus:
+      type: object
+      description: Observed state of an Environment
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Generation of the most recently observed Environment
+        conditions:
+          type: array
+          description: Current state conditions of the Environment
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    Environment:
+      type: object
+      description: |
+        Environment resource (Kubernetes object without kind/apiVersion).
+        Environments represent deployment targets within a namespace.
+      required:
+        - metadata
+      properties:
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/EnvironmentSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/EnvironmentStatus'
+
     EnvironmentList:
       type: object
       description: Paginated list of environments
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -4348,120 +4416,6 @@ components:
             $ref: '#/components/schemas/Environment'
         pagination:
           $ref: '#/components/schemas/Pagination'
-
-    Environment:
-      type: object
-      description: Environment resource representing a deployment target
-      required:
-        - uid
-        - name
-        - namespace
-        - isProduction
-        - createdAt
-      properties:
-        uid:
-          type: string
-          format: uuid
-          description: Unique identifier (Kubernetes UID)
-          example: 550e8400-e29b-41d4-a716-446655440002
-        name:
-          type: string
-          description: Environment name (unique within namespace)
-          example: dev
-        namespace:
-          type: string
-          description: Kubernetes namespace for the environment
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Development
-        description:
-          type: string
-          description: Environment description
-          example: Development environment for testing
-        dataPlaneRef:
-          type: object
-          description: Reference to the DataPlane or ClusterDataPlane for this environment
-          properties:
-            kind:
-              type: string
-              description: Kind of data plane (DataPlane or ClusterDataPlane)
-              enum: [DataPlane, ClusterDataPlane]
-              example: DataPlane
-            name:
-              type: string
-              description: Name of the data plane resource
-              example: default
-          required:
-            - kind
-            - name
-        isProduction:
-          type: boolean
-          description: Whether this is a production environment
-          example: false
-        dnsPrefix:
-          type: string
-          description: DNS prefix for environment-specific routing
-          example: dev
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
-        status:
-          type: string
-          description: Environment status
-          example: Ready
-
-    CreateEnvironmentRequest:
-      type: object
-      description: Request to create a new environment
-      required:
-        - name
-      properties:
-        name:
-          type: string
-          description: Environment name (must be unique within namespace)
-          example: staging
-          minLength: 1
-          maxLength: 63
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Staging Environment
-          maxLength: 256
-        description:
-          type: string
-          description: Environment description
-          example: Pre-production staging environment
-          maxLength: 1024
-        dataPlaneRef:
-          type: object
-          description: Reference to the DataPlane or ClusterDataPlane for workload deployment
-          properties:
-            kind:
-              type: string
-              description: Kind of data plane (DataPlane or ClusterDataPlane)
-              enum: [DataPlane, ClusterDataPlane]
-              example: DataPlane
-            name:
-              type: string
-              description: Name of the data plane resource
-              example: default
-          required:
-            - kind
-            - name
-        isProduction:
-          type: boolean
-          description: Whether this is a production environment
-          default: false
-          example: false
-        dnsPrefix:
-          type: string
-          description: DNS prefix for environment-specific routing
-          example: staging
 
     ObserverURLResponse:
       type: object

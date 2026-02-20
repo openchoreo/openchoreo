@@ -92,11 +92,16 @@ func (c *CompImpl) ComponentLogs(params api.ComponentLogsParams) error {
 		componentUID = *component.Metadata.Uid
 	}
 
-	if params.Follow {
-		return c.followLogs(ctx, observerURL, credential.Token, componentUID, environment.Uid.String(), params, startTime, endTime)
+	environmentUID := ""
+	if environment.Metadata.Uid != nil {
+		environmentUID = *environment.Metadata.Uid
 	}
 
-	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environment.Uid.String(), params, startTime, endTime)
+	if params.Follow {
+		return c.followLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
+	}
+
+	return c.fetchAndPrintLogs(ctx, observerURL, credential.Token, componentUID, environmentUID, params, startTime, endTime)
 }
 
 // fetchAndPrintLogs fetches logs for a given time range and prints them

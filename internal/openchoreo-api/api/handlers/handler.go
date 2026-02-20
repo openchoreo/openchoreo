@@ -15,6 +15,7 @@ import (
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
+	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 )
@@ -32,6 +33,7 @@ type Handler struct {
 	clusterBuildPlaneService clusterbuildplanesvc.Service
 	componentService         componentsvc.Service
 	componentTypeService     componenttypesvc.Service
+	environmentService       environmentsvc.Service
 	traitService             traitsvc.Service
 	logger                   *slog.Logger
 	Config                   *config.Config
@@ -41,7 +43,7 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, componentService componentsvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, traitService traitsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                 services,
 		authzService:             authzService,
@@ -50,6 +52,7 @@ func New(services *services.Services, authzService authzsvc.Service, projectServ
 		clusterBuildPlaneService: clusterBuildPlaneService,
 		componentService:         componentService,
 		componentTypeService:     componentTypeService,
+		environmentService:       environmentService,
 		traitService:             traitService,
 		logger:                   logger,
 		Config:                   cfg,

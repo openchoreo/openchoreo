@@ -96,18 +96,22 @@ func PrintEnvironments(list *gen.EnvironmentList) error {
 
 	for _, env := range list.Items {
 		dataPlane := ""
-		if env.DataPlaneRef != nil {
-			dataPlane = fmt.Sprintf("%s/%s", env.DataPlaneRef.Kind, env.DataPlaneRef.Name)
+		if env.Spec != nil && env.Spec.DataPlaneRef != nil {
+			dataPlane = fmt.Sprintf("%s/%s", env.Spec.DataPlaneRef.Kind, env.Spec.DataPlaneRef.Name)
 		}
 		production := "false"
-		if env.IsProduction {
+		if env.Spec != nil && env.Spec.IsProduction != nil && *env.Spec.IsProduction {
 			production = "true"
 		}
+		age := ""
+		if env.Metadata.CreationTimestamp != nil {
+			age = formatAge(*env.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			env.Name,
+			env.Metadata.Name,
 			dataPlane,
 			production,
-			formatAge(env.CreatedAt))
+			age)
 	}
 
 	return w.Flush()

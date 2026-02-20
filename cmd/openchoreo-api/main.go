@@ -37,6 +37,7 @@ import (
 	clusterbuildplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterbuildplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
+	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	"github.com/openchoreo/openchoreo/internal/server"
@@ -176,6 +177,9 @@ func main() {
 	// Initialize component type service for the new K8s-native API design
 	componentTypeService := componenttypesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "componenttype-service"))
 
+	// Initialize environment service for the new K8s-native API design
+	environmentService := environmentsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "environment-service"))
+
 	// Initialize trait service for the new K8s-native API design
 	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
 
@@ -183,7 +187,7 @@ func main() {
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, componentService, componentTypeService, traitService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, componentService, componentTypeService, environmentService, traitService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler
