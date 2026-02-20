@@ -17,6 +17,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	svcerrors "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 )
 
@@ -453,7 +454,29 @@ func (h *Handler) GetComponentRelease(
 	ctx context.Context,
 	request gen.GetComponentReleaseRequestObject,
 ) (gen.GetComponentReleaseResponseObject, error) {
-	return nil, errNotImplemented
+	h.logger.Debug("GetComponentRelease called",
+		"namespaceName", request.NamespaceName,
+		"releaseName", request.ReleaseName)
+
+	cr, err := h.componentReleaseService.GetComponentRelease(ctx, request.NamespaceName, request.ReleaseName)
+	if err != nil {
+		if errors.Is(err, svcerrors.ErrForbidden) {
+			return gen.GetComponentRelease403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, componentreleasesvc.ErrComponentReleaseNotFound) {
+			return gen.GetComponentRelease404JSONResponse{NotFoundJSONResponse: notFound("ComponentRelease")}, nil
+		}
+		h.logger.Error("Failed to get component release", "error", err)
+		return gen.GetComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*cr)
+	if err != nil {
+		h.logger.Error("Failed to convert component release", "error", err)
+		return gen.GetComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetComponentRelease200JSONResponse(genCR), nil
 }
 
 // GetComponentReleaseSchema returns the parameter schema for a component release
