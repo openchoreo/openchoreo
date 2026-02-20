@@ -2078,9 +2078,7 @@ type ReleaseBinding struct {
 	Metadata ObjectMeta `json:"metadata"`
 
 	// Spec Desired state of a ReleaseBinding
-	Spec *ReleaseBindingSpec `json:"spec,omitempty"`
-
-	// Status Observed state of a ReleaseBinding
+	Spec   *ReleaseBindingSpec   `json:"spec,omitempty"`
 	Status *ReleaseBindingStatus `json:"status,omitempty"`
 }
 

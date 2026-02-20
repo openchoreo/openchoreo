@@ -29,6 +29,12 @@ func (h *Handler) ListReleaseBindings(
 
 	result, err := h.releaseBindingService.ListReleaseBindings(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListReleaseBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
+			return gen.ListReleaseBindings404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
+		}
 		h.logger.Error("Failed to list release bindings", "error", err)
 		return gen.ListReleaseBindings500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -65,6 +71,10 @@ func (h *Handler) CreateReleaseBinding(
 		h.logger.Error("Failed to convert create request", "error", err)
 		return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
+	if rbCR.Namespace != "" && rbCR.Namespace != request.NamespaceName {
+		return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
+	}
+	rbCR.Namespace = request.NamespaceName
 	rbCR.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
 	created, err := h.releaseBindingService.CreateReleaseBinding(ctx, request.NamespaceName, &rbCR)
@@ -136,6 +146,10 @@ func (h *Handler) UpdateReleaseBinding(
 		h.logger.Error("Failed to convert update request", "error", err)
 		return gen.UpdateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
+	if rbCR.Namespace != "" && rbCR.Namespace != request.NamespaceName {
+		return gen.UpdateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Namespace in body does not match path")}, nil
+	}
+	rbCR.Namespace = request.NamespaceName
 	rbCR.Status = openchoreov1alpha1.ReleaseBindingStatus{}
 
 	// Ensure the name from the URL path is used
