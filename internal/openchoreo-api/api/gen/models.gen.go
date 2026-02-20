@@ -52,6 +52,11 @@ const (
 	BuildPlaneRefKindClusterBuildPlane BuildPlaneRefKind = "ClusterBuildPlane"
 )
 
+// Defines values for ClusterComponentTypeSpecAllowedTraitsKind.
+const (
+	ClusterComponentTypeSpecAllowedTraitsKindClusterTrait ClusterComponentTypeSpecAllowedTraitsKind = "ClusterTrait"
+)
+
 // Defines values for ClusterComponentTypeSpecResourcesTargetPlane.
 const (
 	ClusterComponentTypeSpecResourcesTargetPlaneDataplane          ClusterComponentTypeSpecResourcesTargetPlane = "dataplane"
@@ -744,8 +749,11 @@ type ClusterComponentTypeList struct {
 
 // ClusterComponentTypeSpec Desired state of a ClusterComponentType
 type ClusterComponentTypeSpec struct {
-	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
+	// AllowedTraits Restricts which ClusterTrait CRs developers can attach to Components of this type. Each entry is an object with "kind" (always ClusterTrait) and "name" referencing a ClusterTrait. If empty or omitted, no additional component-level traits are permitted (only embedded traits defined in spec.traits are allowed).
 	AllowedTraits *[]struct {
+		// Kind Kind of trait reference (must be ClusterTrait)
+		Kind ClusterComponentTypeSpecAllowedTraitsKind `json:"kind"`
+
 		// Name Name of the ClusterTrait resource
 		Name string `json:"name"`
 	} `json:"allowedTraits,omitempty"`
@@ -816,6 +824,9 @@ type ClusterComponentTypeSpec struct {
 	// WorkloadType Primary workload resource type for this component type
 	WorkloadType ClusterComponentTypeSpecWorkloadType `json:"workloadType"`
 }
+
+// ClusterComponentTypeSpecAllowedTraitsKind Kind of trait reference (must be ClusterTrait)
+type ClusterComponentTypeSpecAllowedTraitsKind string
 
 // ClusterComponentTypeSpecResourcesTargetPlane Target plane for deployment
 type ClusterComponentTypeSpecResourcesTargetPlane string

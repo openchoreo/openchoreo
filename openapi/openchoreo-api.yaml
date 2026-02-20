@@ -5568,9 +5568,11 @@ components:
               name:
                 type: string
                 description: Name of the ClusterTrait resource
+                minLength: 1
               instanceName:
                 type: string
                 description: Unique instance name for this trait
+                minLength: 1
               parameters:
                 type: object
                 description: Trait parameter bindings (concrete values or CEL expressions)
@@ -5583,17 +5585,23 @@ components:
           type: array
           description: >-
             Restricts which ClusterTrait CRs developers can attach to Components of this type.
-            Each entry is an object with "name" referencing a ClusterTrait.
+            Each entry is an object with "kind" (always ClusterTrait) and "name" referencing a ClusterTrait.
             If empty or omitted, no additional component-level traits are permitted
             (only embedded traits defined in spec.traits are allowed).
           items:
             type: object
             required:
+              - kind
               - name
             properties:
+              kind:
+                type: string
+                description: Kind of trait reference (must be ClusterTrait)
+                enum: [ClusterTrait]
               name:
                 type: string
                 description: Name of the ClusterTrait resource
+                minLength: 1
         validations:
           type: array
           description: CEL-based validation rules evaluated during rendering
@@ -5606,6 +5614,7 @@ components:
               rule:
                 type: string
                 description: "CEL expression wrapped in ${...} that must evaluate to true"
+                pattern: '^\$\{[\s\S]+\}\s*$'
               message:
                 type: string
                 description: Error message shown when the rule evaluates to false
@@ -5630,9 +5639,11 @@ components:
               includeWhen:
                 type: string
                 description: "CEL expression determining if this resource should be created"
+                pattern: '^\$\{[\s\S]+\}\s*$'
               forEach:
                 type: string
                 description: "CEL expression for generating multiple resources from a list"
+                pattern: '^\$\{[\s\S]+\}\s*$'
               var:
                 type: string
                 description: Loop variable name when using forEach
