@@ -84,7 +84,7 @@ func (s *clusterDataPlaneService) GetClusterDataPlane(ctx context.Context, name 
 
 func (s *clusterDataPlaneService) CreateClusterDataPlane(ctx context.Context, cdp *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterDataPlane, error) {
 	if cdp == nil {
-		return nil, fmt.Errorf("cluster data plane cannot be nil")
+		return nil, ErrClusterDataPlaneNil
 	}
 
 	s.logger.Debug("Creating cluster data plane", "clusterDataPlane", cdp.Name)
