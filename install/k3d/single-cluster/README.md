@@ -66,12 +66,13 @@ Single install, watches Gateway resources across all namespaces.
 
 ```bash
 helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-  --version v2.1.1
+  --create-namespace --namespace openchoreo-control-plane \
+  --version v2.2.1
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --namespace openchoreo-control-plane \
-  --create-namespace \
-  --version v2.1.1
+  --namespace openchoreo-control-plane --create-namespace \
+  --version v2.2.1 \
+  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
 ```
 
 ## 3. Setup Control Plane
@@ -118,15 +119,6 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
 ```bash
 kubectl wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
-```
-
-### Gateway Patch
-
-Optional workaround for envoy `/tmp` crash. See [kgateway#9800](https://github.com/kgateway-dev/kgateway/issues/9800).
-
-```bash
-kubectl patch deployment gateway-default -n openchoreo-control-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 ## 4. Install Default Resources
@@ -197,13 +189,6 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
   --namespace openchoreo-data-plane \
   --create-namespace \
   --values install/k3d/single-cluster/values-dp.yaml
-```
-
-### Gateway Patch
-
-```bash
-kubectl patch deployment gateway-default -n openchoreo-data-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
 ```
 
 ### Register Data Plane
@@ -377,13 +362,6 @@ helm upgrade --install openchoreo-observability-plane install/helm/openchoreo-ob
 
 Install the required logs, metrics and tracing modules. Refer https://openchoreo.dev/modules for more details
 
-
-### Gateway Patch
-
-```bash
-kubectl patch deployment gateway-default -n openchoreo-observability-plane \
-  --type='json' -p='[{"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"tmp","emptyDir":{}}},{"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"tmp","mountPath":"/tmp"}}]'
-```
 
 ### Register Observability Plane
 
