@@ -143,9 +143,13 @@ func PrintBuildPlanes(list *gen.BuildPlaneList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, bp := range list.Items {
+		age := ""
+		if bp.Metadata.CreationTimestamp != nil {
+			age = formatAge(*bp.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			bp.Name,
-			formatAge(bp.CreatedAt))
+			bp.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()

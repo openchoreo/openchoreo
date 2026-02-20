@@ -147,7 +147,7 @@ func (c *Client) ListDataPlanes(ctx context.Context, namespaceName string, param
 
 // ListBuildPlanes retrieves all build planes for a namespace
 func (c *Client) ListBuildPlanes(ctx context.Context, namespaceName string) (*gen.BuildPlaneList, error) {
-	resp, err := c.client.ListBuildPlanesWithResponse(ctx, namespaceName)
+	resp, err := c.client.ListBuildPlanesWithResponse(ctx, namespaceName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list build planes: %w", err)
 	}
