@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
@@ -449,10 +450,10 @@ func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to get project: %w", err)
 	}
 
-	pipelineName := "default"
-	if project.Spec != nil && project.Spec.DeploymentPipelineRef != nil {
-		pipelineName = *project.Spec.DeploymentPipelineRef
+	if project.Spec == nil || project.Spec.DeploymentPipelineRef == nil || strings.TrimSpace(*project.Spec.DeploymentPipelineRef) == "" {
+		return nil, fmt.Errorf("project %q does not have a deployment pipeline configured", projectName)
 	}
+	pipelineName := *project.Spec.DeploymentPipelineRef
 
 	resp, err := c.client.GetDeploymentPipelineWithResponse(ctx, namespaceName, pipelineName)
 	if err != nil {

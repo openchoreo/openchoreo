@@ -24,6 +24,9 @@ func (h *Handler) ListDeploymentPipelines(
 
 	result, err := h.deploymentPipelineService.ListDeploymentPipelines(ctx, request.NamespaceName, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListDeploymentPipelines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
 		return gen.ListDeploymentPipelines500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
