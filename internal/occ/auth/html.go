@@ -5,6 +5,7 @@ package auth
 
 import (
 	"fmt"
+	"html"
 	"net/http"
 )
 
@@ -80,5 +81,5 @@ func writeSuccessHTML(w http.ResponseWriter) {
 
 func writeErrorHTML(w http.ResponseWriter, errMsg string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, errorHTML, errMsg)
+	fmt.Fprintf(w, errorHTML, html.EscapeString(errMsg))
 }

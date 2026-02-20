@@ -140,15 +140,19 @@ func (c *Client) GetIndexMapping(ctx context.Context, index string) (*MappingRes
 // SearchMonitorByName searches alerting monitors by name using the Alerting plugin API.
 func (c *Client) SearchMonitorByName(ctx context.Context, name string) (string, bool, error) {
 	path := "/_plugins/_alerting/monitors/_search"
+	nameJSON, err := json.Marshal(name)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to marshal monitor name: %w", err)
+	}
 	queryBody := fmt.Sprintf(`{
 		"query": {
 				"match_phrase": {
-						"monitor.name": "%s"
+						"monitor.name": %s
 				}
 		}
-  }`, name)
+  }`, string(nameJSON))
 
-	req, err := http.NewRequest("POST", path, strings.NewReader(queryBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", path, strings.NewReader(queryBody))
 	if err != nil {
 		return "", false, fmt.Errorf("failed to create request: %w", err)
 	}

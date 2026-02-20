@@ -14,6 +14,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+// sanitizeWildcardValue escapes OpenSearch wildcard metacharacters from user-provided values
+// to prevent wildcard injection attacks. Escaped characters: \, ", *, ?
+func sanitizeWildcardValue(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, `*`, `\*`)
+	s = strings.ReplaceAll(s, `?`, `\?`)
+	return s
+}
+
 // QueryBuilder provides methods to build OpenSearch queries
 type QueryBuilder struct {
 	indexPrefix string
@@ -66,7 +76,7 @@ func addSearchPhraseFilter(mustConditions []map[string]interface{}, searchPhrase
 	if searchPhrase != "" {
 		searchFilter := map[string]interface{}{
 			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*%s*", searchPhrase),
+				"log": "*" + sanitizeWildcardValue(searchPhrase) + "*",
 			},
 		}
 		mustConditions = append(mustConditions, searchFilter)
@@ -84,7 +94,7 @@ func addLogLevelFilter(mustConditions []map[string]interface{}, logLevels []stri
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"wildcard": map[string]interface{}{
 					"log": map[string]interface{}{
-						"value":            "*" + strings.ToUpper(logLevel) + "*",
+						"value":            "*" + sanitizeWildcardValue(strings.ToUpper(logLevel)) + "*",
 						"case_insensitive": true,
 					},
 				},
@@ -218,7 +228,7 @@ func (qb *QueryBuilder) BuildComponentWorkflowRunLogsQuery(params ComponentWorkf
 	if params.StepName != "" {
 		suffix = "-" + params.StepName
 	}
-	podNamePattern := fmt.Sprintf("%s%s-*", params.RunName, suffix)
+	podNamePattern := sanitizeWildcardValue(params.RunName) + sanitizeWildcardValue(suffix) + "-*"
 
 	// Build query with wildcard search on pod name
 	mustConditions := []map[string]interface{}{
@@ -443,7 +453,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 	if params.NamespaceName != "" {
 		namespaceFilter := map[string]interface{}{
 			"wildcard": map[string]interface{}{
-				"log": fmt.Sprintf("*\"apiPath\":\"/%s*", params.NamespaceName),
+				"log": "*\"apiPath\":\"/" + sanitizeWildcardValue(params.NamespaceName) + "*",
 			},
 		}
 		mustConditions = append(mustConditions, namespaceFilter)
@@ -472,7 +482,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 		for _, vhost := range params.GatewayVHosts {
 			shouldConditions = append(shouldConditions, map[string]interface{}{
 				"wildcard": map[string]interface{}{
-					"log": fmt.Sprintf("*\"gwHost\":%q*", vhost),
+					"log": "*\"gwHost\":\"" + sanitizeWildcardValue(vhost) + "\"*",
 				},
 			})
 		}
@@ -490,7 +500,7 @@ func (qb *QueryBuilder) BuildGatewayLogsQuery(params GatewayQueryParams) map[str
 		for apiID := range params.APIIDToVersionMap {
 			apiShouldConditions = append(apiShouldConditions, map[string]interface{}{
 				"wildcard": map[string]interface{}{
-					"log": fmt.Sprintf("*\"apiUuid\":%q*", apiID),
+					"log": "*\"apiUuid\":\"" + sanitizeWildcardValue(apiID) + "\"*",
 				},
 			})
 		}
@@ -782,7 +792,7 @@ func (qb *QueryBuilder) BuildLogAlertingRuleQuery(params types.AlertingRuleReque
 		{
 			"wildcard": map[string]interface{}{
 				"log": map[string]interface{}{
-					"wildcard": fmt.Sprintf("*%s*", params.Source.Query),
+					"wildcard": "*" + sanitizeWildcardValue(params.Source.Query) + "*",
 					"boost":    1,
 				},
 			},
