@@ -3310,10 +3310,12 @@ paths:
     get:
       operationId: listSecretReferences
       summary: List secret references
-      description: Returns a list of secret references within an namespace.
+      description: Returns a paginated list of secret references within a namespace.
       tags: [SecretReferences]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of secret references
@@ -3321,6 +3323,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecretReferenceList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createSecretReference
+      summary: Create secret reference
+      description: Creates a new secret reference within a namespace.
+      tags: [SecretReferences]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretReference'
+      responses:
+        '201':
+          description: Secret reference created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretReference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/secret-references/{secretReferenceName}:
+    get:
+      operationId: getSecretReference
+      summary: Get secret reference
+      description: Returns details of a specific secret reference.
+      tags: [SecretReferences]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/SecretReferenceNameParam'
+      responses:
+        '200':
+          description: Secret reference details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretReference'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateSecretReference
+      summary: Update secret reference
+      description: Replaces an existing secret reference (full update).
+      tags: [SecretReferences]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/SecretReferenceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SecretReference'
+      responses:
+        '200':
+          description: Secret reference updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretReference'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteSecretReference
+      summary: Delete secret reference
+      description: Deletes a secret reference by name.
+      tags: [SecretReferences]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/SecretReferenceNameParam'
+      responses:
+        '204':
+          description: Secret reference deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3923,6 +4033,15 @@ components:
       schema:
         type: string
         example: autoscaler
+
+    SecretReferenceNameParam:
+      name: secretReferenceName
+      in: path
+      required: true
+      description: Secret reference name
+      schema:
+        type: string
+        example: my-secret
 
     WorkflowNameParam:
       name: workflowName
@@ -8255,7 +8374,6 @@ components:
       description: Paginated list of secret references
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -8266,56 +8384,92 @@ components:
 
     SecretReference:
       type: object
-      description: Secret reference resource
+      description: |
+        SecretReference resource (Kubernetes object without kind/apiVersion).
+        Defines references to external secrets that are synced into the cluster.
       required:
-        - name
-        - namespace
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: Secret reference name
-          example: my-secret
-        namespace:
-          type: string
-          description: Kubernetes namespace
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: My Secret
-        description:
-          type: string
-          description: Secret reference description
-          example: Database credentials
-        secretStores:
-          type: array
-          description: Secret store references
-          items:
-            $ref: '#/components/schemas/SecretStoreReference'
-        refreshInterval:
-          type: string
-          description: Refresh interval for secret sync
-          example: 1h
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/SecretReferenceSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/SecretReferenceStatus'
+
+    SecretReferenceSpec:
+      type: object
+      description: Desired state of a SecretReference
+      required:
+        - template
+        - data
+      properties:
+        template:
+          $ref: '#/components/schemas/SecretTemplate'
         data:
           type: array
-          description: Secret data sources
+          description: Mapping of secret keys to external secret references
+          minItems: 1
           items:
             $ref: '#/components/schemas/SecretDataSource'
-        createdAt:
+        refreshInterval:
           type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+          description: How often to reconcile/refresh the secret
+          example: 1h
+
+    SecretReferenceStatus:
+      type: object
+      description: Observed state of a SecretReference
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the secret reference state
+          items:
+            $ref: '#/components/schemas/Condition'
         lastRefreshTime:
           type: string
           format: date-time
-          description: Last refresh time
+          description: When the secret reference was last processed
           example: "2025-01-06T11:00:00Z"
-        status:
+        secretStores:
+          type: array
+          description: Secret stores using this reference
+          items:
+            $ref: '#/components/schemas/SecretStoreReference'
+
+    SecretTemplate:
+      type: object
+      description: Structure of the resulting Kubernetes Secret
+      properties:
+        type:
           type: string
-          description: Secret reference status
-          example: Ready
+          description: Type of the Kubernetes Secret
+          enum:
+            - Opaque
+            - kubernetes.io/dockerconfigjson
+            - kubernetes.io/dockercfg
+            - kubernetes.io/basic-auth
+            - kubernetes.io/ssh-auth
+            - kubernetes.io/tls
+            - bootstrap.kubernetes.io/token
+          default: Opaque
+          example: Opaque
+        metadata:
+          type: object
+          description: Additional metadata for the generated secret
+          properties:
+            annotations:
+              type: object
+              description: Annotations to add to the secret
+              additionalProperties:
+                type: string
+            labels:
+              type: object
+              description: Labels to add to the secret
+              additionalProperties:
+                type: string
 
     SecretStoreReference:
       type: object
@@ -8339,35 +8493,35 @@ components:
 
     SecretDataSource:
       type: object
-      description: Secret data source information
+      description: Secret data source mapping
       required:
         - secretKey
         - remoteRef
       properties:
         secretKey:
           type: string
-          description: Key in the Kubernetes secret
+          description: Key name in the Kubernetes Secret
           example: database-password
         remoteRef:
           $ref: '#/components/schemas/RemoteReference'
 
     RemoteReference:
       type: object
-      description: Remote secret reference
+      description: Points to a secret in an external secret store
       required:
         - key
       properties:
         key:
           type: string
-          description: Key in the external secret store
+          description: Path in the external secret store
           example: prod/database/password
         property:
           type: string
-          description: Property within the secret
+          description: Specific field within the secret
           example: password
         version:
           type: string
-          description: Secret version
+          description: Version of the secret to fetch
           example: 1
 
     # -------------------------------------------------------------------------

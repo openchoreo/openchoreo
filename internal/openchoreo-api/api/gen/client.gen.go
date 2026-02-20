@@ -467,7 +467,23 @@ type ClientInterface interface {
 	UpdateNamespaceRole(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSecretReferences request
-	ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateSecretReferenceWithBody request with any body
+	CreateSecretReferenceWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateSecretReference(ctx context.Context, namespaceName NamespaceNameParam, body CreateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteSecretReference request
+	DeleteSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSecretReference request
+	GetSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSecretReferenceWithBody request with any body
+	UpdateSecretReferenceWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, body UpdateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTraits request
 	ListTraits(ctx context.Context, namespaceName NamespaceNameParam, params *ListTraitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -2211,8 +2227,80 @@ func (c *Client) UpdateNamespaceRole(ctx context.Context, namespaceName Namespac
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSecretReferencesRequest(c.Server, namespaceName)
+func (c *Client) ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSecretReferencesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSecretReferenceWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSecretReferenceRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateSecretReference(ctx context.Context, namespaceName NamespaceNameParam, body CreateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateSecretReferenceRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSecretReferenceRequest(c.Server, namespaceName, secretReferenceName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSecretReferenceRequest(c.Server, namespaceName, secretReferenceName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSecretReferenceWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSecretReferenceRequestWithBody(c.Server, namespaceName, secretReferenceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSecretReference(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, body UpdateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSecretReferenceRequest(c.Server, namespaceName, secretReferenceName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -7716,7 +7804,7 @@ func NewUpdateNamespaceRoleRequestWithBody(server string, namespaceName Namespac
 }
 
 // NewListSecretReferencesRequest generates requests for ListSecretReferences
-func NewListSecretReferencesRequest(server string, namespaceName NamespaceNameParam) (*http.Request, error) {
+func NewListSecretReferencesRequest(server string, namespaceName NamespaceNameParam, params *ListSecretReferencesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -7741,10 +7829,231 @@ func NewListSecretReferencesRequest(server string, namespaceName NamespaceNamePa
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateSecretReferenceRequest calls the generic CreateSecretReference builder with application/json body
+func NewCreateSecretReferenceRequest(server string, namespaceName NamespaceNameParam, body CreateSecretReferenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateSecretReferenceRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateSecretReferenceRequestWithBody generates requests for CreateSecretReference with any type of body
+func NewCreateSecretReferenceRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteSecretReferenceRequest generates requests for DeleteSecretReference
+func NewDeleteSecretReferenceRequest(server string, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretReferenceName", runtime.ParamLocationPath, secretReferenceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetSecretReferenceRequest generates requests for GetSecretReference
+func NewGetSecretReferenceRequest(server string, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretReferenceName", runtime.ParamLocationPath, secretReferenceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSecretReferenceRequest calls the generic UpdateSecretReference builder with application/json body
+func NewUpdateSecretReferenceRequest(server string, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, body UpdateSecretReferenceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSecretReferenceRequestWithBody(server, namespaceName, secretReferenceName, "application/json", bodyReader)
+}
+
+// NewUpdateSecretReferenceRequestWithBody generates requests for UpdateSecretReference with any type of body
+func NewUpdateSecretReferenceRequestWithBody(server string, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretReferenceName", runtime.ParamLocationPath, secretReferenceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/secret-references/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9448,7 +9757,23 @@ type ClientWithResponsesInterface interface {
 	UpdateNamespaceRoleWithResponse(ctx context.Context, namespaceName NamespaceNameParam, name string, body UpdateNamespaceRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNamespaceRoleResp, error)
 
 	// ListSecretReferencesWithResponse request
-	ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error)
+	ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error)
+
+	// CreateSecretReferenceWithBodyWithResponse request with any body
+	CreateSecretReferenceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSecretReferenceResp, error)
+
+	CreateSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSecretReferenceResp, error)
+
+	// DeleteSecretReferenceWithResponse request
+	DeleteSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*DeleteSecretReferenceResp, error)
+
+	// GetSecretReferenceWithResponse request
+	GetSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*GetSecretReferenceResp, error)
+
+	// UpdateSecretReferenceWithBodyWithResponse request with any body
+	UpdateSecretReferenceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretReferenceResp, error)
+
+	UpdateSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, body UpdateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretReferenceResp, error)
 
 	// ListTraitsWithResponse request
 	ListTraitsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListTraitsParams, reqEditors ...RequestEditorFn) (*ListTraitsResp, error)
@@ -12244,7 +12569,6 @@ type ListSecretReferencesResp struct {
 	JSON200      *SecretReferenceList
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
-	JSON404      *NotFound
 	JSON500      *InternalError
 }
 
@@ -12258,6 +12582,112 @@ func (r ListSecretReferencesResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListSecretReferencesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateSecretReferenceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *SecretReference
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateSecretReferenceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateSecretReferenceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteSecretReferenceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSecretReferenceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSecretReferenceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSecretReferenceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SecretReference
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSecretReferenceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSecretReferenceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateSecretReferenceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SecretReference
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSecretReferenceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSecretReferenceResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14143,12 +14573,64 @@ func (c *ClientWithResponses) UpdateNamespaceRoleWithResponse(ctx context.Contex
 }
 
 // ListSecretReferencesWithResponse request returning *ListSecretReferencesResp
-func (c *ClientWithResponses) ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error) {
-	rsp, err := c.ListSecretReferences(ctx, namespaceName, reqEditors...)
+func (c *ClientWithResponses) ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error) {
+	rsp, err := c.ListSecretReferences(ctx, namespaceName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListSecretReferencesResp(rsp)
+}
+
+// CreateSecretReferenceWithBodyWithResponse request with arbitrary body returning *CreateSecretReferenceResp
+func (c *ClientWithResponses) CreateSecretReferenceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSecretReferenceResp, error) {
+	rsp, err := c.CreateSecretReferenceWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSecretReferenceResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateSecretReferenceResp, error) {
+	rsp, err := c.CreateSecretReference(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateSecretReferenceResp(rsp)
+}
+
+// DeleteSecretReferenceWithResponse request returning *DeleteSecretReferenceResp
+func (c *ClientWithResponses) DeleteSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*DeleteSecretReferenceResp, error) {
+	rsp, err := c.DeleteSecretReference(ctx, namespaceName, secretReferenceName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSecretReferenceResp(rsp)
+}
+
+// GetSecretReferenceWithResponse request returning *GetSecretReferenceResp
+func (c *ClientWithResponses) GetSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, reqEditors ...RequestEditorFn) (*GetSecretReferenceResp, error) {
+	rsp, err := c.GetSecretReference(ctx, namespaceName, secretReferenceName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSecretReferenceResp(rsp)
+}
+
+// UpdateSecretReferenceWithBodyWithResponse request with arbitrary body returning *UpdateSecretReferenceResp
+func (c *ClientWithResponses) UpdateSecretReferenceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretReferenceResp, error) {
+	rsp, err := c.UpdateSecretReferenceWithBody(ctx, namespaceName, secretReferenceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSecretReferenceResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSecretReferenceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretReferenceName SecretReferenceNameParam, body UpdateSecretReferenceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretReferenceResp, error) {
+	rsp, err := c.UpdateSecretReference(ctx, namespaceName, secretReferenceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSecretReferenceResp(rsp)
 }
 
 // ListTraitsWithResponse request returning *ListTraitsResp
@@ -20139,12 +20621,235 @@ func ParseListSecretReferencesResp(rsp *http.Response) (*ListSecretReferencesRes
 		}
 		response.JSON403 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateSecretReferenceResp parses an HTTP response from a CreateSecretReferenceWithResponse call
+func ParseCreateSecretReferenceResp(rsp *http.Response) (*CreateSecretReferenceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateSecretReferenceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest SecretReference
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteSecretReferenceResp parses an HTTP response from a DeleteSecretReferenceWithResponse call
+func ParseDeleteSecretReferenceResp(rsp *http.Response) (*DeleteSecretReferenceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSecretReferenceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSecretReferenceResp parses an HTTP response from a GetSecretReferenceWithResponse call
+func ParseGetSecretReferenceResp(rsp *http.Response) (*GetSecretReferenceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSecretReferenceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SecretReference
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSecretReferenceResp parses an HTTP response from a UpdateSecretReferenceWithResponse call
+func ParseUpdateSecretReferenceResp(rsp *http.Response) (*UpdateSecretReferenceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSecretReferenceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SecretReference
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

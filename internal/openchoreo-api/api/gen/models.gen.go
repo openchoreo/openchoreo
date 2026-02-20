@@ -220,6 +220,17 @@ const (
 	RoleEntitlementMappingEffectDeny  RoleEntitlementMappingEffect = "deny"
 )
 
+// Defines values for SecretTemplateType.
+const (
+	BootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
+	KubernetesIobasicAuth        SecretTemplateType = "kubernetes.io/basic-auth"
+	KubernetesIodockercfg        SecretTemplateType = "kubernetes.io/dockercfg"
+	KubernetesIodockerconfigjson SecretTemplateType = "kubernetes.io/dockerconfigjson"
+	KubernetesIosshAuth          SecretTemplateType = "kubernetes.io/ssh-auth"
+	KubernetesIotls              SecretTemplateType = "kubernetes.io/tls"
+	Opaque                       SecretTemplateType = "Opaque"
+)
+
 // Defines values for SubjectContextType.
 const (
 	ServiceAccount SubjectContextType = "service_account"
@@ -2426,15 +2437,15 @@ type ReleaseStatus struct {
 // ReleaseStatusResourcesHealthStatus Health status of the resource
 type ReleaseStatusResourcesHealthStatus string
 
-// RemoteReference Remote secret reference
+// RemoteReference Points to a secret in an external secret store
 type RemoteReference struct {
-	// Key Key in the external secret store
+	// Key Path in the external secret store
 	Key string `json:"key"`
 
-	// Property Property within the secret
+	// Property Specific field within the secret
 	Property *string `json:"property,omitempty"`
 
-	// Version Secret version
+	// Version Version of the secret to fetch
 	Version *string `json:"version,omitempty"`
 }
 
@@ -2585,12 +2596,12 @@ type ScheduledTaskBinding struct {
 // SchemaResponse JSON Schema response for component types, traits, or workflows
 type SchemaResponse map[string]interface{}
 
-// SecretDataSource Secret data source information
+// SecretDataSource Secret data source mapping
 type SecretDataSource struct {
-	// RemoteRef Remote secret reference
+	// RemoteRef Points to a secret in an external secret store
 	RemoteRef RemoteReference `json:"remoteRef"`
 
-	// SecretKey Key in the Kubernetes secret
+	// SecretKey Key name in the Kubernetes Secret
 	SecretKey string `json:"secretKey"`
 }
 
@@ -2606,37 +2617,16 @@ type SecretKeyReference struct {
 	Namespace *string `json:"namespace,omitempty"`
 }
 
-// SecretReference Secret reference resource
+// SecretReference SecretReference resource (Kubernetes object without kind/apiVersion).
+// Defines references to external secrets that are synced into the cluster.
 type SecretReference struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
 
-	// Data Secret data sources
-	Data *[]SecretDataSource `json:"data,omitempty"`
-
-	// Description Secret reference description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// LastRefreshTime Last refresh time
-	LastRefreshTime *time.Time `json:"lastRefreshTime,omitempty"`
-
-	// Name Secret reference name
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace
-	Namespace string `json:"namespace"`
-
-	// RefreshInterval Refresh interval for secret sync
-	RefreshInterval *string `json:"refreshInterval,omitempty"`
-
-	// SecretStores Secret store references
-	SecretStores *[]SecretStoreReference `json:"secretStores,omitempty"`
-
-	// Status Secret reference status
-	Status *string `json:"status,omitempty"`
+	// Spec Desired state of a SecretReference
+	Spec   *SecretReferenceSpec   `json:"spec,omitempty"`
+	Status *SecretReferenceStatus `json:"status,omitempty"`
 }
 
 // SecretReferenceList Paginated list of secret references
@@ -2645,7 +2635,31 @@ type SecretReferenceList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+// SecretReferenceSpec Desired state of a SecretReference
+type SecretReferenceSpec struct {
+	// Data Mapping of secret keys to external secret references
+	Data []SecretDataSource `json:"data"`
+
+	// RefreshInterval How often to reconcile/refresh the secret
+	RefreshInterval *string `json:"refreshInterval,omitempty"`
+
+	// Template Structure of the resulting Kubernetes Secret
+	Template SecretTemplate `json:"template"`
+}
+
+// SecretReferenceStatus Observed state of a SecretReference
+type SecretReferenceStatus struct {
+	// Conditions Latest available observations of the secret reference state
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LastRefreshTime When the secret reference was last processed
+	LastRefreshTime *time.Time `json:"lastRefreshTime,omitempty"`
+
+	// SecretStores Secret stores using this reference
+	SecretStores *[]SecretStoreReference `json:"secretStores,omitempty"`
 }
 
 // SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
@@ -2665,6 +2679,24 @@ type SecretStoreReference struct {
 	// Namespace Secret store namespace
 	Namespace *string `json:"namespace,omitempty"`
 }
+
+// SecretTemplate Structure of the resulting Kubernetes Secret
+type SecretTemplate struct {
+	// Metadata Additional metadata for the generated secret
+	Metadata *struct {
+		// Annotations Annotations to add to the secret
+		Annotations *map[string]string `json:"annotations,omitempty"`
+
+		// Labels Labels to add to the secret
+		Labels *map[string]string `json:"labels,omitempty"`
+	} `json:"metadata,omitempty"`
+
+	// Type Type of the Kubernetes Secret
+	Type *SecretTemplateType `json:"type,omitempty"`
+}
+
+// SecretTemplateType Type of the Kubernetes Secret
+type SecretTemplateType string
 
 // ServiceBinding Service-specific binding data
 type ServiceBinding struct {
@@ -3361,6 +3393,9 @@ type ReleaseNameParam = string
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
 
+// SecretReferenceNameParam defines model for SecretReferenceNameParam.
+type SecretReferenceNameParam = string
+
 // TraitNameParam defines model for TraitNameParam.
 type TraitNameParam = string
 
@@ -3610,6 +3645,16 @@ type ListReleasesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListSecretReferencesParams defines parameters for ListSecretReferences.
+type ListSecretReferencesParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListTraitsParams defines parameters for ListTraits.
 type ListTraitsParams struct {
 	// Limit Maximum number of items to return per page
@@ -3778,6 +3823,12 @@ type CreateNamespaceRoleJSONRequestBody = AuthzRole
 
 // UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
 type UpdateNamespaceRoleJSONRequestBody = AuthzRole
+
+// CreateSecretReferenceJSONRequestBody defines body for CreateSecretReference for application/json ContentType.
+type CreateSecretReferenceJSONRequestBody = SecretReference
+
+// UpdateSecretReferenceJSONRequestBody defines body for UpdateSecretReference for application/json ContentType.
+type UpdateSecretReferenceJSONRequestBody = SecretReference
 
 // CreateTraitJSONRequestBody defines body for CreateTrait for application/json ContentType.
 type CreateTraitJSONRequestBody = Trait

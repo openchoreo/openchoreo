@@ -26,6 +26,7 @@ import (
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
@@ -53,6 +54,7 @@ type Handler struct {
 	observabilityPlaneService        observabilityplanesvc.Service
 	releaseService                   releasesvc.Service
 	releaseBindingService            releasebindingsvc.Service
+	secretReferenceService           secretreferencesvc.Service
 	traitService                     traitsvc.Service
 	workloadService                  workloadsvc.Service
 	logger                           *slog.Logger
@@ -63,7 +65,7 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterComponentTypeService clustercomponenttypesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, clusterTraitService clustertraitsvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterComponentTypeService clustercomponenttypesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, clusterTraitService clustertraitsvc.Service, dataPlaneService dataplanesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, secretReferenceService secretreferencesvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                         services,
 		authzService:                     authzService,
@@ -82,6 +84,7 @@ func New(services *services.Services, authzService authzsvc.Service, projectServ
 		observabilityPlaneService:        observabilityPlaneService,
 		releaseService:                   releaseService,
 		releaseBindingService:            releaseBindingService,
+		secretReferenceService:           secretReferenceService,
 		traitService:                     traitService,
 		workloadService:                  workloadService,
 		logger:                           logger,

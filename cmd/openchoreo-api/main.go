@@ -48,6 +48,7 @@ import (
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	releasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/release"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 	"github.com/openchoreo/openchoreo/internal/server"
@@ -217,6 +218,9 @@ func main() {
 	// Initialize release binding service for the new K8s-native API design
 	releaseBindingService := releasebindingsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "releasebinding-service"))
 
+	// Initialize secret reference service for the new K8s-native API design
+	secretReferenceService := secretreferencesvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "secretreference-service"))
+
 	// Initialize trait service for the new K8s-native API design
 	traitService := traitsvc.NewServiceWithAuthz(k8sClient, runtime.pdp, logger.With("component", "trait-service"))
 
@@ -227,7 +231,7 @@ func main() {
 	authzService := authzsvc.NewServiceWithAuthz(runtime.pap, runtime.pdp, k8sClient, logger.With("component", "authz-service"))
 
 	// Initialize OpenAPI handlers
-	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterComponentTypeService, clusterDataPlaneService, clusterObservabilityPlaneService, clusterTraitService, dataPlaneService, componentService, componentReleaseService, componentTypeService, environmentService, observabilityPlaneService, releaseService, releaseBindingService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
+	openapiHandler := openapihandlers.New(services, authzService, projectService, buildPlaneService, clusterBuildPlaneService, clusterComponentTypeService, clusterDataPlaneService, clusterObservabilityPlaneService, clusterTraitService, dataPlaneService, componentService, componentReleaseService, componentTypeService, environmentService, observabilityPlaneService, releaseService, releaseBindingService, secretReferenceService, traitService, workloadService, logger.With("component", "openapi-handlers"), &cfg)
 	strictHandler := gen.NewStrictHandler(openapiHandler, nil)
 
 	// Initialize middlewares for OpenAPI handler

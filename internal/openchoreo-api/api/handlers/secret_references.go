@@ -5,81 +5,171 @@ package handlers
 
 import (
 	"context"
+	"errors"
 
-	"k8s.io/utils/ptr"
-
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 )
 
-// ListSecretReferences returns a list of secret references
+// ListSecretReferences returns a paginated list of secret references within a namespace.
 func (h *Handler) ListSecretReferences(
 	ctx context.Context,
 	request gen.ListSecretReferencesRequestObject,
 ) (gen.ListSecretReferencesResponseObject, error) {
 	h.logger.Debug("ListSecretReferences called", "namespaceName", request.NamespaceName)
 
-	secretRefs, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName)
+	opts := NormalizeListOptions(request.Params.Limit, request.Params.Cursor)
+
+	result, err := h.secretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {
 		h.logger.Error("Failed to list secret references", "error", err)
 		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// Convert to generated types
-	items := make([]gen.SecretReference, 0, len(secretRefs))
-	for _, sr := range secretRefs {
-		items = append(items, toGenSecretReference(sr))
+	items, err := convertList[openchoreov1alpha1.SecretReference, gen.SecretReference](result.Items)
+	if err != nil {
+		h.logger.Error("Failed to convert secret references", "error", err)
+		return gen.ListSecretReferences500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	// TODO: Implement proper cursor-based pagination with Kubernetes continuation tokens
 	return gen.ListSecretReferences200JSONResponse{
 		Items:      items,
-		Pagination: gen.Pagination{},
+		Pagination: ToPaginationPtr(result),
 	}, nil
 }
 
-// toGenSecretReference converts models.SecretReferenceResponse to gen.SecretReference
-func toGenSecretReference(sr *models.SecretReferenceResponse) gen.SecretReference {
-	result := gen.SecretReference{
-		Name:        sr.Name,
-		Namespace:   sr.Namespace,
-		DisplayName: ptr.To(sr.DisplayName),
-		Description: ptr.To(sr.Description),
-		CreatedAt:   sr.CreatedAt,
-		Status:      ptr.To(sr.Status),
+// CreateSecretReference creates a new secret reference within a namespace.
+func (h *Handler) CreateSecretReference(
+	ctx context.Context,
+	request gen.CreateSecretReferenceRequestObject,
+) (gen.CreateSecretReferenceResponseObject, error) {
+	h.logger.Info("CreateSecretReference called", "namespaceName", request.NamespaceName)
+
+	if request.Body == nil {
+		return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
 	}
-	if sr.RefreshInterval != "" {
-		result.RefreshInterval = ptr.To(sr.RefreshInterval)
+
+	srCR, err := convert[gen.SecretReference, openchoreov1alpha1.SecretReference](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
 	}
-	if sr.LastRefreshTime != nil {
-		result.LastRefreshTime = sr.LastRefreshTime
-	}
-	if len(sr.SecretStores) > 0 {
-		secretStores := make([]gen.SecretStoreReference, 0, len(sr.SecretStores))
-		for _, ss := range sr.SecretStores {
-			secretStores = append(secretStores, gen.SecretStoreReference{
-				Kind: ss.Kind,
-				Name: ss.Name,
-			})
+	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
+
+	created, err := h.secretReferenceService.CreateSecretReference(ctx, request.NamespaceName, &srCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		result.SecretStores = ptr.To(secretStores)
-	}
-	if len(sr.Data) > 0 {
-		data := make([]gen.SecretDataSource, 0, len(sr.Data))
-		for _, d := range sr.Data {
-			dataSource := gen.SecretDataSource{
-				SecretKey: d.SecretKey,
-				RemoteRef: gen.RemoteReference{Key: d.RemoteRef.Key},
-			}
-			if d.RemoteRef.Property != "" {
-				dataSource.RemoteRef.Property = ptr.To(d.RemoteRef.Property)
-			}
-			if d.RemoteRef.Version != "" {
-				dataSource.RemoteRef.Version = ptr.To(d.RemoteRef.Version)
-			}
-			data = append(data, dataSource)
+		if errors.Is(err, secretreferencesvc.ErrSecretReferenceAlreadyExists) {
+			return gen.CreateSecretReference409JSONResponse{ConflictJSONResponse: conflict("Secret reference already exists")}, nil
 		}
-		result.Data = ptr.To(data)
+		h.logger.Error("Failed to create secret reference", "error", err)
+		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	return result
+
+	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created secret reference", "error", err)
+		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Secret reference created successfully", "namespaceName", request.NamespaceName, "secretReference", created.Name)
+	return gen.CreateSecretReference201JSONResponse(genSR), nil
+}
+
+// GetSecretReference returns details of a specific secret reference.
+func (h *Handler) GetSecretReference(
+	ctx context.Context,
+	request gen.GetSecretReferenceRequestObject,
+) (gen.GetSecretReferenceResponseObject, error) {
+	h.logger.Debug("GetSecretReference called", "namespaceName", request.NamespaceName, "secretReferenceName", request.SecretReferenceName)
+
+	sr, err := h.secretReferenceService.GetSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.GetSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, secretreferencesvc.ErrSecretReferenceNotFound) {
+			return gen.GetSecretReference404JSONResponse{NotFoundJSONResponse: notFound("SecretReference")}, nil
+		}
+		h.logger.Error("Failed to get secret reference", "error", err)
+		return gen.GetSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*sr)
+	if err != nil {
+		h.logger.Error("Failed to convert secret reference", "error", err)
+		return gen.GetSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetSecretReference200JSONResponse(genSR), nil
+}
+
+// UpdateSecretReference replaces an existing secret reference (full update).
+func (h *Handler) UpdateSecretReference(
+	ctx context.Context,
+	request gen.UpdateSecretReferenceRequestObject,
+) (gen.UpdateSecretReferenceResponseObject, error) {
+	h.logger.Info("UpdateSecretReference called", "namespaceName", request.NamespaceName, "secretReferenceName", request.SecretReferenceName)
+
+	if request.Body == nil {
+		return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	srCR, err := convert[gen.SecretReference, openchoreov1alpha1.SecretReference](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	srCR.Status = openchoreov1alpha1.SecretReferenceStatus{}
+
+	// Ensure the name from the URL path is used
+	srCR.Name = request.SecretReferenceName
+
+	updated, err := h.secretReferenceService.UpdateSecretReference(ctx, request.NamespaceName, &srCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, secretreferencesvc.ErrSecretReferenceNotFound) {
+			return gen.UpdateSecretReference404JSONResponse{NotFoundJSONResponse: notFound("SecretReference")}, nil
+		}
+		h.logger.Error("Failed to update secret reference", "error", err)
+		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genSR, err := convert[openchoreov1alpha1.SecretReference, gen.SecretReference](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated secret reference", "error", err)
+		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Secret reference updated successfully", "namespaceName", request.NamespaceName, "secretReference", updated.Name)
+	return gen.UpdateSecretReference200JSONResponse(genSR), nil
+}
+
+// DeleteSecretReference deletes a secret reference by name.
+func (h *Handler) DeleteSecretReference(
+	ctx context.Context,
+	request gen.DeleteSecretReferenceRequestObject,
+) (gen.DeleteSecretReferenceResponseObject, error) {
+	h.logger.Info("DeleteSecretReference called", "namespaceName", request.NamespaceName, "secretReferenceName", request.SecretReferenceName)
+
+	err := h.secretReferenceService.DeleteSecretReference(ctx, request.NamespaceName, request.SecretReferenceName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteSecretReference403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, secretreferencesvc.ErrSecretReferenceNotFound) {
+			return gen.DeleteSecretReference404JSONResponse{NotFoundJSONResponse: notFound("SecretReference")}, nil
+		}
+		h.logger.Error("Failed to delete secret reference", "error", err)
+		return gen.DeleteSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Secret reference deleted successfully", "namespaceName", request.NamespaceName, "secretReference", request.SecretReferenceName)
+	return gen.DeleteSecretReference204Response{}, nil
 }

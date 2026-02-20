@@ -315,7 +315,7 @@ func (c *Client) ListComponentWorkflows(ctx context.Context, namespaceName strin
 
 // ListSecretReferences retrieves all secret references for a namespace
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName string) (*gen.SecretReferenceList, error) {
-	resp, err := c.client.ListSecretReferencesWithResponse(ctx, namespaceName)
+	resp, err := c.client.ListSecretReferencesWithResponse(ctx, namespaceName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list secret references: %w", err)
 	}

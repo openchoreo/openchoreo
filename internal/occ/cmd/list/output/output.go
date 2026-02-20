@@ -287,9 +287,13 @@ func PrintSecretReferences(list *gen.SecretReferenceList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, sr := range list.Items {
+		age := "<unknown>"
+		if sr.Metadata.CreationTimestamp != nil {
+			age = formatAge(*sr.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			sr.Name,
-			formatAge(sr.CreatedAt))
+			sr.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()
