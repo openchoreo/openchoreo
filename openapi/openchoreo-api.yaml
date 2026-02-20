@@ -1134,6 +1134,9 @@ paths:
       summary: List cluster traits
       description: Returns a list of cluster-scoped traits.
       tags: [ClusterTraits]
+      parameters:
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
       responses:
         '200':
           description: List of cluster traits
@@ -1145,6 +1148,92 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterTrait
+      summary: Create cluster trait
+      description: Creates a new cluster-scoped trait.
+      tags: [ClusterTraits]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTrait'
+      responses:
+        '201':
+          description: Cluster trait created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterTrait'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clustertraits/{clusterTraitName}:
+    get:
+      operationId: getClusterTrait
+      summary: Get a cluster trait
+      description: Returns details of a specific cluster-scoped trait.
+      tags: [ClusterTraits]
+      parameters:
+        - $ref: '#/components/parameters/ClusterTraitNameParam'
+      responses:
+        '200':
+          description: Cluster trait details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterTrait'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterTrait
+      summary: Update cluster trait
+      description: Replaces an existing cluster-scoped trait (full update).
+      tags: [ClusterTraits]
+      parameters:
+        - $ref: '#/components/parameters/ClusterTraitNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterTrait'
+      responses:
+        '200':
+          description: Cluster trait updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterTrait'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -5664,7 +5753,6 @@ components:
       description: Paginated list of cluster-scoped traits
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5675,28 +5763,130 @@ components:
 
     ClusterTrait:
       type: object
-      description: Cluster-scoped Trait resource for composable cross-cutting concerns
+      description: |
+        ClusterTrait resource (Kubernetes object without kind/apiVersion).
+        Cluster-scoped version of Trait.
       required:
-        - name
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: ClusterTrait name (unique across the cluster)
-          example: autoscaler
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: Auto Scaler
-        description:
-          type: string
-          description: Trait description
-          example: Enables horizontal pod autoscaling
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ClusterTraitSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ClusterTraitStatus'
+
+    ClusterTraitSpec:
+      type: object
+      description: Desired state of a ClusterTrait
+      properties:
+        schema:
+          type: object
+          description: Trait parameter schema definition
+          properties:
+            types:
+              type: object
+              description: Reusable type definitions
+              additionalProperties: true
+            parameters:
+              type: object
+              description: Developer-facing configuration options
+              additionalProperties: true
+            envOverrides:
+              type: object
+              description: Environment-specific overrides
+              additionalProperties: true
+        creates:
+          type: array
+          description: New Kubernetes resources to create when this trait is applied
+          items:
+            type: object
+            required:
+              - template
+            properties:
+              targetPlane:
+                type: string
+                description: Target plane for deployment
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created"
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions
+                additionalProperties: true
+        patches:
+          type: array
+          description: Modifications to existing resources generated by the ComponentType
+          items:
+            type: object
+            required:
+              - target
+              - operations
+            properties:
+              forEach:
+                type: string
+                description: "CEL expression for repeating this patch"
+              var:
+                type: string
+                description: Loop variable name when using forEach
+              target:
+                type: object
+                description: Target resource to patch
+                required:
+                  - group
+                  - version
+                  - kind
+                properties:
+                  group:
+                    type: string
+                    description: API group of the resource
+                  version:
+                    type: string
+                    description: API version of the resource
+                  kind:
+                    type: string
+                    description: Resource type to patch
+                  where:
+                    type: string
+                    description: "CEL expression to filter which resources to patch"
+              targetPlane:
+                type: string
+                description: Target plane for this patch
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              operations:
+                type: array
+                description: JSONPatch operations to apply
+                minItems: 1
+                items:
+                  type: object
+                  required:
+                    - op
+                    - path
+                  properties:
+                    op:
+                      type: string
+                      description: Operation type
+                      enum: [add, replace, remove]
+                    path:
+                      type: string
+                      description: JSON Pointer to the field to modify
+                    value:
+                      description: Value to set (for add/replace operations)
+
+    ClusterTraitStatus:
+      type: object
+      description: Observed state of a ClusterTrait
 
     # -------------------------------------------------------------------------
     # ComponentTypes

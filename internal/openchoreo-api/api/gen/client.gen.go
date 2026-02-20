@@ -197,7 +197,20 @@ type ClientInterface interface {
 	UpdateClusterRole(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListClusterTraits request
-	ListClusterTraits(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListClusterTraits(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterTraitWithBody request with any body
+	CreateClusterTraitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterTrait(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterTrait request
+	GetClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterTraitWithBody request with any body
+	UpdateClusterTraitWithBody(ctx context.Context, clusterTraitName ClusterTraitNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, body UpdateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetClusterTraitSchema request
 	GetClusterTraitSchema(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1022,8 +1035,68 @@ func (c *Client) UpdateClusterRole(ctx context.Context, name string, body Update
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListClusterTraits(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListClusterTraitsRequest(c.Server)
+func (c *Client) ListClusterTraits(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterTraitsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterTraitWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterTraitRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterTrait(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterTraitRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterTraitRequest(c.Server, clusterTraitName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterTraitWithBody(ctx context.Context, clusterTraitName ClusterTraitNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterTraitRequestWithBody(c.Server, clusterTraitName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterTrait(ctx context.Context, clusterTraitName ClusterTraitNameParam, body UpdateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterTraitRequest(c.Server, clusterTraitName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3774,7 +3847,7 @@ func NewUpdateClusterRoleRequestWithBody(server string, name string, contentType
 }
 
 // NewListClusterTraitsRequest generates requests for ListClusterTraits
-func NewListClusterTraitsRequest(server string) (*http.Request, error) {
+func NewListClusterTraitsRequest(server string, params *ListClusterTraitsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -3792,10 +3865,169 @@ func NewListClusterTraitsRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateClusterTraitRequest calls the generic CreateClusterTrait builder with application/json body
+func NewCreateClusterTraitRequest(server string, body CreateClusterTraitJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterTraitRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterTraitRequestWithBody generates requests for CreateClusterTrait with any type of body
+func NewCreateClusterTraitRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustertraits")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetClusterTraitRequest generates requests for GetClusterTrait
+func NewGetClusterTraitRequest(server string, clusterTraitName ClusterTraitNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterTraitName", runtime.ParamLocationPath, clusterTraitName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustertraits/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterTraitRequest calls the generic UpdateClusterTrait builder with application/json body
+func NewUpdateClusterTraitRequest(server string, clusterTraitName ClusterTraitNameParam, body UpdateClusterTraitJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterTraitRequestWithBody(server, clusterTraitName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterTraitRequestWithBody generates requests for UpdateClusterTrait with any type of body
+func NewUpdateClusterTraitRequestWithBody(server string, clusterTraitName ClusterTraitNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "clusterTraitName", runtime.ParamLocationPath, clusterTraitName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustertraits/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -8946,7 +9178,20 @@ type ClientWithResponsesInterface interface {
 	UpdateClusterRoleWithResponse(ctx context.Context, name string, body UpdateClusterRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterRoleResp, error)
 
 	// ListClusterTraitsWithResponse request
-	ListClusterTraitsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterTraitsResp, error)
+	ListClusterTraitsWithResponse(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*ListClusterTraitsResp, error)
+
+	// CreateClusterTraitWithBodyWithResponse request with any body
+	CreateClusterTraitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error)
+
+	CreateClusterTraitWithResponse(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error)
+
+	// GetClusterTraitWithResponse request
+	GetClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitResp, error)
+
+	// UpdateClusterTraitWithBodyWithResponse request with any body
+	UpdateClusterTraitWithBodyWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterTraitResp, error)
+
+	UpdateClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, body UpdateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterTraitResp, error)
 
 	// GetClusterTraitSchemaWithResponse request
 	GetClusterTraitSchemaWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitSchemaResp, error)
@@ -10068,6 +10313,87 @@ func (r ListClusterTraitsResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListClusterTraitsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterTraitResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterTrait
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterTraitResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterTraitResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterTraitResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterTrait
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterTraitResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterTraitResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterTraitResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterTrait
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterTraitResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterTraitResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12959,12 +13285,55 @@ func (c *ClientWithResponses) UpdateClusterRoleWithResponse(ctx context.Context,
 }
 
 // ListClusterTraitsWithResponse request returning *ListClusterTraitsResp
-func (c *ClientWithResponses) ListClusterTraitsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListClusterTraitsResp, error) {
-	rsp, err := c.ListClusterTraits(ctx, reqEditors...)
+func (c *ClientWithResponses) ListClusterTraitsWithResponse(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*ListClusterTraitsResp, error) {
+	rsp, err := c.ListClusterTraits(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseListClusterTraitsResp(rsp)
+}
+
+// CreateClusterTraitWithBodyWithResponse request with arbitrary body returning *CreateClusterTraitResp
+func (c *ClientWithResponses) CreateClusterTraitWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error) {
+	rsp, err := c.CreateClusterTraitWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterTraitResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterTraitWithResponse(ctx context.Context, body CreateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterTraitResp, error) {
+	rsp, err := c.CreateClusterTrait(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterTraitResp(rsp)
+}
+
+// GetClusterTraitWithResponse request returning *GetClusterTraitResp
+func (c *ClientWithResponses) GetClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, reqEditors ...RequestEditorFn) (*GetClusterTraitResp, error) {
+	rsp, err := c.GetClusterTrait(ctx, clusterTraitName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterTraitResp(rsp)
+}
+
+// UpdateClusterTraitWithBodyWithResponse request with arbitrary body returning *UpdateClusterTraitResp
+func (c *ClientWithResponses) UpdateClusterTraitWithBodyWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterTraitResp, error) {
+	rsp, err := c.UpdateClusterTraitWithBody(ctx, clusterTraitName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterTraitResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterTraitWithResponse(ctx context.Context, clusterTraitName ClusterTraitNameParam, body UpdateClusterTraitJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterTraitResp, error) {
+	rsp, err := c.UpdateClusterTrait(ctx, clusterTraitName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterTraitResp(rsp)
 }
 
 // GetClusterTraitSchemaWithResponse request returning *GetClusterTraitSchemaResp
@@ -15633,6 +16002,189 @@ func ParseListClusterTraitsResp(rsp *http.Response) (*ListClusterTraitsResp, err
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterTraitResp parses an HTTP response from a CreateClusterTraitWithResponse call
+func ParseCreateClusterTraitResp(rsp *http.Response) (*CreateClusterTraitResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterTraitResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterTrait
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterTraitResp parses an HTTP response from a GetClusterTraitWithResponse call
+func ParseGetClusterTraitResp(rsp *http.Response) (*GetClusterTraitResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterTraitResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterTrait
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterTraitResp parses an HTTP response from a UpdateClusterTraitWithResponse call
+func ParseUpdateClusterTraitResp(rsp *http.Response) (*UpdateClusterTraitResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterTraitResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterTrait
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

@@ -78,6 +78,11 @@ var systemActions = []Action{
 	{Name: "clustercomponenttype:create", IsInternal: false},
 	{Name: "clustercomponenttype:update", IsInternal: false},
 
+	// ClusterTrait
+	{Name: "clustertrait:view", IsInternal: false},
+	{Name: "clustertrait:create", IsInternal: false},
+	{Name: "clustertrait:update", IsInternal: false},
+
 	// Cluster-scoped planes
 	{Name: "clusterdataplane:view", IsInternal: false},
 	{Name: "clusterdataplane:create", IsInternal: false},
