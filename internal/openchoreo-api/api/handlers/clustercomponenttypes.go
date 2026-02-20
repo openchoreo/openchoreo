@@ -25,6 +25,9 @@ func (h *Handler) ListClusterComponentTypes(
 
 	result, err := h.clusterComponentTypeService.ListClusterComponentTypes(ctx, opts)
 	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.ListClusterComponentTypes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
 		h.logger.Error("Failed to list cluster component types", "error", err)
 		return gen.ListClusterComponentTypes500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
