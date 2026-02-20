@@ -125,8 +125,18 @@ type ClientInterface interface {
 	// ListClusterComponentTypes request
 	ListClusterComponentTypes(ctx context.Context, params *ListClusterComponentTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateClusterComponentTypeWithBody request with any body
+	CreateClusterComponentTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterComponentType(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetClusterComponentType request
 	GetClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterComponentTypeWithBody request with any body
+	UpdateClusterComponentTypeWithBody(ctx context.Context, cctName ClusterComponentTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, body UpdateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetClusterComponentTypeSchema request
 	GetClusterComponentTypeSchema(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -700,8 +710,56 @@ func (c *Client) ListClusterComponentTypes(ctx context.Context, params *ListClus
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateClusterComponentTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterComponentTypeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterComponentType(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterComponentTypeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetClusterComponentTypeRequest(c.Server, cctName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterComponentTypeWithBody(ctx context.Context, cctName ClusterComponentTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterComponentTypeRequestWithBody(c.Server, cctName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterComponentType(ctx context.Context, cctName ClusterComponentTypeNameParam, body UpdateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterComponentTypeRequest(c.Server, cctName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2958,6 +3016,46 @@ func NewListClusterComponentTypesRequest(server string, params *ListClusterCompo
 	return req, nil
 }
 
+// NewCreateClusterComponentTypeRequest calls the generic CreateClusterComponentType builder with application/json body
+func NewCreateClusterComponentTypeRequest(server string, body CreateClusterComponentTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterComponentTypeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterComponentTypeRequestWithBody generates requests for CreateClusterComponentType with any type of body
+func NewCreateClusterComponentTypeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustercomponenttypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetClusterComponentTypeRequest generates requests for GetClusterComponentType
 func NewGetClusterComponentTypeRequest(server string, cctName ClusterComponentTypeNameParam) (*http.Request, error) {
 	var err error
@@ -2988,6 +3086,53 @@ func NewGetClusterComponentTypeRequest(server string, cctName ClusterComponentTy
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateClusterComponentTypeRequest calls the generic UpdateClusterComponentType builder with application/json body
+func NewUpdateClusterComponentTypeRequest(server string, cctName ClusterComponentTypeNameParam, body UpdateClusterComponentTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterComponentTypeRequestWithBody(server, cctName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterComponentTypeRequestWithBody generates requests for UpdateClusterComponentType with any type of body
+func NewUpdateClusterComponentTypeRequestWithBody(server string, cctName ClusterComponentTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cctName", runtime.ParamLocationPath, cctName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clustercomponenttypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -8729,8 +8874,18 @@ type ClientWithResponsesInterface interface {
 	// ListClusterComponentTypesWithResponse request
 	ListClusterComponentTypesWithResponse(ctx context.Context, params *ListClusterComponentTypesParams, reqEditors ...RequestEditorFn) (*ListClusterComponentTypesResp, error)
 
+	// CreateClusterComponentTypeWithBodyWithResponse request with any body
+	CreateClusterComponentTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterComponentTypeResp, error)
+
+	CreateClusterComponentTypeWithResponse(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterComponentTypeResp, error)
+
 	// GetClusterComponentTypeWithResponse request
 	GetClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterComponentTypeResp, error)
+
+	// UpdateClusterComponentTypeWithBodyWithResponse request with any body
+	UpdateClusterComponentTypeWithBodyWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterComponentTypeResp, error)
+
+	UpdateClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, body UpdateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterComponentTypeResp, error)
 
 	// GetClusterComponentTypeSchemaWithResponse request
 	GetClusterComponentTypeSchemaWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterComponentTypeSchemaResp, error)
@@ -9395,6 +9550,33 @@ func (r ListClusterComponentTypesResp) StatusCode() int {
 	return 0
 }
 
+type CreateClusterComponentTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterComponentType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterComponentTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterComponentTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetClusterComponentTypeResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -9415,6 +9597,34 @@ func (r GetClusterComponentTypeResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetClusterComponentTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterComponentTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterComponentType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterComponentTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterComponentTypeResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12521,6 +12731,23 @@ func (c *ClientWithResponses) ListClusterComponentTypesWithResponse(ctx context.
 	return ParseListClusterComponentTypesResp(rsp)
 }
 
+// CreateClusterComponentTypeWithBodyWithResponse request with arbitrary body returning *CreateClusterComponentTypeResp
+func (c *ClientWithResponses) CreateClusterComponentTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterComponentTypeResp, error) {
+	rsp, err := c.CreateClusterComponentTypeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterComponentTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterComponentTypeWithResponse(ctx context.Context, body CreateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterComponentTypeResp, error) {
+	rsp, err := c.CreateClusterComponentType(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterComponentTypeResp(rsp)
+}
+
 // GetClusterComponentTypeWithResponse request returning *GetClusterComponentTypeResp
 func (c *ClientWithResponses) GetClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterComponentTypeResp, error) {
 	rsp, err := c.GetClusterComponentType(ctx, cctName, reqEditors...)
@@ -12528,6 +12755,23 @@ func (c *ClientWithResponses) GetClusterComponentTypeWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetClusterComponentTypeResp(rsp)
+}
+
+// UpdateClusterComponentTypeWithBodyWithResponse request with arbitrary body returning *UpdateClusterComponentTypeResp
+func (c *ClientWithResponses) UpdateClusterComponentTypeWithBodyWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterComponentTypeResp, error) {
+	rsp, err := c.UpdateClusterComponentTypeWithBody(ctx, cctName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterComponentTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterComponentTypeWithResponse(ctx context.Context, cctName ClusterComponentTypeNameParam, body UpdateClusterComponentTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterComponentTypeResp, error) {
+	rsp, err := c.UpdateClusterComponentType(ctx, cctName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterComponentTypeResp(rsp)
 }
 
 // GetClusterComponentTypeSchemaWithResponse request returning *GetClusterComponentTypeSchemaResp
@@ -14294,6 +14538,67 @@ func ParseListClusterComponentTypesResp(rsp *http.Response) (*ListClusterCompone
 	return response, nil
 }
 
+// ParseCreateClusterComponentTypeResp parses an HTTP response from a CreateClusterComponentTypeWithResponse call
+func ParseCreateClusterComponentTypeResp(rsp *http.Response) (*CreateClusterComponentTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterComponentTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterComponentType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetClusterComponentTypeResp parses an HTTP response from a GetClusterComponentTypeWithResponse call
 func ParseGetClusterComponentTypeResp(rsp *http.Response) (*GetClusterComponentTypeResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -14335,6 +14640,74 @@ func ParseGetClusterComponentTypeResp(rsp *http.Response) (*GetClusterComponentT
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterComponentTypeResp parses an HTTP response from a UpdateClusterComponentTypeWithResponse call
+func ParseUpdateClusterComponentTypeResp(rsp *http.Response) (*UpdateClusterComponentTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterComponentTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterComponentType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

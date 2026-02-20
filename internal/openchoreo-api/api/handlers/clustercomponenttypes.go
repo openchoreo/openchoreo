@@ -44,6 +44,89 @@ func (h *Handler) ListClusterComponentTypes(
 	}, nil
 }
 
+// CreateClusterComponentType creates a new cluster-scoped component type.
+func (h *Handler) CreateClusterComponentType(
+	ctx context.Context,
+	request gen.CreateClusterComponentTypeRequestObject,
+) (gen.CreateClusterComponentTypeResponseObject, error) {
+	h.logger.Info("CreateClusterComponentType called")
+
+	if request.Body == nil {
+		return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	cctCR, err := convert[gen.ClusterComponentType, openchoreov1alpha1.ClusterComponentType](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert create request", "error", err)
+		return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
+
+	created, err := h.clusterComponentTypeService.CreateClusterComponentType(ctx, &cctCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.CreateClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeAlreadyExists) {
+			return gen.CreateClusterComponentType409JSONResponse{ConflictJSONResponse: conflict("Cluster component type already exists")}, nil
+		}
+		h.logger.Error("Failed to create cluster component type", "error", err)
+		return gen.CreateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*created)
+	if err != nil {
+		h.logger.Error("Failed to convert created cluster component type", "error", err)
+		return gen.CreateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster component type created successfully", "clusterComponentType", created.Name)
+	return gen.CreateClusterComponentType201JSONResponse(genCCT), nil
+}
+
+// UpdateClusterComponentType replaces an existing cluster-scoped component type (full update).
+func (h *Handler) UpdateClusterComponentType(
+	ctx context.Context,
+	request gen.UpdateClusterComponentTypeRequestObject,
+) (gen.UpdateClusterComponentTypeResponseObject, error) {
+	h.logger.Info("UpdateClusterComponentType called", "cctName", request.CctName)
+
+	if request.Body == nil {
+		return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	cctCR, err := convert[gen.ClusterComponentType, openchoreov1alpha1.ClusterComponentType](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	cctCR.Status = openchoreov1alpha1.ClusterComponentTypeStatus{}
+
+	// Ensure the name from the URL path is used
+	cctCR.Name = request.CctName
+
+	updated, err := h.clusterComponentTypeService.UpdateClusterComponentType(ctx, &cctCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateClusterComponentType403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
+			return gen.UpdateClusterComponentType404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
+		}
+		h.logger.Error("Failed to update cluster component type", "error", err)
+		return gen.UpdateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCCT, err := convert[openchoreov1alpha1.ClusterComponentType, gen.ClusterComponentType](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated cluster component type", "error", err)
+		return gen.UpdateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("Cluster component type updated successfully", "clusterComponentType", updated.Name)
+	return gen.UpdateClusterComponentType200JSONResponse(genCCT), nil
+}
+
 // GetClusterComponentType returns details of a specific cluster-scoped component type.
 func (h *Handler) GetClusterComponentType(
 	ctx context.Context,

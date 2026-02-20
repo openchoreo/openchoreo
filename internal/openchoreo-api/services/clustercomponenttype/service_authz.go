@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	actionViewClusterComponentType = "clustercomponenttype:view"
+	actionCreateClusterComponentType = "clustercomponenttype:create"
+	actionUpdateClusterComponentType = "clustercomponenttype:update"
+	actionViewClusterComponentType   = "clustercomponenttype:view"
 
 	resourceTypeClusterComponentType = "clusterComponentType"
 )
@@ -36,6 +38,30 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 		internal: NewService(k8sClient, logger),
 		authz:    services.NewAuthzChecker(authzPDP, logger),
 	}
+}
+
+func (s *clusterComponentTypeServiceWithAuthz) CreateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateClusterComponentType,
+		ResourceType: resourceTypeClusterComponentType,
+		ResourceID:   cct.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateClusterComponentType(ctx, cct)
+}
+
+func (s *clusterComponentTypeServiceWithAuthz) UpdateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateClusterComponentType,
+		ResourceType: resourceTypeClusterComponentType,
+		ResourceID:   cct.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateClusterComponentType(ctx, cct)
 }
 
 func (s *clusterComponentTypeServiceWithAuthz) ListClusterComponentTypes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterComponentType], error) {

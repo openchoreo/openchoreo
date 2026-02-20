@@ -6,5 +6,6 @@ package clustercomponenttype
 import "errors"
 
 var (
-	ErrClusterComponentTypeNotFound = errors.New("cluster component type not found")
+	ErrClusterComponentTypeNotFound      = errors.New("cluster component type not found")
+	ErrClusterComponentTypeAlreadyExists = errors.New("cluster component type already exists")
 )

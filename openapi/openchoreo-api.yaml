@@ -1014,6 +1014,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      operationId: createClusterComponentType
+      summary: Create cluster component type
+      description: Creates a new cluster-scoped component type.
+      tags: [ClusterComponentTypes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterComponentType'
+      responses:
+        '201':
+          description: Cluster component type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterComponentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/clustercomponenttypes/{cctName}:
     get:
       operationId: getClusterComponentType
@@ -1035,6 +1064,39 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterComponentType
+      summary: Update cluster component type
+      description: Replaces an existing cluster-scoped component type (full update).
+      tags: [ClusterComponentTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterComponentTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterComponentType'
+      responses:
+        '200':
+          description: Cluster component type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterComponentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 

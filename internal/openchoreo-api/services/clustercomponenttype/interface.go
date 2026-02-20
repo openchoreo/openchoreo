@@ -17,6 +17,8 @@ import (
 // Methods accept and return Kubernetes CRD types directly for alignment with
 // the K8s-native API design.
 type Service interface {
+	CreateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
+	UpdateClusterComponentType(ctx context.Context, cct *openchoreov1alpha1.ClusterComponentType) (*openchoreov1alpha1.ClusterComponentType, error)
 	ListClusterComponentTypes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterComponentType], error)
 	GetClusterComponentType(ctx context.Context, cctName string) (*openchoreov1alpha1.ClusterComponentType, error)
 	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*extv1.JSONSchemaProps, error)
