@@ -406,9 +406,6 @@ type ClientInterface interface {
 	// GetComponentWorkflowRun request
 	GetComponentWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetProjectDeploymentPipeline request
-	GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListReleaseBindings request
 	ListReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1959,18 +1956,6 @@ func (c *Client) CreateComponentWorkflowRun(ctx context.Context, namespaceName N
 
 func (c *Client) GetComponentWorkflowRun(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetComponentWorkflowRunRequest(c.Server, namespaceName, projectName, componentName, runName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetProjectDeploymentPipelineRequest(c.Server, namespaceName, projectName)
 	if err != nil {
 		return nil, err
 	}
@@ -7022,47 +7007,6 @@ func NewGetComponentWorkflowRunRequest(server string, namespaceName NamespaceNam
 	return req, nil
 }
 
-// NewGetProjectDeploymentPipelineRequest generates requests for GetProjectDeploymentPipeline
-func NewGetProjectDeploymentPipelineRequest(server string, namespaceName NamespaceNameParam, projectName ProjectNameParam) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectName", runtime.ParamLocationPath, projectName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/projects/%s/deployment-pipeline", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
 // NewListReleaseBindingsRequest generates requests for ListReleaseBindings
 func NewListReleaseBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams) (*http.Request, error) {
 	var err error
@@ -9806,9 +9750,6 @@ type ClientWithResponsesInterface interface {
 	// GetComponentWorkflowRunWithResponse request
 	GetComponentWorkflowRunWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, componentName ComponentNameParam, runName WorkflowRunNameParam, reqEditors ...RequestEditorFn) (*GetComponentWorkflowRunResp, error)
 
-	// GetProjectDeploymentPipelineWithResponse request
-	GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error)
-
 	// ListReleaseBindingsWithResponse request
 	ListReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListReleaseBindingsResp, error)
 
@@ -12252,32 +12193,6 @@ func (r GetComponentWorkflowRunResp) StatusCode() int {
 	return 0
 }
 
-type GetProjectDeploymentPipelineResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *DeploymentPipeline
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r GetProjectDeploymentPipelineResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetProjectDeploymentPipelineResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListReleaseBindingsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -14543,15 +14458,6 @@ func (c *ClientWithResponses) GetComponentWorkflowRunWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetComponentWorkflowRunResp(rsp)
-}
-
-// GetProjectDeploymentPipelineWithResponse request returning *GetProjectDeploymentPipelineResp
-func (c *ClientWithResponses) GetProjectDeploymentPipelineWithResponse(ctx context.Context, namespaceName NamespaceNameParam, projectName ProjectNameParam, reqEditors ...RequestEditorFn) (*GetProjectDeploymentPipelineResp, error) {
-	rsp, err := c.GetProjectDeploymentPipeline(ctx, namespaceName, projectName, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetProjectDeploymentPipelineResp(rsp)
 }
 
 // ListReleaseBindingsWithResponse request returning *ListReleaseBindingsResp
@@ -19790,60 +19696,6 @@ func ParseGetComponentWorkflowRunResp(rsp *http.Response) (*GetComponentWorkflow
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ComponentWorkflowRun
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetProjectDeploymentPipelineResp parses an HTTP response from a GetProjectDeploymentPipelineWithResponse call
-func ParseGetProjectDeploymentPipelineResp(rsp *http.Response) (*GetProjectDeploymentPipelineResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetProjectDeploymentPipelineResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest DeploymentPipeline
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

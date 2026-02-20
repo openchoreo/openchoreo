@@ -243,13 +243,13 @@ func (c *CompImpl) fetchLogs(
 // The root environment is the source environment that never appears as a target,
 // representing the initial environment where components are first deployed.
 func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
-	if pipeline.PromotionPaths == nil || len(*pipeline.PromotionPaths) == 0 {
-		return "", fmt.Errorf("deployment pipeline %s has no promotion paths defined", pipeline.Name)
+	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
+		return "", fmt.Errorf("deployment pipeline %s has no promotion paths defined", pipeline.Metadata.Name)
 	}
 
 	// Build a set of all target environments
 	targets := make(map[string]bool)
-	for _, path := range *pipeline.PromotionPaths {
+	for _, path := range *pipeline.Spec.PromotionPaths {
 		for _, target := range path.TargetEnvironmentRefs {
 			targets[target.Name] = true
 		}
@@ -257,7 +257,7 @@ func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 
 	// Find source environment that's never a target (the root)
 	var rootEnv string
-	for _, path := range *pipeline.PromotionPaths {
+	for _, path := range *pipeline.Spec.PromotionPaths {
 		if path.SourceEnvironmentRef == "" {
 			continue
 		}
@@ -268,7 +268,7 @@ func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 	}
 
 	if rootEnv == "" {
-		return "", fmt.Errorf("deployment pipeline %s has no root environment (all sources are also targets)", pipeline.Name)
+		return "", fmt.Errorf("deployment pipeline %s has no root environment (all sources are also targets)", pipeline.Metadata.Name)
 	}
 
 	return rootEnv, nil

@@ -441,11 +441,22 @@ func (c *Client) GetProject(ctx context.Context, namespaceName, projectName stri
 	return resp.JSON200, nil
 }
 
-// GetProjectDeploymentPipeline retrieves a project's deployment pipeline
+// GetProjectDeploymentPipeline retrieves a project's deployment pipeline by
+// first resolving the pipeline name from the project, then fetching the pipeline.
 func (c *Client) GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (*gen.DeploymentPipeline, error) {
-	resp, err := c.client.GetProjectDeploymentPipelineWithResponse(ctx, namespaceName, projectName)
+	project, err := c.GetProject(ctx, namespaceName, projectName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get project deployment pipeline: %w", err)
+		return nil, fmt.Errorf("failed to get project: %w", err)
+	}
+
+	pipelineName := "default"
+	if project.Spec != nil && project.Spec.DeploymentPipelineRef != nil {
+		pipelineName = *project.Spec.DeploymentPipelineRef
+	}
+
+	resp, err := c.client.GetDeploymentPipelineWithResponse(ctx, namespaceName, pipelineName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment pipeline: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())

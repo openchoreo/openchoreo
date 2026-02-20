@@ -3722,31 +3722,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/namespaces/{namespaceName}/projects/{projectName}/deployment-pipeline:
-    get:
-      operationId: getProjectDeploymentPipeline
-      summary: Get project deployment pipeline
-      description: Returns the deployment pipeline associated with a project.
-      tags: [DeploymentPipelines]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/ProjectNameParam'
-      responses:
-        '200':
-          description: Deployment pipeline details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeploymentPipeline'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
   # =============================================================================
   # Observability Alerts Notification Channel Endpoints
   # =============================================================================

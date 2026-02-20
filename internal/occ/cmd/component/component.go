@@ -170,12 +170,12 @@ func (d *CompImpl) promoteComponent(ctx context.Context, c *client.Client, param
 
 // findSourceEnvironment finds the source environment for a given target environment in the pipeline
 func (d *CompImpl) findSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
-	if pipeline.PromotionPaths == nil || len(*pipeline.PromotionPaths) == 0 {
+	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
 		return "", fmt.Errorf("deployment pipeline has no promotion paths")
 	}
 
 	// Search through promotion paths to find source for target
-	for _, path := range *pipeline.PromotionPaths {
+	for _, path := range *pipeline.Spec.PromotionPaths {
 		for _, targetRef := range path.TargetEnvironmentRefs {
 			if targetRef.Name == targetEnv {
 				return path.SourceEnvironmentRef, nil
