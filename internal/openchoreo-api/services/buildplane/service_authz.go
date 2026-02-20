@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package buildplane
@@ -71,6 +71,7 @@ func (s *buildPlaneServiceWithAuthz) GetBuildPlaneClient(_ context.Context, _, _
 }
 
 // ArgoWorkflowExists is not implemented on the authz-wrapped service as it is not exposed externally.
+// not implemented on the authz-wrapped service as it is not exposed externally
 func (s *buildPlaneServiceWithAuthz) ArgoWorkflowExists(_ context.Context, _, _ string, _ *openchoreov1alpha1.ResourceReference) bool {
 	return false
 }
