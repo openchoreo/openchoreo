@@ -17,8 +17,8 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	services "github.com/openchoreo/openchoreo/internal/openchoreo-api/legacyservices"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -70,19 +70,19 @@ func newClusterComponentTypeService(t *testing.T, objects []client.Object, pdp a
 	return clustercomponenttypesvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
 }
 
-func newClusterTraitService(t *testing.T, objects []client.Object, pdp authzcore.PDP) *services.ClusterTraitService {
+func newClusterTraitService(t *testing.T, objects []client.Object, pdp authzcore.PDP) clustertraitsvc.Service {
 	t.Helper()
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(objects...).
 		Build()
-	return services.NewClusterTraitService(fakeClient, slog.Default(), pdp)
+	return clustertraitsvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
 }
 
-func newHandlerWithServices(svcs *services.Services) *Handler {
+func newHandlerWithClusterTraitService(svc clustertraitsvc.Service) *Handler {
 	return &Handler{
-		services: svcs,
-		logger:   slog.Default(),
+		clusterTraitService: svc,
+		logger:              slog.Default(),
 	}
 }
 
@@ -211,7 +211,7 @@ func TestGetClusterComponentTypeSchemaHandler(t *testing.T) {
 }
 
 func TestListClusterTraitsHandler(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	ct := &openchoreov1alpha1.ClusterTrait{
 		ObjectMeta: metav1.ObjectMeta{Name: "autoscaler"},
 		Spec:       openchoreov1alpha1.ClusterTraitSpec{},
@@ -219,7 +219,7 @@ func TestListClusterTraitsHandler(t *testing.T) {
 
 	t.Run("returns items when authorized", func(t *testing.T) {
 		svc := newClusterTraitService(t, []client.Object{ct}, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterTraitService: svc})
+		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.ListClusterTraits(ctx, gen.ListClusterTraitsRequestObject{})
 		if err != nil {
@@ -237,7 +237,7 @@ func TestListClusterTraitsHandler(t *testing.T) {
 
 	t.Run("filters unauthorized items", func(t *testing.T) {
 		svc := newClusterTraitService(t, []client.Object{ct}, &denyAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterTraitService: svc})
+		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.ListClusterTraits(ctx, gen.ListClusterTraitsRequestObject{})
 		if err != nil {
@@ -255,7 +255,7 @@ func TestListClusterTraitsHandler(t *testing.T) {
 }
 
 func TestGetClusterTraitSchemaHandler(t *testing.T) {
-	ctx := context.Background()
+	ctx := testContext()
 	paramsRaw, _ := json.Marshal(map[string]any{
 		"minReplicas": "integer",
 	})
@@ -271,7 +271,7 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 
 	t.Run("returns schema when authorized", func(t *testing.T) {
 		svc := newClusterTraitService(t, []client.Object{ct}, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterTraitService: svc})
+		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "autoscaler"})
 		if err != nil {
@@ -289,7 +289,7 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 
 	t.Run("returns 404 when not found", func(t *testing.T) {
 		svc := newClusterTraitService(t, nil, &allowAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterTraitService: svc})
+		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "missing"})
 		if err != nil {
@@ -302,7 +302,7 @@ func TestGetClusterTraitSchemaHandler(t *testing.T) {
 
 	t.Run("returns 403 when forbidden", func(t *testing.T) {
 		svc := newClusterTraitService(t, []client.Object{ct}, &denyAllPDP{})
-		h := newHandlerWithServices(&services.Services{ClusterTraitService: svc})
+		h := newHandlerWithClusterTraitService(svc)
 
 		resp, err := h.GetClusterTraitSchema(ctx, gen.GetClusterTraitSchemaRequestObject{ClusterTraitName: "autoscaler"})
 		if err != nil {

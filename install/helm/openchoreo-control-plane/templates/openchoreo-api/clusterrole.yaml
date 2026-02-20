@@ -22,6 +22,7 @@ rules:
   - clusterbuildplanes
   - clustercomponenttypes
   - clusterdataplanes
+  - clustertraits
   - clusterobservabilityplanes
   - componentreleases
   - components
@@ -86,6 +87,7 @@ rules:
   - clusterbuildplanes/status
   - clustercomponenttypes/status
   - clusterdataplanes/status
+  - clustertraits/status
   - clusterobservabilityplanes/status
   - componentreleases/status
   - components/status
