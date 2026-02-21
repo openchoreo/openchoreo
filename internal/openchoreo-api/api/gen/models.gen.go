@@ -168,6 +168,12 @@ const (
 	UNAUTHORIZED  ErrorResponseCode = "UNAUTHORIZED"
 )
 
+// Defines values for NamespaceStatusPhase.
+const (
+	NamespaceStatusPhaseActive      NamespaceStatusPhase = "Active"
+	NamespaceStatusPhaseTerminating NamespaceStatusPhase = "Terminating"
+)
+
 // Defines values for ObservabilityAlertsNotificationChannelSpecType.
 const (
 	Email   ObservabilityAlertsNotificationChannelSpecType = "email"
@@ -182,8 +188,8 @@ const (
 
 // Defines values for ReleaseBindingSpecState.
 const (
-	Active   ReleaseBindingSpecState = "Active"
-	Undeploy ReleaseBindingSpecState = "Undeploy"
+	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
+	ReleaseBindingSpecStateUndeploy ReleaseBindingSpecState = "Undeploy"
 )
 
 // Defines values for ReleaseSpecTargetPlane.
@@ -1485,18 +1491,6 @@ type CreateComponentRequest struct {
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }
 
-// CreateNamespaceRequest Request body for creating a new control plane namespace
-type CreateNamespaceRequest struct {
-	// Description Namespace description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Namespace name (unique identifier, must be a valid Kubernetes namespace name)
-	Name string `json:"name"`
-}
-
 // CreateNamespaceRoleBindingRequest Request to create a namespace-scoped role binding (legacy)
 type CreateNamespaceRoleBindingRequest struct {
 	// Effect Policy effect (allow or deny)
@@ -1863,27 +1857,14 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-// Namespace Namespace resource representing an OpenChoreo control plane namespace.
+// Namespace Namespace resource (Kubernetes object without kind/apiVersion).
 // Control plane namespaces hold resources like Projects, Components, and Environments.
 // These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
 type Namespace struct {
-	// CreatedAt Creation timestamp
-	CreatedAt time.Time `json:"createdAt"`
-
-	// Description Namespace description
-	Description *string `json:"description,omitempty"`
-
-	// DisplayName Human-readable display name
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name Namespace name (unique identifier)
-	Name string `json:"name"`
-
-	// Namespace Kubernetes namespace for the namespace
-	Namespace *string `json:"namespace,omitempty"`
-
-	// Status Namespace status
-	Status *string `json:"status,omitempty"`
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta       `json:"metadata"`
+	Status   *NamespaceStatus `json:"status,omitempty"`
 }
 
 // NamespaceList Paginated list of namespaces
@@ -1892,8 +1873,17 @@ type NamespaceList struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination Pagination `json:"pagination"`
+	Pagination *Pagination `json:"pagination,omitempty"`
 }
+
+// NamespaceStatus Observed state of a Namespace
+type NamespaceStatus struct {
+	// Phase Namespace phase
+	Phase *NamespaceStatusPhase `json:"phase,omitempty"`
+}
+
+// NamespaceStatusPhase Namespace phase
+type NamespaceStatusPhase string
 
 // NotificationEmailConfig Configuration for email notification channels
 type NotificationEmailConfig struct {
@@ -3708,7 +3698,10 @@ type CreateClusterTraitJSONRequestBody = ClusterTrait
 type UpdateClusterTraitJSONRequestBody = ClusterTrait
 
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
-type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
+type CreateNamespaceJSONRequestBody = Namespace
+
+// UpdateNamespaceJSONRequestBody defines body for UpdateNamespace for application/json ContentType.
+type UpdateNamespaceJSONRequestBody = Namespace
 
 // CreateBuildPlaneJSONRequestBody defines body for CreateBuildPlane for application/json ContentType.
 type CreateBuildPlaneJSONRequestBody = BuildPlane

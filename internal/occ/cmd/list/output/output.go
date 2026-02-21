@@ -23,9 +23,13 @@ func PrintNamespaces(list *gen.NamespaceList) error {
 	fmt.Fprintln(w, "NAME\tAGE")
 
 	for _, ns := range list.Items {
+		age := ""
+		if ns.Metadata.CreationTimestamp != nil {
+			age = formatAge(*ns.Metadata.CreationTimestamp)
+		}
 		fmt.Fprintf(w, "%s\t%s\n",
-			ns.Name,
-			formatAge(ns.CreatedAt))
+			ns.Metadata.Name,
+			age)
 	}
 
 	return w.Flush()

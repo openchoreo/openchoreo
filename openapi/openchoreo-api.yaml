@@ -225,7 +225,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateNamespaceRequest'
+              $ref: '#/components/schemas/Namespace'
       responses:
         '201':
           description: Namespace created successfully
@@ -240,11 +240,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
-          description: Namespace already exists
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -263,6 +259,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Namespace'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateNamespace
+      summary: Update namespace
+      description: Replaces an existing control plane namespace (full update).
+      tags: [Namespaces]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Namespace'
+      responses:
+        '200':
+          description: Namespace updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Namespace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteNamespace
+      summary: Delete namespace
+      description: Deletes a control plane namespace by name.
+      tags: [Namespaces]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      responses:
+        '204':
+          description: Namespace deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -5032,7 +5078,6 @@ components:
       description: Paginated list of namespaces
       required:
         - items
-        - pagination
       properties:
         items:
           type: array
@@ -5044,62 +5089,28 @@ components:
     Namespace:
       type: object
       description: |
-        Namespace resource representing an OpenChoreo control plane namespace.
+        Namespace resource (Kubernetes object without kind/apiVersion).
         Control plane namespaces hold resources like Projects, Components, and Environments.
         These namespaces are identified by the label `openchoreo.dev/controlplane-namespace=true`.
       required:
-        - name
-        - createdAt
+        - metadata
       properties:
-        name:
-          type: string
-          description: Namespace name (unique identifier)
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          example: My Namespace
-        description:
-          type: string
-          description: Namespace description
-          example: Main development namespace
-        namespace:
-          type: string
-          description: Kubernetes namespace for the namespace
-          example: my-namespace
-        createdAt:
-          type: string
-          format: date-time
-          description: Creation timestamp
-          example: "2025-01-06T10:00:00Z"
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
         status:
-          type: string
-          description: Namespace status
-          example: Ready
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/NamespaceStatus'
 
-    CreateNamespaceRequest:
+    NamespaceStatus:
       type: object
-      description: Request body for creating a new control plane namespace
-      required:
-        - name
+      description: Observed state of a Namespace
       properties:
-        name:
+        phase:
           type: string
-          description: Namespace name (unique identifier, must be a valid Kubernetes namespace name)
-          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-          minLength: 1
-          maxLength: 63
-          example: my-namespace
-        displayName:
-          type: string
-          description: Human-readable display name
-          maxLength: 100
-          example: My Namespace
-        description:
-          type: string
-          description: Namespace description
-          maxLength: 500
-          example: Namespace for development team
+          description: Namespace phase
+          enum: [Active, Terminating]
+          example: Active
 
     # -------------------------------------------------------------------------
     # Projects

@@ -23,6 +23,7 @@ import (
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
+	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	observabilityalertsnotificationchannelsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityalertsnotificationchannel"
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
@@ -50,6 +51,7 @@ type Handler struct {
 	clusterObservabilityPlaneService              clusterobservabilityplanesvc.Service
 	dataPlaneService                              dataplanesvc.Service
 	deploymentPipelineService                     deploymentpipelinesvc.Service
+	namespaceService                              namespacesvc.Service
 	componentService                              componentsvc.Service
 	componentReleaseService                       componentreleasesvc.Service
 	componentTypeService                          componenttypesvc.Service
@@ -69,7 +71,7 @@ type Handler struct {
 var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // New creates a new Handler
-func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterComponentTypeService clustercomponenttypesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, clusterTraitService clustertraitsvc.Service, dataPlaneService dataplanesvc.Service, deploymentPipelineService deploymentpipelinesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, secretReferenceService secretreferencesvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
+func New(services *services.Services, authzService authzsvc.Service, projectService projectsvc.Service, buildPlaneService buildplanesvc.Service, clusterBuildPlaneService clusterbuildplanesvc.Service, clusterComponentTypeService clustercomponenttypesvc.Service, clusterDataPlaneService clusterdataplanesvc.Service, clusterObservabilityPlaneService clusterobservabilityplanesvc.Service, clusterTraitService clustertraitsvc.Service, dataPlaneService dataplanesvc.Service, deploymentPipelineService deploymentpipelinesvc.Service, namespaceService namespacesvc.Service, componentService componentsvc.Service, componentReleaseService componentreleasesvc.Service, componentTypeService componenttypesvc.Service, environmentService environmentsvc.Service, observabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service, observabilityPlaneService observabilityplanesvc.Service, releaseService releasesvc.Service, releaseBindingService releasebindingsvc.Service, secretReferenceService secretreferencesvc.Service, traitService traitsvc.Service, workloadService workloadsvc.Service, logger *slog.Logger, cfg *config.Config) *Handler {
 	return &Handler{
 		services:                                      services,
 		authzService:                                  authzService,
@@ -82,6 +84,7 @@ func New(services *services.Services, authzService authzsvc.Service, projectServ
 		clusterObservabilityPlaneService:              clusterObservabilityPlaneService,
 		dataPlaneService:                              dataPlaneService,
 		deploymentPipelineService:                     deploymentPipelineService,
+		namespaceService:                              namespaceService,
 		componentService:                              componentService,
 		componentReleaseService:                       componentReleaseService,
 		componentTypeService:                          componentTypeService,
