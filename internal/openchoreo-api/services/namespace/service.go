@@ -91,10 +91,12 @@ func (s *namespaceService) UpdateNamespace(ctx context.Context, ns *corev1.Names
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
 
-	// Ensure the control plane label is always preserved
-	if existing.Labels == nil {
-		existing.Labels = make(map[string]string)
+	if !isControlPlaneNamespace(existing) {
+		s.logger.Warn("Namespace is not a control plane namespace", "namespace", ns.Name)
+		return nil, ErrNamespaceNotFound
 	}
+
+	// Ensure the control plane label is always preserved
 	existing.Labels[labels.LabelKeyControlPlaneNamespace] = labels.LabelValueTrue
 
 	// Update annotations on the existing namespace (only displayName and description are mutable)
@@ -167,6 +169,11 @@ func (s *namespaceService) GetNamespace(ctx context.Context, namespaceName strin
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
 
+	if !isControlPlaneNamespace(ns) {
+		s.logger.Warn("Namespace is not a control plane namespace", "namespace", namespaceName)
+		return nil, ErrNamespaceNotFound
+	}
+
 	return ns, nil
 }
 
@@ -183,6 +190,11 @@ func (s *namespaceService) DeleteNamespace(ctx context.Context, namespaceName st
 		return fmt.Errorf("failed to get namespace: %w", err)
 	}
 
+	if !isControlPlaneNamespace(ns) {
+		s.logger.Warn("Namespace is not a control plane namespace", "namespace", namespaceName)
+		return ErrNamespaceNotFound
+	}
+
 	if err := s.k8sClient.Delete(ctx, ns); err != nil {
 		s.logger.Error("Failed to delete namespace", "error", err)
 		return fmt.Errorf("failed to delete namespace: %w", err)
@@ -190,6 +202,10 @@ func (s *namespaceService) DeleteNamespace(ctx context.Context, namespaceName st
 
 	s.logger.Debug("Namespace deleted successfully", "namespace", namespaceName)
 	return nil
+}
+
+func isControlPlaneNamespace(ns *corev1.Namespace) bool {
+	return ns.Labels != nil && ns.Labels[labels.LabelKeyControlPlaneNamespace] == labels.LabelValueTrue
 }
 
 func (s *namespaceService) namespaceExists(ctx context.Context, namespaceName string) (bool, error) {
