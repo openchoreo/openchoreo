@@ -110,3 +110,69 @@ func (h *Handler) GetClusterDataPlane(
 
 	return gen.GetClusterDataPlane200JSONResponse(genCDP), nil
 }
+
+// UpdateClusterDataPlane replaces an existing cluster-scoped data plane (full update).
+func (h *Handler) UpdateClusterDataPlane(
+	ctx context.Context,
+	request gen.UpdateClusterDataPlaneRequestObject,
+) (gen.UpdateClusterDataPlaneResponseObject, error) {
+	h.logger.Info("UpdateClusterDataPlane called", "clusterDataPlane", request.CdpName)
+
+	if request.Body == nil {
+		return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	cdpCR, err := convert[gen.ClusterDataPlane, openchoreov1alpha1.ClusterDataPlane](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	cdpCR.Status = openchoreov1alpha1.ClusterDataPlaneStatus{}
+
+	// Ensure the name from the URL path is used
+	cdpCR.Name = request.CdpName
+
+	updated, err := h.clusterDataPlaneService.UpdateClusterDataPlane(ctx, &cdpCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneNotFound) {
+			return gen.UpdateClusterDataPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterDataPlane")}, nil
+		}
+		h.logger.Error("Failed to update cluster data plane", "error", err)
+		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated cluster data plane", "error", err)
+		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterDataPlane updated successfully", "clusterDataPlane", updated.Name)
+	return gen.UpdateClusterDataPlane200JSONResponse(genCDP), nil
+}
+
+// DeleteClusterDataPlane deletes a cluster-scoped data plane by name.
+func (h *Handler) DeleteClusterDataPlane(
+	ctx context.Context,
+	request gen.DeleteClusterDataPlaneRequestObject,
+) (gen.DeleteClusterDataPlaneResponseObject, error) {
+	h.logger.Info("DeleteClusterDataPlane called", "clusterDataPlane", request.CdpName)
+
+	err := h.clusterDataPlaneService.DeleteClusterDataPlane(ctx, request.CdpName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteClusterDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneNotFound) {
+			return gen.DeleteClusterDataPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterDataPlane")}, nil
+		}
+		h.logger.Error("Failed to delete cluster data plane", "error", err)
+		return gen.DeleteClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterDataPlane deleted successfully", "clusterDataPlane", request.CdpName)
+	return gen.DeleteClusterDataPlane204Response{}, nil
+}

@@ -17,6 +17,8 @@ import (
 const (
 	actionViewClusterDataPlane   = "clusterdataplane:view"
 	actionCreateClusterDataPlane = "clusterdataplane:create"
+	actionUpdateClusterDataPlane = "clusterdataplane:update"
+	actionDeleteClusterDataPlane = "clusterdataplane:delete"
 
 	resourceTypeClusterDataPlane = "clusterDataPlane"
 )
@@ -79,4 +81,31 @@ func (s *clusterDataPlaneServiceWithAuthz) CreateClusterDataPlane(ctx context.Co
 		return nil, err
 	}
 	return s.internal.CreateClusterDataPlane(ctx, cdp)
+}
+
+func (s *clusterDataPlaneServiceWithAuthz) UpdateClusterDataPlane(ctx context.Context, cdp *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterDataPlane, error) {
+	if cdp == nil {
+		return nil, ErrClusterDataPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateClusterDataPlane,
+		ResourceType: resourceTypeClusterDataPlane,
+		ResourceID:   cdp.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateClusterDataPlane(ctx, cdp)
+}
+
+func (s *clusterDataPlaneServiceWithAuthz) DeleteClusterDataPlane(ctx context.Context, name string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteClusterDataPlane,
+		ResourceType: resourceTypeClusterDataPlane,
+		ResourceID:   name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteClusterDataPlane(ctx, name)
 }

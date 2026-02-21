@@ -122,6 +122,58 @@ func (s *clusterDataPlaneService) CreateClusterDataPlane(ctx context.Context, cd
 	return cdp, nil
 }
 
+func (s *clusterDataPlaneService) UpdateClusterDataPlane(ctx context.Context, cdp *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterDataPlane, error) {
+	if cdp == nil {
+		return nil, ErrClusterDataPlaneNil
+	}
+
+	s.logger.Debug("Updating cluster data plane", "clusterDataPlane", cdp.Name)
+
+	existing := &openchoreov1alpha1.ClusterDataPlane{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: cdp.Name}, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrClusterDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get cluster data plane", "error", err)
+		return nil, fmt.Errorf("failed to get cluster data plane: %w", err)
+	}
+
+	// Apply incoming spec directly from the request body, preserving server-managed fields
+	cdp.ResourceVersion = existing.ResourceVersion
+
+	if err := s.k8sClient.Update(ctx, cdp); err != nil {
+		s.logger.Error("Failed to update cluster data plane CR", "error", err)
+		return nil, fmt.Errorf("failed to update cluster data plane: %w", err)
+	}
+
+	s.logger.Debug("Cluster data plane updated successfully", "clusterDataPlane", cdp.Name)
+	return cdp, nil
+}
+
+func (s *clusterDataPlaneService) DeleteClusterDataPlane(ctx context.Context, name string) error {
+	s.logger.Debug("Deleting cluster data plane", "clusterDataPlane", name)
+
+	cdp := &openchoreov1alpha1.ClusterDataPlane{}
+	key := client.ObjectKey{Name: name}
+
+	if err := s.k8sClient.Get(ctx, key, cdp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Cluster data plane not found", "clusterDataPlane", name)
+			return ErrClusterDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get cluster data plane", "error", err)
+		return fmt.Errorf("failed to get cluster data plane: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, cdp); err != nil {
+		s.logger.Error("Failed to delete cluster data plane CR", "error", err)
+		return fmt.Errorf("failed to delete cluster data plane: %w", err)
+	}
+
+	s.logger.Debug("Cluster data plane deleted successfully", "clusterDataPlane", name)
+	return nil
+}
+
 func (s *clusterDataPlaneService) clusterDataPlaneExists(ctx context.Context, name string) (bool, error) {
 	cdp := &openchoreov1alpha1.ClusterDataPlane{}
 	key := client.ObjectKey{Name: name}

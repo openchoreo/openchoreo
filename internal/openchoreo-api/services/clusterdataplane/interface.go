@@ -18,4 +18,6 @@ type Service interface {
 	ListClusterDataPlanes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterDataPlane], error)
 	GetClusterDataPlane(ctx context.Context, name string) (*openchoreov1alpha1.ClusterDataPlane, error)
 	CreateClusterDataPlane(ctx context.Context, cdp *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterDataPlane, error)
+	UpdateClusterDataPlane(ctx context.Context, cdp *openchoreov1alpha1.ClusterDataPlane) (*openchoreov1alpha1.ClusterDataPlane, error)
+	DeleteClusterDataPlane(ctx context.Context, name string) error
 }

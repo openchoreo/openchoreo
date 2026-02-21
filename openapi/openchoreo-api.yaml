@@ -692,6 +692,60 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    put:
+      operationId: updateDataPlane
+      summary: Update data plane
+      description: Replaces an existing data plane (full update).
+      tags: [DataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/DataPlaneNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataPlane'
+      responses:
+        '200':
+          description: DataPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteDataPlane
+      summary: Delete data plane
+      description: Deletes a data plane by name.
+      tags: [DataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/DataPlaneNameParam'
+      responses:
+        '204':
+          description: DataPlane deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # BuildPlane Endpoints
   # =============================================================================
@@ -871,6 +925,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterDataPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterDataPlane
+      summary: Update cluster data plane
+      description: Replaces an existing cluster-scoped data plane (full update).
+      tags: [ClusterDataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterDataPlaneNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterDataPlane'
+      responses:
+        '200':
+          description: ClusterDataPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterDataPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterDataPlane
+      summary: Delete cluster data plane
+      description: Deletes a cluster-scoped data plane by name.
+      tags: [ClusterDataPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterDataPlaneNameParam'
+      responses:
+        '204':
+          description: ClusterDataPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

@@ -129,6 +129,62 @@ func (s *dataPlaneService) CreateDataPlane(ctx context.Context, namespaceName st
 	return dp, nil
 }
 
+func (s *dataPlaneService) UpdateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error) {
+	if dp == nil {
+		return nil, fmt.Errorf("data plane cannot be nil")
+	}
+
+	s.logger.Debug("Updating data plane", "namespace", namespaceName, "dataPlane", dp.Name)
+
+	existing := &openchoreov1alpha1.DataPlane{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: dp.Name, Namespace: namespaceName}, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get data plane", "error", err)
+		return nil, fmt.Errorf("failed to get data plane: %w", err)
+	}
+
+	// Apply incoming spec directly from the request body, preserving server-managed fields
+	dp.ResourceVersion = existing.ResourceVersion
+	dp.Namespace = namespaceName
+
+	if err := s.k8sClient.Update(ctx, dp); err != nil {
+		s.logger.Error("Failed to update data plane CR", "error", err)
+		return nil, fmt.Errorf("failed to update data plane: %w", err)
+	}
+
+	s.logger.Debug("Data plane updated successfully", "namespace", namespaceName, "dataPlane", dp.Name)
+	return dp, nil
+}
+
+func (s *dataPlaneService) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
+	s.logger.Debug("Deleting data plane", "namespace", namespaceName, "dataPlane", dpName)
+
+	dp := &openchoreov1alpha1.DataPlane{}
+	key := client.ObjectKey{
+		Name:      dpName,
+		Namespace: namespaceName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, dp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			s.logger.Warn("Data plane not found", "namespace", namespaceName, "dataPlane", dpName)
+			return ErrDataPlaneNotFound
+		}
+		s.logger.Error("Failed to get data plane", "error", err)
+		return fmt.Errorf("failed to get data plane: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, dp); err != nil {
+		s.logger.Error("Failed to delete data plane CR", "error", err)
+		return fmt.Errorf("failed to delete data plane: %w", err)
+	}
+
+	s.logger.Debug("Data plane deleted successfully", "namespace", namespaceName, "dataPlane", dpName)
+	return nil
+}
+
 func (s *dataPlaneService) dataPlaneExists(ctx context.Context, namespaceName, dpName string) (bool, error) {
 	dataPlane := &openchoreov1alpha1.DataPlane{}
 	key := client.ObjectKey{

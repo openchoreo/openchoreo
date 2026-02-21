@@ -18,4 +18,6 @@ type Service interface {
 	ListDataPlanes(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.DataPlane], error)
 	GetDataPlane(ctx context.Context, namespaceName, dpName string) (*openchoreov1alpha1.DataPlane, error)
 	CreateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error)
+	UpdateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error)
+	DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error
 }

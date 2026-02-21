@@ -110,3 +110,69 @@ func (h *Handler) GetDataPlane(
 
 	return gen.GetDataPlane200JSONResponse(genDP), nil
 }
+
+// UpdateDataPlane replaces an existing data plane (full update).
+func (h *Handler) UpdateDataPlane(
+	ctx context.Context,
+	request gen.UpdateDataPlaneRequestObject,
+) (gen.UpdateDataPlaneResponseObject, error) {
+	h.logger.Info("UpdateDataPlane called", "namespaceName", request.NamespaceName, "dpName", request.DpName)
+
+	if request.Body == nil {
+		return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	dpCR, err := convert[gen.DataPlane, openchoreov1alpha1.DataPlane](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	dpCR.Status = openchoreov1alpha1.DataPlaneStatus{}
+
+	// Ensure the name from the URL path is used
+	dpCR.Name = request.DpName
+
+	updated, err := h.dataPlaneService.UpdateDataPlane(ctx, request.NamespaceName, &dpCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, dataplanesvc.ErrDataPlaneNotFound) {
+			return gen.UpdateDataPlane404JSONResponse{NotFoundJSONResponse: notFound("DataPlane")}, nil
+		}
+		h.logger.Error("Failed to update data plane", "error", err)
+		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genDP, err := convert[openchoreov1alpha1.DataPlane, gen.DataPlane](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated data plane", "error", err)
+		return gen.UpdateDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("DataPlane updated successfully", "namespaceName", request.NamespaceName, "dataPlane", updated.Name)
+	return gen.UpdateDataPlane200JSONResponse(genDP), nil
+}
+
+// DeleteDataPlane deletes a data plane by name.
+func (h *Handler) DeleteDataPlane(
+	ctx context.Context,
+	request gen.DeleteDataPlaneRequestObject,
+) (gen.DeleteDataPlaneResponseObject, error) {
+	h.logger.Info("DeleteDataPlane called", "namespaceName", request.NamespaceName, "dpName", request.DpName)
+
+	err := h.dataPlaneService.DeleteDataPlane(ctx, request.NamespaceName, request.DpName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteDataPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, dataplanesvc.ErrDataPlaneNotFound) {
+			return gen.DeleteDataPlane404JSONResponse{NotFoundJSONResponse: notFound("DataPlane")}, nil
+		}
+		h.logger.Error("Failed to delete data plane", "error", err)
+		return gen.DeleteDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("DataPlane deleted successfully", "namespaceName", request.NamespaceName, "dataPlane", request.DpName)
+	return gen.DeleteDataPlane204Response{}, nil
+}

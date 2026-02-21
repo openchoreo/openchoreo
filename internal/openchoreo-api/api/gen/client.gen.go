@@ -144,8 +144,16 @@ type ClientInterface interface {
 
 	CreateClusterDataPlane(ctx context.Context, body CreateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteClusterDataPlane request
+	DeleteClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetClusterDataPlane request
 	GetClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterDataPlaneWithBody request with any body
+	UpdateClusterDataPlaneWithBody(ctx context.Context, cdpName ClusterDataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListClusterObservabilityPlanes request
 	ListClusterObservabilityPlanes(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -303,8 +311,16 @@ type ClientInterface interface {
 
 	CreateDataPlane(ctx context.Context, namespaceName NamespaceNameParam, body CreateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteDataPlane request
+	DeleteDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetDataPlane request
 	GetDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDataPlaneWithBody request with any body
+	UpdateDataPlaneWithBody(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, body UpdateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDeploymentPipelines request
 	ListDeploymentPipelines(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -826,8 +842,44 @@ func (c *Client) CreateClusterDataPlane(ctx context.Context, body CreateClusterD
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterDataPlaneRequest(c.Server, cdpName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetClusterDataPlaneRequest(c.Server, cdpName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterDataPlaneWithBody(ctx context.Context, cdpName ClusterDataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterDataPlaneRequestWithBody(c.Server, cdpName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterDataPlane(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterDataPlaneRequest(c.Server, cdpName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1522,8 +1574,44 @@ func (c *Client) CreateDataPlane(ctx context.Context, namespaceName NamespaceNam
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDataPlaneRequest(c.Server, namespaceName, dpName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetDataPlaneRequest(c.Server, namespaceName, dpName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDataPlaneWithBody(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDataPlaneRequestWithBody(c.Server, namespaceName, dpName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateDataPlane(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, body UpdateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDataPlaneRequest(c.Server, namespaceName, dpName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3412,6 +3500,40 @@ func NewCreateClusterDataPlaneRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
+// NewDeleteClusterDataPlaneRequest generates requests for DeleteClusterDataPlane
+func NewDeleteClusterDataPlaneRequest(server string, cdpName ClusterDataPlaneNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cdpName", runtime.ParamLocationPath, cdpName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterdataplanes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetClusterDataPlaneRequest generates requests for GetClusterDataPlane
 func NewGetClusterDataPlaneRequest(server string, cdpName ClusterDataPlaneNameParam) (*http.Request, error) {
 	var err error
@@ -3442,6 +3564,53 @@ func NewGetClusterDataPlaneRequest(server string, cdpName ClusterDataPlaneNamePa
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateClusterDataPlaneRequest calls the generic UpdateClusterDataPlane builder with application/json body
+func NewUpdateClusterDataPlaneRequest(server string, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterDataPlaneRequestWithBody(server, cdpName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterDataPlaneRequestWithBody generates requests for UpdateClusterDataPlane with any type of body
+func NewUpdateClusterDataPlaneRequestWithBody(server string, cdpName ClusterDataPlaneNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cdpName", runtime.ParamLocationPath, cdpName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterdataplanes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -5471,6 +5640,47 @@ func NewCreateDataPlaneRequestWithBody(server string, namespaceName NamespaceNam
 	return req, nil
 }
 
+// NewDeleteDataPlaneRequest generates requests for DeleteDataPlane
+func NewDeleteDataPlaneRequest(server string, namespaceName NamespaceNameParam, dpName DataPlaneNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "dpName", runtime.ParamLocationPath, dpName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/dataplanes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetDataPlaneRequest generates requests for GetDataPlane
 func NewGetDataPlaneRequest(server string, namespaceName NamespaceNameParam, dpName DataPlaneNameParam) (*http.Request, error) {
 	var err error
@@ -5508,6 +5718,60 @@ func NewGetDataPlaneRequest(server string, namespaceName NamespaceNameParam, dpN
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateDataPlaneRequest calls the generic UpdateDataPlane builder with application/json body
+func NewUpdateDataPlaneRequest(server string, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, body UpdateDataPlaneJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDataPlaneRequestWithBody(server, namespaceName, dpName, "application/json", bodyReader)
+}
+
+// NewUpdateDataPlaneRequestWithBody generates requests for UpdateDataPlane with any type of body
+func NewUpdateDataPlaneRequestWithBody(server string, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "dpName", runtime.ParamLocationPath, dpName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/dataplanes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -9488,8 +9752,16 @@ type ClientWithResponsesInterface interface {
 
 	CreateClusterDataPlaneWithResponse(ctx context.Context, body CreateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterDataPlaneResp, error)
 
+	// DeleteClusterDataPlaneWithResponse request
+	DeleteClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterDataPlaneResp, error)
+
 	// GetClusterDataPlaneWithResponse request
 	GetClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetClusterDataPlaneResp, error)
+
+	// UpdateClusterDataPlaneWithBodyWithResponse request with any body
+	UpdateClusterDataPlaneWithBodyWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error)
+
+	UpdateClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error)
 
 	// ListClusterObservabilityPlanesWithResponse request
 	ListClusterObservabilityPlanesWithResponse(ctx context.Context, params *ListClusterObservabilityPlanesParams, reqEditors ...RequestEditorFn) (*ListClusterObservabilityPlanesResp, error)
@@ -9647,8 +9919,16 @@ type ClientWithResponsesInterface interface {
 
 	CreateDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDataPlaneResp, error)
 
+	// DeleteDataPlaneWithResponse request
+	DeleteDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*DeleteDataPlaneResp, error)
+
 	// GetDataPlaneWithResponse request
 	GetDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetDataPlaneResp, error)
+
+	// UpdateDataPlaneWithBodyWithResponse request with any body
+	UpdateDataPlaneWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDataPlaneResp, error)
+
+	UpdateDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, body UpdateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDataPlaneResp, error)
 
 	// ListDeploymentPipelinesWithResponse request
 	ListDeploymentPipelinesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListDeploymentPipelinesParams, reqEditors ...RequestEditorFn) (*ListDeploymentPipelinesResp, error)
@@ -10311,6 +10591,31 @@ func (r CreateClusterDataPlaneResp) StatusCode() int {
 	return 0
 }
 
+type DeleteClusterDataPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterDataPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetClusterDataPlaneResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10331,6 +10636,34 @@ func (r GetClusterDataPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetClusterDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterDataPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterDataPlane
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterDataPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterDataPlaneResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11436,6 +11769,31 @@ func (r CreateDataPlaneResp) StatusCode() int {
 	return 0
 }
 
+type DeleteDataPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDataPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetDataPlaneResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11456,6 +11814,34 @@ func (r GetDataPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetDataPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateDataPlaneResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DataPlane
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDataPlaneResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDataPlaneResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13628,6 +14014,15 @@ func (c *ClientWithResponses) CreateClusterDataPlaneWithResponse(ctx context.Con
 	return ParseCreateClusterDataPlaneResp(rsp)
 }
 
+// DeleteClusterDataPlaneWithResponse request returning *DeleteClusterDataPlaneResp
+func (c *ClientWithResponses) DeleteClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterDataPlaneResp, error) {
+	rsp, err := c.DeleteClusterDataPlane(ctx, cdpName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterDataPlaneResp(rsp)
+}
+
 // GetClusterDataPlaneWithResponse request returning *GetClusterDataPlaneResp
 func (c *ClientWithResponses) GetClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetClusterDataPlaneResp, error) {
 	rsp, err := c.GetClusterDataPlane(ctx, cdpName, reqEditors...)
@@ -13635,6 +14030,23 @@ func (c *ClientWithResponses) GetClusterDataPlaneWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetClusterDataPlaneResp(rsp)
+}
+
+// UpdateClusterDataPlaneWithBodyWithResponse request with arbitrary body returning *UpdateClusterDataPlaneResp
+func (c *ClientWithResponses) UpdateClusterDataPlaneWithBodyWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error) {
+	rsp, err := c.UpdateClusterDataPlaneWithBody(ctx, cdpName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterDataPlaneResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterDataPlaneWithResponse(ctx context.Context, cdpName ClusterDataPlaneNameParam, body UpdateClusterDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterDataPlaneResp, error) {
+	rsp, err := c.UpdateClusterDataPlane(ctx, cdpName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterDataPlaneResp(rsp)
 }
 
 // ListClusterObservabilityPlanesWithResponse request returning *ListClusterObservabilityPlanesResp
@@ -14135,6 +14547,15 @@ func (c *ClientWithResponses) CreateDataPlaneWithResponse(ctx context.Context, n
 	return ParseCreateDataPlaneResp(rsp)
 }
 
+// DeleteDataPlaneWithResponse request returning *DeleteDataPlaneResp
+func (c *ClientWithResponses) DeleteDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*DeleteDataPlaneResp, error) {
+	rsp, err := c.DeleteDataPlane(ctx, namespaceName, dpName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDataPlaneResp(rsp)
+}
+
 // GetDataPlaneWithResponse request returning *GetDataPlaneResp
 func (c *ClientWithResponses) GetDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, reqEditors ...RequestEditorFn) (*GetDataPlaneResp, error) {
 	rsp, err := c.GetDataPlane(ctx, namespaceName, dpName, reqEditors...)
@@ -14142,6 +14563,23 @@ func (c *ClientWithResponses) GetDataPlaneWithResponse(ctx context.Context, name
 		return nil, err
 	}
 	return ParseGetDataPlaneResp(rsp)
+}
+
+// UpdateDataPlaneWithBodyWithResponse request with arbitrary body returning *UpdateDataPlaneResp
+func (c *ClientWithResponses) UpdateDataPlaneWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDataPlaneResp, error) {
+	rsp, err := c.UpdateDataPlaneWithBody(ctx, namespaceName, dpName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDataPlaneResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDataPlaneWithResponse(ctx context.Context, namespaceName NamespaceNameParam, dpName DataPlaneNameParam, body UpdateDataPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDataPlaneResp, error) {
+	rsp, err := c.UpdateDataPlane(ctx, namespaceName, dpName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDataPlaneResp(rsp)
 }
 
 // ListDeploymentPipelinesWithResponse request returning *ListDeploymentPipelinesResp
@@ -15776,6 +16214,53 @@ func ParseCreateClusterDataPlaneResp(rsp *http.Response) (*CreateClusterDataPlan
 	return response, nil
 }
 
+// ParseDeleteClusterDataPlaneResp parses an HTTP response from a DeleteClusterDataPlaneWithResponse call
+func ParseDeleteClusterDataPlaneResp(rsp *http.Response) (*DeleteClusterDataPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterDataPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetClusterDataPlaneResp parses an HTTP response from a GetClusterDataPlaneWithResponse call
 func ParseGetClusterDataPlaneResp(rsp *http.Response) (*GetClusterDataPlaneResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -15817,6 +16302,74 @@ func ParseGetClusterDataPlaneResp(rsp *http.Response) (*GetClusterDataPlaneResp,
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterDataPlaneResp parses an HTTP response from a UpdateClusterDataPlaneWithResponse call
+func ParseUpdateClusterDataPlaneResp(rsp *http.Response) (*UpdateClusterDataPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterDataPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterDataPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -18147,6 +18700,53 @@ func ParseCreateDataPlaneResp(rsp *http.Response) (*CreateDataPlaneResp, error) 
 	return response, nil
 }
 
+// ParseDeleteDataPlaneResp parses an HTTP response from a DeleteDataPlaneWithResponse call
+func ParseDeleteDataPlaneResp(rsp *http.Response) (*DeleteDataPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDataPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetDataPlaneResp parses an HTTP response from a GetDataPlaneWithResponse call
 func ParseGetDataPlaneResp(rsp *http.Response) (*GetDataPlaneResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18188,6 +18788,74 @@ func ParseGetDataPlaneResp(rsp *http.Response) (*GetDataPlaneResp, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDataPlaneResp parses an HTTP response from a UpdateDataPlaneWithResponse call
+func ParseUpdateDataPlaneResp(rsp *http.Response) (*UpdateDataPlaneResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDataPlaneResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DataPlane
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

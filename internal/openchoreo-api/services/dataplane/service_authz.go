@@ -17,6 +17,8 @@ import (
 const (
 	actionViewDataPlane   = "dataplane:view"
 	actionCreateDataPlane = "dataplane:create"
+	actionUpdateDataPlane = "dataplane:update"
+	actionDeleteDataPlane = "dataplane:delete"
 
 	resourceTypeDataPlane = "dataPlane"
 )
@@ -79,4 +81,31 @@ func (s *dataPlaneServiceWithAuthz) CreateDataPlane(ctx context.Context, namespa
 		return nil, err
 	}
 	return s.internal.CreateDataPlane(ctx, namespaceName, dp)
+}
+
+func (s *dataPlaneServiceWithAuthz) UpdateDataPlane(ctx context.Context, namespaceName string, dp *openchoreov1alpha1.DataPlane) (*openchoreov1alpha1.DataPlane, error) {
+	if dp == nil {
+		return nil, ErrDataPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateDataPlane,
+		ResourceType: resourceTypeDataPlane,
+		ResourceID:   dp.Name,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateDataPlane(ctx, namespaceName, dp)
+}
+
+func (s *dataPlaneServiceWithAuthz) DeleteDataPlane(ctx context.Context, namespaceName, dpName string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteDataPlane,
+		ResourceType: resourceTypeDataPlane,
+		ResourceID:   dpName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteDataPlane(ctx, namespaceName, dpName)
 }

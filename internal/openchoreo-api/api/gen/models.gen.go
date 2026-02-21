@@ -3674,6 +3674,9 @@ type UpdateClusterComponentTypeJSONRequestBody = ClusterComponentType
 // CreateClusterDataPlaneJSONRequestBody defines body for CreateClusterDataPlane for application/json ContentType.
 type CreateClusterDataPlaneJSONRequestBody = ClusterDataPlane
 
+// UpdateClusterDataPlaneJSONRequestBody defines body for UpdateClusterDataPlane for application/json ContentType.
+type UpdateClusterDataPlaneJSONRequestBody = ClusterDataPlane
+
 // CreateClusterRoleBindingJSONRequestBody defines body for CreateClusterRoleBinding for application/json ContentType.
 type CreateClusterRoleBindingJSONRequestBody = AuthzClusterRoleBinding
 
@@ -3718,6 +3721,9 @@ type UpdateComponentTypeJSONRequestBody = ComponentType
 
 // CreateDataPlaneJSONRequestBody defines body for CreateDataPlane for application/json ContentType.
 type CreateDataPlaneJSONRequestBody = DataPlane
+
+// UpdateDataPlaneJSONRequestBody defines body for UpdateDataPlane for application/json ContentType.
+type UpdateDataPlaneJSONRequestBody = DataPlane
 
 // CreateDeploymentPipelineJSONRequestBody defines body for CreateDeploymentPipeline for application/json ContentType.
 type CreateDeploymentPipelineJSONRequestBody = DeploymentPipeline
