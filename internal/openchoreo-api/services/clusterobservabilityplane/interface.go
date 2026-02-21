@@ -17,4 +17,7 @@ import (
 type Service interface {
 	ListClusterObservabilityPlanes(ctx context.Context, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ClusterObservabilityPlane], error)
 	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*openchoreov1alpha1.ClusterObservabilityPlane, error)
+	CreateClusterObservabilityPlane(ctx context.Context, cop *openchoreov1alpha1.ClusterObservabilityPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error)
+	UpdateClusterObservabilityPlane(ctx context.Context, cop *openchoreov1alpha1.ClusterObservabilityPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error)
+	DeleteClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) error
 }

@@ -17,4 +17,7 @@ import (
 type Service interface {
 	ListObservabilityPlanes(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[openchoreov1alpha1.ObservabilityPlane], error)
 	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*openchoreov1alpha1.ObservabilityPlane, error)
+	CreateObservabilityPlane(ctx context.Context, namespaceName string, op *openchoreov1alpha1.ObservabilityPlane) (*openchoreov1alpha1.ObservabilityPlane, error)
+	UpdateObservabilityPlane(ctx context.Context, namespaceName string, op *openchoreov1alpha1.ObservabilityPlane) (*openchoreov1alpha1.ObservabilityPlane, error)
+	DeleteObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) error
 }

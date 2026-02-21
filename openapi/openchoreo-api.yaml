@@ -881,6 +881,37 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      operationId: createObservabilityPlane
+      summary: Create observability plane
+      description: Creates a new observability plane within a namespace.
+      tags: [ObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservabilityPlane'
+      responses:
+        '201':
+          description: ObservabilityPlane created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/observabilityplanes/{observabilityPlaneName}:
     get:
       operationId: getObservabilityPlane
@@ -897,6 +928,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ObservabilityPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateObservabilityPlane
+      summary: Update observability plane
+      description: Replaces an existing observability plane (full update).
+      tags: [ObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityPlaneNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObservabilityPlane'
+      responses:
+        '200':
+          description: ObservabilityPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservabilityPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteObservabilityPlane
+      summary: Delete observability plane
+      description: Deletes an observability plane by name.
+      tags: [ObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ObservabilityPlaneNameParam'
+      responses:
+        '204':
+          description: ObservabilityPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1185,6 +1270,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    post:
+      operationId: createClusterObservabilityPlane
+      summary: Create cluster observability plane
+      description: Creates a new cluster-scoped observability plane.
+      tags: [ClusterObservabilityPlanes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterObservabilityPlane'
+      responses:
+        '201':
+          description: ClusterObservabilityPlane created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterObservabilityPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/clusterobservabilityplanes/{clusterObservabilityPlaneName}:
     get:
       operationId: getClusterObservabilityPlane
@@ -1200,6 +1314,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterObservabilityPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterObservabilityPlane
+      summary: Update cluster observability plane
+      description: Replaces an existing cluster observability plane (full update).
+      tags: [ClusterObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterObservabilityPlaneNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterObservabilityPlane'
+      responses:
+        '200':
+          description: ClusterObservabilityPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterObservabilityPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterObservabilityPlane
+      summary: Delete cluster observability plane
+      description: Deletes a cluster observability plane by name.
+      tags: [ClusterObservabilityPlanes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterObservabilityPlaneNameParam'
+      responses:
+        '204':
+          description: ClusterObservabilityPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

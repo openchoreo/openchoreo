@@ -6,5 +6,7 @@ package observabilityplane
 import "errors"
 
 var (
-	ErrObservabilityPlaneNotFound = errors.New("observability plane not found")
+	ErrObservabilityPlaneNil           = errors.New("observability plane is nil")
+	ErrObservabilityPlaneNotFound      = errors.New("observability plane not found")
+	ErrObservabilityPlaneAlreadyExists = errors.New("observability plane already exists")
 )

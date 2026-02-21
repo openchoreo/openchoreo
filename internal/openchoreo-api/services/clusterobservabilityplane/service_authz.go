@@ -15,7 +15,10 @@ import (
 )
 
 const (
-	actionViewClusterObservabilityPlane = "clusterobservabilityplane:view"
+	actionViewClusterObservabilityPlane   = "clusterobservabilityplane:view"
+	actionCreateClusterObservabilityPlane = "clusterobservabilityplane:create"
+	actionUpdateClusterObservabilityPlane = "clusterobservabilityplane:update"
+	actionDeleteClusterObservabilityPlane = "clusterobservabilityplane:delete"
 
 	resourceTypeClusterObservabilityPlane = "clusterobservabilityplane"
 )
@@ -63,4 +66,49 @@ func (s *clusterObservabilityPlaneServiceWithAuthz) GetClusterObservabilityPlane
 		return nil, err
 	}
 	return s.internal.GetClusterObservabilityPlane(ctx, clusterObservabilityPlaneName)
+}
+
+// CreateClusterObservabilityPlane checks create authorization before delegating to the internal service.
+func (s *clusterObservabilityPlaneServiceWithAuthz) CreateClusterObservabilityPlane(ctx context.Context, cop *openchoreov1alpha1.ClusterObservabilityPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
+	if cop == nil {
+		return nil, ErrClusterObservabilityPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionCreateClusterObservabilityPlane,
+		ResourceType: resourceTypeClusterObservabilityPlane,
+		ResourceID:   cop.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.CreateClusterObservabilityPlane(ctx, cop)
+}
+
+// UpdateClusterObservabilityPlane checks update authorization before delegating to the internal service.
+func (s *clusterObservabilityPlaneServiceWithAuthz) UpdateClusterObservabilityPlane(ctx context.Context, cop *openchoreov1alpha1.ClusterObservabilityPlane) (*openchoreov1alpha1.ClusterObservabilityPlane, error) {
+	if cop == nil {
+		return nil, ErrClusterObservabilityPlaneNotFound
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateClusterObservabilityPlane,
+		ResourceType: resourceTypeClusterObservabilityPlane,
+		ResourceID:   cop.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateClusterObservabilityPlane(ctx, cop)
+}
+
+// DeleteClusterObservabilityPlane checks delete authorization before delegating to the internal service.
+func (s *clusterObservabilityPlaneServiceWithAuthz) DeleteClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteClusterObservabilityPlane,
+		ResourceType: resourceTypeClusterObservabilityPlane,
+		ResourceID:   clusterObservabilityPlaneName,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteClusterObservabilityPlane(ctx, clusterObservabilityPlaneName)
 }

@@ -6,5 +6,7 @@ package clusterobservabilityplane
 import "errors"
 
 var (
-	ErrClusterObservabilityPlaneNotFound = errors.New("cluster observability plane not found")
+	ErrClusterObservabilityPlaneNil           = errors.New("cluster observability plane is nil")
+	ErrClusterObservabilityPlaneNotFound      = errors.New("cluster observability plane not found")
+	ErrClusterObservabilityPlaneAlreadyExists = errors.New("cluster observability plane already exists")
 )
