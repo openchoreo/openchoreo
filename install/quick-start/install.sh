@@ -107,7 +107,6 @@ apply_coredns_config
 # Step 6: Create backstage secret and install Control Plane
 create_backstage_secret "$CONTROL_PLANE_NS"
 install_control_plane
-patch_gateway_tmp_volume "$CONTROL_PLANE_NS"
 
 # Step 7: Set up Data Plane CA and secret store
 setup_data_plane_ca
@@ -115,7 +114,6 @@ create_fake_secret_store
 
 # Step 8: Install Data Plane
 install_data_plane
-patch_gateway_tmp_volume "$DATA_PLANE_NS"
 
 # Step 9: Create DataPlane resource and default resources
 create_dataplane_resource
@@ -136,13 +134,7 @@ if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     setup_observability_plane_ca
     create_opensearch_secret "$OBSERVABILITY_NS"
 
-    # Install kgateway in the observability namespace
-    install_helm_chart "kgateway-op" "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway" "$OBSERVABILITY_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION" \
-        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
-
     install_observability_plane
-    patch_gateway_tmp_volume "$OBSERVABILITY_NS"
 
     create_observabilityplane_resource
 

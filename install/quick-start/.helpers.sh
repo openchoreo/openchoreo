@@ -568,10 +568,6 @@ install_kgateway() {
         "--version" "$KGATEWAY_VERSION" \
         "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
 
-    install_helm_chart "kgateway-dp" "$chart_ref/kgateway" "$DATA_PLANE_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION" \
-        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
-
     log_success "kgateway installed"
 }
 
