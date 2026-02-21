@@ -6,6 +6,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -299,7 +300,8 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "patch_release_binding",
 		Description: "Patch (update) a release binding's configuration. Can update the associated release, environment " +
-			"overrides, trait configurations, and workload settings.",
+			"overrides, trait configurations, and workload settings. " +
+			"WARNING: Override fields are destructive — they fully replace the existing values, not merge. ",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"project_name":   defaultStringProperty(),
@@ -315,9 +317,9 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 				"type":        "object",
 				"description": "Optional: environment-specific trait configuration overrides",
 			},
-			"configuration_overrides": map[string]any{
+			"workload_overrides": map[string]any{
 				"type":        "object",
-				"description": "Optional: workload configuration overrides (env vars, files, etc.)",
+				"description": "Optional: workload configuration overrides",
 			},
 		}, []string{"namespace_name", "project_name", "component_name", "binding_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
@@ -329,7 +331,7 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 		Environment               string                 `json:"environment"`
 		ComponentTypeEnvOverrides map[string]interface{} `json:"component_type_env_overrides"`
 		TraitOverrides            map[string]interface{} `json:"trait_overrides"`
-		ConfigurationOverrides    map[string]interface{} `json:"configuration_overrides"`
+		WorkloadOverrides         map[string]interface{} `json:"workload_overrides"`
 	}) (*mcp.CallToolResult, any, error) {
 		// Convert trait overrides to the correct type
 		var traitOverrides map[string]map[string]interface{}
@@ -348,26 +350,93 @@ func (t *Toolsets) RegisterPatchReleaseBinding(s *mcp.Server) {
 			ComponentTypeEnvOverrides: args.ComponentTypeEnvOverrides,
 			TraitOverrides:            traitOverrides,
 		}
-		if args.ConfigurationOverrides != nil {
-			// Convert map to WorkloadOverrides struct
+		if args.WorkloadOverrides != nil {
+			// Validate no unknown top-level fields
+			for k := range args.WorkloadOverrides {
+				if k != "container" {
+					return nil, nil, fmt.Errorf("unknown field %q in workload_overrides, allowed fields: [container]", k)
+				}
+			}
+
 			containerOverride := models.ContainerOverride{}
-			if envVars, ok := args.ConfigurationOverrides["env"].([]interface{}); ok {
-				for _, ev := range envVars {
-					if evMap, ok := ev.(map[string]interface{}); ok {
+			if container, ok := args.WorkloadOverrides["container"].(map[string]interface{}); ok {
+				// Validate no unknown fields in container
+				for k := range container {
+					if k != "env" && k != "files" {
+						return nil, nil, fmt.Errorf("unknown field %q in workload_overrides.container, allowed fields: [env, files]", k)
+					}
+				}
+
+				if envVars, ok := container["env"].([]interface{}); ok {
+					for i, ev := range envVars {
+						evMap, ok := ev.(map[string]interface{})
+						if !ok {
+							return nil, nil, fmt.Errorf(
+								"workload_overrides.container.env[%d] must be an object", i)
+						}
+						for k := range evMap {
+							switch k {
+							case "key", "value":
+							case "valueFrom":
+								return nil, nil, fmt.Errorf(
+									"workload_overrides.container.env[%d]:"+
+										" valueFrom is not supported via MCP", i)
+							default:
+								return nil, nil, fmt.Errorf("unknown field %q in"+
+									" workload_overrides.container.env[%d],"+
+									" allowed fields: [key, value]", k, i)
+							}
+						}
+						key, _ := evMap["key"].(string)
+						if key == "" {
+							return nil, nil, fmt.Errorf(
+								"workload_overrides.container.env[%d]:"+
+									" \"key\" is required and must be non-empty", i)
+						}
+						value, _ := evMap["value"].(string)
 						containerOverride.Env = append(containerOverride.Env, models.EnvVar{
-							Key:   evMap["key"].(string),
-							Value: evMap["value"].(string),
+							Key:   key,
+							Value: value,
 						})
 					}
 				}
-			}
-			if files, ok := args.ConfigurationOverrides["files"].([]interface{}); ok {
-				for _, f := range files {
-					if fMap, ok := f.(map[string]interface{}); ok {
+				if files, ok := container["files"].([]interface{}); ok {
+					for i, f := range files {
+						fMap, ok := f.(map[string]interface{})
+						if !ok {
+							return nil, nil, fmt.Errorf(
+								"workload_overrides.container.files[%d] must be an object", i)
+						}
+						for k := range fMap {
+							switch k {
+							case "key", "mountPath", "value":
+							case "valueFrom":
+								return nil, nil, fmt.Errorf(
+									"workload_overrides.container.files[%d]:"+
+										" valueFrom is not supported via MCP", i)
+							default:
+								return nil, nil, fmt.Errorf("unknown field %q in"+
+									" workload_overrides.container.files[%d],"+
+									" allowed fields: [key, mountPath, value]", k, i)
+							}
+						}
+						key, _ := fMap["key"].(string)
+						if key == "" {
+							return nil, nil, fmt.Errorf(
+								"workload_overrides.container.files[%d]:"+
+									" \"key\" is required and must be non-empty", i)
+						}
+						mountPath, _ := fMap["mountPath"].(string)
+						if mountPath == "" {
+							return nil, nil, fmt.Errorf(
+								"workload_overrides.container.files[%d]:"+
+									" \"mountPath\" is required and must be non-empty", i)
+						}
+						value, _ := fMap["value"].(string)
 						containerOverride.Files = append(containerOverride.Files, models.FileVar{
-							Key:       fMap["key"].(string),
-							MountPath: fMap["mount_path"].(string),
-							Value:     fMap["value"].(string),
+							Key:       key,
+							MountPath: mountPath,
+							Value:     value,
 						})
 					}
 				}

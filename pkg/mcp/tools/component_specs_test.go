@@ -268,7 +268,7 @@ func componentBindingSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "project_name", "component_name", "binding_name"},
 			optionalParams: []string{
 				"release_name", "environment", "component_type_env_overrides",
-				"trait_overrides", "configuration_overrides",
+				"trait_overrides", "workload_overrides",
 			},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
