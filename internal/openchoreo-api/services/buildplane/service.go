@@ -89,6 +89,62 @@ func (s *buildPlaneService) GetBuildPlane(ctx context.Context, namespaceName, bu
 	return buildPlane, nil
 }
 
+// UpdateBuildPlane replaces an existing build plane with the provided object.
+func (s *buildPlaneService) UpdateBuildPlane(ctx context.Context, namespaceName string, bp *openchoreov1alpha1.BuildPlane) (*openchoreov1alpha1.BuildPlane, error) {
+	if bp == nil {
+		return nil, fmt.Errorf("build plane cannot be nil")
+	}
+
+	s.logger.Debug("Updating build plane", "namespace", namespaceName, "buildPlane", bp.Name)
+
+	existing := &openchoreov1alpha1.BuildPlane{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: bp.Name, Namespace: namespaceName}, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrBuildPlaneNotFound
+		}
+		s.logger.Error("Failed to get build plane", "error", err)
+		return nil, fmt.Errorf("failed to get build plane: %w", err)
+	}
+
+	bp.ResourceVersion = existing.ResourceVersion
+	bp.Namespace = namespaceName
+
+	if err := s.k8sClient.Update(ctx, bp); err != nil {
+		s.logger.Error("Failed to update build plane CR", "error", err)
+		return nil, fmt.Errorf("failed to update build plane: %w", err)
+	}
+
+	s.logger.Debug("Build plane updated successfully", "namespace", namespaceName, "buildPlane", bp.Name)
+	return bp, nil
+}
+
+// DeleteBuildPlane removes a build plane by name within a namespace.
+func (s *buildPlaneService) DeleteBuildPlane(ctx context.Context, namespaceName, buildPlaneName string) error {
+	s.logger.Debug("Deleting build plane", "namespace", namespaceName, "buildPlane", buildPlaneName)
+
+	bp := &openchoreov1alpha1.BuildPlane{}
+	key := client.ObjectKey{
+		Name:      buildPlaneName,
+		Namespace: namespaceName,
+	}
+
+	if err := s.k8sClient.Get(ctx, key, bp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrBuildPlaneNotFound
+		}
+		s.logger.Error("Failed to get build plane", "error", err)
+		return fmt.Errorf("failed to get build plane: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, bp); err != nil {
+		s.logger.Error("Failed to delete build plane CR", "error", err)
+		return fmt.Errorf("failed to delete build plane: %w", err)
+	}
+
+	s.logger.Debug("Build plane deleted successfully", "namespace", namespaceName, "buildPlane", buildPlaneName)
+	return nil
+}
+
 // getFirstBuildPlane retrieves the first build plane in a namespace.
 // Used internally by GetBuildPlaneClient and ArgoWorkflowExists.
 func (s *buildPlaneService) getFirstBuildPlane(ctx context.Context, namespaceName string) (*openchoreov1alpha1.BuildPlane, error) {

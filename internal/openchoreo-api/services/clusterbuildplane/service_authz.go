@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	actionViewClusterBuildPlane = "clusterbuildplane:view"
+	actionViewClusterBuildPlane   = "clusterbuildplane:view"
+	actionUpdateClusterBuildPlane = "clusterbuildplane:update"
+	actionDeleteClusterBuildPlane = "clusterbuildplane:delete"
 
 	resourceTypeClusterBuildPlane = "clusterBuildPlane"
 )
@@ -63,4 +65,33 @@ func (s *clusterBuildPlaneServiceWithAuthz) GetClusterBuildPlane(ctx context.Con
 		return nil, err
 	}
 	return s.internal.GetClusterBuildPlane(ctx, clusterBuildPlaneName)
+}
+
+// UpdateClusterBuildPlane checks update authorization before delegating to the internal service.
+func (s *clusterBuildPlaneServiceWithAuthz) UpdateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error) {
+	if cbp == nil {
+		return nil, ErrClusterBuildPlaneNil
+	}
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionUpdateClusterBuildPlane,
+		ResourceType: resourceTypeClusterBuildPlane,
+		ResourceID:   cbp.Name,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateClusterBuildPlane(ctx, cbp)
+}
+
+// DeleteClusterBuildPlane checks delete authorization before delegating to the internal service.
+func (s *clusterBuildPlaneServiceWithAuthz) DeleteClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) error {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       actionDeleteClusterBuildPlane,
+		ResourceType: resourceTypeClusterBuildPlane,
+		ResourceID:   clusterBuildPlaneName,
+		Hierarchy:    authz.ResourceHierarchy{},
+	}); err != nil {
+		return err
+	}
+	return s.internal.DeleteClusterBuildPlane(ctx, clusterBuildPlaneName)
 }

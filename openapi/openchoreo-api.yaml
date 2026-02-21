@@ -799,6 +799,60 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+    put:
+      operationId: updateBuildPlane
+      summary: Update build plane
+      description: Replaces an existing build plane (full update).
+      tags: [BuildPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/BuildPlaneNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildPlane'
+      responses:
+        '200':
+          description: BuildPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteBuildPlane
+      summary: Delete build plane
+      description: Deletes a build plane by name.
+      tags: [BuildPlanes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/BuildPlaneNameParam'
+      responses:
+        '204':
+          description: BuildPlane deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   # =============================================================================
   # ObservabilityPlane Endpoints
   # =============================================================================
@@ -1033,6 +1087,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClusterBuildPlane'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterBuildPlane
+      summary: Update cluster build plane
+      description: Replaces an existing cluster-scoped build plane (full update).
+      tags: [ClusterBuildPlanes]
+      parameters:
+        - name: clusterBuildPlaneName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the cluster build plane
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterBuildPlane'
+      responses:
+        '200':
+          description: ClusterBuildPlane updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterBuildPlane'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterBuildPlane
+      summary: Delete cluster build plane
+      description: Deletes a cluster-scoped build plane by name.
+      tags: [ClusterBuildPlanes]
+      parameters:
+        - name: clusterBuildPlaneName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the cluster build plane
+      responses:
+        '204':
+          description: ClusterBuildPlane deleted successfully
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':

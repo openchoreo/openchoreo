@@ -79,3 +79,55 @@ func (s *clusterBuildPlaneService) GetClusterBuildPlane(ctx context.Context, clu
 
 	return cbp, nil
 }
+
+// UpdateClusterBuildPlane replaces an existing cluster-scoped build plane with the provided object.
+func (s *clusterBuildPlaneService) UpdateClusterBuildPlane(ctx context.Context, cbp *openchoreov1alpha1.ClusterBuildPlane) (*openchoreov1alpha1.ClusterBuildPlane, error) {
+	if cbp == nil {
+		return nil, ErrClusterBuildPlaneNil
+	}
+
+	s.logger.Debug("Updating cluster build plane", "clusterBuildPlane", cbp.Name)
+
+	existing := &openchoreov1alpha1.ClusterBuildPlane{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: cbp.Name}, existing); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return nil, ErrClusterBuildPlaneNotFound
+		}
+		s.logger.Error("Failed to get cluster build plane", "error", err)
+		return nil, fmt.Errorf("failed to get cluster build plane: %w", err)
+	}
+
+	cbp.ResourceVersion = existing.ResourceVersion
+
+	if err := s.k8sClient.Update(ctx, cbp); err != nil {
+		s.logger.Error("Failed to update cluster build plane CR", "error", err)
+		return nil, fmt.Errorf("failed to update cluster build plane: %w", err)
+	}
+
+	s.logger.Debug("Cluster build plane updated successfully", "clusterBuildPlane", cbp.Name)
+	return cbp, nil
+}
+
+// DeleteClusterBuildPlane removes a cluster-scoped build plane by name.
+func (s *clusterBuildPlaneService) DeleteClusterBuildPlane(ctx context.Context, clusterBuildPlaneName string) error {
+	s.logger.Debug("Deleting cluster build plane", "clusterBuildPlane", clusterBuildPlaneName)
+
+	cbp := &openchoreov1alpha1.ClusterBuildPlane{}
+	key := client.ObjectKey{Name: clusterBuildPlaneName}
+
+	if err := s.k8sClient.Get(ctx, key, cbp); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrClusterBuildPlaneNotFound
+		}
+		s.logger.Error("Failed to get cluster build plane", "error", err)
+		return fmt.Errorf("failed to get cluster build plane: %w", err)
+	}
+
+	if err := s.k8sClient.Delete(ctx, cbp); err != nil {
+		s.logger.Error("Failed to delete cluster build plane CR", "error", err)
+		return fmt.Errorf("failed to delete cluster build plane: %w", err)
+	}
+
+	s.logger.Debug("Cluster build plane deleted successfully", "clusterBuildPlane", clusterBuildPlaneName)
+	return nil
+}

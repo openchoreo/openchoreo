@@ -3665,6 +3665,9 @@ type BatchEvaluateJSONRequestBody = BatchEvaluateRequest
 // EvaluateJSONRequestBody defines body for Evaluate for application/json ContentType.
 type EvaluateJSONRequestBody = EvaluateRequest
 
+// UpdateClusterBuildPlaneJSONRequestBody defines body for UpdateClusterBuildPlane for application/json ContentType.
+type UpdateClusterBuildPlaneJSONRequestBody = ClusterBuildPlane
+
 // CreateClusterComponentTypeJSONRequestBody defines body for CreateClusterComponentType for application/json ContentType.
 type CreateClusterComponentTypeJSONRequestBody = ClusterComponentType
 
@@ -3697,6 +3700,9 @@ type UpdateClusterTraitJSONRequestBody = ClusterTrait
 
 // CreateNamespaceJSONRequestBody defines body for CreateNamespace for application/json ContentType.
 type CreateNamespaceJSONRequestBody = CreateNamespaceRequest
+
+// UpdateBuildPlaneJSONRequestBody defines body for UpdateBuildPlane for application/json ContentType.
+type UpdateBuildPlaneJSONRequestBody = BuildPlane
 
 // CreateComponentJSONRequestBody defines body for CreateComponent for application/json ContentType.
 type CreateComponentJSONRequestBody = Component

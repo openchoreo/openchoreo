@@ -67,3 +67,69 @@ func (h *Handler) GetClusterBuildPlane(
 
 	return gen.GetClusterBuildPlane200JSONResponse(genCBP), nil
 }
+
+// UpdateClusterBuildPlane replaces an existing cluster-scoped build plane (full update).
+func (h *Handler) UpdateClusterBuildPlane(
+	ctx context.Context,
+	request gen.UpdateClusterBuildPlaneRequestObject,
+) (gen.UpdateClusterBuildPlaneResponseObject, error) {
+	h.logger.Info("UpdateClusterBuildPlane called", "clusterBuildPlaneName", request.ClusterBuildPlaneName)
+
+	if request.Body == nil {
+		return gen.UpdateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Request body is required")}, nil
+	}
+
+	cbpCR, err := convert[gen.ClusterBuildPlane, openchoreov1alpha1.ClusterBuildPlane](*request.Body)
+	if err != nil {
+		h.logger.Error("Failed to convert update request", "error", err)
+		return gen.UpdateClusterBuildPlane400JSONResponse{BadRequestJSONResponse: badRequest("Invalid request body")}, nil
+	}
+	cbpCR.Status = openchoreov1alpha1.ClusterBuildPlaneStatus{}
+
+	// Ensure the name from the URL path is used
+	cbpCR.Name = request.ClusterBuildPlaneName
+
+	updated, err := h.clusterBuildPlaneService.UpdateClusterBuildPlane(ctx, &cbpCR)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.UpdateClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterbuildplanesvc.ErrClusterBuildPlaneNotFound) {
+			return gen.UpdateClusterBuildPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterBuildPlane")}, nil
+		}
+		h.logger.Error("Failed to update cluster build plane", "error", err)
+		return gen.UpdateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	genCBP, err := convert[openchoreov1alpha1.ClusterBuildPlane, gen.ClusterBuildPlane](*updated)
+	if err != nil {
+		h.logger.Error("Failed to convert updated cluster build plane", "error", err)
+		return gen.UpdateClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterBuildPlane updated successfully", "clusterBuildPlane", updated.Name)
+	return gen.UpdateClusterBuildPlane200JSONResponse(genCBP), nil
+}
+
+// DeleteClusterBuildPlane deletes a cluster-scoped build plane by name.
+func (h *Handler) DeleteClusterBuildPlane(
+	ctx context.Context,
+	request gen.DeleteClusterBuildPlaneRequestObject,
+) (gen.DeleteClusterBuildPlaneResponseObject, error) {
+	h.logger.Info("DeleteClusterBuildPlane called", "clusterBuildPlaneName", request.ClusterBuildPlaneName)
+
+	err := h.clusterBuildPlaneService.DeleteClusterBuildPlane(ctx, request.ClusterBuildPlaneName)
+	if err != nil {
+		if errors.Is(err, services.ErrForbidden) {
+			return gen.DeleteClusterBuildPlane403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if errors.Is(err, clusterbuildplanesvc.ErrClusterBuildPlaneNotFound) {
+			return gen.DeleteClusterBuildPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterBuildPlane")}, nil
+		}
+		h.logger.Error("Failed to delete cluster build plane", "error", err)
+		return gen.DeleteClusterBuildPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	h.logger.Info("ClusterBuildPlane deleted successfully", "clusterBuildPlane", request.ClusterBuildPlaneName)
+	return gen.DeleteClusterBuildPlane204Response{}, nil
+}
