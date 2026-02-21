@@ -20,6 +20,8 @@ type CommandImplementationInterface interface {
 	WorkloadAPI
 	ComponentTypeAPI
 	TraitAPI
+	ClusterComponentTypeAPI
+	ClusterTraitAPI
 	SecretReferenceAPI
 	ComponentReleaseAPI
 	ReleaseBindingAPI
@@ -114,6 +116,16 @@ type ComponentTypeAPI interface {
 // TraitAPI defines trait operations
 type TraitAPI interface {
 	ListTraits(params ListTraitsParams) error
+}
+
+// ClusterComponentTypeAPI defines cluster component type operations
+type ClusterComponentTypeAPI interface {
+	ListClusterComponentTypes() error
+}
+
+// ClusterTraitAPI defines cluster trait operations
+type ClusterTraitAPI interface {
+	ListClusterTraits() error
 }
 
 // SecretReferenceAPI defines secret reference operations

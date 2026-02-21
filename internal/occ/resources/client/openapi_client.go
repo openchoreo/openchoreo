@@ -230,6 +230,30 @@ func (c *Client) DeleteComponentType(ctx context.Context, namespaceName, ctName 
 	return nil
 }
 
+// ListClusterComponentTypes retrieves all cluster-scoped component types
+func (c *Client) ListClusterComponentTypes(ctx context.Context) (*gen.ClusterComponentTypeList, error) {
+	resp, err := c.client.ListClusterComponentTypesWithResponse(ctx, &gen.ListClusterComponentTypesParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster component types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
+// ListClusterTraits retrieves all cluster-scoped traits
+func (c *Client) ListClusterTraits(ctx context.Context) (*gen.ClusterTraitList, error) {
+	resp, err := c.client.ListClusterTraitsWithResponse(ctx, &gen.ListClusterTraitsParams{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster traits: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+	}
+	return resp.JSON200, nil
+}
+
 // ListTraits retrieves all traits for a namespace
 func (c *Client) ListTraits(ctx context.Context, namespaceName string) (*gen.TraitList, error) {
 	resp, err := c.client.ListTraitsWithResponse(ctx, namespaceName, &gen.ListTraitsParams{})

@@ -8,6 +8,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/apply"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/buildplane"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustercomponenttype"
+	"github.com/openchoreo/openchoreo/pkg/cli/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/component"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componentrelease"
 	"github.com/openchoreo/openchoreo/pkg/cli/cmd/componenttype"
@@ -60,7 +62,9 @@ func BuildRootCmd(config *config.CLIConfig, impl api.CommandImplementationInterf
 		buildplane.NewBuildPlaneCmd(impl),
 		observabilityplane.NewObservabilityPlaneCmd(impl),
 		componenttype.NewComponentTypeCmd(impl),
+		clustercomponenttype.NewClusterComponentTypeCmd(impl),
 		trait.NewTraitCmd(impl),
+		clustertrait.NewClusterTraitCmd(impl),
 		workflow.NewWorkflowCmd(impl),
 		componentworkflow.NewComponentWorkflowCmd(impl),
 		workflowrun.NewWorkflowRunCmd(impl),

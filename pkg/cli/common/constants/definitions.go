@@ -497,6 +497,36 @@ This command allows you to:
   occ trait list --namespace acme-corp`,
 	}
 
+	ClusterComponentType = Command{
+		Use:     "clustercomponenttype",
+		Aliases: []string{"cct", "clustercomponenttypes"},
+		Short:   "Manage cluster component types",
+		Long:    `Manage cluster-scoped component types for OpenChoreo.`,
+	}
+
+	ListClusterComponentType = Command{
+		Use:   "list",
+		Short: "List cluster component types",
+		Long:  `List all cluster-scoped component types available across the cluster.`,
+		Example: `  # List all cluster component types
+  occ clustercomponenttype list`,
+	}
+
+	ClusterTrait = Command{
+		Use:     "clustertrait",
+		Aliases: []string{"clustertraits"},
+		Short:   "Manage cluster traits",
+		Long:    `Manage cluster-scoped traits for OpenChoreo.`,
+	}
+
+	ListClusterTrait = Command{
+		Use:   "list",
+		Short: "List cluster traits",
+		Long:  `List all cluster-scoped traits available across the cluster.`,
+		Example: `  # List all cluster traits
+  occ clustertrait list`,
+	}
+
 	ListWorkflow = Command{
 		Use:   "list",
 		Short: "List workflows",

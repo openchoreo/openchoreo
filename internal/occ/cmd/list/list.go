@@ -186,6 +186,40 @@ func (l *ListImpl) ListTraits(params api.ListTraitsParams) error {
 	return output.PrintTraits(result)
 }
 
+// ListClusterComponentTypes lists all cluster-scoped component types
+func (l *ListImpl) ListClusterComponentTypes() error {
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListClusterComponentTypes(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list cluster component types: %w", err)
+	}
+
+	return output.PrintClusterComponentTypes(result)
+}
+
+// ListClusterTraits lists all cluster-scoped traits
+func (l *ListImpl) ListClusterTraits() error {
+	ctx := context.Background()
+
+	c, err := client.NewClient()
+	if err != nil {
+		return fmt.Errorf("failed to create API client: %w", err)
+	}
+
+	result, err := c.ListClusterTraits(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list cluster traits: %w", err)
+	}
+
+	return output.PrintClusterTraits(result)
+}
+
 // ListWorkflows lists all workflows in a namespace
 func (l *ListImpl) ListWorkflows(params api.ListWorkflowsParams) error {
 	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {

@@ -237,6 +237,57 @@ func PrintTraits(list *gen.TraitList) error {
 	return w.Flush()
 }
 
+// PrintClusterComponentTypes prints cluster component types in table format
+func PrintClusterComponentTypes(list *gen.ClusterComponentTypeList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No cluster component types found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tWORKLOAD TYPE\tAGE")
+
+	for _, ct := range list.Items {
+		workloadType := ""
+		if ct.Spec != nil {
+			workloadType = string(ct.Spec.WorkloadType)
+		}
+		age := ""
+		if ct.Metadata.CreationTimestamp != nil {
+			age = formatAge(*ct.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
+			ct.Metadata.Name,
+			workloadType,
+			age)
+	}
+
+	return w.Flush()
+}
+
+// PrintClusterTraits prints cluster traits in table format
+func PrintClusterTraits(list *gen.ClusterTraitList) error {
+	if list == nil || len(list.Items) == 0 {
+		fmt.Println("No cluster traits found")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "NAME\tAGE")
+
+	for _, trait := range list.Items {
+		age := ""
+		if trait.Metadata.CreationTimestamp != nil {
+			age = formatAge(*trait.Metadata.CreationTimestamp)
+		}
+		fmt.Fprintf(w, "%s\t%s\n",
+			trait.Metadata.Name,
+			age)
+	}
+
+	return w.Flush()
+}
+
 // PrintWorkflows prints workflows in table format
 func PrintWorkflows(list *gen.WorkflowList) error {
 	if list == nil || len(list.Items) == 0 {

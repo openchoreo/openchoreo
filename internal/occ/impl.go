@@ -224,6 +224,16 @@ func (c *CommandImplementation) ListTraits(params api.ListTraitsParams) error {
 	return listImpl.ListTraits(params)
 }
 
+func (c *CommandImplementation) ListClusterComponentTypes() error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListClusterComponentTypes()
+}
+
+func (c *CommandImplementation) ListClusterTraits() error {
+	listImpl := list.NewListImpl()
+	return listImpl.ListClusterTraits()
+}
+
 func (c *CommandImplementation) ListWorkflows(params api.ListWorkflowsParams) error {
 	listImpl := list.NewListImpl()
 	return listImpl.ListWorkflows(params)
